@@ -81,7 +81,8 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   `BootstrapModerators` command. It walks a user's life: first request creates the user, rename persists, an
   API token authenticates as them, a bootstrapped moderator blocks them (both credentials get 403
   `user_blocked`), unblocks them, the token is revoked (401), and a second bootstrap run without the moderator's
-  ID does not demote them. Every response goes through the contract helper.
+  ID does not demote them, and bootstrapping the blocked contributor makes them an unblocked moderator. Every
+  response goes through the contract helper.
 
 `internal/testutil/mysqltest` gives each test its own database: `mysqltest.NewDatabase(t)` (a `*sql.DB`) or
 `mysqltest.NewDatabaseURL(t)` (a `DATABASE_URL`-style URL) creates `bt_test_<random hex>` through

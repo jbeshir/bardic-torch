@@ -49,7 +49,7 @@ func (r *Repository) EnsureUser(ctx context.Context, user datasources.NewUser) (
 	return r.GetUser(ctx, user.ID)
 }
 
-// PromoteToModerator makes a user a moderator, creating it from user if it does not exist yet.
+// PromoteToModerator makes a user a moderator and unblocks it, creating it from user if it does not exist yet.
 func (r *Repository) PromoteToModerator(ctx context.Context, user datasources.NewUser) error {
 	err := r.queries.PromoteToModerator(ctx, queries.PromoteToModeratorParams{
 		ID:          user.ID,

@@ -367,7 +367,7 @@ Down migrations can drop data; check the `.down.sql` file first.
 ## Moderators
 
 Moderators are named in `BOOTSTRAP_MODERATOR_USER_IDS`. At every start, the API promotes each listed user to
-moderator, creating users who have never logged in. It never demotes anyone.
+moderator and unblocks them, creating users who have never logged in. It never demotes anyone.
 
 ### Add a moderator
 
@@ -395,12 +395,9 @@ UPDATE users SET role = 'contributor' WHERE id = '<USER_ID>';
 
 The change applies from the user's next request.
 
-### A blocked user made moderator
+### Blocked users
 
-Promotion keeps a user's blocked state, and moderators cannot be blocked or unblocked through the API. If a
-blocked contributor is added to `BOOTSTRAP_MODERATOR_USER_IDS`, they become a blocked moderator who gets 403 on
-every authenticated request. Unblock them in SQL:
-
-```sql
-UPDATE users SET blocked_at = NULL WHERE id = '<USER_ID>';
-```
+Promotion also unblocks: if a blocked contributor is listed in `BOOTSTRAP_MODERATOR_USER_IDS`, the next start
+makes them an unblocked moderator. Listing an ID means trusting that person, and a blocked moderator could not be
+unblocked through the API, because moderators cannot be blocked or unblocked. To block someone who is a
+moderator, demote them first as above, then block them through `PUT /v1/users/{user_id}/blocked`.

@@ -177,7 +177,7 @@ func (q *Queries) ListUserActiveAPITokens(ctx context.Context, userID string) ([
 const promoteToModerator = `-- name: PromoteToModerator :exec
 INSERT INTO users (id, display_name, role, created_at)
 VALUES (?, ?, 'moderator', ?)
-ON DUPLICATE KEY UPDATE role = 'moderator'
+ON DUPLICATE KEY UPDATE role = 'moderator', blocked_at = NULL
 `
 
 type PromoteToModeratorParams struct {

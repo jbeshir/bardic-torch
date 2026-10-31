@@ -163,4 +163,13 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.RoleModerator,
 		sendOK[controller.User](t, e, http.MethodGet, "/v1/me", moderator, "", http.StatusOK).Role)
+
+	// Bootstrapping a blocked contributor unblocks them: moderators cannot be blocked, so a blocked moderator
+	// could never be unblocked through the API.
+	sendOK[controller.User](t, e, http.MethodPut, endToEndContributorPath, moderator, `{"blocked":true}`,
+		http.StatusOK)
+	_, err = bootstrap.Execute(t.Context(), []string{endToEndModeratorID, endToEndContributorID})
+	require.NoError(t, err)
+	assert.Equal(t, domain.RoleModerator,
+		sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK).Role)
 }

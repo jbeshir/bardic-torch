@@ -26,7 +26,7 @@ type UserEnsurer interface {
 }
 
 // ModeratorPromoter makes a user a moderator, creating it from user if it does not exist yet. An existing
-// user keeps its display name and blocked state.
+// user keeps its display name and is unblocked, because moderators cannot be blocked.
 type ModeratorPromoter interface {
 	PromoteToModerator(ctx context.Context, user NewUser) error
 }
