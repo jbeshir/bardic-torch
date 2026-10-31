@@ -1,0 +1,18 @@
+openapi: 3.1.0
+info:
+  title: Bardic Torch API
+  description: |
+    API for Bardic Torch, served at api.bardictorch.org.
+  version: 1.0.0
+  contact:
+    name: Bardic Torch
+    url: https://bardictorch.org
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: https://api.bardictorch.org
+    description: Production server
+
+paths: {}
