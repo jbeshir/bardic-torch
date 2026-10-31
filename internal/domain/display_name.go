@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
+
+// MaxRawDisplayNameLength is the most characters a display name may have before normalisation, so that the
+// work of normalising is bounded well below the request body limit.
+const MaxRawDisplayNameLength = 256
 
 // MaxDisplayNameLength is the most characters a display name may have after normalisation.
 const MaxDisplayNameLength = 64
@@ -26,12 +29,16 @@ func DefaultDisplayName(userID string) string {
 }
 
 // NormalizeDisplayName returns raw in Unicode NFC with surrounding whitespace trimmed, so that names which
-// look the same are stored the same. The result must have 1 to MaxDisplayNameLength characters and no control
-// or format characters, such as U+202E, which reverses the text after it; otherwise the error wraps
+// look the same are stored the same. raw may have at most MaxRawDisplayNameLength characters, and the result
+// must have 1 to MaxDisplayNameLength characters that CheckTextCharacters allows; otherwise the error wraps
 // ErrInvalidDisplayName.
 func NormalizeDisplayName(raw string) (string, error) {
 	if !utf8.ValidString(raw) {
 		return "", fmt.Errorf("%w: must be valid UTF-8", ErrInvalidDisplayName)
+	}
+	if utf8.RuneCountInString(raw) > MaxRawDisplayNameLength {
+		return "", fmt.Errorf("%w: must be at most %d characters before normalisation", ErrInvalidDisplayName,
+			MaxRawDisplayNameLength)
 	}
 
 	name := strings.TrimSpace(norm.NFC.String(raw))
@@ -41,10 +48,8 @@ func NormalizeDisplayName(raw string) (string, error) {
 	if utf8.RuneCountInString(name) > MaxDisplayNameLength {
 		return "", fmt.Errorf("%w: must be at most %d characters", ErrInvalidDisplayName, MaxDisplayNameLength)
 	}
-	if strings.ContainsFunc(name, func(r rune) bool {
-		return unicode.IsControl(r) || unicode.Is(unicode.Cf, r)
-	}) {
-		return "", fmt.Errorf("%w: must not contain control or format characters", ErrInvalidDisplayName)
+	if err := CheckTextCharacters(name); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidDisplayName, err)
 	}
 
 	return name, nil

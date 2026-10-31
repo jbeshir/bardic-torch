@@ -62,6 +62,14 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			wantBody:   `{"id":"google-oauth2|123","display_name":"` + sixtyFour + `","role":"contributor"}`,
 		},
 		{
+			// 256 characters as sent, the most the spec allows.
+			name:       "padded_to_raw_limit",
+			body:       displayNameBody(strings.Repeat(" ", 253) + "Bob"),
+			stored:     "Bob",
+			wantStatus: http.StatusOK,
+			wantBody:   `{"id":"google-oauth2|123","display_name":"Bob","role":"contributor"}`,
+		},
+		{
 			// 128 code points as sent, 64 once composed.
 			name:       "decomposed_max_length",
 			body:       displayNameBody(strings.Repeat(decomposedE, domain.MaxDisplayNameLength)),
@@ -93,7 +101,8 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			body:       displayNameBody("Mor\u202ewen"),
 			wantStatus: http.StatusBadRequest,
 			wantBody: `{"code":"invalid_request",` +
-				`"message":"invalid display name: must not contain control or format characters"}`,
+				`"message":"invalid display name: must contain only letters, marks, numbers, punctuation, symbols and spaces, ` +
+				`not U+202E"}`,
 		},
 		{
 			name:       "store_failure",
@@ -125,12 +134,13 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			wantBody:       emptyNameBody,
 		},
 		{
-			// Longer than the raw limit in the spec, which the server enforces after normalising instead.
-			name:           "longer_than_raw_limit",
-			body:           displayNameBody(strings.Repeat("a", 257)),
+			// A valid name padded past the raw limit, so only the raw check rejects it.
+			name:           "padded_past_raw_limit",
+			body:           displayNameBody(strings.Repeat(" ", 254) + "Bob"),
 			invalidRequest: true,
 			wantStatus:     http.StatusBadRequest,
-			wantBody:       `{"code":"invalid_request","message":"invalid display name: must be at most 64 characters"}`,
+			wantBody: `{"code":"invalid_request",` +
+				`"message":"invalid display name: must be at most 256 characters before normalisation"}`,
 		},
 		{
 			name:           "unknown_field",

@@ -28,7 +28,8 @@ const (
 var (
 	// ErrAPITokenLimitReached is returned when the user already has MaxActiveAPITokensPerUser active tokens.
 	ErrAPITokenLimitReached = errors.New("user has reached the maximum number of active API tokens")
-	// ErrInvalidAPITokenName is wrapped by the error returned for a name that is too long.
+	// ErrInvalidAPITokenName is wrapped by the error returned for a name that is too long or has a character
+	// domain.CheckTextCharacters rejects.
 	ErrInvalidAPITokenName = errors.New("invalid API token name")
 )
 
@@ -98,7 +99,8 @@ func (c *CreateAPIToken) Execute(ctx context.Context, req CreateAPITokenRequest)
 	return CreateAPITokenResponse{Token: token, Secret: secret}, nil
 }
 
-// apiTokenName trims raw, returning nil if nothing is left.
+// apiTokenName trims raw, returning nil if nothing is left. The name must have at most MaxAPITokenNameLength
+// characters, all of which domain.CheckTextCharacters allows.
 func apiTokenName(raw string) (*string, error) {
 	name := strings.TrimSpace(raw)
 	if name == "" {
@@ -106,6 +108,9 @@ func apiTokenName(raw string) (*string, error) {
 	}
 	if utf8.RuneCountInString(name) > MaxAPITokenNameLength {
 		return nil, fmt.Errorf("%w: must be at most %d characters", ErrInvalidAPITokenName, MaxAPITokenNameLength)
+	}
+	if err := domain.CheckTextCharacters(name); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidAPITokenName, err)
 	}
 
 	return &name, nil

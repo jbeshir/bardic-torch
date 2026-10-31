@@ -563,9 +563,11 @@ components:
         display_name:
           type: string
           description: |
-            The new display name. It is normalised to Unicode NFC and surrounding whitespace is trimmed; the result
-            must have 1 to 64 characters and no control or format characters (such as U+202E). Up to 256
-            characters are accepted before normalisation.
+            The new display name, at most 256 characters as sent. It is normalised to Unicode NFC and surrounding
+            whitespace is trimmed; the result must have 1 to 64 characters, each a letter, mark, number,
+            punctuation, symbol or space separator. So control and format characters (such as U+202E), line and
+            paragraph separators, and private-use and unassigned code points are rejected, as are more than 4
+            combining marks in a row.
           maxLength: 256
           examples:
             - Morwen
@@ -598,7 +600,8 @@ components:
             - "null"
           description: |
             A label to tell the token apart from others. Surrounding whitespace is trimmed, and at most 128
-            characters may remain; an empty, whitespace-only, null or missing name means the token has none.
+            characters may remain; an empty, whitespace-only, null or missing name means the token has none. The
+            characters allowed are those allowed in a display name.
           examples:
             - CI runner
       examples:

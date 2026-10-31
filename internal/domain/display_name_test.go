@@ -39,7 +39,6 @@ func TestNormalizeDisplayName(t *testing.T) {
 		composedE   = "\u00e9"
 		decomposedE = "e\u0301"
 		plainName   = "Morwen"
-		formatError = "must not contain control or format characters"
 	)
 
 	cases := []struct {
@@ -60,6 +59,12 @@ func TestNormalizeDisplayName(t *testing.T) {
 		{name: "max_length_multibyte", raw: strings.Repeat("\u00fc", 64), want: strings.Repeat("\u00fc", 64)},
 		{name: "max_length_padded", raw: "  " + strings.Repeat("a", 64) + "  ", want: strings.Repeat("a", 64)},
 		{
+			// 256 characters before trimming, 64 after.
+			name: "max_raw_length",
+			raw:  strings.Repeat(" ", 96) + strings.Repeat("a", 64) + strings.Repeat(" ", 96),
+			want: strings.Repeat("a", 64),
+		},
+		{
 			// 128 code points before normalisation, 64 after.
 			name: "max_length_after_composing",
 			raw:  strings.Repeat(decomposedE, 64),
@@ -69,17 +74,30 @@ func TestNormalizeDisplayName(t *testing.T) {
 		{name: "whitespace_only", raw: " \t\u3000 ", wantErr: "must not be empty"},
 		{name: "too_long", raw: strings.Repeat("a", 65), wantErr: "must be at most 64 characters"},
 		{
+			name:    "raw_too_long",
+			raw:     strings.Repeat(" ", 254) + "Bob",
+			wantErr: "must be at most 256 characters before normalisation",
+		},
+		{
+			// 257 code points before normalisation, which would compose into 129.
+			name:    "raw_too_long_before_composing",
+			raw:     strings.Repeat("e\u0301", 128) + "e",
+			wantErr: "must be at most 256 characters before normalisation",
+		},
+		{
 			// Two accents on one letter compose into one character with one accent left over.
 			name:    "too_long_after_composing",
 			raw:     strings.Repeat("a\u0300\u0301", 33),
 			wantErr: "must be at most 64 characters",
 		},
-		{name: "nul", raw: "Mor\x00wen", wantErr: formatError},
-		{name: "inner_newline", raw: "Mor\nwen", wantErr: formatError},
-		{name: "c1_control", raw: "Mor\u0085wen", wantErr: formatError},
-		{name: "right_to_left_override", raw: "Mor\u202ewen", wantErr: formatError},
-		{name: "zero_width_space", raw: "Mor\u200bwen", wantErr: formatError},
-		{name: "byte_order_mark", raw: "\ufeffMorwen", wantErr: formatError},
+		{name: "nul", raw: "Mor\x00wen", wantErr: disallowedCharacterError(0)},
+		{name: "inner_newline", raw: "Mor\nwen", wantErr: disallowedCharacterError('\n')},
+		{name: "right_to_left_override", raw: "Mor\u202ewen", wantErr: disallowedCharacterError(0x202e)},
+		{name: "zero_width_space", raw: "Mor\u200bwen", wantErr: disallowedCharacterError(0x200b)},
+		{name: "line_separator", raw: "Mor\u2028wen", wantErr: disallowedCharacterError(0x2028)},
+		{name: "private_use", raw: "Mor\ue000wen", wantErr: disallowedCharacterError(0xe000)},
+		{name: "unassigned", raw: "Mor\u0378wen", wantErr: disallowedCharacterError(0x378)},
+		{name: "too_many_combining_marks", raw: "Zalgo" + strings.Repeat("\u0336", 5), wantErr: tooManyMarksError},
 		{name: "invalid_utf8", raw: "Mor\xffwen", wantErr: "must be valid UTF-8"},
 	}
 

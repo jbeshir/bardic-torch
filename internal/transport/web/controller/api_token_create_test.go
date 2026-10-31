@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,10 +11,14 @@ import (
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
+	"github.com/jbeshir/bardic-torch/internal/datasources"
+	"github.com/jbeshir/bardic-torch/internal/datasources/mocks"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // createAPITokenFunc adapts a function to the command APITokenCreate takes.
@@ -199,6 +204,73 @@ func TestAPITokenCreate_ServeHTTP(t *testing.T) {
 
 			assert.Equal(t, tc.wantStatus, rec.Code)
 			assert.JSONEq(t, tc.wantBody, rec.Body.String())
+		})
+	}
+}
+
+// TestAPITokenCreate_NameRulesWithCommand checks the name rules of the real command through the handler, so that
+// the spec's limits are tested against what the server actually does.
+func TestAPITokenCreate_NameRulesWithCommand(t *testing.T) {
+	t.Parallel()
+
+	atLimit := strings.Repeat("\u00e9", 128)
+	cases := []struct {
+		name string
+		// rawName is sent as the token name.
+		rawName string
+		// stored is the name the token should be created with; empty means nothing is stored.
+		stored     string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "name_at_limit", rawName: atLimit, stored: atLimit, wantStatus: http.StatusCreated},
+		{
+			name:       "name_over_limit",
+			rawName:    atLimit + "\u00e9",
+			wantStatus: http.StatusBadRequest,
+			wantBody:   `{"code":"invalid_request","message":"invalid API token name: must be at most 128 characters"}`,
+		},
+		{
+			name:       "control_character",
+			rawName:    "CI\\u001brunner",
+			wantStatus: http.StatusBadRequest,
+			wantBody: `{"code":"invalid_request","message":"invalid API token name: must contain only letters, ` +
+				`marks, numbers, punctuation, symbols and spaces, not U+001B"}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// The mocks fail the test if they are called when tc.stored is empty.
+			counter := mocks.NewActiveAPITokenCounter(t)
+			creator := mocks.NewAPITokenCreator(t)
+			if tc.stored != "" {
+				counter.EXPECT().CountUserActiveAPITokens(mock.Anything, principalUserID).Return(0, nil)
+				creator.EXPECT().CreateAPIToken(mock.Anything, mock.MatchedBy(func(token datasources.NewAPIToken) bool {
+					return token.Name != nil && *token.Name == tc.stored
+				})).Return(nil)
+			}
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/tokens",
+				strings.NewReader(`{"name":"`+tc.rawName+`"}`))
+			req.Header.Set("Content-Type", "application/json")
+			handler := APITokenCreate{Command: &command.CreateAPIToken{
+				Counter: counter,
+				Creator: creator,
+				Now:     testClock,
+			}}
+			rec := openapitest.New(t).Serve(t, handler, asPrincipal(req))
+
+			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
+			if tc.stored == "" {
+				assert.JSONEq(t, tc.wantBody, rec.Body.String())
+				return
+			}
+			var created CreatedAPIToken
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
+			assert.Equal(t, &tc.stored, created.Name)
 		})
 	}
 }

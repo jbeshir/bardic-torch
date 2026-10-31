@@ -85,7 +85,7 @@ func TestCreateAPIToken_SecretsAreUnique(t *testing.T) {
 func TestCreateAPIToken_Names(t *testing.T) {
 	t.Parallel()
 
-	longest := strings.Repeat("é", MaxAPITokenNameLength)
+	longest := strings.Repeat("\u00e9", 128)
 	cases := []struct {
 		name string
 		raw  string
@@ -94,6 +94,7 @@ func TestCreateAPIToken_Names(t *testing.T) {
 		{name: "empty_is_no_name", raw: ""},
 		{name: "whitespace_is_no_name", raw: " \t\n "},
 		{name: "trimmed", raw: "\tCI runner\n", want: new("CI runner")},
+		{name: "emoji", raw: "deploy \U0001f680", want: new("deploy \U0001f680")},
 		{name: "longest_counts_characters_not_bytes", raw: longest, want: &longest},
 		{name: "padding_does_not_count", raw: "  " + longest + "  ", want: &longest},
 	}
@@ -110,27 +111,60 @@ func TestCreateAPIToken_Names(t *testing.T) {
 	}
 }
 
-func TestCreateAPIToken_NameTooLong(t *testing.T) {
+func TestCreateAPIToken_InvalidNames(t *testing.T) {
 	t.Parallel()
 
-	// The mocks fail the test if anything is counted or stored.
-	cmd := &CreateAPIToken{
-		Counter: mocks.NewActiveAPITokenCounter(t),
-		Creator: mocks.NewAPITokenCreator(t),
-		Now:     fixedClock,
+	cases := []struct {
+		name    string
+		raw     string
+		wantErr string
+	}{
+		{
+			name:    "too_long",
+			raw:     strings.Repeat("\u00e9", 129),
+			wantErr: "invalid API token name: must be at most 128 characters",
+		},
+		{
+			name: "escape_sequence",
+			raw:  "CI \x1b[31mrunner",
+			wantErr: "invalid API token name: must contain only letters, marks, numbers, punctuation, symbols and " +
+				"spaces, not U+001B",
+		},
+		{
+			name: "right_to_left_override",
+			raw:  "CI \u202erunner",
+			wantErr: "invalid API token name: must contain only letters, marks, numbers, punctuation, symbols and " +
+				"spaces, not U+202E",
+		},
+		{
+			name:    "too_many_combining_marks",
+			raw:     "CI" + strings.Repeat("\u0336", 5),
+			wantErr: "invalid API token name: must not stack so many combining marks on one character (at most 4)",
+		},
 	}
-	_, err := cmd.Execute(t.Context(), CreateAPITokenRequest{
-		UserID: ownerID,
-		Name:   strings.Repeat("é", MaxAPITokenNameLength+1),
-	})
 
-	require.ErrorIs(t, err, ErrInvalidAPITokenName)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// The mocks fail the test if anything is counted or stored.
+			cmd := &CreateAPIToken{
+				Counter: mocks.NewActiveAPITokenCounter(t),
+				Creator: mocks.NewAPITokenCreator(t),
+				Now:     fixedClock,
+			}
+			_, err := cmd.Execute(t.Context(), CreateAPITokenRequest{UserID: ownerID, Name: tc.raw})
+
+			require.ErrorIs(t, err, ErrInvalidAPITokenName)
+			require.EqualError(t, err, tc.wantErr)
+		})
+	}
 }
 
 func TestCreateAPIToken_BelowLimitCreates(t *testing.T) {
 	t.Parallel()
 
-	res, _ := createWithCount(t, "", MaxActiveAPITokensPerUser-1)
+	res, _ := createWithCount(t, "", 9)
 
 	assert.NotEmpty(t, res.Secret)
 }
@@ -139,7 +173,7 @@ func TestCreateAPIToken_LimitReached(t *testing.T) {
 	t.Parallel()
 
 	counter := mocks.NewActiveAPITokenCounter(t)
-	counter.EXPECT().CountUserActiveAPITokens(mock.Anything, ownerID).Return(MaxActiveAPITokensPerUser, nil)
+	counter.EXPECT().CountUserActiveAPITokens(mock.Anything, ownerID).Return(10, nil)
 
 	// The creator mock fails the test if a token is stored.
 	cmd := &CreateAPIToken{Counter: counter, Creator: mocks.NewAPITokenCreator(t), Now: fixedClock}
