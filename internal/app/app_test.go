@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStoredTime_UTCWholeSeconds(t *testing.T) {
@@ -17,4 +18,13 @@ func TestStoredTime_UTCWholeSeconds(t *testing.T) {
 
 	assert.Equal(t, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC), got)
 	assert.Equal(t, time.UTC, got.Location())
+}
+
+func TestSetup_InvalidDatabaseURL(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost/bardic_torch")
+
+	components, err := Setup(t.Context())
+
+	require.ErrorContains(t, err, "parsing DATABASE_URL: database URL scheme must be mysql, got [postgres]")
+	assert.Nil(t, components)
 }
