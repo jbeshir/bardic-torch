@@ -178,8 +178,10 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
     `normalized_url`).
 
   So approving an old snapshot cannot un-hide a link or undo a liveness check. Links are inline by URL, documents
-  own only their outgoing relations, and other entities are referenced by ID. A coverage test fails when a column is
-  added without being classified as document-owned or system-owned.
+  own only their outgoing relations, and other entities are referenced by ID. A list's order is its rows'
+  `position`. Piece and person documents already include their preference profiles (`dimension`, raw JSON
+  `value`, `source_url`), so BE5 needs no schema-version bump; they stay unexposed until then. A coverage test fails
+  when a column is added without being classified as document-owned or system-owned.
 - **Public revision views** never serve stored documents raw:
   - references are resolved to public summaries, or omitted;
   - redaction applies the *current* alias, person and link visibility, so hiding an alias later also hides it in

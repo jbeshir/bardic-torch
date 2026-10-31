@@ -149,6 +149,17 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
 `TEST_MYSQL_ADMIN_URL`, applies every migration, and drops it when the test ends, so integration tests can run
 in parallel. A missing `TEST_MYSQL_ADMIN_URL` fails the test rather than skipping it.
 
+A migrated database costs about 2.5 s, and MySQL serialises much of that DDL, so parallel tests do not hide
+it. `internal/testutil/catalogtest` seeds catalogue fixtures with plain SQL from the `internal/domain` snapshot
+documents. Approved entities get an approved revision as their current revision; `Unapproved: true` leaves it
+NULL. Term closure rows are built by a recursive CTE. Every call commits before it returns, because FULLTEXT sees
+committed rows only. Tests that only read should share one seeded database per fixture through
+`catalogtest.NewShared(seed)` and `Get(t)`, with `catalogtest.Main` as the package's `TestMain`. The shared pool
+is read-only (`transaction_read_only`), so a stray write fails with error 1792. The package doc has examples.
+
+`TestDocumentCoverage` (A1.8) classifies every column of the tables each snapshot document owns as a document
+field or system-owned, with a reason. A new column, document field or table fails it until it is classified.
+
 ## Adding an endpoint
 
 1. **Spec**: add the operation to `openapi/api.yaml` with a camelCase `operationId`, its security, closed
