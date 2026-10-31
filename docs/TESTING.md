@@ -31,10 +31,15 @@ mockery) are pinned with `tool` directives in `go.mod` and run with `go tool`, s
   `TestRequestLogger_*`, `TestAPITokenValidator_*` (mocks) and `TestAuth0Validator_*`, which validate real RS256
   JWTs against a local issuer from `internal/testutil/auth0test` (an `httptest` server serving the OpenID
   discovery document and a JWKS). `TestAuth0Validator_InvalidTokens` includes the attack cases, built with
-  `auth0test.SignWithHeader` where they need a crafted header: `alg: none`, HS256 keyed with the public key, an
-  unknown `kid`, a future `nbf`, `exp` beyond the clock skew (the within-skew cases are in
-  `TestAuth0Validator_ValidTokens`), a missing `exp`, and client-credentials (`@clients`) tokens.
-  `TestAuth0Validator_OversizedTokenIsRejectedBeforeParsing` pins the token size cap.
+  `auth0test.SignWithHeader` where they need a crafted header: `alg: none`, HS256 keyed with the public key,
+  RS384, an unknown `kid`, a signature by another key under the issuer's `kid`, a wrong, missing or
+  slash-less issuer, a wrong or missing audience, `nbf` and `exp` beyond the clock skew (the within-skew cases
+  are in `TestAuth0Validator_ValidTokens`), a future `iat`, a missing `exp`, and client-credentials (`gty` or
+  `@clients`) tokens; each case asserts the reason it is rejected, so it cannot pass by failing an earlier
+  check. `TestAuth0Validator_OversizedTokenIsRejectedBeforeParsing` pins the token size cap.
+  `TestAuth0KeyCache_*` pin the signing-key cache: one fetch per `auth0KeysCacheTTL`, stale keys served while a
+  single background refresh runs, keys dropped when that refresh fails, and a failed fetch reported as
+  unavailable keys (500, not 401) with nothing cached.
 - **Server, JSON helpers and wiring** (`internal/transport/web/server`, `internal/transport/web/httpjson`,
   `internal/app`): `TestServer_ShutdownWaitsForInFlightRequest`, `TestServer_HeaderSizeLimit` (431 over 16 KiB
   of request headers), `TestDecodeJSONBody` (the exact client-facing messages) and
@@ -106,7 +111,9 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
 - **End to end** (`internal/app/http_handler_integration_test.go`): `TestHTTP_EndToEnd` serves the production
   handler (`NewHTTPHandler` with Setup's own `repositoryHTTPDependencies`) over a real repository, the real Auth0
   validator against a local `auth0test` issuer and the real API-token validator, plus the real
-  `BootstrapModerators` command. It walks a user's life: first request creates the user, rename persists, an
+  `BootstrapModerators` command. It walks a user's life: expired, wrong-audience, badly signed and oversized
+  Auth0 tokens get the spec's 401 `unauthenticated` body without creating the user, the first valid request
+  creates the user, rename persists, an
   API token authenticates as them, a bootstrapped moderator blocks them (both credentials get 403
   `user_blocked`), unblocks them, the token is revoked (401), and a second bootstrap run without the moderator's
   ID does not demote them, and bootstrapping the blocked contributor makes them an unblocked moderator. It also
