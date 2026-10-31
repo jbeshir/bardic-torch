@@ -16,19 +16,19 @@ func TestParseMigrateArgs(t *testing.T) {
 		want    migrateArgs
 		wantErr bool
 	}{
-		{name: commandUp, args: []string{commandUp}, want: migrateArgs{action: actionUp}},
-		{name: commandVersion, args: []string{commandVersion}, want: migrateArgs{action: actionVersion}},
-		{name: "down_one", args: []string{commandDown, "1"}, want: migrateArgs{action: actionDown, steps: 1}},
-		{name: "down_many", args: []string{commandDown, "12"}, want: migrateArgs{action: actionDown, steps: 12}},
+		{name: string(actionUp), args: []string{string(actionUp)}, want: migrateArgs{action: actionUp}},
+		{name: string(actionVersion), args: []string{string(actionVersion)}, want: migrateArgs{action: actionVersion}},
+		{name: "down_one", args: []string{string(actionDown), "1"}, want: migrateArgs{action: actionDown, steps: 1}},
+		{name: "down_many", args: []string{string(actionDown), "12"}, want: migrateArgs{action: actionDown, steps: 12}},
 		{name: "no_args", args: nil, wantErr: true},
 		{name: "unknown_command", args: []string{"drop"}, wantErr: true},
-		{name: "down_without_count", args: []string{commandDown}, wantErr: true},
-		{name: "down_zero", args: []string{commandDown, "0"}, wantErr: true},
-		{name: "down_negative", args: []string{commandDown, "-1"}, wantErr: true},
-		{name: "down_not_a_number", args: []string{commandDown, "all"}, wantErr: true},
-		{name: "up_with_count", args: []string{commandUp, "1"}, wantErr: true},
-		{name: "version_with_extra", args: []string{commandVersion, "now"}, wantErr: true},
-		{name: "down_with_extra", args: []string{commandDown, "1", "2"}, wantErr: true},
+		{name: "down_without_count", args: []string{string(actionDown)}, wantErr: true},
+		{name: "down_zero", args: []string{string(actionDown), "0"}, wantErr: true},
+		{name: "down_negative", args: []string{string(actionDown), "-1"}, wantErr: true},
+		{name: "down_not_a_number", args: []string{string(actionDown), "all"}, wantErr: true},
+		{name: "up_with_count", args: []string{string(actionUp), "1"}, wantErr: true},
+		{name: "version_with_extra", args: []string{string(actionVersion), "now"}, wantErr: true},
+		{name: "down_with_extra", args: []string{string(actionDown), "1", "2"}, wantErr: true},
 	}
 
 	for _, tc := range cases {
@@ -56,6 +56,6 @@ func TestRun_InvalidArgsFailBeforeConnecting(t *testing.T) {
 func TestRun_InvalidDatabaseURL(t *testing.T) {
 	t.Parallel()
 
-	err := run(t.Context(), []string{commandVersion}, "postgres://user@localhost/db", nil)
+	err := run(t.Context(), []string{string(actionVersion)}, "postgres://user@localhost/db", nil)
 	assert.ErrorContains(t, err, "parsing DATABASE_URL")
 }

@@ -8,34 +8,31 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
+	"github.com/jbeshir/bardic-torch/migrations"
 	"github.com/joho/godotenv"
 )
 
 const usage = "usage: migrate up | migrate down N | migrate version"
 
-// Command names accepted on the command line.
-const (
-	commandUp      = "up"
-	commandDown    = "down"
-	commandVersion = "version"
-)
-
-type action int
+// action is a command named on the command line.
+type action string
 
 const (
-	actionUp action = iota
-	actionDown
-	actionVersion
+	actionUp      action = "up"
+	actionDown    action = "down"
+	actionVersion action = "version"
 )
 
-// migrateArgs is a parsed command line. Steps is the number of migrations to roll back, and is only set for
+// migrateArgs is a parsed command line. steps is the number of migrations to roll back, and is only set for
 // actionDown.
 type migrateArgs struct {
 	action action
@@ -58,11 +55,11 @@ func main() {
 // parseMigrateArgs parses the command line arguments, excluding the program name.
 func parseMigrateArgs(args []string) (migrateArgs, error) {
 	switch {
-	case len(args) == 1 && args[0] == commandUp:
+	case len(args) == 1 && action(args[0]) == actionUp:
 		return migrateArgs{action: actionUp}, nil
-	case len(args) == 1 && args[0] == commandVersion:
+	case len(args) == 1 && action(args[0]) == actionVersion:
 		return migrateArgs{action: actionVersion}, nil
-	case len(args) == 2 && args[0] == commandDown:
+	case len(args) == 2 && action(args[0]) == actionDown:
 		steps, err := strconv.Atoi(args[1])
 		if err != nil || steps < 1 {
 			return migrateArgs{}, fmt.Errorf("down needs a positive number of migrations, got [%s]\n%s", args[1], usage)
@@ -74,8 +71,9 @@ func parseMigrateArgs(args []string) (migrateArgs, error) {
 }
 
 // run executes the command in args against databaseURL and reports the resulting schema version to stdout.
-// Cancelling ctx stops after the migration in progress. Applying up when the schema is already current
-// succeeds.
+// Cancelling ctx stops after the migration in progress. Applying up succeeds without change when the schema
+// is already current, and also when it is clean and newer than every embedded migration, so an older release
+// can be deployed again after a newer one added migrations. A dirty schema still fails up.
 func run(ctx context.Context, args []string, databaseURL string, stdout io.Writer) error {
 	parsed, err := parseMigrateArgs(args)
 	if err != nil {
@@ -98,9 +96,7 @@ func run(ctx context.Context, args []string, databaseURL string, stdout io.Write
 
 	switch parsed.action {
 	case actionUp:
-		if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-			return fmt.Errorf("applying migrations: %w", err)
-		}
+		return up(m, stdout)
 	case actionDown:
 		if err := m.Steps(-parsed.steps); err != nil {
 			return fmt.Errorf("rolling back %d migrations: %w", parsed.steps, err)
@@ -109,6 +105,57 @@ func run(ctx context.Context, args []string, databaseURL string, stdout io.Write
 	}
 
 	return printVersion(m, stdout)
+}
+
+// up applies every pending migration, unless the schema is clean and newer than every embedded migration, as
+// it is after a newer release applied migrations this binary does not have; then it applies nothing.
+func up(m *migrate.Migrate, stdout io.Writer) error {
+	version, dirty, versionErr := m.Version()
+	if versionErr != nil && !errors.Is(versionErr, migrate.ErrNilVersion) {
+		return fmt.Errorf("reading schema version: %w", versionErr)
+	}
+	if versionErr == nil && !dirty {
+		newest, err := newestMigrationVersion()
+		if err != nil {
+			return err
+		}
+		if version > newest {
+			_, err = fmt.Fprintf(stdout,
+				"version: %d (newer than this release's migrations, which end at %d; nothing applied)\n",
+				version, newest)
+			return err
+		}
+	}
+
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("applying migrations: %w", err)
+	}
+
+	return printVersion(m, stdout)
+}
+
+// newestMigrationVersion returns the highest version among the embedded migrations.
+func newestMigrationVersion() (uint, error) {
+	source, err := iofs.New(migrations.FS, ".")
+	if err != nil {
+		return 0, fmt.Errorf("reading embedded migrations: %w", err)
+	}
+	defer func() { _ = source.Close() }()
+
+	version, err := source.First()
+	if err != nil {
+		return 0, fmt.Errorf("reading first embedded migration: %w", err)
+	}
+	for {
+		next, err := source.Next(version)
+		if errors.Is(err, fs.ErrNotExist) {
+			return version, nil
+		}
+		if err != nil {
+			return 0, fmt.Errorf("reading embedded migration after version %d: %w", version, err)
+		}
+		version = next
+	}
 }
 
 func printVersion(m *migrate.Migrate, stdout io.Writer) error {
