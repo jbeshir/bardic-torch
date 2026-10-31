@@ -3,7 +3,6 @@ package router
 import (
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -26,8 +25,8 @@ func cors(allowedMethods string) func(http.Handler) http.Handler {
 	}
 }
 
-// routeMethods returns the sorted, comma-separated methods of every route registered on routes.
-func routeMethods(routes *mux.Router) string {
+// routeMethods returns the methods of every route registered on routes, sorted and without duplicates.
+func routeMethods(routes *mux.Router) []string {
 	var methods []string
 	_ = routes.Walk(func(route *mux.Route, _ *mux.Router, _ []*mux.Route) error {
 		routeMethods, err := route.GetMethods()
@@ -38,5 +37,5 @@ func routeMethods(routes *mux.Router) string {
 	})
 
 	slices.Sort(methods)
-	return strings.Join(slices.Compact(methods), ", ")
+	return slices.Compact(methods)
 }

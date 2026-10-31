@@ -34,6 +34,7 @@ const (
 	CodeAPIAuthNotAllowed    ErrorCode = "api_token_not_allowed"
 	CodeModeratorRequired    ErrorCode = "moderator_required"
 	CodeNotFound             ErrorCode = "not_found"
+	CodeMethodNotAllowed     ErrorCode = "method_not_allowed"
 	CodeConflict             ErrorCode = "conflict"
 	CodeAPIAuthLimitReached  ErrorCode = "token_limit_reached"
 	CodeInternal             ErrorCode = "internal"

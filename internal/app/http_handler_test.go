@@ -13,7 +13,12 @@ import (
 )
 
 const (
-	readyzPath = "/readyz"
+	healthzPath = "/healthz"
+	readyzPath  = "/readyz"
+	mePath      = "/v1/me"
+	tokensPath  = "/v1/tokens"
+	// methodNotAllowedBody is the response to a method no route at the path accepts.
+	methodNotAllowedBody = `{"code":"method_not_allowed","message":"method not allowed for this path"}`
 	// allowedMethods is the Access-Control-Allow-Methods value: every method a route is registered for.
 	allowedMethods = "DELETE, GET, PATCH, POST, PUT"
 )
@@ -27,7 +32,7 @@ func TestNewHTTPHandler_HealthChecksIgnoreCredentials(t *testing.T) {
 		pingErr    error
 		wantStatus int
 	}{
-		{name: "healthz", path: "/healthz", wantStatus: http.StatusOK},
+		{name: "healthz", path: healthzPath, wantStatus: http.StatusOK},
 		{name: "readyz_ready", path: readyzPath, wantStatus: http.StatusOK},
 		{name: "readyz_unavailable", path: readyzPath, pingErr: errors.New("down"), wantStatus: http.StatusServiceUnavailable},
 	}
@@ -54,14 +59,93 @@ func TestNewHTTPHandler_HealthChecksIgnoreCredentials(t *testing.T) {
 	}
 }
 
-func TestNewHTTPHandler_UnknownRoute(t *testing.T) {
+func TestNewHTTPHandler_UnroutedRequests(t *testing.T) {
 	t.Parallel()
 
-	handler := NewHTTPHandler(HTTPDependencies{Pinger: mocks.NewPinger(t)})
+	cases := []struct {
+		name          string
+		method        string
+		path          string
+		authorization string
+		wantStatus    int
+		wantAllow     string
+		wantBody      string
+	}{
+		{
+			name:       "unknown_path",
+			method:     http.MethodGet,
+			path:       "/missing",
+			wantStatus: http.StatusNotFound,
+			wantBody:   `{"code":"not_found","message":"no route matches the path"}`,
+		},
+		{
+			name:          "unknown_v1_path_with_credentials",
+			method:        http.MethodGet,
+			path:          "/v1/missing",
+			authorization: "Bearer auth0|" + invalidSecret,
+			wantStatus:    http.StatusNotFound,
+			wantBody:      `{"code":"not_found","message":"no route matches the path"}`,
+		},
+		{
+			name:       "wrong_method_on_health_check",
+			method:     http.MethodPost,
+			path:       healthzPath,
+			wantStatus: http.StatusMethodNotAllowed,
+			wantAllow:  http.MethodGet,
+			wantBody:   methodNotAllowedBody,
+		},
+		{
+			name:       "wrong_method_on_me",
+			method:     http.MethodDelete,
+			path:       mePath,
+			wantStatus: http.StatusMethodNotAllowed,
+			wantAllow:  "GET, PATCH",
+			wantBody:   methodNotAllowedBody,
+		},
+		{
+			// The method is checked before credentials, so even invalid ones get 405 rather than 401.
+			name:          "wrong_method_on_tokens_with_credentials",
+			method:        http.MethodPut,
+			path:          tokensPath,
+			authorization: "Bearer auth0|" + invalidSecret,
+			wantStatus:    http.StatusMethodNotAllowed,
+			wantAllow:     "GET, POST",
+			wantBody:      methodNotAllowedBody,
+		},
+	}
 
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Invalid credentials would get 401 from authentication, and the mocks fail the test if a controller runs.
+			m := newHandlerMocks(t)
+			req := httptest.NewRequestWithContext(t.Context(), tc.method, tc.path, nil)
+			if tc.authorization != "" {
+				req.Header.Set("Authorization", tc.authorization)
+			}
+			rec := httptest.NewRecorder()
+			m.handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tc.wantStatus, rec.Code)
+			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			assert.Equal(t, tc.wantAllow, rec.Header().Get("Allow"))
+			assert.JSONEq(t, tc.wantBody, rec.Body.String())
+			assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
+			assert.Equal(t, "*", rec.Header().Get("Access-Control-Allow-Origin"))
+		})
+	}
+}
+
+func TestNewHTTPHandler_PreflightToUnknownPath(t *testing.T) {
+	t.Parallel()
+
+	m := newHandlerMocks(t)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/v1/missing", nil)
+	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/missing", nil))
+	m.handler.ServeHTTP(rec, req)
 
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-	assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Empty(t, rec.Body.String())
 }

@@ -470,6 +470,7 @@ components:
             - api_token_not_allowed
             - moderator_required
             - not_found
+            - method_not_allowed
             - conflict
             - token_limit_reached
             - internal

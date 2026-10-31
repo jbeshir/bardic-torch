@@ -56,5 +56,5 @@ func TestCORSMiddleware_RouteMethodsListsEachMethodOnce(t *testing.T) {
 	sub := routes.PathPrefix("/v1").Subrouter()
 	sub.Handle("/c", http.NotFoundHandler()).Methods(http.MethodDelete)
 
-	assert.Equal(t, "DELETE, GET, POST", routeMethods(routes))
+	assert.Equal(t, []string{http.MethodDelete, http.MethodGet, http.MethodPost}, routeMethods(routes))
 }

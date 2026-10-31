@@ -182,24 +182,24 @@ const revokeTargetID = "6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55"
 // authMatrix is the access every operation in the OpenAPI spec requires. TestRouter_AuthMatrix fails for an
 // operation without a row, so each new endpoint adds one here.
 var authMatrix = map[openapitest.Operation]matrixRow{
-	{Method: http.MethodGet, Path: "/healthz"}: {
+	{Method: http.MethodGet, Path: healthzPath}: {
 		access:        public,
 		successStatus: http.StatusOK,
 		expectSuccess: func(handlerMocks, string) {},
 	},
-	{Method: http.MethodGet, Path: "/readyz"}: {
+	{Method: http.MethodGet, Path: readyzPath}: {
 		access:        public,
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.pinger.EXPECT().Ping(mock.Anything).Return(nil)
 		},
 	},
-	{Method: http.MethodGet, Path: "/v1/me"}: {
+	{Method: http.MethodGet, Path: mePath}: {
 		access:        authenticatedUser,
 		successStatus: http.StatusOK,
 		expectSuccess: func(handlerMocks, string) {},
 	},
-	{Method: http.MethodPatch, Path: "/v1/me"}: {
+	{Method: http.MethodPatch, Path: mePath}: {
 		access:        authenticatedUser,
 		body:          `{"display_name":"  Morwen "}`,
 		successStatus: http.StatusOK,
@@ -218,7 +218,7 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 			m.users.EXPECT().GetUser(mock.Anything, blockTargetID).Return(storedUser(blockTargetID), nil)
 		},
 	},
-	{Method: http.MethodPost, Path: "/v1/tokens"}: {
+	{Method: http.MethodPost, Path: tokensPath}: {
 		access:        interactiveUser,
 		body:          `{"name":"CI runner"}`,
 		successStatus: http.StatusCreated,
@@ -227,7 +227,7 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 			m.creator.EXPECT().CreateAPIToken(mock.Anything, mock.Anything).Return(nil)
 		},
 	},
-	{Method: http.MethodGet, Path: "/v1/tokens"}: {
+	{Method: http.MethodGet, Path: tokensPath}: {
 		access:        interactiveUser,
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, userID string) {

@@ -61,7 +61,9 @@ func requestLogger(routes *mux.Router) func(http.Handler) http.Handler {
 
 func routeTemplate(routes *mux.Router, r *http.Request) string {
 	var match mux.RouteMatch
-	if !routes.Match(r, &match) || match.Route == nil {
+	// Requests no route matches are still matched, with an error, by the not found and method not allowed
+	// handlers.
+	if !routes.Match(r, &match) || match.MatchErr != nil || match.Route == nil {
 		return unmatchedRoute
 	}
 
