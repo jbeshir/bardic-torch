@@ -14,17 +14,34 @@ mockery) are pinned with `tool` directives in `go.mod` and run with `go tool`, s
 
 ### Unit tests (no build tag)
 
-- **Domain** (`internal/domain`): pure functions and types, e.g. `TestNormalizeDisplayName`, `TestParseRole`.
+- **Domain** (`internal/domain`): pure functions and types, e.g. `TestNormalizeDisplayName`, `TestParseRole`,
+  `TestCheckTextCharacters` (the character rule shared by display names and token names, including the cap on
+  combining marks per base character) and `TestHashAPITokenSecret`.
 - **Commands** (`internal/command`): business rules over the small datasource interfaces in
   `internal/datasources`, using the mockery mocks in `internal/datasources/mocks`. Mocks are generated from
   `.mockery.yaml` (every interface in `internal/datasources`) by `make generate`; never edit them by hand.
   `make check-generated` regenerates sqlc and mockery output in a temporary copy and fails on any difference.
-  Commands take their clock as `Now func() time.Time`, so tests use fixed times.
+  Commands take their clock as `Now func() time.Time`, so tests use fixed times. Examples:
+  `TestCreateAPIToken_InvalidNames` (the length limit and the character rule),
+  `TestSetUserBlocked_RetriesContributorCreatedDuringUpdate` (a contributor created between the update and the
+  lookup is updated by one retry) and `TestSetUserBlocked_ContributorNeverMatchingFails` (an internal error, not
+  `ErrModeratorNotBlockable`).
 - **Middleware and validators** (`internal/transport/web/router`): `TestAuthMiddleware_*`, `TestRequireAuth_*`,
   `TestRequireNonAPIToken_*`, `TestRequireModerator_*`, `TestCORSMiddleware_*`, `TestSecurityHeaders_*`,
   `TestRequestLogger_*`, `TestAPITokenValidator_*` (mocks) and `TestAuth0Validator_*`, which validate real RS256
   JWTs against a local issuer from `internal/testutil/auth0test` (an `httptest` server serving the OpenID
-  discovery document and a JWKS).
+  discovery document and a JWKS). `TestAuth0Validator_InvalidTokens` includes the attack cases, built with
+  `auth0test.SignWithHeader` where they need a crafted header: `alg: none`, HS256 keyed with the public key, an
+  unknown `kid`, a future `nbf`, `exp` beyond the clock skew (the within-skew cases are in
+  `TestAuth0Validator_ValidTokens`), a missing `exp`, and client-credentials (`@clients`) tokens.
+  `TestAuth0Validator_OversizedTokenIsRejectedBeforeParsing` pins the token size cap.
+- **Server, JSON helpers and wiring** (`internal/transport/web/server`, `internal/transport/web/httpjson`,
+  `internal/app`): `TestServer_ShutdownWaitsForInFlightRequest`, `TestServer_HeaderSizeLimit` (431 over 16 KiB
+  of request headers), `TestDecodeJSONBody` (the exact client-facing messages) and
+  `TestDecodeJSONBody_LogsDecodeErrorAtDebug`, `TestNewHTTPHandler_UnroutedRequests` (JSON 404 for an unknown
+  path, 405 with `Allow` for a wrong method, neither authenticating) and `TestNewHTTPHandler_PreflightToUnknownPath`,
+  `TestAuth0IssuerURL`, `TestAuthValidatorsFromEnv_*`, `TestStoredTime_UTCWholeSeconds` and
+  `TestSetup_InvalidDatabaseURL`.
 - **Deployment files** (`internal/app/deploy_files_test.go`): `TestEnvDistListsEveryEnvVar` parses the non-test
   Go code under `cmd/` and `internal/` (except `internal/testutil`) and fails unless `.env.dist` lists exactly
   the environment variables it reads. `TestAppJSON`, `TestProcfile` and `TestDockerfile_MatchesDokkuConfiguration`
@@ -47,8 +64,12 @@ documented without one. `ServeResponseOnly` skips request validation, for tests 
 spec forbids (malformed or oversized bodies, wrong content type); the response is still checked. The helper's own
 behaviour is pinned by the `TestValidator_*` meta-tests.
 
-Every controller test (`internal/transport/web/controller/*_test.go`) and every handler test goes through the
-helper. Controller tests set the principal directly in the request context and drive one status per case.
+Every controller test (`internal/transport/web/controller/*_test.go`) and every handler test of a spec operation
+goes through the helper. Tests of unrouted requests (`TestNewHTTPHandler_UnroutedRequests`,
+`TestNewHTTPHandler_PreflightToUnknownPath`) have no operation to validate against, so they assert the `Error`
+body directly. Controller tests set the principal directly in the request context and drive one status per case.
+`TestAPITokenCreate_NameRulesWithCommand` runs the real `command.CreateAPIToken` (over mocked datasources)
+through the helper, so the command's name rules are checked against the spec's `maxLength`.
 
 ### Router tests: route parity and the auth matrix
 
@@ -73,8 +94,10 @@ helper. Controller tests set the principal directly in the request context and d
 Run against real MySQL 8.4 by the `test-integration*` targets:
 
 - **Repository** (`internal/datasources/mysql/*_integration_test.go`): every query in `queries.sql`, migrations up
-  → down → up (`TestMigrations_UpDownUp`), case-sensitive IDs, idempotent revoke/block, FK cascade, throttled
-  last-used updates.
+  → down → up (`TestMigrations_UpDownUp`), column collations (`TestMigrations_ColumnCollations`), case-sensitive
+  IDs, trailing-space-significant user IDs (`TestRepository_UserIDsTrailingSpacesAreSignificant`), idempotent
+  revoke/block, FK cascade, FK and unique-hash violations asserted by MySQL error number (1452/1062), a 4-byte
+  UTF-8 round trip (`TestRepository_EnsureUser_StoresFourByteCharacters`), throttled last-used updates.
 - **Migrate command** (`cmd/migrate/main_integration_test.go`): `TestMigrateRun_UpVersionDown` (up, version and
   down through `run`), `TestMigrateRun_UpWithNewerSchemaIsNoChange` (up on a clean schema newer than every
   embedded migration, as when rolling back a release, succeeds and applies nothing) and
@@ -86,8 +109,13 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   `BootstrapModerators` command. It walks a user's life: first request creates the user, rename persists, an
   API token authenticates as them, a bootstrapped moderator blocks them (both credentials get 403
   `user_blocked`), unblocks them, the token is revoked (401), and a second bootstrap run without the moderator's
-  ID does not demote them, and bootstrapping the blocked contributor makes them an unblocked moderator. Every
-  response goes through the contract helper.
+  ID does not demote them, and bootstrapping the blocked contributor makes them an unblocked moderator. It also
+  asserts that a token's `created_at` from create equals the listed one. Every response goes through the contract
+  helper.
+- **Setup** (`internal/app/app_integration_test.go`): `TestSetup_BootstrapsModeratorsAndServes` (Setup from the
+  environment bootstraps the moderators, serves `/readyz` on a real listener and returns after cancel),
+  `TestSetup_BootstrapFailureFailsStartup` and `TestStoredTime_RoundTripsThroughDatabase` (a clock with a
+  fractional second stores and returns the same whole-second `created_at`).
 
 `internal/testutil/mysqltest` gives each test its own database: `mysqltest.NewDatabase(t)` (a `*sql.DB`) or
 `mysqltest.NewDatabaseURL(t)` (a `DATABASE_URL`-style URL) creates `bt_test_<random hex>` through
