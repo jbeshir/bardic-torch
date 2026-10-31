@@ -16,6 +16,8 @@ import (
 const (
 	songsPath = "/songs"
 	songPath  = "/songs/abc"
+	// songPathTemplate is the path of the operations on one song.
+	songPathTemplate = "/songs/{song_id}"
 
 	songJSON  = `{"id":"abc","title":"Lament","composer":null}`
 	errorJSON = `{"code":"not_found","message":"no such song"}`
@@ -272,9 +274,22 @@ func TestValidator_Operations(t *testing.T) {
 
 	assert.Equal(t, []Operation{
 		{Method: http.MethodPost, Path: "/songs"},
-		{Method: http.MethodDelete, Path: "/songs/{song_id}"},
-		{Method: http.MethodGet, Path: "/songs/{song_id}"},
+		{Method: http.MethodDelete, Path: songPathTemplate},
+		{Method: http.MethodGet, Path: songPathTemplate},
 	}, newFixtureValidator(t).Operations())
+}
+
+// TestValidator_Public checks that only an operation whose security is explicitly empty is public: one that
+// inherits the default (here, none) or names a scheme is not.
+func TestValidator_Public(t *testing.T) {
+	t.Parallel()
+
+	v := newFixtureValidator(t)
+	assert.True(t, v.Public(Operation{Method: http.MethodGet, Path: songPathTemplate}))
+	assert.False(t, v.Public(Operation{Method: http.MethodDelete, Path: songPathTemplate}))
+	assert.False(t, v.Public(Operation{Method: http.MethodPost, Path: "/songs"}))
+	assert.False(t, v.Public(Operation{Method: http.MethodPut, Path: songPathTemplate}))
+	assert.False(t, v.Public(Operation{Method: http.MethodGet, Path: "/albums"}))
 }
 
 func TestValidator_RejectsInvalidSpec(t *testing.T) {

@@ -1,0 +1,527 @@
+//go:build integration
+
+package mysql_test
+
+import (
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/jbeshir/bardic-torch/internal/datasources"
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
+	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestMain(m *testing.M) { catalogtest.Main(m) }
+
+// detailFixture is a catalogue where every visibility rule of the piece and person pages has something to hide:
+// unapproved terms (and an approved term under an unapproved parent), persons, pieces, collections and events;
+// a prefers_no_page person referenced from everywhere a person can be; a hidden alias; and a hidden link.
+type detailFixture struct {
+	kettle, pendingPiece           catalogtest.Ref
+	wren, ash, noPage, pendingWren catalogtest.Ref
+	prolific                       catalogtest.Ref
+	songbook                       catalogtest.Ref
+}
+
+// Fixture times; DATETIME and DATE columns are read back in UTC.
+var (
+	kettleCheckedAt = time.Date(2026, 9, 1, 8, 30, 0, 0, time.UTC)
+	firstAssessment = time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)
+	reassessment    = time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+)
+
+// Fixture strings the tests compare more than once.
+const (
+	revelName        = "Midwinter Revel"
+	revelPerformance = "Sung at the revel"
+	wrenName         = "Wren of the Vale"
+	wrenURL          = "https://example.org/wren"
+	kettleTitle      = "The Copper Kettle"
+	kettleVideoURL   = "https://example.org/kettle/video"
+)
+
+// manyItems is one more than a capped list holds.
+const manyItems = domain.MaxNestedListItems + 1
+
+var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
+	war := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "War"}})
+	swords := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Swords",
+		ParentID: &war.ID}})
+	century := c.Term(catalogtest.Term{
+		Doc:  domain.TermDocument{Facet: domain.FacetOrigin, Name: "16th Century (Origin)", DisplayName: "16th Century"},
+		Slug: "16th-century",
+	})
+	pendingTerm := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetMood, Name: "Wistful"},
+		Unapproved: true})
+	underPending := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetMood, Name: "Very Wistful",
+		ParentID: &pendingTerm.ID}})
+	northmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
+		Name: "Northmarch", Position: 2}})
+	eastmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
+		Name: "Eastmarch", Position: 1}})
+	southmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
+		Name: "Southmarch"}, Unapproved: true})
+
+	songbook := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "The Northmarch Songbook"}})
+	pendingBook := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Draft Songbook"},
+		Unapproved: true})
+	revel := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: revelName}})
+	pendingEvent := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Unconfirmed Moot"}, Unapproved: true})
+
+	bards := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Northmarch Bards",
+		Kind: domain.PersonKindGroup, IsStub: true}})
+	pendingWren := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Pending Wren"}, Unapproved: true})
+	wren := c.Person(catalogtest.Person{
+		Doc: domain.PersonDocument{
+			Name:             wrenName,
+			Pronouns:         new("she/her"),
+			NotesMD:          new("A bard of the marches."),
+			LicensingStatus:  domain.LicensingStatusKnown,
+			LicensingNotesMD: new("Sing freely."),
+			Aliases: []domain.DocPersonAlias{
+				{Name: "Wren", Kind: domain.PersonAliasKindStage, IsPublic: true},
+				{Name: "Jo Hiddenname", Kind: domain.PersonAliasKindLegal},
+				{Name: "Little Wren", Kind: domain.PersonAliasKindNickname, IsPublic: true},
+			},
+			Roles:          []domain.PersonRole{domain.PersonRoleSongwriter, domain.PersonRoleSinger},
+			AffiliationIDs: []int64{northmarch.ID, southmarch.ID, eastmarch.ID},
+			Relations: []domain.DocPersonRelation{
+				{ToPersonID: bards.ID, Type: domain.PersonRelationTypeMemberOf},
+				{ToPersonID: pendingWren.ID, Type: domain.PersonRelationTypeSameAs},
+			},
+			Links: []domain.DocPersonLink{
+				{DocLink: domain.DocLink{URL: "https://example.org/kettle/hidden",
+					Roles: []domain.LinkRole{domain.LinkRoleOther}}},
+				{
+					DocLink: domain.DocLink{URL: wrenURL, Title: new("Wren's songs"),
+						CollectionID: &pendingBook.ID, Roles: []domain.LinkRole{domain.LinkRoleWebsite}},
+					Performances: []domain.DocPersonPerformance{
+						{DocPerformance: domain.DocPerformance{Year: new(int16(2024)),
+							DescriptionVerbatim: "Wren at the fair", EventID: &pendingEvent.ID}},
+					},
+				},
+			},
+		},
+		SortName: wrenName,
+	})
+	noPage := c.Person(catalogtest.Person{
+		Doc: domain.PersonDocument{
+			Name: "Hollis Fenn", Status: domain.PersonStatusPrefersNoPage, StatusDate: new("2026-03-01"),
+			StatusSourceURL: new("https://example.org/requests/12"), NotesMD: new("Private notes."),
+			Aliases:        []domain.DocPersonAlias{{Name: "Holly", Kind: domain.PersonAliasKindNickname, IsPublic: true}},
+			Roles:          []domain.PersonRole{domain.PersonRoleSinger},
+			AffiliationIDs: []int64{northmarch.ID},
+			Relations:      []domain.DocPersonRelation{{ToPersonID: wren.ID, Type: domain.PersonRelationTypeHeirOf}},
+			Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: "https://example.org/hollis",
+				Roles: []domain.LinkRole{domain.LinkRoleWebsite}}}},
+		},
+	})
+	ash := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
+		Name: "Ash Tallow", Kind: domain.PersonKindHistorical,
+		Relations: []domain.DocPersonRelation{
+			{ToPersonID: wren.ID, Type: domain.PersonRelationTypeHeirOf},
+			{ToPersonID: noPage.ID, Type: domain.PersonRelationTypeSameAs},
+		},
+	}})
+
+	brass := c.Piece(catalogtest.Piece{
+		Doc: domain.PieceDocument{
+			Title: "The Brass Kettle", Kind: domain.PieceKindPoem,
+			SecondaryKinds: []domain.PieceKind{domain.PieceKindStory},
+			Conservation:   domain.DocConservation{Status: domain.ConservationStatusLowRisk},
+			Credits:        []domain.DocCredit{{PersonID: &wren.ID, Role: domain.CreditRoleAuthor}},
+		},
+		SortTitle: "Brass Kettle",
+	})
+	pendingPiece := c.Piece(catalogtest.Piece{
+		Doc: domain.PieceDocument{Title: "The Pewter Kettle",
+			Credits: []domain.DocCredit{{PersonID: &wren.ID, Role: domain.CreditRoleLyrics}}},
+		Unapproved: true,
+	})
+	kettle := c.Piece(catalogtest.Piece{
+		Doc: domain.PieceDocument{
+			Title:              kettleTitle,
+			SecondaryKinds:     []domain.PieceKind{domain.PieceKindComedy, domain.PieceKindDanceMusic},
+			Conservation:       domain.DocConservation{Status: domain.ConservationStatusEndangered},
+			IsStub:             true,
+			NotesMD:            new("A drinking song."),
+			VersionNotesMD:     new("Two verses."),
+			LicensingStatus:    domain.LicensingStatusKnown,
+			LicensingNotesMD:   new("Free with credit."),
+			Licence:            new(domain.LicenceCCBYSA),
+			HistoricalSourceMD: new("A broadside."),
+			PeriodStart:        new(int16(1580)),
+			PeriodEnd:          new(int16(1600)),
+			Aliases: []domain.DocPieceAlias{
+				{Text: "Kettle Song", Kind: domain.PieceAliasKindAltTitle},
+				{Text: "Old Kettle", Kind: domain.PieceAliasKindNickname},
+			},
+			Terms: []domain.DocPieceTerm{
+				{TermID: century.ID, Part: new(domain.PiecePartTune)},
+				{TermID: swords.ID},
+				{TermID: pendingTerm.ID},
+				{TermID: war.ID, IsPrimary: true},
+				{TermID: underPending.ID},
+			},
+			Relations: []domain.DocPieceRelation{
+				{ToPieceID: brass.ID, Type: domain.PieceRelationTypeVariantOf},
+				{ToPieceID: pendingPiece.ID, Type: domain.PieceRelationTypeSettingOf},
+			},
+			Credits: []domain.DocCredit{
+				{PersonID: &wren.ID, Role: domain.CreditRoleLyrics},
+				{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
+					Certainty: domain.CertaintyProbable, Part: new(domain.PiecePartTune), Note: new("An old reel.")},
+				{PersonID: &noPage.ID, Role: domain.CreditRoleMusic, Note: new("Hollis's tune")},
+				{PersonID: &pendingWren.ID, Role: domain.CreditRoleArrangement},
+				{Role: domain.CreditRoleTranslation, Attribution: domain.AttributionUnknown,
+					Certainty: domain.CertaintyDisputed},
+			},
+			Links: []domain.DocPieceLink{
+				{
+					DocLink: domain.DocLink{
+						URL: kettleVideoURL, Title: new("At the revel"),
+						Description: new("A recording."), Platform: new("example.org"),
+						PlaceType:    new(domain.LinkPlaceTypeRecordingPlatform),
+						CollectionID: &songbook.ID, Locator: new("p. 12"),
+						Roles: []domain.LinkRole{domain.LinkRolePerformance, domain.LinkRoleLyrics},
+					},
+					Performances: []domain.DocPerformance{
+						{
+							EventID: &revel.ID, Year: new(int16(2025)), Uploader: new("Northmarch Bards"),
+							DescriptionVerbatim: revelPerformance,
+							PerformerIDs:        []int64{wren.ID, noPage.ID, pendingWren.ID, bards.ID},
+						},
+						{EventID: &pendingEvent.ID, DescriptionVerbatim: "Sung at the moot"},
+					},
+				},
+				{
+					DocLink: domain.DocLink{URL: "https://example.org/kettle/hidden",
+						Roles: []domain.LinkRole{domain.LinkRoleSheetMusic}},
+					Performances: []domain.DocPerformance{{DescriptionVerbatim: "Hidden performance",
+						PerformerIDs: []int64{wren.ID}}},
+				},
+				{DocLink: domain.DocLink{URL: "https://example.org/kettle/archive", CollectionID: &pendingBook.ID,
+					Roles: []domain.LinkRole{domain.LinkRoleTextSource}}},
+			},
+		},
+		SortTitle: "Copper Kettle",
+		ConservationHistory: []catalogtest.ConservationEntry{
+			{Status: domain.ConservationStatusEndangered, Reason: "Fewer singers.", At: reassessment},
+			{Status: domain.ConservationStatusLowRisk, Reason: "First assessment.",
+				SourceURL: new("https://example.org/assessment"), At: firstAssessment},
+		},
+	})
+	c.SetLinkState("https://example.org/kettle/hidden", catalogtest.LinkState{IsHidden: true})
+	c.SetLinkState("https://example.org/kettle/archive", catalogtest.LinkState{Liveness: domain.LivenessDead,
+		LastCheckedAt: &kettleCheckedAt, ArchivedURL: new("https://archive.example.org/kettle")})
+
+	// Incoming relations, from a public piece and from an unapproved one.
+	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Tin Kettle",
+		Relations: []domain.DocPieceRelation{{ToPieceID: kettle.ID, Type: domain.PieceRelationTypeContrafactumOf}}}})
+	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Iron Kettle",
+		Relations: []domain.DocPieceRelation{{ToPieceID: kettle.ID, Type: domain.PieceRelationTypeVariantOf}}},
+		Unapproved: true})
+	// A performance of an unapproved piece on Wren's own link: left out of her page, as it may name the piece.
+	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Fair Recorder",
+		Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: "https://example.org/pewter",
+			Roles: []domain.LinkRole{domain.LinkRolePerformance}},
+			Performances: []domain.DocPersonPerformance{{PieceID: &pendingPiece.ID,
+				DocPerformance: domain.DocPerformance{DescriptionVerbatim: "Wren sings the Pewter Kettle",
+					PerformerIDs: []int64{wren.ID}}}}}}}})
+
+	return detailFixture{
+		kettle: kettle, pendingPiece: pendingPiece,
+		wren: wren, ash: ash, noPage: noPage, pendingWren: pendingWren,
+		prolific: seedProlific(c), songbook: songbook,
+	}
+})
+
+// seedProlific seeds a person with one more work and one more performance than their page shows.
+func seedProlific(c *catalogtest.Catalog) catalogtest.Ref {
+	piper := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Prolific Piper"}})
+
+	credits := make([]domain.DocCredit, manyItems)
+	performances := make([]domain.DocPerformance, manyItems)
+	for i := range manyItems {
+		credits[i] = domain.DocCredit{PersonID: &piper.ID, Role: domain.CreditRoleMusic}
+		performances[i] = domain.DocPerformance{Year: new(int16(1800 + i)), DescriptionVerbatim: fmt.Sprint("Take ", i),
+			PerformerIDs: []int64{piper.ID}}
+	}
+	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Endless Reel", Credits: credits,
+		Links: []domain.DocPieceLink{{DocLink: domain.DocLink{URL: "https://example.org/endless",
+			Roles: []domain.LinkRole{domain.LinkRolePerformance}}, Performances: performances}}}})
+
+	return piper
+}
+
+func detailRepository(t *testing.T) (*mysql.Repository, detailFixture) {
+	t.Helper()
+
+	db, fx := details.Get(t)
+	return mysql.New(db), fx
+}
+
+var (
+	wrenSummary  = domain.PersonSummary{Slug: "wren-of-the-vale", Name: wrenName, Kind: domain.PersonKindCommunityBard}
+	bardsSummary = domain.PersonSummary{Slug: "northmarch-bards", Name: "Northmarch Bards", Kind: domain.PersonKindGroup,
+		IsStub: true}
+	kettleSummary = domain.PieceSummary{
+		Slug: "the-copper-kettle", Title: kettleTitle, Kind: domain.PieceKindSong,
+		SecondaryKinds:     []domain.PieceKind{domain.PieceKindDanceMusic, domain.PieceKindComedy},
+		ConservationStatus: domain.ConservationStatusEndangered, IsStub: true,
+	}
+	brassSummary = domain.PieceSummary{
+		Slug: "the-brass-kettle", Title: "The Brass Kettle", Kind: domain.PieceKindPoem,
+		SecondaryKinds: []domain.PieceKind{domain.PieceKindStory}, ConservationStatus: domain.ConservationStatusLowRisk,
+	}
+)
+
+// TestRepository_GetPublicPiece reads a piece with every field and list set (A2.1), with the references to
+// entities that are not public left out (A2.2), credits by attribution and certainty without no-page or
+// unapproved persons (A2.3), and links without the hidden one, each once with all its roles, with collections,
+// locators and performances with public events and performers only (A2.4).
+func TestRepository_GetPublicPiece(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	piece, err := repo.GetPublicPiece(t.Context(), fx.kettle.Slug)
+	require.NoError(t, err)
+
+	tune := domain.PiecePartTune
+	assert.Equal(t, domain.Piece{
+		PieceSummary:       kettleSummary,
+		NotesMD:            new("A drinking song."),
+		VersionNotesMD:     new("Two verses."),
+		LicensingStatus:    domain.LicensingStatusKnown,
+		LicensingNotesMD:   new("Free with credit."),
+		Licence:            new(domain.LicenceCCBYSA),
+		HistoricalSourceMD: new("A broadside."),
+		PeriodStart:        new(int16(1580)),
+		PeriodEnd:          new(int16(1600)),
+		Aliases: []domain.PieceAlias{
+			{Text: "Kettle Song", Kind: domain.PieceAliasKindAltTitle},
+			{Text: "Old Kettle", Kind: domain.PieceAliasKindNickname},
+		},
+		// By facet (topic before origin), then position; neither the unapproved mood term nor its approved child.
+		Terms: []domain.PieceTerm{
+			{Term: domain.TermSummary{Slug: "swords", Facet: domain.FacetTopic, DisplayName: "Swords"}},
+			{Term: domain.TermSummary{Slug: "war", Facet: domain.FacetTopic, DisplayName: "War"}, IsPrimary: true},
+			{Term: domain.TermSummary{Slug: "16th-century", Facet: domain.FacetOrigin, DisplayName: "16th Century"},
+				Part: &tune},
+		},
+		Credits: []domain.PieceCredit{
+			{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
+				Person: &wrenSummary},
+			{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
+				Certainty: domain.CertaintyProbable, Part: &tune, Note: new("An old reel.")},
+			{Role: domain.CreditRoleTranslation, Attribution: domain.AttributionUnknown,
+				Certainty: domain.CertaintyDisputed},
+		},
+		Relations: []domain.PieceRelation{
+			{Type: domain.PieceRelationTypeVariantOf, Direction: domain.RelationDirectionOutgoing, Piece: brassSummary},
+			{Type: domain.PieceRelationTypeContrafactumOf, Direction: domain.RelationDirectionIncoming,
+				Piece: domain.PieceSummary{Slug: "the-tin-kettle", Title: "The Tin Kettle", Kind: domain.PieceKindSong,
+					ConservationStatus: domain.ConservationStatusUnassessed}},
+		},
+		Links: []domain.PieceLink{
+			{
+				Link: domain.Link{
+					URL: kettleVideoURL, Title: new("At the revel"),
+					Description: new("A recording."), Platform: new("example.org"),
+					PlaceType:  new(domain.LinkPlaceTypeRecordingPlatform),
+					Collection: &domain.CollectionRef{ID: fx.songbook.ID, Name: "The Northmarch Songbook"},
+					Locator:    new("p. 12"), Liveness: domain.LivenessUnknown,
+					Roles: []domain.LinkRole{domain.LinkRolePerformance, domain.LinkRoleLyrics},
+				},
+				Performances: []domain.PiecePerformance{
+					{
+						Year: new(int16(2025)), Uploader: new("Northmarch Bards"),
+						DescriptionVerbatim: revelPerformance,
+						Event: &domain.EventSummary{Slug: "midwinter-revel", Name: revelName,
+							Kind: domain.EventKindEvent},
+						Performers: []domain.PersonSummary{wrenSummary, bardsSummary},
+					},
+					{DescriptionVerbatim: "Sung at the moot"},
+				},
+			},
+			{Link: domain.Link{
+				URL: "https://example.org/kettle/archive", Liveness: domain.LivenessDead,
+				LastCheckedAt: &kettleCheckedAt, ArchivedURL: new("https://archive.example.org/kettle"),
+				Roles: []domain.LinkRole{domain.LinkRoleTextSource},
+			}},
+		},
+		ConservationHistory: []domain.ConservationChange{
+			{Status: domain.ConservationStatusLowRisk, Reason: "First assessment.",
+				SourceURL: new("https://example.org/assessment"), At: firstAssessment},
+			{Status: domain.ConservationStatusEndangered, Reason: "Fewer singers.", At: reassessment},
+		},
+	}, piece)
+}
+
+// TestRepository_GetPublicPiece_NotFound checks that an unapproved piece is not found, like an unknown one
+// (A2.2).
+func TestRepository_GetPublicPiece_NotFound(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	for _, slug := range []string{fx.pendingPiece.Slug, "no-such-piece", "The-Copper-Kettle"} {
+		_, err := repo.GetPublicPiece(t.Context(), slug)
+		require.ErrorIs(t, err, datasources.ErrNotFound, slug)
+	}
+}
+
+// TestRepository_GetPublicPerson reads a person with public aliases only, roles, affiliations without the
+// unapproved one, relations in both directions without unapproved or no-page persons, links without the hidden
+// one, works on public pieces and performances (A2.5).
+func TestRepository_GetPublicPerson(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	person, err := repo.GetPublicPerson(t.Context(), fx.wren.Slug)
+	require.NoError(t, err)
+
+	assert.Equal(t, domain.Person{
+		PersonSummary: wrenSummary,
+		Status:        domain.PersonStatusActive,
+		Profile: &domain.PersonProfile{
+			Pronouns:         new("she/her"),
+			NotesMD:          new("A bard of the marches."),
+			LicensingStatus:  domain.LicensingStatusKnown,
+			LicensingNotesMD: new("Sing freely."),
+			Aliases: []domain.PersonAlias{
+				{Name: "Wren", Kind: domain.PersonAliasKindStage},
+				{Name: "Little Wren", Kind: domain.PersonAliasKindNickname},
+			},
+			Roles: []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
+			// By position.
+			Affiliations: []domain.TermSummary{
+				{Slug: "eastmarch", Facet: domain.FacetAffiliation, DisplayName: "Eastmarch"},
+				{Slug: "northmarch", Facet: domain.FacetAffiliation, DisplayName: "Northmarch"},
+			},
+			Relations: []domain.PersonRelation{
+				{Type: domain.PersonRelationTypeMemberOf, Direction: domain.RelationDirectionOutgoing, Person: bardsSummary},
+				{Type: domain.PersonRelationTypeHeirOf, Direction: domain.RelationDirectionIncoming,
+					Person: domain.PersonSummary{Slug: "ash-tallow", Name: "Ash Tallow", Kind: domain.PersonKindHistorical}},
+			},
+			Links: []domain.Link{{URL: wrenURL, Title: new("Wren's songs"),
+				Liveness: domain.LivenessUnknown, Roles: []domain.LinkRole{domain.LinkRoleWebsite}}},
+			Works: []domain.PersonWork{
+				{Piece: brassSummary, Role: domain.CreditRoleAuthor, Certainty: domain.CertaintyCertain},
+				{Piece: kettleSummary, Role: domain.CreditRoleLyrics, Certainty: domain.CertaintyCertain},
+			},
+			WorksTotal: 2,
+			Performances: []domain.PersonPerformance{
+				{
+					Piece: &kettleSummary,
+					Link: domain.PerformanceLink{URL: kettleVideoURL, Title: new("At the revel"),
+						Platform: new("example.org")},
+					Year: new(int16(2025)),
+					Event: &domain.EventSummary{Slug: "midwinter-revel", Name: revelName,
+						Kind: domain.EventKindEvent},
+					DescriptionVerbatim: revelPerformance,
+				},
+				{
+					Link:                domain.PerformanceLink{URL: wrenURL, Title: new("Wren's songs")},
+					Year:                new(int16(2024)),
+					DescriptionVerbatim: "Wren at the fair",
+				},
+			},
+			PerformancesTotal: 2,
+		},
+	}, person)
+}
+
+// TestRepository_GetPublicPerson_RelationsSkipNoPage checks that a relation to a no-page person is left out from
+// the other side too.
+func TestRepository_GetPublicPerson_RelationsSkipNoPage(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	person, err := repo.GetPublicPerson(t.Context(), fx.ash.Slug)
+	require.NoError(t, err)
+
+	require.NotNil(t, person.Profile)
+	assert.Equal(t, []domain.PersonRelation{{Type: domain.PersonRelationTypeHeirOf,
+		Direction: domain.RelationDirectionOutgoing, Person: wrenSummary}}, person.Profile.Relations)
+}
+
+// TestRepository_GetPublicPerson_NoPage checks that a person who prefers no page has only their identity, as a
+// stub (A2.6).
+func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	person, err := repo.GetPublicPerson(t.Context(), fx.noPage.Slug)
+	require.NoError(t, err)
+
+	assert.Equal(t, domain.Person{
+		PersonSummary:   domain.PersonSummary{Slug: "hollis-fenn", Name: "Hollis Fenn", Kind: domain.PersonKindCommunityBard, IsStub: true},
+		Status:          domain.PersonStatusPrefersNoPage,
+		StatusDate:      new(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)),
+		StatusSourceURL: new("https://example.org/requests/12"),
+	}, person)
+}
+
+// TestRepository_GetPublicPerson_Caps checks that works and performances stop at the cap, with totals that
+// count every one, and that performances come newest year first (A2.5).
+func TestRepository_GetPublicPerson_Caps(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	person, err := repo.GetPublicPerson(t.Context(), fx.prolific.Slug)
+	require.NoError(t, err)
+
+	profile := person.Profile
+	require.NotNil(t, profile)
+	assert.Len(t, profile.Works, domain.MaxNestedListItems)
+	assert.Equal(t, int64(manyItems), profile.WorksTotal)
+	require.Len(t, profile.Performances, domain.MaxNestedListItems)
+	assert.Equal(t, int64(manyItems), profile.PerformancesTotal)
+	assert.Equal(t, new(int16(1800+manyItems-1)), profile.Performances[0].Year)
+	assert.Equal(t, new(int16(1801)), profile.Performances[domain.MaxNestedListItems-1].Year)
+}
+
+func TestRepository_GetPublicPerson_NotFound(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	for _, slug := range []string{fx.pendingWren.Slug, "no-such-person"} {
+		_, err := repo.GetPublicPerson(t.Context(), slug)
+		require.ErrorIs(t, err, datasources.ErrNotFound, slug)
+	}
+}
+
+// TestRepository_CatalogueReads_UnknownEnumValue checks that a value a newer release added to an ENUM fails the
+// read, rather than reaching a response that promises a closed set of values (D2).
+func TestRepository_CatalogueReads_UnknownEnumValue(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	c := catalogtest.New(t, db)
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: kettleTitle}})
+	person := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: wrenName}})
+	for _, stmt := range []string{
+		"ALTER TABLE pieces MODIFY kind ENUM('song', 'poem', 'story', 'dance_music', 'instrumental', 'comedy', " +
+			"'ballad') NOT NULL",
+		"UPDATE pieces SET kind = 'ballad'",
+		"ALTER TABLE person_roles MODIFY role ENUM('singer', 'songwriter', 'musician', 'instrumentalist', " +
+			"'storyteller', 'poet', 'jester', 'dancer', 'harper') NOT NULL",
+		fmt.Sprintf("INSERT INTO person_roles (person_id, role) VALUES (%d, 'harper')", person.ID),
+	} {
+		_, err := db.ExecContext(t.Context(), stmt)
+		require.NoError(t, err, stmt)
+	}
+
+	repo := mysql.New(db)
+	_, err := repo.GetPublicPiece(t.Context(), piece.Slug)
+	require.ErrorContains(t, err, "unknown ENUM value [ballad]")
+	require.NotErrorIs(t, err, datasources.ErrNotFound)
+
+	_, err = repo.GetPublicPerson(t.Context(), person.Slug)
+	require.ErrorContains(t, err, "unknown ENUM value [harper]")
+}

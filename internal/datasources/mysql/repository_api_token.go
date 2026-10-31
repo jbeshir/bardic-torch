@@ -116,16 +116,11 @@ func (r *Repository) RevokeAPIToken(ctx context.Context, userID, tokenID string,
 }
 
 func convertAPIToken(row queries.ApiToken) domain.APIToken {
-	var name *string
-	if row.Name.Valid {
-		name = &row.Name.String
-	}
-
 	return domain.APIToken{
 		ID:         row.ID,
 		UserID:     row.UserID,
 		Prefix:     row.TokenPrefix,
-		Name:       name,
+		Name:       stringPtr(row.Name),
 		CreatedAt:  row.CreatedAt,
 		LastUsedAt: timePtr(row.LastUsedAt),
 		RevokedAt:  timePtr(row.RevokedAt),

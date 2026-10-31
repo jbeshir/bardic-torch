@@ -31,6 +31,10 @@ const (
 	anonymousCase = "anonymous"
 	tooLargeCase  = "too_large"
 	notJSONCase   = "not_json"
+	notFoundCase  = "not_found"
+
+	testPieceTitle = "The Copper Kettle"
+	testPersonName = "Wren of the Vale"
 
 	unauthenticatedBody      = `{"code":"unauthenticated","message":"authentication required"}`
 	internalErrorBody        = `{"code":"internal","message":"internal error"}`

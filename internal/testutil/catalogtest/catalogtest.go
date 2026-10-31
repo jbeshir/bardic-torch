@@ -351,6 +351,13 @@ func (c *Catalog) SetLinkState(url string, s LinkState) {
 	})
 }
 
+// Exec runs one statement and commits it, for the system-owned columns no document holds, such as legacy_title
+// or claimed_by_user_id, and for rows no method seeds, such as users.
+func (c *Catalog) Exec(query string, args ...any) {
+	c.t.Helper()
+	c.write(func(w writer) { w.exec(query, args...) })
+}
+
 // write runs f in a transaction and commits it.
 func (c *Catalog) write(f func(w writer)) {
 	c.t.Helper()

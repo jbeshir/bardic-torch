@@ -58,6 +58,19 @@ func (ns NullCollectionsEnumerable) Value() (driver.Value, error) {
 	return string(ns.CollectionsEnumerable), nil
 }
 
+func (e CollectionsEnumerable) Valid() bool {
+	switch e {
+	case CollectionsEnumerableUnknown,
+		CollectionsEnumerableYes,
+		CollectionsEnumerablePdf,
+		CollectionsEnumerableBrowser,
+		CollectionsEnumerableApi,
+		CollectionsEnumerableNo:
+		return true
+	}
+	return false
+}
+
 type CollectionsKind string
 
 const (
@@ -111,6 +124,26 @@ func (ns NullCollectionsKind) Value() (driver.Value, error) {
 	return string(ns.CollectionsKind), nil
 }
 
+func (e CollectionsKind) Valid() bool {
+	switch e {
+	case CollectionsKindIndexOrLinkList,
+		CollectionsKindSongbookPdf,
+		CollectionsKindSongbookWebsite,
+		CollectionsKindWebsite,
+		CollectionsKindWikiCategory,
+		CollectionsKindWiki,
+		CollectionsKindYoutubeChannel,
+		CollectionsKindYoutubePlaylist,
+		CollectionsKindGoogleDocSongbook,
+		CollectionsKindBlog,
+		CollectionsKindArchivedSongbook,
+		CollectionsKindHostedDocument,
+		CollectionsKindOther:
+		return true
+	}
+	return false
+}
+
 type ConservationHistoryStatus string
 
 const (
@@ -156,6 +189,18 @@ func (ns NullConservationHistoryStatus) Value() (driver.Value, error) {
 	return string(ns.ConservationHistoryStatus), nil
 }
 
+func (e ConservationHistoryStatus) Valid() bool {
+	switch e {
+	case ConservationHistoryStatusUnassessed,
+		ConservationHistoryStatusLowRisk,
+		ConservationHistoryStatusEndangered,
+		ConservationHistoryStatusCriticallyEndangered,
+		ConservationHistoryStatusRestricted:
+		return true
+	}
+	return false
+}
+
 type EventsKind string
 
 const (
@@ -196,6 +241,15 @@ func (ns NullEventsKind) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.EventsKind), nil
+}
+
+func (e EventsKind) Valid() bool {
+	switch e {
+	case EventsKindVenue,
+		EventsKindEvent:
+		return true
+	}
+	return false
 }
 
 type LinkAttachmentsRole string
@@ -250,6 +304,25 @@ func (ns NullLinkAttachmentsRole) Value() (driver.Value, error) {
 	return string(ns.LinkAttachmentsRole), nil
 }
 
+func (e LinkAttachmentsRole) Valid() bool {
+	switch e {
+	case LinkAttachmentsRoleOfficial,
+		LinkAttachmentsRoleLyrics,
+		LinkAttachmentsRoleText,
+		LinkAttachmentsRoleSheetMusic,
+		LinkAttachmentsRoleDanceInstructions,
+		LinkAttachmentsRoleTextSource,
+		LinkAttachmentsRoleTranslation,
+		LinkAttachmentsRolePerformance,
+		LinkAttachmentsRoleLicensingSource,
+		LinkAttachmentsRoleWebsite,
+		LinkAttachmentsRoleExternalProfile,
+		LinkAttachmentsRoleOther:
+		return true
+	}
+	return false
+}
+
 type LinksLiveness string
 
 const (
@@ -292,6 +365,17 @@ func (ns NullLinksLiveness) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.LinksLiveness), nil
+}
+
+func (e LinksLiveness) Valid() bool {
+	switch e {
+	case LinksLivenessUnknown,
+		LinksLivenessOk,
+		LinksLivenessDead,
+		LinksLivenessBlocked:
+		return true
+	}
+	return false
 }
 
 type LinksPlaceType string
@@ -344,6 +428,23 @@ func (ns NullLinksPlaceType) Value() (driver.Value, error) {
 	return string(ns.LinksPlaceType), nil
 }
 
+func (e LinksPlaceType) Valid() bool {
+	switch e {
+	case LinksPlaceTypeRecordingPlatform,
+		LinksPlaceTypeStreaming,
+		LinksPlaceTypeAuthorSite,
+		LinksPlaceTypeCommunityArchive,
+		LinksPlaceTypePhysicalArchive,
+		LinksPlaceTypeBook,
+		LinksPlaceTypeVendor,
+		LinksPlaceTypeAuthorContact,
+		LinksPlaceTypeOralTradition,
+		LinksPlaceTypeOther:
+		return true
+	}
+	return false
+}
+
 type PersonAliasesKind string
 
 const (
@@ -388,6 +489,19 @@ func (ns NullPersonAliasesKind) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PersonAliasesKind), nil
+}
+
+func (e PersonAliasesKind) Valid() bool {
+	switch e {
+	case PersonAliasesKindLegal,
+		PersonAliasesKindSca,
+		PersonAliasesKindStage,
+		PersonAliasesKindNickname,
+		PersonAliasesKindFormer,
+		PersonAliasesKindRedirect:
+		return true
+	}
+	return false
 }
 
 type PersonPreferencesDimension string
@@ -438,6 +552,21 @@ func (ns NullPersonPreferencesDimension) Value() (driver.Value, error) {
 	return string(ns.PersonPreferencesDimension), nil
 }
 
+func (e PersonPreferencesDimension) Valid() bool {
+	switch e {
+	case PersonPreferencesDimensionLicensing,
+		PersonPreferencesDimensionPerformancePermission,
+		PersonPreferencesDimensionAdaptations,
+		PersonPreferencesDimensionAttribution,
+		PersonPreferencesDimensionCommercialUse,
+		PersonPreferencesDimensionRecording,
+		PersonPreferencesDimensionPerformanceEtiquette,
+		PersonPreferencesDimensionObjectionableUse:
+		return true
+	}
+	return false
+}
+
 type PersonRelationsType string
 
 const (
@@ -479,6 +608,16 @@ func (ns NullPersonRelationsType) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PersonRelationsType), nil
+}
+
+func (e PersonRelationsType) Valid() bool {
+	switch e {
+	case PersonRelationsTypeHeirOf,
+		PersonRelationsTypeMemberOf,
+		PersonRelationsTypeSameAs:
+		return true
+	}
+	return false
 }
 
 type PersonRolesRole string
@@ -529,6 +668,21 @@ func (ns NullPersonRolesRole) Value() (driver.Value, error) {
 	return string(ns.PersonRolesRole), nil
 }
 
+func (e PersonRolesRole) Valid() bool {
+	switch e {
+	case PersonRolesRoleSinger,
+		PersonRolesRoleSongwriter,
+		PersonRolesRoleMusician,
+		PersonRolesRoleInstrumentalist,
+		PersonRolesRoleStoryteller,
+		PersonRolesRolePoet,
+		PersonRolesRoleJester,
+		PersonRolesRoleDancer:
+		return true
+	}
+	return false
+}
+
 type PersonsKind string
 
 const (
@@ -572,6 +726,16 @@ func (ns NullPersonsKind) Value() (driver.Value, error) {
 	return string(ns.PersonsKind), nil
 }
 
+func (e PersonsKind) Valid() bool {
+	switch e {
+	case PersonsKindCommunityBard,
+		PersonsKindHistorical,
+		PersonsKindGroup:
+		return true
+	}
+	return false
+}
+
 type PersonsLicensingStatus string
 
 const (
@@ -612,6 +776,15 @@ func (ns NullPersonsLicensingStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PersonsLicensingStatus), nil
+}
+
+func (e PersonsLicensingStatus) Valid() bool {
+	switch e {
+	case PersonsLicensingStatusKnown,
+		PersonsLicensingStatusUnknown:
+		return true
+	}
+	return false
 }
 
 type PersonsStatus string
@@ -657,6 +830,16 @@ func (ns NullPersonsStatus) Value() (driver.Value, error) {
 	return string(ns.PersonsStatus), nil
 }
 
+func (e PersonsStatus) Valid() bool {
+	switch e {
+	case PersonsStatusActive,
+		PersonsStatusDeceased,
+		PersonsStatusPrefersNoPage:
+		return true
+	}
+	return false
+}
+
 type PieceAliasesKind string
 
 const (
@@ -699,6 +882,17 @@ func (ns NullPieceAliasesKind) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PieceAliasesKind), nil
+}
+
+func (e PieceAliasesKind) Valid() bool {
+	switch e {
+	case PieceAliasesKindAltTitle,
+		PieceAliasesKindNickname,
+		PieceAliasesKindSubtitle,
+		PieceAliasesKindRedirect:
+		return true
+	}
+	return false
 }
 
 type PieceCreditsAttribution string
@@ -746,6 +940,18 @@ func (ns NullPieceCreditsAttribution) Value() (driver.Value, error) {
 	return string(ns.PieceCreditsAttribution), nil
 }
 
+func (e PieceCreditsAttribution) Valid() bool {
+	switch e {
+	case PieceCreditsAttributionNamed,
+		PieceCreditsAttributionTraditional,
+		PieceCreditsAttributionUnknown,
+		PieceCreditsAttributionAnonymous,
+		PieceCreditsAttributionVarious:
+		return true
+	}
+	return false
+}
+
 type PieceCreditsCertainty string
 
 const (
@@ -790,6 +996,17 @@ func (ns NullPieceCreditsCertainty) Value() (driver.Value, error) {
 	return string(ns.PieceCreditsCertainty), nil
 }
 
+func (e PieceCreditsCertainty) Valid() bool {
+	switch e {
+	case PieceCreditsCertaintyCertain,
+		PieceCreditsCertaintyProbable,
+		PieceCreditsCertaintyPossible,
+		PieceCreditsCertaintyDisputed:
+		return true
+	}
+	return false
+}
+
 type PieceCreditsPart string
 
 const (
@@ -832,6 +1049,17 @@ func (ns NullPieceCreditsPart) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PieceCreditsPart), nil
+}
+
+func (e PieceCreditsPart) Valid() bool {
+	switch e {
+	case PieceCreditsPartWords,
+		PieceCreditsPartTune,
+		PieceCreditsPartVerses,
+		PieceCreditsPartChorus:
+		return true
+	}
+	return false
 }
 
 type PieceCreditsRole string
@@ -879,6 +1107,20 @@ func (ns NullPieceCreditsRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PieceCreditsRole), nil
+}
+
+func (e PieceCreditsRole) Valid() bool {
+	switch e {
+	case PieceCreditsRoleLyrics,
+		PieceCreditsRoleTune,
+		PieceCreditsRoleAuthor,
+		PieceCreditsRoleChoreography,
+		PieceCreditsRoleMusic,
+		PieceCreditsRoleArrangement,
+		PieceCreditsRoleTranslation:
+		return true
+	}
+	return false
 }
 
 type PiecePreferencesDimension string
@@ -929,6 +1171,21 @@ func (ns NullPiecePreferencesDimension) Value() (driver.Value, error) {
 	return string(ns.PiecePreferencesDimension), nil
 }
 
+func (e PiecePreferencesDimension) Valid() bool {
+	switch e {
+	case PiecePreferencesDimensionLicensing,
+		PiecePreferencesDimensionPerformancePermission,
+		PiecePreferencesDimensionAdaptations,
+		PiecePreferencesDimensionAttribution,
+		PiecePreferencesDimensionCommercialUse,
+		PiecePreferencesDimensionRecording,
+		PiecePreferencesDimensionPerformanceEtiquette,
+		PiecePreferencesDimensionObjectionableUse:
+		return true
+	}
+	return false
+}
+
 type PieceRelationsType string
 
 const (
@@ -971,6 +1228,17 @@ func (ns NullPieceRelationsType) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PieceRelationsType), nil
+}
+
+func (e PieceRelationsType) Valid() bool {
+	switch e {
+	case PieceRelationsTypeVariantOf,
+		PieceRelationsTypeContrafactumOf,
+		PieceRelationsTypeSettingOf,
+		PieceRelationsTypeSameTextOtherForm:
+		return true
+	}
+	return false
 }
 
 type PieceSecondaryKindsKind string
@@ -1019,6 +1287,19 @@ func (ns NullPieceSecondaryKindsKind) Value() (driver.Value, error) {
 	return string(ns.PieceSecondaryKindsKind), nil
 }
 
+func (e PieceSecondaryKindsKind) Valid() bool {
+	switch e {
+	case PieceSecondaryKindsKindSong,
+		PieceSecondaryKindsKindPoem,
+		PieceSecondaryKindsKindStory,
+		PieceSecondaryKindsKindDanceMusic,
+		PieceSecondaryKindsKindInstrumental,
+		PieceSecondaryKindsKindComedy:
+		return true
+	}
+	return false
+}
+
 type PieceTermsPart string
 
 const (
@@ -1061,6 +1342,17 @@ func (ns NullPieceTermsPart) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PieceTermsPart), nil
+}
+
+func (e PieceTermsPart) Valid() bool {
+	switch e {
+	case PieceTermsPartWords,
+		PieceTermsPartTune,
+		PieceTermsPartVerses,
+		PieceTermsPartChorus:
+		return true
+	}
+	return false
 }
 
 type PiecesConservationStatus string
@@ -1108,6 +1400,18 @@ func (ns NullPiecesConservationStatus) Value() (driver.Value, error) {
 	return string(ns.PiecesConservationStatus), nil
 }
 
+func (e PiecesConservationStatus) Valid() bool {
+	switch e {
+	case PiecesConservationStatusUnassessed,
+		PiecesConservationStatusLowRisk,
+		PiecesConservationStatusEndangered,
+		PiecesConservationStatusCriticallyEndangered,
+		PiecesConservationStatusRestricted:
+		return true
+	}
+	return false
+}
+
 type PiecesKind string
 
 const (
@@ -1152,6 +1456,19 @@ func (ns NullPiecesKind) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PiecesKind), nil
+}
+
+func (e PiecesKind) Valid() bool {
+	switch e {
+	case PiecesKindSong,
+		PiecesKindPoem,
+		PiecesKindStory,
+		PiecesKindDanceMusic,
+		PiecesKindInstrumental,
+		PiecesKindComedy:
+		return true
+	}
+	return false
 }
 
 type PiecesLicence string
@@ -1203,6 +1520,22 @@ func (ns NullPiecesLicence) Value() (driver.Value, error) {
 	return string(ns.PiecesLicence), nil
 }
 
+func (e PiecesLicence) Valid() bool {
+	switch e {
+	case PiecesLicencePd,
+		PiecesLicenceCcBy,
+		PiecesLicenceCcBySa,
+		PiecesLicenceCcByNc,
+		PiecesLicenceCcByNcSa,
+		PiecesLicenceCcByNd,
+		PiecesLicenceCcByNcNd,
+		PiecesLicenceArr,
+		PiecesLicenceOther:
+		return true
+	}
+	return false
+}
+
 type PiecesLicensingStatus string
 
 const (
@@ -1243,6 +1576,15 @@ func (ns NullPiecesLicensingStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PiecesLicensingStatus), nil
+}
+
+func (e PiecesLicensingStatus) Valid() bool {
+	switch e {
+	case PiecesLicensingStatusKnown,
+		PiecesLicensingStatusUnknown:
+		return true
+	}
+	return false
 }
 
 type RevisionsEntityType string
@@ -1290,6 +1632,18 @@ func (ns NullRevisionsEntityType) Value() (driver.Value, error) {
 	return string(ns.RevisionsEntityType), nil
 }
 
+func (e RevisionsEntityType) Valid() bool {
+	switch e {
+	case RevisionsEntityTypePiece,
+		RevisionsEntityTypePerson,
+		RevisionsEntityTypeTerm,
+		RevisionsEntityTypeCollection,
+		RevisionsEntityTypeEvent:
+		return true
+	}
+	return false
+}
+
 type RevisionsSource string
 
 const (
@@ -1331,6 +1685,16 @@ func (ns NullRevisionsSource) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.RevisionsSource), nil
+}
+
+func (e RevisionsSource) Valid() bool {
+	switch e {
+	case RevisionsSourceUser,
+		RevisionsSourceImport,
+		RevisionsSourceMcp:
+		return true
+	}
+	return false
 }
 
 type RevisionsStatus string
@@ -1376,6 +1740,18 @@ func (ns NullRevisionsStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.RevisionsStatus), nil
+}
+
+func (e RevisionsStatus) Valid() bool {
+	switch e {
+	case RevisionsStatusDraft,
+		RevisionsStatusPending,
+		RevisionsStatusApproved,
+		RevisionsStatusRejected,
+		RevisionsStatusWithdrawn:
+		return true
+	}
+	return false
 }
 
 type TermsFacet string
@@ -1427,6 +1803,22 @@ func (ns NullTermsFacet) Value() (driver.Value, error) {
 	return string(ns.TermsFacet), nil
 }
 
+func (e TermsFacet) Valid() bool {
+	switch e {
+	case TermsFacetMood,
+		TermsFacetTopic,
+		TermsFacetCulture,
+		TermsFacetLanguage,
+		TermsFacetLegendaria,
+		TermsFacetForm,
+		TermsFacetOrigin,
+		TermsFacetOther,
+		TermsFacetAffiliation:
+		return true
+	}
+	return false
+}
+
 type UsersRole string
 
 const (
@@ -1467,6 +1859,15 @@ func (ns NullUsersRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.UsersRole), nil
+}
+
+func (e UsersRole) Valid() bool {
+	switch e {
+	case UsersRoleContributor,
+		UsersRoleModerator:
+		return true
+	}
+	return false
 }
 
 type ApiToken struct {

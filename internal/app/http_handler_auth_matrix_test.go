@@ -179,6 +179,26 @@ const blockTargetID = "google-oauth2|123"
 
 const revokeTargetID = "6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55"
 
+// matrixSlug is the slug of the piece and person the catalogue operations read.
+const matrixSlug = "the-copper-kettle"
+
+// matrixPiece and matrixPerson are what the catalogue operations read: the least a valid response needs.
+var (
+	matrixPiece = domain.Piece{
+		PieceSummary: domain.PieceSummary{
+			Slug: matrixSlug, Title: "The Copper Kettle", Kind: domain.PieceKindSong,
+			ConservationStatus: domain.ConservationStatusUnassessed,
+		},
+		LicensingStatus: domain.LicensingStatusUnknown,
+	}
+	matrixPerson = domain.Person{
+		PersonSummary: domain.PersonSummary{
+			Slug: matrixSlug, Name: "Wren of the Vale", Kind: domain.PersonKindCommunityBard, IsStub: true,
+		},
+		Status: domain.PersonStatusPrefersNoPage,
+	}
+)
+
 // authMatrix is the access every operation in the OpenAPI spec requires. TestRouter_AuthMatrix fails for an
 // operation without a row, so each new endpoint adds one here.
 var authMatrix = map[openapitest.Operation]matrixRow{
@@ -240,6 +260,22 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 		successStatus: http.StatusNoContent,
 		expectSuccess: func(m handlerMocks, userID string) {
 			m.revoker.EXPECT().RevokeAPIToken(mock.Anything, userID, revokeTargetID, handlerNow).Return(nil)
+		},
+	},
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: {
+		access:        public,
+		pathParams:    map[string]string{"slug": matrixSlug},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.pieces.EXPECT().GetPublicPiece(mock.Anything, matrixSlug).Return(matrixPiece, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}"}: {
+		access:        public,
+		pathParams:    map[string]string{"slug": matrixSlug},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.persons.EXPECT().GetPublicPerson(mock.Anything, matrixSlug).Return(matrixPerson, nil)
 		},
 	},
 }

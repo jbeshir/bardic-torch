@@ -78,6 +78,8 @@ func repositoryHTTPDependencies(repository *mysql.Repository, authValidators []r
 		ActiveAPITokenCounter: repository,
 		ActiveAPITokenLister:  repository,
 		APITokenRevoker:       repository,
+		PublicPieceGetter:     repository,
+		PublicPersonGetter:    repository,
 		Now:                   now,
 	}
 }

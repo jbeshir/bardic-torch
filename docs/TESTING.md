@@ -114,6 +114,20 @@ through the helper, so the command's name rules are checked against the spec's `
   operation to its access and a request that succeeds when allowed. The list of operations comes from the spec,
   so a new operation without a row fails the test.
 
+  `public` operations (the health checks and every catalogue read) are registered on the root router, outside
+  the `/v1` auth middleware, so they answer any credentials, even invalid, unverifiable or a blocked user's, as
+  they would an anonymous request, and never look a user up.
+- `TestHTTP_LeakMatrix` (`internal/app/leak_matrix_integration_test.go`, integration) sends requests to every
+  public catalogue read through the production handler over a real repository holding a shared fixture of
+  hidden data: a hidden legal alias, a `prefers_no_page` person with notes, aliases, roles, an affiliation,
+  relations, credits, performances and a link, a hidden link, unapproved pieces, persons, terms, collections and
+  events referred to by public ones, and never-exposed system fields (legacy titles, claims, normalized URLs).
+  Every marked string contains `leakmark`, and each raw response body must not contain it (case-insensitively),
+  except for the strings a request lists in `reveals` (the no-page person's identity on their own page). Each
+  response also goes through the contract helper. `leakMatrix` maps each operation to its requests, and
+  `leakExempt` lists, with a reason, the operations that read no catalogue data. Every spec operation must be in
+  exactly one of them, and a public `/v1` GET cannot be exempt, so a new catalogue read fails until it has a row.
+
 ### Integration tests (`//go:build integration`)
 
 Run against real MySQL 8.4 by the `test-integration*` targets:
@@ -172,6 +186,8 @@ field or system-owned, with a reason. A new column, document field or table fail
 3. **Auth matrix**: add a row to `authMatrix` with the operation's `access` and a successful request (path
    parameters, body, success status, mock expectations). `TestRouter_AuthMatrix` fails until you do. A new
    authorisation rule gets a new `access` table listing every principal.
+   A public catalogue read (`security: []`, registered on the root router like the existing ones) also needs a
+   `leakMatrix` row whose requests reach every list it shows; any other operation goes in `leakExempt`.
 4. **Per-status tests**: a contract-validated controller test case for every documented status the controller
    produces (`Serve`, or `ServeResponseOnly` for deliberately invalid requests). Middleware statuses (401, 403,
    500 from a failed credential check or user lookup) are covered by the matrix.

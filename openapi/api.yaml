@@ -41,6 +41,8 @@ tags:
     description: Actions reserved for moderators
   - name: API tokens
     description: Personal API tokens for programmatic access
+  - name: Catalogue
+    description: Public reads of the catalogue of pieces, persons and the terms that classify them
 
 paths:
   /healthz:
@@ -347,6 +349,132 @@ paths:
         "500":
           $ref: "#/components/responses/Internal"
 
+  /v1/pieces/{slug}:
+    get:
+      tags:
+        - Catalogue
+      summary: Get a piece
+      description: |
+        Returns a public piece with everything its page shows: classification, credits, relations, links with
+        their recorded performances, and conservation history. References to entities that are not public are
+        left out: unapproved terms, collections and events, and credits to and performers who are unapproved or
+        prefer not to have a page. Hidden links never appear. An unapproved piece is not found, exactly like an
+        unknown one. Credentials are ignored.
+      operationId: getPiece
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The piece.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Piece"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "404":
+          description: No public piece has this slug; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: piece not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/persons/{slug}:
+    get:
+      tags:
+        - Catalogue
+      summary: Get a person
+      description: |
+        Returns a public person. A person who prefers not to have a page is shown by identity only: name, kind,
+        status and its source, with `is_stub` true and `profile` null. Otherwise the profile has their public
+        aliases (hidden aliases never appear), roles, affiliations, relations to other public persons, links,
+        works and performances. Works and performances are capped at 200 each, with totals. An unapproved person
+        is not found, exactly like an unknown one. Credentials are ignored.
+      operationId: getPerson
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The person.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+              examples:
+                profile:
+                  summary: A person with a page
+                  value:
+                    slug: wren-of-the-vale
+                    name: Wren of the Vale
+                    kind: community_bard
+                    is_stub: false
+                    status: active
+                    status_date: null
+                    status_source_url: null
+                    profile:
+                      pronouns: she/her
+                      notes_md: A bard of the northern marches.
+                      licensing_status: known
+                      licensing_notes_md: Happy for her songs to be sung anywhere.
+                      aliases:
+                        - name: Wren
+                          kind: nickname
+                      roles:
+                        - singer
+                        - songwriter
+                      affiliations:
+                        - slug: northmarch
+                          facet: affiliation
+                          display_name: Northmarch
+                      relations: []
+                      links: []
+                      works:
+                        - piece:
+                            slug: the-copper-kettle
+                            title: The Copper Kettle
+                            kind: song
+                            secondary_kinds: []
+                            conservation_status: low_risk
+                            is_stub: false
+                          role: lyrics
+                          certainty: certain
+                          part: null
+                      works_total: 1
+                      performances: []
+                      performances_total: 0
+                noPage:
+                  summary: A person who prefers not to have a page
+                  value:
+                    slug: hollis-fenn
+                    name: Hollis Fenn
+                    kind: community_bard
+                    is_stub: true
+                    status: prefers_no_page
+                    status_date: "2026-03-01"
+                    status_source_url: https://example.org/requests/12
+                    profile: null
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "404":
+          description: No public person has this slug; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: person not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+
 components:
   securitySchemes:
     auth0Bearer:
@@ -360,6 +488,20 @@ components:
       description: |
         A personal API token, prefixed with `user_api|`: `Authorization: Bearer user_api|<token>`.
 
+  parameters:
+    Slug:
+      name: slug
+      in: path
+      required: true
+      description: |
+        The entity's slug: runs of lowercase ASCII letters and digits joined by single hyphens, at most 191
+        characters.
+      schema:
+        type: string
+        pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+        maxLength: 191
+        examples:
+          - the-copper-kettle
 
   responses:
     InvalidRequest:
@@ -372,6 +514,16 @@ components:
           example:
             code: invalid_request
             message: request body has an unknown field
+    InvalidSlug:
+      description: |
+        The slug is not a valid slug; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid slug: must be lowercase ASCII letters and digits, in runs joined by single hyphens, at most 191 characters"
     Unauthenticated:
       description: |
         The request has no recognised credentials, or its credentials are invalid, expired or revoked; the error
@@ -712,3 +864,1070 @@ components:
               name: CI runner
               created_at: "2026-10-31T12:00:00Z"
               last_used_at: "2026-10-31T12:30:00Z"
+
+    PieceSummary:
+      type: object
+      description: A public piece, as other entities refer to it.
+      additionalProperties: false
+      required: [slug, title, kind, secondary_kinds, conservation_status, is_stub]
+      properties:
+        slug:
+          type: string
+          description: The piece's address.
+          examples:
+            - the-copper-kettle
+        title:
+          type: string
+          examples:
+            - The Copper Kettle
+        kind:
+          $ref: "#/components/schemas/PieceKind"
+        secondary_kinds:
+          type: array
+          description: Further kinds the piece also is, in the enum's order.
+          items:
+            $ref: "#/components/schemas/PieceKind"
+        conservation_status:
+          $ref: "#/components/schemas/ConservationStatus"
+        is_stub:
+          type: boolean
+          description: Whether the piece's page is only a stub that needs filling in.
+          examples:
+            - false
+      examples:
+        - slug: the-copper-kettle
+          title: The Copper Kettle
+          kind: song
+          secondary_kinds: [dance_music]
+          conservation_status: endangered
+          is_stub: false
+
+    PersonSummary:
+      type: object
+      description: |
+        A public person, as other entities refer to them. Persons who prefer not to have a page are never
+        referred to; where they are listed, `is_stub` is true.
+      additionalProperties: false
+      required: [slug, name, kind, is_stub]
+      properties:
+        slug:
+          type: string
+          description: The person's address.
+          examples:
+            - wren-of-the-vale
+        name:
+          type: string
+          examples:
+            - Wren of the Vale
+        kind:
+          $ref: "#/components/schemas/PersonKind"
+        is_stub:
+          type: boolean
+          description: Whether the person's page is only a stub.
+          examples:
+            - false
+      examples:
+        - slug: wren-of-the-vale
+          name: Wren of the Vale
+          kind: community_bard
+          is_stub: false
+
+    TermSummary:
+      type: object
+      description: A public term, as other entities refer to it.
+      additionalProperties: false
+      required: [slug, facet, display_name]
+      properties:
+        slug:
+          type: string
+          description: The term's address.
+          examples:
+            - war
+        facet:
+          $ref: "#/components/schemas/Facet"
+        display_name:
+          type: string
+          description: The term's name, without any disambiguation suffix.
+          examples:
+            - War
+      examples:
+        - slug: war
+          facet: topic
+          display_name: War
+
+    CollectionRef:
+      type: object
+      description: A public collection, as other entities refer to it. Collections are addressed by ID.
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          examples:
+            - 12
+        name:
+          type: string
+          examples:
+            - The Northmarch Songbook
+      examples:
+        - id: 12
+          name: The Northmarch Songbook
+
+    EventSummary:
+      type: object
+      description: A public event or venue, as other entities refer to it.
+      additionalProperties: false
+      required: [slug, name, kind]
+      properties:
+        slug:
+          type: string
+          description: The event's address.
+          examples:
+            - midwinter-revel
+        name:
+          type: string
+          examples:
+            - Midwinter Revel
+        kind:
+          $ref: "#/components/schemas/EventKind"
+      examples:
+        - slug: midwinter-revel
+          name: Midwinter Revel
+          kind: event
+
+    Piece:
+      type: object
+      description: A public piece's page.
+      additionalProperties: false
+      required:
+        - slug
+        - title
+        - kind
+        - secondary_kinds
+        - conservation_status
+        - is_stub
+        - notes_md
+        - version_notes_md
+        - licensing_status
+        - licensing_notes_md
+        - licence
+        - historical_source_md
+        - period_start
+        - period_end
+        - aliases
+        - terms
+        - credits
+        - relations
+        - links
+        - conservation_history
+      properties:
+        slug:
+          $ref: "#/components/schemas/PieceSummary/properties/slug"
+        title:
+          $ref: "#/components/schemas/PieceSummary/properties/title"
+        kind:
+          $ref: "#/components/schemas/PieceKind"
+        secondary_kinds:
+          $ref: "#/components/schemas/PieceSummary/properties/secondary_kinds"
+        conservation_status:
+          $ref: "#/components/schemas/ConservationStatus"
+        is_stub:
+          $ref: "#/components/schemas/PieceSummary/properties/is_stub"
+        notes_md:
+          type: [string, "null"]
+          description: Notes about the piece, in Markdown.
+          examples:
+            - A drinking song from the northern marches.
+        version_notes_md:
+          type: [string, "null"]
+          description: Notes on the piece's versions, in Markdown.
+          examples:
+            - The second verse is often left out.
+        licensing_status:
+          $ref: "#/components/schemas/LicensingStatus"
+        licensing_notes_md:
+          type: [string, "null"]
+          description: Notes on the piece's licensing, in Markdown.
+          examples:
+            - Free to perform with credit.
+        licence:
+          oneOf:
+            - $ref: "#/components/schemas/Licence"
+            - type: "null"
+        historical_source_md:
+          type: [string, "null"]
+          description: The historical source of the piece, in Markdown.
+          examples:
+            - A broadside of about 1590.
+        period_start:
+          type: [integer, "null"]
+          description: The first year of the period the piece dates from.
+          examples:
+            - 1580
+        period_end:
+          type: [integer, "null"]
+          description: The last year of the period the piece dates from.
+          examples:
+            - 1600
+        aliases:
+          type: array
+          description: Other titles of the piece.
+          items:
+            $ref: "#/components/schemas/PieceAlias"
+        terms:
+          type: array
+          description: The public terms the piece is classified with, by facet in the enum's order, then position.
+          items:
+            $ref: "#/components/schemas/PieceTerm"
+        credits:
+          type: array
+          description: |
+            The piece's credits, in order. A credit to a person who is not public or prefers not to have a page is
+            left out entirely.
+          items:
+            $ref: "#/components/schemas/PieceCredit"
+        relations:
+          type: array
+          description: |
+            Relations to other public pieces: the outgoing ones, then the incoming ones, each by type and title.
+          items:
+            $ref: "#/components/schemas/PieceRelation"
+        links:
+          type: array
+          description: |
+            The piece's visible links, each once with all its roles, in order. The list is not capped: links are
+            curated per piece.
+          items:
+            $ref: "#/components/schemas/PieceLink"
+        conservation_history:
+          type: array
+          description: The piece's conservation status changes, oldest first.
+          items:
+            $ref: "#/components/schemas/ConservationChange"
+      examples:
+        - slug: the-copper-kettle
+          title: The Copper Kettle
+          kind: song
+          secondary_kinds: []
+          conservation_status: endangered
+          is_stub: false
+          notes_md: A drinking song from the northern marches.
+          version_notes_md: null
+          licensing_status: known
+          licensing_notes_md: Free to perform with credit.
+          licence: cc_by_sa
+          historical_source_md: null
+          period_start: null
+          period_end: null
+          aliases:
+            - text: Kettle Song
+              kind: nickname
+          terms:
+            - term:
+                slug: drinking
+                facet: topic
+                display_name: Drinking
+              is_primary: true
+              part: null
+          credits:
+            - role: lyrics
+              attribution: named
+              certainty: certain
+              part: null
+              note: null
+              person:
+                slug: wren-of-the-vale
+                name: Wren of the Vale
+                kind: community_bard
+                is_stub: false
+            - role: tune
+              attribution: traditional
+              certainty: probable
+              part: null
+              note: An old reel.
+              person: null
+          relations: []
+          links:
+            - url: https://video.example.org/watch/kettle
+              title: The Copper Kettle at Midwinter Revel
+              description: null
+              platform: video.example.org
+              place_type: recording_platform
+              collection: null
+              locator: null
+              liveness: ok
+              last_checked_at: "2026-10-01T09:00:00Z"
+              archived_url: null
+              roles: [performance]
+              performances:
+                - year: 2025
+                  uploader: Northmarch Bards
+                  description_verbatim: Sung by Wren at Midwinter Revel 2025
+                  event:
+                    slug: midwinter-revel
+                    name: Midwinter Revel
+                    kind: event
+                  performers:
+                    - slug: wren-of-the-vale
+                      name: Wren of the Vale
+                      kind: community_bard
+                      is_stub: false
+          conservation_history:
+            - conservation_status: endangered
+              reason: Known to only a few singers.
+              source_url: null
+              at: "2026-01-01T00:00:00Z"
+
+    PieceAlias:
+      type: object
+      description: Another title of a piece.
+      additionalProperties: false
+      required: [text, kind]
+      properties:
+        text:
+          type: string
+          examples:
+            - Kettle Song
+        kind:
+          $ref: "#/components/schemas/PieceAliasKind"
+      examples:
+        - text: Kettle Song
+          kind: nickname
+
+    PieceTerm:
+      type: object
+      description: A term a piece is classified with.
+      additionalProperties: false
+      required: [term, is_primary, part]
+      properties:
+        term:
+          $ref: "#/components/schemas/TermSummary"
+        is_primary:
+          type: boolean
+          description: Whether this is the piece's primary term in its facet.
+          examples:
+            - true
+        part:
+          description: The part of the piece the term applies to, or null for the whole piece.
+          oneOf:
+            - $ref: "#/components/schemas/PiecePart"
+            - type: "null"
+      examples:
+        - term:
+            slug: drinking
+            facet: topic
+            display_name: Drinking
+          is_primary: true
+          part: null
+
+    PieceCredit:
+      type: object
+      description: A credit of a piece. `person` is set exactly when `attribution` is `named`.
+      additionalProperties: false
+      required: [role, attribution, certainty, part, note, person]
+      properties:
+        role:
+          $ref: "#/components/schemas/CreditRole"
+        attribution:
+          $ref: "#/components/schemas/Attribution"
+        certainty:
+          $ref: "#/components/schemas/Certainty"
+        part:
+          description: The part of the piece credited, or null for the whole of the role.
+          oneOf:
+            - $ref: "#/components/schemas/PiecePart"
+            - type: "null"
+        note:
+          type: [string, "null"]
+          description: A note on the credit.
+          examples:
+            - Words adapted from an older ballad.
+        person:
+          description: The person credited, for a named credit.
+          oneOf:
+            - $ref: "#/components/schemas/PersonSummary"
+            - type: "null"
+      examples:
+        - role: lyrics
+          attribution: named
+          certainty: certain
+          part: null
+          note: null
+          person:
+            slug: wren-of-the-vale
+            name: Wren of the Vale
+            kind: community_bard
+            is_stub: false
+
+    PieceRelation:
+      type: object
+      description: A relation between the piece shown and another public piece.
+      additionalProperties: false
+      required: [type, direction, piece]
+      properties:
+        type:
+          $ref: "#/components/schemas/PieceRelationType"
+        direction:
+          $ref: "#/components/schemas/RelationDirection"
+        piece:
+          $ref: "#/components/schemas/PieceSummary"
+      examples:
+        - type: variant_of
+          direction: outgoing
+          piece:
+            slug: the-brass-kettle
+            title: The Brass Kettle
+            kind: song
+            secondary_kinds: []
+            conservation_status: low_risk
+            is_stub: false
+
+    PersonLink:
+      type: object
+      description: A visible link attached to a person, once with all its roles.
+      additionalProperties: false
+      required:
+        - url
+        - title
+        - description
+        - platform
+        - place_type
+        - collection
+        - locator
+        - liveness
+        - last_checked_at
+        - archived_url
+        - roles
+      properties:
+        url:
+          type: string
+          description: The link's URL, as entered.
+          examples:
+            - https://example.org/wren
+        title:
+          type: [string, "null"]
+          examples:
+            - Wren's songs
+        description:
+          type: [string, "null"]
+          examples:
+            - Recordings and lyrics.
+        platform:
+          type: [string, "null"]
+          description: The site the link is on.
+          examples:
+            - example.org
+        place_type:
+          oneOf:
+            - $ref: "#/components/schemas/LinkPlaceType"
+            - type: "null"
+        collection:
+          description: The public collection the link belongs to.
+          oneOf:
+            - $ref: "#/components/schemas/CollectionRef"
+            - type: "null"
+        locator:
+          type: [string, "null"]
+          description: Where in the collection the linked item is, such as a page number.
+          examples:
+            - p. 12
+        liveness:
+          $ref: "#/components/schemas/Liveness"
+        last_checked_at:
+          type: [string, "null"]
+          format: date-time
+          description: When the link was last checked, or null if it never has been.
+          examples:
+            - "2026-10-01T09:00:00Z"
+        archived_url:
+          type: [string, "null"]
+          description: An archived copy of the linked page.
+          examples:
+            - https://archive.example.org/2026/https://example.org/wren
+        roles:
+          type: array
+          description: What the link offers, in attachment order.
+          items:
+            $ref: "#/components/schemas/LinkRole"
+      examples:
+        - url: https://example.org/wren
+          title: Wren's songs
+          description: null
+          platform: example.org
+          place_type: author_site
+          collection: null
+          locator: null
+          liveness: ok
+          last_checked_at: "2026-10-01T09:00:00Z"
+          archived_url: null
+          roles: [website]
+
+    PieceLink:
+      type: object
+      description: A visible link attached to a piece, once with all its roles, with the performances it records.
+      additionalProperties: false
+      required:
+        - url
+        - title
+        - description
+        - platform
+        - place_type
+        - collection
+        - locator
+        - liveness
+        - last_checked_at
+        - archived_url
+        - roles
+        - performances
+      properties:
+        url:
+          $ref: "#/components/schemas/PersonLink/properties/url"
+        title:
+          $ref: "#/components/schemas/PersonLink/properties/title"
+        description:
+          $ref: "#/components/schemas/PersonLink/properties/description"
+        platform:
+          $ref: "#/components/schemas/PersonLink/properties/platform"
+        place_type:
+          $ref: "#/components/schemas/PersonLink/properties/place_type"
+        collection:
+          $ref: "#/components/schemas/PersonLink/properties/collection"
+        locator:
+          $ref: "#/components/schemas/PersonLink/properties/locator"
+        liveness:
+          $ref: "#/components/schemas/Liveness"
+        last_checked_at:
+          $ref: "#/components/schemas/PersonLink/properties/last_checked_at"
+        archived_url:
+          $ref: "#/components/schemas/PersonLink/properties/archived_url"
+        roles:
+          $ref: "#/components/schemas/PersonLink/properties/roles"
+        performances:
+          type: array
+          description: The performances of the piece the link records.
+          items:
+            $ref: "#/components/schemas/PiecePerformance"
+      examples:
+        - url: https://example.org/kettle/lyrics
+          title: The Copper Kettle
+          description: null
+          platform: example.org
+          place_type: community_archive
+          collection:
+            id: 12
+            name: The Northmarch Songbook
+          locator: p. 12
+          liveness: ok
+          last_checked_at: null
+          archived_url: null
+          roles: [lyrics, sheet_music]
+          performances: []
+
+    PiecePerformance:
+      type: object
+      description: |
+        A recorded performance of a piece. Performers who are not public or prefer not to have a page are left
+        out.
+      additionalProperties: false
+      required: [year, uploader, description_verbatim, event, performers]
+      properties:
+        year:
+          type: [integer, "null"]
+          description: The year of the performance.
+          examples:
+            - 2025
+        uploader:
+          type: [string, "null"]
+          description: Who uploaded the recording.
+          examples:
+            - Northmarch Bards
+        description_verbatim:
+          type: string
+          description: The performance's description as originally recorded.
+          examples:
+            - Sung by Wren at Midwinter Revel 2025
+        event:
+          description: The public event the performance was at.
+          oneOf:
+            - $ref: "#/components/schemas/EventSummary"
+            - type: "null"
+        performers:
+          type: array
+          description: The performers, in order.
+          items:
+            $ref: "#/components/schemas/PersonSummary"
+      examples:
+        - year: 2025
+          uploader: null
+          description_verbatim: Sung by Wren at Midwinter Revel 2025
+          event: null
+          performers: []
+
+    ConservationChange:
+      type: object
+      description: A change of a piece's conservation status.
+      additionalProperties: false
+      required: [conservation_status, reason, source_url, at]
+      properties:
+        conservation_status:
+          $ref: "#/components/schemas/ConservationStatus"
+        reason:
+          type: string
+          description: Why the status changed.
+          examples:
+            - Known to only a few singers.
+        source_url:
+          type: [string, "null"]
+          description: The source of the assessment.
+          examples:
+            - https://example.org/assessments/kettle
+        at:
+          type: string
+          format: date-time
+          description: When the status changed.
+          examples:
+            - "2026-01-01T00:00:00Z"
+      examples:
+        - conservation_status: endangered
+          reason: Known to only a few singers.
+          source_url: null
+          at: "2026-01-01T00:00:00Z"
+
+    Person:
+      type: object
+      description: |
+        A public person. `profile` is null exactly when the person prefers not to have a page; `is_stub` is then
+        true.
+      additionalProperties: false
+      required: [slug, name, kind, is_stub, status, status_date, status_source_url, profile]
+      properties:
+        slug:
+          $ref: "#/components/schemas/PersonSummary/properties/slug"
+        name:
+          $ref: "#/components/schemas/PersonSummary/properties/name"
+        kind:
+          $ref: "#/components/schemas/PersonKind"
+        is_stub:
+          $ref: "#/components/schemas/PersonSummary/properties/is_stub"
+        status:
+          $ref: "#/components/schemas/PersonStatus"
+        status_date:
+          type: [string, "null"]
+          format: date
+          description: When the status took effect.
+          examples:
+            - "2026-03-01"
+        status_source_url:
+          type: [string, "null"]
+          description: The source of the status.
+          examples:
+            - https://example.org/requests/12
+        profile:
+          description: Everything the person's page shows beyond their identity.
+          oneOf:
+            - $ref: "#/components/schemas/PersonProfile"
+            - type: "null"
+      examples:
+        - slug: hollis-fenn
+          name: Hollis Fenn
+          kind: community_bard
+          is_stub: true
+          status: prefers_no_page
+          status_date: "2026-03-01"
+          status_source_url: https://example.org/requests/12
+          profile: null
+
+    PersonProfile:
+      type: object
+      description: Everything a person's page shows beyond their identity.
+      additionalProperties: false
+      required:
+        - pronouns
+        - notes_md
+        - licensing_status
+        - licensing_notes_md
+        - aliases
+        - roles
+        - affiliations
+        - relations
+        - links
+        - works
+        - works_total
+        - performances
+        - performances_total
+      properties:
+        pronouns:
+          type: [string, "null"]
+          examples:
+            - she/her
+        notes_md:
+          type: [string, "null"]
+          description: Notes about the person, in Markdown.
+          examples:
+            - A bard of the northern marches.
+        licensing_status:
+          $ref: "#/components/schemas/LicensingStatus"
+        licensing_notes_md:
+          type: [string, "null"]
+          description: How the person's works are licensed, in Markdown.
+          examples:
+            - Happy for her songs to be sung anywhere.
+        aliases:
+          type: array
+          description: The person's public aliases. Hidden aliases never appear.
+          items:
+            $ref: "#/components/schemas/PersonAlias"
+        roles:
+          type: array
+          description: What the person does, in the enum's order.
+          items:
+            $ref: "#/components/schemas/PersonRole"
+        affiliations:
+          type: array
+          description: The public affiliation terms of the person, by position, then name.
+          items:
+            $ref: "#/components/schemas/TermSummary"
+        relations:
+          type: array
+          description: |
+            Relations to other public persons who do not prefer no page: the outgoing ones, then the incoming
+            ones, each by type and name.
+          items:
+            $ref: "#/components/schemas/PersonRelation"
+        links:
+          type: array
+          description: The person's visible links, each once with all its roles, in order.
+          items:
+            $ref: "#/components/schemas/PersonLink"
+        works:
+          type: array
+          description: The person's credits on public pieces, by piece title; at most 200.
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/PersonWork"
+        works_total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many credits the person has on public pieces.
+          examples:
+            - 1
+        performances:
+          type: array
+          description: |
+            Performances the person performs in, or that links attached to them record, newest year first and
+            unknown years last; at most 200. A performance of a piece that is not public is left out.
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/PersonPerformance"
+        performances_total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many performances there are in all.
+          examples:
+            - 0
+      examples:
+        - pronouns: null
+          notes_md: null
+          licensing_status: unknown
+          licensing_notes_md: null
+          aliases: []
+          roles: [singer]
+          affiliations: []
+          relations: []
+          links: []
+          works: []
+          works_total: 0
+          performances: []
+          performances_total: 0
+
+    PersonAlias:
+      type: object
+      description: Another public name of a person.
+      additionalProperties: false
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+          examples:
+            - Wren
+        kind:
+          $ref: "#/components/schemas/PersonAliasKind"
+      examples:
+        - name: Wren
+          kind: nickname
+
+    PersonRelation:
+      type: object
+      description: A relation between the person shown and another public person.
+      additionalProperties: false
+      required: [type, direction, person]
+      properties:
+        type:
+          $ref: "#/components/schemas/PersonRelationType"
+        direction:
+          $ref: "#/components/schemas/RelationDirection"
+        person:
+          $ref: "#/components/schemas/PersonSummary"
+      examples:
+        - type: member_of
+          direction: outgoing
+          person:
+            slug: northmarch-bards
+            name: Northmarch Bards
+            kind: group
+            is_stub: false
+
+    PersonWork:
+      type: object
+      description: A person's credit on a public piece. Its attribution is always named.
+      additionalProperties: false
+      required: [piece, role, certainty, part]
+      properties:
+        piece:
+          $ref: "#/components/schemas/PieceSummary"
+        role:
+          $ref: "#/components/schemas/CreditRole"
+        certainty:
+          $ref: "#/components/schemas/Certainty"
+        part:
+          $ref: "#/components/schemas/PieceCredit/properties/part"
+      examples:
+        - piece:
+            slug: the-copper-kettle
+            title: The Copper Kettle
+            kind: song
+            secondary_kinds: []
+            conservation_status: endangered
+            is_stub: false
+          role: lyrics
+          certainty: certain
+          part: null
+
+    PersonPerformance:
+      type: object
+      description: A performance on a person's page.
+      additionalProperties: false
+      required: [piece, link, year, event, description_verbatim]
+      properties:
+        piece:
+          description: The public piece performed, or null for a performance of no particular piece.
+          oneOf:
+            - $ref: "#/components/schemas/PieceSummary"
+            - type: "null"
+        link:
+          $ref: "#/components/schemas/PerformanceLink"
+        year:
+          $ref: "#/components/schemas/PiecePerformance/properties/year"
+        event:
+          $ref: "#/components/schemas/PiecePerformance/properties/event"
+        description_verbatim:
+          $ref: "#/components/schemas/PiecePerformance/properties/description_verbatim"
+      examples:
+        - piece: null
+          link:
+            url: https://video.example.org/watch/revel
+            title: Midwinter Revel 2025
+            platform: video.example.org
+          year: 2025
+          event: null
+          description_verbatim: Wren opens the evening
+
+    PerformanceLink:
+      type: object
+      description: The link recording a performance.
+      additionalProperties: false
+      required: [url, title, platform]
+      properties:
+        url:
+          $ref: "#/components/schemas/PersonLink/properties/url"
+        title:
+          $ref: "#/components/schemas/PersonLink/properties/title"
+        platform:
+          $ref: "#/components/schemas/PersonLink/properties/platform"
+      examples:
+        - url: https://video.example.org/watch/revel
+          title: Midwinter Revel 2025
+          platform: video.example.org
+
+    PieceKind:
+      type: string
+      description: What sort of piece a piece is.
+      enum: [song, poem, story, dance_music, instrumental, comedy]
+      examples:
+        - song
+
+    ConservationStatus:
+      type: string
+      description: |
+        How at risk a piece is of being lost. `restricted` overrides every other status and means the piece
+        should not be spread further.
+      enum: [unassessed, low_risk, endangered, critically_endangered, restricted]
+      examples:
+        - endangered
+
+    PersonKind:
+      type: string
+      description: What sort of person a person is.
+      enum: [community_bard, historical, group]
+      examples:
+        - community_bard
+
+    PersonStatus:
+      type: string
+      description: |
+        A person's status. A person who `prefers_no_page` is shown by identity only.
+      enum: [active, deceased, prefers_no_page]
+      examples:
+        - active
+
+    Facet:
+      type: string
+      description: |
+        The dimension a term classifies along. `affiliation` terms classify persons; the others classify pieces.
+      enum: [mood, topic, culture, language, legendaria, form, origin, other, affiliation]
+      examples:
+        - topic
+
+    EventKind:
+      type: string
+      description: Whether an event is a venue or a one-off event.
+      enum: [venue, event]
+      examples:
+        - event
+
+    LicensingStatus:
+      type: string
+      description: Whether the licensing is known.
+      enum: [known, unknown]
+      examples:
+        - known
+
+    Licence:
+      type: string
+      description: |
+        The licence a piece is published under: public domain, a Creative Commons licence, all rights reserved
+        or another licence.
+      enum: [pd, cc_by, cc_by_sa, cc_by_nc, cc_by_nc_sa, cc_by_nd, cc_by_nc_nd, arr, other]
+      examples:
+        - cc_by_sa
+
+    PieceAliasKind:
+      type: string
+      description: What sort of alternative title an alias is.
+      enum: [alt_title, nickname, subtitle, redirect]
+      examples:
+        - alt_title
+
+    PersonAliasKind:
+      type: string
+      description: What sort of name an alias is.
+      enum: [legal, sca, stage, nickname, former, redirect]
+      examples:
+        - stage
+
+    PiecePart:
+      type: string
+      description: The part of a piece a term or credit applies to.
+      enum: [words, tune, verses, chorus]
+      examples:
+        - tune
+
+    CreditRole:
+      type: string
+      description: What a credit credits.
+      enum: [lyrics, tune, author, choreography, music, arrangement, translation]
+      examples:
+        - lyrics
+
+    Attribution:
+      type: string
+      description: Who a credit is attributed to. Only a `named` credit has a person.
+      enum: [named, traditional, unknown, anonymous, various]
+      examples:
+        - named
+
+    Certainty:
+      type: string
+      description: How certain a credit is.
+      enum: [certain, probable, possible, disputed]
+      examples:
+        - certain
+
+    PieceRelationType:
+      type: string
+      description: How one piece relates to another, read from the relation's source to its target.
+      enum: [variant_of, contrafactum_of, setting_of, same_text_other_form]
+      examples:
+        - variant_of
+
+    PersonRelationType:
+      type: string
+      description: How one person relates to another, read from the relation's source to its target.
+      enum: [heir_of, member_of, same_as]
+      examples:
+        - member_of
+
+    RelationDirection:
+      type: string
+      description: |
+        Which way a relation points: `outgoing` reads "this entity <type> the other", `incoming` reads "the other
+        <type> this entity".
+      enum: [outgoing, incoming]
+      examples:
+        - outgoing
+
+    PersonRole:
+      type: string
+      description: Something a person does.
+      enum: [singer, songwriter, musician, instrumentalist, storyteller, poet, jester, dancer]
+      examples:
+        - singer
+
+    LinkPlaceType:
+      type: string
+      description: What sort of place a link points to.
+      enum:
+        - recording_platform
+        - streaming
+        - author_site
+        - community_archive
+        - physical_archive
+        - book
+        - vendor
+        - author_contact
+        - oral_tradition
+        - other
+      examples:
+        - recording_platform
+
+    Liveness:
+      type: string
+      description: |
+        Whether a link worked when last checked: `unknown` if never checked, `blocked` if the site refused the
+        checker.
+      enum: [unknown, ok, dead, blocked]
+      examples:
+        - ok
+
+    LinkRole:
+      type: string
+      description: What a link offers about the piece or person it is attached to.
+      enum:
+        - official
+        - lyrics
+        - text
+        - sheet_music
+        - dance_instructions
+        - text_source
+        - translation
+        - performance
+        - licensing_source
+        - website
+        - external_profile
+        - other
+      examples:
+        - lyrics

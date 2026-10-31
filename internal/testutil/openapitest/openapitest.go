@@ -100,6 +100,18 @@ func (v *Validator) ServeResponseOnly(
 	return v.serve(t, handler, req, false)
 }
 
+// Public reports whether op is in the spec and documented as needing no authentication: its security is
+// explicitly empty (security: []).
+func (v *Validator) Public(op Operation) bool {
+	item := v.doc.Paths.Value(op.Path)
+	if item == nil {
+		return false
+	}
+	operation := item.GetOperation(op.Method)
+
+	return operation != nil && operation.Security != nil && len(*operation.Security) == 0
+}
+
 // Operations returns every operation in the spec, sorted by path and then method.
 func (v *Validator) Operations() []Operation {
 	var ops []Operation

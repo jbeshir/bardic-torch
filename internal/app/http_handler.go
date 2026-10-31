@@ -23,6 +23,8 @@ type HTTPDependencies struct {
 	ActiveAPITokenCounter datasources.ActiveAPITokenCounter
 	ActiveAPITokenLister  datasources.ActiveAPITokenLister
 	APITokenRevoker       datasources.APITokenRevoker
+	PublicPieceGetter     datasources.PublicPieceGetter
+	PublicPersonGetter    datasources.PublicPersonGetter
 	Now                   func() time.Time
 }
 
@@ -52,8 +54,10 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 			Creator: deps.APITokenCreator,
 			Now:     deps.Now,
 		},
-		APITokenLister:  deps.ActiveAPITokenLister,
-		APITokenRevoker: deps.APITokenRevoker,
-		Now:             deps.Now,
+		APITokenLister:     deps.ActiveAPITokenLister,
+		APITokenRevoker:    deps.APITokenRevoker,
+		PublicPieceGetter:  deps.PublicPieceGetter,
+		PublicPersonGetter: deps.PublicPersonGetter,
+		Now:                deps.Now,
 	})
 }

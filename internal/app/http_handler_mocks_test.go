@@ -59,6 +59,8 @@ type handlerMocks struct {
 	creator      *mocks.APITokenCreator
 	lister       *mocks.ActiveAPITokenLister
 	revoker      *mocks.APITokenRevoker
+	pieces       *mocks.PublicPieceGetter
+	persons      *mocks.PublicPersonGetter
 	handler      http.Handler
 	validate     *openapitest.Validator
 }
@@ -74,6 +76,8 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		creator:      mocks.NewAPITokenCreator(t),
 		lister:       mocks.NewActiveAPITokenLister(t),
 		revoker:      mocks.NewAPITokenRevoker(t),
+		pieces:       mocks.NewPublicPieceGetter(t),
+		persons:      mocks.NewPublicPersonGetter(t),
 		validate:     openapitest.New(t),
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
@@ -91,6 +95,8 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		ActiveAPITokenCounter: m.counter,
 		ActiveAPITokenLister:  m.lister,
 		APITokenRevoker:       m.revoker,
+		PublicPieceGetter:     m.pieces,
+		PublicPersonGetter:    m.persons,
 		Now: func() time.Time {
 			return handlerNow
 		},

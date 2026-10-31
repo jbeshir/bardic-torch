@@ -192,6 +192,10 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   contributors (`revision_contributors`).
 - **Preference profiles** (`person_preferences`, `piece_preferences`) exist as tables but are not exposed until BE5
   defines and validates their `value_json` shapes.
+- **Public reads ignore credentials.** The catalogue reads are served outside the authentication middleware, like
+  the health checks: invalid, expired or uncheckable credentials and blocked users get the same answer as an
+  anonymous request, and no user is looked up or created. A person's page lists the performances they perform in
+  and those recorded by links attached to them; a performance of a piece that is not public is left out.
 - **Status sources:** "a status other than active needs a source" is domain validation (BE4), not a CHECK. The
   importer uses the legacy wiki page URL as the source. `conservation_history` has a `source_url`.
 

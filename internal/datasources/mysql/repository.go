@@ -57,3 +57,17 @@ func timePtr(t sql.NullTime) *time.Time {
 	}
 	return &t.Time
 }
+
+func stringPtr(s sql.NullString) *string {
+	if !s.Valid {
+		return nil
+	}
+	return &s.String
+}
+
+func int16Ptr(n sql.NullInt16) *int16 {
+	if !n.Valid {
+		return nil
+	}
+	return &n.Int16
+}
