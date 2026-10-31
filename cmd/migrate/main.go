@@ -8,16 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
-	"github.com/jbeshir/bardic-torch/migrations"
 	"github.com/joho/godotenv"
 )
 
@@ -115,7 +112,7 @@ func up(m *migrate.Migrate, stdout io.Writer) error {
 		return fmt.Errorf("reading schema version: %w", versionErr)
 	}
 	if versionErr == nil && !dirty {
-		newest, err := newestMigrationVersion()
+		newest, err := mysql.NewestMigrationVersion()
 		if err != nil {
 			return err
 		}
@@ -132,30 +129,6 @@ func up(m *migrate.Migrate, stdout io.Writer) error {
 	}
 
 	return printVersion(m, stdout)
-}
-
-// newestMigrationVersion returns the highest version among the embedded migrations.
-func newestMigrationVersion() (uint, error) {
-	source, err := iofs.New(migrations.FS, ".")
-	if err != nil {
-		return 0, fmt.Errorf("reading embedded migrations: %w", err)
-	}
-	defer func() { _ = source.Close() }()
-
-	version, err := source.First()
-	if err != nil {
-		return 0, fmt.Errorf("reading first embedded migration: %w", err)
-	}
-	for {
-		next, err := source.Next(version)
-		if errors.Is(err, fs.ErrNotExist) {
-			return version, nil
-		}
-		if err != nil {
-			return 0, fmt.Errorf("reading embedded migration after version %d: %w", version, err)
-		}
-		version = next
-	}
 }
 
 func printVersion(m *migrate.Migrate, stdout io.Writer) error {

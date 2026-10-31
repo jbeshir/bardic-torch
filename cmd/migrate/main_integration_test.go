@@ -55,7 +55,7 @@ func TestMigrateRun_UpWithNewerSchemaIsNoChange(t *testing.T) {
 	t.Parallel()
 
 	databaseURL := mysqltest.NewDatabaseURL(t)
-	newest, err := newestMigrationVersion()
+	newest, err := mysql.NewestMigrationVersion()
 	require.NoError(t, err)
 	newer := newest + 1
 	setSchemaVersion(t, databaseURL, newer, false)
@@ -75,7 +75,7 @@ func TestMigrateRun_UpWithNewerSchemaIsNoChange(t *testing.T) {
 func TestMigrateRun_UpWithDirtySchemaFails(t *testing.T) {
 	t.Parallel()
 
-	newest, err := newestMigrationVersion()
+	newest, err := mysql.NewestMigrationVersion()
 	require.NoError(t, err)
 
 	for _, version := range []uint{newest, newest + 1} {
