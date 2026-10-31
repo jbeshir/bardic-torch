@@ -257,6 +257,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 - HTTP tests for every route, checking authentication, authorisation by role (anonymous, contributor, moderator, API token) and status codes, against the OpenAPI spec using kin-openapi response validation.
 - Importer golden tests (§7).
 - `make validate` covers the format check, lint (golangci pinned via `go tool`), vacuum OpenAPI lint, unit tests, build and the generated-code check (sqlc and mockery output up to date). docs/TESTING.md describes every target.
+- `make vulncheck` (govulncheck, pinned via `go tool`) runs as its own CI job on every push and pull request. It is outside `make validate` because it needs vuln.go.dev.
 
 **FE:**
 - vitest and testing-library component tests for every component, including both theme classes.

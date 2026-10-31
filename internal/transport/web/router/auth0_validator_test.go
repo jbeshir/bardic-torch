@@ -344,9 +344,22 @@ func TestAuth0Validator_UnavailableKeysAreNotInvalidCredentials(t *testing.T) {
 	claims["iss"] = unreachableIssuer.String()
 	identity, err := validateAuthorization(t, validate, "Bearer auth0|"+auth0test.Sign(t, issuer.Key, claims))
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, errSigningKeysUnavailable)
 	require.NotErrorIs(t, err, ErrInvalidCredentials)
 	assert.Nil(t, identity)
+
+	// Tokens rejected before their signing key is needed are still invalid credentials.
+	wrongIssuer := withClaim(issuer.Claims(testSubject, testAudience), "iss", "https://other.example/")
+	unsigned := withClaim(issuer.Claims(testSubject, testAudience), "iss", unreachableIssuer.String())
+	for _, token := range []string{
+		auth0test.Sign(t, issuer.Key, wrongIssuer),
+		auth0test.SignWithHeader(t, nil, withHeader("alg", "none"), unsigned),
+	} {
+		identity, err := validateAuthorization(t, validate, "Bearer auth0|"+token)
+
+		require.ErrorIs(t, err, ErrInvalidCredentials)
+		assert.Nil(t, identity)
+	}
 }
 
 // The keys the scripted fetches in the key cache tests return, in order.

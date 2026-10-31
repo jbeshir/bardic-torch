@@ -36,14 +36,23 @@ with `go tool`, so nothing needs installing.
   JWTs against a local issuer from `internal/testutil/auth0test` (an `httptest` server serving the OpenID
   discovery document and a JWKS). `TestAuth0Validator_InvalidTokens` includes the attack cases, built with
   `auth0test.SignWithHeader` where they need a crafted header: `alg: none`, HS256 keyed with the public key,
-  RS384, an unknown `kid`, a signature by another key under the issuer's `kid`, a wrong, missing or
-  slash-less issuer, a wrong or missing audience, `nbf` and `exp` beyond the clock skew (the within-skew cases
-  are in `TestAuth0Validator_ValidTokens`), a future `iat`, a missing `exp`, and client-credentials (`gty` or
-  `@clients`) tokens; each case asserts the reason it is rejected, so it cannot pass by failing an earlier
-  check. `TestAuth0Validator_OversizedTokenIsRejectedBeforeParsing` pins the token size cap.
+  RS384, an unknown, missing or empty `kid`, a `crit` header, a signature by another key under the issuer's
+  `kid`, a wrong, missing or slash-less issuer, a wrong or missing audience, `nbf` and `exp` beyond the clock
+  skew (the within-skew cases are in `TestAuth0Validator_ValidTokens`), a future `iat`, a missing `exp`, and
+  client-credentials (`gty` or `@clients`) tokens; each case asserts the reason it is rejected, so it cannot
+  pass by failing an earlier check. The validator's own header check rejects the missing `kid` and the `crit`
+  header, which the JWT library would accept. Two library behaviours that only a token the issuer signs can
+  reach are pinned as they are: an `exp` holding a numeric string is read as that date (`string_expiry` is
+  accepted, `expired_string_expiry` rejected), and the JWS JSON serialization is rejected; only the compact
+  form is accepted. `TestAuth0Validator_OversizedTokenIsRejectedBeforeParsing` pins the token size cap, and
+  `TestAuth0Validator_UnavailableKeysAreNotInvalidCredentials` pins that a key-fetch failure is
+  `errSigningKeysUnavailable` (500) while tokens rejected before a key is needed stay 401.
   `TestAuth0KeyCache_*` pin the signing-key cache: one fetch per `auth0KeysCacheTTL`, stale keys served while a
-  single background refresh runs, keys dropped when that refresh fails, and a failed fetch reported as
-  unavailable keys (500, not 401) with nothing cached.
+  single background refresh runs, stale keys no longer served once that refresh fails, the refresh and the
+  first fetch outliving the request that starts them, concurrent requests with no keys cached sharing one fetch
+  and its success or failure while each stops waiting when its own context ends, and a failed fetch reported as
+  unavailable keys (500, not 401) with nothing cached. They control the clock and hold fetches on channels, and
+  only poll to wait for a background refresh to finish, so no outcome depends on timing.
 - **Server, JSON helpers and wiring** (`internal/transport/web/server`, `internal/transport/web/httpjson`,
   `internal/app`): `TestServer_ShutdownWaitsForInFlightRequest`, `TestServer_HeaderSizeLimit` (431 over 16 KiB
   of request headers), `TestDecodeJSONBody` (the exact client-facing messages) and
