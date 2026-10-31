@@ -333,6 +333,7 @@ func assertPreflightSkipsAuth(t *testing.T, method, path string) {
 	t.Helper()
 
 	m := newHandlerMocks(t)
+	wantAllowedMethods := allowedMethods(m.validate)
 	for _, p := range principals {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, path, nil)
 		req.Header.Set("Access-Control-Request-Method", method)
@@ -343,7 +344,7 @@ func assertPreflightSkipsAuth(t *testing.T, method, path string) {
 		m.handler.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusNoContent, rec.Code, p.name)
-		assert.Equal(t, allowedMethods, rec.Header().Get("Access-Control-Allow-Methods"), p.name)
+		assert.Equal(t, wantAllowedMethods, rec.Header().Get("Access-Control-Allow-Methods"), p.name)
 		assert.Empty(t, rec.Body.String(), p.name)
 	}
 }

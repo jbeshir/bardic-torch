@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources/mocks"
@@ -19,8 +21,6 @@ const (
 	tokensPath  = "/v1/tokens"
 	// methodNotAllowedBody is the response to a method no route at the path accepts.
 	methodNotAllowedBody = `{"code":"method_not_allowed","message":"method not allowed for this path"}`
-	// allowedMethods is the Access-Control-Allow-Methods value: every method a route is registered for.
-	allowedMethods = "DELETE, GET, PATCH, POST, PUT"
 )
 
 func TestNewHTTPHandler_HealthChecksIgnoreCredentials(t *testing.T) {
@@ -147,5 +147,17 @@ func TestNewHTTPHandler_PreflightToUnknownPath(t *testing.T) {
 	m.handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Equal(t, allowedMethods(m.validate), rec.Header().Get("Access-Control-Allow-Methods"))
 	assert.Empty(t, rec.Body.String())
+}
+
+// allowedMethods is the Access-Control-Allow-Methods value: every method of an operation in spec, which
+// TestRouter_RoutesMatchOpenAPI checks are the routed ones.
+func allowedMethods(spec *openapitest.Validator) string {
+	var methods []string
+	for _, op := range spec.Operations() {
+		methods = append(methods, op.Method)
+	}
+	slices.Sort(methods)
+	return strings.Join(slices.Compact(methods), ", ")
 }
