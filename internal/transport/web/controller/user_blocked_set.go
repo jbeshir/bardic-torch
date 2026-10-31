@@ -3,9 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
-	"net/url"
 
-	"github.com/gorilla/mux"
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -26,10 +24,8 @@ type UserBlockedSet struct {
 func (c UserBlockedSet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// The router keeps paths encoded, so that IDs containing "/" stay in one segment; decode the ID here.
-	userID, err := url.PathUnescape(mux.Vars(r)["user_id"])
-	if err != nil {
-		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest, "invalid user ID encoding")
+	userID, ok := pathVarOrBadRequest(w, r, "user_id")
+	if !ok {
 		return
 	}
 

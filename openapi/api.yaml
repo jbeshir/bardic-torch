@@ -315,7 +315,8 @@ paths:
         - name: token_id
           in: path
           required: true
-          description: The token's `id`.
+          description: |
+            The token's `id`: a UUID in canonical form, lowercase and hyphenated. Any other value names no token.
           schema:
             type: string
             examples:
@@ -323,12 +324,22 @@ paths:
       responses:
         "204":
           description: The token is revoked.
+        "400":
+          description: The `token_id` is not validly percent-encoded; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: invalid encoding of path parameter token_id
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/APITokenForbidden"
         "404":
-          description: The caller has no token with this ID; the error code is `not_found`.
+          description: |
+            The caller has no token with this ID, or the ID is not a canonical UUID; the error code is `not_found`.
           content:
             application/json:
               schema:
@@ -355,7 +366,9 @@ components:
 
   responses:
     InvalidRequest:
-      description: The request body is malformed or invalid; the error code is `invalid_request`.
+      description: |
+        The request body is malformed or invalid, or a path parameter is not validly percent-encoded; the error
+        code is `invalid_request`.
       content:
         application/json:
           schema:

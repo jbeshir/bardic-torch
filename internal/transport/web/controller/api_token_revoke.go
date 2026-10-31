@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/google/uuid"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
@@ -25,13 +25,29 @@ func (c APITokenRevoke) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := c.Revoker.RevokeAPIToken(ctx, principal.User.ID, mux.Vars(r)["token_id"], c.Now())
+	tokenID, ok := pathVarOrBadRequest(w, r, "token_id")
+	if !ok {
+		return
+	}
+
+	// Token IDs are UUIDs in canonical form, so any other ID names no token. Rejecting it here, before the lookup,
+	// keeps matching exact whatever the ID column's collation makes of trailing spaces or case.
+	if parsed, err := uuid.Parse(tokenID); err != nil || parsed.String() != tokenID {
+		writeAPITokenNotFound(w, r)
+		return
+	}
+
+	err := c.Revoker.RevokeAPIToken(ctx, principal.User.ID, tokenID, c.Now())
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
-		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "API token not found")
+		writeAPITokenNotFound(w, r)
 	case err != nil:
 		writeInternalError(w, r, "unable to revoke API token", err)
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func writeAPITokenNotFound(w http.ResponseWriter, r *http.Request) {
+	httpjson.WriteError(r.Context(), w, http.StatusNotFound, httpjson.CodeNotFound, "API token not found")
 }

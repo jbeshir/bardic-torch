@@ -120,7 +120,7 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 			pathID:         "google-oauth2%zz",
 			invalidRequest: true,
 			wantStatus:     http.StatusBadRequest,
-			wantBody:       `{"code":"invalid_request","message":"invalid user ID encoding"}`,
+			wantBody:       `{"code":"invalid_request","message":"invalid encoding of path parameter user_id"}`,
 		},
 		{
 			name:           tooLargeCase,
