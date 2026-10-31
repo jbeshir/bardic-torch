@@ -123,6 +123,7 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	assert.Equal(t, created.ID, listed.Data[0].ID)
 	assert.Equal(t, created.Prefix, listed.Data[0].Prefix)
 	assert.Equal(t, created.Name, listed.Data[0].Name)
+	assert.Equal(t, created.CreatedAt, listed.Data[0].CreatedAt, "the creation time returned is the one stored")
 	assert.NotNil(t, listed.Data[0].LastUsedAt, "using the token records its last use")
 
 	// The bootstrapped moderator blocks the contributor, which blocks both of their credentials everywhere.

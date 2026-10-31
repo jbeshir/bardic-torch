@@ -82,7 +82,14 @@ func repositoryHTTPDependencies(repository *mysql.Repository, authValidators []r
 	}
 }
 
-// now is the production clock. Times are UTC, as the database stores them.
+// now is the production clock, giving times as the database stores them.
 func now() time.Time {
-	return time.Now().UTC()
+	return storedTime(time.Now())
+}
+
+// storedTime returns t as the database stores it: in UTC and truncated to whole seconds. The DATETIME columns
+// have no fractional seconds and MySQL rounds them on insert, so a time with fractions returned to a client
+// could be a second off the stored value it is later read back as.
+func storedTime(t time.Time) time.Time {
+	return t.UTC().Truncate(time.Second)
 }
