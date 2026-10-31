@@ -310,9 +310,7 @@ func assertOutcome(t *testing.T, method, path string, row matrixRow, p principal
 	assert.Equal(t, wantStatus, rec.Code)
 	assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 
-	var body struct {
-		Code httpjson.ErrorCode `json:"code"`
-	}
+	var body errorResponse
 	if rec.Body.Len() > 0 {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	}

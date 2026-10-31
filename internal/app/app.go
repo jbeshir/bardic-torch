@@ -9,6 +9,7 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
+	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/server"
 )
 
@@ -57,22 +58,28 @@ func Setup(ctx context.Context) ([]Component, error) {
 	return []Component{
 		&server.Server{
 			Listener: listener,
-			Handler: NewHTTPHandler(HTTPDependencies{
-				Pinger:                repository,
-				AuthValidators:        authValidators,
-				UserGetter:            repository,
-				UserEnsurer:           repository,
-				DisplayNameUpdater:    repository,
-				UserBlocker:           repository,
-				UserUnblocker:         repository,
-				APITokenCreator:       repository,
-				ActiveAPITokenCounter: repository,
-				ActiveAPITokenLister:  repository,
-				APITokenRevoker:       repository,
-				Now:                   now,
-			}),
+			Handler:  NewHTTPHandler(repositoryHTTPDependencies(repository, authValidators)),
 		},
 	}, nil
+}
+
+// repositoryHTTPDependencies are the HTTP handler's dependencies with repository as every datasource and the
+// production clock.
+func repositoryHTTPDependencies(repository *mysql.Repository, authValidators []router.AuthValidator) HTTPDependencies {
+	return HTTPDependencies{
+		Pinger:                repository,
+		AuthValidators:        authValidators,
+		UserGetter:            repository,
+		UserEnsurer:           repository,
+		DisplayNameUpdater:    repository,
+		UserBlocker:           repository,
+		UserUnblocker:         repository,
+		APITokenCreator:       repository,
+		ActiveAPITokenCounter: repository,
+		ActiveAPITokenLister:  repository,
+		APITokenRevoker:       repository,
+		Now:                   now,
+	}
 }
 
 // now is the production clock. Times are UTC, as the database stores them.

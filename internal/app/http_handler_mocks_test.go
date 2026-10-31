@@ -11,6 +11,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mocks"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
+	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 	"github.com/stretchr/testify/mock"
 )
@@ -114,4 +115,9 @@ func (m handlerMocks) expectUser(userID string) {
 		return
 	}
 	m.users.EXPECT().GetUser(mock.Anything, userID).Return(storedUser(userID), nil).Once()
+}
+
+// errorResponse is the JSON body of an error response.
+type errorResponse struct {
+	Code httpjson.ErrorCode `json:"code"`
 }
