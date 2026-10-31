@@ -109,40 +109,96 @@ func TestAuth0Validator_InvalidTokens(t *testing.T) {
 	}
 	valid := issuer.Claims(testSubject, testAudience)
 
+	// Each case names a part of the error it must fail with, so that it cannot pass by failing an earlier check.
 	cases := []struct {
-		name  string
-		token string
+		name    string
+		token   string
+		wantErr string
 	}{
-		{name: "wrong_audience", token: auth0test.Sign(t, issuer.Key, claims("aud", []string{"https://other.example"}))},
-		{name: "wrong_issuer", token: auth0test.Sign(t, issuer.Key, claims("iss", "https://other.example/"))},
-		{name: "expired", token: auth0test.Sign(t, issuer.Key, claims("exp", time.Now().Add(-time.Hour).Unix()))},
 		{
-			name:  "expired_beyond_clock_skew",
-			token: auth0test.Sign(t, issuer.Key, claims("exp", time.Now().Add(-2*time.Minute).Unix())),
+			name:    "wrong_audience",
+			token:   auth0test.Sign(t, issuer.Key, claims("aud", []string{"https://other.example"})),
+			wantErr: "audience",
+		},
+		{name: "no_audience", token: auth0test.Sign(t, issuer.Key, claims("aud", nil)), wantErr: "audience"},
+		{
+			name:    "wrong_issuer",
+			token:   auth0test.Sign(t, issuer.Key, claims("iss", "https://other.example/")),
+			wantErr: "does not match any expected issuer",
 		},
 		{
-			name:  "not_yet_valid",
-			token: auth0test.Sign(t, issuer.Key, claims("nbf", time.Now().Add(5*time.Minute).Unix())),
+			// The issuer is the URL with its trailing slash, as Auth0 writes it.
+			name:    "issuer_without_trailing_slash",
+			token:   auth0test.Sign(t, issuer.Key, claims("iss", strings.TrimSuffix(issuer.URL.String(), "/"))),
+			wantErr: "does not match any expected issuer",
 		},
-		{name: "no_expiry", token: auth0test.Sign(t, issuer.Key, claims("exp", nil))},
-		{name: "bad_signature", token: auth0test.Sign(t, otherKey, valid)},
-		{name: "no_subject", token: auth0test.Sign(t, issuer.Key, claims("sub", nil))},
+		{name: "no_issuer", token: auth0test.Sign(t, issuer.Key, claims("iss", nil)), wantErr: "no issuer"},
 		{
-			name:  "client_credentials_grant",
-			token: auth0test.Sign(t, issuer.Key, claims("gty", "client-credentials")),
+			name:    "expired",
+			token:   auth0test.Sign(t, issuer.Key, claims("exp", time.Now().Add(-time.Hour).Unix())),
+			wantErr: `"exp" not satisfied`,
 		},
 		{
-			name:  "application_subject",
-			token: auth0test.Sign(t, issuer.Key, claims("sub", "uP7lW0cQx3BxgP1Bt6OY2MNs4eGvTj6R@clients")),
+			name:    "expired_beyond_clock_skew",
+			token:   auth0test.Sign(t, issuer.Key, claims("exp", time.Now().Add(-2*time.Minute).Unix())),
+			wantErr: `"exp" not satisfied`,
 		},
-		{name: "alg_none", token: auth0test.SignWithHeader(t, nil, withHeader("alg", "none"), valid)},
+		{
+			name:    "not_yet_valid",
+			token:   auth0test.Sign(t, issuer.Key, claims("nbf", time.Now().Add(5*time.Minute).Unix())),
+			wantErr: `"nbf" not satisfied`,
+		},
+		{
+			name:    "not_yet_valid_beyond_clock_skew",
+			token:   auth0test.Sign(t, issuer.Key, claims("nbf", time.Now().Add(2*time.Minute).Unix())),
+			wantErr: `"nbf" not satisfied`,
+		},
+		{
+			name:    "issued_in_the_future",
+			token:   auth0test.Sign(t, issuer.Key, claims("iat", time.Now().Add(5*time.Minute).Unix())),
+			wantErr: `"iat" not satisfied`,
+		},
+		{name: "no_expiry", token: auth0test.Sign(t, issuer.Key, claims("exp", nil)), wantErr: "no expiry"},
+		{
+			// Signed under the issuer's key ID by a key that is not the issuer's.
+			name:    "bad_signature",
+			token:   auth0test.Sign(t, otherKey, valid),
+			wantErr: "verification error",
+		},
+		{name: "no_subject", token: auth0test.Sign(t, issuer.Key, claims("sub", nil)), wantErr: "no subject"},
+		{
+			name:    "client_credentials_grant",
+			token:   auth0test.Sign(t, issuer.Key, claims("gty", "client-credentials")),
+			wantErr: errApplicationToken.Error(),
+		},
+		{
+			name:    "application_subject",
+			token:   auth0test.Sign(t, issuer.Key, claims("sub", "uP7lW0cQx3BxgP1Bt6OY2MNs4eGvTj6R@clients")),
+			wantErr: errApplicationToken.Error(),
+		},
+		{
+			name:    "alg_none",
+			token:   auth0test.SignWithHeader(t, nil, withHeader("alg", "none"), valid),
+			wantErr: `algorithm "none" is not allowed`,
+		},
 		{
 			// The classic algorithm confusion: an HMAC keyed with the issuer's public key, which anyone has.
-			name:  "hs256_with_public_key",
-			token: auth0test.SignWithHeader(t, publicKeyPEM, withHeader("alg", "HS256"), valid),
+			name:    "hs256_with_public_key",
+			token:   auth0test.SignWithHeader(t, publicKeyPEM, withHeader("alg", "HS256"), valid),
+			wantErr: `algorithm "HS256" is not allowed`,
 		},
-		{name: "unknown_key_id", token: auth0test.SignWithHeader(t, issuer.Key, withHeader("kid", "other-key"), valid)},
-		{name: "malformed", token: "not-a-jwt"},
+		{
+			// RS384 is a valid signature by the issuer's key, in an algorithm other than the one Auth0 uses.
+			name:    "rs384",
+			token:   auth0test.SignWithHeader(t, issuer.Key, withHeader("alg", "RS384"), valid),
+			wantErr: `algorithm "RS384" is not allowed`,
+		},
+		{
+			name:    "unknown_key_id",
+			token:   auth0test.SignWithHeader(t, issuer.Key, withHeader("kid", "other-key"), valid),
+			wantErr: `key ID "other-key"`,
+		},
+		{name: "malformed", token: "not-a-jwt", wantErr: "parse"},
 	}
 
 	for _, tc := range cases {
@@ -155,6 +211,7 @@ func TestAuth0Validator_InvalidTokens(t *testing.T) {
 			identity, err := validateAuthorization(t, validate, "Bearer auth0|"+tc.token)
 
 			require.ErrorIs(t, err, ErrInvalidCredentials)
+			require.ErrorContains(t, err, tc.wantErr)
 			assert.Nil(t, identity)
 		})
 	}

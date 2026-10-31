@@ -3,11 +3,14 @@
 package app
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
@@ -97,6 +100,25 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	contributor, moderator := auth0(endToEndContributorID), auth0(endToEndModeratorID)
 
 	sendOK[controller.HealthStatus](t, e, http.MethodGet, "/readyz", "", "", http.StatusOK)
+
+	// Invalid Auth0 tokens for the contributor get the spec's 401, and do not create them.
+	expiredClaims := issuer.Claims(endToEndContributorID, endToEndAudience)
+	expiredClaims["exp"] = time.Now().Add(-time.Hour).Unix()
+	otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	for name, authorization := range map[string]string{
+		"expired": "Bearer auth0|" + auth0test.Sign(t, issuer.Key, expiredClaims),
+		"wrong_audience": "Bearer auth0|" +
+			auth0test.Sign(t, issuer.Key, issuer.Claims(endToEndContributorID, "https://other.example")),
+		"bad_signature": "Bearer auth0|" +
+			auth0test.Sign(t, otherKey, issuer.Claims(endToEndContributorID, endToEndAudience)),
+		// Over the validator's 8 KiB token cap.
+		"oversized": "Bearer auth0|" + strings.Repeat("a", 9<<10),
+	} {
+		rec := e.send(t, http.MethodGet, "/v1/me", authorization, "")
+		assert.Equal(t, http.StatusUnauthorized, rec.Code, name)
+		assert.JSONEq(t, `{"code":"unauthenticated","message":"invalid credentials"}`, rec.Body.String(), name)
+	}
 
 	// The first authenticated request creates the user.
 	assert.Equal(t, controller.User{

@@ -15,6 +15,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	_ "crypto/sha512" // registers SHA-384 for RS384 signatures
 	"encoding/base64"
 	"encoding/json"
 	"math/big"
@@ -108,8 +109,8 @@ func Sign(t testing.TB, key *rsa.PrivateKey, claims map[string]any) string {
 }
 
 // SignWithHeader returns a compact JWS of claims under header, whatever the header says. The signature is made
-// by header's "alg" with key: "RS256" needs an *rsa.PrivateKey, "HS256" a []byte secret, and "none" ignores key
-// and leaves the signature empty.
+// by header's "alg" with key: "RS256" and "RS384" need an *rsa.PrivateKey, "HS256" a []byte secret, and "none"
+// ignores key and leaves the signature empty.
 func SignWithHeader(t testing.TB, key any, header, claims map[string]any) string {
 	t.Helper()
 
@@ -132,16 +133,9 @@ func signature(t testing.TB, key, alg any, signingInput string) []byte {
 	case "none":
 		return nil
 	case rs256:
-		rsaKey, ok := key.(*rsa.PrivateKey)
-		if !ok {
-			t.Fatalf("RS256 needs an *rsa.PrivateKey, got %T", key)
-		}
-		digest := sha256.Sum256([]byte(signingInput))
-		sig, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, crypto.SHA256, digest[:])
-		if err != nil {
-			t.Fatalf("signing token: %v", err)
-		}
-		return sig
+		return signPKCS1v15(t, key, crypto.SHA256, signingInput)
+	case "RS384":
+		return signPKCS1v15(t, key, crypto.SHA384, signingInput)
 	case "HS256":
 		secret, ok := key.([]byte)
 		if !ok {
@@ -154,4 +148,20 @@ func signature(t testing.TB, key, alg any, signingInput string) []byte {
 		t.Fatalf("unsupported signing algorithm %v", alg)
 		return nil
 	}
+}
+
+func signPKCS1v15(t testing.TB, key any, hash crypto.Hash, signingInput string) []byte {
+	t.Helper()
+
+	rsaKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		t.Fatalf("RSA signatures need an *rsa.PrivateKey, got %T", key)
+	}
+	digest := hash.New()
+	digest.Write([]byte(signingInput))
+	sig, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, hash, digest.Sum(nil))
+	if err != nil {
+		t.Fatalf("signing token: %v", err)
+	}
+	return sig
 }
