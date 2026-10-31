@@ -24,6 +24,18 @@ Replace these in the commands below:
   `Procfile` from the repository root all need it. Check with `dokku version`. On modern dokku, `app.json` and
   `Procfile` are read from the root of the pushed repository. The Dockerfile also copies both into `/app`, the
   image's working directory, so versions that read them from the image find the same files.
+- **Docker builds with BuildKit**: the Dockerfile uses `RUN --mount=type=cache` and starts with
+  `# syntax=docker/dockerfile:1`, which makes BuildKit pull the `docker/dockerfile:1` frontend from Docker Hub at
+  build time (the server needs to reach Docker Hub, as it does for the base images). Docker Engine 23 or newer
+  builds with BuildKit by default; it needs the buildx plugin. Check on the server:
+  ```
+  docker version --format '{{.Server.Version}}'
+  docker buildx version
+  ```
+  On an older engine, set `DOCKER_BUILDKIT=1` for dokku's builds:
+  ```
+  echo 'export DOCKER_BUILDKIT=1' | sudo tee -a /etc/default/dokku
+  ```
 - The dokku plugins [dokku-mysql](https://github.com/dokku/dokku-mysql) and
   [dokku-letsencrypt](https://github.com/dokku/dokku-letsencrypt). On the server:
   ```
