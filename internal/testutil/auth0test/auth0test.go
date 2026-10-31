@@ -11,6 +11,7 @@ package auth0test
 
 import (
 	"crypto"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -24,7 +25,10 @@ import (
 	"time"
 )
 
-// keyID is the key ID of the issuer's signing key, which Sign puts in every token's header.
+// rs256 is the algorithm Auth0 signs access tokens with.
+const rs256 = "RS256"
+
+// keyID is the key ID of the issuer's signing key, which Header puts in every token's header.
 const keyID = "test-key"
 
 // Issuer serves the OpenID discovery document and a JWKS holding the public half of Key, from a local HTTP
@@ -55,7 +59,7 @@ func NewIssuer(t testing.TB) Issuer {
 		writeJSON(t, w, map[string]any{"keys": []map[string]string{{
 			"kty": "RSA",
 			"use": "sig",
-			"alg": "RS256",
+			"alg": rs256,
 			"kid": keyID,
 			"n":   base64.RawURLEncoding.EncodeToString(key.N.Bytes()),
 			"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.E)).Bytes()),
@@ -90,8 +94,23 @@ func (i Issuer) Claims(subject, audience string) map[string]any {
 	}
 }
 
-// Sign returns a compact RS256 JWS of claims, signed with key under keyID.
+// Header returns the JWS header Sign uses: RS256 under the issuer's key ID. Tests change it and pass it to
+// SignWithHeader to build tokens a validator must reject.
+func Header() map[string]any {
+	return map[string]any{"alg": rs256, "typ": "JWT", "kid": keyID}
+}
+
+// Sign returns a compact RS256 JWS of claims, signed with key under the issuer's key ID.
 func Sign(t testing.TB, key *rsa.PrivateKey, claims map[string]any) string {
+	t.Helper()
+
+	return SignWithHeader(t, key, Header(), claims)
+}
+
+// SignWithHeader returns a compact JWS of claims under header, whatever the header says. The signature is made
+// by header's "alg" with key: "RS256" needs an *rsa.PrivateKey, "HS256" a []byte secret, and "none" ignores key
+// and leaves the signature empty.
+func SignWithHeader(t testing.TB, key any, header, claims map[string]any) string {
 	t.Helper()
 
 	encode := func(v any) string {
@@ -102,12 +121,37 @@ func Sign(t testing.TB, key *rsa.PrivateKey, claims map[string]any) string {
 		return base64.RawURLEncoding.EncodeToString(b)
 	}
 
-	signingInput := encode(map[string]string{"alg": "RS256", "typ": "JWT", "kid": keyID}) + "." + encode(claims)
-	digest := sha256.Sum256([]byte(signingInput))
-	signature, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest[:])
-	if err != nil {
-		t.Fatalf("signing token: %v", err)
-	}
+	signingInput := encode(header) + "." + encode(claims)
+	return signingInput + "." + base64.RawURLEncoding.EncodeToString(signature(t, key, header["alg"], signingInput))
+}
 
-	return signingInput + "." + base64.RawURLEncoding.EncodeToString(signature)
+func signature(t testing.TB, key, alg any, signingInput string) []byte {
+	t.Helper()
+
+	switch alg {
+	case "none":
+		return nil
+	case rs256:
+		rsaKey, ok := key.(*rsa.PrivateKey)
+		if !ok {
+			t.Fatalf("RS256 needs an *rsa.PrivateKey, got %T", key)
+		}
+		digest := sha256.Sum256([]byte(signingInput))
+		sig, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, crypto.SHA256, digest[:])
+		if err != nil {
+			t.Fatalf("signing token: %v", err)
+		}
+		return sig
+	case "HS256":
+		secret, ok := key.([]byte)
+		if !ok {
+			t.Fatalf("HS256 needs a []byte secret, got %T", key)
+		}
+		mac := hmac.New(sha256.New, secret)
+		mac.Write([]byte(signingInput))
+		return mac.Sum(nil)
+	default:
+		t.Fatalf("unsupported signing algorithm %v", alg)
+		return nil
+	}
 }
