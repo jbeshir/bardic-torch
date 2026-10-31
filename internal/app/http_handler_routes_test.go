@@ -52,6 +52,8 @@ func prefixValidator(prefix string, method domain.AuthMethod) router.AuthValidat
 type handlerMocks struct {
 	users        *mocks.UserGetter
 	displayNames *mocks.DisplayNameUpdater
+	blocker      *mocks.UserBlocker
+	unblocker    *mocks.UserUnblocker
 	counter      *mocks.ActiveAPITokenCounter
 	creator      *mocks.APITokenCreator
 	lister       *mocks.ActiveAPITokenLister
@@ -64,6 +66,8 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 	m := handlerMocks{
 		users:        mocks.NewUserGetter(t),
 		displayNames: mocks.NewDisplayNameUpdater(t),
+		blocker:      mocks.NewUserBlocker(t),
+		unblocker:    mocks.NewUserUnblocker(t),
 		counter:      mocks.NewActiveAPITokenCounter(t),
 		creator:      mocks.NewAPITokenCreator(t),
 		lister:       mocks.NewActiveAPITokenLister(t),
@@ -79,6 +83,8 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		UserGetter:            m.users,
 		UserEnsurer:           mocks.NewUserEnsurer(t),
 		DisplayNameUpdater:    m.displayNames,
+		UserBlocker:           m.blocker,
+		UserUnblocker:         m.unblocker,
 		APITokenCreator:       m.creator,
 		ActiveAPITokenCounter: m.counter,
 		ActiveAPITokenLister:  m.lister,
@@ -132,6 +138,9 @@ type authCase struct {
 	wantStatus    int
 	wantCode      httpjson.ErrorCode
 }
+
+// auth0ContributorCase names the case of an Auth0 contributor, whose outcome depends on the route.
+const auth0ContributorCase = "auth0_contributor"
 
 // Cases whose outcome does not depend on the route.
 var (

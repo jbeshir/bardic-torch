@@ -156,21 +156,21 @@ func TestAPITokenCreate_ServeHTTP(t *testing.T) {
 			wantBody:       `{"code":"invalid_request","message":"request body must not be empty"}`,
 		},
 		{
-			name:           "too_large",
+			name:           tooLargeCase,
 			body:           `{"name":"` + strings.Repeat("a", httpjson.MaxBodyBytes) + `"}`,
 			invalidRequest: true,
 			command:        notCalled,
 			wantStatus:     http.StatusRequestEntityTooLarge,
-			wantBody:       `{"code":"request_too_large","message":"request body is too large"}`,
+			wantBody:       tooLargeBody,
 		},
 		{
-			name:           "not_json",
+			name:           notJSONCase,
 			body:           `name=CI+runner`,
 			contentType:    "application/x-www-form-urlencoded",
 			invalidRequest: true,
 			command:        notCalled,
 			wantStatus:     http.StatusUnsupportedMediaType,
-			wantBody:       `{"code":"unsupported_media_type","message":"request body must be sent as application/json"}`,
+			wantBody:       unsupportedMediaTypeBody,
 		},
 	}
 

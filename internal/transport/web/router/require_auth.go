@@ -46,3 +46,20 @@ func requireNonAPIToken(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	}))
 }
+
+// requireModerator is requireAuth that also rejects users who are not moderators, with 403 moderator_required.
+// Moderators may use either credential.
+func requireModerator(next http.Handler) http.Handler {
+	return requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		// requireAuth has already checked that there is a principal.
+		if principal, _ := domain.PrincipalFromContext(ctx); principal.User.Role != domain.RoleModerator {
+			httpjson.WriteError(ctx, w, http.StatusForbidden, httpjson.CodeModeratorRequired,
+				"this endpoint requires the moderator role")
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}))
+}

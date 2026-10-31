@@ -34,7 +34,7 @@ func TestNewHTTPHandler_MeRoutesAuthorisation(t *testing.T) {
 		anonymousCase,
 		unrecognisedCredentialsCase,
 		invalidCredentialsCase,
-		{name: "auth0_contributor", authorization: "Bearer auth0|" + contributorID, resolves: contributorID},
+		{name: auth0ContributorCase, authorization: "Bearer auth0|" + contributorID, resolves: contributorID},
 		{name: "auth0_moderator", authorization: "Bearer auth0|" + moderatorID, resolves: moderatorID},
 		{
 			name:          "api_token_contributor",

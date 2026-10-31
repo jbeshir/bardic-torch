@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const updatedName = "Morwen"
-
 func TestUpdateDisplayName_StoresNormalizedNameAndReturnsUser(t *testing.T) {
 	t.Parallel()
 
@@ -49,10 +47,10 @@ func TestUpdateDisplayName_DatasourceErrors(t *testing.T) {
 		t.Parallel()
 
 		updater := mocks.NewDisplayNameUpdater(t)
-		updater.EXPECT().UpdateDisplayName(mock.Anything, resolvedUserID, updatedName).Return(dbErr)
+		updater.EXPECT().UpdateDisplayName(mock.Anything, resolvedUserID, testDisplayName).Return(dbErr)
 
 		cmd := &UpdateDisplayName{Updater: updater, Getter: mocks.NewUserGetter(t)}
-		_, err := cmd.Execute(t.Context(), UpdateDisplayNameRequest{UserID: resolvedUserID, DisplayName: updatedName})
+		_, err := cmd.Execute(t.Context(), UpdateDisplayNameRequest{UserID: resolvedUserID, DisplayName: testDisplayName})
 
 		require.ErrorIs(t, err, dbErr)
 		require.NotErrorIs(t, err, domain.ErrInvalidDisplayName)
@@ -62,12 +60,12 @@ func TestUpdateDisplayName_DatasourceErrors(t *testing.T) {
 		t.Parallel()
 
 		updater := mocks.NewDisplayNameUpdater(t)
-		updater.EXPECT().UpdateDisplayName(mock.Anything, resolvedUserID, updatedName).Return(nil)
+		updater.EXPECT().UpdateDisplayName(mock.Anything, resolvedUserID, testDisplayName).Return(nil)
 		getter := mocks.NewUserGetter(t)
 		getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(domain.User{}, dbErr)
 
 		cmd := &UpdateDisplayName{Updater: updater, Getter: getter}
-		_, err := cmd.Execute(t.Context(), UpdateDisplayNameRequest{UserID: resolvedUserID, DisplayName: updatedName})
+		_, err := cmd.Execute(t.Context(), UpdateDisplayNameRequest{UserID: resolvedUserID, DisplayName: testDisplayName})
 
 		require.ErrorIs(t, err, dbErr)
 	})

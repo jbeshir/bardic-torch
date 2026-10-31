@@ -47,7 +47,7 @@ func TestNewHTTPHandler_APITokenRoutesAuthorisation(t *testing.T) {
 		anonymousCase,
 		unrecognisedCredentialsCase,
 		invalidCredentialsCase,
-		{name: "auth0_contributor", authorization: "Bearer auth0|" + contributorID, resolves: contributorID},
+		{name: auth0ContributorCase, authorization: "Bearer auth0|" + contributorID, resolves: contributorID},
 		blockedCase,
 		blockedAPITokenCase,
 		{

@@ -97,15 +97,15 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 		},
 		{
 			name:       "store_failure",
-			body:       displayNameBody("Morwen"),
-			stored:     "Morwen",
+			body:       displayNameBody(testDisplayName),
+			stored:     testDisplayName,
 			storeErr:   errors.New("connection refused"),
 			wantStatus: http.StatusInternalServerError,
 			wantBody:   internalErrorBody,
 		},
 		{
 			name:       anonymousCase,
-			body:       displayNameBody("Morwen"),
+			body:       displayNameBody(testDisplayName),
 			anonymous:  true,
 			wantStatus: http.StatusUnauthorized,
 			wantBody:   unauthenticatedBody,
@@ -146,19 +146,19 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			wantBody:       `{"code":"invalid_request","message":"request body must not be empty"}`,
 		},
 		{
-			name:           "too_large",
+			name:           tooLargeCase,
 			body:           displayNameBody(strings.Repeat("a", httpjson.MaxBodyBytes)),
 			invalidRequest: true,
 			wantStatus:     http.StatusRequestEntityTooLarge,
-			wantBody:       `{"code":"request_too_large","message":"request body is too large"}`,
+			wantBody:       tooLargeBody,
 		},
 		{
-			name:           "not_json",
+			name:           notJSONCase,
 			body:           `display_name=Morwen`,
 			contentType:    "application/x-www-form-urlencoded",
 			invalidRequest: true,
 			wantStatus:     http.StatusUnsupportedMediaType,
-			wantBody:       `{"code":"unsupported_media_type","message":"request body must be sent as application/json"}`,
+			wantBody:       unsupportedMediaTypeBody,
 		},
 	}
 

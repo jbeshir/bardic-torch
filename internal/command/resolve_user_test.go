@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const resolvedUserID = "google-oauth2|123"
+const (
+	resolvedUserID  = "google-oauth2|123"
+	testDisplayName = "Morwen"
+)
 
 var fixedNow = time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
 
@@ -27,7 +30,7 @@ func TestResolveUser_ExistingUserIsReturnedWithoutWriting(t *testing.T) {
 	blockedAt := fixedNow.Add(-time.Hour)
 	existing := domain.User{
 		ID:          resolvedUserID,
-		DisplayName: "Morwen",
+		DisplayName: testDisplayName,
 		Role:        domain.RoleModerator,
 		CreatedAt:   fixedNow.Add(-24 * time.Hour),
 		BlockedAt:   &blockedAt,
@@ -73,7 +76,7 @@ func TestResolveUser_ReturnsUserStoredByConcurrentRequest(t *testing.T) {
 
 	// Another request created the user between the read and the insert: EnsureUser returns the stored user,
 	// whatever it was created with.
-	stored := domain.User{ID: resolvedUserID, DisplayName: "Morwen", Role: domain.RoleModerator, CreatedAt: fixedNow}
+	stored := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleModerator, CreatedAt: fixedNow}
 	getter := mocks.NewUserGetter(t)
 	getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(domain.User{}, datasources.ErrNotFound)
 	ensurer := mocks.NewUserEnsurer(t)

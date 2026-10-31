@@ -22,6 +22,19 @@ type requireCase struct {
 	wantCode   httpjson.ErrorCode
 }
 
+// Cases shared by the require* tests. Names say "API auth" where the case says "token", because gosec reports
+// constants named after tokens as hardcoded credentials.
+const (
+	auth0ContributorCase = "auth0_contributor"
+	apiAuthModeratorCase = "api_token_moderator"
+)
+
+var anonymousRequireCase = requireCase{
+	name:       "anonymous",
+	wantStatus: http.StatusUnauthorized,
+	wantCode:   httpjson.CodeUnauthenticated,
+}
+
 func principalWith(role domain.Role, method domain.AuthMethod, blocked bool) *domain.Principal {
 	user := domain.User{ID: testUserID, DisplayName: "Morwen", Role: role, CreatedAt: testNow}
 	if blocked {
@@ -70,14 +83,14 @@ func TestRequireAuth_Principals(t *testing.T) {
 	t.Parallel()
 
 	runRequireCases(t, requireAuth, []requireCase{
-		{name: "anonymous", wantStatus: http.StatusUnauthorized, wantCode: httpjson.CodeUnauthenticated},
+		anonymousRequireCase,
 		{
-			name:       "auth0_contributor",
+			name:       auth0ContributorCase,
 			principal:  principalWith(domain.RoleContributor, domain.AuthMethodAuth0, false),
 			wantStatus: http.StatusNoContent,
 		},
 		{
-			name:       "api_token_moderator",
+			name:       apiAuthModeratorCase,
 			principal:  principalWith(domain.RoleModerator, domain.AuthMethodAPIToken, false),
 			wantStatus: http.StatusNoContent,
 		},
@@ -100,9 +113,9 @@ func TestRequireNonAPIToken_Principals(t *testing.T) {
 	t.Parallel()
 
 	runRequireCases(t, requireNonAPIToken, []requireCase{
-		{name: "anonymous", wantStatus: http.StatusUnauthorized, wantCode: httpjson.CodeUnauthenticated},
+		anonymousRequireCase,
 		{
-			name:       "auth0_contributor",
+			name:       auth0ContributorCase,
 			principal:  principalWith(domain.RoleContributor, domain.AuthMethodAuth0, false),
 			wantStatus: http.StatusNoContent,
 		},
@@ -118,7 +131,7 @@ func TestRequireNonAPIToken_Principals(t *testing.T) {
 			wantCode:   httpjson.CodeAPIAuthNotAllowed,
 		},
 		{
-			name:       "api_token_moderator",
+			name:       apiAuthModeratorCase,
 			principal:  principalWith(domain.RoleModerator, domain.AuthMethodAPIToken, false),
 			wantStatus: http.StatusForbidden,
 			wantCode:   httpjson.CodeAPIAuthNotAllowed,
@@ -132,6 +145,49 @@ func TestRequireNonAPIToken_Principals(t *testing.T) {
 		{
 			// Blocking takes precedence, so a blocked user learns they are blocked whatever credential they use.
 			name:       "blocked_api_token",
+			principal:  principalWith(domain.RoleContributor, domain.AuthMethodAPIToken, true),
+			wantStatus: http.StatusForbidden,
+			wantCode:   httpjson.CodeUserBlocked,
+		},
+	})
+}
+
+func TestRequireModerator_Principals(t *testing.T) {
+	t.Parallel()
+
+	runRequireCases(t, requireModerator, []requireCase{
+		anonymousRequireCase,
+		{
+			name:       auth0ContributorCase,
+			principal:  principalWith(domain.RoleContributor, domain.AuthMethodAuth0, false),
+			wantStatus: http.StatusForbidden,
+			wantCode:   httpjson.CodeModeratorRequired,
+		},
+		{
+			name:       "api_token_contributor",
+			principal:  principalWith(domain.RoleContributor, domain.AuthMethodAPIToken, false),
+			wantStatus: http.StatusForbidden,
+			wantCode:   httpjson.CodeModeratorRequired,
+		},
+		{
+			name:       "auth0_moderator",
+			principal:  principalWith(domain.RoleModerator, domain.AuthMethodAuth0, false),
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       apiAuthModeratorCase,
+			principal:  principalWith(domain.RoleModerator, domain.AuthMethodAPIToken, false),
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			// A blocked moderator is rejected as blocked, before the role is considered.
+			name:       "blocked_moderator",
+			principal:  principalWith(domain.RoleModerator, domain.AuthMethodAuth0, true),
+			wantStatus: http.StatusForbidden,
+			wantCode:   httpjson.CodeUserBlocked,
+		},
+		{
+			name:       "blocked_api_token_contributor",
 			principal:  principalWith(domain.RoleContributor, domain.AuthMethodAPIToken, true),
 			wantStatus: http.StatusForbidden,
 			wantCode:   httpjson.CodeUserBlocked,

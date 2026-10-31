@@ -15,7 +15,7 @@ import (
 const (
 	readyzPath = "/readyz"
 	// allowedMethods is the Access-Control-Allow-Methods value: every method a route is registered for.
-	allowedMethods = "DELETE, GET, PATCH, POST"
+	allowedMethods = "DELETE, GET, PATCH, POST, PUT"
 )
 
 func TestNewHTTPHandler_HealthChecksIgnoreCredentials(t *testing.T) {

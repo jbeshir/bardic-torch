@@ -31,6 +31,8 @@ tags:
     description: Liveness and readiness checks for the deployment platform
   - name: Users
     description: The caller's account
+  - name: Moderation
+    description: Actions reserved for moderators
   - name: API tokens
     description: Personal API tokens for programmatic access
 
@@ -135,6 +137,83 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/users/{user_id}/blocked:
+    put:
+      tags:
+        - Moderation
+      summary: Block or unblock a user
+      description: |
+        Blocks or unblocks a contributor and returns them. A blocked user gets 403 `user_blocked` from every
+        authenticated endpoint. Blocking a blocked user, or unblocking one who is not blocked, succeeds again;
+        a re-block keeps the time the user was first blocked. Moderators cannot be blocked or unblocked,
+        including by themselves. Requires the moderator role.
+
+        Until users can be found through the API, moderators take user IDs from Auth0 or the database.
+      operationId: setUserBlocked
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: |
+            The user's `id`, percent-encoded: its `|` is sent as `%7C`, as in `google-oauth2%7C123`.
+          schema:
+            type: string
+            examples:
+              - google-oauth2|123
+      requestBody:
+        description: Whether the user should be blocked.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetUserBlockedRequest"
+            examples:
+              block:
+                summary: Block the user
+                value:
+                  blocked: true
+              unblock:
+                summary: Unblock the user
+                value:
+                  blocked: false
+      responses:
+        "200":
+          description: The user is now blocked or unblocked, as requested.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          description: There is no user with this ID; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: user not found
+        "409":
+          description: The user is a moderator, possibly the caller; the error code is `conflict`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: conflict
+                message: moderators cannot be blocked or unblocked
         "413":
           $ref: "#/components/responses/RequestTooLarge"
         "415":
@@ -304,6 +383,25 @@ components:
           example:
             code: user_blocked
             message: user is blocked
+    ModeratorForbidden:
+      description: |
+        The caller is blocked (`user_blocked`), or is not a moderator (`moderator_required`). Blocking takes
+        precedence.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            userBlocked:
+              summary: The caller is blocked
+              value:
+                code: user_blocked
+                message: user is blocked
+            moderatorRequired:
+              summary: The caller is not a moderator
+              value:
+                code: moderator_required
+                message: this endpoint requires the moderator role
     APITokenForbidden:
       description: |
         The caller is blocked (`user_blocked`), or authenticated with an API token, which this endpoint does not
@@ -459,6 +557,21 @@ components:
             - Morwen
       examples:
         - display_name: Morwen
+
+    SetUserBlockedRequest:
+      type: object
+      description: The body of a request to block or unblock a user.
+      additionalProperties: false
+      required:
+        - blocked
+      properties:
+        blocked:
+          type: boolean
+          description: True to block the user, false to unblock them.
+          examples:
+            - true
+      examples:
+        - blocked: true
 
     CreateAPITokenRequest:
       type: object

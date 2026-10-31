@@ -19,14 +19,21 @@ func testClock() time.Time {
 // require* middleware would leave it.
 func asPrincipal(req *http.Request) *http.Request {
 	principal := domain.Principal{
-		User:   domain.User{ID: principalUserID, DisplayName: "Morwen", Role: domain.RoleContributor, CreatedAt: testNow},
+		User:   domain.User{ID: principalUserID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: testNow},
 		Method: domain.AuthMethodAuth0,
 	}
 	return req.WithContext(domain.ContextWithPrincipal(req.Context(), principal))
 }
 
 const (
-	anonymousCase       = "anonymous"
-	unauthenticatedBody = `{"code":"unauthenticated","message":"authentication required"}`
-	internalErrorBody   = `{"code":"internal","message":"internal error"}`
+	testDisplayName = "Morwen"
+
+	anonymousCase = "anonymous"
+	tooLargeCase  = "too_large"
+	notJSONCase   = "not_json"
+
+	unauthenticatedBody      = `{"code":"unauthenticated","message":"authentication required"}`
+	internalErrorBody        = `{"code":"internal","message":"internal error"}`
+	tooLargeBody             = `{"code":"request_too_large","message":"request body is too large"}`
+	unsupportedMediaTypeBody = `{"code":"unsupported_media_type","message":"request body must be sent as application/json"}`
 )

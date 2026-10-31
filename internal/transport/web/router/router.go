@@ -18,6 +18,7 @@ type Dependencies struct {
 	AuthValidators    []AuthValidator
 	ResolveUser       command.Command[string, domain.User]
 	UpdateDisplayName command.Command[command.UpdateDisplayNameRequest, domain.User]
+	SetUserBlocked    command.Command[command.SetUserBlockedRequest, domain.User]
 	CreateAPIToken    command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
 	APITokenLister    datasources.ActiveAPITokenLister
 	APITokenRevoker   datasources.APITokenRevoker
@@ -44,6 +45,11 @@ func New(deps Dependencies) http.Handler {
 	v1.Handle("/me", requireAuth(controller.MePatch{
 		Command: deps.UpdateDisplayName,
 	})).Methods(http.MethodPatch)
+
+	// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
+	v1.Handle("/users/{user_id}/blocked", requireModerator(controller.UserBlockedSet{
+		Command: deps.SetUserBlocked,
+	})).Methods(http.MethodPut)
 
 	// API tokens cannot manage API tokens, so a leaked token cannot be used to mint or revoke others.
 	v1.Handle("/tokens", requireNonAPIToken(controller.APITokenCreate{

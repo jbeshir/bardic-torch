@@ -52,6 +52,8 @@ func Setup(ctx context.Context) ([]Component, error) {
 				UserGetter:            repository,
 				UserEnsurer:           repository,
 				DisplayNameUpdater:    repository,
+				UserBlocker:           repository,
+				UserUnblocker:         repository,
 				APITokenCreator:       repository,
 				ActiveAPITokenCounter: repository,
 				ActiveAPITokenLister:  repository,
