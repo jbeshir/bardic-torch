@@ -9,9 +9,10 @@
 #             database), which must already have a bardic_torch database, as in CI.
 #
 # Every mode then waits until the server accepts connections, applies the migrations to bardic_torch with
-# cmd/migrate, and runs go test -tags integration. Each test creates and drops its own database through
-# TEST_MYSQL_ADMIN_URL. Throwaway servers listen on a random free 127.0.0.1 port and keep their files in a
-# private temporary directory, so concurrent runs do not collide; both are removed on exit.
+# cmd/migrate, and runs go test -tags integration plus any flags in GOTESTFLAGS (default none; CI sets
+# -race). Each test creates and drops its own database through TEST_MYSQL_ADMIN_URL. Throwaway servers listen
+# on a random free 127.0.0.1 port and keep their files in a private temporary directory, so concurrent runs do
+# not collide; both are removed on exit.
 set -euo pipefail
 
 readonly database=bardic_torch
@@ -151,4 +152,6 @@ wait_until database_ready
 "$workdir/migrate" up
 "$workdir/migrate" version
 
-TEST_MYSQL_ADMIN_URL="$admin_url" go test -tags integration -count=1 ./...
+# GOTESTFLAGS adds go test flags, split on whitespace; CI sets -race, which needs cgo.
+read -r -a extra_test_flags <<<"${GOTESTFLAGS:-}"
+TEST_MYSQL_ADMIN_URL="$admin_url" go test -tags integration -count=1 "${extra_test_flags[@]}" ./...

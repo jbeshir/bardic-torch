@@ -56,6 +56,9 @@ jobs:
 
       - name: Integration tests
         run: make test-integration-external
+        # The GitHub runners have cgo, which the race detector needs.
+        env:
+          GOTESTFLAGS: -race
 
   docker:
     name: Docker image
