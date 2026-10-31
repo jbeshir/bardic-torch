@@ -1,0 +1,18 @@
+package domain
+
+import "time"
+
+// User is an account, identified by the subject of the identity provider that authenticated it.
+type User struct {
+	ID          string
+	DisplayName string
+	Role        Role
+	CreatedAt   time.Time
+	// BlockedAt is when a moderator blocked the user, or nil if the user is not blocked.
+	BlockedAt *time.Time
+}
+
+// IsBlocked reports whether the user has been blocked.
+func (u User) IsBlocked() bool {
+	return u.BlockedAt != nil
+}
