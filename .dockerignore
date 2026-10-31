@@ -1,0 +1,9 @@
+# Only the Go sources, migrations, the OpenAPI spec, Procfile and app.json are needed to build the image.
+.git
+.github
+.env
+.idea
+.mysql-local
+bin
+docs
+*.md
