@@ -12,7 +12,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-const readyzPath = "/readyz"
+const (
+	readyzPath = "/readyz"
+	// allowedMethods is the Access-Control-Allow-Methods value: every method a route is registered for.
+	allowedMethods = "DELETE, GET, PATCH, POST"
+)
 
 func TestNewHTTPHandler_HealthChecksIgnoreCredentials(t *testing.T) {
 	t.Parallel()
@@ -61,7 +65,7 @@ func TestNewHTTPHandler_Preflight(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusNoContent, rec.Code)
-	assert.Equal(t, "DELETE, GET, POST", rec.Header().Get("Access-Control-Allow-Methods"))
+	assert.Equal(t, allowedMethods, rec.Header().Get("Access-Control-Allow-Methods"))
 }
 
 func TestNewHTTPHandler_UnknownRoute(t *testing.T) {

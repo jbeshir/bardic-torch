@@ -29,6 +29,8 @@ security:
 tags:
   - name: Health
     description: Liveness and readiness checks for the deployment platform
+  - name: Users
+    description: The caller's account
   - name: API tokens
     description: Personal API tokens for programmatic access
 
@@ -75,6 +77,70 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+
+  /v1/me:
+    get:
+      tags:
+        - Users
+      summary: Get the caller
+      description: |
+        Returns the caller's user. A user is created as a contributor with a default display name on their first
+        authenticated request, so this succeeds for any valid credential that is not blocked.
+      operationId: getMe
+      responses:
+        "200":
+          description: The caller's user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+    patch:
+      tags:
+        - Users
+      summary: Update the caller
+      description: Sets the caller's display name and returns the updated user.
+      operationId: updateMe
+      requestBody:
+        description: The fields to update.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeRequest"
+      responses:
+        "200":
+          description: The caller's updated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: |
+            The request body is malformed, or the display name is invalid after normalisation; the error code is
+            `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid display name: must be at most 64 characters"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
 
   /v1/tokens:
     post:
@@ -229,6 +295,15 @@ components:
           example:
             code: unauthenticated
             message: invalid credentials
+    Forbidden:
+      description: The caller is blocked; the error code is `user_blocked`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: user_blocked
+            message: user is blocked
     APITokenForbidden:
       description: |
         The caller is blocked (`user_blocked`), or authenticated with an API token, which this endpoint does not
@@ -327,6 +402,63 @@ components:
             - ok
       examples:
         - status: ok
+
+    User:
+      type: object
+      description: A user.
+      additionalProperties: false
+      required:
+        - id
+        - display_name
+        - role
+      properties:
+        id:
+          type: string
+          description: |
+            The user's ID: the subject Auth0 authenticated them as, such as `google-oauth2|<id>`. It contains `|`,
+            which must be percent-encoded as `%7C` in a path.
+          examples:
+            - google-oauth2|123
+        display_name:
+          type: string
+          description: The name shown for the user.
+          minLength: 1
+          maxLength: 64
+          examples:
+            - Morwen
+        role:
+          type: string
+          description: |
+            What the user may do. Every user starts as a `contributor`; `moderator`s may also block and unblock
+            contributors.
+          enum:
+            - contributor
+            - moderator
+          examples:
+            - contributor
+      examples:
+        - id: google-oauth2|123
+          display_name: Morwen
+          role: contributor
+
+    UpdateMeRequest:
+      type: object
+      description: The body of a request to update the caller.
+      additionalProperties: false
+      required:
+        - display_name
+      properties:
+        display_name:
+          type: string
+          description: |
+            The new display name. It is normalised to Unicode NFC and surrounding whitespace is trimmed; the result
+            must have 1 to 64 characters and no control or format characters (such as U+202E). Up to 256
+            characters are accepted before normalisation.
+          maxLength: 256
+          examples:
+            - Morwen
+      examples:
+        - display_name: Morwen
 
     CreateAPITokenRequest:
       type: object

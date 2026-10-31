@@ -16,6 +16,7 @@ type HTTPDependencies struct {
 	AuthValidators        []router.AuthValidator
 	UserGetter            datasources.UserGetter
 	UserEnsurer           datasources.UserEnsurer
+	DisplayNameUpdater    datasources.DisplayNameUpdater
 	APITokenCreator       datasources.APITokenCreator
 	ActiveAPITokenCounter datasources.ActiveAPITokenCounter
 	ActiveAPITokenLister  datasources.ActiveAPITokenLister
@@ -33,6 +34,10 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 			Getter:  deps.UserGetter,
 			Ensurer: deps.UserEnsurer,
 			Now:     deps.Now,
+		},
+		UpdateDisplayName: &command.UpdateDisplayName{
+			Updater: deps.DisplayNameUpdater,
+			Getter:  deps.UserGetter,
 		},
 		CreateAPIToken: &command.CreateAPIToken{
 			Counter: deps.ActiveAPITokenCounter,

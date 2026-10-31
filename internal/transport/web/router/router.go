@@ -15,12 +15,13 @@ import (
 type Dependencies struct {
 	Pinger datasources.Pinger
 	// AuthValidators authenticate /v1 requests; with none, every request is anonymous.
-	AuthValidators  []AuthValidator
-	ResolveUser     command.Command[string, domain.User]
-	CreateAPIToken  command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
-	APITokenLister  datasources.ActiveAPITokenLister
-	APITokenRevoker datasources.APITokenRevoker
-	Now             func() time.Time
+	AuthValidators    []AuthValidator
+	ResolveUser       command.Command[string, domain.User]
+	UpdateDisplayName command.Command[command.UpdateDisplayNameRequest, domain.User]
+	CreateAPIToken    command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
+	APITokenLister    datasources.ActiveAPITokenLister
+	APITokenRevoker   datasources.APITokenRevoker
+	Now               func() time.Time
 }
 
 // New returns the handler for every route. Each request passes through the request logger, then the security
@@ -38,6 +39,11 @@ func New(deps Dependencies) http.Handler {
 
 	v1 := routes.PathPrefix("/v1").Subrouter()
 	v1.Use(authMiddleware(deps.AuthValidators, deps.ResolveUser))
+
+	v1.Handle("/me", requireAuth(controller.MeGet{})).Methods(http.MethodGet)
+	v1.Handle("/me", requireAuth(controller.MePatch{
+		Command: deps.UpdateDisplayName,
+	})).Methods(http.MethodPatch)
 
 	// API tokens cannot manage API tokens, so a leaked token cannot be used to mint or revoke others.
 	v1.Handle("/tokens", requireNonAPIToken(controller.APITokenCreate{
