@@ -152,6 +152,8 @@ wait_until database_ready
 "$workdir/migrate" up
 "$workdir/migrate" version
 
-# GOTESTFLAGS adds go test flags, split on whitespace; CI sets -race, which needs cgo.
+# GOTESTFLAGS adds go test flags, split on whitespace; CI sets -race, which needs cgo. The ${...+...} form
+# expands an empty array to nothing; bash before 4.4 (macOS's 3.2) treats a bare empty "${array[@]}" as unbound
+# under set -u.
 read -r -a extra_test_flags <<<"${GOTESTFLAGS:-}"
-TEST_MYSQL_ADMIN_URL="$admin_url" go test -tags integration -count=1 "${extra_test_flags[@]}" ./...
+TEST_MYSQL_ADMIN_URL="$admin_url" go test -tags integration -count=1 ${extra_test_flags[@]+"${extra_test_flags[@]}"} ./...
