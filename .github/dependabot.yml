@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # The pinned tools (go.mod tool directives) pull in most of the module graph; update them together.
+      tools:
+        patterns:
+          - github.com/daveshanley/vacuum
+          - github.com/golangci/golangci-lint/v2
+          - github.com/sqlc-dev/sqlc
+          - github.com/vektra/mockery/v3
+      # Minor and patch updates of everything else arrive as one pull request; major updates stay separate.
+      dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
