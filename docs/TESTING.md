@@ -73,8 +73,13 @@ helper. Controller tests set the principal directly in the request context and d
 Run against real MySQL 8.4 by the `test-integration*` targets:
 
 - **Repository** (`internal/datasources/mysql/*_integration_test.go`): every query in `queries.sql`, migrations up
-  → down → up (`TestMigrations_UpDownUp`), `cmd/migrate` (`TestMigrateRun_UpVersionDown`), case-sensitive IDs,
-  idempotent revoke/block, FK cascade, throttled last-used updates.
+  → down → up (`TestMigrations_UpDownUp`), case-sensitive IDs, idempotent revoke/block, FK cascade, throttled
+  last-used updates.
+- **Migrate command** (`cmd/migrate/main_integration_test.go`): `TestMigrateRun_UpVersionDown` (up, version and
+  down through `run`), `TestMigrateRun_UpWithNewerSchemaIsNoChange` (up on a clean schema newer than every
+  embedded migration, as when rolling back a release, succeeds and applies nothing) and
+  `TestMigrateRun_UpWithDirtySchemaFails` (up on a dirty schema fails with `migrate.ErrDirty`, whether or not
+  its version is newer).
 - **End to end** (`internal/app/http_handler_integration_test.go`): `TestHTTP_EndToEnd` serves the production
   handler (`NewHTTPHandler` with Setup's own `repositoryHTTPDependencies`) over a real repository, the real Auth0
   validator against a local `auth0test` issuer and the real API-token validator, plus the real
@@ -110,7 +115,9 @@ in parallel. A missing `TEST_MYSQL_ADMIN_URL` fails the test rather than skippin
 
 All three modes run `scripts/test-integration.sh <mode>`, which builds `cmd/migrate`, waits until the
 `bardic_torch` database accepts connections, runs `migrate up` and `migrate version` on it, and then runs
-`go test -tags integration -count=1 ./...` with `TEST_MYSQL_ADMIN_URL` set. Throwaway servers listen on a random
+`go test -tags integration -count=1 ./...` with `TEST_MYSQL_ADMIN_URL` set and any extra `go test` flags from
+`GOTESTFLAGS` (default none), e.g. `make test-integration-local GOTESTFLAGS=-race`. The race detector needs
+cgo, which CI has but the sandbox Go image may not, so only CI sets it. Throwaway servers listen on a random
 free `127.0.0.1` port and keep their files in a private temporary directory removed on exit, so concurrent runs
 do not collide.
 
@@ -157,10 +164,8 @@ a plain Debian Go image with no network access.
   defaults to utf8mb3, so always pass it. `--user=$(id -un)` lets it run as root. With no client binaries,
   readiness is a TCP poll of the port followed by retrying a Go connection (`migrate version`). The root account
   has an empty password: `TEST_MYSQL_ADMIN_URL=mysql://root@127.0.0.1:<port>`.
-- In the demesne sandbox the prefix lives at `/workspace/spike/mysql-env`:
-  ```
-  make test-integration-local MYSQL_PREFIX=/workspace/spike/mysql-env
-  ```
+- Then run `make test-integration-local MYSQL_PREFIX=<prefix>`, pointing `MYSQL_PREFIX` at wherever the prefix
+  was provisioned.
 
 ## CI
 
@@ -169,7 +174,8 @@ GitHub Actions (`.github/workflows/ci.yml`, on every push and pull request) runs
 - **validate**: `make validate`, with the Go version from `go.mod`.
 - **integration**: a `mysql:8.4` service container with `MYSQL_DATABASE=bardic_torch` and a TCP health check
   (`mysqladmin ping -h 127.0.0.1 --protocol=tcp`), then `make test-integration-external` with
-  `TEST_MYSQL_ADMIN_URL=mysql://root:root@127.0.0.1:3306`.
+  `TEST_MYSQL_ADMIN_URL=mysql://root:root@127.0.0.1:3306` and `GOTESTFLAGS=-race`, so the integration suite
+  runs under the race detector.
 - **docker**: `make docker-build CONTAINER_ENGINE=docker`, which builds the production image from the
   `Dockerfile`. `make validate` does not build the image, so this job is what catches a broken Dockerfile before a deploy.
 

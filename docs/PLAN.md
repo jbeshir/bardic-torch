@@ -73,8 +73,9 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 
 - **`bardic-torch`** (Go API)
   - Packages: transport/web (gorilla/mux) → command → domain → datasources/mysql (sqlc), plus migrations (golang-migrate).
-  - Three entrypoints:
+  - Four entrypoints:
     - `cmd/app`: the API server
+    - `cmd/migrate`: applies the embedded migrations; dokku runs `migrate up` as the predeploy step
     - `cmd/import-mediawiki`: the one-shot importer
     - `cmd/check-links`: link liveness checks, run by dokku cron
   - `cmd/mcp` (an MCP server) comes later.
@@ -252,10 +253,10 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 
 **BE:**
 - Unit tests for domain and commands, using mockery mocks. The revision engine gets table-driven tests for every state transition, stale/rebase case and sourced-field rule.
-- Repository tests against **real MySQL 8**, run in the sandbox if pipeline BE1's spike succeeds (§10). The host always runs them with `make test-integration` (podman).
+- Repository tests against **real MySQL 8.4**. BE1's spike succeeded, so they run in the sandbox (`make test-integration-local`, a conda-forge mysqld), on the host (`make test-integration`, podman) and in CI (`make test-integration-external` against a `mysql:8.4` service, under `-race`).
 - HTTP tests for every route, checking authentication, authorisation by role (anonymous, contributor, moderator, API token) and status codes, against the OpenAPI spec using kin-openapi response validation.
 - Importer golden tests (§7).
-- `make validate` covers lint (golangci pinned via `go tool`), vacuum OpenAPI lint, unit tests and build.
+- `make validate` covers the format check, lint (golangci pinned via `go tool`), vacuum OpenAPI lint, unit tests, build and the generated-code check (sqlc and mockery output up to date). docs/TESTING.md describes every target.
 
 **FE:**
 - vitest and testing-library component tests for every component, including both theme classes.
