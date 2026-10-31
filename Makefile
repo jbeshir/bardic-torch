@@ -23,5 +23,14 @@ build:
 	go build ./...
 	go build tool
 
+.PHONY: generate
+generate:
+	go generate ./...
+	go tool mockery
+
+.PHONY: check-generated
+check-generated:
+	scripts/check-generated.sh
+
 .PHONY: validate
-validate: fmt-check lint lint-openapi test-short build
+validate: fmt-check lint lint-openapi test-short build check-generated

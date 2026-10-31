@@ -30,7 +30,49 @@ tags:
   - name: Health
     description: Liveness and readiness checks for the deployment platform
 
-paths: {}
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Liveness check
+      description: |
+        Reports that the process is serving requests. Always 200 while the server runs; it does not check
+        dependencies. Credentials are ignored.
+      operationId: getHealthz
+      security: []
+      responses:
+        "200":
+          description: The server is running.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /readyz:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: |
+        Reports whether the server can handle requests, by checking that the database answers within two
+        seconds. The deployment platform uses it as the startup health check. Credentials are ignored.
+      operationId: getReadyz
+      security: []
+      responses:
+        "200":
+          description: The server and its database are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: The database is unreachable; the error code is `unavailable`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 
 components:
   securitySchemes:
@@ -45,3 +87,55 @@ components:
       description: |
         A personal API token, prefixed with `user_api|`: `Authorization: Bearer user_api|<token>`.
 
+
+  schemas:
+    Error:
+      type: object
+      description: The body of every error response.
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Stable, machine-readable error code.
+          enum:
+            - invalid_request
+            - unsupported_media_type
+            - request_too_large
+            - unauthenticated
+            - user_blocked
+            - api_token_not_allowed
+            - moderator_required
+            - not_found
+            - conflict
+            - token_limit_reached
+            - internal
+            - unavailable
+          examples:
+            - unavailable
+        message:
+          type: string
+          description: Human-readable description of the error. Not intended for display to end users.
+          examples:
+            - database unavailable
+      examples:
+        - code: unavailable
+          message: database unavailable
+
+    HealthStatus:
+      type: object
+      description: The body of a successful health check.
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+          examples:
+            - ok
+      examples:
+        - status: ok

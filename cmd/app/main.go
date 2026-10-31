@@ -11,6 +11,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/app"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/joho/godotenv"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -29,13 +30,29 @@ func main() {
 	slog.SetDefault(logger)
 	ctx = domain.ContextWithLogger(ctx, logger)
 
-	waitForShutdownSignal(ctx)
+	if err := run(ctx); err != nil {
+		logger.ErrorContext(ctx, "shutting down due to error", "error", err)
+		os.Exit(1)
+	}
 }
 
-// waitForShutdownSignal blocks until the process receives SIGINT or SIGTERM.
-func waitForShutdownSignal(ctx context.Context) {
+// run sets up and runs every component until one fails or the process receives SIGINT or SIGTERM, which
+// shuts the components down gracefully.
+func run(ctx context.Context) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	<-ctx.Done()
+	components, err := app.Setup(ctx)
+	if err != nil {
+		return fmt.Errorf("setting up components: %w", err)
+	}
+
+	grp, grpCtx := errgroup.WithContext(ctx)
+	for _, c := range components {
+		grp.Go(func() error {
+			return c.Run(grpCtx)
+		})
+	}
+
+	return grp.Wait()
 }
