@@ -2,8 +2,12 @@ package domain
 
 import "time"
 
+// APITokenPrefix starts every API token secret, so that the Authorization header tells API tokens apart from
+// other credentials.
+const APITokenPrefix = "user_api|"
+
 // APIToken is a long-lived credential a user created for programmatic access. The secret itself is never
-// stored; Prefix is its first characters, kept so the user can tell tokens apart.
+// stored; Prefix is the first characters of its random part, kept so the user can tell tokens apart.
 type APIToken struct {
 	ID     string
 	UserID string
