@@ -122,7 +122,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 **Workflow tables:**
 - **`revisions`**: `id`, `entity_type`, `entity_id`, `base_revision_id`, `author_user_id`, `source` (user / import / mcp), `status` (draft / pending / approved / rejected / withdrawn), `snapshot_json`, `summary`, `reviewer_user_id`, `reviewed_at`, `review_note`, `created_at`.
   - The snapshot is the full document, including owned child rows. Links appear inline by normalized URL.
-- **`users`**: Auth0 user ID, `display_name`, `role` (contributor / moderator), `created_at`, `blocked_at`. Moderators are seeded by migration.
+- **`users`**: Auth0 user ID, `display_name`, `role` (contributor / moderator), `created_at`, `blocked_at`. Moderators are not seeded by migration, and no user IDs live in migrations. At startup the API promotes the users listed in `BOOTSTRAP_MODERATOR_USER_IDS`, creating any who have not signed in yet. This is promote-only and idempotent: removing an ID never demotes the user, and demotion is done in SQL until a moderation endpoint exists.
 - **`repertoire`**: user_id, piece_id, notes, visibility (private / public), added_at.
 - **`link_reports`**: for removal requests (R-11).
 - **`contact_requests`**: kind (takedown / opt_out / correction / general), name, email, message, url, status. These need no account and are protected by Cloudflare Turnstile (R-13).
@@ -145,6 +145,8 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 - **Moderators:** edits are approved as they are saved, but still recorded as revisions.
 - **Sourced fields** (licensing notes, licence, preferences, person status, conservation status) are rejected at validation without a source URL. The rule applies to moderators too (R-12).
 - **New entities**, whether created by hand or as term suggestions, exist with `current_revision_id = NULL` and are invisible to the public until approved. When a moderator reviews a piece, any pending terms it references are shown and approved alongside it.
+
+**Roles and blocking:** every user starts as a contributor. The moderator role is granted only through `BOOTSTRAP_MODERATOR_USER_IDS` (§4). Moderators block and unblock contributors, but not other moderators or themselves. A blocked user gets 403 on every authenticated endpoint.
 - **Duplicate check on create:** normalised titles, names and aliases are compared, with apostrophes and case folded, Unicode NFC applied and accents stripped for matching only (R-17).
 
 **Revert** creates a new revision copying an older snapshot.
@@ -162,7 +164,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
   - `GET /v1/{entity}/{id}/history`, `GET /v1/revisions/{id}`: the snapshot plus a structured diff against its base
   - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18)
 - **Authenticated:**
-  - `GET /v1/me`
+  - `GET /v1/me`, and `PATCH /v1/me` to set the display name
   - drafts: `PUT /v1/drafts/{entity}/{id|new}`, and `POST /v1/revisions` to submit
   - `POST /v1/revisions/{id}/withdraw`
   - `GET /v1/me/revisions`
@@ -175,7 +177,9 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
   - `POST /v1/revisions/{id}/approve`, `…/reject`, `…/rebase`
   - `GET|POST /v1/moderation/link-reports`, `GET|POST /v1/moderation/contact-requests`
   - `PUT /v1/links/{id}/hidden`
+  - `PUT /v1/users/{id}/blocked`: block or unblock a contributor. Until the BE4 moderation endpoints show author IDs, moderators take IDs from Auth0 or the database.
 - **No account needed:** `POST /v1/contact`, verified with Turnstile.
+- **Health checks** (no authentication): `GET /healthz` (liveness) and `GET /readyz` (the database answers; dokku's startup check).
 - **Kept from the feed:** `/v1/tokens`.
 
 ## 7. Importer (`cmd/import-mediawiki`)
@@ -294,7 +298,7 @@ Each pipeline has the same internal shape:
 | # | Pipeline | Repo | Depends on | Contents |
 |---|---|---|---|---|
 | H0 | host setup | — | decisions in §2 | Create both GitHub repos and copy this plan into `bardic-torch/docs/`. Set up the dokku app, MySQL, letsencrypt and the api.bardictorch.org domain. Create the Cloudflare Pages project with bardictorch.org and www. Create the Auth0 application with Google and Facebook connections, plus a Turnstile site key. *The Auth0, Cloudflare and DNS dashboard steps are John's.* |
-| BE1 | foundation | BE | H0 | Copy and strip the feed skeleton. Add the users table, roles and moderator seeding, the auth carried over from the feed, the test harness (with the **in-sandbox MySQL spike**), the OpenAPI skeleton, CI, and the dokku files (Dockerfile, `app.json` predeploy migrate step, cron entry). |
+| BE1 | foundation | BE | H0 | Copy and strip the feed skeleton. Add the users table, roles and the moderator bootstrap, the auth carried over from the feed, the test harness (with the **in-sandbox MySQL spike**), the OpenAPI skeleton, CI, and the dokku files (Dockerfile, `app.json` predeploy migrate step). The cron entry lands with `cmd/check-links` in BE5. |
 | FE1 | foundation | FE | H0 (runs alongside BE1) | Copy and strip the feed FE. Add the wiki-style design system and layout, dark mode, auth, the type-generation pipeline, the fixture server, and the Playwright, axe and screenshot harness. Add the static help pages. |
 | BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search and A–Z. The revisions table exists but only stores import data. |
 | BE3 | importer | BE | BE2 | Everything in §7. A dry-run report is produced for John and Fabian to read. |
