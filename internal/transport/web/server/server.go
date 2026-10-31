@@ -9,7 +9,12 @@ import (
 	"time"
 )
 
-const shutdownTimeout = 10 * time.Second
+const (
+	shutdownTimeout = 10 * time.Second
+	// maxHeaderBytes bounds the request line and headers; the largest legitimate header is an Auth0 access token
+	// of a few KiB. Larger requests get 431.
+	maxHeaderBytes = 16 << 10
+)
 
 // Server serves plain HTTP on Listener; TLS is terminated in front of it.
 type Server struct {
@@ -23,6 +28,7 @@ func (s *Server) Run(ctx context.Context) error {
 	server := &http.Server{
 		Handler:           s.Handler,
 		ReadHeaderTimeout: 5 * time.Second,
+		MaxHeaderBytes:    maxHeaderBytes,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
