@@ -2,6 +2,8 @@ package router
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -92,6 +94,9 @@ func NewAuth0Validator(issuerURL *url.URL, audience string) (AuthValidator, erro
 		if len(token) > maxAuth0TokenBytes {
 			return nil, fmt.Errorf("%w: Auth0 token is longer than %d bytes", ErrInvalidCredentials, maxAuth0TokenBytes)
 		}
+		if err := checkAuth0TokenHeader(token); err != nil {
+			return nil, fmt.Errorf("%w: Auth0 token: %w", ErrInvalidCredentials, err)
+		}
 
 		validated, err := jwtValidator.ValidateToken(r.Context(), token)
 		if errors.Is(err, errSigningKeysUnavailable) {
@@ -108,6 +113,36 @@ func NewAuth0Validator(issuerURL *url.URL, audience string) (AuthValidator, erro
 
 		return &Identity{UserID: claims.RegisteredClaims.Subject, Method: domain.AuthMethodAuth0}, nil
 	}, nil
+}
+
+// auth0TokenHeader is the part of a token's JOSE header that the validator checks itself, because the JWT
+// library accepts a token with no key ID when the issuer publishes a single key, and ignores critical header
+// extensions it does not implement.
+type auth0TokenHeader struct {
+	KeyID    string   `json:"kid"`
+	Critical []string `json:"crit"`
+}
+
+// checkAuth0TokenHeader rejects tokens that do not name their signing key, or that list critical header
+// extensions, none of which this validator implements. Only the header segment is decoded, so the work is
+// bounded by the token's length, which the caller has already capped.
+func checkAuth0TokenHeader(token string) error {
+	encoded, _, _ := strings.Cut(token, ".")
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return fmt.Errorf("decoding token header: %w", err)
+	}
+	var header auth0TokenHeader
+	if err := json.Unmarshal(decoded, &header); err != nil {
+		return fmt.Errorf("parsing token header: %w", err)
+	}
+	switch {
+	case header.KeyID == "":
+		return errors.New("token header has no key ID")
+	case header.Critical != nil:
+		return errors.New("token header has critical extensions")
+	}
+	return nil
 }
 
 // checkUserTokenClaims checks what the JWT validator leaves optional: a token must expire, and must name a user

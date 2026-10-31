@@ -5,11 +5,14 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -24,6 +27,8 @@ import (
 const (
 	testAudience = "https://api.bardictorch.org"
 	testSubject  = "google-oauth2|123"
+	// expiryNotSatisfied is part of the error for a token past its expiry.
+	expiryNotSatisfied = `"exp" not satisfied`
 )
 
 func validateAuthorization(t *testing.T, validate AuthValidator, authorization string) (*Identity, error) {
@@ -60,6 +65,13 @@ func TestAuth0Validator_ValidTokens(t *testing.T) {
 			name:   "authorization_code_grant",
 			claims: withClaim(issuer.Claims(testSubject, testAudience), "gty", "authorization_code"),
 		},
+		{
+			// The JWT library reads a numeric string as a NumericDate. Only the issuer can sign such a token, and
+			// the date it holds is still checked (see expired_string_expiry in TestAuth0Validator_InvalidTokens).
+			name: "string_expiry",
+			claims: withClaim(issuer.Claims(testSubject, testAudience), "exp",
+				strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10)),
+		},
 	}
 
 	for _, tc := range cases {
@@ -92,6 +104,24 @@ func withHeader(name string, value any) map[string]any {
 	header := auth0test.Header()
 	header[name] = value
 	return header
+}
+
+// withoutHeader returns auth0test.Header() without name.
+func withoutHeader(name string) map[string]any {
+	header := auth0test.Header()
+	delete(header, name)
+	return header
+}
+
+// jsonSerialization returns the flattened JWS JSON serialization of a compact token.
+func jsonSerialization(t *testing.T, compact string) string {
+	t.Helper()
+
+	parts := strings.Split(compact, ".")
+	require.Len(t, parts, 3)
+	encoded, err := json.Marshal(map[string]string{"protected": parts[0], "payload": parts[1], "signature": parts[2]})
+	require.NoError(t, err)
+	return string(encoded)
 }
 
 func TestAuth0Validator_InvalidTokens(t *testing.T) {
@@ -136,12 +166,12 @@ func TestAuth0Validator_InvalidTokens(t *testing.T) {
 		{
 			name:    "expired",
 			token:   auth0test.Sign(t, issuer.Key, claims("exp", time.Now().Add(-time.Hour).Unix())),
-			wantErr: `"exp" not satisfied`,
+			wantErr: expiryNotSatisfied,
 		},
 		{
 			name:    "expired_beyond_clock_skew",
 			token:   auth0test.Sign(t, issuer.Key, claims("exp", time.Now().Add(-2*time.Minute).Unix())),
-			wantErr: `"exp" not satisfied`,
+			wantErr: expiryNotSatisfied,
 		},
 		{
 			name:    "not_yet_valid",
@@ -198,7 +228,46 @@ func TestAuth0Validator_InvalidTokens(t *testing.T) {
 			token:   auth0test.SignWithHeader(t, issuer.Key, withHeader("kid", "other-key"), valid),
 			wantErr: `key ID "other-key"`,
 		},
-		{name: "malformed", token: "not-a-jwt", wantErr: "parse"},
+		{
+			// Correctly signed, but naming no key; the JWKS has a single key the library would otherwise use.
+			name:    "no_key_id",
+			token:   auth0test.SignWithHeader(t, issuer.Key, withoutHeader("kid"), valid),
+			wantErr: "no key ID",
+		},
+		{
+			name:    "empty_key_id",
+			token:   auth0test.SignWithHeader(t, issuer.Key, withHeader("kid", ""), valid),
+			wantErr: "no key ID",
+		},
+		{
+			name:    "key_id_not_a_string",
+			token:   auth0test.SignWithHeader(t, issuer.Key, withHeader("kid", 5), valid),
+			wantErr: "parsing token header",
+		},
+		{
+			// Correctly signed, but requiring a header extension this validator does not implement.
+			name:    "critical_header",
+			token:   auth0test.SignWithHeader(t, issuer.Key, withHeader("crit", []string{"exp"}), valid),
+			wantErr: "critical extensions",
+		},
+		{
+			// Only the compact serialization is accepted, even for a correctly signed token.
+			name:    "json_serialization",
+			token:   jsonSerialization(t, auth0test.Sign(t, issuer.Key, valid)),
+			wantErr: "decoding token header",
+		},
+		{name: "malformed", token: "not-a-jwt", wantErr: "decoding token header"},
+		{
+			name:    "malformed_header_json",
+			token:   base64.RawURLEncoding.EncodeToString([]byte("not json")) + ".e30.",
+			wantErr: "parsing token header",
+		},
+		{
+			// A string expiry is read as the date it holds, so an expired one is still rejected.
+			name:    "expired_string_expiry",
+			token:   auth0test.Sign(t, issuer.Key, claims("exp", strconv.FormatInt(time.Now().Add(-time.Hour).Unix(), 10))),
+			wantErr: expiryNotSatisfied,
+		},
 	}
 
 	for _, tc := range cases {
