@@ -2,7 +2,14 @@ openapi: 3.1.0
 info:
   title: Bardic Torch API
   description: |
-    API for Bardic Torch, served at api.bardictorch.org.
+    API behind bardictorch.org.
+
+    Conventions:
+    - Request and response bodies are JSON (`application/json`); property names are snake_case.
+    - Response objects are closed (`additionalProperties: false`): clients can rely on receiving exactly the
+      documented properties.
+    - Errors use the `Error` body, whose `code` is stable and machine-readable; `message` is for humans.
+    - operationIds are camelCase.
   version: 1.0.0
   contact:
     name: Bardic Torch
@@ -15,4 +22,26 @@ servers:
   - url: https://api.bardictorch.org
     description: Production server
 
+security:
+  - auth0Bearer: []
+  - apiTokenBearer: []
+
+tags:
+  - name: Health
+    description: Liveness and readiness checks for the deployment platform
+
 paths: {}
+
+components:
+  securitySchemes:
+    auth0Bearer:
+      type: http
+      scheme: bearer
+      description: |
+        An Auth0 access token for this API, prefixed with `auth0|`: `Authorization: Bearer auth0|<jwt>`.
+    apiTokenBearer:
+      type: http
+      scheme: bearer
+      description: |
+        A personal API token, prefixed with `user_api|`: `Authorization: Bearer user_api|<token>`.
+
