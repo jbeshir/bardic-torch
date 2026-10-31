@@ -146,7 +146,7 @@ func TestAPITokenCreate_ServeHTTP(t *testing.T) {
 			invalidRequest: true,
 			command:        notCalled,
 			wantStatus:     http.StatusBadRequest,
-			wantBody:       `{"code":"invalid_request","message":"invalid request body: json: unknown field \"label\""}`,
+			wantBody:       `{"code":"invalid_request","message":"request body has an unknown field"}`,
 		},
 		{
 			name:           "missing_body",

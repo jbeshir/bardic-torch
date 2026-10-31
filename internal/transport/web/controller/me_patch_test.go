@@ -137,7 +137,7 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			body:           `{"display_name":"Morwen","role":"moderator"}`,
 			invalidRequest: true,
 			wantStatus:     http.StatusBadRequest,
-			wantBody:       `{"code":"invalid_request","message":"invalid request body: json: unknown field \"role\""}`,
+			wantBody:       `{"code":"invalid_request","message":"request body has an unknown field"}`,
 		},
 		{
 			name:           "missing_body",

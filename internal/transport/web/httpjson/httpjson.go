@@ -95,24 +95,55 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 		return false
 	}
 
-	objectDec := json.NewDecoder(bytes.NewReader(raw))
-	objectDec.DisallowUnknownFields()
-	if err := objectDec.Decode(dst); err != nil {
+	// Decoding with unknown fields allowed first separates wrong types, which encoding/json reports with a typed
+	// error, from unknown fields, which it reports only as text: a body that decodes this way but not strictly
+	// has an unknown field.
+	if err := json.Unmarshal(raw, dst); err != nil {
 		writeDecodeError(ctx, w, err)
+		return false
+	}
+	strictDec := json.NewDecoder(bytes.NewReader(raw))
+	strictDec.DisallowUnknownFields()
+	if err := strictDec.Decode(dst); err != nil {
+		logDecodeError(ctx, err)
+		WriteError(ctx, w, http.StatusBadRequest, CodeInvalidRequest, "request body has an unknown field")
 		return false
 	}
 
 	return true
 }
 
+// writeDecodeError writes the error response for a body that could not be decoded. The client gets a fixed
+// message, naming at most the JSON field at fault, and err itself is logged at debug level.
 func writeDecodeError(ctx context.Context, w http.ResponseWriter, err error) {
-	var maxBytesErr *http.MaxBytesError
+	logDecodeError(ctx, err)
+
+	var (
+		maxBytesErr *http.MaxBytesError
+		syntaxErr   *json.SyntaxError
+		typeErr     *json.UnmarshalTypeError
+		status      = http.StatusBadRequest
+		code        = CodeInvalidRequest
+		message     string
+	)
 	switch {
 	case errors.As(err, &maxBytesErr):
-		WriteError(ctx, w, http.StatusRequestEntityTooLarge, CodeRequestTooLarge, "request body is too large")
+		status, code, message = http.StatusRequestEntityTooLarge, CodeRequestTooLarge, "request body is too large"
 	case errors.Is(err, io.EOF):
-		WriteError(ctx, w, http.StatusBadRequest, CodeInvalidRequest, "request body must not be empty")
+		message = "request body must not be empty"
+	case errors.As(err, &syntaxErr), errors.Is(err, io.ErrUnexpectedEOF):
+		message = "request body is not valid JSON"
+	case errors.Is(err, errMultipleValues):
+		message = "request body must be a single JSON value"
+	case errors.As(err, &typeErr) && typeErr.Field != "":
+		message = "field " + typeErr.Field + " has the wrong type"
 	default:
-		WriteError(ctx, w, http.StatusBadRequest, CodeInvalidRequest, "invalid request body: "+err.Error())
+		message = "invalid request body"
 	}
+
+	WriteError(ctx, w, status, code, message)
+}
+
+func logDecodeError(ctx context.Context, err error) {
+	domain.LoggerFromContext(ctx).DebugContext(ctx, "unable to decode request body", "error", err)
 }

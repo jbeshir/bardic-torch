@@ -375,7 +375,7 @@ components:
             $ref: "#/components/schemas/Error"
           example:
             code: invalid_request
-            message: "invalid request body: json: unknown field \"label\""
+            message: request body has an unknown field
     Unauthenticated:
       description: |
         The request has no recognised credentials, or its credentials are invalid, expired or revoked; the error

@@ -111,8 +111,7 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 			body:           `{"blocked":"yes"}`,
 			invalidRequest: true,
 			wantStatus:     http.StatusBadRequest,
-			wantBody: `{"code":"invalid_request","message":"invalid request body: ` +
-				`json: cannot unmarshal string into Go struct field UserBlockedSetRequest.blocked of type bool"}`,
+			wantBody:       `{"code":"invalid_request","message":"field blocked has the wrong type"}`,
 		},
 		{
 			name:           "invalid_path_encoding",
