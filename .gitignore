@@ -20,3 +20,6 @@ go.work
 
 # IDE files
 .idea
+
+# Local MySQL server prefix (make mysql-local-install)
+.mysql-local/

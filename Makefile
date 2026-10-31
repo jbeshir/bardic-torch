@@ -23,6 +23,24 @@ build:
 	go build ./...
 	go build tool
 
+MYSQL_PREFIX ?= .mysql-local
+
+.PHONY: test-integration
+test-integration:
+	scripts/test-integration.sh podman
+
+.PHONY: test-integration-local
+test-integration-local:
+	MYSQL_PREFIX=$(MYSQL_PREFIX) scripts/test-integration.sh local
+
+.PHONY: test-integration-external
+test-integration-external:
+	scripts/test-integration.sh external
+
+.PHONY: mysql-local-install
+mysql-local-install:
+	conda create -y -p $(MYSQL_PREFIX) -c conda-forge --override-channels mysql-server=8.4.2
+
 .PHONY: generate
 generate:
 	go generate ./...

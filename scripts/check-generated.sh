@@ -11,7 +11,8 @@ generated_dirs=(
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-cp -a . "$tmp/repo"
+mkdir "$tmp/repo"
+tar --exclude=./.mysql-local -cf - . | tar -xf - -C "$tmp/repo"
 for dir in "${generated_dirs[@]}"; do
   rm -rf "${tmp:?}/repo/$dir"
 done
