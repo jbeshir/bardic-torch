@@ -32,6 +32,8 @@ const (
 	CodeUnauthenticated      ErrorCode = "unauthenticated"
 	CodeUserBlocked          ErrorCode = "user_blocked"
 	CodeAPIAuthNotAllowed    ErrorCode = "api_token_not_allowed"
+	CodeNotFound             ErrorCode = "not_found"
+	CodeAPIAuthLimitReached  ErrorCode = "token_limit_reached"
 	CodeInternal             ErrorCode = "internal"
 	CodeUnavailable          ErrorCode = "unavailable"
 )

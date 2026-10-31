@@ -29,6 +29,8 @@ security:
 tags:
   - name: Health
     description: Liveness and readiness checks for the deployment platform
+  - name: API tokens
+    description: Personal API tokens for programmatic access
 
 paths:
   /healthz:
@@ -74,6 +76,124 @@ paths:
                 $ref: "#/components/schemas/Error"
 
 
+  /v1/tokens:
+    post:
+      tags:
+        - API tokens
+      summary: Create an API token
+      description: |
+        Creates a personal API token for the caller and returns its secret, which is shown only in this response.
+        A user may have at most 10 active tokens; the limit is checked before the token is stored, so concurrent
+        requests can exceed it. Requires Auth0 authentication: API tokens cannot create tokens.
+      operationId: createAPIToken
+      security:
+        - auth0Bearer: []
+      requestBody:
+        description: The token to create. Send `{}` to create a token without a name.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAPITokenRequest"
+            examples:
+              named:
+                summary: A named token
+                value:
+                  name: CI runner
+              unnamed:
+                summary: A token without a name
+                value: {}
+      responses:
+        "201":
+          description: The token was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedAPIToken"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/APITokenForbidden"
+        "409":
+          description: The caller already has 10 active tokens; the error code is `token_limit_reached`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: token_limit_reached
+                message: user has reached the maximum number of active API tokens
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+    get:
+      tags:
+        - API tokens
+      summary: List API tokens
+      description: |
+        Lists the caller's active (not revoked) API tokens, newest first. Secrets are never included. Requires
+        Auth0 authentication: API tokens cannot list tokens.
+      operationId: listAPITokens
+      security:
+        - auth0Bearer: []
+      responses:
+        "200":
+          description: The caller's active tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APITokenList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/APITokenForbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/tokens/{token_id}:
+    delete:
+      tags:
+        - API tokens
+      summary: Revoke an API token
+      description: |
+        Revokes one of the caller's API tokens, which then no longer authenticates requests. Revoking a token that
+        is already revoked succeeds again. Requires Auth0 authentication: API tokens cannot revoke tokens.
+      operationId: revokeAPIToken
+      security:
+        - auth0Bearer: []
+      parameters:
+        - name: token_id
+          in: path
+          required: true
+          description: The token's `id`.
+          schema:
+            type: string
+            examples:
+              - 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+      responses:
+        "204":
+          description: The token is revoked.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/APITokenForbidden"
+        "404":
+          description: The caller has no token with this ID; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: API token not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
 components:
   securitySchemes:
     auth0Bearer:
@@ -87,6 +207,74 @@ components:
       description: |
         A personal API token, prefixed with `user_api|`: `Authorization: Bearer user_api|<token>`.
 
+
+  responses:
+    InvalidRequest:
+      description: The request body is malformed or invalid; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid request body: json: unknown field \"label\""
+    Unauthenticated:
+      description: |
+        The request has no recognised credentials, or its credentials are invalid, expired or revoked; the error
+        code is `unauthenticated`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unauthenticated
+            message: invalid credentials
+    APITokenForbidden:
+      description: |
+        The caller is blocked (`user_blocked`), or authenticated with an API token, which this endpoint does not
+        accept (`api_token_not_allowed`). Blocking takes precedence.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            userBlocked:
+              summary: The caller is blocked
+              value:
+                code: user_blocked
+                message: user is blocked
+            apiTokenNotAllowed:
+              summary: The caller used an API token
+              value:
+                code: api_token_not_allowed
+                message: this endpoint cannot be used with an API token
+    RequestTooLarge:
+      description: The request body is larger than 16 KiB; the error code is `request_too_large`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: request_too_large
+            message: request body is too large
+    UnsupportedMediaType:
+      description: The request body is not sent as `application/json`; the error code is `unsupported_media_type`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unsupported_media_type
+            message: request body must be sent as application/json
+    Internal:
+      description: The server failed to handle the request; the error code is `internal`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: internal
+            message: internal error
 
   schemas:
     Error:
@@ -139,3 +327,130 @@ components:
             - ok
       examples:
         - status: ok
+
+    CreateAPITokenRequest:
+      type: object
+      description: The body of a request to create an API token.
+      additionalProperties: false
+      properties:
+        name:
+          type:
+            - string
+            - "null"
+          description: |
+            A label to tell the token apart from others. Surrounding whitespace is trimmed, and at most 128
+            characters may remain; an empty, whitespace-only, null or missing name means the token has none.
+          examples:
+            - CI runner
+      examples:
+        - name: CI runner
+
+    APIToken:
+      type: object
+      description: An API token. Its secret is never returned after creation.
+      additionalProperties: false
+      required:
+        - id
+        - prefix
+        - name
+        - created_at
+        - last_used_at
+      properties:
+        id:
+          type: string
+          description: The token's ID, used to revoke it.
+          examples:
+            - 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+        prefix:
+          type: string
+          description: The first eight characters of the secret after `user_api|`, to tell tokens apart.
+          pattern: "^[0-9a-f]{8}$"
+          examples:
+            - 0123abcd
+        name:
+          type:
+            - string
+            - "null"
+          description: The token's label, or null if it has none.
+          minLength: 1
+          maxLength: 128
+          examples:
+            - CI runner
+        created_at:
+          type: string
+          format: date-time
+          description: When the token was created.
+          examples:
+            - "2026-10-31T12:00:00Z"
+        last_used_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: |
+            When the token last authenticated a request, or null if it never has. Recorded to the nearest minute:
+            uses within a minute of the recorded one do not update it.
+          examples:
+            - "2026-10-31T12:30:00Z"
+      examples:
+        - id: 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+          prefix: 0123abcd
+          name: CI runner
+          created_at: "2026-10-31T12:00:00Z"
+          last_used_at: "2026-10-31T12:30:00Z"
+
+    CreatedAPIToken:
+      type: object
+      description: A newly created API token, with its secret.
+      additionalProperties: false
+      required:
+        - id
+        - prefix
+        - name
+        - created_at
+        - last_used_at
+        - token
+      properties:
+        id:
+          $ref: "#/components/schemas/APIToken/properties/id"
+        prefix:
+          $ref: "#/components/schemas/APIToken/properties/prefix"
+        name:
+          $ref: "#/components/schemas/APIToken/properties/name"
+        created_at:
+          $ref: "#/components/schemas/APIToken/properties/created_at"
+        last_used_at:
+          $ref: "#/components/schemas/APIToken/properties/last_used_at"
+        token:
+          type: string
+          description: |
+            The secret, shown only in this response. Send it as `Authorization: Bearer <token>`.
+          pattern: "^user_api\\|[0-9a-f]{64}$"
+          examples:
+            - "user_api|0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd"
+      examples:
+        - id: 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+          prefix: 0123abcd
+          name: CI runner
+          created_at: "2026-10-31T12:00:00Z"
+          last_used_at: null
+          token: "user_api|0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd"
+
+    APITokenList:
+      type: object
+      description: A list of API tokens.
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/APIToken"
+      examples:
+        - data:
+            - id: 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+              prefix: 0123abcd
+              name: CI runner
+              created_at: "2026-10-31T12:00:00Z"
+              last_used_at: "2026-10-31T12:30:00Z"

@@ -61,7 +61,7 @@ func TestNewHTTPHandler_Preflight(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusNoContent, rec.Code)
-	assert.Equal(t, http.MethodGet, rec.Header().Get("Access-Control-Allow-Methods"))
+	assert.Equal(t, "DELETE, GET, POST", rec.Header().Get("Access-Control-Allow-Methods"))
 }
 
 func TestNewHTTPHandler_UnknownRoute(t *testing.T) {
