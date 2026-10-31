@@ -16,7 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testAudience = "https://api.bardictorch.org"
+const (
+	testAudience    = "https://api.bardictorch.org"
+	testAuth0Domain = "bardic-torch.eu.auth0.com"
+)
 
 type apiTokenAuthMocks struct {
 	*mocks.APITokenByHashGetter
@@ -82,7 +85,7 @@ func TestAuthValidatorsFromEnv_APITokenOnlyDoesNotReadAuth0(t *testing.T) {
 func TestAuthValidatorsFromEnv_BothDrivers(t *testing.T) {
 	setAuthEnv(t, map[string]string{
 		authDriversEnv:   "auth0, api_token",
-		auth0DomainEnv:   "bardic-torch.eu.auth0.com",
+		auth0DomainEnv:   testAuth0Domain,
 		auth0AudienceEnv: testAudience,
 	})
 
@@ -95,19 +98,48 @@ func TestAuthValidatorsFromEnv_BothDrivers(t *testing.T) {
 	require.ErrorIs(t, err, router.ErrInvalidCredentials)
 }
 
+func TestAuthValidatorsFromEnv_Auth0OnlyIgnoresAPITokens(t *testing.T) {
+	setAuthEnv(t, map[string]string{
+		authDriversEnv:   auth0Driver,
+		auth0DomainEnv:   testAuth0Domain,
+		auth0AudienceEnv: testAudience,
+	})
+
+	// The API token store mocks fail the test if they are used.
+	validators, err := authValidatorsFromEnv(t.Context(), newAPITokenAuthMocks(t), time.Now)
+	require.NoError(t, err)
+	require.Len(t, validators, 1)
+
+	identity, err := authenticateWith(t, validators, "Bearer user_api|0123")
+	require.NoError(t, err)
+	assert.Nil(t, identity, "API tokens are not accepted")
+
+	_, err = authenticateWith(t, validators, "Bearer auth0|not-a-jwt")
+	require.ErrorIs(t, err, router.ErrInvalidCredentials, "Auth0 tokens are checked")
+}
+
 func TestAuthValidatorsFromEnv_InvalidConfiguration(t *testing.T) {
+	const emptyAuth0Config = "AUTH0_DOMAIN and AUTH0_AUDIENCE must not be empty when the auth0 driver is enabled"
+
 	cases := []struct {
-		name string
-		env  map[string]string
+		name    string
+		env     map[string]string
+		wantErr string
 	}{
-		{name: "unknown_driver", env: map[string]string{authDriversEnv: "api_token,password"}},
 		{
-			name: "empty_auth0_domain",
-			env:  map[string]string{authDriversEnv: auth0Driver, auth0DomainEnv: "", auth0AudienceEnv: testAudience},
+			name:    "unknown_driver",
+			env:     map[string]string{authDriversEnv: "api_token,password"},
+			wantErr: "unknown auth driver [password]",
 		},
 		{
-			name: "empty_auth0_audience",
-			env:  map[string]string{authDriversEnv: auth0Driver, auth0DomainEnv: "bardic-torch.eu.auth0.com", auth0AudienceEnv: ""},
+			name:    "empty_auth0_domain",
+			env:     map[string]string{authDriversEnv: auth0Driver, auth0DomainEnv: "", auth0AudienceEnv: testAudience},
+			wantErr: emptyAuth0Config,
+		},
+		{
+			name:    "empty_auth0_audience",
+			env:     map[string]string{authDriversEnv: auth0Driver, auth0DomainEnv: testAuth0Domain, auth0AudienceEnv: ""},
+			wantErr: emptyAuth0Config,
 		},
 	}
 
@@ -117,15 +149,43 @@ func TestAuthValidatorsFromEnv_InvalidConfiguration(t *testing.T) {
 
 			_, err := authValidatorsFromEnv(t.Context(), newAPITokenAuthMocks(t), time.Now)
 
-			require.Error(t, err)
+			require.ErrorContains(t, err, tc.wantErr)
 		})
 	}
 }
 
-func TestAuthValidatorsFromEnv_MissingAuth0DomainPanics(t *testing.T) {
-	setAuthEnv(t, map[string]string{authDriversEnv: auth0Driver, auth0AudienceEnv: testAudience})
+func TestAuthValidatorsFromEnv_MissingAuth0SettingPanics(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+	}{
+		{name: "missing_domain", env: map[string]string{authDriversEnv: auth0Driver, auth0AudienceEnv: testAudience}},
+		{name: "missing_audience", env: map[string]string{authDriversEnv: auth0Driver, auth0DomainEnv: testAuth0Domain}},
+	}
 
-	assert.Panics(t, func() {
-		_, _ = authValidatorsFromEnv(t.Context(), newAPITokenAuthMocks(t), time.Now)
-	})
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setAuthEnv(t, tc.env)
+
+			assert.Panics(t, func() {
+				_, _ = authValidatorsFromEnv(t.Context(), newAPITokenAuthMocks(t), time.Now)
+			})
+		})
+	}
+}
+
+func TestAuth0IssuerURL(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		domain string
+		want   string
+	}{
+		{domain: testAuth0Domain, want: "https://bardic-torch.eu.auth0.com/"},
+		{domain: "login.bardictorch.org", want: "https://login.bardictorch.org/"},
+	}
+
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, auth0IssuerURL(tc.domain).String(), tc.domain)
+	}
 }

@@ -63,12 +63,16 @@ func auth0ValidatorFromEnv(ctx context.Context) (router.AuthValidator, error) {
 		return nil, errors.New("AUTH0_DOMAIN and AUTH0_AUDIENCE must not be empty when the auth0 driver is enabled")
 	}
 
-	// Auth0 issues tokens with its domain's root URL, trailing slash included, as the issuer.
-	issuerURL := &url.URL{Scheme: "https", Host: domain, Path: "/"}
-	validator, err := router.NewAuth0Validator(issuerURL, audience)
+	validator, err := router.NewAuth0Validator(auth0IssuerURL(domain), audience)
 	if err != nil {
 		return nil, fmt.Errorf("creating Auth0 validator: %w", err)
 	}
 
 	return validator, nil
+}
+
+// auth0IssuerURL returns the issuer of tokens from the Auth0 tenant at domain: its root URL, trailing slash
+// included, which is also where its OpenID configuration is discovered from.
+func auth0IssuerURL(domain string) *url.URL {
+	return &url.URL{Scheme: "https", Host: domain, Path: "/"}
 }
