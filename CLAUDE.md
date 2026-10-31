@@ -11,9 +11,13 @@ To validate changes in this repository, run the following automated checks:
 - Format check, lint, OpenAPI lint, unit tests, build and generated-code check: `make validate`
 - Integration tests against real MySQL 8.4: `make test-integration` (podman), or
   `make test-integration-local MYSQL_PREFIX=<prefix>` without a container engine (see docs/TESTING.md)
+- Known vulnerabilities reachable from the code: `make vulncheck` (govulncheck). It is not part of
+  `make validate` because it needs network access to vuln.go.dev; where that is unreachable, say so and leave it
+  to CI. Fix a finding by upgrading the module or the Go version (`go.mod`, the `Dockerfile` base image), never
+  by ignoring it.
 
-All automated steps must pass before changes can be merged. CI runs `make validate`, the integration tests and
-the image build on every push and pull request.
+All automated steps must pass before changes can be merged. CI runs `make validate`, `make vulncheck`, the
+integration tests and the image build on every push and pull request.
 
 ### Rules for fixing failures
 

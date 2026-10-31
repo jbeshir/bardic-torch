@@ -12,6 +12,7 @@ updates:
           - github.com/golangci/golangci-lint/v2
           - github.com/sqlc-dev/sqlc
           - github.com/vektra/mockery/v3
+          - golang.org/x/vuln
       # Minor and patch updates of everything else arrive as one pull request; major updates stay separate.
       dependencies:
         patterns:

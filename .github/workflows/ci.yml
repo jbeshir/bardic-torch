@@ -24,6 +24,22 @@ jobs:
       - name: Validate
         run: make validate
 
+  vulncheck:
+    name: Vulnerability check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Vulnerability check
+        run: make vulncheck
+
   integration:
     name: Integration tests
     runs-on: ubuntu-latest

@@ -28,6 +28,10 @@ lint-openapi: ## Lint openapi/api.yaml with vacuum
 test-short: ## Run the unit tests
 	go test -short ./...
 
+.PHONY: vulncheck
+vulncheck: ## Report known vulnerabilities reachable from the code (needs network access to vuln.go.dev)
+	go tool govulncheck ./...
+
 .PHONY: build
 build: ## Build every package and the pinned tools
 	go build ./...

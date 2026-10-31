@@ -6,9 +6,13 @@
 | `make test-integration` | the integration suite against a throwaway `mysql:8.4` podman container | podman |
 | `make test-integration-local` | the integration suite against a throwaway `mysqld` from a local mysql-server prefix | `MYSQL_PREFIX` (see below) |
 | `make test-integration-external` | the integration suite against an already-running MySQL | `TEST_MYSQL_ADMIN_URL` |
+| `make vulncheck` | `go tool govulncheck ./...`: known vulnerabilities in the Go standard library and modules that the code can reach | network access to vuln.go.dev |
 
-Every change must pass `make validate` and one of the integration targets. Tools (golangci-lint, vacuum, sqlc,
-mockery) are pinned with `tool` directives in `go.mod` and run with `go tool`, so nothing needs installing.
+Every change must pass `make validate`, `make vulncheck` and one of the integration targets. `make vulncheck`
+is separate from `make validate` because it downloads the vulnerability database; offline, CI runs it. A
+finding is fixed by upgrading the affected module or the Go version (`go.mod` and the `Dockerfile` base image).
+Tools (golangci-lint, vacuum, sqlc, mockery, govulncheck) are pinned with `tool` directives in `go.mod` and run
+with `go tool`, so nothing needs installing.
 
 ## Test layers
 
@@ -204,9 +208,11 @@ a plain Debian Go image with no network access.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`, on every push and pull request) runs three jobs:
+GitHub Actions (`.github/workflows/ci.yml`, on every push and pull request) runs four jobs:
 
 - **validate**: `make validate`, with the Go version from `go.mod`.
+- **vulncheck**: `make vulncheck`, with the Go version from `go.mod`, so a newly published advisory for the
+  standard library or a module the code reaches fails CI.
 - **integration**: a `mysql:8.4` service container with `MYSQL_DATABASE=bardic_torch` and a TCP health check
   (`mysqladmin ping -h 127.0.0.1 --protocol=tcp`), then `make test-integration-external` with
   `TEST_MYSQL_ADMIN_URL=mysql://root:root@127.0.0.1:3306` and `GOTESTFLAGS=-race`, so the integration suite

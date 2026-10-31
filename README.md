@@ -63,7 +63,7 @@ Two entrypoints share the internal packages:
 - podman (or docker, with `CONTAINER_ENGINE=docker`) for the development MySQL
 - Make
 
-Tools (golangci-lint, vacuum, sqlc, mockery) are pinned in `go.mod` and run with `go tool`; nothing needs
+Tools (golangci-lint, vacuum, sqlc, mockery, govulncheck) are pinned in `go.mod` and run with `go tool`; nothing needs
 installing.
 
 ### Quick start
@@ -84,6 +84,7 @@ run` applies the migrations and starts the API on port 5000 with null auth, so `
 |---|---|
 | `make validate` | Format check, lint, OpenAPI lint, unit tests, build and generated-code check |
 | `make test-integration` | Integration tests against a throwaway podman MySQL ([docs/TESTING.md](docs/TESTING.md) has the other modes) |
+| `make vulncheck` | govulncheck: known vulnerabilities reachable from the code (needs network access to vuln.go.dev) |
 | `make fmt` | Format code (gofmt + goimports) |
 | `make generate` | Regenerate sqlc queries and mockery mocks |
 | `make docker-build` | Build the production image |
