@@ -111,6 +111,10 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `POST` | `/v1/tokens` | Auth0 only | Create an API token (max 10 active) |
 | `DELETE` | `/v1/tokens/{token_id}` | Auth0 only | Revoke an API token |
 
+Any other path gets a JSON 404 (`not_found`), and a listed path with another method a JSON 405
+(`method_not_allowed`) with an `Allow` header; neither authenticates. Request headers over 16 KiB get a plain-text
+431.
+
 ### Authentication
 
 Two authentication methods are supported, identified by the bearer token prefix:

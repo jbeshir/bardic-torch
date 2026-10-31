@@ -9,6 +9,10 @@ info:
     - Response objects are closed (`additionalProperties: false`): clients can rely on receiving exactly the
       documented properties.
     - Errors use the `Error` body, whose `code` is stable and machine-readable; `message` is for humans.
+    - A path no operation matches gets 404 `not_found`; a known path with an unsupported method gets 405
+      `method_not_allowed` with an `Allow` header listing the supported methods. Neither authenticates the
+      request.
+    - Request headers over 16 KiB get a plain-text 431 from the server, before any operation runs.
     - operationIds are camelCase.
   version: 1.0.0
   contact:
