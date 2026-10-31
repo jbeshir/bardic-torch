@@ -1,10 +1,21 @@
 package domain
 
-import "time"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"time"
+)
 
 // APITokenPrefix starts every API token secret, so that the Authorization header tells API tokens apart from
 // other credentials.
 const APITokenPrefix = "user_api|"
+
+// HashAPITokenSecret returns the hex SHA-256 of the whole secret, prefix included. The hash is stored in place
+// of the secret, and tokens are looked up by it.
+func HashAPITokenSecret(secret string) string {
+	hash := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(hash[:])
+}
 
 // APIToken is a long-lived credential a user created for programmatic access. The secret itself is never
 // stored; Prefix is the first characters of its random part, kept so the user can tell tokens apart.

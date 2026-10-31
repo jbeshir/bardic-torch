@@ -7,7 +7,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// NewAPIToken holds the values an API token is created with. TokenHash is the hex SHA-256 of the secret.
+// NewAPIToken holds the values an API token is created with. TokenHash is domain.HashAPITokenSecret of the secret.
 type NewAPIToken struct {
 	ID          string
 	UserID      string
@@ -22,7 +22,7 @@ type APITokenCreator interface {
 	CreateAPIToken(ctx context.Context, token NewAPIToken) error
 }
 
-// APITokenByHashGetter retrieves an API token, revoked or not, by the hex SHA-256 of its secret, returning
+// APITokenByHashGetter retrieves an API token, revoked or not, by domain.HashAPITokenSecret of its secret, returning
 // ErrNotFound if there is none.
 type APITokenByHashGetter interface {
 	GetAPITokenByHash(ctx context.Context, tokenHash string) (domain.APIToken, error)

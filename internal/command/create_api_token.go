@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -77,7 +76,6 @@ func (c *CreateAPIToken) Execute(ctx context.Context, req CreateAPITokenRequest)
 	}
 	randomHex := hex.EncodeToString(random)
 	secret := domain.APITokenPrefix + randomHex
-	hash := sha256.Sum256([]byte(secret))
 
 	token := domain.APIToken{
 		ID:        uuid.NewString(),
@@ -89,7 +87,7 @@ func (c *CreateAPIToken) Execute(ctx context.Context, req CreateAPITokenRequest)
 	if err := c.Creator.CreateAPIToken(ctx, datasources.NewAPIToken{
 		ID:          token.ID,
 		UserID:      token.UserID,
-		TokenHash:   hex.EncodeToString(hash[:]),
+		TokenHash:   domain.HashAPITokenSecret(secret),
 		TokenPrefix: token.Prefix,
 		Name:        token.Name,
 		CreatedAt:   token.CreatedAt,
