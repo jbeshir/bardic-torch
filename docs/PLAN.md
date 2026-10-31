@@ -112,7 +112,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
   - flags: `is_stub`, `claimed_by_user_id` (unused in v1)
   - Child tables: `person_aliases(name, kind: legal | sca | stage | nickname | former | redirect, is_public)`, `person_roles`, `person_affiliations(term_id)`, `person_relations(to_person, type: heir_of | member_of | same_as)`.
   - `person_preferences(dimension, value_json, source_url)`, one row per Bard Preference Checklist dimension (R-8). Piece-level overrides go in `piece_preferences` in the same shape.
-- **`terms`**: `facet` (kind, mood, topic, culture, language, legendaria, form, origin, other, affiliation), `name`, `display_name` (without the "(Topic)"/"(Language)" disambiguation suffix), `slug`, `parent_id` (depth ≤ 3), `description_md`, `status` (active / pending_suggestion).
+- **`terms`**: `facet` (mood, topic, culture, language, legendaria, form, origin, other, affiliation), `name`, `display_name` (without the "(Topic)"/"(Language)" disambiguation suffix), `slug`, `parent_id` (depth ≤ 3), `related_affiliation_id` (a `Patriotic (Kingdom)` topic's kingdom, §2.12), `description_md`, `position`. Kinds are not terms (§4.1).
   - Child tables: `term_aliases`, and a `term_ancestors` closure table rebuilt transactionally when a term revision is approved.
 - **`collections`**: `name`, `sort_name`, `url`, `kind`, `description_md`, `region_term_id`, `parent_id`, `is_bardic_resource`, `enumerable`.
 - **`links`**: `url`, `normalized_url` (unique; tracking parameters stripped), `title`, `description`, `platform`, `place_type`, `collection_id`, `locator`, `liveness` (unknown / ok / dead / blocked), `last_checked_at`, `archived_url`, `is_hidden` (moderator takedown, R-11).
@@ -128,6 +128,70 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 - **`link_reports`**: for removal requests (R-11).
 - **`contact_requests`**: kind (takedown / opt_out / correction / general), name, email, message, url, status. These need no account and are protected by Cloudflare Turnstile (R-13).
 - **`api_tokens`**: kept from the feed.
+
+### 4.1 Catalogue decisions refined in BE2
+
+BE2 built the catalogue schema (migrations 003–008) and the public read API. These decisions refine §4 and §6;
+the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
+
+- **Visibility is approval.** An entity is public exactly when `current_revision_id IS NOT NULL`; a term also needs
+  every ancestor approved. The `terms.status` column was dropped as redundant: a pending suggestion is a term with
+  no approved revision (BE4 deletes rejected new-entity rows, or adds a column). References from a public entity to
+  a non-public one are omitted from every read, and an unknown slug and a non-public slug answer identically.
+- **Kinds are an enum** (`pieces.kind` plus `piece_secondary_kinds`), not terms, so `terms.facet` has no `kind`. The
+  `kind` filter matches the primary or a secondary kind. The list grows by appending ENUM values (an instant ALTER).
+  **Enum growth rule:** a new value ships in code one release before any data uses it, so a rollback never reads a
+  value it does not know.
+- **Disputed is a certainty**, not an attribution (§2.4's wording). The database checks that a credit has a person
+  exactly when `attribution = named`.
+- **Hidden aliases** (`person_aliases.is_public = false`, the default, so a forgotten value fails closed) never
+  appear in a public read, a search match or score, a snapshot or a diff. BE2 cannot scrub free text, so the
+  importer (BE3) hides `redirect` aliases equal to a hidden alias and lists free text containing a hidden alias
+  in `import-review.md`.
+- **`prefers_no_page` persons** show only their identity (name, kind, status, date and source; `profile: null`).
+  They are listed as stubs and found only by name. They are excluded from role/affiliation filters, every person
+  count and member list, every credit (the credit is omitted), performer list, relation list (both directions),
+  collection citation and needs-work.
+- **Hidden links** (`links.is_hidden`) are excluded from every read, including snapshots and needs-work.
+- **Slugs** are ASCII `[a-z0-9]+(-[a-z0-9]+)*`, at most 191 characters and unique per table. Term slugs keep the
+  wiki's disambiguation suffix (`12th-century` in origin, `12th-century-topic` in topic), while `display_name`
+  drops it. The importer's `Slugify` uses NFKD, strips marks, lowercases and turns non-alphanumeric runs into `-`.
+  An empty result becomes `<entity type>-<id>`, and collisions get `-2`, `-3`… Collections are addressed by ID.
+- **Sort keys and letters are stored and written by the writer** (`sort_title`/`sort_name`, `sort_letter`), never
+  derived in SQL.
+  - The sort key skips leading punctuation and one leading "The", "A" or "An". R-24's "songbook/book" words are not
+    stripped.
+  - `sort_letter` is `A`–`Z` or `0`: the first letter of the sort key after NFKD and mark stripping, with Ł→L, Ø→O,
+    Đ/Ð→D, Æ→A, Œ→O, ß→S, Þ→T and ﬁ→F. Anything else (digits, punctuation, other scripts) is `0`.
+  - Persons sort by name as written.
+- **Search** uses InnoDB FULLTEXT in boolean mode with the server's default stopwords. The API tokenises `q` itself:
+  - it splits on non-letters and drops tokens shorter than 3 characters and InnoDB stopwords;
+  - it sends `+token*` for at most 8 tokens, so user operators never reach MySQL;
+  - if no token survives, it falls back to an accent-insensitive title/alias prefix match.
+
+  FULLTEXT sees only committed rows, so BE4 searches after its approval transaction commits.
+- **Snapshots** hold only editor-owned fields. Left out:
+  - IDs, `current_revision_id`, `legacy_*`, `claimed_by_user_id` and sort keys;
+  - `conservation_history`, which is appended on approval from the document's `conservation {status,
+    source_url}`;
+  - link system and moderator state (`liveness`, `last_checked_at`, `archived_url`, `is_hidden`,
+    `normalized_url`).
+
+  So approving an old snapshot cannot un-hide a link or undo a liveness check. Links are inline by URL, documents
+  own only their outgoing relations, and other entities are referenced by ID. A coverage test fails when a column is
+  added without being classified as document-owned or system-owned.
+- **Public revision views** never serve stored documents raw:
+  - references are resolved to public summaries, or omitted;
+  - redaction applies the *current* alias, person and link visibility, so hiding an alias later also hides it in
+    old revisions;
+  - `changed_fields` (the diff) is computed on the redacted views.
+
+  Only approved revisions are public until BE4. Authors show only a display name, and imports list the wiki
+  contributors (`revision_contributors`).
+- **Preference profiles** (`person_preferences`, `piece_preferences`) exist as tables but are not exposed until BE5
+  defines and validates their `value_json` shapes.
+- **Status sources:** "a status other than active needs a source" is domain validation (BE4), not a CHECK. The
+  importer uses the legacy wiki page URL as the source. `conservation_history` has a `source_url`.
 
 ## 5. Revision engine and moderation rules (the core)
 
@@ -156,14 +220,23 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 
 ## 6. API surface (all specified in OpenAPI; the FE never calls the API directly from the browser)
 
-- **Public reads:**
-  - `GET /v1/pieces`: faceted search. Facet terms are combined with AND across facets and OR within one; descendants count via the closure table. Also takes `q` (FULLTEXT over title, aliases and notes), `letter`, `sort`, and `status`/`kind` filters, and returns counts for each facet value.
-  - `GET /v1/pieces/{slug}`, `GET /v1/persons`, `GET /v1/persons/{slug}`
-  - `GET /v1/terms?facet=…`: the term tree with counts
-  - `GET /v1/terms/{slug}`, with its pieces and persons
-  - `GET /v1/collections`, `GET /v1/collections/{id}`, `GET /v1/events/{slug}`
-  - `GET /v1/{entity}/{id}/history`, `GET /v1/revisions/{id}`: the snapshot plus a structured diff against its base
-  - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18)
+- **Public reads** (built in BE2; `openapi/api.yaml` is the exact contract):
+  - `GET /v1/pieces`: faceted search.
+    - Filters: `term` (repeatable slugs), `kind`, `conservation_status`, `stub`, `q`, `letter` (`A`–`Z` or `0`), `sort` (`title` / `relevance`), `limit` and `offset`.
+    - Terms combine with OR within a facet and AND across facets, and a term matches its descendants (closure table). `kind` and `conservation_status` act as two more facets.
+    - `q` is FULLTEXT over title, aliases and notes (§4.1).
+    - Facet counts are disjunctive: each facet's counts ignore that facet's own selection. Letter counts are returned for the A–Z bar.
+  - `GET /v1/pieces/{slug}`
+  - `GET /v1/persons` (`kind`, `role`, `affiliation`, `q`, `letter`, `sort`) and `GET /v1/persons/{slug}`
+  - `GET /v1/terms?facet=…`: the term tree with piece and person counts
+  - `GET /v1/terms/{slug}`, with its pieces or persons (paginated, including descendants)
+  - `GET /v1/collections`, `GET /v1/collections/{collection_id}`
+  - `GET /v1/events` (added in BE2) and `GET /v1/events/{slug}`
+  - history:
+    - `GET /v1/{pieces|persons|terms|events}/{slug}/history` and `GET /v1/collections/{collection_id}/history`
+    - `GET /v1/revisions/{revision_id}`: the redacted snapshot view, its base and the changed fields
+  - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18). Restricted pieces appear only as stubs, and `prefers_no_page` persons never appear.
+  - Lists page with `limit` (at most 100) and `offset` (at most 10000), and every ordering ends with the ID, so pages are stable. Nested lists that grow with data are capped at 200 entries, each with a `*_total` field.
 - **Authenticated:**
   - `GET /v1/me`, and `PATCH /v1/me` to set the display name
   - drafts: `PUT /v1/drafts/{entity}/{id|new}`, and `POST /v1/revisions` to submit
@@ -199,6 +272,14 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`.
 10. Write all imported data as approved revisions with `source = import`, crediting wiki contributors.
 11. Write `import-review.md` for the moderators, listing every flagged ambiguity, drift item and fuzzy-matched person.
+
+**Writing into the BE2 schema** (§4.1):
+- Write sort keys and `sort_letter`. Build the `term_ancestors` closure, including each term's row for itself.
+- Use the legacy page URL as the source of a non-active person status, and as the conservation source where the
+  wiki gives none.
+- Hide legal aliases, and any `redirect` alias equal to a hidden alias. List free text containing a hidden alias in
+  `import-review.md`.
+- Write documents with editor-owned fields only. Write the link system state (liveness) to `links` directly.
 
 **Modes:** `--dry-run` (report only), and `--apply`, which only runs against an empty catalogue.
 
@@ -302,10 +383,10 @@ Each pipeline has the same internal shape:
 | H0 | host setup | — | decisions in §2 | Create both GitHub repos and copy this plan into `bardic-torch/docs/`. Set up the dokku app, MySQL, letsencrypt and the api.bardictorch.org domain. Create the Cloudflare Pages project with bardictorch.org and www. Create the Auth0 application with Google and Facebook connections, plus a Turnstile site key. *The Auth0, Cloudflare and DNS dashboard steps are John's.* |
 | BE1 | foundation | BE | H0 | Copy and strip the feed skeleton. Add the users table, roles and the moderator bootstrap, the auth carried over from the feed, the test harness (with the **in-sandbox MySQL spike**), the OpenAPI skeleton, CI, and the dokku files (Dockerfile, `app.json` predeploy migrate step). The cron entry lands with `cmd/check-links` in BE5. |
 | FE1 | foundation | FE | H0 (runs alongside BE1) | Copy and strip the feed FE. Add the wiki-style design system and layout, dark mode, auth, the type-generation pipeline, the fixture server, and the Playwright, axe and screenshot harness. Add the static help pages. |
-| BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search and A–Z. The revisions table exists but only stores import data. |
+| BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search, A–Z and needs-work. The revisions table exists but only stores import data. Decisions refined in BE2 are in §4.1. |
 | BE3 | importer | BE | BE2 | Everything in §7. A dry-run report is produced for John and Fabian to read. |
 | FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8, the etiquette card and conservation badge, the mobile facet drawer, and SEO. |
-| BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report, contact (Turnstile) and needs-work endpoints. |
+| BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report and contact (Turnstile) endpoints. (needs-work, a public read, moved to BE2.) |
 | FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, and history, diff and revert. |
 | BE5 | contributor extras | BE | BE4 | Repertoire, preference profiles and their validation, conservation suggestions, the `check-links` cron with Wayback lookup, API-token MCP tools, and rate limits. |
 | FE4 | moderation and extras UI | FE | BE5 spec, FE3 | The moderation queue, diff and three-way review, the inboxes, repertoire, the preference-profile editor, the needs-work dashboard, and the contact form. |
