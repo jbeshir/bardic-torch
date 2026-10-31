@@ -96,13 +96,22 @@ func TestConfigFromURL(t *testing.T) {
 func TestConnect_UnreachableDatabase(t *testing.T) {
 	t.Parallel()
 
-	// Reserve a free local port, then close it so that nothing is listening there.
+	// A local listener that hangs up on every connection, so the driver's handshake fails. It stays open for the
+	// whole test, so no other process can take its port and answer instead.
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	addr := listener.Addr().String()
-	require.NoError(t, listener.Close())
+	t.Cleanup(func() { _ = listener.Close() })
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			_ = conn.Close()
+		}
+	}()
 
-	cfg, err := ConfigFromURL("mysql://user@" + addr + "/" + testDBName)
+	cfg, err := ConfigFromURL("mysql://user@" + listener.Addr().String() + "/" + testDBName)
 	require.NoError(t, err)
 
 	db, err := Connect(t.Context(), cfg)
