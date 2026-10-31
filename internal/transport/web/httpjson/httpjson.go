@@ -27,6 +27,8 @@ const (
 	CodeInvalidRequest       ErrorCode = "invalid_request"
 	CodeUnsupportedMediaType ErrorCode = "unsupported_media_type"
 	CodeRequestTooLarge      ErrorCode = "request_too_large"
+	CodeUnauthenticated      ErrorCode = "unauthenticated"
+	CodeInternal             ErrorCode = "internal"
 	CodeUnavailable          ErrorCode = "unavailable"
 )
 

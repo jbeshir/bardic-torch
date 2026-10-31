@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -11,9 +12,25 @@ import (
 
 const unmatchedRoute = "unmatched"
 
+type requestRecordContextKey struct{}
+
+// requestRecord collects what middleware further down the chain learns about a request, for the completion log.
+// requestLogger creates one per request; it is written on the request's goroutine before the handler chain
+// returns, and read only after.
+type requestRecord struct {
+	userID string
+}
+
+// recordUserID notes the authenticated user's ID for the completion log of the request ctx belongs to.
+func recordUserID(ctx context.Context, userID string) {
+	if record, ok := ctx.Value(requestRecordContextKey{}).(*requestRecord); ok {
+		record.userID = userID
+	}
+}
+
 // requestLogger stores a logger annotated with the request's method, route template and a fresh request ID in
-// the request context, and logs the response status and duration once the request completes. routes is used
-// only to look up the route template.
+// the request context, and logs the response status, duration and, for authenticated requests, the user ID
+// once the request completes. routes is used only to look up the route template.
 func requestLogger(routes *mux.Router) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,13 +44,17 @@ func requestLogger(routes *mux.Router) func(http.Handler) http.Handler {
 			)
 			ctx = domain.ContextWithLogger(ctx, logger)
 
+			record := &requestRecord{}
+			ctx = context.WithValue(ctx, requestRecordContextKey{}, record)
+
 			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rec, r.WithContext(ctx))
 
-			logger.InfoContext(ctx, "request completed",
-				"status", rec.status,
-				"duration", time.Since(start),
-			)
+			attrs := []any{"status", rec.status, "duration", time.Since(start)}
+			if record.userID != "" {
+				attrs = append(attrs, "user_id", record.userID)
+			}
+			logger.InfoContext(ctx, "request completed", attrs...)
 		})
 	}
 }
