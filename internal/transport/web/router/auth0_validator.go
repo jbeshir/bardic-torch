@@ -161,17 +161,28 @@ func checkUserTokenClaims(claims validator.RegisteredClaims) error {
 
 // auth0KeyCache holds the issuer's signing keys for auth0KeysCacheTTL after each fetch, whatever caching the
 // issuer's responses allow. Once the keys are older than that they are still returned while one background
-// fetch replaces them; if that fetch fails they are dropped, so that the next request fetches them itself.
+// fetch replaces them; if that fetch fails they are dropped, so that the next request fetches them again.
+//
+// At most one fetch is in flight at a time. With no keys cached, every request waits for that fetch and shares
+// its result, success or failure, but stops waiting when its own context ends. The fetch itself outlives the
+// request that starts it, so a client that disconnects cannot make it fail; the fetch's HTTP client bounds it.
 type auth0KeyCache struct {
 	fetch func(context.Context) (any, error)
 	now   func() time.Time
 
-	// mu guards the fields below. It is held through a fetch made with no keys cached, so that concurrent
-	// requests wait for that one fetch rather than each making their own.
-	mu         sync.Mutex
-	keys       any
-	expiresAt  time.Time
-	refreshing bool
+	// mu guards the fields below. It is never held during a fetch.
+	mu        sync.Mutex
+	keys      any
+	expiresAt time.Time
+	// inFlight is the fetch in progress, or nil if there is none.
+	inFlight *auth0KeyFetch
+}
+
+// auth0KeyFetch is the result of one fetch of the signing keys, readable once done is closed.
+type auth0KeyFetch struct {
+	done chan struct{}
+	keys any
+	err  error
 }
 
 // newAuth0KeyCache returns a cache of the keys fetch returns, holding none yet.
@@ -179,40 +190,44 @@ func newAuth0KeyCache(fetch func(context.Context) (any, error), now func() time.
 	return &auth0KeyCache{fetch: fetch, now: now}
 }
 
-// get returns the cached keys, fetching them first if none are cached. A failure to fetch them wraps
-// errSigningKeysUnavailable.
+// get returns the cached keys, waiting for them to be fetched if none are cached. A failure to fetch them, or
+// ctx ending first, wraps errSigningKeysUnavailable.
 func (c *auth0KeyCache) get(ctx context.Context) (any, error) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	keys, inFlight := c.keys, c.inFlight
+	if inFlight == nil && (keys == nil || !c.now().Before(c.expiresAt)) {
+		inFlight = &auth0KeyFetch{done: make(chan struct{})}
+		c.inFlight = inFlight
+		go c.run(context.WithoutCancel(ctx), inFlight)
+	}
+	c.mu.Unlock()
 
-	if c.keys == nil {
-		keys, err := c.fetch(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", errSigningKeysUnavailable, err)
-		}
-		c.keys, c.expiresAt = keys, c.now().Add(auth0KeysCacheTTL)
+	if keys != nil {
 		return keys, nil
 	}
-
-	if !c.now().Before(c.expiresAt) && !c.refreshing {
-		c.refreshing = true
-		// The refresh outlives the request that starts it.
-		go c.refresh(context.WithoutCancel(ctx))
+	select {
+	case <-inFlight.done:
+		if inFlight.err != nil {
+			return nil, fmt.Errorf("%w: %w", errSigningKeysUnavailable, inFlight.err)
+		}
+		return inFlight.keys, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("%w: waiting for fetch: %w", errSigningKeysUnavailable, context.Cause(ctx))
 	}
-	return c.keys, nil
 }
 
-// refresh replaces the cached keys with newly fetched ones, or drops them if the fetch fails.
-func (c *auth0KeyCache) refresh(ctx context.Context) {
-	keys, err := c.fetch(ctx)
+// run makes the fetch f, then caches the keys it returns, or drops the cached keys if it fails.
+func (c *auth0KeyCache) run(ctx context.Context, f *auth0KeyFetch) {
+	f.keys, f.err = c.fetch(ctx)
+	defer close(f.done)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.refreshing = false
-	if err != nil {
+	c.inFlight = nil
+	if f.err != nil {
 		c.keys = nil
 		return
 	}
-	c.keys, c.expiresAt = keys, c.now().Add(auth0KeysCacheTTL)
+	c.keys, c.expiresAt = f.keys, c.now().Add(auth0KeysCacheTTL)
 }

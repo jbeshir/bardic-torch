@@ -353,7 +353,7 @@ func TestAuth0Validator_UnavailableKeysAreNotInvalidCredentials(t *testing.T) {
 const (
 	firstKeys  = "first keys"
 	secondKeys = "second keys"
-	thirdKeys  = "third keys"
+	fourthKeys = "fourth keys"
 )
 
 // advancingClock is a clock the test moves forward, safe to read from the key cache's refresh goroutine.
@@ -390,7 +390,9 @@ type scriptedKeyFetches struct {
 	calls   int
 }
 
-func (s *scriptedKeyFetches) fetch(context.Context) (any, error) {
+// fetch returns the next scripted result, or the context's error if ctx has ended by then, as an HTTP fetch
+// would.
+func (s *scriptedKeyFetches) fetch(ctx context.Context) (any, error) {
 	s.mu.Lock()
 	if s.calls >= len(s.results) {
 		s.mu.Unlock()
@@ -403,6 +405,9 @@ func (s *scriptedKeyFetches) fetch(context.Context) (any, error) {
 
 	if result.release != nil {
 		<-result.release
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return result.keys, result.err
 }
@@ -481,16 +486,152 @@ func TestAuth0KeyCache_FailedRefreshDropsKeys(t *testing.T) {
 	cache, fetches, clock := newTestKeyCache(t,
 		keyFetch{keys: firstKeys},
 		keyFetch{err: errors.New("issuer unreachable")},
-		keyFetch{keys: thirdKeys},
+		keyFetch{err: errors.New("issuer still unreachable")},
+		keyFetch{keys: fourthKeys},
 	)
 
 	_, err := cache.get(t.Context())
 	require.NoError(t, err)
 	clock.Advance(auth0KeysCacheTTL)
 
-	// The failed refresh drops the stale keys, so a later request fetches them itself.
-	requireKeysEventually(t, cache, thirdKeys)
+	// Once the refresh fails the stale keys are no longer served: the next request fetches them itself, and
+	// sees that fetch fail.
+	require.Eventually(t, func() bool {
+		_, err := cache.get(t.Context())
+		return errors.Is(err, errSigningKeysUnavailable)
+	}, 5*time.Second, time.Millisecond)
 	assert.Equal(t, 3, fetches.Calls())
+
+	keys, err := cache.get(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, fourthKeys, keys)
+}
+
+func TestAuth0KeyCache_RefreshOutlivesTheRequestThatStartsIt(t *testing.T) {
+	t.Parallel()
+
+	cache, fetches, clock := newTestKeyCache(t, keyFetch{keys: firstKeys}, keyFetch{keys: secondKeys})
+
+	_, err := cache.get(t.Context())
+	require.NoError(t, err)
+	clock.Advance(auth0KeysCacheTTL)
+
+	// A request whose client has gone starts the refresh; the scripted fetch fails if its context has ended.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	keys, err := cache.get(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, firstKeys, keys)
+
+	requireKeysEventually(t, cache, secondKeys)
+	assert.Equal(t, 2, fetches.Calls())
+}
+
+// waitObservingContext is a context that reports when the cache starts waiting on it: auth0KeyCache.get reads
+// Done only once it has joined the fetch in flight, to wait for it.
+type waitObservingContext struct {
+	context.Context
+	once    sync.Once
+	waiting chan struct{}
+}
+
+func newWaitObservingContext(ctx context.Context) *waitObservingContext {
+	return &waitObservingContext{Context: ctx, waiting: make(chan struct{})}
+}
+
+func (c *waitObservingContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.waiting) })
+	return c.Context.Done()
+}
+
+type keysResult struct {
+	keys any
+	err  error
+}
+
+// getConcurrently calls cache.get from n goroutines, returning once every call is waiting for a fetch. Each
+// call's result is sent on the returned channel.
+func getConcurrently(t *testing.T, cache *auth0KeyCache, n int) <-chan keysResult {
+	t.Helper()
+
+	results := make(chan keysResult, n)
+	for range n {
+		ctx := newWaitObservingContext(t.Context())
+		go func() {
+			keys, err := cache.get(ctx)
+			results <- keysResult{keys: keys, err: err}
+		}()
+		<-ctx.waiting
+	}
+	return results
+}
+
+func TestAuth0KeyCache_ConcurrentFirstRequestsShareOneFetch(t *testing.T) {
+	t.Parallel()
+
+	release := make(chan struct{})
+	cache, fetches, _ := newTestKeyCache(t, keyFetch{keys: firstKeys, release: release})
+
+	const requests = 10
+	results := getConcurrently(t, cache, requests)
+	close(release)
+
+	for range requests {
+		result := <-results
+		require.NoError(t, result.err)
+		assert.Equal(t, firstKeys, result.keys)
+	}
+	assert.Equal(t, 1, fetches.Calls())
+}
+
+func TestAuth0KeyCache_ConcurrentFirstRequestsShareOneFailedFetch(t *testing.T) {
+	t.Parallel()
+
+	release := make(chan struct{})
+	cache, fetches, _ := newTestKeyCache(t, keyFetch{err: errors.New("issuer unreachable"), release: release})
+
+	const requests = 10
+	results := getConcurrently(t, cache, requests)
+	close(release)
+
+	for range requests {
+		result := <-results
+		require.ErrorIs(t, result.err, errSigningKeysUnavailable)
+		require.ErrorContains(t, result.err, "issuer unreachable")
+		assert.Nil(t, result.keys)
+	}
+	assert.Equal(t, 1, fetches.Calls())
+}
+
+func TestAuth0KeyCache_CancelledRequestStopsWaitingButNotTheFetch(t *testing.T) {
+	t.Parallel()
+
+	release := make(chan struct{})
+	cache, fetches, _ := newTestKeyCache(t, keyFetch{keys: firstKeys, release: release})
+
+	// The first request starts the fetch, then its client goes away while the fetch is held.
+	ctx, cancel := context.WithCancel(t.Context())
+	observed := newWaitObservingContext(ctx)
+	cancelled := make(chan error, 1)
+	go func() {
+		_, err := cache.get(observed)
+		cancelled <- err
+	}()
+	<-observed.waiting
+	cancel()
+
+	err := <-cancelled
+	require.ErrorIs(t, err, errSigningKeysUnavailable)
+	require.ErrorIs(t, err, context.Canceled)
+
+	// The fetch it started carries on for the requests still waiting; the scripted fetch fails if its context
+	// has ended.
+	results := getConcurrently(t, cache, 1)
+	close(release)
+	result := <-results
+	require.NoError(t, result.err)
+	assert.Equal(t, firstKeys, result.keys)
+	assert.Equal(t, 1, fetches.Calls())
 }
 
 func TestAuth0KeyCache_FailedFetchIsUnavailableKeysAndCachesNothing(t *testing.T) {
