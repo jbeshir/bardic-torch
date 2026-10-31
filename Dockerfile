@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Production image for dokku: the API server and the migrate command, which app.json's predeploy step runs.
 FROM golang:1.27.3-alpine AS builder
 
@@ -6,13 +7,13 @@ ENV GOTOOLCHAIN=local CGO_ENABLED=0
 
 WORKDIR /src
 
-# Download modules in their own layer, so it is rebuilt only when go.mod or go.sum change.
-COPY go.mod go.sum ./
-RUN go mod download
-
 COPY . .
-# -trimpath drops local paths from the binaries. Without cgo they are static, so they run on plain alpine.
-RUN go build -trimpath -o /out/bardic-torch ./cmd/app && \
+# go build downloads only the modules the two commands import, not the tools go.mod also requires; the cache
+# mounts keep those modules and the build cache across builds. -trimpath drops local paths from the binaries.
+# Without cgo they are static, so they run on plain alpine.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -trimpath -o /out/bardic-torch ./cmd/app && \
     go build -trimpath -o /out/migrate ./cmd/migrate
 
 FROM alpine:3.22
