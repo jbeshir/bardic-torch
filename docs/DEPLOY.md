@@ -1,0 +1,406 @@
+# Deploying the API
+
+The API runs on dokku as the app `bardic-torch-api` at https://api.bardictorch.org. It uses a dokku-managed
+MySQL 8.4 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
+moderators, migrations and rollback.
+
+## Placeholders
+
+Replace these in the commands below:
+
+| Placeholder | Meaning | Example |
+|---|---|---|
+| `<DOKKU_HOST>` | SSH host name of the dokku server | `dokku.example.org` |
+| `<LETSENCRYPT_EMAIL>` | Email address for Let's Encrypt expiry notices | `john@example.org` |
+| `<AUTH0_DOMAIN>` | Auth0 tenant domain, as a bare host name with no `https://` or trailing slash. Use the custom domain if the tenant has one (see [Custom domain](#custom-domain)). | `bardic-torch.eu.auth0.com` |
+| `<MODERATOR_USER_IDS>` | Comma-separated Auth0 user IDs of the moderators | `google-oauth2\|1234,facebook\|5678` |
+| `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
+| `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
+| `<VERSION>` | A schema migration version number | `2` |
+
+## Requirements
+
+- **dokku 0.31.0 or newer**: app.json `healthchecks`, the `ports:*` commands, and reading `app.json` and
+  `Procfile` from the repository root all need it. Check with `dokku version`. On modern dokku, `app.json` and
+  `Procfile` are read from the root of the pushed repository. The Dockerfile also copies both into `/app`, the
+  image's working directory, so versions that read them from the image find the same files.
+- The dokku plugins [dokku-mysql](https://github.com/dokku/dokku-mysql) and
+  [dokku-letsencrypt](https://github.com/dokku/dokku-letsencrypt). On the server:
+  ```
+  sudo dokku plugin:install https://github.com/dokku/dokku-mysql.git mysql
+  sudo dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
+  ```
+- A DNS `A` (and `AAAA` if the server has IPv6) record for `api.bardictorch.org` pointing at the server. If DNS is
+  on Cloudflare, make it **DNS only** (grey cloud), so Let's Encrypt's HTTP challenge reaches dokku.
+- The Auth0 setup below, done first: production needs `AUTH0_DOMAIN`, and the moderators' user IDs come from Auth0.
+
+Commands run on the dokku server unless noted. From a workstation, `ssh dokku@<DOKKU_HOST> <command>` runs the
+same commands without the `dokku` prefix.
+
+## Auth0
+
+The FE logs users in with Auth0 (Google or Facebook) and calls the API server-side with the user's Auth0 access
+token. The API verifies that token against `https://<AUTH0_DOMAIN>/` and the audience
+`https://api.bardictorch.org`, and uses its `sub` claim (for example `google-oauth2|1234`) as the user ID.
+
+### Tenant
+
+1. Create a tenant at https://manage.auth0.com. Pick the region nearest the dokku server (EU or US); it cannot be
+   changed later. The tenant domain, for example `bardic-torch.eu.auth0.com`, is `<AUTH0_DOMAIN>` unless you set
+   up a custom domain.
+2. Use this tenant for production only. Development uses a separate application, or better a separate tenant
+   (see [Development application](#development-application)).
+
+### Custom domain
+
+Optional. Decide **before** setting up the social connections, because their redirect URIs use the domain.
+
+- Under **Branding → Custom Domains**, add e.g. `login.bardictorch.org` and create the DNS record Auth0 shows.
+  Auth0 may ask for card verification.
+- Tokens from logins through the custom domain have `https://login.bardictorch.org/` as their issuer, so
+  `<AUTH0_DOMAIN>` is then `login.bardictorch.org` everywhere in this document: the API's `AUTH0_DOMAIN`, the
+  Google and Facebook redirect URIs, and the FE's Auth0 domain. The API accepts exactly one issuer, so the FE must
+  log in through the same domain the API is configured with.
+
+### API
+
+1. **Applications → APIs → Create API**:
+   - Name: `Bardic Torch API`
+   - Identifier: `https://api.bardictorch.org`. It is the audience and cannot be changed later. The API's
+     `AUTH0_AUDIENCE` is set to this value.
+   - JSON Web Token (JWT) Profile: Auth0
+   - JSON Web Token Signing Algorithm: **RS256**. The API only accepts RS256 tokens, verified against the tenant's
+     JWKS.
+2. In the API's **Settings**:
+   - Turn **Allow Offline Access** on, so the FE can get refresh tokens.
+   - Leave RBAC off. Roles live in the API's database, not in Auth0.
+   - The default token expiration is fine; the FE refreshes tokens before they expire.
+
+### Application for the FE
+
+1. **Applications → Applications → Create Application**: name `Bardic Torch`, type **Regular Web Applications**.
+2. In **Settings**:
+   - **Allowed Callback URLs**:
+     ```
+     https://bardictorch.org/auth/auth0/callback, https://www.bardictorch.org/auth/auth0/callback
+     ```
+   - **Allowed Logout URLs**:
+     ```
+     https://bardictorch.org, https://www.bardictorch.org
+     ```
+   - Leave Allowed Web Origins and Allowed Origins (CORS) empty: the FE talks to Auth0 from its server.
+
+   The exact paths **must match the FE repository's routes**. The values above are the alignment-feed FE's
+   pattern (the remix-auth Auth0 strategy's callback route `/auth/auth0/callback`, and the site root after
+   logout). Check them against the bardic-torch-fe auth routes (FE1) and change both lists if the FE differs.
+   Only `https://` production URLs belong in this application.
+3. In **Settings → Advanced Settings → Grant Types**, keep **Authorization Code** and **Refresh Token** on.
+4. In **Settings → Refresh Token Rotation**, turn **Allow Refresh Token Rotation** on and keep the default
+   reuse interval. In **Refresh Token Expiration**, set an absolute lifetime and an inactivity lifetime, for
+   example 30 days and 15 days. With rotation, a refresh token is replaced on every use, and a reused one revokes
+   the whole family.
+5. Give the FE its **Domain** (`<AUTH0_DOMAIN>`), **Client ID** and **Client Secret** through its own
+   configuration (FE1). They are not API settings.
+
+### Development application
+
+Development callback URLs (e.g. `http://localhost:5173/auth/auth0/callback`) never go in the production
+application. Create a separate application with those URLs, preferably in a separate development tenant with
+its own API using the same identifier, so development logins never create production Auth0 users. A local API
+runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally, set `AUTH_DRIVERS=auth0`,
+`AUTH0_DOMAIN` (the development tenant) and `AUTH0_AUDIENCE` in `.env`.
+
+### Google connection
+
+1. In the Google Cloud console (https://console.cloud.google.com), create a project, e.g. `Bardic Torch`.
+2. **Google Auth Platform → Branding** (the OAuth consent screen):
+   - App name `Bardic Torch`, a support email, and the app logo if wanted.
+   - App domain: home page `https://bardictorch.org`, privacy policy `https://bardictorch.org/privacy` (an FE
+     page; see the note under Facebook).
+   - Authorized domains: `bardictorch.org`, and `auth0.com` if `<AUTH0_DOMAIN>` is an `auth0.com` domain.
+3. **Audience**: user type **External**.
+4. **Data Access**: add only the scopes `openid`, `.../auth/userinfo.email` and `.../auth/userinfo.profile`.
+   These are non-sensitive, so Google does not need to verify the app.
+5. **Audience → Publish app** to move it from Testing to **In production**. While it is in Testing, only listed
+   test users can log in.
+6. **Clients → Create client**: application type **Web application**, name `Auth0`, and under **Authorized
+   redirect URIs**:
+   ```
+   https://<AUTH0_DOMAIN>/login/callback
+   ```
+   No JavaScript origins are needed. Copy the client ID and client secret.
+7. In Auth0, **Authentication → Social → google-oauth2** (create it if missing): paste the **Client ID** and
+   **Client Secret**, and keep the **email** and **profile** attributes. Never leave the keys empty in
+   production: Auth0 then uses its shared development keys, which are for testing only.
+
+### Facebook connection
+
+1. At https://developers.facebook.com, **My Apps → Create App**, use case **Authenticate and request data from
+   users with Facebook Login**, app type **Consumer**, name `Bardic Torch`.
+2. **Use cases → Facebook Login → Customize → Settings** (or **Facebook Login → Settings**):
+   - **Client OAuth login**, **Web OAuth login** and **Enforce HTTPS** on.
+   - **Valid OAuth Redirect URIs**:
+     ```
+     https://<AUTH0_DOMAIN>/login/callback
+     ```
+3. **Use cases → Facebook Login → Permissions**: add **public_profile** and **email**. Both are standard access,
+   so they need no app review.
+4. **App settings → Basic**:
+   - App domains: `bardictorch.org`
+   - Privacy Policy URL: `https://bardictorch.org/privacy`
+   - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/data-deletion`
+   - Category and app icon.
+
+   **Flag for FE1:** the privacy policy and data-deletion pages are FE pages. They must exist at these URLs (or
+   these settings must change to match) before the app can go Live. Google's consent screen links the same
+   privacy policy.
+5. Switch **App Mode** from Development to **Live**. In Development mode only the app's own roles can log in.
+6. In Auth0, **Authentication → Social → facebook**: paste the **App ID** and **App Secret**, and tick the
+   **email** and **public_profile** permissions.
+
+### Connections on the application
+
+1. In **Applications → Applications → Bardic Torch → Connections**, enable **google-oauth2** and **facebook**.
+2. Disable **Username-Password-Authentication** for the application (same tab), or delete the database
+   connection under **Authentication → Database**. Login is social only.
+
+### How the FE calls the API
+
+- The FE's authorization request must include `audience=https://api.bardictorch.org` and the scope
+  `openid profile email offline_access`. Without the audience, Auth0 issues an access token the API cannot verify,
+  and every request gets 401.
+- The FE's server sends the **access token** (not the ID token) with the feed's prefix:
+  ```
+  Authorization: Bearer auth0|<access_token>
+  ```
+  Personal API tokens use `Authorization: Bearer user_api|<token>`; see `openapi/api.yaml`.
+- The FE refreshes the access token with its refresh token before it expires. An expired token gets 401
+  `unauthenticated`.
+
+### Moderator user IDs
+
+Auth0 creates a user the first time someone logs in. To get John's and Fabian's IDs before the FE is live, use
+**Authentication → Social → google-oauth2 (or facebook) → Try Connection** and log in once. Then open **User
+Management → Users**, select the user, and copy the **user_id** field, e.g. `google-oauth2|1234` or
+`facebook|5678`. The ID is case-sensitive. These form `<MODERATOR_USER_IDS>`.
+
+## First-time setup
+
+### App and database
+
+```
+dokku apps:create bardic-torch-api
+dokku builder:set bardic-torch-api selected dockerfile
+dokku git:set bardic-torch-api deploy-branch main
+```
+
+Create a MySQL 8.4 service and link it to the app:
+
+```
+dokku mysql:create bardic-torch-db --image mysql --image-version 8.4.6
+dokku mysql:link bardic-torch-db bardic-torch-api
+```
+
+- MySQL 8.4 is the version everywhere: development (`make db-up`), the podman integration tests and CI use the
+  `mysql:8.4` tag, which tracks the newest 8.4 patch release, and the sandbox recipe in TESTING.md uses 8.4.2.
+  Production pins a patch release so that the server only changes when you upgrade it. Use the newest `8.4.x`
+  tag on Docker Hub at the time; 8.4.6 is an example. Upgrade later with
+  `dokku mysql:upgrade bardic-torch-db --image-version 8.4.<x>`.
+- `mysql:link` sets `DATABASE_URL` on the app, in the form
+  `mysql://mysql:<password>@dokku-mysql-bardic-torch-db:3306/bardic_torch_db`. The database name is the service
+  name with hyphens replaced by underscores. The API reads exactly this form; do not pass `mysql:link` a query
+  string (`-q`), because the API rejects URLs with query parameters. Check it with
+  `dokku config:get bardic-torch-api DATABASE_URL`.
+
+### Domain and ports
+
+```
+dokku domains:set bardic-torch-api api.bardictorch.org
+dokku ports:set bardic-torch-api http:80:5000
+```
+
+The image exposes no port, so dokku routes to its default port, 5000, and sets `PORT=5000` on the app; the API
+listens on `PORT`. Do not set `PORT` yourself. `dokku ports:report bardic-torch-api` shows the mapping, and
+Let's Encrypt adds `https:443:5000` below.
+
+### Configuration
+
+Every variable in `.env.dist` except the two dokku manages (`DATABASE_URL` from `mysql:link`, `PORT` from dokku):
+
+```
+dokku config:set --no-restart bardic-torch-api \
+  LOG_LEVEL=INFO \
+  AUTH_DRIVERS=auth0,api_token \
+  AUTH0_DOMAIN=<AUTH0_DOMAIN> \
+  AUTH0_AUDIENCE=https://api.bardictorch.org \
+  BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>'
+```
+
+- Keep the single quotes around the user IDs: they contain `|`, which the shell would otherwise treat as a pipe.
+- `BOOTSTRAP_MODERATOR_USER_IDS` must be set, but may be empty if the moderator IDs are not known yet. Set it
+  later as in [Moderators](#moderators).
+- `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
+  if `AUTH_DRIVERS` names an unknown driver, or if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
+  enabled.
+
+### First deploy
+
+From a clone of this repository on your workstation:
+
+```
+git remote add dokku dokku@<DOKKU_HOST>:bardic-torch-api
+git push dokku main
+```
+
+dokku builds the Dockerfile, then runs app.json's `predeploy` script, `/app/migrate up`, in the new image before
+it starts the new container. The new container must then pass the `readyz` startup check (`GET /readyz` answers
+200 once the API can reach MySQL; 5 attempts, 2 s apart, 5 s timeout) before it receives traffic. If either step
+fails, the deploy fails and the previous release keeps serving.
+
+### TLS
+
+Once `api.bardictorch.org` resolves to the server and the app is deployed:
+
+```
+dokku letsencrypt:set bardic-torch-api email <LETSENCRYPT_EMAIL>
+dokku letsencrypt:enable bardic-torch-api
+dokku letsencrypt:cron-job --add
+```
+
+The cron job renews certificates before they expire. The API itself serves plain HTTP; dokku's nginx terminates
+TLS.
+
+### Verify
+
+From anywhere:
+
+```
+curl -fsS https://api.bardictorch.org/healthz
+curl -fsS https://api.bardictorch.org/readyz
+curl -sS -i https://api.bardictorch.org/v1/me
+```
+
+- `/healthz` returns `{"status":"ok"}`.
+- `/readyz` returns 200. A 503 `unavailable` means the API cannot reach MySQL.
+- `/v1/me` without credentials returns 401 `{"code":"unauthenticated",…}`.
+
+On the server:
+
+```
+dokku ps:report bardic-torch-api
+dokku run bardic-torch-api /app/migrate version
+dokku logs bardic-torch-api --num 100
+```
+
+- `migrate version` prints the current schema version, e.g. `version: 2`, without `(dirty)`.
+- The logs show one `bootstrapped moderator` line per configured moderator at startup, then a `request completed`
+  line per request.
+
+With the FE live, log in as a moderator: the FE's `GET /v1/me` returns `"role":"moderator"`.
+
+## Deploys
+
+```
+git push dokku main
+```
+
+Every deploy runs the migrations first (predeploy), then the startup check. `dokku logs bardic-torch-api -t`
+follows the logs.
+
+### Migrations must stay backward compatible
+
+The predeploy step applies the new release's migrations **while the old release is still serving**, and a
+rollback runs the old code against the new schema. So every migration must work with the code of the release
+before it:
+
+- Allowed in one release: new tables, new nullable columns or columns with defaults, new indexes, widening a
+  column.
+- Never in one release: dropping or renaming a column or table that the running code uses, adding a `NOT NULL`
+  column without a default, or narrowing a column. Do these in two releases: first a release that stops using the
+  old shape (and writes both, if needed), then a release whose migration removes it.
+- Never edit a migration that has been deployed; add a new one.
+
+### Failed migrations (dirty state)
+
+If a migration fails part-way, golang-migrate records its version as **dirty**, the deploy fails, and the old
+release keeps serving. Later deploys fail with `Dirty database version <VERSION>. Fix and force version.` until
+you repair it. MySQL cannot roll back DDL, so a failed migration may be half-applied.
+
+1. See the state:
+   ```
+   dokku run bardic-torch-api /app/migrate version
+   dokku mysql:connect bardic-torch-db
+   ```
+   ```sql
+   SELECT version, dirty FROM schema_migrations;
+   SHOW CREATE TABLE <table the migration touches>;
+   ```
+2. In the same MySQL session, undo whatever part of the failed migration was applied (compare with its `.up.sql`
+   file), then record the last version that applied completely, the failed version minus one:
+   ```sql
+   UPDATE schema_migrations SET version = <VERSION>, dirty = 0;
+   ```
+   If instead you completed the failed migration by hand, set its own version with `dirty = 0`.
+3. Fix the migration in the repository, then `git push dokku main` again.
+
+## Rollback
+
+To go back to an earlier release, push its commit:
+
+```
+git push --force dokku <GOOD_COMMIT>:main
+```
+
+dokku rebuilds and deploys that commit with the same predeploy and startup checks. Its `migrate up` finds the
+schema already newer and changes nothing; backward-compatible migrations mean the old code works against it.
+
+Leave the schema alone unless the new migration itself is the problem. If it is, roll it back **before** pushing
+the old commit, while the newer image (which has the down migration) is still deployed:
+
+```
+dokku run bardic-torch-api /app/migrate down 1
+dokku run bardic-torch-api /app/migrate version
+```
+
+Down migrations can drop data; check the `.down.sql` file first.
+
+## Moderators
+
+Moderators are named in `BOOTSTRAP_MODERATOR_USER_IDS`. At every start, the API promotes each listed user to
+moderator, creating users who have never logged in. It never demotes anyone.
+
+### Add a moderator
+
+1. The person logs in once (through the FE, or **Try Connection** in Auth0), so that Auth0 has a user for them.
+2. In Auth0, **User Management → Users**, open the user and copy **user_id**.
+3. Set the full list, including existing moderators. Setting config restarts the app, which promotes them:
+   ```
+   dokku config:set bardic-torch-api BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>'
+   dokku logs bardic-torch-api --num 50 | grep 'bootstrapped moderator'
+   ```
+
+### Remove a moderator
+
+Removing an ID from the list does not demote the user. Remove it from the list first (otherwise the next start
+promotes them again), then demote them in SQL:
+
+```
+dokku config:set bardic-torch-api BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>'
+dokku mysql:connect bardic-torch-db
+```
+
+```sql
+UPDATE users SET role = 'contributor' WHERE id = '<USER_ID>';
+```
+
+The change applies from the user's next request.
+
+### A blocked user made moderator
+
+Promotion keeps a user's blocked state, and moderators cannot be blocked or unblocked through the API. If a
+blocked contributor is added to `BOOTSTRAP_MODERATOR_USER_IDS`, they become a blocked moderator who gets 403 on
+every authenticated request. Unblock them in SQL:
+
+```sql
+UPDATE users SET blocked_at = NULL WHERE id = '<USER_ID>';
+```
