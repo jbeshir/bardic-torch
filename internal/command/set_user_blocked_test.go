@@ -32,12 +32,12 @@ func newSetUserBlockedMocks(t *testing.T) setUserBlockedMocks {
 	return m
 }
 
-// expectSet expects the block or unblock of resolvedUserID, returning err.
+// expectSet expects one block or unblock of resolvedUserID, returning err.
 func (m setUserBlockedMocks) expectSet(blocked bool, err error) {
 	if blocked {
-		m.blocker.EXPECT().BlockUser(mock.Anything, resolvedUserID, fixedNow).Return(err)
+		m.blocker.EXPECT().BlockUser(mock.Anything, resolvedUserID, fixedNow).Return(err).Once()
 	} else {
-		m.unblocker.EXPECT().UnblockUser(mock.Anything, resolvedUserID).Return(err)
+		m.unblocker.EXPECT().UnblockUser(mock.Anything, resolvedUserID).Return(err).Once()
 	}
 }
 
@@ -102,6 +102,48 @@ func TestSetUserBlocked_ModeratorIsNotBlockable(t *testing.T) {
 			require.ErrorIs(t, err, ErrModeratorNotBlockable)
 		})
 	}
+}
+
+func TestSetUserBlocked_RetriesContributorCreatedDuringUpdate(t *testing.T) {
+	t.Parallel()
+
+	created := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: fixedNow}
+	for _, blocked := range []bool{true, false} {
+		t.Run(blockedName(blocked), func(t *testing.T) {
+			t.Parallel()
+
+			updated := created
+			if blocked {
+				updated.BlockedAt = new(fixedNow)
+			}
+			// The user's first request creates them between the update, which finds nobody, and the read.
+			m := newSetUserBlockedMocks(t)
+			m.expectSet(blocked, datasources.ErrNotFound)
+			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(created, nil).Once()
+			m.expectSet(blocked, nil)
+			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(updated, nil).Once()
+
+			user, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: blocked})
+
+			require.NoError(t, err)
+			assert.Equal(t, updated, user)
+		})
+	}
+}
+
+func TestSetUserBlocked_ContributorNeverMatchingFails(t *testing.T) {
+	t.Parallel()
+
+	contributor := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: fixedNow}
+	m := newSetUserBlockedMocks(t)
+	m.expectSet(true, datasources.ErrNotFound)
+	m.expectSet(true, datasources.ErrNotFound)
+	m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(contributor, nil).Twice()
+
+	_, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: true})
+
+	require.ErrorIs(t, err, errContributorNotMatched)
+	require.NotErrorIs(t, err, ErrModeratorNotBlockable)
 }
 
 func TestSetUserBlocked_DatasourceErrors(t *testing.T) {

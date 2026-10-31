@@ -13,6 +13,10 @@ import (
 // ErrModeratorNotBlockable is returned when the user to block or unblock is a moderator.
 var ErrModeratorNotBlockable = errors.New("moderators cannot be blocked or unblocked")
 
+// errContributorNotMatched is returned if a contributor still does not match the update when it is retried, which
+// only happens if their row changes between every statement.
+var errContributorNotMatched = errors.New("contributor did not match the blocked update")
+
 var _ Command[SetUserBlockedRequest, domain.User] = (*SetUserBlocked)(nil)
 
 // SetUserBlockedRequest is the request for the SetUserBlocked command.
@@ -33,21 +37,44 @@ type SetUserBlocked struct {
 // first blocked. An unknown user returns an error wrapping datasources.ErrNotFound, and a moderator, including
 // the caller, returns ErrModeratorNotBlockable.
 func (c *SetUserBlocked) Execute(ctx context.Context, req SetUserBlockedRequest) (domain.User, error) {
-	matched, err := c.setBlocked(ctx, req)
+	user, matched, err := c.setBlockedAndGet(ctx, req)
 	if err != nil {
 		return domain.User{}, err
+	}
+	if !matched && user.Role == domain.RoleContributor {
+		// The user did not exist when they were blocked or unblocked, but their first request created them
+		// before they were read, so the update now matches.
+		user, matched, err = c.setBlockedAndGet(ctx, req)
+		if err != nil {
+			return domain.User{}, err
+		}
+	}
+
+	switch {
+	case matched:
+		return user, nil
+	case user.Role == domain.RoleModerator:
+		return domain.User{}, ErrModeratorNotBlockable
+	default:
+		return domain.User{}, errContributorNotMatched
+	}
+}
+
+// setBlockedAndGet blocks or unblocks req.UserID and then gets the user, reporting whether a contributor with
+// that ID matched the update. Only contributors match, so a user who exists but did not match was a moderator
+// or did not exist yet when the update ran.
+func (c *SetUserBlocked) setBlockedAndGet(ctx context.Context, req SetUserBlockedRequest) (domain.User, bool, error) {
+	matched, err := c.setBlocked(ctx, req)
+	if err != nil {
+		return domain.User{}, false, err
 	}
 
 	user, err := c.Getter.GetUser(ctx, req.UserID)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("getting user: %w", err)
-	}
-	// Only contributors match, so a user who exists but did not match is a moderator.
-	if !matched {
-		return domain.User{}, ErrModeratorNotBlockable
+		return domain.User{}, false, fmt.Errorf("getting user: %w", err)
 	}
 
-	return user, nil
+	return user, matched, nil
 }
 
 // setBlocked blocks or unblocks req.UserID, reporting whether a contributor with that ID matched.
