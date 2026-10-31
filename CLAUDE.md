@@ -69,6 +69,8 @@ After automated validation passes, review code for these issues:
    column whose comparison matters (IDs, hashes) states its own `COLLATE`. Never rely on the server or database
    default: dokku-mysql's server default (`utf8mb4_unicode_ci`) differs from every development and test server
    (`utf8mb4_0900_ai_ci`), so an omitted collation would pass every test and behave differently in production.
+   User-ID columns use `utf8mb4_0900_bin`, which is binary and NO PAD, so case and trailing spaces are
+   significant; `utf8mb4_bin` would ignore trailing spaces.
 
 8. **Redundant fields or parameters**: Look for:
    - Fields that contain information present in or inferrable from other fields

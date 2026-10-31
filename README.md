@@ -7,8 +7,10 @@ the product and implementation plan.
 
 ## Key Concepts
 
-- **User** -- Created on a user's first authenticated request, keyed by their case-sensitive Auth0 user ID (e.g.
-  `google-oauth2|1234`), with a display name they can change (`Bard <hash>` until they do).
+- **User** -- Created on a user's first authenticated request, keyed by their Auth0 user ID (e.g.
+  `google-oauth2|1234`; case and trailing spaces are significant), with a display name they can change
+  (`Bard <hash>` until they do). Display names are NFC-normalised and trimmed, and may contain only letters,
+  marks, numbers, punctuation, symbols and spaces; API token names follow the same character rule.
 - **Role** -- Every user is a contributor or a moderator. Moderators are named in `BOOTSTRAP_MODERATOR_USER_IDS`
   and promoted at startup; removing an ID never demotes (see PLAN §4 and §5).
 - **Blocking** -- Moderators can block contributors. A blocked user gets 403 `user_blocked` on every
@@ -51,7 +53,7 @@ Two entrypoints share the internal packages:
 | Entrypoint | Purpose |
 |---|---|
 | `cmd/app/` | HTTP API server. At startup it promotes the bootstrap moderators. |
-| `cmd/migrate/` | Applies (`up`), rolls back (`down N`) or reports (`version`) the embedded schema migrations; dokku runs `migrate up` before every deploy |
+| `cmd/migrate/` | Applies (`up`), rolls back (`down N`) or reports (`version`) the embedded schema migrations; dokku runs `migrate up` before every deploy, which applies nothing on a clean schema newer than its migrations (a rollback) |
 
 ## Getting Started
 
