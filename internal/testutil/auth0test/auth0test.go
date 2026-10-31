@@ -53,7 +53,7 @@ func NewIssuer(t testing.TB) Issuer {
 	t.Cleanup(server.Close)
 
 	mux.HandleFunc("GET /.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(t, w, map[string]string{"jwks_uri": server.URL + "/.well-known/jwks.json"})
+		writeJSON(t, w, map[string]string{"issuer": server.URL + "/", "jwks_uri": server.URL + "/.well-known/jwks.json"})
 	})
 	mux.HandleFunc("GET /.well-known/jwks.json", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(t, w, map[string]any{"keys": []map[string]string{{
