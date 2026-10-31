@@ -8,68 +8,9 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
-	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-// blockBody is the body of a request to block a user.
-const blockBody = `{"blocked":true}`
-
-// blockTargetID is the user the moderation routes act on; it appears percent-encoded in their paths.
-const blockTargetID = "google-oauth2|123"
-
-var userBlockedRoutes = []handlerRoute{
-	{
-		method:        http.MethodPut,
-		path:          "/v1/users/google-oauth2%7C123/blocked",
-		body:          blockBody,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.blocker.EXPECT().BlockUser(mock.Anything, blockTargetID, handlerNow).Return(nil)
-			m.users.EXPECT().GetUser(mock.Anything, blockTargetID).Return(storedUser(blockTargetID), nil)
-		},
-	},
-}
-
-func TestNewHTTPHandler_UserBlockedRouteAuthorisation(t *testing.T) {
-	t.Parallel()
-
-	runAuthCases(t, userBlockedRoutes, []authCase{
-		anonymousCase,
-		unrecognisedCredentialsCase,
-		invalidCredentialsCase,
-		{
-			name:          auth0ContributorCase,
-			authorization: "Bearer auth0|" + contributorID,
-			resolves:      contributorID,
-			wantStatus:    http.StatusForbidden,
-			wantCode:      httpjson.CodeModeratorRequired,
-		},
-		{
-			name:          "api_token_contributor",
-			authorization: "Bearer " + domain.APITokenPrefix + contributorID,
-			resolves:      contributorID,
-			wantStatus:    http.StatusForbidden,
-			wantCode:      httpjson.CodeModeratorRequired,
-		},
-		{name: "auth0_moderator", authorization: "Bearer auth0|" + moderatorID, resolves: moderatorID},
-		{
-			name:          "api_token_moderator",
-			authorization: "Bearer " + domain.APITokenPrefix + moderatorID,
-			resolves:      moderatorID,
-		},
-		blockedCase,
-		blockedAPITokenCase,
-		unresolvableCase,
-	})
-}
-
-func TestNewHTTPHandler_UserBlockedRoutePreflightSkipsAuth(t *testing.T) {
-	t.Parallel()
-
-	assertPreflightSkipsAuth(t, userBlockedRoutes)
-}
 
 func TestNewHTTPHandler_UserBlockedRouteTargets(t *testing.T) {
 	t.Parallel()

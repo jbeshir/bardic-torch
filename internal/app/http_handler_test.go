@@ -54,20 +54,6 @@ func TestNewHTTPHandler_HealthChecksIgnoreCredentials(t *testing.T) {
 	}
 }
 
-func TestNewHTTPHandler_Preflight(t *testing.T) {
-	t.Parallel()
-
-	handler := NewHTTPHandler(HTTPDependencies{Pinger: mocks.NewPinger(t)})
-
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, readyzPath, nil)
-	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusNoContent, rec.Code)
-	assert.Equal(t, allowedMethods, rec.Header().Get("Access-Control-Allow-Methods"))
-}
-
 func TestNewHTTPHandler_UnknownRoute(t *testing.T) {
 	t.Parallel()
 

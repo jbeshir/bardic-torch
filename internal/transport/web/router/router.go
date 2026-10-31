@@ -32,6 +32,12 @@ type Dependencies struct {
 // answer whatever credentials a request carries. Every /v1 route passes through the auth middleware, and then
 // the require* middleware for its route.
 func New(deps Dependencies) http.Handler {
+	routes := newRoutes(deps)
+	return requestLogger(routes)(securityHeaders(cors(routeMethods(routes))(routes)))
+}
+
+// newRoutes registers every route, behind its authentication and authorisation, on a new router.
+func newRoutes(deps Dependencies) *mux.Router {
 	// Encoded paths keep percent-encoded characters, such as %2F, inside a single path variable.
 	routes := mux.NewRouter().UseEncodedPath()
 
@@ -63,5 +69,5 @@ func New(deps Dependencies) http.Handler {
 		Now:     deps.Now,
 	})).Methods(http.MethodDelete)
 
-	return requestLogger(routes)(securityHeaders(cors(routeMethods(routes))(routes)))
+	return routes
 }
