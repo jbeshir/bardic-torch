@@ -212,6 +212,18 @@ dokku mysql:link bardic-torch-db bardic-torch-api
   string (`-q`), because the API rejects URLs with query parameters. Check it with
   `dokku config:get bardic-torch-api DATABASE_URL`.
 
+Make the database default `utf8mb4` / `utf8mb4_0900_ai_ci`, as in development, the integration tests and CI.
+dokku-mysql configures its server with `utf8mb4_unicode_ci`, so without this a table or column whose migration
+omits `COLLATE` would compare and sort text differently in production than in every test:
+
+```
+echo 'ALTER DATABASE bardic_torch_db CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;' | dokku mysql:connect bardic-torch-db
+echo "SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = 'bardic_torch_db';" | dokku mysql:connect bardic-torch-db
+```
+
+The second command prints `utf8mb4` and `utf8mb4_0900_ai_ci`. Do this before the first deploy, which creates the
+tables.
+
 ### Domain and ports
 
 ```
@@ -340,6 +352,11 @@ you repair it. MySQL cannot roll back DDL, so a failed migration may be half-app
    ```sql
    UPDATE schema_migrations SET version = <VERSION>, dirty = 0;
    ```
+   If the failed migration is the first one (version 1), no version applied completely; record that by
+   removing the row instead, since golang-migrate has no version 0:
+   ```sql
+   DELETE FROM schema_migrations;
+   ```
    If instead you completed the failed migration by hand, set its own version with `dirty = 0`.
 3. Fix the migration in the repository, then `git push dokku main` again.
 
@@ -351,8 +368,11 @@ To go back to an earlier release, push its commit:
 git push --force dokku <GOOD_COMMIT>:main
 ```
 
-dokku rebuilds and deploys that commit with the same predeploy and startup checks. Its `migrate up` finds the
-schema already newer and changes nothing; backward-compatible migrations mean the old code works against it.
+dokku rebuilds and deploys that commit with the same predeploy and startup checks. If a later release added
+migrations, the schema is newer than any migration the older release has; its `migrate up` then applies nothing
+and succeeds, printing e.g. `version: 3 (newer than this release's migrations, which end at 2; nothing
+applied)`. Backward-compatible migrations mean the old code works against that schema. A dirty schema still
+fails the predeploy step; repair it first as in [Failed migrations](#failed-migrations-dirty-state).
 
 Leave the schema alone unless the new migration itself is the problem. If it is, roll it back **before** pushing
 the old commit, while the newer image (which has the down migration) is still deployed:

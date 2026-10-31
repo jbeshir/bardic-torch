@@ -65,6 +65,11 @@ After automated validation passes, review code for these issues:
    code: add tables, nullable or defaulted columns and indexes freely; drop or rename only in a later release
    once no deployed code uses the old shape. Never edit a deployed migration. See docs/DEPLOY.md.
 
+   Every `CREATE TABLE` in a migration states `DEFAULT CHARSET=utf8mb4 COLLATE=...` explicitly, and every text
+   column whose comparison matters (IDs, hashes) states its own `COLLATE`. Never rely on the server or database
+   default: dokku-mysql's server default (`utf8mb4_unicode_ci`) differs from every development and test server
+   (`utf8mb4_0900_ai_ci`), so an omitted collation would pass every test and behave differently in production.
+
 8. **Redundant fields or parameters**: Look for:
    - Fields that contain information present in or inferrable from other fields
    - Parameters that contain information present in or inferrable from other fields
