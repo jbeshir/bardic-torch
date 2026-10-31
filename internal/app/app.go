@@ -7,9 +7,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/server"
 )
+
+// bootstrapModeratorsEnv lists, comma-separated, the IDs of users to make moderators at startup.
+const bootstrapModeratorsEnv = "BOOTSTRAP_MODERATOR_USER_IDS"
 
 // Component is a long-running part of the application. Run blocks until ctx is cancelled or the component
 // fails.
@@ -17,7 +21,8 @@ type Component interface {
 	Run(ctx context.Context) error
 }
 
-// Setup connects to the database and returns the components to run, configured from the environment.
+// Setup connects to the database, promotes the moderators named in BOOTSTRAP_MODERATOR_USER_IDS, and returns
+// the components to run, configured from the environment.
 func Setup(ctx context.Context) ([]Component, error) {
 	dbConfig, err := mysql.ConfigFromURL(MustGetEnvAsString(ctx, "DATABASE_URL"))
 	if err != nil {
@@ -29,6 +34,12 @@ func Setup(ctx context.Context) ([]Component, error) {
 		return nil, fmt.Errorf("connecting to MySQL: %w", err)
 	}
 	repository := mysql.New(db)
+
+	bootstrap := &command.BootstrapModerators{Promoter: repository, Now: now}
+	if _, err := bootstrap.Execute(ctx, MustGetEnvAsStrings(ctx, bootstrapModeratorsEnv)); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("bootstrapping moderators: %w", err)
+	}
 
 	authValidators, err := authValidatorsFromEnv(ctx, repository, now)
 	if err != nil {

@@ -7,3 +7,6 @@ import "context"
 type Command[Req, Res any] interface {
 	Execute(ctx context.Context, req Req) (Res, error)
 }
+
+// Empty is used as the result type for commands that only return an error.
+type Empty struct{}
