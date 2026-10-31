@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
@@ -31,6 +32,23 @@ func newAPIToken(userID string, name *string, createdAt time.Time) datasources.N
 		Name:        name,
 		CreatedAt:   createdAt,
 	}
+}
+
+// MySQL error numbers for violated constraints.
+const (
+	// errDuplicateEntry is ER_DUP_ENTRY: a unique index already has the value.
+	errDuplicateEntry = 1062
+	// errNoReferencedRow is ER_NO_REFERENCED_ROW_2: a foreign key names a row that does not exist.
+	errNoReferencedRow = 1452
+)
+
+// requireMySQLError requires err to be a MySQL error with the given number.
+func requireMySQLError(t *testing.T, err error, number uint16) {
+	t.Helper()
+
+	var mysqlErr *mysqldriver.MySQLError
+	require.ErrorAs(t, err, &mysqlErr)
+	assert.Equal(t, number, mysqlErr.Number, mysqlErr.Message)
 }
 
 func createAPIToken(t *testing.T, repo *mysql.Repository, token datasources.NewAPIToken) {
@@ -95,7 +113,13 @@ func TestRepository_APITokens_CreateRequiresExistingUser(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepository(t)
-	require.Error(t, repo.CreateAPIToken(t.Context(), newAPIToken("auth0|missing", nil, baseTime)))
+	ensureUser(t, repo, "auth0|owner", "Owner")
+
+	// An ID differing only by a trailing space is another, missing, user.
+	for _, userID := range []string{"auth0|missing", "auth0|owner "} {
+		err := repo.CreateAPIToken(t.Context(), newAPIToken(userID, nil, baseTime))
+		requireMySQLError(t, err, errNoReferencedRow)
+	}
 }
 
 func TestRepository_APITokens_HashIsUnique(t *testing.T) {
@@ -108,7 +132,7 @@ func TestRepository_APITokens_HashIsUnique(t *testing.T) {
 
 	duplicate := newAPIToken("auth0|owner", nil, baseTime)
 	duplicate.TokenHash = token.TokenHash
-	require.Error(t, repo.CreateAPIToken(t.Context(), duplicate))
+	requireMySQLError(t, repo.CreateAPIToken(t.Context(), duplicate), errDuplicateEntry)
 }
 
 func TestRepository_APITokens_ListExcludesRevokedNewestFirst(t *testing.T) {
@@ -204,6 +228,7 @@ func TestRepository_APITokens_RevokeForeignOrUnknownTokenNotFound(t *testing.T) 
 
 	require.ErrorIs(t, repo.RevokeAPIToken(ctx, "auth0|other", token.ID, baseTime), datasources.ErrNotFound)
 	require.ErrorIs(t, repo.RevokeAPIToken(ctx, "AUTH0|OWNER", token.ID, baseTime), datasources.ErrNotFound)
+	require.ErrorIs(t, repo.RevokeAPIToken(ctx, "auth0|owner ", token.ID, baseTime), datasources.ErrNotFound)
 	require.ErrorIs(t, repo.RevokeAPIToken(ctx, "auth0|owner", uuid.NewString(), baseTime), datasources.ErrNotFound)
 	assert.True(t, getAPIToken(t, repo, token.TokenHash).IsActive())
 }

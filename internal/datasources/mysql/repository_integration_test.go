@@ -155,6 +155,39 @@ func TestRepository_EnsureUser_IDsAreCaseSensitive(t *testing.T) {
 	assert.Equal(t, "Upper", getUser(t, repo, "google-oauth2|ABC").DisplayName)
 }
 
+func TestRepository_UserIDsTrailingSpacesAreSignificant(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepository(t)
+	ctx := t.Context()
+	ensureUser(t, repo, "auth0|abc", "Original")
+	const padded = "auth0|abc "
+
+	_, err := repo.GetUser(ctx, padded)
+	require.ErrorIs(t, err, datasources.ErrNotFound)
+	require.ErrorIs(t, repo.BlockUser(ctx, padded, baseTime), datasources.ErrNotFound)
+	require.ErrorIs(t, repo.UpdateDisplayName(ctx, padded, "Renamed"), datasources.ErrNotFound)
+
+	assert.Equal(t, "Padded", ensureUser(t, repo, padded, "Padded").DisplayName)
+	original := getUser(t, repo, "auth0|abc")
+	assert.Equal(t, "Original", original.DisplayName)
+	assert.False(t, original.IsBlocked())
+}
+
+func TestRepository_EnsureUser_StoresFourByteCharacters(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepository(t)
+	// U+1F3BB VIOLIN is four bytes in UTF-8, which utf8mb3 columns cannot store.
+	const name = "Bard \U0001f3bb"
+
+	assert.Equal(t, name, ensureUser(t, repo, "auth0|fiddler", name).DisplayName)
+	assert.Equal(t, name, getUser(t, repo, "auth0|fiddler").DisplayName)
+
+	require.NoError(t, repo.UpdateDisplayName(t.Context(), "auth0|fiddler", "\U0001f3bb\U0001f3bb"))
+	assert.Equal(t, "\U0001f3bb\U0001f3bb", getUser(t, repo, "auth0|fiddler").DisplayName)
+}
+
 func TestRepository_PromoteToModerator_CreatesMissingUser(t *testing.T) {
 	t.Parallel()
 

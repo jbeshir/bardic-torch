@@ -54,9 +54,10 @@ func TestMigrations_UpDownUp(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Identifier columns use binary collations so that IDs compare case-sensitively; text columns do not.
+// Identifier columns use binary collations so that IDs compare case-sensitively; text columns do not. User IDs
+// use a NO PAD collation, so that trailing spaces are not ignored.
 const (
-	binaryCollation      = "utf8mb4_bin"
+	binaryCollation      = "utf8mb4_0900_bin"
 	asciiBinaryCollation = "ascii_bin"
 	textCollation        = "utf8mb4_0900_ai_ci"
 )
