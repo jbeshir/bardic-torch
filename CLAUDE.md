@@ -1,0 +1,75 @@
+# CLAUDE.md - bardic-torch (Go API)
+
+[docs/PLAN.md](docs/PLAN.md) is the authoritative product and implementation spec: data model, API surface,
+moderation rules and build sequence. Read the relevant sections before changing behaviour, and update it when a
+decision changes.
+
+## Validation
+
+To validate changes in this repository, run the following automated checks:
+
+- Format check, lint, OpenAPI lint, unit tests, build and generated-code check: `make validate`
+- Integration tests against real MySQL 8.4: `make test-integration` (podman), or
+  `make test-integration-local MYSQL_PREFIX=<prefix>` without a container engine (see docs/TESTING.md)
+
+All automated steps must pass before changes can be merged. CI runs `make validate`, the integration tests and
+the image build on every push and pull request.
+
+### Rules for fixing failures
+
+- **Fix forward.** Never add golangci-lint exclusions, `//nolint` comments or vacuum rule disables to get a check
+  green; change the code or the spec instead.
+- **Pinned tools only.** Tools are `tool` directives in `go.mod` and run with `go tool <name>`. Never use
+  `go install` or `@latest`. To upgrade a tool, `go get -tool <module>@<version>` and check that `go get` did
+  not downgrade another tool's dependencies.
+- After changing `queries.sql` or a `datasources` interface, run `make generate`; never edit generated code.
+
+Additionally, perform the following manual checks:
+
+### Manual Quality Checks
+
+After automated validation passes, review code for these issues:
+
+1. **Unnecessarily Optional Fields**: Check for dependencies being defensively allowed to be optional, and simplify by assuming we always provide them.
+
+2. **Duplicate Code**: Check for repeated definitions (constants, types, helper functions) that should be consolidated.
+
+3. **Incomplete or Disconnected Logic**: Look for:
+   - Legacy mechanisms or functions left in the code instead of being removed
+   - Closures closing over data that may be outdated
+   - Fields in types/interfaces that are never read or written
+   - Functions that are defined but never called
+   - Features partially implemented but not wired up
+   - TODO comments indicating unfinished work
+
+4. **Validation Script Coverage**: Ensure any new validations are:
+   - Added to `make validate` or the integration targets, and so to CI
+
+5. **OpenAPI Spec Completeness**: When adding or modifying API endpoints, verify that `openapi/api.yaml`:
+   - Includes every route registered in `internal/transport/web/router/router.go` (`TestRouter_RoutesMatchOpenAPI`)
+   - Has closed request/response schemas (`additionalProperties: false`) matching the controller implementations
+   - Documents all query parameters, path parameters, and request bodies
+   - Lists every HTTP status code the handler and its middleware can produce
+   - Is exercised by tests through the contract helper (`openapitest.New(t).Serve`, or `ServeResponseOnly` for
+     deliberately invalid requests), with a test for every documented status
+   - Has a row in `authMatrix` (`TestRouter_AuthMatrix`) for every new operation
+
+   docs/TESTING.md's "Adding an endpoint" lists these steps in order.
+
+6. **Environment Variables**: Every variable the code reads is in `.env.dist` with a comment, and every variable
+   in `.env.dist` is read (`TestEnvDistListsEveryEnvVar`). New production variables are added to the
+   `config:set` command in docs/DEPLOY.md.
+
+7. **Migration Backward Compatibility**: dokku applies migrations while the previous release is still serving,
+   and a rollback runs old code against the new schema. Each migration must work with the previous release's
+   code: add tables, nullable or defaulted columns and indexes freely; drop or rename only in a later release
+   once no deployed code uses the old shape. Never edit a deployed migration. See docs/DEPLOY.md.
+
+8. **Redundant fields or parameters**: Look for:
+   - Fields that contain information present in or inferrable from other fields
+   - Parameters that contain information present in or inferrable from other fields
+
+9. **Poor use of types**: Look for:
+   - String comparisons on errors instead of using typed errors and errors.Is or errors.As
+
+All steps must pass before changes can be merged.

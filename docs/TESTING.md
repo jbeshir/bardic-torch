@@ -25,6 +25,11 @@ mockery) are pinned with `tool` directives in `go.mod` and run with `go tool`, s
   `TestRequestLogger_*`, `TestAPITokenValidator_*` (mocks) and `TestAuth0Validator_*`, which validate real RS256
   JWTs against a local issuer from `internal/testutil/auth0test` (an `httptest` server serving the OpenID
   discovery document and a JWKS).
+- **Deployment files** (`internal/app/deploy_files_test.go`): `TestEnvDistListsEveryEnvVar` parses the non-test
+  Go code under `cmd/` and `internal/` (except `internal/testutil`) and fails unless `.env.dist` lists exactly
+  the environment variables it reads. `TestAppJSON`, `TestProcfile` and `TestDockerfile_MatchesDokkuConfiguration`
+  pin the dokku configuration: the predeploy migration, the `/readyz` startup check, the web command, and a
+  Dockerfile with no `ENTRYPOINT` or `EXPOSE`.
 
 ### Contract tests
 
@@ -158,12 +163,15 @@ a plain Debian Go image with no network access.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`, on push and pull request) runs three jobs:
+GitHub Actions (`.github/workflows/ci.yml`, on every push and pull request) runs three jobs:
 
-- **validate**: `make validate`.
-- **integration**: a `mysql:8.4` service container with a TCP `mysqladmin ping` health check and
-  `MYSQL_DATABASE=bardic_torch`, then `make test-integration-external` with `TEST_MYSQL_ADMIN_URL` pointing at the
-  service.
-- **docker build**: builds the production image.
+- **validate**: `make validate`, with the Go version from `go.mod`.
+- **integration**: a `mysql:8.4` service container with `MYSQL_DATABASE=bardic_torch` and a TCP health check
+  (`mysqladmin ping -h 127.0.0.1 --protocol=tcp`), then `make test-integration-external` with
+  `TEST_MYSQL_ADMIN_URL=mysql://root:root@127.0.0.1:3306`.
+- **docker**: `make docker-build CONTAINER_ENGINE=docker`, which builds the production image from the
+  `Dockerfile`. `make validate` does not build the image, so this job is what catches a broken Dockerfile before a deploy.
 
-Dependabot keeps Go modules (grouped) and GitHub Actions up to date.
+Dependabot (`.github/dependabot.yml`) opens weekly pull requests for Go modules (the pinned tools in one group,
+other minor and patch updates in another, major updates separately), GitHub Actions and the Dockerfile's base
+images. A tool update can make MVS downgrade another tool's dependency; check `go.mod` in those pull requests.
