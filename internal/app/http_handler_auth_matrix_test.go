@@ -31,7 +31,11 @@ var (
 	// unrecognisedCredentials carry no prefix any validator handles, so the request is anonymous.
 	unrecognisedCredentials = principal{name: "unrecognised_credentials", authorization: "Bearer " + contributorID}
 	invalidCredentials      = principal{name: "invalid_credentials", authorization: "Bearer auth0|" + invalidSecret}
-	auth0Contributor        = principal{
+	// unverifiableCredentials cannot be checked, as when the validator cannot reach Auth0.
+	unverifiableCredentials = principal{
+		name: "unverifiable_credentials", authorization: "Bearer auth0|" + unverifiableSecret,
+	}
+	auth0Contributor = principal{
 		name: "auth0_contributor", authorization: "Bearer auth0|" + contributorID, resolves: contributorID,
 	}
 	auth0Moderator = principal{
@@ -65,6 +69,7 @@ var principals = []principal{
 	anonymous,
 	unrecognisedCredentials,
 	invalidCredentials,
+	unverifiableCredentials,
 	auth0Contributor,
 	auth0Moderator,
 	apiAuthContributor,
@@ -81,12 +86,12 @@ type outcome struct {
 }
 
 var (
-	allowed            = outcome{}
-	unauthenticated    = outcome{status: http.StatusUnauthorized, code: httpjson.CodeUnauthenticated}
-	userBlocked        = outcome{status: http.StatusForbidden, code: httpjson.CodeUserBlocked}
-	apiAuthNotAllowed  = outcome{status: http.StatusForbidden, code: httpjson.CodeAPIAuthNotAllowed}
-	moderatorRequired  = outcome{status: http.StatusForbidden, code: httpjson.CodeModeratorRequired}
-	unresolvableFailed = outcome{status: http.StatusInternalServerError, code: httpjson.CodeInternal}
+	allowed           = outcome{}
+	unauthenticated   = outcome{status: http.StatusUnauthorized, code: httpjson.CodeUnauthenticated}
+	userBlocked       = outcome{status: http.StatusForbidden, code: httpjson.CodeUserBlocked}
+	apiAuthNotAllowed = outcome{status: http.StatusForbidden, code: httpjson.CodeAPIAuthNotAllowed}
+	moderatorRequired = outcome{status: http.StatusForbidden, code: httpjson.CodeModeratorRequired}
+	internalError     = outcome{status: http.StatusInternalServerError, code: httpjson.CodeInternal}
 )
 
 // access is who may use an operation: whether its requests are authenticated, and each principal's outcome.
@@ -102,6 +107,7 @@ var (
 		anonymous:                 allowed,
 		unrecognisedCredentials:   allowed,
 		invalidCredentials:        allowed,
+		unverifiableCredentials:   allowed,
 		auth0Contributor:          allowed,
 		auth0Moderator:            allowed,
 		apiAuthContributor:        allowed,
@@ -115,39 +121,42 @@ var (
 		anonymous:                 unauthenticated,
 		unrecognisedCredentials:   unauthenticated,
 		invalidCredentials:        unauthenticated,
+		unverifiableCredentials:   internalError,
 		auth0Contributor:          allowed,
 		auth0Moderator:            allowed,
 		apiAuthContributor:        allowed,
 		apiAuthModerator:          allowed,
 		blockedAuth0Contributor:   userBlocked,
 		blockedAPIAuthContributor: userBlocked,
-		unresolvable:              unresolvableFailed,
+		unresolvable:              internalError,
 	}}
 	// interactiveUser operations are behind requireNonAPIToken.
 	interactiveUser = access{authenticated: true, outcomes: map[principal]outcome{
 		anonymous:                 unauthenticated,
 		unrecognisedCredentials:   unauthenticated,
 		invalidCredentials:        unauthenticated,
+		unverifiableCredentials:   internalError,
 		auth0Contributor:          allowed,
 		auth0Moderator:            allowed,
 		apiAuthContributor:        apiAuthNotAllowed,
 		apiAuthModerator:          apiAuthNotAllowed,
 		blockedAuth0Contributor:   userBlocked,
 		blockedAPIAuthContributor: userBlocked,
-		unresolvable:              unresolvableFailed,
+		unresolvable:              internalError,
 	}}
 	// moderator operations are behind requireModerator.
 	moderator = access{authenticated: true, outcomes: map[principal]outcome{
 		anonymous:                 unauthenticated,
 		unrecognisedCredentials:   unauthenticated,
 		invalidCredentials:        unauthenticated,
+		unverifiableCredentials:   internalError,
 		auth0Contributor:          moderatorRequired,
 		auth0Moderator:            allowed,
 		apiAuthContributor:        moderatorRequired,
 		apiAuthModerator:          allowed,
 		blockedAuth0Contributor:   userBlocked,
 		blockedAPIAuthContributor: userBlocked,
-		unresolvable:              unresolvableFailed,
+		unresolvable:              internalError,
 	}}
 )
 

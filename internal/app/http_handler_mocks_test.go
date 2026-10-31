@@ -25,10 +25,12 @@ const (
 	blockedID      = "google-oauth2|blocked"
 	unresolvableID = "google-oauth2|unresolvable"
 	invalidSecret  = "invalid"
+	// unverifiableSecret is a credential the validator cannot check, as when Auth0 keys cannot be fetched.
+	unverifiableSecret = "unverifiable"
 )
 
 // prefixValidator authenticates "Bearer <prefix><user ID>" as the user ID with method, and rejects
-// "Bearer <prefix>invalid".
+// "Bearer <prefix>invalid" and fails to check "Bearer <prefix>unverifiable".
 func prefixValidator(prefix string, method domain.AuthMethod) router.AuthValidator {
 	return func(r *http.Request) (*router.Identity, error) {
 		userID, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "+prefix)
@@ -37,6 +39,8 @@ func prefixValidator(prefix string, method domain.AuthMethod) router.AuthValidat
 			return nil, nil
 		case userID == invalidSecret:
 			return nil, fmt.Errorf("%w: test credential", router.ErrInvalidCredentials)
+		case userID == unverifiableSecret:
+			return nil, errors.New("signing keys unavailable")
 		default:
 			return &router.Identity{UserID: userID, Method: method}, nil
 		}

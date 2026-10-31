@@ -51,8 +51,8 @@ helper. Controller tests set the principal directly in the request context and d
   difference, if a route × method is missing from the spec or a spec operation has no route.
 - `TestRouter_AuthMatrix` (`internal/app/http_handler_auth_matrix_test.go`) builds the production handler with
   `app.NewHTTPHandler`, fake prefix validators (`Bearer auth0|<user id>`, `Bearer user_api|<user id>`) and mocks,
-  and sends a request as every principal to every operation in the spec:
-  anonymous, unrecognised credentials, invalid credentials, Auth0 contributor, Auth0 moderator, API-token
+  and sends a request as every principal to every operation in the spec: anonymous, unrecognised credentials,
+  invalid credentials, credentials the validator cannot check, Auth0 contributor, Auth0 moderator, API-token
   contributor, API-token moderator, blocked Auth0 contributor, blocked API-token contributor, and a user whose
   lookup fails. Each cell asserts the status, the error `code` (none on success) and the contract. Each operation
   also gets a preflight row: `OPTIONS` with every principal's credentials gets 204 and never reaches
@@ -96,7 +96,7 @@ in parallel. A missing `TEST_MYSQL_ADMIN_URL` fails the test rather than skippin
    authorisation rule gets a new `access` table listing every principal.
 4. **Per-status tests**: a contract-validated controller test case for every documented status the controller
    produces (`Serve`, or `ServeResponseOnly` for deliberately invalid requests). Middleware statuses (401, 403,
-   500 from user lookup) are covered by the matrix.
+   500 from a failed credential check or user lookup) are covered by the matrix.
 5. **Integration**: integration tests for every new query, and extend `TestHTTP_EndToEnd` when the endpoint
    changes a user-visible flow.
 
