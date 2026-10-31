@@ -40,6 +40,6 @@ func TestNewDatabase_IsolatedMigratedAndDropped(t *testing.T) {
 		var found string
 		err := admin.QueryRowContext(t.Context(),
 			"SELECT schema_name FROM information_schema.schemata WHERE schema_name = ?", name).Scan(&found)
-		assert.ErrorIs(t, err, sql.ErrNoRows, "database [%s] was not dropped", name)
+		require.ErrorIs(t, err, sql.ErrNoRows, "database [%s] was not dropped", name)
 	}
 }
