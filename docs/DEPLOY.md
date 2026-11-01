@@ -1,7 +1,7 @@
 # Deploying the API
 
 The API runs on dokku as the app `bardic-torch-api` at https://api.bardictorch.org. It uses a dokku-managed
-MySQL 8.4 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
+MySQL 9.7 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
 moderators, migrations and rollback.
 
 ## Placeholders
@@ -206,18 +206,22 @@ dokku builder:set bardic-torch-api selected dockerfile
 dokku git:set bardic-torch-api deploy-branch main
 ```
 
-Create a MySQL 8.4 service and link it to the app:
+Create a MySQL 9.7 service and link it to the app:
 
 ```
-dokku mysql:create bardic-torch-db --image mysql --image-version 8.4.6
+dokku mysql:create bardic-torch-db --image mysql --image-version 9.7.4
 dokku mysql:link bardic-torch-db bardic-torch-api
 ```
 
-- MySQL 8.4 is the version everywhere: development (`make db-up`), the podman integration tests and CI use the
-  `mysql:8.4` tag, which tracks the newest 8.4 patch release, and the sandbox recipe in TESTING.md uses 8.4.2.
-  Production pins a patch release so that the server only changes when you upgrade it. Use the newest `8.4.x`
-  tag on Docker Hub at the time; 8.4.6 is an example. Upgrade later with
-  `dokku mysql:upgrade bardic-torch-db --image-version 8.4.<x>`.
+- MySQL 9.7, the current LTS release, is the version everywhere. Development (`make db-up`), the podman
+  integration tests and CI use the `mysql:9.7` tag, which tracks the newest 9.7 patch release, and the sandbox
+  recipe in TESTING.md uses 9.7.4. Always pass `--image-version`: dokku-mysql's default image is an Innovation
+  release, not an LTS. Production pins a patch release so that the server only changes when you upgrade it. Use
+  the newest `9.7.x` tag on Docker Hub at the time (9.7.4 when this was written). Upgrade later with
+  `dokku mysql:upgrade bardic-torch-db --image-version 9.7.<x>`. Moving to a later LTS series (MySQL upgrades
+  the data directory in place, and the old server cannot read it afterwards) is one-way: take
+  `dokku mysql:export bardic-torch-db > bardic-torch-db.sql` first. To roll back, create a service on the old
+  version and `dokku mysql:import` the export into it.
 - `mysql:link` sets `DATABASE_URL` on the app, in the form
   `mysql://mysql:<password>@dokku-mysql-bardic-torch-db:3306/bardic_torch_db`. The database name is the service
   name with hyphens replaced by underscores. The API reads exactly this form; do not pass `mysql:link` a query

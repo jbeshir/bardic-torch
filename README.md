@@ -35,7 +35,7 @@ graph TD
     CMD[Commands<br/>Business rules]
     DOM[Domain<br/>Users, roles, tokens]
     REPO[MySQL repository<br/>sqlc]
-    DB[(MySQL 8.4)]
+    DB[(MySQL 9.7)]
     AUTH0[Auth0 JWKS]
 
     FE --> MW
@@ -74,7 +74,7 @@ cp .env.dist .env
 make run
 ```
 
-`make db-up` starts MySQL 8.4 on `127.0.0.1:3306` with the credentials in `.env.dist`'s `DATABASE_URL`. `make
+`make db-up` starts MySQL 9.7 on `127.0.0.1:3306` with the credentials in `.env.dist`'s `DATABASE_URL`. `make
 run` applies the migrations and starts the API on port 5000 with null auth, so `curl localhost:5000/readyz` returns
 200 and `/v1` endpoints return 401. `make db-down` removes the database. `make help` lists every target.
 
@@ -93,7 +93,7 @@ run` applies the migrations and starts the API on port 5000 with null auth, so `
 
 | Service | Purpose | Required |
 |---|---|---|
-| MySQL 8.4 | Users, roles and API tokens | Yes |
+| MySQL 9.7 | Users, roles and API tokens | Yes |
 | Auth0 | Verifies the FE's access tokens (Google and Facebook login) | No (`AUTH_DRIVERS=` for null auth) |
 
 Production runs on dokku with the dokku mysql plugin; [docs/DEPLOY.md](docs/DEPLOY.md) covers setup, Auth0,

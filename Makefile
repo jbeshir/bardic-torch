@@ -38,7 +38,7 @@ build: ## Build every package and the pinned tools
 	go build tool
 
 .PHONY: test-integration
-test-integration: ## Run the integration tests against a throwaway podman mysql:8.4
+test-integration: ## Run the integration tests against a throwaway podman mysql:9.7
 	scripts/test-integration.sh podman
 
 .PHONY: test-integration-local
@@ -50,8 +50,8 @@ test-integration-external: ## Run the integration tests against the MySQL at TES
 	scripts/test-integration.sh external
 
 .PHONY: mysql-local-install
-mysql-local-install: ## Install mysql-server 8.4 into MYSQL_PREFIX with conda
-	conda create -y -p $(MYSQL_PREFIX) -c conda-forge --override-channels mysql-server=8.4.2
+mysql-local-install: ## Install mysql-server 9.7 into MYSQL_PREFIX with conda
+	conda create -y -p $(MYSQL_PREFIX) -c conda-forge --override-channels mysql-server=9.7.4
 
 .PHONY: generate
 generate: ## Regenerate sqlc queries and mockery mocks

@@ -9,7 +9,7 @@ decision changes.
 To validate changes in this repository, run the following automated checks:
 
 - Format check, lint, OpenAPI lint, unit tests, build and generated-code check: `make validate`
-- Integration tests against real MySQL 8.4: `make test-integration` (podman), or
+- Integration tests against real MySQL 9.7: `make test-integration` (podman), or
   `make test-integration-local MYSQL_PREFIX=<prefix>` without a container engine (see docs/TESTING.md)
 - Known vulnerabilities reachable from the code: `make vulncheck` (govulncheck). It is not part of
   `make validate` because it needs network access to vuln.go.dev; where that is unreachable, say so and leave it
