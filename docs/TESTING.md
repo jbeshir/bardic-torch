@@ -67,6 +67,22 @@ with `go tool`, so nothing needs installing.
   origins). On the scrubbed copy, `TestScrubbedPieces_ResearchCounts` asserts 142 pieces (135/4/2/1 by kind), 11
   with inline lyrics, 11 assessed and the drift of 13/24/4 pages, and `TestScrubbedPieces_NoLyricMarkerInAnyField`
   that no placeholder lyric reaches a record.
+- **Credits, persons and red links** (`internal/mediawiki`, synthetic wikis and the scrubbed copy): credits
+  (`TestParseCredits_*`: splitting never inside a link, page links read through redirects, the traditional forms
+  including the repaired single-bracket category, unknown/anonymous/various, possibly/probably/disputed, part
+  qualifiers, notes that never hold a capitalised word, and parts inferred from origins scoped to verses and
+  chorus); bard pages (`TestParseBard_*`: aliases with redirects hidden when equal to a hidden alias, the H1 lead
+  as an ambiguous alias, roles, affiliations and the dropped Kingdom Name placeholder, deceased with a date, the
+  "cannot find" licensing sentence, heir_of, the stray heading, works, dropped lyrics); person matching
+  (`TestPersonIndex_*`, `TestResolvePersons_*`: apostrophe folding, one edit to an alias, a unique first word,
+  ambiguity as a stub with candidates, hidden aliases that match but never name a person, names with digits never
+  fuzzy, stubs by folded name with their kind guess); the signal union (`TestUnion_*`: category-only and
+  works-list-only credits as lyrics/possible, no credit for a related person, the reference's disagreements, stub
+  pieces and case variants) and red links (`TestRedLinks_Keys`, `TestClassifyRedLink_*`). On the scrubbed copy,
+  `TestScrubbedPeople_ResearchCounts` asserts 48 bards, red links 180/22/1 classified 78 works, 40 credits, 2 prose
+  persons, 58 performers, 22 categories, 1 malformed URL and 2 not imported, 78 stub pieces and the 15/4
+  disagreement pages, and `TestScrubbedPeople_*` the examples (Lasair's two spellings, Dunstan, Samantha Moore,
+  My Thing Is My Own, March of Cambreadth, Malkin Grey).
 - **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
   `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; the
   milestone gates set it to the research output). The crawl holds legal names and lyrics, so these tests report
@@ -76,7 +92,10 @@ with `go tool`, so nothing needs installing.
   research analysis (`analysis/*.json`): page types, sections and their content, infobox values, the inline-lyrics
   flag (11 pieces) and bard aliases; `oracle_pieces_research_test.go` the taxonomy (every category's class, facets,
   ancestors and redirect), pieces (kind, section keys, H1, bard-name categories, both drift lists, conservation and
-  alternate titles) and the quality lists (drift, redirect-category links, inline-lyrics pages, assessed pieces). Each deliberate difference is an entry of `oracleDeviations` with its reason;
+  alternate titles) and the quality lists (drift, redirect-category links, inline-lyrics pages, assessed pieces);
+  `oracle_people_research_test.go` the infobox person items, bard pages (redirects, works, roles, kingdom and group
+  categories, In Memoriam, licensing), the red-link map, the credit-signal quality lists, and that the scrubbed copy
+  keeps every people count. Each deliberate difference is an entry of `oracleDeviations` with its reason;
   any other is a failure.
 - **Privacy scrubber** (`internal/scrub`, `cmd/scrub-dump`): the committed scrubbed copy of the crawl,
   `testdata/wiki-dump/`, is what every other wiki test reads (`wikidumptest.Scrubbed`). Unit tests on synthetic

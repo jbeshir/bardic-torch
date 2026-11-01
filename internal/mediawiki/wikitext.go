@@ -293,11 +293,13 @@ const (
 	NSFile     = 6
 	NSTemplate = 10
 	NSCategory = 14
+	// NSSpecial is the namespace of the special pages, which have no page in the dump.
+	NSSpecial = -1
 )
 
 var namespacePrefixes = map[string]int{
 	"category": NSCategory, "file": NSFile, "image": NSFile, "template": NSTemplate, "help": 12, "project": NSProject,
-	"user": NSUser, "special": -1, "mediawiki": 8, "module": 828, "bardic torch": NSProject,
+	"user": NSUser, "special": NSSpecial, "mediawiki": 8, "module": 828, "bardic torch": NSProject,
 }
 
 var interwikiPrefixes = map[string]bool{"w": true, "wikipedia": true, "wikt": true, "mw": true, "meta": true,

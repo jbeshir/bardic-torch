@@ -21,6 +21,7 @@ const (
 	sourceParam            = "source"
 	catWelsh               = "Welsh"
 	lyricsByParam          = "lyrics_by"
+	tuneByParam            = "tune_by"
 	catEndangered          = "Endangered"
 	catTraditionalRedirect = "Traditional&Folk"
 	catTraditional         = "Traditional & Folk"

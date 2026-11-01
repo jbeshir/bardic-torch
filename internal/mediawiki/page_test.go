@@ -140,7 +140,7 @@ func TestParsePage_InfoboxesAndSections(t *testing.T) {
 	title, ok := box.Param(titleParam)
 	require.True(t, ok)
 	assert.Equal(t, "Second", title.Raw, "a repeated parameter's last value wins")
-	_, ok = box.Param("tune_by")
+	_, ok = box.Param(tuneByParam)
 	assert.False(t, ok)
 	assert.Equal(t, wren, box.Params[1].Value.Items[0].Target)
 

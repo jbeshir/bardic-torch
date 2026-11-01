@@ -38,6 +38,8 @@ var oracleDeviations = map[string]string{
 		"\"Also known as\" line; the reference keeps the quotes and splits only at \",\" and \"or\"",
 	"titles.redirects": "redirects to a piece are its aliases of kind redirect; the reference lists them only in " +
 		"redirects.json",
+	"credits.repaired_markup": "infobox person values are read after RepairMarkup, so a single-bracket category link is a " +
+		"category link (a traditional attribution); the reference reads the unrepaired value",
 	"sections.masked_comments": "sections are found with comments masked by spaces, not removed, so offsets are " +
 		"offsets into the wikitext; the dump's headings are the same either way",
 }

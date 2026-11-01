@@ -156,6 +156,15 @@ func pieceContent(r PieceRecord, s Site, versionWikitext string) PieceContent {
 }
 
 func (c *PieceContent) licensing(sec PageSection, body string) {
+	var text string
+	c.LicensingNotesMD, text, c.LicensingStatus = licensingSection(sec, body)
+	c.SaysPublicDomain = publicDomain.MatchString(text)
+}
+
+// licensingSection reads a Licensing & Etiquette section's prose: its text without the "cannot find a central
+// page" sentence, as Markdown and as plain text, and the licensing status, known only when the section has text
+// and a source link and does not say that the preferences could not be found.
+func licensingSection(sec PageSection, body string) (md, text string, status domain.LicensingStatus) {
 	var kept []string
 	unknown := false
 	for _, line := range strings.Split(body, "\n") {
@@ -166,12 +175,14 @@ func (c *PieceContent) licensing(sec PageSection, body string) {
 		}
 		kept = append(kept, line)
 	}
-	text := strings.Join(kept, "\n")
-	c.LicensingNotesMD = WikitextToMarkdown(text)
-	c.SaysPublicDomain = publicDomain.MatchString(Plain(text))
-	if !unknown && c.LicensingNotesMD != "" && len(sec.Content.ExternalLinks) > 0 {
-		c.LicensingStatus = domain.LicensingStatusKnown
+	wikitext := strings.Join(kept, "\n")
+	md = WikitextToMarkdown(wikitext)
+	status = domain.LicensingStatusUnknown
+	if !unknown && md != "" && len(sec.Content.ExternalLinks) > 0 {
+		status = domain.LicensingStatusKnown
 	}
+
+	return md, Plain(wikitext), status
 }
 
 // period spans the origin terms that are centuries ("13th Century" is 1201–1300).

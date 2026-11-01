@@ -34,7 +34,7 @@ func TestRepairMarkup_SingleBracketCategory(t *testing.T) {
 		{Kind: MarkupSingleBracketCategory, Offset: 115}}, issues)
 	params := FindTemplates(got)[0].Params
 	require.Len(t, params, 2)
-	assert.Equal(t, "tune_by", params[0].Name)
+	assert.Equal(t, tuneByParam, params[0].Name)
 	assert.Equal(t, ValueCategoryLink, ParseValue(params[0].Value).Items[0].Type)
 
 	unchanged, none := RepairMarkup("[[:Category:Fine]] [https://example.org/ x]")

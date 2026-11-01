@@ -3,6 +3,8 @@ package mediawiki
 import (
 	"regexp"
 	"slices"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // CategoryClass is what a category of the wiki is for, as the reference's classifyCategory decides it.
@@ -68,9 +70,12 @@ var (
 		"Northshield": true, "Outlands": true, "Trimaris": true, "West Kingdom": true, "Tir Righ": true,
 		"Tir Mara": true,
 	}
-	performerTypes = map[string]bool{
-		"Musicians": true, "Singers": true, "Instrumentalists": true, "Songwriters": true, "Storytellers": true,
-		"Jesters": true, "Poets": true, "Dancers": true,
+	// performerRoles are the performer-type categories, with the role each gives a bard.
+	performerRoles = map[string]domain.PersonRole{
+		"Musicians": domain.PersonRoleMusician, "Singers": domain.PersonRoleSinger,
+		"Instrumentalists": domain.PersonRoleInstrumentalist, "Songwriters": domain.PersonRoleSongwriter,
+		"Storytellers": domain.PersonRoleStoryteller, "Jesters": domain.PersonRoleJester,
+		"Poets": domain.PersonRolePoet, "Dancers": domain.PersonRoleDancer,
 	}
 	bardAffiliations     = map[string]bool{CategorySCABards: true, CategoryAmtgard: true}
 	structuralCategories = map[string]bool{
@@ -81,9 +86,6 @@ var (
 	categoryPlaceholder = regexp.MustCompile(`^(Kingdom Name|BardNameHere|TagGoesHere|TagNameHere)$`)
 	categoryRedirect    = regexp.MustCompile(`(?i)#REDIRECT[` + jsSpaces + `]*\[\[:?Category:([^\]|#]+)`)
 )
-
-// personParams are the infobox parameters that credit persons.
-var personParams = []string{"lyrics_by", "tune_by", "author", "dance_by", "music_by"}
 
 // CategoryNode is one category with its classification. Facets are the top-level categories among the category
 // and its ancestors; Ancestors are all categories above it, nearest first. RedirectTo is the category a redirect
@@ -189,7 +191,7 @@ func namedClass(n CategoryNode) (CategoryClass, bool) {
 	switch {
 	case scaKingdoms[n.Name] || slices.Contains(n.Ancestors, CategorySCAKingdom):
 		return ClassSCAKingdom, true
-	case performerTypes[n.Name]:
+	case performerRoles[n.Name] != "":
 		return ClassBardPerformerType, true
 	case bardAffiliations[n.Name]:
 		return ClassBardAffiliation, true
@@ -240,8 +242,8 @@ func creditedNames(d Dump) map[string]bool {
 			continue
 		}
 		for _, box := range ParsePage(p.Wikitext).Infoboxes {
-			for _, name := range personParams {
-				param, ok := box.Param(name)
+			for _, pp := range personParams {
+				param, ok := box.Param(pp.name)
 				if !ok {
 					continue
 				}
@@ -296,7 +298,7 @@ func facetsOf(top []string, name string, ancestors []string) []string {
 // categoryPageRedirect reports whether the category's page is a redirect and, if its target is a category, that
 // category.
 func categoryPageRedirect(pages map[string]Page, name string) (string, bool) {
-	p, ok := pages["Category:"+name]
+	p, ok := pages[categoryPrefix+name]
 	if !ok || !p.Redirect {
 		return "", false
 	}

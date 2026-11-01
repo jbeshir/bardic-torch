@@ -94,9 +94,11 @@ type FacetDrift struct {
 // PieceRecord is a piece page parsed for import. Wikitext is the page's wikitext without its inline lyrics and
 // with its markup repaired, and Parsed is that text parsed; every later step reads these, never the original.
 type PieceRecord struct {
-	PageID         int64
-	Title          string
-	URL            string
+	PageID int64
+	Title  string
+	URL    string
+	// Categories are the page's categories, as written.
+	Categories     []string
 	Wikitext       string
 	Parsed         ParsedPage
 	MarkupIssues   []MarkupIssue
@@ -112,8 +114,10 @@ type PieceRecord struct {
 	IgnoredCategories []string
 	Drift             []FacetDrift
 	Titles            PieceTitles
-	Content           PieceContent
-	Lyrics            DroppedLyrics
+	// Credits are the credits of the infoboxes' person parameters, before the persons they name are matched.
+	Credits []CreditRecord
+	Content PieceContent
+	Lyrics  DroppedLyrics
 }
 
 // Conservation is the piece's conservation status: the most severe of its categories', or unassessed. More than
@@ -135,13 +139,14 @@ func ParsePiece(p Page, s Site) PieceRecord {
 	kind := primaryKind(p, parsed.Infoboxes)
 	sorted := sortCategories(p, parsed.Infoboxes, s)
 	r := PieceRecord{
-		PageID: p.PageID, Title: p.Title, URL: p.URL, Wikitext: repaired, Parsed: parsed,
+		PageID: p.PageID, Title: p.Title, URL: p.URL, Categories: p.Categories, Wikitext: repaired, Parsed: parsed,
 		MarkupIssues: append(issues, FindMarkupIssues(repaired)...),
 		Kind:         kind, SecondaryKinds: secondaryKinds(p, kind),
 		Terms: sorted.terms, ConservationStatuses: sorted.statuses, BardNameCategories: sorted.bardNames,
 		IgnoredCategories: sorted.ignored,
 		Drift:             facetDrift(p, parsed.Infoboxes, s.Taxonomy, sorted.bardNames),
 		Titles:            pieceTitles(p, parsed, s),
+		Credits:           pieceCredits(parsed.Infoboxes, sorted.terms, s),
 		Lyrics:            droppedLyrics(p.Wikitext, lyrics),
 	}
 	r.Content = pieceContent(r, s, versionNotes(p.Wikitext, lyrics))

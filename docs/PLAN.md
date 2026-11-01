@@ -368,7 +368,11 @@ the DDL is in `migrations/003`–`009`.
 2. Parse sections with a heading normaliser, and drop boilerplate hints.
 3. Take facets from the real categories, classified by `taxonomy.json` rules, and report infobox drift in both directions.
 4. Parse credits, including attribution and certainty, and split on `&`, `,`, `;`, `/` and "and", but not inside links.
-5. Union the three bard signals: infobox credit, bard-name category, works list.
+5. Union the three bard signals: infobox credit, bard-name category, works list. A category or works list naming
+   a person the infobox does not credit adds a `lyrics` credit of certainty `possible`, listed in the review, unless
+   the person is related (heir_of, same_as) to a credited person; listed works without a page become stub pieces
+   credited to the bard. Plain-text names are matched to persons by folded name (apostrophes, case, accents), then
+   fuzzily (one edit, or a unique first word), and listed.
 6. Extract links, with role taken from the section, platform from the host, collection match by host plus path prefix, and the locator. Deduplicate by normalised URL, keeping multiple roles.
 7. Parse performance descriptions; the verbatim text is always kept.
 8. Turn redirects into aliases and red links into stubs.
