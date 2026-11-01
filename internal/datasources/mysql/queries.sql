@@ -527,11 +527,13 @@ SELECT id, slug, name, kind
 FROM events
 WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 
--- A snapshot's link is shown only if a link that is not hidden has exactly its URL, as entered or normalized, and
--- no hidden link does. Both columns are binary, and the caller compares the URLs these rows hold exactly too, so a
--- URL that differs in any way, or a link since deleted, fails closed.
+-- A snapshot's link is shown only if its normalized URL is that of a link that is not hidden. Every link's
+-- normalized_url is domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies
+-- to the snapshot's URLs too, so a link edited to another spelling of the same URL is still matched, and a link
+-- since deleted or given another URL fails closed. The column is binary, and the caller trusts only the normalized
+-- URLs these rows hold.
 
--- name: ListLinksByURL :many
-SELECT url, normalized_url, is_hidden
+-- name: ListLinksByNormalizedURL :many
+SELECT normalized_url, is_hidden
 FROM links
-WHERE url IN (sqlc.slice('urls')) OR normalized_url IN (sqlc.slice('normalized_urls'));
+WHERE normalized_url IN (sqlc.slice('normalized_urls'));

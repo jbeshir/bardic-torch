@@ -407,3 +407,34 @@ func TestNewEventSnapshot(t *testing.T) {
 		NewEventSnapshot(EventDocument{SchemaVersion: DocumentSchemaVersion, Name: revelName,
 			Kind: EventKindVenue, DescriptionMD: new("A hall.")}))
 }
+
+// TestNewPieceSnapshot_LinkMatchedByNormalizedURL checks that a document's link is shown, under its URL as
+// entered, when its normalized form is a visible link's, even though the URL as entered is no link's.
+func TestNewPieceSnapshot_LinkMatchedByNormalizedURL(t *testing.T) {
+	t.Parallel()
+
+	entered := "https://Example.org:443/visible?utm_source=share"
+	doc := PieceDocument{Links: []DocPieceLink{
+		{DocLink: DocLink{URL: entered}},
+		{DocLink: DocLink{URL: "https://example.org/Visible?utm_source=share"}},
+	}}
+
+	snapshot := NewPieceSnapshot(doc, testVisibility())
+
+	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: entered}}}, snapshot.Links)
+}
+
+// TestNewPieceSnapshot_UnnormalizableLinkDropped checks that a document's link whose URL does not normalize is
+// never shown, even if the visible set holds it as entered.
+func TestNewPieceSnapshot_UnnormalizableLinkDropped(t *testing.T) {
+	t.Parallel()
+
+	const unnormalizable = "mailto:wren@example.invalid"
+	vis := testVisibility()
+	vis.VisibleLinkURLs = map[string]bool{unnormalizable: true, visibleURL: true}
+	doc := PieceDocument{Links: []DocPieceLink{{DocLink: DocLink{URL: unnormalizable}}, {DocLink: DocLink{URL: visibleURL}}}}
+
+	snapshot := NewPieceSnapshot(doc, vis)
+
+	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, snapshot.Links)
+}

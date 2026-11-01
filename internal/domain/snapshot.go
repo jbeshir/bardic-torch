@@ -9,8 +9,9 @@ import (
 // stored: it references other entities by internal ID and may hold what a public read must not show. A view
 // holds the document's editor-owned fields, except preference profiles (which nothing exposes until BE5), with:
 //   - each reference resolved to the entity's summary as it is now, or left out if the entity is not public now;
-//   - each link shown by URL, and only if a link that is not hidden now has exactly that URL, as entered or
-//     normalized: a link since hidden, deleted, or given another URL is left out;
+//   - each link shown by URL, and only if its normalized URL (NormalizeURL) is that of a link that is not hidden
+//     now, and of no hidden link: a link since hidden, deleted, or given a URL that normalizes otherwise is left
+//     out, and so is a URL that does not normalize;
 //   - a person's alias shown only if it is public in the document and is now a public alias of the person;
 //   - a person's name shown only if it is their name now or one of their public alias names now, and their
 //     current name otherwise, so that a former name that is now a hidden alias never shows;
@@ -53,8 +54,8 @@ type SnapshotVisibility struct {
 	Collections map[int64]CollectionSummary
 	// Events are the public events and venues.
 	Events map[int64]EventSummary
-	// VisibleLinkURLs are the referenced URLs that are exactly the URL or the normalized URL of a link that is not
-	// hidden, and of no hidden link: the only links a view shows.
+	// VisibleLinkURLs are the normalized URLs of referenced links that are the normalized URL of a link that is
+	// not hidden, and of no hidden link: the only links a view shows.
 	VisibleLinkURLs map[string]bool
 }
 
@@ -300,7 +301,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		}
 	}
 	for _, link := range d.Links {
-		if !vis.VisibleLinkURLs[link.URL] {
+		if !vis.linkVisible(link.URL) {
 			continue
 		}
 		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink)}
@@ -432,7 +433,7 @@ func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisi
 		}
 	}
 	for _, link := range d.Links {
-		if !vis.VisibleLinkURLs[link.URL] {
+		if !vis.linkVisible(link.URL) {
 			continue
 		}
 		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink)}
@@ -506,4 +507,11 @@ func lookup[T any](entities map[int64]T, id *int64) *T {
 	}
 
 	return &entity
+}
+
+// linkVisible reports whether a view shows a link with url: whether url normalizes to one of VisibleLinkURLs. A
+// URL that does not normalize fails closed.
+func (v SnapshotVisibility) linkVisible(url string) bool {
+	normalized, err := NormalizeURL(url)
+	return err == nil && v.VisibleLinkURLs[normalized]
 }

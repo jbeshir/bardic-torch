@@ -355,6 +355,58 @@ func TestCatalog_RevisionAndLinkState(t *testing.T) {
 	assert.Equal(t, at, checked)
 }
 
+// TestCatalog_DefaultsAreTheDomainRules checks that the default slugs, sort keys, sort letters and normalized link
+// URLs are the domain's, as the importer writes them.
+func TestCatalog_DefaultsAreTheDomainRules(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	c := catalogtest.New(t, db)
+	const (
+		title      = "The Ælfsong of Astrið"
+		personName = "Þora the Wanderer"
+		collection = "A Northmarch Songbook"
+		eventName  = "Œstre Revel"
+		termName   = "Sea Ðings"
+		linkURL    = "https://EXAMPLE.org:443/ælf?utm_source=x&b=1"
+	)
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: title,
+		Links: []domain.DocPieceLink{{DocLink: domain.DocLink{URL: linkURL, Roles: []domain.LinkRole{domain.LinkRoleText}}}}}})
+	person := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: personName}})
+	songbook := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: collection}})
+	event := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: eventName}})
+	term := c.Term(catalogtest.Term{Doc: domain.TermDocument{Name: termName}})
+
+	assert.Equal(t, domain.Slugify(title), piece.Slug)
+	assert.Equal(t, domain.Slugify(personName), person.Slug)
+	assert.Equal(t, domain.Slugify(eventName), event.Slug)
+	assert.Equal(t, domain.Slugify(termName), term.Slug)
+
+	row := func(query string, id int64) [2]string {
+		var key, letter string
+		require.NoError(t, db.QueryRowContext(t.Context(), query, id).Scan(&key, &letter))
+		return [2]string{key, letter}
+	}
+	assert.Equal(t, [2]string{domain.SortTitle(title), string(domain.SortLetter(domain.SortTitle(title)))},
+		row("SELECT sort_title, sort_letter FROM pieces WHERE id = ?", piece.ID))
+	assert.Equal(t, [2]string{personName, string(domain.SortLetter(personName))},
+		row("SELECT sort_name, sort_letter FROM persons WHERE id = ?", person.ID))
+	assert.Equal(t, [2]string{domain.SortTitle(collection), string(domain.SortLetter(domain.SortTitle(collection)))},
+		row("SELECT sort_name, sort_letter FROM collections WHERE id = ?", songbook.ID))
+
+	normalized, err := domain.NormalizeURL(linkURL)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), queryInt(t, db, "SELECT COUNT(*) FROM links WHERE url = ? AND normalized_url = ?",
+		linkURL, normalized))
+	// A link seeded again under another spelling of its URL is the same link, and SetLinkState finds it by any.
+	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Odo Marsh",
+		Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: normalized,
+			Roles: []domain.LinkRole{domain.LinkRoleWebsite}}}}}})
+	assert.Equal(t, int64(1), queryInt(t, db, "SELECT COUNT(*) FROM links"))
+	c.SetLinkState("https://example.org/%C3%A6lf?b=1&fbclid=y", catalogtest.LinkState{IsHidden: true})
+	assert.Equal(t, int64(1), queryInt(t, db, "SELECT COUNT(*) FROM links WHERE is_hidden"))
+}
+
 type sharedFixture struct {
 	piece catalogtest.Ref
 }

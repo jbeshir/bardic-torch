@@ -30,6 +30,12 @@ with `go tool`, so nothing needs installing.
   `openapi/api.yaml` and requires every named enum schema to list exactly the values, in order, of the domain
   vocabulary it describes (`specEnums` in `spec_enums_test.go` maps each schema to its list; a new enum schema
   fails until it is added). Inline enums (error codes, changed-field names, entity-type tags) are not compared.
+- **Importer domain rules** (`internal/domain`): `NormalizeURL` (`url_test.go`: one table per rule, each row also
+  checked for idempotence, `TestNormalizeURL_Rejects` with `errors.Is(err, ErrInvalidURL)`, and `FuzzNormalizeURL`,
+  seeded with the table rows, for ASCII, `url.Parse`-able, at most 2048-byte and idempotent output; `go test -fuzz
+  FuzzNormalizeURL ./internal/domain/` explores further); `FoldLetters`, `Slugify` and `SlugAllocator`
+  (`slug_test.go`), `SortTitle` and `SortLetter` (`sort_key_test.go`, including every transliteration and that each
+  letter parses with `ParseLetter`); and `TermClosure` (`term_closure_test.go`: self rows, cycles, depth over 3).
 - **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list
   statements (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are
   built in Go, so a fake `statementRunner` records each statement. The tests pin the round trips (at most three for a
@@ -234,11 +240,16 @@ seeded database (see catalogtest), and new private-database tests should be kept
 - **Snapshot views** (the pure functions are unit-tested, see above): `repository_revision_integration_test.go`
   checks them against current database state (an alias, links and a person hidden after the revision was written,
   corrupt snapshots, bases). `repository_redaction_integration_test.go` covers the fail-closed rules: a former
-  name that is now a hidden alias, with and without a page; links deleted, moved and hidden, or hidden under
-  another case, since the revision; links whose URLs hold non-ASCII characters, which must read (never compared
-  with the ASCII `normalized_url`, MySQL error 3988) and still be shown or dropped exactly
-  (`TestRepository_GetPublicRevision_NonASCIILinkURL`, and `TestHTTP_RevisionWithNonASCIILinkURL` for the 200);
-  and a person's performances on links with no public attachment.
+  name that is now a hidden alias, with and without a page; links matched by normalized URL
+  (`TestRepository_GetPublicRevision_LinksVisibleNow`: deleted, moved and hidden, or hidden under another path case
+  since the revision are dropped, while another host case shows); a link respelled to the same normalized URL
+  since, which stays redacted once hidden (`_RespelledHiddenLinkStaysRedacted`) and is still shown otherwise
+  (`_RespelledVisibleLinkStillShown`); links whose URLs hold non-ASCII characters, which must read (they reach the
+  ASCII `normalized_url` only percent-encoded, never as MySQL error 3988) and match the link whose normalized URL
+  is their percent-encoding (`TestRepository_GetPublicRevision_NonASCIILinkURL`, and
+  `TestHTTP_RevisionWithNonASCIILinkURL` for the 200); and a person's performances on links with no public
+  attachment. catalogtest writes every link's `normalized_url` as `domain.NormalizeURL(url)`, and fixtures that
+  edit a link's URL in SQL keep that invariant (docs/DEPLOY.md).
   `TestRepository_GetPublicRevision_Undecodable` checks that a stored revision of another schema version, or with
   an unknown vocabulary value, is an error other than not-found, and one with an extra field is served. `needs_work_integration_test.go` covers the
   needs-work reasons.
@@ -260,8 +271,12 @@ alias, a `prefers_no_page` person with notes, aliases, roles, an affiliation, re
 a link, a hidden link, unapproved pieces, persons, terms, collections and events referred to by public ones,
 performances of a public person on links attached only to no-page or unapproved persons, persons renamed since
 their first revision whose former name is now a hidden alias (with and without a page), a piece whose first
-revision holds links since deleted, moved and hidden, or hidden under another case, and never-exposed system
-fields (legacy titles, claims, normalized URLs). Every marked string contains `leakmark`, and
+revision holds links since deleted, moved and hidden, hidden under another case, or respelled to the same
+normalized URL and hidden, and never-exposed system fields (legacy titles, claims, normalized URLs). Since every
+`normalized_url` must be `NormalizeURL(url)`, the normalized-URL marker is a link entered with a tracking
+parameter (`https://example.org/leakmark-normalized?utm_source=x`): the URL as entered is a reveal on the rows
+that show the link, and a body holding the bare normalized form fails the scan. Every marked string contains
+`leakmark`, and
 each raw response body must not contain it (case-insensitively), except for the strings a request lists in
 `reveals` (for example the no-page person's identity on their own page or in a person list). A reveal is exact: it
 removes only a whole JSON string value equal to it, quotes included and case-sensitive (`leakedMarker` in

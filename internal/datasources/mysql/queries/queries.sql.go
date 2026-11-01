@@ -732,43 +732,31 @@ func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64)
 	return items, nil
 }
 
-const listLinksByURL = `-- name: ListLinksByURL :many
+const listLinksByNormalizedURL = `-- name: ListLinksByNormalizedURL :many
 
-SELECT url, normalized_url, is_hidden
+SELECT normalized_url, is_hidden
 FROM links
-WHERE url IN (/*SLICE:urls*/?) OR normalized_url IN (/*SLICE:normalized_urls*/?)
+WHERE normalized_url IN (/*SLICE:normalized_urls*/?)
 `
 
-type ListLinksByURLParams struct {
-	Urls           []string
-	NormalizedUrls []string
-}
-
-type ListLinksByURLRow struct {
-	Url           string
+type ListLinksByNormalizedURLRow struct {
 	NormalizedUrl string
 	IsHidden      bool
 }
 
-// A snapshot's link is shown only if a link that is not hidden has exactly its URL, as entered or normalized, and
-// no hidden link does. Both columns are binary, and the caller compares the URLs these rows hold exactly too, so a
-// URL that differs in any way, or a link since deleted, fails closed.
-func (q *Queries) ListLinksByURL(ctx context.Context, arg ListLinksByURLParams) ([]ListLinksByURLRow, error) {
-	query := listLinksByURL
+// A snapshot's link is shown only if its normalized URL is that of a link that is not hidden. Every link's
+// normalized_url is domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies
+// to the snapshot's URLs too, so a link edited to another spelling of the same URL is still matched, and a link
+// since deleted or given another URL fails closed. The column is binary, and the caller trusts only the normalized
+// URLs these rows hold.
+func (q *Queries) ListLinksByNormalizedURL(ctx context.Context, normalizedUrls []string) ([]ListLinksByNormalizedURLRow, error) {
+	query := listLinksByNormalizedURL
 	var queryParams []interface{}
-	if len(arg.Urls) > 0 {
-		for _, v := range arg.Urls {
+	if len(normalizedUrls) > 0 {
+		for _, v := range normalizedUrls {
 			queryParams = append(queryParams, v)
 		}
-		query = strings.Replace(query, "/*SLICE:urls*/?", strings.Repeat(",?", len(arg.Urls))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:urls*/?", "NULL", 1)
-	}
-	if len(arg.NormalizedUrls) > 0 {
-		for _, v := range arg.NormalizedUrls {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", strings.Repeat(",?", len(arg.NormalizedUrls))[1:], 1)
+		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", strings.Repeat(",?", len(normalizedUrls))[1:], 1)
 	} else {
 		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", "NULL", 1)
 	}
@@ -777,10 +765,10 @@ func (q *Queries) ListLinksByURL(ctx context.Context, arg ListLinksByURLParams) 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListLinksByURLRow
+	var items []ListLinksByNormalizedURLRow
 	for rows.Next() {
-		var i ListLinksByURLRow
-		if err := rows.Scan(&i.Url, &i.NormalizedUrl, &i.IsHidden); err != nil {
+		var i ListLinksByNormalizedURLRow
+		if err := rows.Scan(&i.NormalizedUrl, &i.IsHidden); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

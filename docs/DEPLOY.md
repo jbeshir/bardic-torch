@@ -387,6 +387,26 @@ before it:
   once the migration ran. A migration that drops or renames such a column must recreate the views without it in
   the same migration. `TestMigrations_UpDownUp` reads every view after migrating up.
 
+### The normalized URL invariant
+
+Every row of `links` has `normalized_url = domain.NormalizeURL(url)`. The importer and every later writer keep
+it; a URL that does not normalize is never written. Public revision reads rely on it: a snapshot's link is shown
+only if `NormalizeURL` of the URL in the document is the `normalized_url` of a link that is not hidden, so a row
+that broke the invariant would make the read show or drop the wrong links.
+
+A change to what `NormalizeURL` returns (a new tracking parameter, say) is therefore a data change, not just a code
+change. Ship it with a command or migration that re-normalises every `links` row, and run that before the release
+whose reads rely on the new output. Until the rows are re-normalised, the new code fails closed: a document URL
+that now normalizes differently matches no row, so the link is dropped from revisions, never shown wrongly. A
+rollback to the old code after re-normalising fails closed in the same way.
+
+Re-normalising can give two rows the same `normalized_url`, which the unique index refuses. Merge each such group
+into its row with the lowest ID, in one transaction: keep that row's `url` and editor-owned fields, set its
+`is_hidden` if any row of the group is hidden (a takedown is never undone by a merge), move the other rows'
+`link_attachments` (dropping any that would duplicate one the kept row has for the same role and entity) and
+`performances` to it, delete the other rows, and only then write the new `normalized_url`. List the merged groups
+for the moderators.
+
 ### Failed migrations (dirty state)
 
 If a migration fails part-way, golang-migrate records its version as **dirty**, the deploy fails, and the old

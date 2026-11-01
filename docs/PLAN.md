@@ -159,15 +159,20 @@ the DDL is in `migrations/003`–`009`.
   count and member list, every credit (the credit is omitted), performer list, relation list (both directions),
   collection citation and needs-work.
 - **Hidden links** (`links.is_hidden`) are excluded from every read, including snapshots and needs-work. In a
-  snapshot, a link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL as
-  entered or normalized: a link deleted since, or whose URL changed before it was hidden, is dropped too.
-  `links.url` is binary (`utf8mb4_0900_bin`), so the SQL and Go comparisons are both exact. `normalized_url` is
-  ASCII, and MySQL refuses to compare an ASCII column with a non-ASCII parameter, so a snapshot URL with any other
-  character is compared only with the URLs as entered (it cannot be a normalized URL).
+  snapshot, a link is shown, under its URL as entered in the document, only if its normalized URL
+  (`domain.NormalizeURL`) is now the `normalized_url` of a link that is not hidden. Every link's `normalized_url`
+  is `NormalizeURL(url)` (DEPLOY.md, "The normalized URL invariant"), so a link edited since to another spelling
+  of the same URL (case of the host, a default port, tracking parameters) is still the same link: shown if it is
+  visible, dropped if it was hidden. A link deleted since, or given a URL that normalizes otherwise, is dropped,
+  and so is a document URL that does not normalize (fail closed). Normalized URLs are ASCII, so a non-ASCII
+  document URL is compared by its percent-encoding and never reaches the ASCII column as it is (which MySQL
+  refuses, error 3988); the column is binary (`ascii_bin`), so the comparison is exact.
 - **Slugs** are ASCII `[a-z0-9]+(-[a-z0-9]+)*`, at most 191 characters and unique per table. Term slugs keep the
   wiki's disambiguation suffix (`12th-century` in origin, `12th-century-topic` in topic), while `display_name`
-  drops it. The importer's `Slugify` uses NFKD, strips marks, lowercases and turns non-alphanumeric runs into `-`.
-  An empty result becomes `<entity type>-<id>`, and collisions get `-2`, `-3`… Collections are addressed by ID.
+  drops it. The importer's `domain.Slugify` uses NFKD, strips marks, transliterates the letters NFKD leaves whole
+  (`domain.FoldLetters`: ł→l, ø→o, đ/ð→d, æ→ae, œ→oe, ß→ss, þ→th, so `Astrið` is `astrid`; the same table gives
+  `sort_letter`), lowercases and turns non-alphanumeric runs into `-`, cutting at 191 characters on a hyphen. An
+  empty result becomes `<entity type>-<id>`, and collisions get `-2`, `-3`… Collections are addressed by ID.
 - **Sort keys and letters are stored and written by the writer** (`sort_title`/`sort_name`, `sort_letter`), never
   derived in SQL.
   - The sort key skips leading punctuation and one leading "The", "A" or "An". R-24's "songbook/book" words are not
@@ -216,8 +221,8 @@ the DDL is in `migrations/003`–`009`.
   - A revision is public if it is approved and its entity is public now; anything else is the same 404. History
     lists approved revisions newest first (`created_at`, then ID).
   - Views hold the document's editor-owned fields except preference profiles; links have no liveness or other
-    system state. A link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL
-    as entered or normalized.
+    system state. A link is shown only if its normalized URL is now that of a link that is not hidden ("Hidden
+    links" above).
   - An alias is shown only if public in the document and now a public alias of the person, by name. A person's
     name is shown only if it is their current name or a current public alias name, and is their current name
     otherwise. Credits,
@@ -381,9 +386,10 @@ the DDL is in `migrations/003`–`009`.
 - Write revision `summary` text that is neutral: it is free text shown on every approved revision, including those of
   persons without a page, and nothing checks it against hidden aliases. BE4 should flag editor summaries that
   contain a hidden alias.
-- Hidden-link redaction compares a document's URL exactly with the link's current `url` or `normalized_url`. When
-  the URL normaliser lands (BE3), normalise document URLs before the lookup, and key the visible-URL set by
-  normalised URL, so that a link later edited to another spelling of the same URL stays redacted in older snapshots.
+- Write every link's `normalized_url` as `domain.NormalizeURL(url)`, and drop (listing it in `import-review.md`) a
+  URL that does not normalize. Hidden-link redaction relies on this invariant (§4.1 "Hidden links"; DEPLOY.md
+  "The normalized URL invariant"): it normalises each document URL and looks it up by `normalized_url` only, so
+  a link later edited to another spelling of the same URL stays redacted, or shown, in older snapshots.
 
 **Modes:** `--dry-run` (report only), and `--apply`, which only runs against an empty catalogue.
 
