@@ -114,3 +114,30 @@ func TestLoadDump_PageRecordOverCap(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, d.Pages, 1)
 }
+
+func TestEncodeDump_RoundTripsAndIsCanonical(t *testing.T) {
+	d, err := LoadDump(dumpFS(pageRecord + "\n" + strings.Replace(pageRecord, `"pageid":12`, `"pageid":13`, 1)))
+	require.NoError(t, err)
+	d.Pages[0].Wikitext = "<poem>\na & b\n</poem>\n"
+
+	files, err := EncodeDump(d)
+	require.NoError(t, err)
+
+	fsys := fstest.MapFS{}
+	for name, content := range files {
+		fsys[name] = &fstest.MapFile{Data: content}
+	}
+	again, err := LoadDump(fsys)
+	require.NoError(t, err)
+	assert.Equal(t, d, again)
+	pages := string(files[PagesFile])
+	assert.Equal(t, 2, strings.Count(pages, "\n"), "one page per line")
+	assert.True(t, strings.HasPrefix(pages, `{"categories":["Bards"],"hidden_categories":[],"last_rev_timestamp":`),
+		"keys are sorted")
+	assert.Contains(t, pages, `"wikitext":"<poem>\na & b\n</poem>\n"`, "HTML characters are not escaped")
+	assert.NotContains(t, pages, "last_rev_user", "only decoded fields are kept")
+	assert.True(t, strings.HasPrefix(string(files[CategoriesFile]), "{\n  \"categories\": {\n"))
+	encodedAgain, err := EncodeDump(again)
+	require.NoError(t, err)
+	assert.Equal(t, files, encodedAgain)
+}

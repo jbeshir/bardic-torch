@@ -32,7 +32,7 @@ with `go tool`, so nothing needs installing.
   fails until it is added). Inline enums (error codes, changed-field names, entity-type tags) are not compared.
 - **Importer domain rules** (`internal/domain`): `NormalizeURL` (`url_test.go`: one table per rule, each row also
   checked for idempotence, `TestNormalizeURL_Rejects` with `errors.Is(err, ErrInvalidURL)`, and `FuzzNormalizeURL`,
-  seeded with the table rows, for ASCII, `url.Parse`-able, at most 2048-byte and idempotent output; `go test -fuzz
+  seeded with the table rows and every URL of the scrubbed wiki dump, for ASCII, `url.Parse`-able, at most 2048-byte and idempotent output; `go test -fuzz
   FuzzNormalizeURL ./internal/domain/` explores further); `FoldLetters`, `Slugify` and `SlugAllocator`
   (`slug_test.go`), `SortTitle` and `SortLetter` (`sort_key_test.go`, including every transliteration and that each
   letter parses with `ParseLetter`); and `TermClosure` (`term_closure_test.go`: self rows, cycles, depth over 3).
@@ -47,7 +47,8 @@ with `go tool`, so nothing needs installing.
   whatever its length, the flag counts lines per section, the prose rule of Lyrics/Text sections, spans stay
   offsets into the original text with a comment before the poem); the alias classifier, which fails closed
   (`TestClassifyPersonAlias`, `TestBardAliases_*`, `TestFoldName_*`); `NameMatcher` (`names_test.go`: case,
-  accents, apostrophes, `_`/`-`/`.` and concatenated forms, first and last word); `ParsePerformanceText`,
+  accents, apostrophes, `_`/`-`/`.` and concatenated forms, first and last word, and phrases found only as their
+  words in order); `ParsePerformanceText`,
   `PersonNameCandidates` and `RepairMarkup`/`FindMarkupIssues`. `FuzzFindTemplates`, `FuzzParseValue`,
   `FuzzSections` and `FuzzInlineLyricsBlocks` check that nothing panics, spans are in bounds and in order, and no
   `<poem` tag survives `WithoutInlineLyrics`; `TestHostileInput_TimeBudget` runs every parser over 1 MB of unclosed
@@ -61,6 +62,29 @@ with `go tool`, so nothing needs installing.
   research analysis (`analysis/*.json`): page types, sections and their content, infobox values, the inline-lyrics
   flag (11 pieces) and bard aliases. Each deliberate difference is an entry of `oracleDeviations` with its reason;
   any other is a failure.
+- **Privacy scrubber** (`internal/scrub`, `cmd/scrub-dump`): the committed scrubbed copy of the crawl,
+  `testdata/wiki-dump/`, is what every other wiki test reads (`wikidumptest.Scrubbed`). Unit tests on synthetic
+  dumps (`scrub_test.go`) pin each rule: a legal alias replaced everywhere with one number (wikitext, URL forms,
+  titles, categories, redirects, activity), its last word before its first and its honorific forms, a fresh
+  placeholder for any other honorific name in prose, fail-closed candidate decisions
+  (`TestScrub_CandidatesFailClosed`), poem and prose lyrics replaced by at most four placeholder lines keeping the
+  inline-lyrics flag, emails, phones in prose only, user names only in activity and user links, dropped namespaces,
+  determinism, idempotence and preserved structure. `TestPublicNamesArePublishedInPlan` keeps `PublicNames` to
+  names this plan already publishes. `TestRun_*` cover the command: it prints counts only, and refuses to write
+  the private candidates list inside the repository. Always on, against the committed copy:
+  - `TestRepositoryHasNoDenylistedText` scans every text file of the repository (skipping `.git`, binary files
+    and what `.gitignore` ignores) for the 8-word n-grams of the dropped lyrics, whose salted hashes are
+    `testdata/wiki-dump/denylist.txt` (no name is ever hashed);
+  - `TestScrubbedDumpStructuralPrivacy`: lyric blocks are only placeholder lines, no email outside
+    `example.invalid`, no phone number in prose, every honorific followed by a placeholder, every hidden H1 alias a
+    placeholder, no possible person name left that would be a deny phrase, and only placeholder wiki users;
+  - `TestScrubbedDumpIsAFixedPoint`: scrubbing the copy again changes nothing.
+
+  Research-gated (`scrub_research_test.go`): `TestRepositoryHasNoResearchPrivateText` scans the whole repository
+  in clear for every deny phrase of the crawl in every form `NameMatcher` finds, and for its emails and phones;
+  `TestScrubbedDumpIsUpToDate` regenerates the copy and requires it byte for byte; `TestScrubPreservesResearchCounts`
+  compares page types, bards, inline-lyrics pieces, redirects, categories and members, sections, links, templates,
+  infoboxes, Collections page URLs and performance items with performers, per page and in total.
 - **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list
   statements (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are
   built in Go, so a fake `statementRunner` records each statement. The tests pin the round trips (at most three for a
@@ -116,6 +140,20 @@ with `go tool`, so nothing needs installing.
   the environment variables it reads. `TestAppJSON`, `TestProcfile` and `TestDockerfile_MatchesDokkuConfiguration`
   pin the dokku configuration: the predeploy migration, the `/readyz` startup check, the web command, and a
   Dockerfile with no `ENTRYPOINT` or `EXPOSE`.
+
+### Regenerating the scrubbed wiki dump
+
+After a change to the scrubber, or to anything in `internal/mediawiki` it uses, regenerate the copy from the
+research output and review the decisions before committing it:
+
+```
+go run ./cmd/scrub-dump --in "$BARDIC_RESEARCH_DIR/dump" --out testdata/wiki-dump --candidates /private/scrub-candidates.md
+BARDIC_RESEARCH_DIR=/path/to/research go test ./internal/scrub/
+```
+
+The command prints counts only. `--candidates` writes every possible person name of the crawl with the rule that
+found it and the decision (legal or kept, and why) for the privacy review; it names real people, so it is written
+with mode 0600 and refused inside the repository. Never commit it, paste from it, or copy it under `/out`.
 
 ### Contract tests
 

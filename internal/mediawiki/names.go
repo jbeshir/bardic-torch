@@ -28,15 +28,19 @@ type namePhrase struct {
 	tokens []string
 }
 
-// NameMatch is one occurrence of a name: text[Start:End] is the name numbered Name in the matcher's list.
+// NameMatch is one occurrence of a name or phrase: text[Start:End] is the one numbered Name, counting the
+// matcher's names and then its phrases.
 type NameMatch struct {
 	Name  int
 	Start int
 	End   int
 }
 
-// NewNameMatcher returns a matcher for names. Names with no letters or digits are never found.
-func NewNameMatcher(names []string) NameMatcher {
+// NewNameMatcher returns a matcher for names, found in every form NameMatcher describes, and for phrases, which may
+// not be names ("Sample Words Here"), found only as their words in order: in any case, with accents or not and with
+// any punctuation between the words, but not concatenated or by their first and last word, which for a phrase
+// of common words would be found everywhere. Names and phrases with no letters or digits are never found.
+func NewNameMatcher(names, phrases []string) NameMatcher {
 	m := NameMatcher{byFirst: map[string][]namePhrase{}}
 	for k, name := range names {
 		split, joined := nameTokens(name)
@@ -46,21 +50,30 @@ func NewNameMatcher(names []string) NameMatcher {
 				forms = append(forms, []string{f[0], f[len(f)-1]})
 			}
 		}
-		seen := map[string]bool{}
-		for _, f := range forms {
-			if len(f) == 0 || seen[strings.Join(f, " ")] {
-				continue
-			}
-			seen[strings.Join(f, " ")] = true
-			m.byFirst[f[0]] = append(m.byFirst[f[0]], namePhrase{name: k, tokens: f})
-			if len(f) >= 2 && !seen[strings.Join(f, "")] {
-				seen[strings.Join(f, "")] = true
-				m.concat = append(m.concat, namePhrase{name: k, tokens: []string{strings.Join(f, "")}})
-			}
-		}
+		addForms(&m, k, forms, true)
+	}
+	for k, phrase := range phrases {
+		split, joined := nameTokens(phrase)
+		addForms(&m, len(names)+k, [][]string{split, joined}, false)
 	}
 
 	return m
+}
+
+// addForms adds to m the forms of the name or phrase numbered k, and, if concatenated, their concatenations.
+func addForms(m *NameMatcher, k int, forms [][]string, concatenated bool) {
+	seen := map[string]bool{}
+	for _, f := range forms {
+		if len(f) == 0 || seen[strings.Join(f, " ")] {
+			continue
+		}
+		seen[strings.Join(f, " ")] = true
+		m.byFirst[f[0]] = append(m.byFirst[f[0]], namePhrase{name: k, tokens: f})
+		if concatenated && len(f) >= 2 && !seen[strings.Join(f, "")] {
+			seen[strings.Join(f, "")] = true
+			m.concat = append(m.concat, namePhrase{name: k, tokens: []string{strings.Join(f, "")}})
+		}
+	}
 }
 
 // nameTokens returns the folded words of name with apostrophes as separators and with apostrophes joining.
@@ -227,4 +240,24 @@ func isCapitalised(word string) bool {
 	r, _ := utf8.DecodeRuneInString(word)
 
 	return unicode.IsUpper(r)
+}
+
+// Word is a word of a text as NameMatcher reads it: a run of letters, digits and combining marks, folded to lower
+// case without accents (Folded), at text[Start:End]. Apostrophes separate words.
+type Word struct {
+	Folded string
+	Start  int
+	End    int
+}
+
+// Words returns the words of text, in order, as NameMatcher tokenises it, for code that must agree with
+// NameMatcher on what a word is (the scrubber's lyric n-grams).
+func Words(text string) []Word {
+	tokens := tokenizeNames(text, false)
+	out := make([]Word, 0, len(tokens))
+	for _, t := range tokens {
+		out = append(out, Word{Folded: t.folded, Start: t.start, End: t.end})
+	}
+
+	return out
 }

@@ -10,8 +10,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+// ScrubbedDir is the scrubbed copy of the crawl (written by cmd/scrub-dump) relative to the repository root.
+const ScrubbedDir = "testdata/wiki-dump"
 
 // ResearchDirEnv names the directory holding the research output: its dump/ and analysis/ directories. Unset or
 // empty, research tests skip.
@@ -27,6 +31,24 @@ func Research(t testing.TB) (dump, analysis fs.FS) {
 	}
 
 	return os.DirFS(filepath.Join(dir, "dump")), os.DirFS(filepath.Join(dir, "analysis"))
+}
+
+// RepositoryRoot returns the repository root, found from this file.
+func RepositoryRoot(t testing.TB) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("no caller information")
+	}
+
+	return filepath.Join(filepath.Dir(file), "..", "..", "..")
+}
+
+// Scrubbed returns the committed scrubbed copy of the crawl, which every test may read: it holds no private data.
+func Scrubbed(t testing.TB) fs.FS {
+	t.Helper()
+
+	return os.DirFS(filepath.Join(RepositoryRoot(t), ScrubbedDir))
 }
 
 // Location names a research value without showing it: the page, the field and an offset (a byte offset or an

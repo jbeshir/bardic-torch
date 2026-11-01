@@ -361,7 +361,7 @@ the DDL is in `migrations/003`–`009`.
 
 ## 7. Importer (`cmd/import-mediawiki`)
 
-**Input:** the research dump format (`pages.jsonl` and `categories.json`), or a live crawl. The research `scripts/` define the expected behaviour and are ported to Go. A frozen copy of the dump is committed under `testdata/`, so tests are deterministic and need no network.
+**Input:** the research dump format (`pages.jsonl` and `categories.json`), or a live crawl. The research `scripts/` define the expected behaviour and are ported to Go. A **scrubbed** copy of the dump is committed under `testdata/wiki-dump/` (regenerated with `cmd/scrub-dump`), so tests are deterministic and need no network: legal and mundane names (the aliases the importer classifies as legal, every other possible person name it cannot classify confidently as public, and their honorific forms), emails, phones and wiki user names are replaced with numbered placeholders, the same number everywhere a name occurs (wikitext, titles, categories, redirects, activity); inline lyrics with placeholder lines (keeping the ≥4-line classification); and only the namespaces, files and fields the importer reads are kept. Every count the tests assert is preserved. No name is hashed into the repository: `testdata/wiki-dump/denylist.txt` holds only salted hashes of the dropped lyrics' 8-word n-grams, and a unit test fails if any appears anywhere in the repository. The names, emails and phones are checked in clear, against the whole repository, by tests that run only when `BARDIC_RESEARCH_DIR` points at the research output, which is never committed; so do the tests against the real dump and the research oracle (`analysis/*.json`).
 
 **Steps** (report §8):
 1. Type the pages: Pieces / Bards, skipping meta pages, redirects and the test page.
@@ -395,6 +395,7 @@ the DDL is in `migrations/003`–`009`.
 
 **Tests assert:**
 - the research counts: 142 pieces (135/4/2/1 by kind), 48 bards, 62 collection entries, 11 inline-lyrics pages flagged
+- on the scrubbed copy (always): unit tests, the lyric n-gram scan and the structural privacy checks; against the research output (only with `BARDIC_RESEARCH_DIR`): the oracle, that the copy is up to date and keeps the research counts, and the in-clear scan for names, emails and phones
 - the dropped inline lyrics are absent from every public field
 - golden snapshots for a hand-picked set of 15 or more tricky pages (Three Words, My Thing is My Own, Fight for the Midrealm, Band of Brothers, Black Alman, The Burning of Tara, Samantha Moore, Lasair inghen ui h’Airt, Auld Lang Syne…)
 

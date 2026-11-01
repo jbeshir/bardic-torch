@@ -136,7 +136,7 @@ func TestHostileInput_TimeBudget(t *testing.T) {
 	BardAliases(page)
 	PersonNameCandidates(page, testMaxYear)
 	ParsePerformanceText(hostile, testMaxYear)
-	NewNameMatcher([]string{wren}).Find(hostile)
+	NewNameMatcher([]string{wren}, []string{wren}).Find(hostile)
 	RepairMarkup(hostile)
 	FindMarkupIssues(hostile)
 

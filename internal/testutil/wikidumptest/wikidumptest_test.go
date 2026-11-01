@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -17,7 +16,7 @@ var forbiddenInResearchTests = regexp.MustCompile(`"github\.com/stretchr/testify
 	`Fatal|Fatalf|Skipf)\(|\bfmt\.|\bprint(ln)?\(|\bos\.(Stdout|Stderr)\b|\blog\.|\bslog\.`)
 
 func TestResearchTestsReportOnlyThroughEqual(t *testing.T) {
-	repo := os.DirFS(repositoryRoot(t))
+	repo := os.DirFS(RepositoryRoot(t))
 	var researchFiles int
 	err := fs.WalkDir(repo, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -114,22 +113,4 @@ func (r *recordingTB) Errorf(format string, args ...any) {
 
 func (r *recordingTB) Fatalf(format string, args ...any) {
 	r.messages = append(r.messages, fmt.Sprintf(format, args...))
-}
-
-func repositoryRoot(t *testing.T) string {
-	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("no go.mod above the test's directory")
-		}
-		dir = parent
-	}
 }

@@ -1,12 +1,16 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
+	"github.com/jbeshir/bardic-torch/internal/testutil/wikidumptest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -243,6 +247,9 @@ func FuzzNormalizeURL(f *testing.F) {
 	for _, raw := range rejectedURLs {
 		f.Add(raw)
 	}
+	for _, raw := range scrubbedDumpURLs(f) {
+		f.Add(raw)
+	}
 
 	f.Fuzz(func(t *testing.T, raw string) {
 		got, err := NormalizeURL(raw)
@@ -278,4 +285,42 @@ func requireNormalizedForm(t *testing.T, got string) {
 	if _, err := url.Parse(got); err != nil {
 		t.Fatalf("url.Parse(%q): %v", got, err)
 	}
+}
+
+// dumpURL is anything that looks like a URL in wikitext.
+var dumpURL = regexp.MustCompile(`(?i)(?:https?:)?//[^\s\[\]<>|{}"]+|\bwww\.[^\s\[\]<>|{}"]+`)
+
+// scrubbedDumpURLs returns every distinct URL of the pages of the committed scrubbed wiki dump, as written: the
+// URLs the importer normalises.
+func scrubbedDumpURLs(f *testing.F) []string {
+	f.Helper()
+	pages, err := fs.ReadFile(wikidumptest.Scrubbed(f), "pages.jsonl")
+	if err != nil {
+		f.Fatal(err)
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, line := range strings.Split(string(pages), "\n") {
+		if line == "" {
+			continue
+		}
+		var page struct {
+			URL      string `json:"url"`
+			Wikitext string `json:"wikitext"`
+		}
+		if err := json.Unmarshal([]byte(line), &page); err != nil {
+			f.Fatal(err)
+		}
+		for _, raw := range append(dumpURL.FindAllString(page.Wikitext, -1), page.URL) {
+			if !seen[raw] {
+				seen[raw] = true
+				out = append(out, raw)
+			}
+		}
+	}
+	if len(out) == 0 {
+		f.Fatal("no URLs in the scrubbed dump")
+	}
+
+	return out
 }
