@@ -120,22 +120,9 @@ func pieceFromDomain(p domain.Piece) Piece {
 		HistoricalSourceMD: p.HistoricalSourceMD,
 		PeriodStart:        p.PeriodStart,
 		PeriodEnd:          p.PeriodEnd,
-		Aliases: mapSlice(p.Aliases, func(a domain.PieceAlias) PieceAlias {
-			return PieceAlias{Text: a.Text, Kind: a.Kind}
-		}),
-		Terms: mapSlice(p.Terms, func(t domain.PieceTerm) PieceTerm {
-			return PieceTerm{Term: termSummaryFromDomain(t.Term), IsPrimary: t.IsPrimary, Part: t.Part}
-		}),
-		Credits: mapSlice(p.Credits, func(c domain.PieceCredit) PieceCredit {
-			return PieceCredit{
-				Role:        c.Role,
-				Attribution: c.Attribution,
-				Certainty:   c.Certainty,
-				Part:        c.Part,
-				Note:        c.Note,
-				Person:      optional(c.Person, personSummaryFromDomain),
-			}
-		}),
+		Aliases:            mapSlice(p.Aliases, pieceAliasFromDomain),
+		Terms:              mapSlice(p.Terms, pieceTermFromDomain),
+		Credits:            mapSlice(p.Credits, pieceCreditFromDomain),
 		Relations: mapSlice(p.Relations, func(r domain.PieceRelation) PieceRelation {
 			return PieceRelation{Type: r.Type, Direction: r.Direction, Piece: pieceSummaryFromDomain(r.Piece)}
 		}),
@@ -145,6 +132,25 @@ func pieceFromDomain(p domain.Piece) Piece {
 		ConservationHistory: mapSlice(p.ConservationHistory, func(c domain.ConservationChange) ConservationChange {
 			return ConservationChange{ConservationStatus: c.Status, Reason: c.Reason, SourceURL: c.SourceURL, At: c.At}
 		}),
+	}
+}
+
+func pieceAliasFromDomain(a domain.PieceAlias) PieceAlias {
+	return PieceAlias{Text: a.Text, Kind: a.Kind}
+}
+
+func pieceTermFromDomain(t domain.PieceTerm) PieceTerm {
+	return PieceTerm{Term: termSummaryFromDomain(t.Term), IsPrimary: t.IsPrimary, Part: t.Part}
+}
+
+func pieceCreditFromDomain(c domain.PieceCredit) PieceCredit {
+	return PieceCredit{
+		Role:        c.Role,
+		Attribution: c.Attribution,
+		Certainty:   c.Certainty,
+		Part:        c.Part,
+		Note:        c.Note,
+		Person:      optional(c.Person, personSummaryFromDomain),
 	}
 }
 

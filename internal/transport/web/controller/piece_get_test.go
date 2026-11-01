@@ -74,7 +74,7 @@ func testPiece() domain.Piece {
 					Description:   new("A recording."),
 					Platform:      new("video.example.org"),
 					PlaceType:     new(domain.LinkPlaceTypeRecordingPlatform),
-					Collection:    &domain.CollectionRef{ID: 12, Name: "The Northmarch Songbook"},
+					Collection:    &domain.CollectionRef{ID: 12, Name: testCollectionName},
 					Locator:       new("p. 12"),
 					Liveness:      domain.LivenessOK,
 					LastCheckedAt: &checkedAt,

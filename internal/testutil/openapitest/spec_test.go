@@ -2,6 +2,8 @@ package openapitest
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 
@@ -139,4 +141,51 @@ func subSchemas(location string, schema *openapi3.Schema) map[string]*openapi3.S
 	}
 
 	return subs
+}
+
+// revisionBody is a piece revision as GET /v1/revisions/{revision_id} returns it, with entity_type set to
+// entityType.
+func revisionBody(entityType string) string {
+	return `{"entity_type": "` + entityType + `", "id": 42,
+		"entity": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song", "secondary_kinds": [],
+			"conservation_status": "endangered", "is_stub": false},
+		"base_revision_id": null, "source": "import", "summary": "", "author": null, "contributors": ["Archivist"],
+		"created_at": "2026-01-01T00:00:00Z",
+		"snapshot": {"title": "The Copper Kettle", "kind": "song", "secondary_kinds": [],
+			"conservation_status": "endangered", "conservation_source_url": null, "is_stub": false, "notes_md": null,
+			"version_notes_md": null, "licensing_status": "unknown", "licensing_notes_md": null, "licence": null,
+			"historical_source_md": null, "period_start": null, "period_end": null, "aliases": [], "terms": [],
+			"credits": [], "relations": [], "links": []},
+		"base_snapshot": null, "changed_fields": ["conservation_status", "kind", "title"]}`
+}
+
+// TestSpec_RevisionShapeFollowsEntityType checks that the spec's Revision is a closed union chosen by
+// entity_type: a piece revision conforms as a piece's, and the same body labelled as a person's does not.
+func TestSpec_RevisionShapeFollowsEntityType(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		entityType  string
+		wantFailure bool
+	}{
+		{entityType: "piece"},
+		{entityType: "person", wantFailure: true},
+		{entityType: "event", wantFailure: true},
+		{entityType: "recording", wantFailure: true},
+	} {
+		t.Run(tc.entityType, func(t *testing.T) {
+			t.Parallel()
+
+			recorder := &recordingTB{TB: t}
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/revisions/42", nil)
+			New(t).Serve(recorder, jsonResponse(http.StatusOK, revisionBody(tc.entityType)), req)
+
+			if !tc.wantFailure {
+				assert.Empty(t, recorder.failures)
+				return
+			}
+			require.Len(t, recorder.failures, 1)
+			assert.Contains(t, recorder.failures[0], "does not conform to the OpenAPI spec")
+		})
+	}
 }

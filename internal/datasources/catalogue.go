@@ -116,3 +116,35 @@ type CollectionQuery struct {
 type PublicCollectionLister interface {
 	ListPublicCollections(ctx context.Context, query CollectionQuery) (domain.CollectionList, error)
 }
+
+// PublicHistoryLister lists the history of public entities addressed by slug.
+type PublicHistoryLister interface {
+	// ListPublicHistory lists one page of the approved revisions of the public piece, person, term or event
+	// (entityType, which must not be EntityTypeCollection) with slug, newest first, with how many there are in all.
+	// It returns ErrNotFound if no public entity of the type has the slug.
+	ListPublicHistory(
+		ctx context.Context, entityType domain.EntityType, slug string, page domain.Page,
+	) (domain.RevisionHistory, error)
+}
+
+// PublicCollectionHistoryLister lists the history of public collections, which are addressed by ID.
+type PublicCollectionHistoryLister interface {
+	// ListPublicCollectionHistory lists one page of the approved revisions of the public collection with id,
+	// newest first, with how many there are in all. It returns ErrNotFound if no public collection has the ID.
+	ListPublicCollectionHistory(ctx context.Context, id int64, page domain.Page) (domain.RevisionHistory, error)
+}
+
+// PublicRevisionGetter retrieves a public revision by ID with its snapshot views, returning ErrNotFound if no
+// public revision has the ID: one that is not approved, or whose entity is not public now, is not found either.
+// A snapshot that cannot be decoded is an error other than ErrNotFound.
+type PublicRevisionGetter interface {
+	GetPublicRevision(ctx context.Context, id int64) (domain.Revision, error)
+}
+
+// PublicNeedsWorkLister lists the public pieces and persons needing work.
+type PublicNeedsWorkLister interface {
+	// ListPublicNeedsWork lists one page of the entries needing work for reason, or for any reason if it is nil.
+	ListPublicNeedsWork(
+		ctx context.Context, reason *domain.NeedsWorkReason, page domain.Page,
+	) (domain.NeedsWorkList, error)
+}

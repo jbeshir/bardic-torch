@@ -839,16 +839,7 @@ paths:
       operationId: getCollection
       security: []
       parameters:
-        - name: collection_id
-          in: path
-          required: true
-          description: The collection's `id`.
-          schema:
-            type: integer
-            format: int64
-            minimum: 1
-            examples:
-              - 12
+        - $ref: "#/components/parameters/CollectionID"
       responses:
         "200":
           description: The collection.
@@ -954,6 +945,290 @@ paths:
         "500":
           $ref: "#/components/responses/Internal"
 
+  /v1/pieces/{slug}/history:
+    get:
+      tags:
+        - Catalogue
+      summary: List the history of a piece
+      description: |
+        Lists one page of the approved revisions of a public piece, newest first, with how many there are in all.
+        Revisions that are not approved are never listed. An author is shown by display name only, and an
+        imported revision has no author but lists the wiki users who wrote it. A piece that is not public is not
+        found, exactly like an unknown one. Credentials are ignored.
+      operationId: listPieceRevisions
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the piece's revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionHistory"
+        "400":
+          $ref: "#/components/responses/InvalidHistoryRequest"
+        "404":
+          description: |
+            No public piece has this address, so there is no history to show; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: piece not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/persons/{slug}/history:
+    get:
+      tags:
+        - Catalogue
+      summary: List the history of a person
+      description: |
+        Lists one page of the approved revisions of a public person, newest first, with how many there are in all.
+        Revisions that are not approved are never listed. An author is shown by display name only, and an
+        imported revision has no author but lists the wiki users who wrote it. A person that is not public is not
+        found, exactly like an unknown one. Credentials are ignored.
+      operationId: listPersonRevisions
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the person's revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionHistory"
+        "400":
+          $ref: "#/components/responses/InvalidHistoryRequest"
+        "404":
+          description: |
+            No public person has this address, so there is no history to show; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: person not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/terms/{slug}/history:
+    get:
+      tags:
+        - Catalogue
+      summary: List the history of a term
+      description: |
+        Lists one page of the approved revisions of a public term, newest first, with how many there are in all.
+        Revisions that are not approved are never listed. An author is shown by display name only, and an
+        imported revision has no author but lists the wiki users who wrote it. A term that is not public is not
+        found, exactly like an unknown one. Credentials are ignored.
+      operationId: listTermRevisions
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the term's revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionHistory"
+        "400":
+          $ref: "#/components/responses/InvalidHistoryRequest"
+        "404":
+          description: |
+            No public term has this address, so there is no history to show; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: term not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/collections/{collection_id}/history:
+    get:
+      tags:
+        - Catalogue
+      summary: List the history of a collection
+      description: |
+        Lists one page of the approved revisions of a public collection, newest first, with how many there are in all.
+        Revisions that are not approved are never listed. An author is shown by display name only, and an
+        imported revision has no author but lists the wiki users who wrote it. A collection that is not public is not
+        found, exactly like an unknown one. Credentials are ignored.
+      operationId: listCollectionRevisions
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CollectionID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the collection's revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionHistory"
+        "400":
+          $ref: "#/components/responses/InvalidCollectionHistoryRequest"
+        "404":
+          description: |
+            No public collection has this address, so there is no history to show; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: collection not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/events/{slug}/history:
+    get:
+      tags:
+        - Catalogue
+      summary: List the history of an event
+      description: |
+        Lists one page of the approved revisions of a public event, newest first, with how many there are in all.
+        Revisions that are not approved are never listed. An author is shown by display name only, and an
+        imported revision has no author but lists the wiki users who wrote it. A event that is not public is not
+        found, exactly like an unknown one. Credentials are ignored.
+      operationId: listEventRevisions
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the event's revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionHistory"
+        "400":
+          $ref: "#/components/responses/InvalidHistoryRequest"
+        "404":
+          description: |
+            No public event has this address, so there is no history to show; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: event not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/revisions/{revision_id}:
+    get:
+      tags:
+        - Catalogue
+      summary: Get a revision
+      description: |
+        Returns a public revision: an approved revision of a public entity, with views of its snapshot and of
+        its base's (the revision it was based on, if that is an approved revision of the same entity), and the
+        names of the snapshot's top-level fields that differ from the base's, or that are not empty if there is
+        no base. A view never shows the stored document as such: each reference to another entity is shown as
+        that entity is now, and left out if it is not public now; links are shown by URL, and left out if they
+        are hidden now; a person's alias appears only if it is public in the snapshot and is a public alias of
+        the person now; credits to, performers and relations of persons who are not public or prefer not to have
+        a page now are left out; and of a person who prefers not to have a page, now or in the snapshot, only the
+        identity is shown. System fields and preference profiles are never shown. `entity_type` says which of
+        the five shapes the revision has. A revision that is not approved, or whose entity is not public, is not
+        found, exactly like an unknown one. Credentials are ignored.
+      operationId: getRevision
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      responses:
+        "200":
+          description: The revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Revision"
+        "400":
+          description: |
+            The `revision_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid revision_id: must be an integer from 1 to 9223372036854775807"
+        "404":
+          description: No public revision has this ID; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: revision not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/needs-work:
+    get:
+      tags:
+        - Catalogue
+      summary: List entries needing work
+      description: |
+        Lists one page of the public pieces and persons that need work, pieces first, each by sort key, with how
+        many there are in all and how many need work for each reason. A piece needs work if it is a stub, its
+        conservation status is unassessed, its licensing is unknown, or a visible link attached to it is dead; a
+        restricted piece is listed only if it is a stub. A person needs work if they are a stub, a community bard
+        whose licensing is unknown, or a visible link attached to them is dead. Persons who prefer not to have a
+        page and hidden links are never considered. Credentials are ignored.
+      operationId: listNeedsWork
+      security: []
+      parameters:
+        - name: reason
+          in: query
+          required: false
+          description: Only list entries needing work for this reason. Omitted, entries are listed for any reason.
+          schema:
+            $ref: "#/components/schemas/NeedsWorkReason"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NeedsWorkList"
+        "400":
+          description: |
+            The `reason` is not a needs-work reason, `limit` or `offset` is out of range, a parameter is given more
+            than once, or the query string is not validly percent-encoded; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid reason: not one of its allowed values"
+        "500":
+          $ref: "#/components/responses/Internal"
+
 
 components:
   securitySchemes:
@@ -969,6 +1244,28 @@ components:
         A personal API token, prefixed with `user_api|`: `Authorization: Bearer user_api|<token>`.
 
   parameters:
+    CollectionID:
+      name: collection_id
+      in: path
+      required: true
+      description: The collection's `id`.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        examples:
+          - 12
+    RevisionID:
+      name: revision_id
+      in: path
+      required: true
+      description: The revision's `id`.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        examples:
+          - 42
     Slug:
       name: slug
       in: path
@@ -1032,6 +1329,29 @@ components:
         $ref: "#/components/schemas/Letter"
 
   responses:
+    InvalidHistoryRequest:
+      description: |
+        The slug is not a valid slug, `limit` or `offset` is out of range, a parameter is given more than once,
+        or the query string is not validly percent-encoded; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid limit: must be an integer from 1 to 100"
+    InvalidCollectionHistoryRequest:
+      description: |
+        The `collection_id` is not a positive integer in decimal digits, `limit` or `offset` is out of range, a
+        parameter is given more than once, or the query string is not validly percent-encoded; the error code is
+        `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid collection_id: must be an integer from 1 to 9223372036854775807"
     InvalidRequest:
       description: |
         The request body is malformed or invalid; the error code is `invalid_request`.
@@ -3188,3 +3508,1132 @@ components:
       enum: [unknown, "yes", pdf, browser, api, "no"]
       examples:
         - pdf
+
+    RevisionSource:
+      type: string
+      description: |
+        Where a revision came from: submitted by a `user` through the API or through the `mcp` server, or an
+        `import` from the old wiki.
+      enum: [user, import, mcp]
+      examples:
+        - import
+
+    RevisionAuthor:
+      type: object
+      description: The author of a revision, by display name; user IDs are never shown.
+      additionalProperties: false
+      required: [display_name]
+      properties:
+        display_name:
+          type: string
+          examples:
+            - Morwen
+      examples:
+        - display_name: Morwen
+
+    RevisionSummary:
+      type: object
+      description: A public revision, as an entity's history lists it.
+      additionalProperties: false
+      required: [id, source, summary, author, contributors, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The revision's ID, its address.
+          examples:
+            - 42
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        summary:
+          type: string
+          description: What the revision changed, in its author's words; may be empty.
+          examples:
+            - Credit the tune.
+        author:
+          description: Who wrote the revision, or null for one with no author, such as an import.
+          oneOf:
+            - $ref: "#/components/schemas/RevisionAuthor"
+            - type: "null"
+        contributors:
+          type: array
+          description: The wiki users who wrote an imported revision, in order; empty for other revisions.
+          items:
+            type: string
+            examples:
+              - Archivist
+        created_at:
+          type: string
+          format: date-time
+          description: When the revision was created.
+          examples:
+            - "2026-10-01T09:00:00Z"
+      examples:
+        - id: 42
+          source: import
+          summary: ""
+          author: null
+          contributors: [Archivist, Lorekeeper]
+          created_at: "2026-01-01T00:00:00Z"
+
+    RevisionHistory:
+      type: object
+      description: One page of a public entity's approved revisions, newest first.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RevisionSummary"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many approved revisions the entity has in all.
+          examples:
+            - 1
+      examples:
+        - data:
+            - id: 42
+              source: user
+              summary: Credit the tune.
+              author:
+                display_name: Morwen
+              contributors: []
+              created_at: "2026-10-01T09:00:00Z"
+          total: 1
+
+    Revision:
+      description: |
+        A public revision with its snapshot views, in the shape of its `entity_type`: the entity as it is now,
+        the snapshot, the base revision's snapshot and the fields that changed.
+      oneOf:
+        - $ref: "#/components/schemas/PieceRevision"
+        - $ref: "#/components/schemas/PersonRevision"
+        - $ref: "#/components/schemas/TermRevision"
+        - $ref: "#/components/schemas/CollectionRevision"
+        - $ref: "#/components/schemas/EventRevision"
+      discriminator:
+        propertyName: entity_type
+        mapping:
+          piece: "#/components/schemas/PieceRevision"
+          person: "#/components/schemas/PersonRevision"
+          term: "#/components/schemas/TermRevision"
+          collection: "#/components/schemas/CollectionRevision"
+          event: "#/components/schemas/EventRevision"
+      examples:
+        - entity_type: event
+          id: 46
+          entity:
+            slug: midwinter-revel
+            name: Midwinter Revel
+            kind: event
+          base_revision_id: null
+          source: import
+          summary: ""
+          author: null
+          contributors: []
+          created_at: "2026-01-01T00:00:00Z"
+          snapshot:
+            name: Midwinter Revel
+            kind: event
+            description_md: null
+          base_snapshot: null
+          changed_fields: [kind, name]
+
+    PieceRevision:
+      type: object
+      description: A public revision of a piece, with its snapshot views.
+      additionalProperties: false
+      required:
+        - entity_type
+        - id
+        - entity
+        - base_revision_id
+        - source
+        - summary
+        - author
+        - contributors
+        - created_at
+        - snapshot
+        - base_snapshot
+        - changed_fields
+      properties:
+        entity_type:
+          type: string
+          description: The type of entity the revision is of, always `piece` in this shape.
+          enum: [piece]
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity:
+          $ref: "#/components/schemas/PieceSummary"
+        base_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: |
+            The revision this one was based on, if that is an approved revision of the same entity; otherwise
+            null, as is `base_snapshot`.
+          examples:
+            - 41
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        summary:
+          $ref: "#/components/schemas/RevisionSummary/properties/summary"
+        author:
+          $ref: "#/components/schemas/RevisionSummary/properties/author"
+        contributors:
+          $ref: "#/components/schemas/RevisionSummary/properties/contributors"
+        created_at:
+          $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        snapshot:
+          $ref: "#/components/schemas/PieceSnapshot"
+        base_snapshot:
+          description: The view of the base revision's piece snapshot, or null if there is none.
+          oneOf:
+            - $ref: "#/components/schemas/PieceSnapshot"
+            - type: "null"
+        changed_fields:
+          type: array
+          description: |
+            The piece snapshot's top-level fields that differ from the base snapshot's or, with no base, that are
+            not empty (null, an empty list or string, false or 0), in alphabetical order.
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - aliases
+              - conservation_source_url
+              - conservation_status
+              - credits
+              - historical_source_md
+              - is_stub
+              - kind
+              - licence
+              - licensing_notes_md
+              - licensing_status
+              - links
+              - notes_md
+              - period_end
+              - period_start
+              - relations
+              - secondary_kinds
+              - terms
+              - title
+              - version_notes_md
+      examples:
+        - entity_type: piece
+          id: 42
+          entity:
+            slug: the-copper-kettle
+            title: The Copper Kettle
+            kind: song
+            secondary_kinds: []
+            conservation_status: endangered
+            is_stub: false
+          base_revision_id: 41
+          source: user
+          summary: Credit the tune.
+          author:
+            display_name: Morwen
+          contributors: []
+          created_at: "2026-10-01T09:00:00Z"
+          snapshot:
+            title: The Copper Kettle
+            kind: song
+            secondary_kinds: []
+            conservation_status: endangered
+            conservation_source_url: null
+            is_stub: false
+            notes_md: A drinking song from the northern marches.
+            version_notes_md: null
+            licensing_status: unknown
+            licensing_notes_md: null
+            licence: null
+            historical_source_md: null
+            period_start: null
+            period_end: null
+            aliases: []
+            terms: []
+            credits:
+              - role: tune
+                attribution: traditional
+                certainty: probable
+                part: null
+                note: An old reel.
+                person: null
+            relations: []
+            links: []
+          base_snapshot:
+            title: The Copper Kettle
+            kind: song
+            secondary_kinds: []
+            conservation_status: endangered
+            conservation_source_url: null
+            is_stub: false
+            notes_md: A drinking song from the northern marches.
+            version_notes_md: null
+            licensing_status: unknown
+            licensing_notes_md: null
+            licence: null
+            historical_source_md: null
+            period_start: null
+            period_end: null
+            aliases: []
+            terms: []
+            credits: []
+            relations: []
+            links: []
+          changed_fields: [credits]
+
+    PersonRevision:
+      type: object
+      description: A public revision of a person, with its snapshot views.
+      additionalProperties: false
+      required:
+        - entity_type
+        - id
+        - entity
+        - base_revision_id
+        - source
+        - summary
+        - author
+        - contributors
+        - created_at
+        - snapshot
+        - base_snapshot
+        - changed_fields
+      properties:
+        entity_type:
+          type: string
+          description: The type of entity the revision is of, always `person` in this shape.
+          enum: [person]
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity:
+          $ref: "#/components/schemas/PersonSummary"
+        base_revision_id:
+          $ref: "#/components/schemas/PieceRevision/properties/base_revision_id"
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        summary:
+          $ref: "#/components/schemas/RevisionSummary/properties/summary"
+        author:
+          $ref: "#/components/schemas/RevisionSummary/properties/author"
+        contributors:
+          $ref: "#/components/schemas/RevisionSummary/properties/contributors"
+        created_at:
+          $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        snapshot:
+          $ref: "#/components/schemas/PersonSnapshot"
+        base_snapshot:
+          description: The view of the base revision's person snapshot, or null if there is none.
+          oneOf:
+            - $ref: "#/components/schemas/PersonSnapshot"
+            - type: "null"
+        changed_fields:
+          type: array
+          description: |
+            The person snapshot's top-level fields that differ from the base snapshot's or, with no base, that are
+            not empty (null, an empty list or string, false or 0), in alphabetical order.
+          uniqueItems: true
+          items:
+            type: string
+            enum: [is_stub, kind, name, profile, status, status_date, status_source_url]
+      examples:
+        - entity_type: person
+          id: 43
+          entity:
+            slug: hollis-fenn
+            name: Hollis Fenn
+            kind: community_bard
+            is_stub: true
+          base_revision_id: null
+          source: import
+          summary: ""
+          author: null
+          contributors: [Archivist, Lorekeeper]
+          created_at: "2026-01-01T00:00:00Z"
+          snapshot:
+            name: Hollis Fenn
+            kind: community_bard
+            status: prefers_no_page
+            status_date: "2026-03-01"
+            status_source_url: https://example.org/requests/12
+            is_stub: true
+            profile: null
+          base_snapshot: null
+          changed_fields: [is_stub, kind, name, status, status_date, status_source_url]
+
+    TermRevision:
+      type: object
+      description: A public revision of a term, with its snapshot views.
+      additionalProperties: false
+      required:
+        - entity_type
+        - id
+        - entity
+        - base_revision_id
+        - source
+        - summary
+        - author
+        - contributors
+        - created_at
+        - snapshot
+        - base_snapshot
+        - changed_fields
+      properties:
+        entity_type:
+          type: string
+          description: The type of entity the revision is of, always `term` in this shape.
+          enum: [term]
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity:
+          $ref: "#/components/schemas/TermSummary"
+        base_revision_id:
+          $ref: "#/components/schemas/PieceRevision/properties/base_revision_id"
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        summary:
+          $ref: "#/components/schemas/RevisionSummary/properties/summary"
+        author:
+          $ref: "#/components/schemas/RevisionSummary/properties/author"
+        contributors:
+          $ref: "#/components/schemas/RevisionSummary/properties/contributors"
+        created_at:
+          $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        snapshot:
+          $ref: "#/components/schemas/TermSnapshot"
+        base_snapshot:
+          description: The view of the base revision's term snapshot, or null if there is none.
+          oneOf:
+            - $ref: "#/components/schemas/TermSnapshot"
+            - type: "null"
+        changed_fields:
+          type: array
+          description: |
+            The term snapshot's top-level fields that differ from the base snapshot's or, with no base, that are
+            not empty (null, an empty list or string, false or 0), in alphabetical order.
+          uniqueItems: true
+          items:
+            type: string
+            enum: [aliases, description_md, display_name, facet, name, parent, position, related_affiliation]
+      examples:
+        - entity_type: term
+          id: 44
+          entity:
+            slug: swords
+            facet: topic
+            display_name: Swords
+          base_revision_id: null
+          source: import
+          summary: ""
+          author: null
+          contributors: [Archivist]
+          created_at: "2026-01-01T00:00:00Z"
+          snapshot:
+            facet: topic
+            name: Swords
+            display_name: Swords
+            parent:
+              slug: war
+              facet: topic
+              display_name: War
+            related_affiliation: null
+            description_md: null
+            position: 0
+            aliases: []
+          base_snapshot: null
+          changed_fields: [display_name, facet, name, parent]
+
+    CollectionRevision:
+      type: object
+      description: A public revision of a collection, with its snapshot views.
+      additionalProperties: false
+      required:
+        - entity_type
+        - id
+        - entity
+        - base_revision_id
+        - source
+        - summary
+        - author
+        - contributors
+        - created_at
+        - snapshot
+        - base_snapshot
+        - changed_fields
+      properties:
+        entity_type:
+          type: string
+          description: The type of entity the revision is of, always `collection` in this shape.
+          enum: [collection]
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity:
+          $ref: "#/components/schemas/CollectionRef"
+        base_revision_id:
+          $ref: "#/components/schemas/PieceRevision/properties/base_revision_id"
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        summary:
+          $ref: "#/components/schemas/RevisionSummary/properties/summary"
+        author:
+          $ref: "#/components/schemas/RevisionSummary/properties/author"
+        contributors:
+          $ref: "#/components/schemas/RevisionSummary/properties/contributors"
+        created_at:
+          $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        snapshot:
+          $ref: "#/components/schemas/CollectionSnapshot"
+        base_snapshot:
+          description: The view of the base revision's collection snapshot, or null if there is none.
+          oneOf:
+            - $ref: "#/components/schemas/CollectionSnapshot"
+            - type: "null"
+        changed_fields:
+          type: array
+          description: |
+            The collection snapshot's top-level fields that differ from the base snapshot's or, with no base, that are
+            not empty (null, an empty list or string, false or 0), in alphabetical order.
+          uniqueItems: true
+          items:
+            type: string
+            enum: [description_md, enumerable, is_bardic_resource, kind, name, parent, region, url]
+      examples:
+        - entity_type: collection
+          id: 45
+          entity:
+            id: 12
+            name: The Northmarch Songbook
+          base_revision_id: null
+          source: import
+          summary: ""
+          author: null
+          contributors: []
+          created_at: "2026-01-01T00:00:00Z"
+          snapshot:
+            name: The Northmarch Songbook
+            url: https://example.org/songbook.pdf
+            kind: songbook_pdf
+            description_md: null
+            region: null
+            parent: null
+            is_bardic_resource: true
+            enumerable: pdf
+          base_snapshot: null
+          changed_fields: [enumerable, is_bardic_resource, kind, name, url]
+
+    EventRevision:
+      type: object
+      description: A public revision of an event or venue, with its snapshot views.
+      additionalProperties: false
+      required:
+        - entity_type
+        - id
+        - entity
+        - base_revision_id
+        - source
+        - summary
+        - author
+        - contributors
+        - created_at
+        - snapshot
+        - base_snapshot
+        - changed_fields
+      properties:
+        entity_type:
+          type: string
+          description: The type of entity the revision is of, always `event` in this shape.
+          enum: [event]
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity:
+          $ref: "#/components/schemas/EventSummary"
+        base_revision_id:
+          $ref: "#/components/schemas/PieceRevision/properties/base_revision_id"
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        summary:
+          $ref: "#/components/schemas/RevisionSummary/properties/summary"
+        author:
+          $ref: "#/components/schemas/RevisionSummary/properties/author"
+        contributors:
+          $ref: "#/components/schemas/RevisionSummary/properties/contributors"
+        created_at:
+          $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        snapshot:
+          $ref: "#/components/schemas/EventSnapshot"
+        base_snapshot:
+          description: The view of the base revision's event snapshot, or null if there is none.
+          oneOf:
+            - $ref: "#/components/schemas/EventSnapshot"
+            - type: "null"
+        changed_fields:
+          type: array
+          description: |
+            The event snapshot's top-level fields that differ from the base snapshot's or, with no base, that are
+            not empty (null, an empty list or string, false or 0), in alphabetical order.
+          uniqueItems: true
+          items:
+            type: string
+            enum: [description_md, kind, name]
+      examples:
+        - entity_type: event
+          id: 46
+          entity:
+            slug: midwinter-revel
+            name: Midwinter Revel
+            kind: event
+          base_revision_id: null
+          source: import
+          summary: ""
+          author: null
+          contributors: []
+          created_at: "2026-01-01T00:00:00Z"
+          snapshot:
+            name: Midwinter Revel
+            kind: event
+            description_md: A winter gathering of the northern marches.
+          base_snapshot: null
+          changed_fields: [description_md, kind, name]
+
+    PieceSnapshot:
+      type: object
+      description: |
+        The view of a piece snapshot: the piece's editor-owned fields as the revision set them, with references
+        to entities that are public now, and visible links.
+      additionalProperties: false
+      required:
+        - title
+        - kind
+        - secondary_kinds
+        - conservation_status
+        - conservation_source_url
+        - is_stub
+        - notes_md
+        - version_notes_md
+        - licensing_status
+        - licensing_notes_md
+        - licence
+        - historical_source_md
+        - period_start
+        - period_end
+        - aliases
+        - terms
+        - credits
+        - relations
+        - links
+      properties:
+        title:
+          $ref: "#/components/schemas/PieceSummary/properties/title"
+        kind:
+          $ref: "#/components/schemas/PieceKind"
+        secondary_kinds:
+          $ref: "#/components/schemas/PieceSummary/properties/secondary_kinds"
+        conservation_status:
+          $ref: "#/components/schemas/ConservationStatus"
+        conservation_source_url:
+          type: [string, "null"]
+          description: The source supporting the conservation status.
+          examples:
+            - https://example.org/assessments/kettle
+        is_stub:
+          $ref: "#/components/schemas/PieceSummary/properties/is_stub"
+        notes_md:
+          $ref: "#/components/schemas/Piece/properties/notes_md"
+        version_notes_md:
+          $ref: "#/components/schemas/Piece/properties/version_notes_md"
+        licensing_status:
+          $ref: "#/components/schemas/LicensingStatus"
+        licensing_notes_md:
+          $ref: "#/components/schemas/Piece/properties/licensing_notes_md"
+        licence:
+          $ref: "#/components/schemas/Piece/properties/licence"
+        historical_source_md:
+          $ref: "#/components/schemas/Piece/properties/historical_source_md"
+        period_start:
+          $ref: "#/components/schemas/Piece/properties/period_start"
+        period_end:
+          $ref: "#/components/schemas/Piece/properties/period_end"
+        aliases:
+          $ref: "#/components/schemas/Piece/properties/aliases"
+        terms:
+          type: array
+          description: The public terms the piece was classified with, in the snapshot's order.
+          items:
+            $ref: "#/components/schemas/PieceTerm"
+        credits:
+          type: array
+          description: |
+            The snapshot's credits, in order. A credit to a person who is not public or prefers not to have a page
+            now is left out entirely.
+          items:
+            $ref: "#/components/schemas/PieceCredit"
+        relations:
+          type: array
+          description: The piece's relations to other pieces that are public now; a snapshot holds outgoing ones only.
+          items:
+            $ref: "#/components/schemas/SnapshotPieceRelation"
+        links:
+          type: array
+          description: The snapshot's links that are not hidden now, in order, with no system state such as liveness.
+          items:
+            $ref: "#/components/schemas/SnapshotPieceLink"
+      examples:
+        - title: The Copper Kettle
+          kind: song
+          secondary_kinds: []
+          conservation_status: endangered
+          conservation_source_url: null
+          is_stub: false
+          notes_md: null
+          version_notes_md: null
+          licensing_status: unknown
+          licensing_notes_md: null
+          licence: null
+          historical_source_md: null
+          period_start: null
+          period_end: null
+          aliases: []
+          terms: []
+          credits: []
+          relations: []
+          links: []
+
+    SnapshotPieceRelation:
+      type: object
+      description: A relation of a piece snapshot's piece to another public piece.
+      additionalProperties: false
+      required: [type, piece]
+      properties:
+        type:
+          $ref: "#/components/schemas/PieceRelationType"
+        piece:
+          $ref: "#/components/schemas/PieceSummary"
+      examples:
+        - type: variant_of
+          piece:
+            slug: the-brass-kettle
+            title: The Brass Kettle
+            kind: song
+            secondary_kinds: []
+            conservation_status: low_risk
+            is_stub: false
+
+    SnapshotPieceLink:
+      type: object
+      description: A link of a piece snapshot, with the performances of the piece it records.
+      additionalProperties: false
+      required: [url, title, description, platform, place_type, collection, locator, roles, performances]
+      properties:
+        url:
+          $ref: "#/components/schemas/PersonLink/properties/url"
+        title:
+          $ref: "#/components/schemas/PersonLink/properties/title"
+        description:
+          $ref: "#/components/schemas/PersonLink/properties/description"
+        platform:
+          $ref: "#/components/schemas/PersonLink/properties/platform"
+        place_type:
+          $ref: "#/components/schemas/PersonLink/properties/place_type"
+        collection:
+          $ref: "#/components/schemas/PersonLink/properties/collection"
+        locator:
+          $ref: "#/components/schemas/PersonLink/properties/locator"
+        roles:
+          $ref: "#/components/schemas/PersonLink/properties/roles"
+        performances:
+          $ref: "#/components/schemas/PieceLink/properties/performances"
+      examples:
+        - url: https://example.org/kettle/lyrics
+          title: The Copper Kettle
+          description: null
+          platform: example.org
+          place_type: community_archive
+          collection: null
+          locator: null
+          roles: [lyrics]
+          performances: []
+
+    SnapshotPersonLink:
+      type: object
+      description: A link of a person snapshot, with the performances it records.
+      additionalProperties: false
+      required: [url, title, description, platform, place_type, collection, locator, roles, performances]
+      properties:
+        url:
+          $ref: "#/components/schemas/PersonLink/properties/url"
+        title:
+          $ref: "#/components/schemas/PersonLink/properties/title"
+        description:
+          $ref: "#/components/schemas/PersonLink/properties/description"
+        platform:
+          $ref: "#/components/schemas/PersonLink/properties/platform"
+        place_type:
+          $ref: "#/components/schemas/PersonLink/properties/place_type"
+        collection:
+          $ref: "#/components/schemas/PersonLink/properties/collection"
+        locator:
+          $ref: "#/components/schemas/PersonLink/properties/locator"
+        roles:
+          $ref: "#/components/schemas/PersonLink/properties/roles"
+        performances:
+          type: array
+          description: The performances the link records. A performance of a piece that is not public now is left out.
+          items:
+            $ref: "#/components/schemas/SnapshotPersonPerformance"
+      examples:
+        - url: https://example.org/wren
+          title: Wren's songs
+          description: null
+          platform: example.org
+          place_type: author_site
+          collection: null
+          locator: null
+          roles: [website]
+          performances: []
+
+    SnapshotPersonPerformance:
+      type: object
+      description: |
+        A performance a person snapshot's link records, of a public piece or of none in particular. Performers
+        who are not public or prefer not to have a page now are left out.
+      additionalProperties: false
+      required: [piece, year, uploader, description_verbatim, event, performers]
+      properties:
+        piece:
+          description: The piece performed, or null for a performance of no particular piece.
+          oneOf:
+            - $ref: "#/components/schemas/PieceSummary"
+            - type: "null"
+        year:
+          $ref: "#/components/schemas/PiecePerformance/properties/year"
+        uploader:
+          $ref: "#/components/schemas/PiecePerformance/properties/uploader"
+        description_verbatim:
+          $ref: "#/components/schemas/PiecePerformance/properties/description_verbatim"
+        event:
+          $ref: "#/components/schemas/PiecePerformance/properties/event"
+        performers:
+          $ref: "#/components/schemas/PiecePerformance/properties/performers"
+      examples:
+        - piece: null
+          year: 2025
+          uploader: null
+          description_verbatim: Wren tells a winter tale
+          event: null
+          performers: []
+
+    PersonSnapshot:
+      type: object
+      description: |
+        The view of a person snapshot. `profile` is null, and `is_stub` true, for a person who prefers not to
+        have a page, now or in the snapshot: only their identity is shown.
+      additionalProperties: false
+      required: [name, kind, status, status_date, status_source_url, is_stub, profile]
+      properties:
+        name:
+          $ref: "#/components/schemas/PersonSummary/properties/name"
+        kind:
+          $ref: "#/components/schemas/PersonKind"
+        status:
+          $ref: "#/components/schemas/PersonStatus"
+        status_date:
+          $ref: "#/components/schemas/Person/properties/status_date"
+        status_source_url:
+          $ref: "#/components/schemas/Person/properties/status_source_url"
+        is_stub:
+          $ref: "#/components/schemas/PersonSummary/properties/is_stub"
+        profile:
+          description: Everything the snapshot shows beyond the person's identity.
+          oneOf:
+            - $ref: "#/components/schemas/PersonSnapshotProfile"
+            - type: "null"
+      examples:
+        - name: Hollis Fenn
+          kind: community_bard
+          status: prefers_no_page
+          status_date: "2026-03-01"
+          status_source_url: https://example.org/requests/12
+          is_stub: true
+          profile: null
+
+    PersonSnapshotProfile:
+      type: object
+      description: Everything a person snapshot shows beyond the person's identity.
+      additionalProperties: false
+      required:
+        - pronouns
+        - notes_md
+        - licensing_status
+        - licensing_notes_md
+        - aliases
+        - roles
+        - affiliations
+        - relations
+        - links
+      properties:
+        pronouns:
+          $ref: "#/components/schemas/PersonProfile/properties/pronouns"
+        notes_md:
+          $ref: "#/components/schemas/PersonProfile/properties/notes_md"
+        licensing_status:
+          $ref: "#/components/schemas/LicensingStatus"
+        licensing_notes_md:
+          $ref: "#/components/schemas/PersonProfile/properties/licensing_notes_md"
+        aliases:
+          type: array
+          description: The snapshot's public aliases that are public aliases of the person now.
+          items:
+            $ref: "#/components/schemas/PersonAlias"
+        roles:
+          type: array
+          description: What the person does, in the snapshot's order.
+          items:
+            $ref: "#/components/schemas/PersonRole"
+        affiliations:
+          type: array
+          description: The person's affiliation terms that are public now, in the snapshot's order.
+          items:
+            $ref: "#/components/schemas/TermSummary"
+        relations:
+          type: array
+          description: |
+            The person's relations to other persons who are public and do not prefer no page now; a snapshot holds
+            outgoing ones only.
+          items:
+            $ref: "#/components/schemas/SnapshotPersonRelation"
+        links:
+          type: array
+          description: The snapshot's links that are not hidden now, in order.
+          items:
+            $ref: "#/components/schemas/SnapshotPersonLink"
+      examples:
+        - pronouns: null
+          notes_md: null
+          licensing_status: unknown
+          licensing_notes_md: null
+          aliases: []
+          roles: [singer]
+          affiliations: []
+          relations: []
+          links: []
+
+    SnapshotPersonRelation:
+      type: object
+      description: A relation of a person snapshot's person to another public person with a page.
+      additionalProperties: false
+      required: [type, person]
+      properties:
+        type:
+          $ref: "#/components/schemas/PersonRelationType"
+        person:
+          $ref: "#/components/schemas/PersonSummary"
+      examples:
+        - type: member_of
+          person:
+            slug: the-northmarch-bards
+            name: The Northmarch Bards
+            kind: group
+            is_stub: false
+
+    TermSnapshot:
+      type: object
+      description: The view of a term snapshot.
+      additionalProperties: false
+      required: [facet, name, display_name, parent, related_affiliation, description_md, position, aliases]
+      properties:
+        facet:
+          $ref: "#/components/schemas/Facet"
+        name:
+          $ref: "#/components/schemas/TermListItem/properties/name"
+        display_name:
+          $ref: "#/components/schemas/TermSummary/properties/display_name"
+        parent:
+          description: The term's parent, if it is public now.
+          oneOf:
+            - $ref: "#/components/schemas/TermSummary"
+            - type: "null"
+        related_affiliation:
+          description: The affiliation term the term implies, if it is public now.
+          oneOf:
+            - $ref: "#/components/schemas/TermSummary"
+            - type: "null"
+        description_md:
+          $ref: "#/components/schemas/Term/properties/description_md"
+        position:
+          type: integer
+          format: int32
+          description: Where the term sorts among its siblings.
+          examples:
+            - 0
+        aliases:
+          $ref: "#/components/schemas/Term/properties/aliases"
+      examples:
+        - facet: topic
+          name: Swords
+          display_name: Swords
+          parent: null
+          related_affiliation: null
+          description_md: null
+          position: 0
+          aliases: []
+
+    CollectionSnapshot:
+      type: object
+      description: The view of a collection snapshot.
+      additionalProperties: false
+      required: [name, url, kind, description_md, region, parent, is_bardic_resource, enumerable]
+      properties:
+        name:
+          $ref: "#/components/schemas/CollectionRef/properties/name"
+        url:
+          $ref: "#/components/schemas/CollectionSummary/properties/url"
+        kind:
+          $ref: "#/components/schemas/CollectionKind"
+        description_md:
+          $ref: "#/components/schemas/Collection/properties/description_md"
+        region:
+          description: The term for the region the collection is from, if it is public now.
+          oneOf:
+            - $ref: "#/components/schemas/TermSummary"
+            - type: "null"
+        parent:
+          description: The collection this one is part of, if it is public now.
+          oneOf:
+            - $ref: "#/components/schemas/CollectionSummary"
+            - type: "null"
+        is_bardic_resource:
+          $ref: "#/components/schemas/CollectionSummary/properties/is_bardic_resource"
+        enumerable:
+          $ref: "#/components/schemas/CollectionEnumerable"
+      examples:
+        - name: The Northmarch Songbook
+          url: https://example.org/songbook.pdf
+          kind: songbook_pdf
+          description_md: null
+          region: null
+          parent: null
+          is_bardic_resource: true
+          enumerable: pdf
+
+    EventSnapshot:
+      type: object
+      description: The view of an event snapshot.
+      additionalProperties: false
+      required: [name, kind, description_md]
+      properties:
+        name:
+          $ref: "#/components/schemas/EventSummary/properties/name"
+        kind:
+          $ref: "#/components/schemas/EventKind"
+        description_md:
+          $ref: "#/components/schemas/Event/properties/description_md"
+      examples:
+        - name: Midwinter Revel
+          kind: event
+          description_md: null
+
+    NeedsWorkReason:
+      type: string
+      description: |
+        Why an entry needs work: it is a `stub`; its conservation status is `unassessed`; its licensing is
+        unknown (`missing_licensing`); or a visible link attached to it is dead (`dead_links`).
+      enum: [stub, unassessed, missing_licensing, dead_links]
+      examples:
+        - stub
+
+    NeedsWorkList:
+      type: object
+      description: One page of the public pieces and persons needing work, pieces first, each by sort key.
+      additionalProperties: false
+      required: [data, total, counts]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/NeedsWorkEntry"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many entries need work for the requested reason, or any reason, in all.
+          examples:
+            - 1
+        counts:
+          type: array
+          description: How many entries need work for each reason, whatever the requested reason, in the enum's order.
+          items:
+            $ref: "#/components/schemas/NeedsWorkCount"
+      examples:
+        - data:
+            - entity_type: piece
+              slug: the-copper-kettle
+              title: The Copper Kettle
+              reasons: [stub, missing_licensing]
+          total: 1
+          counts:
+            - reason: stub
+              count: 1
+            - reason: unassessed
+              count: 0
+            - reason: missing_licensing
+              count: 1
+            - reason: dead_links
+              count: 0
+
+    NeedsWorkEntry:
+      type: object
+      description: A public piece or person needing work.
+      additionalProperties: false
+      required: [entity_type, slug, title, reasons]
+      properties:
+        entity_type:
+          type: string
+          description: Whether the entry is a piece or a person.
+          enum: [piece, person]
+          examples:
+            - piece
+        slug:
+          type: string
+          description: The piece's or person's address.
+          examples:
+            - the-copper-kettle
+        title:
+          type: string
+          description: The piece's title or the person's name.
+          examples:
+            - The Copper Kettle
+        reasons:
+          type: array
+          description: Every reason the entry needs work, in the enum's order.
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/NeedsWorkReason"
+      examples:
+        - entity_type: person
+          slug: wren-of-the-vale
+          title: Wren of the Vale
+          reasons: [dead_links]
+
+    NeedsWorkCount:
+      type: object
+      description: How many entries need work for a reason.
+      additionalProperties: false
+      required: [reason, count]
+      properties:
+        reason:
+          $ref: "#/components/schemas/NeedsWorkReason"
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+          examples:
+            - 3
+      examples:
+        - reason: stub
+          count: 3

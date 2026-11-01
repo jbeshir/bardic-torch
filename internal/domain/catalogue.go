@@ -557,6 +557,13 @@ const (
 	NeedsWorkReasonDeadLinks NeedsWorkReason = "dead_links"
 )
 
+// NeedsWorkReasons returns every needs-work reason, in declaration order.
+func NeedsWorkReasons() []NeedsWorkReason {
+	return []NeedsWorkReason{
+		NeedsWorkReasonStub, NeedsWorkReasonUnassessed, NeedsWorkReasonMissingLicensing, NeedsWorkReasonDeadLinks,
+	}
+}
+
 // ParseNeedsWorkReason returns the NeedsWorkReason named by s, or an error if s is not a known reason.
 func ParseNeedsWorkReason(s string) (NeedsWorkReason, error) {
 	switch r := NeedsWorkReason(s); r {

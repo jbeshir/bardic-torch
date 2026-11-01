@@ -181,6 +181,10 @@ tests against hand-computed sets (`search_integration_test.go`, which also compa
 server's). `search_text_integration_test.go` runs the text searches again after `ALTER TABLE … FORCE` rebuilds the
 FULLTEXT indexes, and checks that the server enforces the execution time limit.
 
+The snapshot views and their redaction are pure functions in `internal/domain/snapshot.go`, unit-tested with a
+hand-built `SnapshotVisibility` (`snapshot_test.go`). `repository_revision_integration_test.go` checks them against
+the current state in the database: an alias, links and a person hidden after the revision was written.
+
 `TestDocumentCoverage` (A1.8) classifies every column of the tables each snapshot document owns as a document
 field or system-owned, with a reason. A new column, document field or table fails it until it is classified.
 

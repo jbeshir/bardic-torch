@@ -190,6 +190,26 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
 
   Only approved revisions are public until BE4. Authors show only a display name, and imports list the wiki
   contributors (`revision_contributors`).
+
+  In detail (`domain.New*Snapshot`, given a `SnapshotVisibility` the repository loads for exactly what the
+  snapshot and its base reference):
+  - A revision is public if it is approved and its entity is public now; anything else is the same 404. History
+    lists approved revisions newest first (`created_at`, then ID).
+  - Views hold the document's editor-owned fields except preference profiles; links have no liveness or other
+    system state. A link is dropped if a hidden link has its URL as entered or normalized.
+  - An alias is shown only if public in the document and now a public alias of the person, by name. Credits,
+    performers and relations of persons not public with a page now are dropped (a named credit entirely), as is a
+    person's performance of a piece that is not public.
+  - A person who prefers no page now, or did in the document, is shown by identity only (`profile: null`), in the
+    snapshot and the base.
+  - The base is shown only if it is an approved revision of the same entity; otherwise `base_revision_id` and
+    `base_snapshot` are both null. `changed_fields` lists the sorted top-level view fields whose encodings
+    differ, or with no base those that are not empty (null, `[]`, `""`, false, 0); a person's profile is one field.
+  - A snapshot that does not decode (unknown `schema_version`, wrong shape) is a 500, logged.
+- **Needs-work** (`GET /v1/needs-work`) lists public pieces and persons with a page that are stubs, unassessed
+  (pieces), of unknown licensing (pieces, and community bards) or with a visible dead link; restricted pieces only
+  for being stubs. Pieces come first, then persons, each by sort key. `counts` has every reason, whatever the
+  `reason` filter.
 - **Preference profiles** (`person_preferences`, `piece_preferences`) exist as tables but are not exposed until BE5
   defines and validates their `value_json` shapes.
 - **Public reads ignore credentials.** The catalogue reads are served outside the authentication middleware, like

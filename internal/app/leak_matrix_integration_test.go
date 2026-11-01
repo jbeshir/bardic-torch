@@ -43,6 +43,33 @@ type leakFixture struct {
 	archive, unapprovedCollection catalogtest.Ref
 	// moot is a public event at which every hidden kind of performance was recorded.
 	moot, unapprovedEvent catalogtest.Ref
+	// turned chose not to have a page after their revisions were written.
+	turned    catalogtest.Ref
+	revisions leakRevisions
+}
+
+// leakRevisions are revisions beyond catalogtest's: each shows something hidden now, or is not public.
+type leakRevisions struct {
+	// rowanAliasPublic shows Rowan's hidden alias as public, and a relation to turned.
+	rowanAliasPublic int64
+	// lanternTurned credits turned.
+	lanternTurned int64
+	// turnedEdit is of turned, with their profile.
+	turnedEdit int64
+	// pendingLantern is pending, and unapprovedPieceApproved is of an unapproved piece.
+	pendingLantern, unapprovedPieceApproved int64
+}
+
+// turnedName is the name of a person who chose not to have a page after their revisions were written.
+const turnedName = "Leakmark Turned Nopage"
+
+// leakAuthorID is the user ID of the author of revisions: no response may show it.
+const leakAuthorID = "google-oauth2|leakmark-author"
+
+// namedCredit is a certain, named credit of personID, with its defaults written out.
+func namedCredit(personID int64, role domain.CreditRole, note *string) domain.DocCredit {
+	return domain.DocCredit{PersonID: &personID, Role: role, Attribution: domain.AttributionNamed,
+		Certainty: domain.CertaintyCertain, Note: note}
 }
 
 // noPageName is the no-page person's name, which only their own page shows.
@@ -132,8 +159,14 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 				DescriptionVerbatim: "Leakmark nopage performance"}}},
 		}},
 	}})
-	person := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
-		Name: "Rowan Ashby",
+	// Rowan's and the Lantern Song's documents are written out in full, defaults included, as later revisions
+	// store variants of them as given.
+	rowanDoc := domain.PersonDocument{
+		SchemaVersion:   domain.DocumentSchemaVersion,
+		Name:            "Rowan Ashby",
+		Kind:            domain.PersonKindCommunityBard,
+		Status:          domain.PersonStatusActive,
+		LicensingStatus: domain.LicensingStatusUnknown,
 		Aliases: []domain.DocPersonAlias{
 			{Name: "Rowan", Kind: domain.PersonAliasKindStage, IsPublic: true},
 			{Name: "Leakmark Hidden Legal Alias", Kind: domain.PersonAliasKindLegal},
@@ -163,17 +196,22 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 				},
 			},
 		},
-	}})
-	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{
-		Title: "The Lantern Song",
+	}
+	person := c.Person(catalogtest.Person{Doc: rowanDoc})
+	lanternDoc := domain.PieceDocument{
+		SchemaVersion:   domain.DocumentSchemaVersion,
+		Title:           "The Lantern Song",
+		Kind:            domain.PieceKindSong,
+		Conservation:    domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+		LicensingStatus: domain.LicensingStatusUnknown,
 		Terms: []domain.DocPieceTerm{
 			{TermID: lanterns.ID, IsPrimary: true}, {TermID: unapprovedTerm.ID}, {TermID: underUnapproved.ID},
 		},
 		Relations: []domain.DocPieceRelation{{ToPieceID: unapprovedPiece.ID, Type: domain.PieceRelationTypeVariantOf}},
 		Credits: []domain.DocCredit{
-			{PersonID: &person.ID, Role: domain.CreditRoleLyrics},
-			{PersonID: &noPage.ID, Role: domain.CreditRoleTune, Note: new("Leakmark nopage credit note")},
-			{PersonID: &unapprovedPerson.ID, Role: domain.CreditRoleMusic, Note: new("Leakmark unapproved credit note")},
+			namedCredit(person.ID, domain.CreditRoleLyrics, nil),
+			namedCredit(noPage.ID, domain.CreditRoleTune, new("Leakmark nopage credit note")),
+			namedCredit(unapprovedPerson.ID, domain.CreditRoleMusic, new("Leakmark unapproved credit note")),
 		},
 		Links: []domain.DocPieceLink{
 			{
@@ -194,8 +232,11 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 			{DocLink: domain.DocLink{URL: "https://example.org/lantern-archive", CollectionID: &archive.ID,
 				Locator: new("shelf 3"), Roles: []domain.LinkRole{domain.LinkRoleText}}},
 		},
-	}})
-	c.SetLinkState(hiddenLinkURL, catalogtest.LinkState{IsHidden: true})
+	}
+	piece := c.Piece(catalogtest.Piece{Doc: lanternDoc})
+	// Hidden after the documents above were written, and dead, so that needs-work would count it if it counted
+	// hidden links.
+	c.SetLinkState(hiddenLinkURL, catalogtest.LinkState{Liveness: domain.LivenessDead, IsHidden: true})
 
 	// Unapproved and no-page entities referring to the public ones, seeded after them.
 	unapprovedEcho := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Leakmark Unapproved Echo",
@@ -208,6 +249,55 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	noPageAdmirer := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: noPageAdmirerName,
 		Status:    domain.PersonStatusPrefersNoPage,
 		Relations: []domain.DocPersonRelation{{ToPersonID: person.ID, Type: domain.PersonRelationTypeHeirOf}}}})
+
+	// Revisions whose snapshots show what is hidden now, but was not when they were written: the hidden alias as
+	// public, credits to a person who has since chosen not to have a page, and the hidden link (in every
+	// document above). Plus revisions that are not public: a pending one, and an approved one of an unapproved
+	// piece.
+	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'contributor', ?)",
+		leakAuthorID, "Morwen", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	turnedDoc := domain.PersonDocument{
+		SchemaVersion:   domain.DocumentSchemaVersion,
+		Name:            turnedName,
+		Kind:            domain.PersonKindCommunityBard,
+		Status:          domain.PersonStatusActive,
+		NotesMD:         new("Leakmark turned notes"),
+		LicensingStatus: domain.LicensingStatusUnknown,
+		Aliases: []domain.DocPersonAlias{{Name: "Leakmark Turned Alias", Kind: domain.PersonAliasKindStage,
+			IsPublic: true}},
+		Relations: []domain.DocPersonRelation{{ToPersonID: person.ID, Type: domain.PersonRelationTypeHeirOf}},
+		Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: "https://example.org/leakmark-turned-link",
+			Roles: []domain.LinkRole{domain.LinkRoleWebsite}}}},
+	}
+	turned := c.Person(catalogtest.Person{Doc: turnedDoc})
+	turnedEdit := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePerson, EntityID: turned.ID,
+		Snapshot: turnedDoc, Source: domain.RevisionSourceUser, AuthorUserID: leakAuthorID,
+		BaseRevisionID: turned.RevisionID})
+	c.Exec("UPDATE persons SET status = 'prefers_no_page' WHERE id = ?", turned.ID)
+
+	rowanAliasPublic := rowanDoc
+	rowanAliasPublic.Aliases = []domain.DocPersonAlias{rowanDoc.Aliases[0], rowanDoc.Aliases[1]}
+	rowanAliasPublic.Aliases[1].IsPublic = true
+	rowanAliasPublic.Relations = append(append([]domain.DocPersonRelation{}, rowanDoc.Relations...),
+		domain.DocPersonRelation{ToPersonID: turned.ID, Type: domain.PersonRelationTypeSameAs})
+	lanternTurned := lanternDoc
+	lanternTurned.Credits = append(append([]domain.DocCredit{}, lanternDoc.Credits...),
+		namedCredit(turned.ID, domain.CreditRoleTranslation, new("Leakmark turned credit note")))
+	pendingLantern := lanternDoc
+	pendingLantern.Title = "Leakmark Pending Title"
+	revisions := leakRevisions{
+		rowanAliasPublic: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePerson, EntityID: person.ID,
+			Snapshot: rowanAliasPublic, BaseRevisionID: person.RevisionID, Source: domain.RevisionSourceUser,
+			AuthorUserID: leakAuthorID}),
+		lanternTurned: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
+			Snapshot: lanternTurned, BaseRevisionID: piece.RevisionID, Source: domain.RevisionSourceUser,
+			AuthorUserID: leakAuthorID, Contributors: []string{"Archivist"}}),
+		pendingLantern: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
+			Snapshot: pendingLantern, Status: domain.RevisionStatusPending, AuthorUserID: leakAuthorID}),
+		unapprovedPieceApproved: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece,
+			EntityID: unapprovedPiece.ID, Snapshot: lanternDoc}),
+		turnedEdit: turnedEdit,
+	}
 
 	// System fields no document holds and no read exposes.
 	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'contributor', ?)",
@@ -225,6 +315,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		lanterns: lanterns, westmarch: westmarch, unapprovedTerm: unapprovedTerm, underUnapproved: underUnapproved,
 		unapprovedChild: unapprovedChild, unapprovedAffiliation: unapprovedAffiliation,
 		archive: archive, unapprovedCollection: unapprovedCollection, moot: moot, unapprovedEvent: unapprovedEvent,
+		turned: turned, revisions: revisions,
 	}
 })
 
@@ -234,6 +325,8 @@ type leakRequest struct {
 	status int
 	// reveals are marked strings the response may show, such as the no-page person's identity on their own page.
 	reveals []string
+	// absent are unmarked strings the response must not show either.
+	absent []string
 }
 
 // leakMatrix has, for each public catalogue read in the spec, the requests to send it against the leak fixture:
@@ -253,6 +346,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: "/v1/persons/" + fx.person.Slug, status: http.StatusOK},
 			{path: "/v1/persons/" + fx.group.Slug, status: http.StatusOK},
 			{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK, reveals: []string{fx.noPage.Slug, noPageName}},
+			{path: "/v1/persons/" + fx.turned.Slug, status: http.StatusOK, reveals: []string{fx.turned.Slug, turnedName}},
 			{path: "/v1/persons/" + fx.unapprovedPerson.Slug, status: http.StatusNotFound},
 		}
 	},
@@ -276,7 +370,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	},
 	{Method: http.MethodGet, Path: personsPath}: func(fx leakFixture) []leakRequest {
 		// Persons who prefer no page are listed as stubs, by name.
-		stubs := []string{fx.noPage.Slug, noPageName, fx.noPageAdmirer.Slug, noPageAdmirerName}
+		stubs := []string{fx.noPage.Slug, noPageName, fx.noPageAdmirer.Slug, noPageAdmirerName, fx.turned.Slug, turnedName}
 		return []leakRequest{
 			{path: personsPath, status: http.StatusOK, reveals: stubs},
 			{path: personsPath + "?q=leakmark", status: http.StatusOK, reveals: stubs},
@@ -333,6 +427,93 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: "/v1/events/" + fx.unapprovedEvent.Slug, status: http.StatusNotFound},
 		}
 	},
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/history"}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			// Authors by display name, never by user ID.
+			{path: historyPath("pieces", fx.piece.Slug), status: http.StatusOK},
+			// An unapproved piece with an approved revision.
+			{path: historyPath("pieces", fx.unapprovedPiece.Slug), status: http.StatusNotFound},
+			{path: historyPath("pieces", fx.unapprovedEcho.Slug), status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			{path: historyPath("persons", fx.person.Slug), status: http.StatusOK},
+			{path: historyPath("persons", fx.noPage.Slug), status: http.StatusOK},
+			{path: historyPath("persons", fx.turned.Slug), status: http.StatusOK},
+			{path: historyPath("persons", fx.unapprovedPerson.Slug), status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/history"}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			{path: historyPath("terms", fx.lanterns.Slug), status: http.StatusOK},
+			{path: historyPath("terms", fx.westmarch.Slug), status: http.StatusOK},
+			{path: historyPath("terms", fx.unapprovedTerm.Slug), status: http.StatusNotFound},
+			// Approved, under an unapproved term.
+			{path: historyPath("terms", fx.underUnapproved.Slug), status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/history"}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			{path: historyPath("collections", strconv.FormatInt(fx.archive.ID, 10)), status: http.StatusOK},
+			{path: historyPath("collections", strconv.FormatInt(fx.unapprovedCollection.ID, 10)),
+				status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/history"}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			{path: historyPath("events", fx.moot.Slug), status: http.StatusOK},
+			{path: historyPath("events", fx.unapprovedEvent.Slug), status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: func(fx leakFixture) []leakRequest {
+		revision := func(id int64, status int, reveals ...string) leakRequest {
+			return leakRequest{path: "/v1/revisions/" + strconv.FormatInt(id, 10), status: status, reveals: reveals}
+		}
+		noPage := []string{fx.noPage.Slug, noPageName}
+		turned := []string{fx.turned.Slug, turnedName}
+		return []leakRequest{
+			// Credits to the no-page and unapproved persons, unapproved terms, relation and collection, the
+			// hidden link and its performances, unapproved performers and event: in the snapshot, and with a
+			// credit to a person who chose not to have a page since, in a revision and its base.
+			revision(fx.piece.RevisionID, http.StatusOK),
+			revision(fx.revisions.lanternTurned, http.StatusOK),
+			// The hidden alias, hidden in the snapshot, and public in a revision and hidden since; relations to
+			// no-page and unapproved persons; the hidden link.
+			revision(fx.person.RevisionID, http.StatusOK),
+			revision(fx.revisions.rowanAliasPublic, http.StatusOK),
+			revision(fx.group.RevisionID, http.StatusOK),
+			// Persons who prefer no page, now or in the snapshot: the identity only.
+			revision(fx.noPage.RevisionID, http.StatusOK, noPage...),
+			revision(fx.noPageAdmirer.RevisionID, http.StatusOK, fx.noPageAdmirer.Slug, noPageAdmirerName),
+			revision(fx.turned.RevisionID, http.StatusOK, turned...),
+			revision(fx.revisions.turnedEdit, http.StatusOK, turned...),
+			// An unapproved child and related affiliation; an unapproved parent and region.
+			revision(fx.lanterns.RevisionID, http.StatusOK),
+			revision(fx.westmarch.RevisionID, http.StatusOK),
+			revision(fx.archive.RevisionID, http.StatusOK),
+			revision(fx.moot.RevisionID, http.StatusOK),
+			revision(fx.underUnapproved.RevisionID, http.StatusNotFound),
+			revision(fx.revisions.pendingLantern, http.StatusNotFound),
+			revision(fx.revisions.unapprovedPieceApproved, http.StatusNotFound),
+		}
+	},
+	{Method: http.MethodGet, Path: needsWorkPath}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			// Persons who prefer no page would be listed for their unknown licensing.
+			{path: needsWorkPath, status: http.StatusOK},
+			{path: needsWorkPath + "?reason=missing_licensing", status: http.StatusOK},
+			{path: needsWorkPath + "?reason=stub", status: http.StatusOK},
+			// The Lantern Song's and Rowan's only dead link is hidden.
+			{path: needsWorkPath + "?reason=dead_links", status: http.StatusOK,
+				absent: []string{fx.piece.Slug, fx.person.Slug}},
+		}
+	},
+}
+
+// historyPath is the path of the history of the entity of collection with address.
+func historyPath(collection, address string) string {
+	return "/v1/" + collection + "/" + address + "/history"
 }
 
 // Reasons an operation is in leakExempt.
@@ -415,6 +596,9 @@ func assertNoLeak(t *testing.T, contract *openapitest.Validator, handler http.Ha
 		body = strings.ReplaceAll(body, strings.ToLower(revealed), "")
 	}
 	assert.NotContains(t, body, leakMarker, "the response shows a marked string:\n%s", rec.Body.String())
+	for _, absent := range req.absent {
+		assert.NotContains(t, rec.Body.String(), absent, "the response shows something it must not")
+	}
 }
 
 // requireLeakMarkersStored checks that the fixture really stores a marker of each kind, so that the matrix
@@ -438,6 +622,20 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 			"WHERE e.current_revision_id IS NOT NULL AND perf.description_verbatim LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM links l JOIN collections c ON c.id = l.collection_id " +
 			"WHERE c.current_revision_id IS NOT NULL AND l.url LIKE '%leakmark%'",
+		// Approved revisions of public entities showing, as they were then, what is hidden now: the hidden alias
+		// as public, a person who has since chosen not to have a page with their profile, and the hidden link.
+		"SELECT COUNT(*) FROM revisions r JOIN persons p ON p.id = r.entity_id AND r.entity_type = 'person' " +
+			"WHERE r.status = 'approved' AND p.current_revision_id IS NOT NULL AND JSON_CONTAINS(r.snapshot_json, " +
+			"JSON_OBJECT('name', 'Leakmark Hidden Legal Alias', 'is_public', TRUE), '$.aliases')",
+		"SELECT COUNT(*) FROM revisions r JOIN persons p ON p.id = r.entity_id AND r.entity_type = 'person' " +
+			"WHERE r.status = 'approved' AND p.status = 'prefers_no_page' " +
+			"AND r.snapshot_json->>'$.status' = 'active' AND r.snapshot_json->>'$.notes_md' LIKE '%Leakmark%'",
+		"SELECT COUNT(*) FROM revisions r JOIN pieces p ON p.id = r.entity_id AND r.entity_type = 'piece' " +
+			"WHERE r.status = 'approved' AND p.current_revision_id IS NOT NULL " +
+			"AND JSON_SEARCH(r.snapshot_json, 'one', '" + hiddenLinkURL + "', NULL, '$.links[*].url') IS NOT NULL",
+		// A user ID of revision authors, and a hidden link that is dead.
+		"SELECT COUNT(*) FROM revisions WHERE author_user_id LIKE '%leakmark%'",
+		"SELECT COUNT(*) FROM links WHERE is_hidden AND liveness = 'dead'",
 	} {
 		var count int
 		require.NoError(t, db.QueryRowContext(t.Context(), query).Scan(&count), query)

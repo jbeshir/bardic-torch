@@ -35,7 +35,7 @@ func TestCollectionListGet_ServeHTTP(t *testing.T) {
 			list: domain.CollectionList{
 				Collections: []domain.CollectionSummary{
 					{ID: 3, Name: "2nd Folio", Kind: domain.CollectionKindArchivedSongbook},
-					{ID: 12, Name: "The Northmarch Songbook", Kind: domain.CollectionKindSongbookPDF,
+					{ID: 12, Name: testCollectionName, Kind: domain.CollectionKindSongbookPDF,
 						URL: new("https://example.org/songbook.pdf"), IsBardicResource: true},
 				},
 				Total:   2,

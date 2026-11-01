@@ -140,20 +140,7 @@ func TestCollectionGet_ServeHTTP(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
-	invalidIDBody := `{"code":"invalid_request","message":"invalid collection_id: must be an integer from 1 to ` +
-		`9223372036854775807"}`
-	for _, tc := range []struct {
-		name     string
-		pathID   string
-		wantBody string
-	}{
-		{name: "zero", pathID: "0", wantBody: invalidIDBody},
-		{name: "negative", pathID: "-1", wantBody: invalidIDBody},
-		{name: "signed", pathID: "+1", wantBody: invalidIDBody},
-		{name: "fraction", pathID: "1.5", wantBody: invalidIDBody},
-		{name: "not_integer", pathID: "songbook", wantBody: invalidIDBody},
-		{name: "overflow", pathID: "9223372036854775808", wantBody: invalidIDBody},
-	} {
+	for _, tc := range invalidIDCases(collectionIDVar) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

@@ -24,6 +24,7 @@ const (
 	termsPath       = "/v1/terms"
 	collectionsPath = "/v1/collections"
 	eventsPath      = "/v1/events"
+	needsWorkPath   = "/v1/needs-work"
 	slugParam       = "slug"
 	// methodNotAllowedBody is the response to a method no route at the path accepts.
 	methodNotAllowedBody = `{"code":"method_not_allowed","message":"method not allowed for this path"}`

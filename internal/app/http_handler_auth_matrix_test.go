@@ -218,6 +218,15 @@ var (
 // matrixCollectionID is the ID of the collection the catalogue operations read.
 const matrixCollectionID = 12
 
+// matrixRevisionID is the ID of the revision the catalogue operations read, matrixRevision.
+const matrixRevisionID = 42
+
+var matrixRevision = domain.EventRevision{
+	RevisionSummary: domain.RevisionSummary{ID: matrixRevisionID, Source: domain.RevisionSourceImport},
+	Entity:          matrixEvent.EventSummary,
+	Snapshot:        domain.EventSnapshot{Name: matrixEvent.Name, Kind: matrixEvent.Kind},
+}
+
 // matrixPage is the page list operations read when a request sets no limit or offset.
 var matrixPage = domain.Page{Limit: domain.DefaultPageLimit}
 
@@ -364,6 +373,48 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 			m.events.EXPECT().GetPublicEvent(mock.Anything, matrixSlug).Return(matrixEvent, nil)
 		},
 	},
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/history"}:  historyRow(domain.EntityTypePiece),
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: historyRow(domain.EntityTypePerson),
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/history"}:   historyRow(domain.EntityTypeTerm),
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/history"}:  historyRow(domain.EntityTypeEvent),
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/history"}: {
+		access:        public,
+		pathParams:    map[string]string{"collection_id": strconv.Itoa(matrixCollectionID)},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.collectionHistory.EXPECT().ListPublicCollectionHistory(mock.Anything, int64(matrixCollectionID),
+				matrixPage).Return(domain.RevisionHistory{}, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: {
+		access:        public,
+		pathParams:    map[string]string{"revision_id": strconv.Itoa(matrixRevisionID)},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.revisions.EXPECT().GetPublicRevision(mock.Anything, int64(matrixRevisionID)).Return(matrixRevision, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: needsWorkPath}: {
+		access:        public,
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.needsWork.EXPECT().ListPublicNeedsWork(mock.Anything, (*domain.NeedsWorkReason)(nil), matrixPage).
+				Return(domain.NeedsWorkList{}, nil)
+		},
+	},
+}
+
+// historyRow is the row of the history of the public entity of entityType with slug matrixSlug.
+func historyRow(entityType domain.EntityType) matrixRow {
+	return matrixRow{
+		access:        public,
+		pathParams:    map[string]string{slugParam: matrixSlug},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.history.EXPECT().ListPublicHistory(mock.Anything, entityType, matrixSlug, matrixPage).
+				Return(domain.RevisionHistory{}, nil)
+		},
+	}
 }
 
 // TestRouter_AuthMatrix sends a request as every principal to every operation in the OpenAPI spec, through the

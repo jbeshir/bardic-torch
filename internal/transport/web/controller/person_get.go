@@ -122,11 +122,9 @@ func personProfileFromDomain(p domain.PersonProfile) PersonProfile {
 		NotesMD:          p.NotesMD,
 		LicensingStatus:  p.LicensingStatus,
 		LicensingNotesMD: p.LicensingNotesMD,
-		Aliases: mapSlice(p.Aliases, func(a domain.PersonAlias) PersonAlias {
-			return PersonAlias{Name: a.Name, Kind: a.Kind}
-		}),
-		Roles:        nonNil(p.Roles),
-		Affiliations: mapSlice(p.Affiliations, termSummaryFromDomain),
+		Aliases:          mapSlice(p.Aliases, personAliasFromDomain),
+		Roles:            nonNil(p.Roles),
+		Affiliations:     mapSlice(p.Affiliations, termSummaryFromDomain),
 		Relations: mapSlice(p.Relations, func(r domain.PersonRelation) PersonRelation {
 			return PersonRelation{Type: r.Type, Direction: r.Direction, Person: personSummaryFromDomain(r.Person)}
 		}),
@@ -146,4 +144,7 @@ func personProfileFromDomain(p domain.PersonProfile) PersonProfile {
 		}),
 		PerformancesTotal: p.PerformancesTotal,
 	}
+}
+func personAliasFromDomain(a domain.PersonAlias) PersonAlias {
+	return PersonAlias{Name: a.Name, Kind: a.Kind}
 }

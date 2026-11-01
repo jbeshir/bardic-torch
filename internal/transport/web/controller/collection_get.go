@@ -2,7 +2,6 @@ package controller
 
 import (
 	"errors"
-	"math"
 	"net/http"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -51,10 +50,8 @@ type CollectionGet struct {
 func (c CollectionGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	id, ok := parseDecimal(r.PathValue("collection_id"), 1, math.MaxInt64)
+	id, ok := idOrBadRequest(w, r, "collection_id")
 	if !ok {
-		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
-			"invalid collection_id: must be an integer from 1 to 9223372036854775807")
 		return
 	}
 

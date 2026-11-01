@@ -99,3 +99,25 @@ const (
 
 // widestPage is the largest limit and offset a request may ask for.
 var widestPage = domain.Page{Limit: domain.MaxPageLimit, Offset: domain.MaxPageOffset}
+
+// invalidIDCase is an ID path value, as the router passes it on, decoded, that a controller rejects with wantBody
+// without reading the datasource.
+type invalidIDCase struct {
+	name     string
+	pathID   string
+	wantBody string
+}
+
+// invalidIDCases are the invalid values of the ID path value name.
+func invalidIDCases(name string) []invalidIDCase {
+	body := `{"code":"invalid_request","message":"invalid ` + name + `: must be an integer from 1 to ` +
+		`9223372036854775807"}`
+	return []invalidIDCase{
+		{name: "zero", pathID: "0", wantBody: body},
+		{name: "negative", pathID: "-1", wantBody: body},
+		{name: "signed", pathID: "+1", wantBody: body},
+		{name: "fraction", pathID: "1.5", wantBody: body},
+		{name: "not_integer", pathID: "songbook", wantBody: body},
+		{name: "overflow", pathID: "9223372036854775808", wantBody: body},
+	}
+}

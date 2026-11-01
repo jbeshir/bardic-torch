@@ -526,3 +526,107 @@ WHERE perf.event_id = ? AND NOT l.is_hidden
             AND (ap.current_revision_id IS NOT NULL
                 OR (apr.current_revision_id IS NOT NULL AND apr.status <> 'prefers_no_page'))
     );
+
+-- ============================================
+-- Catalogue: public history and revisions
+--
+-- Only approved revisions of public entities are public. Authors are shown by display name only.
+-- ============================================
+
+-- name: GetPublicPieceID :one
+SELECT id FROM pieces WHERE slug = ? AND current_revision_id IS NOT NULL;
+
+-- name: GetPublicPersonID :one
+SELECT id FROM persons WHERE slug = ? AND current_revision_id IS NOT NULL;
+
+-- name: GetPublicTermID :one
+SELECT t.id
+FROM terms t
+WHERE t.slug = ?
+    AND NOT EXISTS (
+        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
+        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
+    );
+
+-- name: GetPublicEventID :one
+SELECT id FROM events WHERE slug = ? AND current_revision_id IS NOT NULL;
+
+-- name: GetPublicCollectionID :one
+SELECT id FROM collections WHERE id = ? AND current_revision_id IS NOT NULL;
+
+-- name: ListApprovedRevisions :many
+SELECT r.id, r.source, r.summary, r.created_at, u.display_name AS author_display_name
+FROM revisions r
+LEFT JOIN users u ON u.id = r.author_user_id
+WHERE r.entity_type = ? AND r.entity_id = ? AND r.status = 'approved'
+ORDER BY r.created_at DESC, r.id DESC
+LIMIT ? OFFSET ?;
+
+-- name: CountApprovedRevisions :one
+SELECT COUNT(*)
+FROM revisions
+WHERE entity_type = ? AND entity_id = ? AND status = 'approved';
+
+-- name: ListRevisionContributors :many
+SELECT revision_id, name
+FROM revision_contributors
+WHERE revision_id IN (sqlc.slice('revision_ids'))
+ORDER BY revision_id, position;
+
+-- name: GetApprovedRevision :one
+SELECT r.id, r.entity_type, r.entity_id, r.source, r.summary, r.created_at, r.snapshot_json,
+    u.display_name AS author_display_name
+FROM revisions r
+LEFT JOIN users u ON u.id = r.author_user_id
+WHERE r.id = ? AND r.status = 'approved';
+
+-- A revision's base is shown only if it is an approved revision of the same entity.
+
+-- name: GetApprovedBaseRevision :one
+SELECT b.id, b.snapshot_json
+FROM revisions r
+JOIN revisions b ON b.id = r.base_revision_id
+WHERE r.id = ? AND b.status = 'approved' AND b.entity_type = r.entity_type AND b.entity_id = r.entity_id;
+
+-- The current state of the entities and links snapshot documents reference, which their views are redacted by.
+
+-- name: ListPublicPiecesByID :many
+SELECT id, slug, title, kind, conservation_status, is_stub
+FROM pieces
+WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
+
+-- name: ListPublicPersonsByID :many
+SELECT id, slug, name, kind, status, is_stub
+FROM persons
+WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
+
+-- name: ListPublicAliasNames :many
+SELECT person_id, name
+FROM person_aliases
+WHERE person_id IN (sqlc.slice('person_ids')) AND is_public;
+
+-- name: ListPublicTermsByID :many
+SELECT t.id, t.slug, t.facet, t.display_name
+FROM terms t
+WHERE t.id IN (sqlc.slice('ids'))
+    AND NOT EXISTS (
+        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
+        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
+    );
+
+-- name: ListPublicCollectionsByID :many
+SELECT id, name, kind, url, is_bardic_resource
+FROM collections
+WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
+
+-- name: ListPublicEventsByID :many
+SELECT id, slug, name, kind
+FROM events
+WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
+
+-- A snapshot's link is hidden if a hidden link has its URL as entered or normalized.
+
+-- name: ListHiddenLinkURLs :many
+SELECT url, normalized_url
+FROM links
+WHERE is_hidden AND (url IN (sqlc.slice('urls')) OR normalized_url IN (sqlc.slice('normalized_urls')));
