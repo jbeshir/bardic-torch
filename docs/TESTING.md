@@ -36,6 +36,31 @@ with `go tool`, so nothing needs installing.
   FuzzNormalizeURL ./internal/domain/` explores further); `FoldLetters`, `Slugify` and `SlugAllocator`
   (`slug_test.go`), `SortTitle` and `SortLetter` (`sort_key_test.go`, including every transliteration and that each
   letter parses with `ParseLetter`); and `TermClosure` (`term_closure_test.go`: self rows, cycles, depth over 3).
+- **Wiki dump and wikitext** (`internal/mediawiki`, synthetic `fstest.MapFS` and strings only, with placeholder
+  names such as "Wren Placeholder"): `LoadDump` (`TestLoadDump_*`: a missing or malformed file, a line that is not
+  one JSON value and a page record over `MaxPageRecordBytes` are `ErrMalformedDump`, with messages naming the file
+  and line but no content); the lexer ported from the research's `wikitext.mjs` (`wikitext_test.go`; RE2 has no
+  backreference or lookbehind, so `Sections` and the bare-URL rule are hand-coded and pinned by
+  `TestSections_Levels` with `== a = b ==` and `=x=`, and `TestFindExternalLinks_BareURLAfterEqualsOrQuote`;
+  `TestFindTemplates_NestingCap` pins `MaxNestingDepth`); `ParseValue` (`value_test.go`); page typing, section keys,
+  hints and section content (`page_test.go`); inline lyrics (`lyrics_test.go`: every `<poem>` form is dropped
+  whatever its length, the flag counts lines per section, the prose rule of Lyrics/Text sections, spans stay
+  offsets into the original text with a comment before the poem); the alias classifier, which fails closed
+  (`TestClassifyPersonAlias`, `TestBardAliases_*`, `TestFoldName_*`); `NameMatcher` (`names_test.go`: case,
+  accents, apostrophes, `_`/`-`/`.` and concatenated forms, first and last word); `ParsePerformanceText`,
+  `PersonNameCandidates` and `RepairMarkup`/`FindMarkupIssues`. `FuzzFindTemplates`, `FuzzParseValue`,
+  `FuzzSections` and `FuzzInlineLyricsBlocks` check that nothing panics, spans are in bounds and in order, and no
+  `<poem` tag survives `WithoutInlineLyrics`; `TestHostileInput_TimeBudget` runs every parser over 1 MB of unclosed
+  `{{[[(` within 20 seconds.
+- **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
+  `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; the
+  milestone gates set it to the research output). The crawl holds legal names and lyrics, so these tests report
+  only through `wikidumptest.Equal` (page ID, field and offset, with digests in place of values) and
+  `wikidumptest.NoError` (the error's type only); `TestResearchTestsReportOnlyThroughEqual` fails any test file that
+  reads the crawl and also imports testify, logs or prints. `oracle_research_test.go` compares the Go port with the
+  research analysis (`analysis/*.json`): page types, sections and their content, infobox values, the inline-lyrics
+  flag (11 pieces) and bard aliases. Each deliberate difference is an entry of `oracleDeviations` with its reason;
+  any other is a failure.
 - **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list
   statements (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are
   built in Go, so a fake `statementRunner` records each statement. The tests pin the round trips (at most three for a
