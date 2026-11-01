@@ -225,6 +225,13 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	c.SetLinkState("https://example.org/kettle/hidden", catalogtest.LinkState{IsHidden: true})
 	c.SetLinkState("https://example.org/kettle/archive", catalogtest.LinkState{Liveness: domain.LivenessDead,
 		LastCheckedAt: &kettleCheckedAt, ArchivedURL: new("https://archive.example.org/kettle")})
+	// Position, not insertion order, orders credits and links: reverse the credits, and move the archive link in
+	// front of the video link.
+	c.Exec("UPDATE piece_credits SET position = 4 - position WHERE piece_id = ?", kettle.ID)
+	c.Exec("UPDATE link_attachments a JOIN links l ON l.id = a.link_id SET a.position = 0 WHERE l.url = ?",
+		"https://example.org/kettle/archive")
+	c.Exec("UPDATE link_attachments a JOIN links l ON l.id = a.link_id SET a.position = 5 WHERE l.url = ?",
+		kettleVideoURL)
 
 	// Incoming relations, from a public piece and from an unapproved one.
 	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Tin Kettle",
@@ -287,10 +294,10 @@ var (
 	}
 )
 
-// TestRepository_GetPublicPiece reads a piece with every field and list set (A2.1), with the references to
-// entities that are not public left out (A2.2), credits by attribution and certainty without no-page or
-// unapproved persons (A2.3), and links without the hidden one, each once with all its roles, with collections,
-// locators and performances with public events and performers only (A2.4).
+// TestRepository_GetPublicPiece reads a piece with every field and list set, with the references to
+// entities that are not public left out, credits by attribution and certainty without no-page or
+// unapproved persons, and links without the hidden one, each once with all its roles, with collections,
+// locators and performances with public events and performers only.
 func TestRepository_GetPublicPiece(t *testing.T) {
 	t.Parallel()
 
@@ -320,13 +327,14 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 			{Term: domain.TermSummary{Slug: "16th-century", Facet: domain.FacetOrigin, DisplayName: "16th Century"},
 				Part: &tune},
 		},
+		// By position, which is not the order they were written in.
 		Credits: []domain.PieceCredit{
-			{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
-				Person: &wrenSummary},
-			{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
-				Certainty: domain.CertaintyProbable, Part: &tune, Note: new("An old reel.")},
 			{Role: domain.CreditRoleTranslation, Attribution: domain.AttributionUnknown,
 				Certainty: domain.CertaintyDisputed},
+			{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
+				Certainty: domain.CertaintyProbable, Part: &tune, Note: new("An old reel.")},
+			{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
+				Person: &wrenSummary},
 		},
 		Relations: []domain.PieceRelation{
 			{Type: domain.PieceRelationTypeVariantOf, Direction: domain.RelationDirectionOutgoing, Piece: brassSummary},
@@ -335,6 +343,11 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 					ConservationStatus: domain.ConservationStatusUnassessed}},
 		},
 		Links: []domain.PieceLink{
+			{Link: domain.Link{
+				URL: "https://example.org/kettle/archive", Liveness: domain.LivenessDead,
+				LastCheckedAt: &kettleCheckedAt, ArchivedURL: new("https://archive.example.org/kettle"),
+				Roles: []domain.LinkRole{domain.LinkRoleTextSource},
+			}},
 			{
 				Link: domain.Link{
 					URL: kettleVideoURL, Title: new("At the revel"),
@@ -355,11 +368,6 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 					{DescriptionVerbatim: "Sung at the moot"},
 				},
 			},
-			{Link: domain.Link{
-				URL: "https://example.org/kettle/archive", Liveness: domain.LivenessDead,
-				LastCheckedAt: &kettleCheckedAt, ArchivedURL: new("https://archive.example.org/kettle"),
-				Roles: []domain.LinkRole{domain.LinkRoleTextSource},
-			}},
 		},
 		ConservationHistory: []domain.ConservationChange{
 			{Status: domain.ConservationStatusLowRisk, Reason: "First assessment.",
@@ -369,8 +377,7 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 	}, piece)
 }
 
-// TestRepository_GetPublicPiece_NotFound checks that an unapproved piece is not found, like an unknown one
-// (A2.2).
+// TestRepository_GetPublicPiece_NotFound checks that an unapproved piece is not found, like an unknown one.
 func TestRepository_GetPublicPiece_NotFound(t *testing.T) {
 	t.Parallel()
 
@@ -383,7 +390,7 @@ func TestRepository_GetPublicPiece_NotFound(t *testing.T) {
 
 // TestRepository_GetPublicPerson reads a person with public aliases only, roles, affiliations without the
 // unapproved one, relations in both directions without unapproved or no-page persons, links without the hidden
-// one, works on public pieces and performances (A2.5).
+// one, works on public pieces and performances.
 func TestRepository_GetPublicPerson(t *testing.T) {
 	t.Parallel()
 
@@ -457,7 +464,7 @@ func TestRepository_GetPublicPerson_RelationsSkipNoPage(t *testing.T) {
 }
 
 // TestRepository_GetPublicPerson_NoPage checks that a person who prefers no page has only their identity, as a
-// stub (A2.6).
+// stub.
 func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
 	t.Parallel()
 
@@ -474,7 +481,7 @@ func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
 }
 
 // TestRepository_GetPublicPerson_Caps checks that works and performances stop at the cap, with totals that
-// count every one, and that performances come newest year first (A2.5).
+// count every one, and that performances come newest year first.
 func TestRepository_GetPublicPerson_Caps(t *testing.T) {
 	t.Parallel()
 
@@ -503,7 +510,7 @@ func TestRepository_GetPublicPerson_NotFound(t *testing.T) {
 }
 
 // TestRepository_CatalogueReads_UnknownEnumValue checks that a value a newer release added to an ENUM fails the
-// read, rather than reaching a response that promises a closed set of values (D2).
+// read, rather than reaching a response that promises a closed set of values.
 func TestRepository_CatalogueReads_UnknownEnumValue(t *testing.T) {
 	t.Parallel()
 

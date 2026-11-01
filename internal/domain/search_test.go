@@ -17,8 +17,8 @@ func TestParseSearchQuery(t *testing.T) {
 		wantText   string
 		wantTokens []string
 	}{
-		{name: "words", q: "Wild Rover", wantText: "Wild Rover", wantTokens: []string{testWild, testRover}},
-		{name: "stopword_dropped", q: "The Wild Rover", wantText: "The Wild Rover", wantTokens: []string{testWild, testRover}},
+		{name: "words", q: "Wild Heron", wantText: "Wild Heron", wantTokens: []string{testWild, testHeron}},
+		{name: "stopword_dropped", q: "The Wild Heron", wantText: "The Wild Heron", wantTokens: []string{testWild, testHeron}},
 		{name: "only_stopword", q: "the", wantText: "the"},
 		{name: "only_short", q: "Oi", wantText: "Oi"},
 		{name: "short_and_stopwords", q: "of the ox", wantText: "of the ox"},
@@ -34,11 +34,11 @@ func TestParseSearchQuery(t *testing.T) {
 		{name: "too_long_token_dropped", q: strings.Repeat("x", MaxSearchTokenLength+1) + " wild", wantText: strings.Repeat("x", MaxSearchTokenLength+1) + " wild", wantTokens: []string{testWild}},
 		{name: "only_too_long_token", q: strings.Repeat("\u00e9", MaxSearchTokenLength+1), wantText: strings.Repeat("\u00e9", MaxSearchTokenLength+1)},
 		{name: "digits", q: "16th century", wantText: "16th century", wantTokens: []string{"16th", "century"}},
-		{name: "deduplicated", q: "Rover rover ROVER", wantText: "Rover rover ROVER", wantTokens: []string{testRover}},
+		{name: "deduplicated", q: "Heron heron HERON", wantText: "Heron heron HERON", wantTokens: []string{testHeron}},
 		{
-			name: "operators_inert", q: `+wild* -rover ~"grove" @8 (ash) <oak> 'elm'`,
-			wantText:   `+wild* -rover ~"grove" @8 (ash) <oak> 'elm'`,
-			wantTokens: []string{testWild, testRover, "grove", "ash", "oak", "elm"},
+			name: "operators_inert", q: `+wild* -heron ~"grove" @8 (ash) <oak> 'elm'`,
+			wantText:   `+wild* -heron ~"grove" @8 (ash) <oak> 'elm'`,
+			wantTokens: []string{testWild, testHeron, "grove", "ash", "oak", "elm"},
 		},
 		{
 			name: "at_most_eight", q: "one two six ten red tan elm oak ash yew fir",
@@ -116,7 +116,7 @@ func TestParseLetter(t *testing.T) {
 
 // Search tokens several cases expect.
 const (
-	testRover = "rover"
+	testHeron = "heron"
 	testWild  = "wild"
 	// testUnderscored is one word, as InnoDB's parser counts underscores as word characters.
 	testUnderscored = "foo_bar"

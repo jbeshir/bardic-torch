@@ -330,7 +330,7 @@ func TestRevisionGet_ServeHTTP(t *testing.T) {
 }
 
 // TestRevisionGet_UndecodableSnapshotLogged checks that a revision whose snapshot the datasource cannot decode
-// gives 500, with the cause logged and kept out of the response (A4.4).
+// gives 500, with the cause logged and kept out of the response.
 func TestRevisionGet_UndecodableSnapshotLogged(t *testing.T) {
 	t.Parallel()
 

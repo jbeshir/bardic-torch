@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRepository_ListPublicPieces_Text (A3.7) searches titles, notes and aliases, on a private database, both as
+// TestRepository_ListPublicPieces_Text searches titles, notes and aliases, on a private database, both as
 // built and after the FULLTEXT tables are rebuilt with ALTER TABLE ... FORCE, which must not change the results:
 // the indexes are built with the server's default stopwords, which a rebuild keeps.
 func TestRepository_ListPublicPieces_Text(t *testing.T) {
@@ -31,7 +31,7 @@ func TestRepository_ListPublicPieces_Text(t *testing.T) {
 		}
 		c.Piece(catalogtest.Piece{Doc: doc, Slug: slug, SortTitle: sortTitle})
 	}
-	piece(textRoverSlug, "The Wild Rover", "Wild Rover", nil, "Rover of the Hills")
+	piece(textHeronSlug, "The Wild Heron", "Wild Heron", nil, "Heron of the Hills")
 	piece(textEireSlug, "Éire Abú", "", nil, "Ireland's Call")
 	piece("theatre", "Theatre of Ghosts", "", nil, "Ghost Play")
 	piece("oneill", "O'Neill's March", "", nil)
@@ -42,7 +42,7 @@ func TestRepository_ListPublicPieces_Text(t *testing.T) {
 	// InnoDB indexes "ember_glow" as one word, and never indexes a word longer than 84 characters.
 	piece("ember-glow", "Ember_Glow Reel", "", nil)
 	piece("long-word", longWord+" Reel", "", nil)
-	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Unapproved Rover"}, Slug: "unapproved-rover",
+	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Unapproved Heron"}, Slug: "unapproved-heron",
 		Unapproved: true})
 
 	repo := mysql.New(db)
@@ -52,22 +52,22 @@ func TestRepository_ListPublicPieces_Text(t *testing.T) {
 		sort domain.PieceSort
 		want []string
 	}{
-		{name: "title", q: "rover", want: []string{textRoverSlug}},
+		{name: "title", q: "heron", want: []string{textHeronSlug}},
 		{name: "alias", q: "ireland", want: []string{textEireSlug}},
 		{name: "notes", q: "tune", want: []string{textLampSlug}},
-		{name: "notes_and_alias", q: "hills", sort: domain.PieceSortTitle, want: []string{textLampSlug, textRoverSlug}},
+		{name: "notes_and_alias", q: "hills", sort: domain.PieceSortTitle, want: []string{textLampSlug, textHeronSlug}},
 		{name: "accent_insensitive", q: "eire", want: []string{textEireSlug}},
 		{name: "apostrophe", q: "O'Neill", want: []string{"oneill"}},
-		{name: "stopword_dropped", q: "the wild", want: []string{textRoverSlug}},
+		{name: "stopword_dropped", q: "the wild", want: []string{textHeronSlug}},
 		{name: "every_token_required", q: "wild ghosts", want: []string{}},
-		// Operators are inert: as words, "-rover" would exclude the rover and "ghost*" match nothing more.
-		{name: "operators_inert", q: `+wild -rover`, want: []string{textRoverSlug}},
+		// Operators are inert: as words, "-heron" would exclude the heron and "ghost*" match nothing more.
+		{name: "operators_inert", q: `+wild -heron`, want: []string{textHeronSlug}},
 		{name: "quotes_and_groups_inert", q: `"(ghosts)" ~theatre <`, want: []string{"theatre"}},
 		// Only stopwords or short words: a prefix of the title or an alias, by sort title.
-		{name: "stopword_prefix", q: "the", want: []string{"theatre", textRoverSlug}},
+		{name: "stopword_prefix", q: "the", want: []string{"theatre", textHeronSlug}},
 		{name: "short_prefix", q: "Oi", want: []string{"oisin"}},
 		{name: "accent_insensitive_prefix", q: "ei", want: []string{textEireSlug}},
-		{name: "alias_prefix", q: "Ro", want: []string{textRoverSlug}},
+		{name: "alias_prefix", q: "He", want: []string{textHeronSlug}},
 		// The alias-only hit, with the higher score, ranks before the notes hit; by title it is after.
 		{name: "alias_scores", q: "wanderer", want: []string{"morning-glory", textLampSlug}},
 		{name: "alias_scores_by_title", q: "wanderer", sort: domain.PieceSortTitle,
@@ -123,7 +123,7 @@ func TestSearchStatements_ExecutionTimeLimit(t *testing.T) {
 
 // Slugs of the text search fixture used more than twice.
 const (
-	textRoverSlug = "wild-rover"
+	textHeronSlug = "wild-heron"
 	textEireSlug  = "eire"
 	textLampSlug  = "lamplighter"
 )

@@ -57,7 +57,7 @@ func queryInt(t *testing.T, db *sql.DB, query string, args ...any) int64 {
 	return n
 }
 
-// TestCatalog_TermClosure is A1.7: every term has its own depth-0 row and one row per ancestor, to depth 3.
+// TestCatalog_TermClosure checks that every term has its own depth-0 row and one row per ancestor, to depth 3.
 func TestCatalog_TermClosure(t *testing.T) {
 	t.Parallel()
 
@@ -129,7 +129,7 @@ func requireUnapproved(t *testing.T, db *sql.DB, table string, entityType domain
 		entityType, ref.ID))
 }
 
-// TestCatalog_ApprovedSwitch is A1.7: an approved entity has an approved revision holding its document, with
+// TestCatalog_ApprovedSwitch checks that an approved entity has an approved revision holding its document, with
 // defaults applied, as its current revision; an unapproved one has neither.
 func TestCatalog_ApprovedSwitch(t *testing.T) {
 	t.Parallel()

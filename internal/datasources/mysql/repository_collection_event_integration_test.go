@@ -48,7 +48,7 @@ var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
 		Name: "Eastmarch Supplement", ParentID: &eastmarchBook.ID, Kind: domain.CollectionKindHostedDocument}})
 	c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Draft Supplement",
 		ParentID: &eastmarchBook.ID}, Unapproved: true})
-	appendix := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "An Appendix",
+	appendix := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "The Appendix",
 		ParentID: &eastmarchBook.ID, URL: new("https://example.org/appendix")}, SortName: "Appendix"})
 	orphan := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Orphan Book",
 		ParentID: &pendingShelf.ID, RegionTermID: &westmarch.ID}})
@@ -167,7 +167,7 @@ var (
 
 // TestRepository_GetPublicCollection reads a collection with its public region, parent and children, and its
 // citations: one per visible link and public piece or person with a page, with the roles of that attachment,
-// by sort key (A2.9).
+// by sort key.
 func TestRepository_GetPublicCollection(t *testing.T) {
 	t.Parallel()
 
@@ -187,7 +187,7 @@ func TestRepository_GetPublicCollection(t *testing.T) {
 			Kind: domain.CollectionKindWiki},
 		// By sort name; not the unapproved draft.
 		Children: []domain.CollectionSummary{
-			{ID: fx.appendix.ID, Name: "An Appendix", Kind: domain.CollectionKindOther,
+			{ID: fx.appendix.ID, Name: "The Appendix", Kind: domain.CollectionKindOther,
 				URL: new("https://example.org/appendix")},
 			{ID: fx.supplement.ID, Name: "Eastmarch Supplement", Kind: domain.CollectionKindHostedDocument},
 		},
@@ -221,7 +221,7 @@ func TestRepository_GetPublicCollection_NonPublicReferences(t *testing.T) {
 }
 
 // TestRepository_GetPublicCollection_Cap checks that citations stop at the cap, with a total that counts every
-// one (A2.9).
+// one.
 func TestRepository_GetPublicCollection_Cap(t *testing.T) {
 	t.Parallel()
 
@@ -251,7 +251,7 @@ var (
 )
 
 // TestRepository_ListPublicEvents checks the order by name, the kind filter, pagination and totals, without the
-// unapproved event (A2.10).
+// unapproved event.
 func TestRepository_ListPublicEvents(t *testing.T) {
 	t.Parallel()
 
@@ -293,7 +293,7 @@ func TestRepository_ListPublicEvents(t *testing.T) {
 
 // TestRepository_GetPublicEvent reads an event's performances newest first, unknown years last, without those
 // on hidden links, of unapproved pieces, or recorded only by unapproved or no-page entities' links, and with
-// public performers only (A2.10).
+// public performers only.
 func TestRepository_GetPublicEvent(t *testing.T) {
 	t.Parallel()
 

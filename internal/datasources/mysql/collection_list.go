@@ -82,13 +82,7 @@ func (c *catalogueReader) collectionListItems(ctx context.Context, s *statement)
 		if err := scan(&id, &name, &kind, &url, &isBardicResource); err != nil {
 			return err
 		}
-		collections = append(collections, domain.CollectionSummary{
-			ID:               c.signedID(id),
-			Name:             name,
-			Kind:             enumOf[domain.CollectionKind](c, kind),
-			URL:              stringPtr(url),
-			IsBardicResource: isBardicResource,
-		})
+		collections = append(collections, c.collectionSummary(c.signedID(id), name, kind, url, isBardicResource))
 		return nil
 	})
 

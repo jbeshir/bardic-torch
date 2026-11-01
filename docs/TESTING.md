@@ -21,6 +21,25 @@ with `go tool`, so nothing needs installing.
 - **Domain** (`internal/domain`): pure functions and types, e.g. `TestNormalizeDisplayName`, `TestParseRole`,
   `TestCheckTextCharacters` (the character rule shared by display names and token names, including the cap on
   combining marks per base character) and `TestHashAPITokenSecret`.
+- **Catalogue domain** (`internal/domain`): `TestEnums_ValidAndParse` and the `Parse*` table tests; `ParseSearchQuery`
+  (`TestParseSearchQuery`: the tokeniser rules, including `_` as a word character, the 84-character token limit and
+  combining marks); `DecodeDocument` (`TestDecodeDocument_*`: unknown fields ignored, unknown vocabulary values and
+  bad dates rejected, `TestDocuments_EnumFieldsAreValidated`); the snapshot views (`snapshot_test.go`, pure
+  functions over a hand-built `SnapshotVisibility`); and `TestSpec_EnumSchemasMatchDomain`, which loads
+  `openapi/api.yaml` and requires every named enum schema to list exactly the values, in order, of the domain
+  vocabulary it describes (`specEnums` in `spec_enums_test.go` maps each schema to its list; a new enum schema
+  fails until it is added). Inline enums (error codes, changed-field names, entity-type tags) are not compared.
+- **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list
+  statements (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are
+  built in Go, so a fake `statementRunner` records each statement. The tests pin the round trips (at most three for a
+  piece search), one placeholder per argument, and the `MAX_EXECUTION_TIME` hint on the top-level `SELECT`
+  (`requireWellFormed`); each count branch leaving out exactly its own filter (`TestPieceSearch_StatementShapes`,
+  `TestPieceSearch_EveryTermFacet` for every term facet's column); the person builder
+  (`TestPersonSearch_Statements`, `TestPersonSearch_InjectionInputs`); and `TestNeedsWork_Statements` (nil and every
+  reason, and an unknown reason is an error). `FuzzPieceSearchSQL` checks that the SQL text depends only on a
+  search's shape, never on the bytes of `q` or a term (`go test -fuzz FuzzPieceSearchSQL
+  ./internal/datasources/mysql/` explores further; plain runs use the seed corpus). `TestFetch_QueryTimeout` and
+  `TestMigratorConfig` cover the timeout mapping and the migrator's connection settings.
 - **Commands** (`internal/command`): business rules over the small datasource interfaces in
   `internal/datasources`, using the mockery mocks in `internal/datasources/mocks`. Mocks are generated from
   `.mockery.yaml` (every interface in `internal/datasources`) by `make generate`; never edit them by hand.
@@ -117,16 +136,7 @@ through the helper, so the command's name rules are checked against the spec's `
   `public` operations (the health checks and every catalogue read) are registered on the root router, outside
   the `/v1` auth middleware, so they answer any credentials, even invalid, unverifiable or a blocked user's, as
   they would an anonymous request, and never look a user up.
-- `TestHTTP_LeakMatrix` (`internal/app/leak_matrix_integration_test.go`, integration) sends requests to every
-  public catalogue read through the production handler over a real repository holding a shared fixture of
-  hidden data: a hidden legal alias, a `prefers_no_page` person with notes, aliases, roles, an affiliation,
-  relations, credits, performances and a link, a hidden link, unapproved pieces, persons, terms, collections and
-  events referred to by public ones, and never-exposed system fields (legacy titles, claims, normalized URLs).
-  Every marked string contains `leakmark`, and each raw response body must not contain it (case-insensitively),
-  except for the strings a request lists in `reveals` (the no-page person's identity on their own page). Each
-  response also goes through the contract helper. `leakMatrix` maps each operation to its requests, and
-  `leakExempt` lists, with a reason, the operations that read no catalogue data. Every spec operation must be in
-  exactly one of them, and a public `/v1` GET cannot be exempt, so a new catalogue read fails until it has a row.
+- `TestHTTP_LeakMatrix` checks that no public read shows hidden data; see [Leak matrix](#leak-matrix).
 
 ### Integration tests (`//go:build integration`)
 
@@ -165,8 +175,8 @@ in parallel. A missing `TEST_MYSQL_ADMIN_URL` fails the test rather than skippin
 
 ### Catalogue tests
 
-A migrated database costs about 2.5 s with the throwaway servers' durability flags (below) and about 8 s without
-them, and MySQL serialises much of that DDL, so parallel tests do not hide it. Read-only tests therefore share a
+A migrated database is expensive (timings under [Integration test modes](#integration-test-modes)), and MySQL
+serialises much of that DDL, so parallel tests do not hide it. Read-only tests therefore share a
 seeded database (see catalogtest), and new private-database tests should be kept to what needs one.
 
 - **Schema** (`internal/datasources/mysql/*schema*_integration_test.go`, `migrate_integration_test.go`):
@@ -188,7 +198,7 @@ seeded database (see catalogtest), and new private-database tests should be kept
   `max_execution_time` 2000, the server stops a `SELECT SLEEP(5)` after 2 s, and an `INSERT … SELECT SLEEP(3)`
   runs to the end. `TestMigratorConfig` (unit) checks that the migrator clears the limit, and
   `TestFetch_QueryTimeout` that a sqlc read the server stops is `datasources.ErrQueryTimeout`.
-- **Document coverage** (`TestDocumentCoverage`, `TestDocumentFieldPaths`, A1.8): classifies every column of the
+- **Document coverage** (`TestDocumentCoverage`, `TestDocumentFieldPaths`): classifies every column of the
   tables each snapshot document owns as a document field or system-owned, with a reason, and every document field
   as stored by exactly one column. A new column, document field or table fails it until it is classified.
 - **catalogtest** (`internal/testutil/catalogtest`) seeds catalogue fixtures with plain SQL from the
@@ -206,29 +216,28 @@ seeded database (see catalogtest), and new private-database tests should be kept
     catalogtest.Main(m) }`, which drops the shared databases after `m.Run`; `Get` fails without it.
   - Tests that write, or that need statistics a shared fixture would disturb (FULLTEXT scoring, `ALTER TABLE`),
     use `mysqltest.NewDatabase(t)` and `catalogtest.New`.
-- **Search builder, unit and fuzz** (`search_sql_test.go`, `internal/domain/search_test.go`): the list statements
-  (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are built in Go,
-  so they are tested without a database. A fake `statementRunner` records each statement, pinning the round trips
-  (at most three for a piece search). Each statement must have one placeholder per argument and the
-  `MAX_EXECUTION_TIME` hint on its top-level `SELECT`. `FuzzPieceSearchSQL` checks that the SQL text depends only
-  on a search's shape, never on the bytes of `q` or a term (`go test -fuzz FuzzPieceSearchSQL
-  ./internal/datasources/mysql/` explores further; plain runs use the seed corpus). The tokeniser has table tests.
 - **Search integration** (`search_integration_test.go`, `search_text_integration_test.go`): the semantics against
-  hand-computed sets on a shared `searches` fixture: facet OR/AND and descendants, disjunctive counts, letter
-  counts, kinds, prefix fallback, hidden aliases never matching, no-page persons matching by name only, and
-  injection-shaped input. The text searches also run after `ALTER TABLE … FORCE` rebuilds the FULLTEXT indexes, and
+  hand-computed sets on a shared `searches` fixture: facet OR/AND and descendants, disjunctive counts (two cases
+  where each selected facet has a piece that only its own selection keeps out, so conjunctive counting fails them),
+  letter counts, kinds, prefix fallback, hidden aliases never matching, no-page persons matching by name only, and
+  injection-shaped input for pieces and persons (LIKE wildcards, FULLTEXT operators, SQL text). Sort orders are
+  asserted on fixtures where the sort key differs from the title or name (`sort_title`, `sort_name`) and from
+  insertion order. `piece_facets_integration_test.go` has its own small `facetSearches` fixture with a term in
+  every term facet but affiliation: `TestRepository_ListPublicPieces_EachTermFacet` selects each in turn, and
+  `TestRepository_ListPublicPieces_ThreeTermFacets` selects an origin, a topic and a mood with hand-computed counts. The text searches also run after `ALTER TABLE … FORCE` rebuilds the FULLTEXT indexes, and
   `TestSearchStatements_ExecutionTimeLimit` checks that the server enforces the time limit (error 3024 → 500).
-- **Snapshot views**: the views and their redaction are pure functions in `internal/domain/snapshot.go`,
-  unit-tested with a hand-built `SnapshotVisibility` (`snapshot_test.go`); `repository_revision_integration_test.go`
+- **Snapshot views** (the pure functions are unit-tested, see above): `repository_revision_integration_test.go`
   checks them against current database state (an alias, links and a person hidden after the revision was written,
   corrupt snapshots, bases). `repository_redaction_integration_test.go` covers the fail-closed rules: a former
   name that is now a hidden alias, with and without a page; links deleted, moved and hidden, or hidden under
   another case, since the revision; and a person's performances on links with no public attachment.
-  `document_test.go` checks that `DecodeDocument` ignores unknown fields at any depth, rejects an unknown
-  vocabulary value in every document field that holds one (`TestDocuments_EnumFieldsAreValidated` fails for a
-  vocabulary field without a `Valid` method), and rejects a status date that is not a date. `needs_work_integration_test.go` covers the needs-work reasons.
+  `TestRepository_GetPublicRevision_Undecodable` checks that a stored revision of another schema version, or with
+  an unknown vocabulary value, is an error other than not-found, and one with an extra field is served. `needs_work_integration_test.go` covers the
+  needs-work reasons.
 - **Repository reads** (`repository_*_integration_test.go`): exact structs for details, lists and caps (201 → 200
-  with a total), each on a shared fixture, plus `TestRepository_CatalogueReads_UnknownEnumValue` (an unknown ENUM
+  with a total), each on a shared fixture built so that position, sort key, insertion order and alphabetical order
+  disagree where the read must follow one of them (credits and links by position, contributors, needs-work and
+  collection sort keys, a term tree whose pre-order differs from breadth-first), plus `TestRepository_CatalogueReads_UnknownEnumValue` (an unknown ENUM
   value is an error, not a 404).
 - **FULLTEXT sees committed rows only.** InnoDB's FULLTEXT index is updated at commit, so a search never sees
   rows in an open transaction, and a fixture that searches inside the transaction that inserted would find nothing.
@@ -246,9 +255,17 @@ their first revision whose former name is now a hidden alias (with and without a
 revision holds links since deleted, moved and hidden, or hidden under another case, and never-exposed system
 fields (legacy titles, claims, normalized URLs). Every marked string contains `leakmark`, and
 each raw response body must not contain it (case-insensitively), except for the strings a request lists in
-`reveals` (for example the no-page person's identity on their own page or in a person list). Each response also
-goes through the contract helper. `requireLeakMarkersStored` checks with SQL that each kind of marker is stored, so
-the matrix cannot pass vacuously.
+`reveals` (for example the no-page person's identity on their own page or in a person list). A reveal is exact: it
+removes only a whole JSON string value equal to it, quotes included and case-sensitive (`leakedMarker` in
+`leak_scan_test.go`), so a longer string that merely starts with a revealed name, such as that person's notes, is
+still a leak. An error message is revealed as the whole message (`unknown term: <slug>`). A reveal the response does
+not show as a whole value fails the row (`unusedReveals`), so a row cannot list one that does nothing. Each
+response also goes through the contract helper. `requireLeakMarkersStored` checks with SQL that each kind of marker is stored, so
+the matrix cannot pass vacuously. Three self-tests keep the check honest: `TestLeakedMarker` and
+`TestUnusedReveals` (unit) run the scanner on synthetic bodies with planted leaks next to revealed strings, and
+`TestHTTP_LeakMatrix_PlantedLeakFails` plants a no-page note next to the revealed name in a real response.
+`TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing` reads two revisions that differ from their base only in
+redacted data and requires `changed_fields` to be `[]`.
 
 `leakMatrix` maps each operation to its requests, and `leakExempt` lists, with a reason, the operations that read no
 catalogue data. Every spec operation must be in exactly one of them, and a public `/v1` GET cannot be exempt.
@@ -265,8 +282,9 @@ catalogue data. Every spec operation must be in exactly one of them, and a publi
        }
    },
    ```
-2. If the endpoint legitimately shows a marked string, list it in `reveals`; `absent` lists strings that must not
-   appear even though they are unmarked.
+2. If the endpoint legitimately shows a marked string, list it in `reveals` as the whole JSON string value it
+   shows (a name, a slug, or a whole error message); `absent` lists strings that must not appear even though they
+   are unmarked.
 3. If the endpoint needs data the fixture lacks, add it to the `leakCatalogue` seed with `leakmark` in every string
    that must stay hidden, and a `catalogtest.Ref` field on `leakFixture` if requests need it.
 4. Check the test can fail: remove the visibility filter from the query under test and confirm the matrix
@@ -315,7 +333,7 @@ do not collide.
 Both throwaway servers (podman and local) also start with durability flags, defined once in
 `scripts/test-integration.sh` (`throwaway_server_flags`): `--skip-log-bin --innodb-flush-log-at-trx-commit=0
 --innodb-doublewrite=OFF --innodb-flush-method=nosync`. They trade crash safety for speed and change no SQL
-semantics; the data is discarded on exit. Creating the 27 catalogue tables (four with FULLTEXT indexes, each of which
+semantics; the data is discarded on exit. Creating the 27 tables (25 of them the catalogue's; four have FULLTEXT indexes, each of which
 creates auxiliary tables) for every test database otherwise spends most of its time waiting for disk syncs: a
 migrated database takes about 2.4 s with the flags and 7.8 s without. The external mode runs against a server you
 own and does not change its settings, so it is slower per database.

@@ -32,9 +32,7 @@ func (r *Repository) ListPublicEvents(
 			queries.ListPublicEventsParams{Kind: filter, Limit: page.Limit, Offset: page.Offset})
 		events := make([]domain.EventSummary, 0, len(rows))
 		for _, row := range rows {
-			events = append(events, domain.EventSummary{
-				Slug: row.Slug, Name: row.Name, Kind: enumOf[domain.EventKind](c, row.Kind),
-			})
+			events = append(events, c.eventSummary(row.Slug, row.Name, row.Kind))
 		}
 		list = domain.EventList{
 			Events: events,
@@ -77,7 +75,7 @@ func (c *catalogueReader) event(ctx context.Context, slug string) domain.Event {
 	key := c.nullID(row.ID)
 
 	return domain.Event{
-		EventSummary:  domain.EventSummary{Slug: row.Slug, Name: row.Name, Kind: enumOf[domain.EventKind](c, row.Kind)},
+		EventSummary:  c.eventSummary(row.Slug, row.Name, row.Kind),
 		DescriptionMD: stringPtr(row.DescriptionMd),
 		Performances: c.eventPerformances(ctx, fetch(ctx, c, "performances", c.q.ListPublicEventPerformances,
 			queries.ListPublicEventPerformancesParams{EventID: key, Limit: domain.MaxNestedListItems})),

@@ -422,19 +422,14 @@ func (c *catalogueReader) termVisibility(ctx context.Context, ids []uint64, vis 
 func (c *catalogueReader) collectionVisibility(ctx context.Context, ids []uint64, vis *domain.SnapshotVisibility) {
 	for _, row := range fetch(ctx, c, "referenced collections", c.q.ListPublicCollectionsByID, ids) {
 		id := c.signedID(row.ID)
-		vis.Collections[id] = domain.CollectionSummary{
-			ID: id, Name: row.Name, Kind: enumOf[domain.CollectionKind](c, row.Kind), URL: stringPtr(row.Url),
-			IsBardicResource: row.IsBardicResource,
-		}
+		vis.Collections[id] = c.collectionSummary(id, row.Name, row.Kind, row.Url, row.IsBardicResource)
 	}
 }
 
 // eventVisibility loads the referenced public events.
 func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis *domain.SnapshotVisibility) {
 	for _, row := range fetch(ctx, c, "referenced events", c.q.ListPublicEventsByID, ids) {
-		vis.Events[c.signedID(row.ID)] = domain.EventSummary{
-			Slug: row.Slug, Name: row.Name, Kind: enumOf[domain.EventKind](c, row.Kind),
-		}
+		vis.Events[c.signedID(row.ID)] = c.eventSummary(row.Slug, row.Name, row.Kind)
 	}
 }
 

@@ -52,7 +52,7 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 			name: "pieces_and_facets",
 			want: defaultPieceQuery,
 			list: domain.PieceList{
-				Pieces: []domain.PieceSummary{{Slug: "the-wild-rover", Title: "The Wild Rover", Kind: domain.PieceKindSong,
+				Pieces: []domain.PieceSummary{{Slug: "the-wild-heron", Title: "The Wild Heron", Kind: domain.PieceKindSong,
 					SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusEndangered}},
 				Total: 61,
 				Facets: domain.PieceFacets{
@@ -65,7 +65,7 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 				},
 			},
 			wantStatus: http.StatusOK,
-			wantBody: `{"data": [{"slug": "the-wild-rover", "title": "The Wild Rover", "kind": "song",
+			wantBody: `{"data": [{"slug": "the-wild-heron", "title": "The Wild Heron", "kind": "song",
 					"secondary_kinds": ["poem"], "conservation_status": "endangered", "is_stub": false}],
 				"total": 61,
 				"facets": {
@@ -209,7 +209,7 @@ var invalidSearchCases = []invalidQueryCase{
 	{name: "search_blank", query: "q=+%09+", wantBody: blankSearchBody},
 	{name: "search_invalid_utf8", query: "q=wild%FF",
 		wantBody: `{"code":"invalid_request","message":"invalid q: must be valid UTF-8"}`},
-	{name: "search_repeated", query: "q=wild&q=rover",
+	{name: "search_repeated", query: "q=wild&q=heron",
 		wantBody: `{"code":"invalid_request","message":"query parameter q must be given at most once"}`},
 	{name: "letter_lower_case", query: "letter=w", wantBody: invalidLetterBody},
 	{name: "letter_two", query: "letter=AB", wantBody: invalidLetterBody},
@@ -249,6 +249,11 @@ func TestSearchControllers_TimeoutLoggedAsWarning(t *testing.T) {
 			lister := mocks.NewPublicCollectionLister(t)
 			lister.EXPECT().ListPublicCollections(mock.Anything, mock.Anything).Return(domain.CollectionList{}, err)
 			return CollectionListGet{Lister: lister}, collectionsPath
+		},
+		"needs_work": func(t *testing.T, err error) (http.Handler, string) {
+			lister := mocks.NewPublicNeedsWorkLister(t)
+			lister.EXPECT().ListPublicNeedsWork(mock.Anything, mock.Anything, mock.Anything).Return(domain.NeedsWorkList{}, err)
+			return NeedsWorkListGet{Lister: lister}, needsWorkPath
 		},
 	}
 	for name, handler := range handlers {

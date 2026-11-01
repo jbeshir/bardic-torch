@@ -53,7 +53,7 @@ func (c NeedsWorkListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	list, err := c.Lister.ListPublicNeedsWork(ctx, reason, page)
 	if err != nil {
-		writeInternalError(w, r, "unable to list needs-work entries", err)
+		writeSearchError(w, r, "unable to list needs-work entries", err)
 		return
 	}
 

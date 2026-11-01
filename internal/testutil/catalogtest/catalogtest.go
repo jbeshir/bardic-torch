@@ -476,7 +476,7 @@ func orDefault[T comparable](v, def T) T {
 }
 
 // slugOf returns a fixture slug for name: its ASCII letters and digits, lower-cased, with each run of anything
-// else turned into one hyphen. It is not the importer's Slugify (D7); give Slug explicitly for other names.
+// else turned into one hyphen. It is not the importer's Slugify; give Slug explicitly for other names.
 func slugOf(name string) string {
 	var b strings.Builder
 	hyphen := false
@@ -496,7 +496,7 @@ func slugOf(name string) string {
 }
 
 // letterOf returns a fixture sort letter for key: its first character upper-cased if that is an ASCII letter,
-// otherwise 0. It is not the writer's sort-letter rule (D8); give SortLetter explicitly for other keys.
+// otherwise 0. It is not the writer's sort-letter rule; give SortLetter explicitly for other keys.
 func letterOf(key string) string {
 	if key == "" {
 		return "0"

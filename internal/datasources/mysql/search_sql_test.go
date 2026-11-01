@@ -81,7 +81,7 @@ func requireWellFormed(t *testing.T, s *statement) {
 var (
 	letterB    = domain.Letter("B")
 	stubPieces = true
-	wildSearch = domain.SearchQuery{Text: "the wild rover", Tokens: []string{"wild", "rover"}}
+	wildSearch = domain.SearchQuery{Text: "the wild heron", Tokens: []string{"wild", "heron"}}
 	theSearch  = domain.SearchQuery{Text: "the", Tokens: nil}
 )
 
@@ -150,7 +150,7 @@ func TestPieceSearch_StatementShapes(t *testing.T) {
 	require.Len(t, runner.statements, 3)
 	terms, items, counts := runner.statements[0], runner.statements[1], runner.statements[2]
 
-	assert.Equal(t, []any{testWar, testSwords, testWarlike, "affiliation"}, terms.args)
+	assert.Equal(t, []any{testWar, testSwords, testWarlike, string(domain.FacetAffiliation)}, terms.args)
 	assert.Contains(t, terms.String(), "t.facet <> ?")
 
 	// The WITH clause's arguments: the boolean query four times, then the facets' term IDs in facet order,
@@ -162,7 +162,7 @@ func TestPieceSearch_StatementShapes(t *testing.T) {
 		domain.ConservationStatusEndangered, "B", true,
 	}
 	assert.Equal(t, append(append([]any{}, withArgs...), int32(10), int32(20)), items.args)
-	assert.Equal(t, append(append([]any{}, withArgs...), "affiliation", "mood", "topic", "mood", topic),
+	assert.Equal(t, append(append([]any{}, withArgs...), string(domain.FacetAffiliation), "mood", "topic", "mood", topic),
 		counts.args)
 
 	for _, column := range filterColumns {
@@ -239,7 +239,7 @@ func TestPieceSearch_Rows(t *testing.T) {
 
 	runner := &fakeRunner{results: [][][]any{
 		{
-			{"the-wild-rover", "The Wild Rover", song, "endangered", false, "poem,story"},
+			{"the-wild-heron", "The Wild Heron", song, "endangered", false, "poem,story"},
 			{"ash-grove", "Ash Grove", "poem", "unassessed", true, nil},
 		},
 		{
@@ -258,7 +258,7 @@ func TestPieceSearch_Rows(t *testing.T) {
 
 	assert.Equal(t, domain.PieceList{
 		Pieces: []domain.PieceSummary{
-			{Slug: "the-wild-rover", Title: "The Wild Rover", Kind: domain.PieceKindSong,
+			{Slug: "the-wild-heron", Title: "The Wild Heron", Kind: domain.PieceKindSong,
 				SecondaryKinds:     []domain.PieceKind{domain.PieceKindPoem, domain.PieceKindStory},
 				ConservationStatus: domain.ConservationStatusEndangered},
 			{Slug: "ash-grove", Title: "Ash Grove", Kind: domain.PieceKindPoem,
@@ -404,7 +404,7 @@ func TestPersonSearch_Statements(t *testing.T) {
 
 			runner := &fakeRunner{}
 			if tc.resolutions > 0 {
-				runner.results = [][][]any{{{uint64(7), affiliation, "affiliation"}}}
+				runner.results = [][][]any{{{uint64(7), affiliation, string(domain.FacetAffiliation)}}}
 			}
 			c := runner.reader()
 			c.personList(t.Context(), tc.query)
@@ -554,7 +554,7 @@ func TestPrefixPattern(t *testing.T) {
 func TestBooleanQuery(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, wildQuery, booleanQuery([]string{"wild", "rover"}))
+	assert.Equal(t, wildQuery, booleanQuery([]string{"wild", "heron"}))
 }
 
 // Test strings used more than twice.
@@ -564,7 +564,7 @@ const (
 	testSwords      = "swords"
 	testWar         = "war"
 	testWarlike     = "warlike"
-	wildQuery       = "+wild* +rover*"
+	wildQuery       = "+wild* +heron*"
 	termBranch      = "term'"
 	topic           = string(domain.FacetTopic)
 	song            = string(domain.PieceKindSong)
@@ -572,3 +572,109 @@ const (
 
 // filterColumns are the candidates' filter columns of pieceQueries' every_filter search.
 var filterColumns = []string{"facet_mood", "facet_topic", "kind_match", "status_match", "letter_match"}
+
+// TestPieceSearch_EveryTermFacet checks, for each term facet, that a term of the facet is matched by the facet's
+// own candidates column in the items, and left out of exactly its own facet's count branch.
+func TestPieceSearch_EveryTermFacet(t *testing.T) {
+	t.Parallel()
+
+	for _, facet := range []domain.Facet{domain.FacetMood, domain.FacetTopic, domain.FacetCulture,
+		domain.FacetLanguage, domain.FacetLegendaria, domain.FacetForm, domain.FacetOrigin, domain.FacetOther} {
+		t.Run(string(facet), func(t *testing.T) {
+			t.Parallel()
+
+			runner := &fakeRunner{results: [][][]any{{{uint64(7), "a-term", string(facet)}}}}
+			c := runner.reader()
+			c.pieceList(t.Context(), datasources.PieceQuery{TermSlugs: []string{"a-term"},
+				Sort: domain.PieceSortTitle, Page: domain.Page{Limit: 10}})
+			require.NoError(t, c.err)
+			require.Len(t, runner.statements, 3)
+			items, counts := runner.statements[1], runner.statements[2]
+			requireWellFormed(t, items)
+			requireWellFormed(t, counts)
+
+			column := string(facetMatch(facet))
+			assert.NotEqual(t, "facet_unknown", column)
+			assert.Contains(t, items.String(), "AS "+column, "the facet has its own column")
+			assert.Contains(t, items.String(), " AND c."+column, "the items match the facet's terms")
+
+			// The branch counting the facet's own terms leaves the facet's selection out; the branch counting
+			// the other facets' terms and the total keep it.
+			branches := strings.Split(counts.String(), " UNION ALL SELECT '")
+			assert.Contains(t, branches[0], "c."+column, "the total matches the facet's terms")
+			withoutOwn := 0
+			for _, branch := range branches[1:] {
+				if strings.HasPrefix(branch, termBranch) && !strings.Contains(branch, "c."+column) {
+					withoutOwn++
+				}
+			}
+			assert.Equal(t, 1, withoutOwn, counts.String())
+		})
+	}
+}
+
+// TestPersonSearch_InjectionInputs checks that no byte sequence of a person search's q or affiliation slug
+// reaches the SQL text, and that the statements stay well formed.
+func TestPersonSearch_InjectionInputs(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range injectionInputs {
+		search, err := domain.ParseSearchQuery(input)
+		if err != nil {
+			continue
+		}
+		neutralSearch := domain.SearchQuery{Text: "x", Tokens: make([]string, len(search.Tokens))}
+		run := func(q domain.SearchQuery, affiliation string) []*statement {
+			runner := &fakeRunner{results: [][][]any{{{uint64(1), affiliation, string(domain.FacetAffiliation)}}}}
+			c := runner.reader()
+			c.personList(t.Context(), datasources.PersonQuery{AffiliationSlug: &affiliation, Search: &q,
+				Sort: domain.PersonSortRelevance, Page: domain.Page{Limit: 5}})
+			require.NoError(t, c.err)
+			return runner.statements
+		}
+		got, want := run(search, input), run(neutralSearch, "x")
+		require.Len(t, got, len(want))
+		for i := range got {
+			requireWellFormed(t, got[i])
+			assert.NotContains(t, got[i].String(), "zqx", "an input marker reached the SQL text")
+			requireNoInputBytes(t, got[i].String(), input, want[i].String())
+			assert.Equal(t, want[i].String(), got[i].String(), "the SQL text depends on the inputs' content")
+		}
+	}
+}
+
+// TestNeedsWork_Statements checks that the needs-work statements are well formed with no reason filter and with
+// each reason, that a reason adds its own column to the items' filter only, and that an unknown reason is an
+// error rather than SQL.
+func TestNeedsWork_Statements(t *testing.T) {
+	t.Parallel()
+
+	page := domain.Page{Limit: 7, Offset: 14}
+	counts, err := needsWorkCountsStatement()
+	require.NoError(t, err)
+	requireWellFormed(t, counts)
+
+	all, err := needsWorkItemsStatement(nil, page)
+	require.NoError(t, err)
+	requireWellFormed(t, all)
+	assert.Equal(t, []any{int32(7), int32(14)}, all.args[len(all.args)-2:])
+	assert.Contains(t, all.String(), "WHERE "+string(needsWork)+" ORDER BY c.entity_order, c.sort_key, c.id LIMIT ? OFFSET ?")
+
+	for _, reason := range domain.NeedsWorkReasons() {
+		t.Run(string(reason), func(t *testing.T) {
+			t.Parallel()
+
+			items, err := needsWorkItemsStatement(&reason, page)
+			require.NoError(t, err)
+			requireWellFormed(t, items)
+			column, err := needsWorkReasonColumn(reason)
+			require.NoError(t, err)
+			assert.Contains(t, items.String(), "WHERE "+string(needsWork)+" AND "+string(column)+" ORDER BY")
+			assert.Equal(t, all.String(), strings.Replace(items.String(), " AND "+string(column), "", 1))
+		})
+	}
+
+	unknown := domain.NeedsWorkReason("nonsense")
+	_, err = needsWorkItemsStatement(&unknown, page)
+	require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+}

@@ -47,16 +47,10 @@ func (c *catalogueReader) collection(ctx context.Context, id uint64) domain.Coll
 	key := c.nullID(row.ID)
 
 	collection := domain.Collection{
-		CollectionSummary: domain.CollectionSummary{
-			ID:               c.signedID(row.ID),
-			Name:             row.Name,
-			Kind:             enumOf[domain.CollectionKind](c, row.Kind),
-			URL:              stringPtr(row.Url),
-			IsBardicResource: row.IsBardicResource,
-		},
-		DescriptionMD: stringPtr(row.DescriptionMd),
-		Enumerable:    enumOf[domain.CollectionEnumerable](c, row.Enumerable),
-		Children:      c.collectionChildren(fetch(ctx, c, "children", c.q.ListPublicCollectionChildren, key)),
+		CollectionSummary: c.collectionSummary(c.signedID(row.ID), row.Name, row.Kind, row.Url, row.IsBardicResource),
+		DescriptionMD:     stringPtr(row.DescriptionMd),
+		Enumerable:        enumOf[domain.CollectionEnumerable](c, row.Enumerable),
+		Children:          c.collectionChildren(fetch(ctx, c, "children", c.q.ListPublicCollectionChildren, key)),
 		Citations: c.citations(ctx, fetch(ctx, c, "citations", c.q.ListPublicCollectionCitations,
 			queries.ListPublicCollectionCitationsParams{CollectionID: key, Limit: domain.MaxNestedListItems})),
 		CitationsTotal: fetch(ctx, c, "citation count", c.q.CountPublicCollectionCitations, key),
@@ -66,13 +60,9 @@ func (c *catalogueReader) collection(ctx context.Context, id uint64) domain.Coll
 		collection.Region = &region
 	}
 	if row.ParentID.Valid {
-		collection.Parent = &domain.CollectionSummary{
-			ID:               row.ParentID.Int64,
-			Name:             row.ParentName.String,
-			Kind:             enumOf[domain.CollectionKind](c, row.ParentKind.CollectionsKind),
-			URL:              stringPtr(row.ParentUrl),
-			IsBardicResource: row.ParentIsBardicResource.Bool,
-		}
+		parent := c.collectionSummary(row.ParentID.Int64, row.ParentName.String, row.ParentKind.CollectionsKind,
+			row.ParentUrl, row.ParentIsBardicResource.Bool)
+		collection.Parent = &parent
 	}
 
 	return collection
@@ -83,13 +73,8 @@ func (c *catalogueReader) collectionChildren(
 ) []domain.CollectionSummary {
 	children := make([]domain.CollectionSummary, 0, len(rows))
 	for _, row := range rows {
-		children = append(children, domain.CollectionSummary{
-			ID:               c.signedID(row.ID),
-			Name:             row.Name,
-			Kind:             enumOf[domain.CollectionKind](c, row.Kind),
-			URL:              stringPtr(row.Url),
-			IsBardicResource: row.IsBardicResource,
-		})
+		children = append(children, c.collectionSummary(c.signedID(row.ID), row.Name, row.Kind, row.Url,
+			row.IsBardicResource))
 	}
 
 	return children

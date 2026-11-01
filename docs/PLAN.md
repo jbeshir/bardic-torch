@@ -122,7 +122,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 
 **Workflow tables:**
 - **`revisions`**: `id`, `entity_type`, `entity_id`, `base_revision_id`, `author_user_id`, `source` (user / import / mcp), `status` (draft / pending / approved / rejected / withdrawn), `snapshot_json`, `summary`, `reviewer_user_id`, `reviewed_at`, `review_note`, `created_at`.
-  - The snapshot is the full document, including owned child rows. Links appear inline by normalized URL.
+  - The snapshot is the full document, including owned child rows. Links appear inline by URL as entered (the normalized URL is derived; §4.1).
 - **`users`**: Auth0 user ID, `display_name`, `role` (contributor / moderator), `created_at`, `blocked_at`. Moderators are not seeded by migration, and no user IDs live in migrations. At startup the API promotes the users listed in `BOOTSTRAP_MODERATOR_USER_IDS`, creating any who have not signed in yet. Promotion also unblocks a blocked user: listing an ID trusts that user, and moderators cannot be blocked or unblocked. This is promote-only and idempotent: removing an ID never demotes the user, and demotion is done in SQL until a moderation endpoint exists.
 - **`repertoire`**: user_id, piece_id, notes, visibility (private / public), added_at.
 - **`link_reports`**: for removal requests (R-11).
@@ -132,7 +132,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 ### 4.1 Catalogue decisions refined in BE2
 
 BE2 built the catalogue schema (migrations 003–009) and the public read API. These decisions refine §4 and §6;
-the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
+the DDL is in `migrations/003`–`009`.
 
 - **Visibility is approval.** An entity is public exactly when `current_revision_id IS NOT NULL`; a term also needs
   every ancestor approved. The `terms.status` column was dropped as redundant: a pending suggestion is a term with
@@ -229,7 +229,9 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   for being stubs. Pieces come first, then persons, each by sort key. `counts` has every reason, whatever the
   `reason` filter.
 - **Preference profiles** (`person_preferences`, `piece_preferences`) exist as tables but are not exposed until BE5
-  defines and validates their `value_json` shapes.
+  defines and validates their `value_json` shapes. Until then the only etiquette data in the API is
+  `licensing_status` and `licensing_notes_md` on pieces and person profiles, so FE2 builds a licensing card from
+  those, and the full etiquette card (profile with piece-level overrides) waits for FE4 (§10).
 - **Public reads ignore credentials.** The catalogue reads are served outside the authentication middleware, like
   the health checks: invalid, expired or uncheckable credentials and blocked users get the same answer as an
   anonymous request, and no user is looked up or created. A person's page lists the performances recorded by
@@ -365,6 +367,12 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
 - Hide legal aliases, and any `redirect` alias equal to a hidden alias. List free text containing a hidden alias in
   `import-review.md`.
 - Write documents with editor-owned fields only. Write the link system state (liveness) to `links` directly.
+- Write revision `summary` text that is neutral: it is free text shown on every approved revision, including those of
+  persons without a page, and nothing checks it against hidden aliases. BE4 should flag editor summaries that
+  contain a hidden alias.
+- Hidden-link redaction compares a document's URL exactly with the link's current `url` or `normalized_url`. When
+  the URL normaliser lands (BE3), normalise document URLs before the lookup, and key the visible-URL set by
+  normalised URL, so that a link later edited to another spelling of the same URL stays redacted in older snapshots.
 
 **Modes:** `--dry-run` (report only), and `--apply`, which only runs against an empty catalogue.
 
@@ -384,7 +392,7 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   - an infobox with kind, credits, facets, origin and conservation badge
   - links grouped by role
   - performances, with performer, event and year
-  - an etiquette card that combines the bard's profile with piece-level overrides (R-9)
+  - an etiquette card that combines the bard's profile with piece-level overrides (R-9); FE2 shows a licensing card (status and sourced notes) until BE5 exposes profiles (§4.1)
   - notes and related pieces
 - person page: aliases, affiliations, roles, etiquette card, works, performances, external profiles
 - term pages, showing the tree, subcategories and members
@@ -421,6 +429,7 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
 - Unit tests for domain and commands, using mockery mocks. The revision engine gets table-driven tests for every state transition, stale/rebase case and sourced-field rule.
 - Repository tests against **real MySQL 8.4**. BE1's spike succeeded, so they run in the sandbox (`make test-integration-local`, a conda-forge mysqld), on the host (`make test-integration`, podman) and in CI (`make test-integration-external` against a `mysql:8.4` service, under `-race`).
 - HTTP tests for every route, checking authentication, authorisation by role (anonymous, contributor, moderator, API token) and status codes, against the OpenAPI spec using kin-openapi response validation.
+- Catalogue reads: exact-struct repository tests on shared fixtures built to tell the behaviours apart, an HTTP leak matrix that proves no hidden string reaches any public response, and parity tests between the database ENUMs, the domain vocabularies and the OpenAPI enum schemas (docs/TESTING.md).
 - Importer golden tests (§7).
 - `make validate` covers the format check, lint (golangci pinned via `go tool`), vacuum OpenAPI lint, unit tests, build and the generated-code check (sqlc and mockery output up to date). docs/TESTING.md describes every target.
 - `make vulncheck` (govulncheck, pinned via `go tool`) runs as its own CI job on every push and pull request. It is outside `make validate` because it needs vuln.go.dev.
@@ -470,11 +479,11 @@ Each pipeline has the same internal shape:
 | FE1 | foundation | FE | H0 (runs alongside BE1) | Copy and strip the feed FE. Add the wiki-style design system and layout, dark mode, auth, the type-generation pipeline, the fixture server, and the Playwright, axe and screenshot harness. Add the static help pages. |
 | BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search, A–Z and needs-work. The revisions table exists but only stores import data. Decisions refined in BE2 are in §4.1. |
 | BE3 | importer | BE | BE2 | Everything in §7. A dry-run report is produced for John and Fabian to read. |
-| FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8, the etiquette card and conservation badge, the mobile facet drawer, and SEO. |
+| FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8 (including the read-only history and diff pages), the licensing card (licensing status and sourced notes) and conservation badge, the mobile facet drawer, and SEO. |
 | BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report and contact (Turnstile) endpoints. (needs-work, a public read, moved to BE2.) |
-| FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, and history, diff and revert. |
+| FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, revert, and the pending-version diff. (The read-only history and diff pages are FE2's.) |
 | BE5 | contributor extras | BE | BE4 | Repertoire, preference profiles and their validation, conservation suggestions, the `check-links` cron with Wayback lookup, API-token MCP tools, and rate limits. |
-| FE4 | moderation and extras UI | FE | BE5 spec, FE3 | The moderation queue, diff and three-way review, the inboxes, repertoire, the preference-profile editor, the needs-work dashboard, and the contact form. |
+| FE4 | moderation and extras UI | FE | BE5 spec, FE3 | The moderation queue, diff and three-way review, the inboxes, repertoire, the etiquette card (preference profiles with piece-level overrides, once BE5 exposes them), the preference-profile editor, the needs-work dashboard, and the contact form. |
 | H1 | launch | host | all | Full-stack e2e against the real import, a staging deploy, the real import run with its review report worked through, the click-through by John and Fabian, then production. |
 
 **Concurrency:** at most two pipelines run at once, one per repo.

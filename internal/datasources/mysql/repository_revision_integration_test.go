@@ -166,7 +166,7 @@ func quietDocument(fx revisionFixture) domain.PersonDocument {
 }
 
 // importContributors are the wiki users who wrote the imported revision, in order.
-func importContributors() []string { return []string{"Archivist", "Lorekeeper"} }
+func importContributors() []string { return []string{"Lorekeeper", "Archivist"} }
 
 // revisionsAt is a day of 2026, when the fixture.s revisions were created.
 func revisionsAt(month time.Month, day int) time.Time {
@@ -326,7 +326,7 @@ func harvestView() domain.PieceSnapshot {
 	}
 }
 
-// TestRepository_ListPublicHistory checks a public entity's history (A4.1): approved revisions only, newest first
+// TestRepository_ListPublicHistory checks a public entity's history: approved revisions only, newest first
 // with ties by ID, authors by display name, imports with no author and their contributors in order, and pages.
 func TestRepository_ListPublicHistory(t *testing.T) {
 	t.Parallel()
@@ -424,7 +424,7 @@ func TestRepository_ListPublicHistory_NotFound(t *testing.T) {
 	assert.NotErrorIs(t, err, datasources.ErrNotFound)
 }
 
-// TestRepository_GetPublicRevision_Piece checks a piece revision's views (A4.2, A4.3): references to entities
+// TestRepository_GetPublicRevision_Piece checks a piece revision's views: references to entities
 // that are not public now and links hidden now are left out of the snapshot and its base, with no system fields
 // or preferences.
 func TestRepository_GetPublicRevision_Piece(t *testing.T) {
@@ -451,7 +451,7 @@ func TestRepository_GetPublicRevision_Piece(t *testing.T) {
 }
 
 // TestRepository_GetPublicRevision_RedactedChange checks that a revision that changed only what its view
-// redacts has a view equal to its base's, so no change can show (A4.3).
+// redacts has a view equal to its base's, so no change can show.
 func TestRepository_GetPublicRevision_RedactedChange(t *testing.T) {
 	t.Parallel()
 
@@ -492,7 +492,7 @@ func TestRepository_GetPublicRevision_Base(t *testing.T) {
 
 // TestRepository_GetPublicRevision_Person checks a person revision's view: an alias public in the snapshot is
 // shown only if it is public now, and a link hidden since, relations to a person who chose since not to have a
-// page, and references to unapproved entities are left out (A4.3).
+// page, and references to unapproved entities are left out.
 func TestRepository_GetPublicRevision_Person(t *testing.T) {
 	t.Parallel()
 
@@ -530,7 +530,7 @@ func TestRepository_GetPublicRevision_Person(t *testing.T) {
 }
 
 // TestRepository_GetPublicRevision_NoPage checks that the snapshots of a person who chose since not to have a
-// page, and their base, show the identity only (A4.3).
+// page, and their base, show the identity only.
 func TestRepository_GetPublicRevision_NoPage(t *testing.T) {
 	t.Parallel()
 
@@ -591,7 +591,7 @@ func TestRepository_GetPublicRevision_OtherTypes(t *testing.T) {
 }
 
 // TestRepository_GetPublicRevision_NotFound checks that a revision that is not approved, or whose entity is not
-// public, is not found like an unknown one (A4.2).
+// public, is not found like an unknown one.
 func TestRepository_GetPublicRevision_NotFound(t *testing.T) {
 	t.Parallel()
 
@@ -614,7 +614,7 @@ func TestRepository_GetPublicRevision_NotFound(t *testing.T) {
 }
 
 // TestRepository_GetPublicRevision_Undecodable checks that a snapshot or base snapshot that cannot be decoded,
-// such as one of a newer schema version, fails the read with an error other than ErrNotFound (A4.4).
+// such as one of a newer schema version, fails the read with an error other than ErrNotFound.
 func TestRepository_GetPublicRevision_Undecodable(t *testing.T) {
 	t.Parallel()
 

@@ -25,7 +25,7 @@ import (
 //	salt-road    Salt Road         S  story + song        critically_endangered  sea, warlike
 //	salt-road-2  Salt Road         S  poem                unassessed             (none)
 //	masks        Theatre of Masks  T  dance_music         restricted       stub  (none)
-//	wild-rover   The Wild Rover    W  song                endangered             swords, warlike
+//	wild-heron   The Wild Heron    W  song                endangered             swords, warlike
 //
 // The topics are war > swords > rapiers, and sea; the moods warlike and mournful; the origin 16th-century. An
 // unapproved piece is tagged with war and warlike, and northmarch is an affiliation.
@@ -39,7 +39,7 @@ const (
 	saltRoadSlug   = "salt-road"
 	saltRoad2Slug  = "salt-road-2"
 	masksSlug      = "masks"
-	wildRoverSlug  = "wild-rover"
+	wildHeronSlug  = "wild-heron"
 	warSlug        = "war"
 	swordsSlug     = "swords"
 	rapiersSlug    = "rapiers"
@@ -99,7 +99,7 @@ var searches = catalogtest.NewShared(func(c *catalogtest.Catalog) searchFixture 
 	}
 	poem := []domain.PieceKind{domain.PieceKindPoem}
 	song := []domain.PieceKind{domain.PieceKindSong}
-	piece(wildRoverSlug, "The Wild Rover", "Wild Rover", "W", domain.PieceKindSong, nil,
+	piece(wildHeronSlug, "The Wild Heron", "Wild Heron", "W", domain.PieceKindSong, nil,
 		domain.ConservationStatusEndangered, false, false, swords, warlike)
 	piece(ashGroveSlug, "The Ash Grove", "Ash Grove", "A", domain.PieceKindSong, poem,
 		domain.ConservationStatusLowRisk, false, false, war, swords)
@@ -134,7 +134,7 @@ var searches = catalogtest.NewShared(func(c *catalogtest.Catalog) searchFixture 
 	return searchFixture{
 		northmarchBook: collection("The Northmarch Songbook", "Northmarch Songbook", "N",
 			domain.CollectionKindSongbookPDF, false),
-		balladIndex: collection("Ballad Index", "", "B", domain.CollectionKindIndexOrLinkList, false),
+		balladIndex: collection("The Ballad Index", "Ballad Index", "B", domain.CollectionKindIndexOrLinkList, false),
 		bardicWiki:  collection(bardicWikiName, "", "B", domain.CollectionKindWiki, false),
 		folio:       collection("2nd Folio", "", "0", domain.CollectionKindArchivedSongbook, false),
 		bardicBlog:  collection(bardicWikiName, "", "B", domain.CollectionKindBlog, false),
@@ -152,6 +152,8 @@ var searches = catalogtest.NewShared(func(c *catalogtest.Catalog) searchFixture 
 //
 // An unapproved singer is affiliated with northmarch.
 const (
+	// sqlShaped is an input that would change a statement if it reached the SQL text.
+	sqlShaped       = "' OR 1=1 --"
 	nineRavensSlug  = "nine-ravens"
 	ashTallowSlug   = "ashlin-tallow"
 	hollisFennSlug  = "hollis-fenn"
@@ -262,7 +264,7 @@ var everyPieceFacets = domain.PieceFacets{
 
 // byTitle are the search fixture's public pieces by sort title, then ID.
 var byTitle = []string{armadaSlug, ashGroveSlug, eireAbuSlug, ironCrownSlug, oiPolloiSlug, pikeMarchSlug,
-	saltRoadSlug, saltRoad2Slug, masksSlug, wildRoverSlug}
+	saltRoadSlug, saltRoad2Slug, masksSlug, wildHeronSlug}
 
 func TestRepository_ListPublicPieces(t *testing.T) {
 	t.Parallel()
@@ -285,38 +287,54 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 			want:  domain.PieceList{Pieces: pieceSummaries(byTitle...), Total: 10, Facets: everyPieceFacets},
 		},
 		{
-			// A3.1: war or sea, and warlike, and a song.
+			// (war or sea), (warlike or mournful) and (a song or a story): the salt road and the wild heron. The
+			// iron crown is a mournful war poem, so only its kind keeps it out.
 			name: "or_within_and_across_facets",
-			query: datasources.PieceQuery{TermSlugs: []string{warSlug, seaSlug, warlikeSlug},
-				Kinds: []domain.PieceKind{domain.PieceKindSong}},
+			query: datasources.PieceQuery{TermSlugs: []string{warSlug, seaSlug, warlikeSlug, mournfulSlug},
+				Kinds: []domain.PieceKind{domain.PieceKindSong, domain.PieceKindStory}},
 			want: domain.PieceList{
-				Pieces: pieceSummaries(saltRoadSlug, wildRoverSlug),
+				Pieces: pieceSummaries(saltRoadSlug, wildHeronSlug),
 				Total:  2,
 				Facets: domain.PieceFacets{
-					// Topics ignore the topic selection: warlike songs are the salt road and the wild rover.
-					Terms: termCounts(seaSlug, 1, swordsSlug, 1, warSlug, 1,
-						// Moods ignore the mood selection: war or sea songs are armada, ash grove, salt road and wild
-						// rover, of which two are warlike and none mournful.
-						warlikeSlug, 2),
-					// Kinds ignore the kind selection: war or sea, and warlike.
-					Kinds:                kindCounts(domain.PieceKindSong, 2, domain.PieceKindStory, 1),
-					ConservationStatuses: statusCounts(domain.ConservationStatusEndangered, 1, domain.ConservationStatusCriticallyEndangered, 1),
-					Letters:              letters("S", 1, "W", 1),
+					// Topics and moods are counted among the pieces the other facets let through.
+					Terms: termCounts(seaSlug, 1, swordsSlug, 1, warSlug, 1, warlikeSlug, 2),
+					// Kinds ignore the kind selection, so the iron crown counts as a poem.
+					Kinds: kindCounts(domain.PieceKindSong, 2, domain.PieceKindPoem, 1, domain.PieceKindStory, 1),
+					ConservationStatuses: statusCounts(domain.ConservationStatusEndangered, 1,
+						domain.ConservationStatusCriticallyEndangered, 1),
+					Letters: letters("S", 1, "W", 1),
 				},
 			},
 		},
 		{
-			// A3.2: the grandchild rapiers matches war, the child swords matches war.
+			// (sea or rapiers), warlike and (a song or a poem): only the salt road. The wild heron fails only the
+			// topic (swords are not rapiers) and the iron crown only the mood, so each is counted in its own facet.
+			name: "facet_counts_ignore_own_selection",
+			query: datasources.PieceQuery{TermSlugs: []string{seaSlug, rapiersSlug, warlikeSlug},
+				Kinds: []domain.PieceKind{domain.PieceKindSong, domain.PieceKindPoem}},
+			want: domain.PieceList{
+				Pieces: pieceSummaries(saltRoadSlug),
+				Total:  1,
+				Facets: domain.PieceFacets{
+					Terms:                termCounts(mournfulSlug, 1, seaSlug, 1, swordsSlug, 1, warSlug, 1, warlikeSlug, 1),
+					Kinds:                kindCounts(domain.PieceKindSong, 1, domain.PieceKindStory, 1),
+					ConservationStatuses: statusCounts(domain.ConservationStatusCriticallyEndangered, 1),
+					Letters:              letters("S", 1),
+				},
+			},
+		},
+		{
+			// the grandchild rapiers matches war, the child swords matches war.
 			name:  "closure_grandchild",
 			query: datasources.PieceQuery{TermSlugs: []string{warSlug}, Letter: &letterW},
 			want: domain.PieceList{
-				Pieces: pieceSummaries(wildRoverSlug),
+				Pieces: pieceSummaries(wildHeronSlug),
 				Total:  1,
 				Facets: domain.PieceFacets{
 					Terms:                termCounts(swordsSlug, 1, warSlug, 1, warlikeSlug, 1),
 					Kinds:                kindCounts(domain.PieceKindSong, 1),
 					ConservationStatuses: statusCounts(domain.ConservationStatusEndangered, 1),
-					// Letters ignore the letter: armada, ash grove, iron crown and wild rover are war.
+					// Letters ignore the letter: armada, ash grove, iron crown and wild heron are war.
 					Letters: letters("0", 1, "A", 1, "I", 1, "W", 1),
 				},
 			},
@@ -325,10 +343,10 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 			name:  "closure_child",
 			query: datasources.PieceQuery{TermSlugs: []string{swordsSlug}},
 			want: domain.PieceList{
-				Pieces: pieceSummaries(ashGroveSlug, ironCrownSlug, wildRoverSlug),
+				Pieces: pieceSummaries(ashGroveSlug, ironCrownSlug, wildHeronSlug),
 				Total:  3,
 				Facets: domain.PieceFacets{
-					// A3.5: the topic counts ignore the topic selection, so they are every piece's.
+					// the topic counts ignore the topic selection, so they are every piece's.
 					Terms: termCounts(mournfulSlug, 1, rapiersSlug, 1, seaSlug, 2, swordsSlug, 3, warSlug, 4,
 						warlikeSlug, 1),
 					Kinds: kindCounts(domain.PieceKindSong, 2, domain.PieceKindPoem, 2),
@@ -339,7 +357,7 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 			},
 		},
 		{
-			// A3.3: a poem as its primary or a secondary kind.
+			// a poem as its primary or a secondary kind.
 			name:  "kind_primary_or_secondary",
 			query: datasources.PieceQuery{Kinds: []domain.PieceKind{domain.PieceKindPoem}},
 			want: domain.PieceList{
@@ -363,14 +381,14 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 				Total:  0,
 				Facets: domain.PieceFacets{
 					Terms: termCounts(), ConservationStatuses: statusCounts(),
-					// A3.9: armada is the only piece under 0, a song.
+					// armada is the only piece under 0, a song.
 					Kinds:   kindCounts(domain.PieceKindSong, 1),
 					Letters: letters("O", 1, "S", 1),
 				},
 			},
 		},
 		{
-			// A3.4: conservation status and stub.
+			// conservation status and stub.
 			name: "status_and_stub",
 			query: datasources.PieceQuery{Stub: &stub,
 				ConservationStatuses: []domain.ConservationStatus{domain.ConservationStatusEndangered}},
@@ -406,7 +424,7 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 			},
 		},
 		{
-			// A3.8: equal scores and equal sort titles fall back to the ID.
+			// equal scores and equal sort titles fall back to the ID.
 			name:  "relevance_ties_by_id",
 			query: datasources.PieceQuery{Search: &salt, Sort: domain.PieceSortRelevance},
 			want: domain.PieceList{
@@ -452,7 +470,7 @@ func TestRepository_ListPublicPieces_Pages(t *testing.T) {
 	db, _ := searches.Get(t)
 	repo := mysql.New(db)
 
-	// A3.8: pages of three concatenate to the whole list, without duplicates, each with the full total.
+	// pages of three concatenate to the whole list, without duplicates, each with the full total.
 	var slugs []string
 	for offset := int32(0); offset < 12; offset += 3 {
 		got, err := repo.ListPublicPieces(t.Context(), datasources.PieceQuery{Sort: domain.PieceSortTitle,
@@ -479,8 +497,8 @@ func TestRepository_ListPublicPieces_UnknownTerm(t *testing.T) {
 	db, _ := searches.Get(t)
 	repo := mysql.New(db)
 
-	// A3.6: unknown, unapproved, under an unapproved parent and affiliation terms are all unknown, and
-	// injection-shaped slugs (A3.12) are just unknown.
+	// unknown, unapproved, under an unapproved parent and affiliation terms are all unknown, and
+	// injection-shaped slugs are just unknown.
 	for _, slug := range []string{"nope", "spears", "pikes", northmarchSlug, "war'; DROP TABLE pieces; --", "%"} {
 		t.Run(slug, func(t *testing.T) {
 			t.Parallel()
@@ -501,10 +519,10 @@ func TestRepository_ListPublicPieces_InjectionShapedSearches(t *testing.T) {
 	db, _ := searches.Get(t)
 	repo := mysql.New(db)
 
-	// A3.12: they run normally and match nothing. "S_lt" and "S%" would match Salt Road if the prefix fallback did
+	// they run normally and match nothing. "S_lt" and "S%" would match Salt Road if the prefix fallback did
 	// not escape LIKE wildcards.
 	for _, q := range []string{
-		"' OR 1=1 --", `"; DROP TABLE pieces; --`, "*/ SELECT 1 /*", `+(>salt <road) ~"wild" -rover @3`, "%", "_",
+		sqlShaped, `"; DROP TABLE pieces; --`, "*/ SELECT 1 /*", `+(>salt <road) ~"wild" -heron @3`, "%", "_",
 		"!", `\`, "?", "%alt", "S_lt", "S%", "\x00",
 	} {
 		t.Run(q, func(t *testing.T) {
@@ -587,7 +605,7 @@ func TestRepository_ListPublicPersons(t *testing.T) {
 			Letters: letters("W", 1)}},
 		{name: "public_alias_prefix", q: "Li", want: domain.PersonList{Persons: personSummaries(wrenSlug), Total: 1,
 			Letters: letters("W", 1)}},
-		// A3.10: a hidden alias never matches, by FULLTEXT or by prefix.
+		// a hidden alias never matches, by FULLTEXT or by prefix.
 		{name: "hidden_alias", q: hiddenAliasWord, want: none},
 		{name: "hidden_alias_prefix", q: "Ze", want: none},
 		// A no-page person matches by name, and not by a public alias.
@@ -595,6 +613,12 @@ func TestRepository_ListPublicPersons(t *testing.T) {
 			Total: 1, Letters: letters("H", 1)}},
 		{name: "no_page_alias", q: "owl", want: none},
 		{name: "no_page_alias_prefix", q: "Ow", want: none},
+		// Inputs shaped like LIKE wildcards, a FULLTEXT word with an underscore and SQL: matched literally.
+		{name: "wildcard_percent", q: "%", want: none},
+		{name: "wildcard_underscore", q: "_", want: none},
+		{name: "wildcard_inside_word", q: "W_en", want: none},
+		{name: "wildcard_prefix", q: "W%", want: none},
+		{name: "sql_shaped", q: sqlShaped, want: none},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -640,8 +664,8 @@ func TestRepository_ListPublicPersons_UnknownAffiliation(t *testing.T) {
 	db, _ := searches.Get(t)
 	repo := mysql.New(db)
 
-	// Unapproved, unknown, and piece terms are all unknown affiliations.
-	for _, slug := range []string{"southmarch", "nope", warSlug} {
+	// Unapproved, unknown, piece and SQL-shaped terms are all unknown affiliations.
+	for _, slug := range []string{"southmarch", "nope", warSlug, sqlShaped, "%", `"; DROP TABLE persons; --`} {
 		t.Run(slug, func(t *testing.T) {
 			t.Parallel()
 
@@ -666,7 +690,7 @@ func TestRepository_ListPublicCollections(t *testing.T) {
 		return domain.CollectionSummary{ID: ref.ID, Name: name, Kind: kind}
 	}
 	folio := summary(fx.folio, "2nd Folio", domain.CollectionKindArchivedSongbook)
-	ballads := summary(fx.balladIndex, "Ballad Index", domain.CollectionKindIndexOrLinkList)
+	ballads := summary(fx.balladIndex, "The Ballad Index", domain.CollectionKindIndexOrLinkList)
 	wiki := summary(fx.bardicWiki, bardicWikiName, domain.CollectionKindWiki)
 	blog := summary(fx.bardicBlog, bardicWikiName, domain.CollectionKindBlog)
 	book := summary(fx.northmarchBook, "The Northmarch Songbook", domain.CollectionKindSongbookPDF)
@@ -677,7 +701,7 @@ func TestRepository_ListPublicCollections(t *testing.T) {
 		want  domain.CollectionList
 	}{
 		{
-			// A3.11: by sort name, equal sort names by ID; the unapproved collection is not listed.
+			// by sort name, equal sort names by ID; the unapproved collection is not listed.
 			name:  "every_collection",
 			query: datasources.CollectionQuery{Page: domain.Page{Limit: 50}},
 			want: domain.CollectionList{Collections: []domain.CollectionSummary{folio, ballads, wiki, blog, book},
@@ -708,7 +732,7 @@ func TestRepository_ListPublicCollections(t *testing.T) {
 	}
 }
 
-// TestSearchStopwords_MatchInnoDB (A1.9) checks that the tokeniser drops every word of the server's default
+// TestSearchStopwords_MatchInnoDB checks that the tokeniser drops every word of the server's default
 // FULLTEXT stopword list, which indexes leave out, and keeps words that are not on it.
 func TestSearchStopwords_MatchInnoDB(t *testing.T) {
 	t.Parallel()

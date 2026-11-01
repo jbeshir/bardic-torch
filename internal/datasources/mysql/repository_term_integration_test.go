@@ -39,6 +39,7 @@ var terms = catalogtest.NewShared(func(c *catalogtest.Catalog) termFixture {
 		ParentID: &war.ID, Position: 2}})
 	shields := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Shields (Topic)",
 		DisplayName: "Shields", ParentID: &war.ID, Position: 1}, Slug: "shields"})
+	c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Bucklers", ParentID: &shields.ID}})
 	sabres := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Sabres",
 		ParentID: &swords.ID}})
 	spears := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Spears",
@@ -125,10 +126,10 @@ func listItem(summary domain.TermSummary, name string, parent *string, pieces, p
 		TermCounts: domain.TermCounts{PieceCount: pieces, PersonCount: persons}}
 }
 
-// TestRepository_ListPublicTerms checks the tree order (facets in enum order, parents before children, siblings
-// by position then display name) and the counts: with descendants, distinct, without unapproved pieces, no-page
-// or unapproved persons, or anything tagged with a pending term or a term under one, which are not listed
-// (A2.7).
+// TestRepository_ListPublicTerms checks the tree order (facets in enum order, then each term before its children and
+// before its next sibling, siblings by position then display name) and the counts: with descendants, distinct,
+// without unapproved pieces, no-page or unapproved persons, or anything tagged with a pending term or a term under
+// one, which are not listed.
 func TestRepository_ListPublicTerms(t *testing.T) {
 	t.Parallel()
 
@@ -144,6 +145,7 @@ func TestRepository_ListPublicTerms(t *testing.T) {
 		// The ballad is tagged with War and Swords but counts once; the pikes under pending Spears do not count.
 		listItem(warSummary, warName, nil, 3, 0),
 		listItem(termSummary("shields", domain.FacetTopic, "Shields"), "Shields (Topic)", new("war"), 1, 0),
+		listItem(termSummary("bucklers", domain.FacetTopic, "Bucklers"), "Bucklers", new("shields"), 0, 0),
 		listItem(swordsSummary, swordsName, new("war"), 2, 0),
 		listItem(termSummary("sabres", domain.FacetTopic, "Sabres"), "Sabres", new("swords"), 1, 0),
 		// Cedar is affiliated with both but counts once.
@@ -173,7 +175,7 @@ func TestRepository_ListPublicTerms_Facet(t *testing.T) {
 var firstPage = domain.Page{Limit: domain.DefaultPageLimit}
 
 // TestRepository_GetPublicTerm reads a term with aliases, public children with counts and pieces tagged with
-// it or a public descendant, each once (A2.8).
+// it or a public descendant, each once.
 func TestRepository_GetPublicTerm(t *testing.T) {
 	t.Parallel()
 
@@ -224,7 +226,7 @@ func TestRepository_GetPublicTerm_RelatedAffiliation(t *testing.T) {
 }
 
 // TestRepository_GetPublicTerm_Affiliation checks that an affiliation term lists the public persons with a page
-// affiliated with it or a descendant, each once, and no pieces (A2.8).
+// affiliated with it or a descendant, each once, and no pieces.
 func TestRepository_GetPublicTerm_Affiliation(t *testing.T) {
 	t.Parallel()
 
@@ -246,8 +248,7 @@ func TestRepository_GetPublicTerm_Affiliation(t *testing.T) {
 	}, term)
 }
 
-// TestRepository_GetPublicTerm_Pages checks that pages of members are stable and concatenate to the whole list
-// (A2.8).
+// TestRepository_GetPublicTerm_Pages checks that pages of members are stable and concatenate to the whole list.
 func TestRepository_GetPublicTerm_Pages(t *testing.T) {
 	t.Parallel()
 

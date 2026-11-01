@@ -227,16 +227,30 @@ func (c *catalogueReader) termSummary(slug string, facet queries.TermsFacet, dis
 	return domain.TermSummary{Slug: slug, Facet: enumOf[domain.Facet](c, facet), DisplayName: displayName}
 }
 
-// eventSummary returns the summary of a public event from LEFT JOINed columns, or nil if there is none.
-func (c *catalogueReader) eventSummary(slug, name sql.NullString, kind queries.NullEventsKind) *domain.EventSummary {
+// eventSummary returns the summary of a public event.
+func (c *catalogueReader) eventSummary(slug, name string, kind queries.EventsKind) domain.EventSummary {
+	return domain.EventSummary{Slug: slug, Name: name, Kind: enumOf[domain.EventKind](c, kind)}
+}
+
+// optionalEventSummary returns the summary of a public event from LEFT JOINed columns, or nil if there is none.
+func (c *catalogueReader) optionalEventSummary(
+	slug, name sql.NullString, kind queries.NullEventsKind,
+) *domain.EventSummary {
 	if !slug.Valid {
 		return nil
 	}
+	summary := c.eventSummary(slug.String, name.String, kind.EventsKind)
 
-	return &domain.EventSummary{
-		Slug: slug.String,
-		Name: name.String,
-		Kind: enumOf[domain.EventKind](c, kind.EventsKind),
+	return &summary
+}
+
+// collectionSummary returns the summary of a public collection.
+func (c *catalogueReader) collectionSummary(
+	id int64, name string, kind queries.CollectionsKind, url sql.NullString, isBardicResource bool,
+) domain.CollectionSummary {
+	return domain.CollectionSummary{
+		ID: id, Name: name, Kind: enumOf[domain.CollectionKind](c, kind), URL: stringPtr(url),
+		IsBardicResource: isBardicResource,
 	}
 }
 
@@ -366,7 +380,7 @@ func (c *catalogueReader) pieceLinks(ctx context.Context, key sql.NullInt64) []d
 			Year:                int16Ptr(row.Year),
 			Uploader:            stringPtr(row.Uploader),
 			DescriptionVerbatim: row.DescriptionVerbatim,
-			Event:               c.eventSummary(row.EventSlug, row.EventName, row.EventKind),
+			Event:               c.optionalEventSummary(row.EventSlug, row.EventName, row.EventKind),
 			Performers:          performers[row.ID],
 		})
 	}
@@ -566,7 +580,7 @@ func (c *catalogueReader) personPerformances(
 				URL: row.Url, Title: stringPtr(row.Title), Platform: stringPtr(row.Platform),
 			},
 			Year:                int16Ptr(row.Year),
-			Event:               c.eventSummary(row.EventSlug, row.EventName, row.EventKind),
+			Event:               c.optionalEventSummary(row.EventSlug, row.EventName, row.EventKind),
 			DescriptionVerbatim: row.DescriptionVerbatim,
 		}
 		if row.PieceSlug.Valid {

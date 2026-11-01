@@ -464,7 +464,7 @@ paths:
                     code: invalid_request
                     message: "invalid kind: not one of its allowed values"
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/InternalSearch"
 
   /v1/pieces/{slug}:
     get:
@@ -588,7 +588,7 @@ paths:
                 code: invalid_request
                 message: "unknown affiliation: northmarch"
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/InternalSearch"
 
   /v1/persons/{slug}:
     get:
@@ -823,7 +823,7 @@ paths:
                 code: invalid_request
                 message: "invalid kind: not one of its allowed values"
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/InternalSearch"
 
   /v1/collections/{collection_id}:
     get:
@@ -1105,7 +1105,7 @@ paths:
       description: |
         Lists one page of the approved revisions of a public event, newest first, with how many there are in all.
         Revisions that are not approved are never listed. An author is shown by display name only, and an
-        imported revision has no author but lists the wiki users who wrote it. A event that is not public is not
+        imported revision has no author but lists the wiki users who wrote it. An event that is not public is not
         found, exactly like an unknown one. Credentials are ignored.
       operationId: listEventRevisions
       security: []
@@ -1227,7 +1227,7 @@ paths:
                 code: invalid_request
                 message: "invalid reason: not one of its allowed values"
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/InternalSearch"
 
 
 components:
@@ -1278,7 +1278,7 @@ components:
         pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
         maxLength: 191
         examples:
-          - the-copper-kettle
+          - an-example-slug
     Limit:
       name: limit
       in: query
@@ -1295,7 +1295,8 @@ components:
       name: offset
       in: query
       required: false
-      description: How many items to skip, from 0 to 10000.
+      description: How many items to skip, from 0 to 10000. Every list order ends with an internal
+        ID, so pages of an unchanged catalogue concatenate without gaps or duplicates.
       schema:
         type: integer
         minimum: 0
@@ -1321,7 +1322,7 @@ components:
         maxLength: 200
         pattern: '[^ \t\n\f\r]'
         examples:
-          - wild rover
+          - wild heron
     Letter:
       name: letter
       in: query
@@ -1452,6 +1453,17 @@ components:
             message: request body must be sent as application/json
     Internal:
       description: The server failed to handle the request; the error code is `internal`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: internal
+            message: internal error
+    InternalSearch:
+      description: |
+        The server failed to handle the request, or the search took longer than the server allows (2 seconds); a
+        narrower search may succeed. The error code is `internal` either way.
       content:
         application/json:
           schema:
@@ -1810,7 +1822,9 @@ components:
         terms:
           type: array
           description: |
-            Public piece terms, by slug, counting each piece tagged with the term or any of its descendants once.
+            Public piece terms, ordered by slug (not grouped by facet), counting each piece tagged with the term or any of
+            its descendants once. Join with `GET /v1/terms` on `slug` for each term's facet, display name and place in
+            the tree.
           items:
             $ref: "#/components/schemas/TermCount"
         kinds:

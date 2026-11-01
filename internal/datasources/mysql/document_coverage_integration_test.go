@@ -379,7 +379,7 @@ func checkFieldsStored(t *testing.T, coverage documentCoverage, paths []string, 
 	}
 }
 
-// TestDocumentCoverage is A1.8. It requires every column of every table a snapshot document owns to be either a
+// TestDocumentCoverage requires every column of every table a snapshot document owns to be either a
 // document field or classified as system-owned with a reason, and every document field to be stored by exactly
 // one column of its tables or listed as stored elsewhere, so that a column or field added later fails here
 // until it is classified. Every other table must be listed as owned by no document.

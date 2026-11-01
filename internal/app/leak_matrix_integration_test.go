@@ -4,6 +4,7 @@ package app
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -21,10 +22,6 @@ import (
 
 func TestMain(m *testing.M) { catalogtest.Main(m) }
 
-// leakMarker is in every string the leak fixture stores where no public read may show it, so one
-// case-insensitive search of a raw response body finds any of them, including strings a row does not name.
-const leakMarker = "leakmark"
-
 // leakFixture is what the leak matrix's requests address: public entities that refer to everything a public
 // read must hide, and the hidden entities themselves.
 type leakFixture struct {
@@ -32,7 +29,9 @@ type leakFixture struct {
 	// noPage prefers not to have a page: their own page shows their identity, which is marked, and nothing else.
 	noPage catalogtest.Ref
 	// noPageAdmirer prefers not to have a page either; person lists show their identity as a stub.
-	noPageAdmirer                                     catalogtest.Ref
+	noPageAdmirer catalogtest.Ref
+	// noPageBusker prefers no page and has a link with a performance by the public person.
+	noPageBusker                                      catalogtest.Ref
 	unapprovedPiece, unapprovedPerson, unapprovedEcho catalogtest.Ref
 	// lanterns is a public topic with an unapproved child and related affiliation, tagging unapproved pieces;
 	// westmarch is a public affiliation of the no-page person and an unapproved person.
@@ -84,6 +83,9 @@ const noPageName = "Leakmark Nopage"
 
 // noPageAdmirerName is the name of another no-page person, which only person lists and their own page show.
 const noPageAdmirerName = "Leakmark Nopage Admirer"
+
+// noPageBuskerName is the name of a third no-page person, who is listed as a stub like the others.
+const noPageBuskerName = "Leakmark Nopage Busker"
 
 const hiddenLinkURL = "https://example.org/leakmark-hidden-link"
 
@@ -277,7 +279,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 
 	// Performances Rowan performs in, on links attached only to a no-page person and to an unapproved person:
 	// Rowan's page and the moot's must not show them, as the links' URLs, titles and descriptions are theirs.
-	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Leakmark Nopage Busker",
+	noPageBusker := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: noPageBuskerName,
 		Status: domain.PersonStatusPrefersNoPage,
 		Links: []domain.DocPersonLink{{
 			DocLink: domain.DocLink{URL: "https://example.org/leakmark-nopage-busker-link",
@@ -406,7 +408,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	c.Exec("UPDATE links SET normalized_url = CONCAT('leakmark-normalized-', id)")
 
 	return leakFixture{
-		piece: piece, group: group, person: person, noPage: noPage, noPageAdmirer: noPageAdmirer,
+		piece: piece, group: group, person: person, noPage: noPage, noPageAdmirer: noPageAdmirer, noPageBusker: noPageBusker,
 		unapprovedPiece: unapprovedPiece, unapprovedPerson: unapprovedPerson, unapprovedEcho: unapprovedEcho,
 		lanterns: lanterns, westmarch: westmarch, unapprovedTerm: unapprovedTerm, underUnapproved: underUnapproved,
 		unapprovedChild: unapprovedChild, unapprovedAffiliation: unapprovedAffiliation,
@@ -456,7 +458,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 		// An unknown term's 400 names the slug the request gave.
 		unknownTerm := func(term catalogtest.Ref) leakRequest {
 			return leakRequest{path: piecesPath + "?term=" + term.Slug, status: http.StatusBadRequest,
-				reveals: []string{term.Slug}}
+				reveals: []string{"unknown term: " + term.Slug}}
 		}
 		return []leakRequest{
 			// Facet counts must not list unapproved terms, or terms under them, nor count unapproved pieces.
@@ -472,7 +474,8 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	},
 	{Method: http.MethodGet, Path: personsPath}: func(fx leakFixture) []leakRequest {
 		// Persons who prefer no page are listed as stubs, by name.
-		stubs := []string{fx.noPage.Slug, noPageName, fx.noPageAdmirer.Slug, noPageAdmirerName, fx.turned.Slug, turnedName}
+		stubs := []string{fx.noPage.Slug, noPageName, fx.noPageAdmirer.Slug, noPageAdmirerName,
+			fx.noPageBusker.Slug, noPageBuskerName, fx.turned.Slug, turnedName}
 		return []leakRequest{
 			{path: personsPath, status: http.StatusOK, reveals: stubs},
 			{path: personsPath + "?q=leakmark", status: http.StatusOK, reveals: stubs},
@@ -481,7 +484,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: personsPath + "?role=jester", status: http.StatusOK},
 			{path: personsPath + "?affiliation=" + fx.westmarch.Slug, status: http.StatusOK},
 			{path: personsPath + "?affiliation=" + fx.unapprovedAffiliation.Slug, status: http.StatusBadRequest,
-				reveals: []string{fx.unapprovedAffiliation.Slug}},
+				reveals: []string{"unknown affiliation: " + fx.unapprovedAffiliation.Slug}},
 		}
 	},
 	{Method: http.MethodGet, Path: collectionsPath}: func(leakFixture) []leakRequest {
@@ -701,11 +704,9 @@ func assertNoLeak(t *testing.T, contract *openapitest.Validator, handler http.Ha
 	rec := contract.Serve(t, handler, httptest.NewRequestWithContext(t.Context(), http.MethodGet, req.path, nil))
 	require.Equal(t, req.status, rec.Code, rec.Body.String())
 
-	body := strings.ToLower(rec.Body.String())
-	for _, revealed := range req.reveals {
-		body = strings.ReplaceAll(body, strings.ToLower(revealed), "")
-	}
-	assert.NotContains(t, body, leakMarker, "the response shows a marked string:\n%s", rec.Body.String())
+	assert.Empty(t, unusedReveals(rec.Body.String(), req.reveals), "the response does not show these revealed strings")
+	assert.Empty(t, leakedMarker(rec.Body.String(), req.reveals), "the response shows a marked string:\n%s",
+		rec.Body.String())
 	for _, absent := range req.absent {
 		assert.NotContains(t, rec.Body.String(), absent, "the response shows something it must not")
 	}
@@ -784,3 +785,61 @@ const performedOnHiddenAttachments = "SELECT COUNT(*) FROM performances perf " +
 	"LEFT JOIN persons apr ON apr.id = a.person_id WHERE a.link_id = perf.link_id " +
 	"AND (ap.current_revision_id IS NOT NULL OR (apr.current_revision_id IS NOT NULL " +
 	"AND apr.status <> 'prefers_no_page'))) AND perf.description_verbatim LIKE "
+
+// TestHTTP_LeakMatrix_PlantedLeakFails shows that the matrix's check can fail on the rows that reveal the no-page
+// person's name: the real response passes, and the same response with a no-page note planted next to the name,
+// which starts with the revealed name, does not.
+func TestHTTP_LeakMatrix_PlantedLeakFails(t *testing.T) {
+	t.Parallel()
+
+	db, fx := leakCatalogue.Get(t)
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
+
+	req := leakRequest{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK,
+		reveals: []string{fx.noPage.Slug, noPageName}}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, req.path, nil))
+	require.Equal(t, req.status, rec.Code, rec.Body.String())
+	body := rec.Body.String()
+	require.Contains(t, body, `"`+noPageName+`"`, "the page no longer shows the name, so this test proves nothing")
+	require.Empty(t, leakedMarker(body, req.reveals))
+
+	planted := strings.Replace(body, `"`+noPageName+`"`,
+		`"`+noPageName+`","planted":"`+noPageName+` notes"`, 1)
+	assert.NotEmpty(t, leakedMarker(planted, req.reveals))
+}
+
+// TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing checks, through the handler, that a revision whose only
+// differences from its base are things the public view hides lists no changed fields: the changed fields are
+// computed on the redacted views, so they cannot give away what was redacted.
+func TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing(t *testing.T) {
+	t.Parallel()
+
+	db, fx := leakCatalogue.Get(t)
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
+
+	for name, id := range map[string]int64{
+		// Adds an alias that is hidden now, and a relation to a person who now prefers no page.
+		"hidden_alias_and_no_page_relation": fx.revisions.rowanAliasPublic,
+		// Adds a credit to a person who now prefers no page.
+		"credit_to_no_page_person": fx.revisions.lanternTurned,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+				"/v1/revisions/"+strconv.FormatInt(id, 10), nil))
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+			var body struct {
+				ChangedFields *[]string `json:"changed_fields"`
+				Base          any       `json:"base_snapshot"`
+			}
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			require.NotNil(t, body.ChangedFields, "changed_fields is present")
+			assert.Empty(t, *body.ChangedFields)
+			assert.NotNil(t, body.Base, "the revision has a base, so an empty list means no change")
+		})
+	}
+}

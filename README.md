@@ -65,6 +65,7 @@ graph TD
     MW --> CMD
     MW --> CTRL
     CTRL --> CMD
+    CTRL -->|public reads| REPO
     CMD --> DOM
     CMD --> REPO
     REPO --> DB
@@ -72,7 +73,9 @@ graph TD
 
 The public catalogue reads are registered outside the authentication middleware, so they answer every request as
 an anonymous one. Faceted piece, person and collection lists are built in Go from fixed SQL fragments (sqlc cannot
-express optional filters) and use InnoDB FULLTEXT for `q`.
+express optional filters) and use InnoDB FULLTEXT for `q`. Every `SELECT` the API runs
+is capped by a session `max_execution_time` of 2 s (see [docs/DEPLOY.md](docs/DEPLOY.md)); a list the server
+stops for that answers 500 `internal`.
 
 Two entrypoints share the internal packages:
 
@@ -157,8 +160,9 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `POST` | `/v1/tokens` | Auth0 only | Create an API token (max 10 active) |
 | `DELETE` | `/v1/tokens/{token_id}` | Auth0 only | Revoke an API token |
 
-Catalogue reads ignore credentials: an invalid or expired token gets the same answer as no token. Lists take `limit`
-(1-100, default 50) and `offset` (0-10000) and return `total`; nested lists that grow with data are capped at 200
+Catalogue reads ignore credentials: an invalid or expired token gets the same answer as no token. Paged lists (all but `/v1/terms`, which returns the whole tree) take
+`limit` (1-100, default 50) and `offset` (0-10000) and return `total`; every list order ends with an internal ID, so pages
+of an unchanged catalogue concatenate; nested lists that grow with data are capped at 200
 with a `*_total`. Query parameters are single-valued unless documented as repeatable, and a repeated or badly
 encoded one is a 400.
 

@@ -367,7 +367,9 @@ before it:
   understands a new value in one release, and only a later release may write rows that use it. Never roll back to a
   release older than one whose data uses a value it lacks; if you must, first delete or rewrite those rows. Removing
   or reordering ENUM values is a narrowing change: use the two-release rule above. The same holds for vocabulary
-  values inside revision snapshot documents, which reads validate too.
+  values inside revision snapshot documents, which reads validate too. The OpenAPI enum schema of the vocabulary changes in the same release as the domain list
+  (`TestSpec_EnumSchemasMatchDomain` fails otherwise); a client generated from the spec then knows the value before
+  any data uses it.
 - **Snapshot documents** (`revisions.snapshot_json`) follow the same rule as columns. A reader ignores document
   fields it does not know, so a release may add a field (for a new column) without a new `schema_version`: after
   a rollback, the older release keeps serving the revisions written in between, showing only the fields it knows.
