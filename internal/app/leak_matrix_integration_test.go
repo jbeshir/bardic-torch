@@ -30,7 +30,9 @@ const leakMarker = "leakmark"
 type leakFixture struct {
 	piece, group, person catalogtest.Ref
 	// noPage prefers not to have a page: their own page shows their identity, which is marked, and nothing else.
-	noPage                                            catalogtest.Ref
+	noPage catalogtest.Ref
+	// noPageAdmirer prefers not to have a page either; person lists show their identity as a stub.
+	noPageAdmirer                                     catalogtest.Ref
 	unapprovedPiece, unapprovedPerson, unapprovedEcho catalogtest.Ref
 	// lanterns is a public topic with an unapproved child and related affiliation, tagging unapproved pieces;
 	// westmarch is a public affiliation of the no-page person and an unapproved person.
@@ -45,6 +47,9 @@ type leakFixture struct {
 
 // noPageName is the no-page person's name, which only their own page shows.
 const noPageName = "Leakmark Nopage"
+
+// noPageAdmirerName is the name of another no-page person, which only person lists and their own page show.
+const noPageAdmirerName = "Leakmark Nopage Admirer"
 
 const hiddenLinkURL = "https://example.org/leakmark-hidden-link"
 
@@ -200,7 +205,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Leakmark Unapproved Admirer",
 		Relations: []domain.DocPersonRelation{{ToPersonID: person.ID, Type: domain.PersonRelationTypeHeirOf}}},
 		Unapproved: true})
-	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Leakmark Nopage Admirer",
+	noPageAdmirer := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: noPageAdmirerName,
 		Status:    domain.PersonStatusPrefersNoPage,
 		Relations: []domain.DocPersonRelation{{ToPersonID: person.ID, Type: domain.PersonRelationTypeHeirOf}}}})
 
@@ -215,7 +220,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	c.Exec("UPDATE links SET normalized_url = CONCAT('leakmark-normalized-', id)")
 
 	return leakFixture{
-		piece: piece, group: group, person: person, noPage: noPage,
+		piece: piece, group: group, person: person, noPage: noPage, noPageAdmirer: noPageAdmirer,
 		unapprovedPiece: unapprovedPiece, unapprovedPerson: unapprovedPerson, unapprovedEcho: unapprovedEcho,
 		lanterns: lanterns, westmarch: westmarch, unapprovedTerm: unapprovedTerm, underUnapproved: underUnapproved,
 		unapprovedChild: unapprovedChild, unapprovedAffiliation: unapprovedAffiliation,
@@ -249,6 +254,44 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: "/v1/persons/" + fx.group.Slug, status: http.StatusOK},
 			{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK, reveals: []string{fx.noPage.Slug, noPageName}},
 			{path: "/v1/persons/" + fx.unapprovedPerson.Slug, status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: piecesPath}: func(fx leakFixture) []leakRequest {
+		// An unknown term's 400 names the slug the request gave.
+		unknownTerm := func(term catalogtest.Ref) leakRequest {
+			return leakRequest{path: piecesPath + "?term=" + term.Slug, status: http.StatusBadRequest,
+				reveals: []string{term.Slug}}
+		}
+		return []leakRequest{
+			// Facet counts must not list unapproved terms, or terms under them, nor count unapproved pieces.
+			{path: piecesPath, status: http.StatusOK},
+			{path: piecesPath + "?term=" + fx.lanterns.Slug, status: http.StatusOK},
+			{path: piecesPath + "?q=leakmark", status: http.StatusOK},
+			{path: piecesPath + "?q=Le", status: http.StatusOK},
+			unknownTerm(fx.unapprovedTerm),
+			unknownTerm(fx.underUnapproved),
+			unknownTerm(fx.unapprovedChild),
+			unknownTerm(fx.westmarch),
+		}
+	},
+	{Method: http.MethodGet, Path: personsPath}: func(fx leakFixture) []leakRequest {
+		// Persons who prefer no page are listed as stubs, by name.
+		stubs := []string{fx.noPage.Slug, noPageName, fx.noPageAdmirer.Slug, noPageAdmirerName}
+		return []leakRequest{
+			{path: personsPath, status: http.StatusOK, reveals: stubs},
+			{path: personsPath + "?q=leakmark", status: http.StatusOK, reveals: stubs},
+			{path: personsPath + "?q=Le", status: http.StatusOK, reveals: stubs},
+			// The no-page person's role and affiliation, and the unapproved person's, must not match.
+			{path: personsPath + "?role=jester", status: http.StatusOK},
+			{path: personsPath + "?affiliation=" + fx.westmarch.Slug, status: http.StatusOK},
+			{path: personsPath + "?affiliation=" + fx.unapprovedAffiliation.Slug, status: http.StatusBadRequest,
+				reveals: []string{fx.unapprovedAffiliation.Slug}},
+		}
+	},
+	{Method: http.MethodGet, Path: collectionsPath}: func(leakFixture) []leakRequest {
+		return []leakRequest{
+			{path: collectionsPath, status: http.StatusOK},
+			{path: collectionsPath + "?kind=other&letter=L", status: http.StatusOK},
 		}
 	},
 	{Method: http.MethodGet, Path: termsPath}: func(leakFixture) []leakRequest {

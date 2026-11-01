@@ -80,9 +80,8 @@ func TestEventListGet_ServeHTTP(t *testing.T) {
 		})
 	}
 
-	invalidKindBody := `{"code":"invalid_request","message":"invalid kind: not one of its allowed values"}`
 	invalid := append([]invalidQueryCase{
-		{name: "unknown_kind", query: "kind=festival", wantBody: invalidKindBody},
+		{name: unknownKindCase, query: "kind=festival", wantBody: invalidKindBody},
 		{name: "upper_case_kind", query: "kind=Venue", wantBody: invalidKindBody},
 		{
 			name: "repeated_kind", query: "kind=venue&kind=event",

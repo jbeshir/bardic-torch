@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
@@ -297,6 +298,30 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.persons.EXPECT().GetPublicPerson(mock.Anything, matrixSlug).Return(matrixPerson, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: piecesPath}: {
+		access:        public,
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.pieceLister.EXPECT().ListPublicPieces(mock.Anything,
+				datasources.PieceQuery{Sort: domain.PieceSortTitle, Page: matrixPage}).Return(domain.PieceList{}, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: personsPath}: {
+		access:        public,
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.personLister.EXPECT().ListPublicPersons(mock.Anything,
+				datasources.PersonQuery{Sort: domain.PersonSortName, Page: matrixPage}).Return(domain.PersonList{}, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: collectionsPath}: {
+		access:        public,
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.collectionLister.EXPECT().ListPublicCollections(mock.Anything,
+				datasources.CollectionQuery{Page: matrixPage}).Return(domain.CollectionList{}, nil)
 		},
 	},
 	{Method: http.MethodGet, Path: termsPath}: {

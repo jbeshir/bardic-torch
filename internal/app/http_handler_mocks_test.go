@@ -50,45 +50,51 @@ func prefixValidator(prefix string, method domain.AuthMethod) router.AuthValidat
 // handlerMocks are the datasources behind a handler built with NewHTTPHandler, authenticating with
 // prefixValidator for both Auth0 ("auth0|") and API tokens.
 type handlerMocks struct {
-	pinger       *mocks.Pinger
-	users        *mocks.UserGetter
-	displayNames *mocks.DisplayNameUpdater
-	blocker      *mocks.UserBlocker
-	unblocker    *mocks.UserUnblocker
-	counter      *mocks.ActiveAPITokenCounter
-	creator      *mocks.APITokenCreator
-	lister       *mocks.ActiveAPITokenLister
-	revoker      *mocks.APITokenRevoker
-	pieces       *mocks.PublicPieceGetter
-	persons      *mocks.PublicPersonGetter
-	termLister   *mocks.PublicTermLister
-	terms        *mocks.PublicTermGetter
-	collections  *mocks.PublicCollectionGetter
-	eventLister  *mocks.PublicEventLister
-	events       *mocks.PublicEventGetter
-	handler      http.Handler
-	validate     *openapitest.Validator
+	pinger           *mocks.Pinger
+	users            *mocks.UserGetter
+	displayNames     *mocks.DisplayNameUpdater
+	blocker          *mocks.UserBlocker
+	unblocker        *mocks.UserUnblocker
+	counter          *mocks.ActiveAPITokenCounter
+	creator          *mocks.APITokenCreator
+	lister           *mocks.ActiveAPITokenLister
+	revoker          *mocks.APITokenRevoker
+	pieceLister      *mocks.PublicPieceLister
+	pieces           *mocks.PublicPieceGetter
+	personLister     *mocks.PublicPersonLister
+	persons          *mocks.PublicPersonGetter
+	termLister       *mocks.PublicTermLister
+	terms            *mocks.PublicTermGetter
+	collectionLister *mocks.PublicCollectionLister
+	collections      *mocks.PublicCollectionGetter
+	eventLister      *mocks.PublicEventLister
+	events           *mocks.PublicEventGetter
+	handler          http.Handler
+	validate         *openapitest.Validator
 }
 
 func newHandlerMocks(t *testing.T) handlerMocks {
 	m := handlerMocks{
-		pinger:       mocks.NewPinger(t),
-		users:        mocks.NewUserGetter(t),
-		displayNames: mocks.NewDisplayNameUpdater(t),
-		blocker:      mocks.NewUserBlocker(t),
-		unblocker:    mocks.NewUserUnblocker(t),
-		counter:      mocks.NewActiveAPITokenCounter(t),
-		creator:      mocks.NewAPITokenCreator(t),
-		lister:       mocks.NewActiveAPITokenLister(t),
-		revoker:      mocks.NewAPITokenRevoker(t),
-		pieces:       mocks.NewPublicPieceGetter(t),
-		persons:      mocks.NewPublicPersonGetter(t),
-		termLister:   mocks.NewPublicTermLister(t),
-		terms:        mocks.NewPublicTermGetter(t),
-		collections:  mocks.NewPublicCollectionGetter(t),
-		eventLister:  mocks.NewPublicEventLister(t),
-		events:       mocks.NewPublicEventGetter(t),
-		validate:     openapitest.New(t),
+		pinger:           mocks.NewPinger(t),
+		users:            mocks.NewUserGetter(t),
+		displayNames:     mocks.NewDisplayNameUpdater(t),
+		blocker:          mocks.NewUserBlocker(t),
+		unblocker:        mocks.NewUserUnblocker(t),
+		counter:          mocks.NewActiveAPITokenCounter(t),
+		creator:          mocks.NewAPITokenCreator(t),
+		lister:           mocks.NewActiveAPITokenLister(t),
+		revoker:          mocks.NewAPITokenRevoker(t),
+		pieceLister:      mocks.NewPublicPieceLister(t),
+		pieces:           mocks.NewPublicPieceGetter(t),
+		personLister:     mocks.NewPublicPersonLister(t),
+		persons:          mocks.NewPublicPersonGetter(t),
+		termLister:       mocks.NewPublicTermLister(t),
+		terms:            mocks.NewPublicTermGetter(t),
+		collectionLister: mocks.NewPublicCollectionLister(t),
+		collections:      mocks.NewPublicCollectionGetter(t),
+		eventLister:      mocks.NewPublicEventLister(t),
+		events:           mocks.NewPublicEventGetter(t),
+		validate:         openapitest.New(t),
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
 		Pinger: m.pinger,
@@ -105,10 +111,13 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		ActiveAPITokenCounter:  m.counter,
 		ActiveAPITokenLister:   m.lister,
 		APITokenRevoker:        m.revoker,
+		PublicPieceLister:      m.pieceLister,
 		PublicPieceGetter:      m.pieces,
+		PublicPersonLister:     m.personLister,
 		PublicPersonGetter:     m.persons,
 		PublicTermLister:       m.termLister,
 		PublicTermGetter:       m.terms,
+		PublicCollectionLister: m.collectionLister,
 		PublicCollectionGetter: m.collections,
 		PublicEventLister:      m.eventLister,
 		PublicEventGetter:      m.events,

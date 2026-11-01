@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -142,9 +143,7 @@ func linkFromDomain(l domain.Link) Link {
 func slugOrBadRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 	slug := r.PathValue("slug")
 	if !domain.IsSlug(slug) {
-		httpjson.WriteError(r.Context(), w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
-			"invalid slug: must be lowercase ASCII letters and digits, in runs joined by single hyphens, "+
-				"at most 191 characters")
+		httpjson.WriteError(r.Context(), w, http.StatusBadRequest, httpjson.CodeInvalidRequest, "invalid slug: "+slugRule)
 		return "", false
 	}
 
@@ -153,4 +152,19 @@ func slugOrBadRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 
 func performanceLinkFromDomain(l domain.PerformanceLink) PerformanceLink {
 	return PerformanceLink{URL: l.URL, Title: l.Title, Platform: l.Platform}
+}
+
+// slugRule is what an invalid slug parameter's 400 says a slug must be.
+const slugRule = "must be lowercase ASCII letters and digits, in runs joined by single hyphens, " +
+	"at most 191 characters"
+
+var errNotSlug = errors.New("not a slug")
+
+// slugValue returns s if it is a slug, for listOrBadRequest.
+func slugValue(s string) (string, error) {
+	if !domain.IsSlug(s) {
+		return "", errNotSlug
+	}
+
+	return s, nil
 }

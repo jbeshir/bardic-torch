@@ -61,7 +61,7 @@ func (r *Repository) readOnly(ctx context.Context, f func(c *catalogueReader) er
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if err := f(&catalogueReader{q: r.queries.WithTx(tx)}); err != nil {
+	if err := f(&catalogueReader{q: r.queries.WithTx(tx), run: txRunner(tx)}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -75,7 +75,9 @@ func (r *Repository) readOnly(ctx context.Context, f func(c *catalogueReader) er
 // first error, from a query or an unknown ENUM value, in err; once it has failed, fetch runs no more queries,
 // and the caller checks err once at the end.
 type catalogueReader struct {
-	q   *queries.Queries
+	q *queries.Queries
+	// run runs the statements built for searches, which sqlc cannot express.
+	run statementRunner
 	err error
 }
 

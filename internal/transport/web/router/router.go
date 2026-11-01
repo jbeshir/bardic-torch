@@ -22,10 +22,13 @@ type Dependencies struct {
 	CreateAPIToken         command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
 	APITokenLister         datasources.ActiveAPITokenLister
 	APITokenRevoker        datasources.APITokenRevoker
+	PublicPieceLister      datasources.PublicPieceLister
 	PublicPieceGetter      datasources.PublicPieceGetter
+	PublicPersonLister     datasources.PublicPersonLister
 	PublicPersonGetter     datasources.PublicPersonGetter
 	PublicTermLister       datasources.PublicTermLister
 	PublicTermGetter       datasources.PublicTermGetter
+	PublicCollectionLister datasources.PublicCollectionLister
 	PublicCollectionGetter datasources.PublicCollectionGetter
 	PublicEventLister      datasources.PublicEventLister
 	PublicEventGetter      datasources.PublicEventGetter
@@ -51,11 +54,16 @@ func routes(deps Dependencies) []route {
 		{method: http.MethodGet, path: "/readyz", handler: controller.Readyz{Pinger: deps.Pinger}},
 
 		// Public catalogue reads.
+		{method: http.MethodGet, path: "/v1/pieces", handler: controller.PieceListGet{Lister: deps.PublicPieceLister}},
 		{method: http.MethodGet, path: "/v1/pieces/{slug}", handler: controller.PieceGet{Getter: deps.PublicPieceGetter}},
+		{method: http.MethodGet, path: "/v1/persons",
+			handler: controller.PersonListGet{Lister: deps.PublicPersonLister}},
 		{method: http.MethodGet, path: "/v1/persons/{slug}",
 			handler: controller.PersonGet{Getter: deps.PublicPersonGetter}},
 		{method: http.MethodGet, path: "/v1/terms", handler: controller.TermListGet{Lister: deps.PublicTermLister}},
 		{method: http.MethodGet, path: "/v1/terms/{slug}", handler: controller.TermGet{Getter: deps.PublicTermGetter}},
+		{method: http.MethodGet, path: "/v1/collections",
+			handler: controller.CollectionListGet{Lister: deps.PublicCollectionLister}},
 		{method: http.MethodGet, path: "/v1/collections/{collection_id}",
 			handler: controller.CollectionGet{Getter: deps.PublicCollectionGetter}},
 		{method: http.MethodGet, path: "/v1/events", handler: controller.EventListGet{Lister: deps.PublicEventLister}},

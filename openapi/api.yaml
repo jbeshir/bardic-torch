@@ -351,6 +351,121 @@ paths:
         "500":
           $ref: "#/components/responses/Internal"
 
+  /v1/pieces:
+    get:
+      tags:
+        - Catalogue
+      summary: Search pieces
+      description: |
+        Searches the public pieces, returning one page of them with how many match in all and the facet counts.
+        Every filter given must match. `term`s are grouped by their facet: a piece matches a facet if it is
+        tagged with any of its terms or any of their descendants, and must match every facet given. `kind`,
+        `conservation_status` and their values work the same way, as two more facets.
+
+        Facet counts are disjunctive: a value's count is how many pieces match every filter except the values
+        selected in its own facet, and match the value (a term with its descendants, each piece counted once).
+        Only values with a count above zero are listed. Letter counts ignore the `letter` filter. Unapproved
+        pieces, and terms that are unapproved or under an unapproved ancestor, are never matched or counted.
+        Credentials are ignored.
+      operationId: listPieces
+      security: []
+      parameters:
+        - name: term
+          in: query
+          required: false
+          description: |
+            Slugs of public piece terms (any facet but `affiliation`) to filter on; repeat the parameter for
+            several. A slug given more than once counts once.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            examples:
+              - [war, swords]
+            items:
+              type: string
+              pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+              maxLength: 191
+              examples:
+                - war
+        - name: kind
+          in: query
+          required: false
+          description: Kinds to filter on, matching a piece's primary or secondary kinds; repeat for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 6
+            uniqueItems: true
+            items:
+              $ref: "#/components/schemas/PieceKind"
+        - name: conservation_status
+          in: query
+          required: false
+          description: Conservation statuses to filter on; repeat for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 5
+            uniqueItems: true
+            items:
+              $ref: "#/components/schemas/ConservationStatus"
+        - name: stub
+          in: query
+          required: false
+          description: Only list pieces that are (`true`) or are not (`false`) stubs.
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Letter"
+        - name: sort
+          in: query
+          required: false
+          description: |
+            The order: by sort title, or by `relevance` to `q` (best first, then by sort title). Defaults to
+            `relevance` with `q` and `title` without; `relevance` needs `q`. Ties are broken by an internal ID, so
+            pages are stable.
+          schema:
+            $ref: "#/components/schemas/PieceSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of pieces, with the counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PieceList"
+        "400":
+          description: |
+            A parameter is invalid: a `term` that is not a slug, more than 20 `term`s, or a slug that no public
+            piece term has (the same `unknown term` error whether the term does not exist, is not approved, or is
+            an affiliation); a `kind` or `conservation_status` that is not one of its values or is repeated; a
+            `stub` that is not `true` or `false`; a `q` that is blank, longer than 200 characters or not valid
+            UTF-8; a `letter` that is not A to Z or 0; `sort=relevance` without `q`; `limit` or `offset` out of
+            range; a scalar parameter given more than once; or a query string that is not validly
+            percent-encoded. The error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                unknownTerm:
+                  summary: No public piece term has the slug
+                  value:
+                    code: invalid_request
+                    message: "unknown term: swords"
+                invalidKind:
+                  summary: A kind that is not a piece kind
+                  value:
+                    code: invalid_request
+                    message: "invalid kind: not one of its allowed values"
+        "500":
+          $ref: "#/components/responses/Internal"
+
   /v1/pieces/{slug}:
     get:
       tags:
@@ -384,6 +499,94 @@ paths:
               example:
                 code: not_found
                 message: piece not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/persons:
+    get:
+      tags:
+        - Catalogue
+      summary: Search persons
+      description: |
+        Searches the public persons, returning one page of them with how many match in all and how many sort
+        under each letter, ignoring the `letter` filter. Every filter given must match. Persons who prefer not to
+        have a page are listed as stubs: `q` matches them by name only, and they match no `role` or
+        `affiliation` filter. Hidden aliases never match. Unapproved persons are never listed or counted.
+        Credentials are ignored.
+      operationId: listPersons
+      security: []
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          description: Kinds to filter on; repeat for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 3
+            uniqueItems: true
+            items:
+              $ref: "#/components/schemas/PersonKind"
+        - name: role
+          in: query
+          required: false
+          description: Roles to filter on, matching a person with any of them; repeat for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 8
+            uniqueItems: true
+            items:
+              $ref: "#/components/schemas/PersonRole"
+        - name: affiliation
+          in: query
+          required: false
+          description: |
+            The slug of a public affiliation term, matching persons affiliated with it or any of its
+            descendants.
+          schema:
+            type: string
+            pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+            maxLength: 191
+            examples:
+              - northmarch
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Letter"
+        - name: sort
+          in: query
+          required: false
+          description: |
+            The order: by sort name, or by `relevance` to `q` (best first, then by sort name). Defaults to
+            `relevance` with `q` and `name` without; `relevance` needs `q`. Ties are broken by an internal ID, so
+            pages are stable.
+          schema:
+            $ref: "#/components/schemas/PersonSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of persons, with the counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonList"
+        "400":
+          description: |
+            A parameter is invalid: a `kind` or `role` that is not one of its values or is repeated; an
+            `affiliation` that is not a slug, or that no public affiliation term has (the same `unknown
+            affiliation` error whether the term does not exist, is not approved, or is not an affiliation); a `q`
+            that is blank, longer than 200 characters or not valid UTF-8; a `letter` that is not A to Z or 0;
+            `sort=relevance` without `q`; `limit` or `offset` out of range; a scalar parameter given more than
+            once; or a query string that is not validly percent-encoded. The error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "unknown affiliation: northmarch"
         "500":
           $ref: "#/components/responses/Internal"
 
@@ -573,6 +776,55 @@ paths:
         "500":
           $ref: "#/components/responses/Internal"
 
+  /v1/collections:
+    get:
+      tags:
+        - Catalogue
+      summary: List collections
+      description: |
+        Lists one page of the public collections, by sort name, with how many match in all and how many sort
+        under each letter, ignoring the `letter` filter. Unapproved collections are not listed or counted.
+        Credentials are ignored.
+      operationId: listCollections
+      security: []
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          description: Collection kinds to filter on; repeat for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 13
+            uniqueItems: true
+            items:
+              $ref: "#/components/schemas/CollectionKind"
+        - $ref: "#/components/parameters/Letter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of collections, with the counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionList"
+        "400":
+          description: |
+            A `kind` is not a collection kind or is repeated, the `letter` is not A to Z or 0, `limit` or
+            `offset` is out of range, a scalar parameter is given more than once, or the query string is not
+            validly percent-encoded; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid kind: not one of its allowed values"
+        "500":
+          $ref: "#/components/responses/Internal"
+
   /v1/collections/{collection_id}:
     get:
       tags:
@@ -754,6 +1006,30 @@ components:
         default: 0
         examples:
           - 0
+
+    Search:
+      name: q
+      in: query
+      required: false
+      description: |
+        Words to search for, at most 200 characters. Each word of three or more letters or digits that is not a
+        stopword must start a word of the match; punctuation separates words and has no other meaning. A query
+        with no such word (such as `the` or `Oi`) matches the start of titles and names instead. Matching ignores
+        case and accents.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+        pattern: '\S'
+        examples:
+          - wild rover
+    Letter:
+      name: letter
+      in: query
+      required: false
+      description: Only list entries under this letter of the A–Z index.
+      schema:
+        $ref: "#/components/schemas/Letter"
 
   responses:
     InvalidRequest:
@@ -1116,6 +1392,251 @@ components:
               name: CI runner
               created_at: "2026-10-31T12:00:00Z"
               last_used_at: "2026-10-31T12:30:00Z"
+
+    Letter:
+      type: string
+      description: |
+        A letter of the A–Z index: the upper-case letter a sort key starts with, ignoring accents and leading
+        articles, or `0` for keys that start with anything else (digits, punctuation, other scripts).
+      enum: ["0", A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z]
+      examples:
+        - W
+
+    LetterCount:
+      type: object
+      description: How many entries of a list sort under a letter.
+      additionalProperties: false
+      required: [letter, count]
+      properties:
+        letter:
+          $ref: "#/components/schemas/Letter"
+        count:
+          type: integer
+          format: int64
+          minimum: 1
+          description: How many entries match, ignoring the list's letter filter.
+          examples:
+            - 12
+      examples:
+        - letter: W
+          count: 12
+
+    PieceSort:
+      type: string
+      description: The order of a piece search.
+      enum: [title, relevance]
+      examples:
+        - title
+
+    PersonSort:
+      type: string
+      description: The order of a person search.
+      enum: [name, relevance]
+      examples:
+        - name
+
+    PieceList:
+      type: object
+      description: One page of a piece search, with how many pieces match in all and the facet counts.
+      additionalProperties: false
+      required: [data, total, facets]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PieceSummary"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many pieces match, over every page.
+          examples:
+            - 1
+        facets:
+          $ref: "#/components/schemas/PieceFacets"
+      examples:
+        - data:
+            - slug: the-copper-kettle
+              title: The Copper Kettle
+              kind: song
+              secondary_kinds: [dance_music]
+              conservation_status: endangered
+              is_stub: false
+          total: 1
+          facets:
+            terms:
+              - slug: war
+                count: 1
+            kinds:
+              - kind: song
+                count: 1
+            conservation_statuses:
+              - conservation_status: endangered
+                count: 1
+            letters:
+              - letter: C
+                count: 1
+
+    PieceFacets:
+      type: object
+      description: |
+        A piece search's facet counts. Each value's count is how many public pieces match every filter except
+        the values selected in its own facet, and match the value; only counts above zero are listed.
+      additionalProperties: false
+      required: [terms, kinds, conservation_statuses, letters]
+      properties:
+        terms:
+          type: array
+          description: |
+            Public piece terms, by slug, counting each piece tagged with the term or any of its descendants once.
+          items:
+            $ref: "#/components/schemas/TermCount"
+        kinds:
+          type: array
+          description: Kinds, in the enum's order, counting pieces of the kind as primary or secondary kind.
+          items:
+            $ref: "#/components/schemas/PieceKindCount"
+        conservation_statuses:
+          type: array
+          description: Conservation statuses, in the enum's order.
+          items:
+            $ref: "#/components/schemas/ConservationStatusCount"
+        letters:
+          type: array
+          description: Letters of the pieces' sort titles, `0` first, ignoring the `letter` filter.
+          items:
+            $ref: "#/components/schemas/LetterCount"
+      examples:
+        - terms:
+            - slug: war
+              count: 3
+          kinds:
+            - kind: song
+              count: 2
+          conservation_statuses:
+            - conservation_status: endangered
+              count: 3
+          letters:
+            - letter: W
+              count: 3
+
+    TermCount:
+      type: object
+      description: How many pieces of a search a term classifies.
+      additionalProperties: false
+      required: [slug, count]
+      properties:
+        slug:
+          $ref: "#/components/schemas/TermSummary/properties/slug"
+        count:
+          $ref: "#/components/schemas/PieceKindCount/properties/count"
+      examples:
+        - slug: war
+          count: 3
+
+    PieceKindCount:
+      type: object
+      description: How many pieces of a search are of a kind.
+      additionalProperties: false
+      required: [kind, count]
+      properties:
+        kind:
+          $ref: "#/components/schemas/PieceKind"
+        count:
+          type: integer
+          format: int64
+          minimum: 1
+          description: How many pieces match, ignoring the selection in this facet.
+          examples:
+            - 3
+      examples:
+        - kind: song
+          count: 3
+
+    ConservationStatusCount:
+      type: object
+      description: How many pieces of a search have a conservation status.
+      additionalProperties: false
+      required: [conservation_status, count]
+      properties:
+        conservation_status:
+          $ref: "#/components/schemas/ConservationStatus"
+        count:
+          $ref: "#/components/schemas/PieceKindCount/properties/count"
+      examples:
+        - conservation_status: endangered
+          count: 3
+
+    PersonList:
+      type: object
+      description: |
+        One page of a person search, with how many persons match in all and how many of those sort under each
+        letter.
+      additionalProperties: false
+      required: [data, total, letters]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonSummary"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many persons match, over every page.
+          examples:
+            - 1
+        letters:
+          type: array
+          description: Letters of the persons' sort names, `0` first, ignoring the `letter` filter.
+          items:
+            $ref: "#/components/schemas/LetterCount"
+      examples:
+        - data:
+            - slug: wren-of-the-vale
+              name: Wren of the Vale
+              kind: community_bard
+              is_stub: false
+          total: 1
+          letters:
+            - letter: W
+              count: 1
+
+    CollectionList:
+      type: object
+      description: |
+        One page of the public collections, by sort name, with how many match in all and how many of those sort
+        under each letter.
+      additionalProperties: false
+      required: [data, total, letters]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CollectionSummary"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many collections match, over every page.
+          examples:
+            - 1
+        letters:
+          type: array
+          description: Letters of the collections' sort names, `0` first, ignoring the `letter` filter.
+          items:
+            $ref: "#/components/schemas/LetterCount"
+      examples:
+        - data:
+            - id: 12
+              name: The Northmarch Songbook
+              kind: songbook_pdf
+              url: https://example.org/songbook.pdf
+              is_bardic_resource: true
+          total: 1
+          letters:
+            - letter: N
+              count: 1
 
     PieceSummary:
       type: object

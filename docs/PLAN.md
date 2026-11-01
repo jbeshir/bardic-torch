@@ -207,6 +207,20 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   them. Collection citations and event performances are capped at 200 with totals; collection children are not
   capped. Every query parameter is single-valued unless documented as repeatable: a repeated one, or a query
   string that is not validly percent-encoded, is a 400.
+- **Faceted search and A–Z lists** (`GET /v1/pieces`, `/v1/persons`, `/v1/collections`).
+  - Piece `term`s are grouped by facet: OR within a facet, AND across facets, each term matching its descendants.
+    `kind` and `conservation_status` are two more facets. At most 20 terms; a repeated term counts once. A term
+    that is unknown, unapproved, under an unapproved ancestor or an affiliation gives one 400, `unknown term:
+    <slug>`, echoing only the client's slug. `affiliation` on persons works the same way (`unknown affiliation`).
+  - Facet counts are disjunctive: a value's count ignores the selection in its own facet. Each piece counts once
+    per term, even when tagged with the term and its descendant. Only counts above zero are listed. Letter counts
+    ignore the `letter` filter, and the totals and counts are over every page.
+  - The statements are built in Go from fixed fragments and `?` placeholders, since sqlc cannot express optional
+    filters. A piece search makes at most three round trips (term resolution, the page, every count in one
+    statement), and every statement carries `MAX_EXECUTION_TIME(2000)`. A search the server stops answers 500 and is
+    logged as a warning.
+  - `q` is at most 200 code points of valid UTF-8 and must not be blank. Prefix matches have no score, so with
+    `sort=relevance` they come in sort-key order. `relevance` is the default with `q` and a 400 without it.
 - **Status sources:** "a status other than active needs a source" is domain validation (BE4), not a CHECK. The
   importer uses the legacy wiki page URL as the source. `conservation_history` has a `source_url`.
 

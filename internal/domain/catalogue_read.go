@@ -358,3 +358,66 @@ type EventPerformance struct {
 	Performers          []PersonSummary
 	DescriptionVerbatim string
 }
+
+// LetterCount is how many entities of a list sort under a letter of the A–Z index.
+type LetterCount struct {
+	Letter Letter
+	Count  int64
+}
+
+// PieceList is one page of the public pieces matching a search, with how many match in all and the facet counts.
+type PieceList struct {
+	Pieces []PieceSummary
+	Total  int64
+	Facets PieceFacets
+}
+
+// PieceFacets are the facet counts of a piece search. Each is disjunctive: a value's count is how many public
+// pieces match every filter of the search except the selection in the value's own facet, and match the value.
+// Only values with a count above zero are listed.
+type PieceFacets struct {
+	// Terms are the public piece terms, counting pieces tagged with the term or any of its descendants once, by
+	// slug.
+	Terms []TermCount
+	// Kinds count pieces with the kind as their primary or a secondary kind, in PieceKind's declaration order.
+	Kinds []PieceKindCount
+	// ConservationStatuses are in ConservationStatus's declaration order.
+	ConservationStatuses []ConservationStatusCount
+	// Letters are the letters the pieces' sort titles sort under, "0" first.
+	Letters []LetterCount
+}
+
+// TermCount is how many pieces of a search a term classifies.
+type TermCount struct {
+	Slug  string
+	Count int64
+}
+
+// PieceKindCount is how many pieces of a search are of a kind.
+type PieceKindCount struct {
+	Kind  PieceKind
+	Count int64
+}
+
+// ConservationStatusCount is how many pieces of a search have a conservation status.
+type ConservationStatusCount struct {
+	ConservationStatus ConservationStatus
+	Count              int64
+}
+
+// PersonList is one page of the public persons matching a search, with how many match in all and how many of
+// those sort under each letter, ignoring the search's own letter filter. Persons who prefer no page are listed
+// as stubs.
+type PersonList struct {
+	Persons []PersonSummary
+	Total   int64
+	Letters []LetterCount
+}
+
+// CollectionList is one page of the public collections matching a filter, by sort name, with how many match in
+// all and how many of those sort under each letter, ignoring the filter's own letter.
+type CollectionList struct {
+	Collections []CollectionSummary
+	Total       int64
+	Letters     []LetterCount
+}

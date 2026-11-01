@@ -171,6 +171,16 @@ committed rows only. Tests that only read should share one seeded database per f
 `catalogtest.NewShared(seed)` and `Get(t)`, with `catalogtest.Main` as the package's `TestMain`. The shared pool
 is read-only (`transaction_read_only`), so a stray write fails with error 1792. The package doc has examples.
 
+The search statements (`internal/datasources/mysql/search_sql.go`, `piece_search.go`, `person_search.go`,
+`collection_list.go`) are built in Go, so they have unit tests that need no database (`search_sql_test.go`). A fake
+`statementRunner` records each statement, which pins the round trips. Each statement must have one placeholder per
+argument and the `MAX_EXECUTION_TIME` hint on its top-level `SELECT`. `FuzzPieceSearchSQL` checks that the SQL text
+depends only on a search's shape, never on the bytes of `q` or a term (`go test -fuzz FuzzPieceSearchSQL
+./internal/datasources/mysql/` explores further; plain runs use the seed corpus). Their semantics are integration
+tests against hand-computed sets (`search_integration_test.go`, which also compares the stopword list with the
+server's). `search_text_integration_test.go` runs the text searches again after `ALTER TABLE … FORCE` rebuilds the
+FULLTEXT indexes, and checks that the server enforces the execution time limit.
+
 `TestDocumentCoverage` (A1.8) classifies every column of the tables each snapshot document owns as a document
 field or system-owned, with a reason. A new column, document field or table fails it until it is classified.
 
