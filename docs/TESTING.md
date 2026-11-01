@@ -53,6 +53,20 @@ with `go tool`, so nothing needs installing.
   `FuzzSections` and `FuzzInlineLyricsBlocks` check that nothing panics, spans are in bounds and in order, and no
   `<poem` tag survives `WithoutInlineLyrics`; `TestHostileInput_TimeBudget` runs every parser over 1 MB of unclosed
   `{{[[(` within 20 seconds.
+- **Pieces and taxonomy** (`internal/mediawiki`, synthetic wikis built by `site_fixtures_test.go`, and the
+  scrubbed copy): category classes (`TestClassifyCategories_*`); the term plan (`TestTermPlan_*`: facets and
+  parents, each PLAN §2.10 parent, display names without the facet suffix, Patriotic topics related to their
+  kingdom, local groups under their bards' kingdom, redirect categories as aliases, dropped placeholders,
+  descriptions as Markdown without lyrics, and a tree `domain.TermClosure` accepts); pieces (`TestParsePiece_*`:
+  kind and secondary kinds, terms from the categories ordered by the infobox with parts from qualifiers, drift both
+  ways, redirect categories, the most severe conservation status, markup repaired before parsing); alternate titles
+  (`TestPieceTitles_*`: infobox splits, H1 parentheticals as titles, other_titles and "Also known as" lines, other
+  pages' titles and category words rejected, unparsed prose listed, redirects); content fields
+  (`TestWikitextToMarkdown`, `TestPieceFields_*`: dropped lyrics absent from every field by reflection, version
+  notes kept, licensing hints stripped, "public domain" a review fact and never a licence, the period from century
+  origins). On the scrubbed copy, `TestScrubbedPieces_ResearchCounts` asserts 142 pieces (135/4/2/1 by kind), 11
+  with inline lyrics, 11 assessed and the drift of 13/24/4 pages, and `TestScrubbedPieces_NoLyricMarkerInAnyField`
+  that no placeholder lyric reaches a record.
 - **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
   `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; the
   milestone gates set it to the research output). The crawl holds legal names and lyrics, so these tests report
@@ -60,7 +74,9 @@ with `go tool`, so nothing needs installing.
   `wikidumptest.NoError` (the error's type only); `TestResearchTestsReportOnlyThroughEqual` fails any test file that
   reads the crawl and also imports testify, logs or prints. `oracle_research_test.go` compares the Go port with the
   research analysis (`analysis/*.json`): page types, sections and their content, infobox values, the inline-lyrics
-  flag (11 pieces) and bard aliases. Each deliberate difference is an entry of `oracleDeviations` with its reason;
+  flag (11 pieces) and bard aliases; `oracle_pieces_research_test.go` the taxonomy (every category's class, facets,
+  ancestors and redirect), pieces (kind, section keys, H1, bard-name categories, both drift lists, conservation and
+  alternate titles) and the quality lists (drift, redirect-category links, inline-lyrics pages, assessed pieces). Each deliberate difference is an entry of `oracleDeviations` with its reason;
   any other is a failure.
 - **Privacy scrubber** (`internal/scrub`, `cmd/scrub-dump`): the committed scrubbed copy of the crawl,
   `testdata/wiki-dump/`, is what every other wiki test reads (`wikidumptest.Scrubbed`). Unit tests on synthetic

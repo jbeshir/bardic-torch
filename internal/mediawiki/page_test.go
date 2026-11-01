@@ -134,7 +134,7 @@ func TestParsePage_InfoboxesAndSections(t *testing.T) {
 	require.Len(t, got.Infoboxes, 1)
 	box := got.Infoboxes[0]
 	assert.Equal(t, "Infobox song", box.Template)
-	assert.Equal(t, []string{titleParam, "lyrics_by", titleParam}, []string{box.Params[0].Name, box.Params[1].Name,
+	assert.Equal(t, []string{titleParam, lyricsByParam, titleParam}, []string{box.Params[0].Name, box.Params[1].Name,
 		box.Params[2].Name})
 	assert.Equal(t, aSong, box.Params[0].Raw)
 	title, ok := box.Param(titleParam)

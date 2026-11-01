@@ -26,6 +26,18 @@ var oracleDeviations = map[string]string{
 		"lists each occurrence",
 	"sections.single_line_headings": "Sections is hand-coded, RE2 having no backreference, and a heading never " +
 		"spans two lines; the reference's \\s may cross a line break (the dump has no such heading)",
+	"titles.parentheticals": "a title field that is the page title and a trailing parenthetical gives the " +
+		"parenthetical's parts (a subtitle, or alternates when \"/\" splits it); the reference splits only at \"/\"",
+	"titles.h1_alternates": "the H1, parentheticals included, is an alternate title (piece H1 parentheticals name " +
+		"the piece, never a person); the reference lists the H1 apart",
+	"titles.rejected": "an alternate that is another page's title or a category or facet word is rejected and " +
+		"listed, not imported (Fight for the Midrealm, Birthday Dirge); the reference keeps it",
+	"titles.unparsed_prose": "only lead lines starting \"Also known as\" are parsed; other lines naming titles are " +
+		"listed for review; the reference matches \"also known as\" anywhere in the line",
+	"titles.quotes_and_ampersands": "quotes around a title are dropped and \" & \" separates titles in an " +
+		"\"Also known as\" line; the reference keeps the quotes and splits only at \",\" and \"or\"",
+	"titles.redirects": "redirects to a piece are its aliases of kind redirect; the reference lists them only in " +
+		"redirects.json",
 	"sections.masked_comments": "sections are found with comments masked by spaces, not removed, so offsets are " +
 		"offsets into the wikitext; the dump's headings are the same either way",
 }
