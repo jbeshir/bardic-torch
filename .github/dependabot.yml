@@ -21,11 +21,19 @@ updates:
           - minor
           - patch
 
+  # The workflow pins each action to a commit SHA with its version tag in a trailing comment; dependabot updates
+  # both. The actions arrive as one pull request.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
 
+  # Both FROM lines of the Dockerfile. The mysql:9.7 tags in scripts/ and the CI workflow are floating LTS tags
+  # that track 9.7 patch releases themselves; DEPLOY.md's production pin is updated by hand.
   - package-ecosystem: docker
     directory: /
     schedule:
