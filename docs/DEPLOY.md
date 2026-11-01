@@ -355,6 +355,11 @@ before it:
   column without a default, or narrowing a column. Do these in two releases: first a release that stops using the
   old shape (and writes both, if needed), then a release whose migration removes it.
 - Never edit a migration that has been deployed; add a new one.
+- **Enum growth**: appending a value to a catalogue `ENUM` column is an instant, compatible migration, but old code
+  fails when it reads a value it does not know (the read path returns a logged 500 for it). So ship the code that
+  understands a new value in one release, and only a later release may write rows that use it. Never roll back to a
+  release older than one whose data uses a value it lacks; if you must, first delete or rewrite those rows. Removing
+  or reordering ENUM values is a narrowing change: use the two-release rule above.
 
 ### Failed migrations (dirty state)
 

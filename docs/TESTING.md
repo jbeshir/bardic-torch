@@ -163,30 +163,108 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
 `TEST_MYSQL_ADMIN_URL`, applies every migration, and drops it when the test ends, so integration tests can run
 in parallel. A missing `TEST_MYSQL_ADMIN_URL` fails the test rather than skipping it.
 
-A migrated database costs about 2.5 s, and MySQL serialises much of that DDL, so parallel tests do not hide
-it. `internal/testutil/catalogtest` seeds catalogue fixtures with plain SQL from the `internal/domain` snapshot
-documents. Approved entities get an approved revision as their current revision; `Unapproved: true` leaves it
-NULL. Term closure rows are built by a recursive CTE. Every call commits before it returns, because FULLTEXT sees
-committed rows only. Tests that only read should share one seeded database per fixture through
-`catalogtest.NewShared(seed)` and `Get(t)`, with `catalogtest.Main` as the package's `TestMain`. The shared pool
-is read-only (`transaction_read_only`), so a stray write fails with error 1792. The package doc has examples.
+### Catalogue tests
 
-The search statements (`internal/datasources/mysql/search_sql.go`, `piece_search.go`, `person_search.go`,
-`collection_list.go`) are built in Go, so they have unit tests that need no database (`search_sql_test.go`). A fake
-`statementRunner` records each statement, which pins the round trips. Each statement must have one placeholder per
-argument and the `MAX_EXECUTION_TIME` hint on its top-level `SELECT`. `FuzzPieceSearchSQL` checks that the SQL text
-depends only on a search's shape, never on the bytes of `q` or a term (`go test -fuzz FuzzPieceSearchSQL
-./internal/datasources/mysql/` explores further; plain runs use the seed corpus). Their semantics are integration
-tests against hand-computed sets (`search_integration_test.go`, which also compares the stopword list with the
-server's). `search_text_integration_test.go` runs the text searches again after `ALTER TABLE … FORCE` rebuilds the
-FULLTEXT indexes, and checks that the server enforces the execution time limit.
+A migrated database costs about 2.5 s with the throwaway servers' durability flags (below) and about 8 s without
+them, and MySQL serialises much of that DDL, so parallel tests do not hide it. Read-only tests therefore share a
+seeded database (see catalogtest), and new private-database tests should be kept to what needs one.
 
-The snapshot views and their redaction are pure functions in `internal/domain/snapshot.go`, unit-tested with a
-hand-built `SnapshotVisibility` (`snapshot_test.go`). `repository_revision_integration_test.go` checks them against
-the current state in the database: an alias, links and a person hidden after the revision was written.
+- **Schema** (`internal/datasources/mysql/*schema*_integration_test.go`, `migrate_integration_test.go`):
+  - `TestMigrations_UpDownUp` checks the exact set of tables after up, none after down and the version;
+  - `TestMigrations_ColumnCollations` has an exact map of the non-default collations (user IDs `utf8mb4_0900_bin`;
+    slugs, `sort_letter`, `normalized_url`, `platform` and token columns `ascii_bin`) and requires every other
+    collated column to be `utf8mb4_0900_ai_ci`;
+  - `TestMigrations_EnumColumns` builds the expected `column_type` of every ENUM column from the Go constants in
+    `internal/domain`, so value order matters, and fails for an ENUM column that is not listed;
+  - `TestMigrations_Constraints` breaks one CHECK, unique or foreign-key rule per case and asserts the MySQL error
+    number (3819, 1062, 1451, 1452) after `seedCatalogue` has shown that valid rows are accepted;
+    `TestMigrations_ConstraintsAllowCascades` and `TestMigrations_PersonAliasHiddenByDefault` cover the cascades
+    and the fail-closed `is_public` default.
+- **Stopwords** (`TestSearchStopwords_MatchInnoDB`): the Go list `domain.SearchStopwords` must equal the server's
+  `INFORMATION_SCHEMA.INNODB_FT_DEFAULT_STOPWORD` (as a set; the server lists "the" twice).
+- **Document coverage** (`TestDocumentCoverage`, `TestDocumentFieldPaths`, A1.8): classifies every column of the
+  tables each snapshot document owns as a document field or system-owned, with a reason, and every document field
+  as stored by exactly one column. A new column, document field or table fails it until it is classified.
+- **catalogtest** (`internal/testutil/catalogtest`) seeds catalogue fixtures with plain SQL from the
+  `internal/domain` snapshot documents: `c := catalogtest.New(t, db)` then `c.Term`, `c.Person`, `c.Piece`,
+  `c.Collection`, `c.Event`, `c.Revision`, `c.SetLinkState` and `c.Exec` (for system columns no document holds).
+  Approved entities (the zero value) get an approved `import` revision as their current revision; `Unapproved:
+  true` leaves it NULL. Term closure rows come from a recursive CTE, so parents are seeded first. Slugs, sort keys
+  and letters are naive defaults (tests about them pass literals). Every call commits before it returns, because
+  FULLTEXT sees committed rows only. The package's own tests are `catalogtest_test.go`.
+  - **Shared read-only fixture**: tests that only read share one seeded database per fixture through
+    `fx := catalogtest.NewShared(seed)` and `db, refs := fx.Get(t)`. The first `Get` creates and seeds it; the
+    pool is opened with `transaction_read_only=ON`, so a stray write fails with error 1792. Use one `Shared` per
+    independent fixture, because counts that several features assert on break when anyone adds data.
+  - **`TestMain` is required**: a package that uses `Shared` must have `func TestMain(m *testing.M) {
+    catalogtest.Main(m) }`, which drops the shared databases after `m.Run`; `Get` fails without it.
+  - Tests that write, or that need statistics a shared fixture would disturb (FULLTEXT scoring, `ALTER TABLE`),
+    use `mysqltest.NewDatabase(t)` and `catalogtest.New`.
+- **Search builder, unit and fuzz** (`search_sql_test.go`, `internal/domain/search_test.go`): the list statements
+  (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are built in Go,
+  so they are tested without a database. A fake `statementRunner` records each statement, pinning the round trips
+  (at most three for a piece search). Each statement must have one placeholder per argument and the
+  `MAX_EXECUTION_TIME` hint on its top-level `SELECT`. `FuzzPieceSearchSQL` checks that the SQL text depends only
+  on a search's shape, never on the bytes of `q` or a term (`go test -fuzz FuzzPieceSearchSQL
+  ./internal/datasources/mysql/` explores further; plain runs use the seed corpus). The tokeniser has table tests.
+- **Search integration** (`search_integration_test.go`, `search_text_integration_test.go`): the semantics against
+  hand-computed sets on a shared `searches` fixture: facet OR/AND and descendants, disjunctive counts, letter
+  counts, kinds, prefix fallback, hidden aliases never matching, no-page persons matching by name only, and
+  injection-shaped input. The text searches also run after `ALTER TABLE … FORCE` rebuilds the FULLTEXT indexes, and
+  `TestSearchStatements_ExecutionTimeLimit` checks that the server enforces the time limit (error 3024 → 500).
+- **Snapshot views**: the views and their redaction are pure functions in `internal/domain/snapshot.go`,
+  unit-tested with a hand-built `SnapshotVisibility` (`snapshot_test.go`); `repository_revision_integration_test.go`
+  checks them against current database state (an alias, links and a person hidden after the revision was written,
+  corrupt snapshots, bases). `needs_work_integration_test.go` covers the needs-work reasons.
+- **Repository reads** (`repository_*_integration_test.go`): exact structs for details, lists and caps (201 → 200
+  with a total), each on a shared fixture, plus `TestRepository_CatalogueReads_UnknownEnumValue` (an unknown ENUM
+  value is an error, not a 404).
+- **FULLTEXT sees committed rows only.** InnoDB's FULLTEXT index is updated at commit, so a search never sees
+  rows in an open transaction, and a fixture that searches inside the transaction that inserted would find nothing.
+  catalogtest commits on every call. Production code must follow the same rule: BE4 searches only after its
+  approval transaction commits.
 
-`TestDocumentCoverage` (A1.8) classifies every column of the tables each snapshot document owns as a document
-field or system-owned, with a reason. A new column, document field or table fails it until it is classified.
+### Leak matrix
+
+`TestHTTP_LeakMatrix` (`internal/app/leak_matrix_integration_test.go`) sends requests to every public catalogue
+read through the production handler over a real repository holding a shared fixture of hidden data: a hidden legal
+alias, a `prefers_no_page` person with notes, aliases, roles, an affiliation, relations, credits, performances and
+a link, a hidden link, unapproved pieces, persons, terms, collections and events referred to by public ones, and
+never-exposed system fields (legacy titles, claims, normalized URLs). Every marked string contains `leakmark`, and
+each raw response body must not contain it (case-insensitively), except for the strings a request lists in
+`reveals` (for example the no-page person's identity on their own page or in a person list). Each response also
+goes through the contract helper. `requireLeakMarkersStored` checks with SQL that each kind of marker is stored, so
+the matrix cannot pass vacuously.
+
+`leakMatrix` maps each operation to its requests, and `leakExempt` lists, with a reason, the operations that read no
+catalogue data. Every spec operation must be in exactly one of them, and a public `/v1` GET cannot be exempt.
+
+**To add a row** for a new public read:
+
+1. Add an entry to `leakMatrix`, keyed by the spec operation, returning requests that reach every list the
+   endpoint shows (members, citations, performances, facets, history) and at least one 404 for a non-public entity:
+   ```go
+   {Method: http.MethodGet, Path: "/v1/terms/{slug}"}: func(fx leakFixture) []leakRequest {
+       return []leakRequest{
+           {path: "/v1/terms/westmarch", status: http.StatusOK},
+           {path: "/v1/terms/leakmark-unapproved-term", status: http.StatusNotFound},
+       }
+   },
+   ```
+2. If the endpoint legitimately shows a marked string, list it in `reveals`; `absent` lists strings that must not
+   appear even though they are unmarked.
+3. If the endpoint needs data the fixture lacks, add it to the `leakCatalogue` seed with `leakmark` in every string
+   that must stay hidden, and a `catalogtest.Ref` field on `leakFixture` if requests need it.
+4. Check the test can fail: remove the visibility filter from the query under test and confirm the matrix
+   reports it.
+
+### Catalogue end to end
+
+`TestHTTP_CatalogueEndToEnd` (`internal/app/http_handler_catalogue_integration_test.go`) builds the production
+handler like `TestHTTP_EndToEnd`, seeds a small invented catalogue (a term tree, a person with a hidden alias,
+pieces including a stub and an unapproved draft, and a second approved revision) with catalogtest, and walks list →
+facet filter (counts) → search → piece, term and person detail → history → revision detail → needs-work. The
+reads are public, so it sends no credentials, and every response goes through the contract helper.
 
 ## Adding an endpoint
 
@@ -200,8 +278,10 @@ field or system-owned, with a reason. A new column, document field or table fail
 3. **Auth matrix**: add a row to `authMatrix` with the operation's `access` and a successful request (path
    parameters, body, success status, mock expectations). `TestRouter_AuthMatrix` fails until you do. A new
    authorisation rule gets a new `access` table listing every principal.
-   A public catalogue read (`security: []`, registered on the root router like the existing ones) also needs a
-   `leakMatrix` row whose requests reach every list it shows; any other operation goes in `leakExempt`.
+   A public catalogue read (`security: []`, registered on the root router like the existing ones, before the `/v1`
+   subrouter) also needs a **leak-matrix row** (see "Leak matrix"): requests that reach every list it shows, with
+   `reveals` for anything it may legitimately show. Any other operation goes in `leakExempt` with a reason. List
+   endpoints also need their query-parameter cases (invalid, repeated, out-of-range) as `ServeResponseOnly` tests.
 4. **Per-status tests**: a contract-validated controller test case for every documented status the controller
    produces (`Serve`, or `ServeResponseOnly` for deliberately invalid requests). Middleware statuses (401, 403,
    500 from a failed credential check or user lookup) are covered by the matrix.
@@ -217,6 +297,14 @@ All three modes run `scripts/test-integration.sh <mode>`, which builds `cmd/migr
 cgo, which CI has but the sandbox Go image may not, so only CI sets it. Throwaway servers listen on a random
 free `127.0.0.1` port and keep their files in a private temporary directory removed on exit, so concurrent runs
 do not collide.
+
+Both throwaway servers (podman and local) also start with durability flags, defined once in
+`scripts/test-integration.sh` (`throwaway_server_flags`): `--skip-log-bin --innodb-flush-log-at-trx-commit=0
+--innodb-doublewrite=OFF --innodb-flush-method=nosync`. They trade crash safety for speed and change no SQL
+semantics; the data is discarded on exit. Creating the 27 catalogue tables (four with FULLTEXT indexes, each of which
+creates auxiliary tables) for every test database otherwise spends most of its time waiting for disk syncs: a
+migrated database takes about 2.4 s with the flags and 7.8 s without. The external mode runs against a server you
+own and does not change its settings, so it is slower per database.
 
 - **podman** — `make test-integration`. Starts `docker.io/library/mysql:8.4` with a random root password,
   published on `127.0.0.1:<port>`, waits for `mysqladmin ping --protocol=tcp` inside the container, and removes the
@@ -255,8 +343,12 @@ a plain Debian Go image with no network access.
          --port=<port> --bind-address=127.0.0.1 --mysqlx=OFF \
          --socket=<tmp>/mysqld.sock --pid-file=<tmp>/mysqld.pid --log-error=<tmp>/mysqld.log \
          --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci \
+         --skip-log-bin --innodb-flush-log-at-trx-commit=0 --innodb-doublewrite=OFF \
+         --innodb-flush-method=nosync \
          --init-file=<tmp>/init.sql &
   ```
+  The last line of flags is the throwaway server's durability trade-off (see "Integration test modes"); leave it
+  off for a server whose data matters.
   Initialisation takes about 7 s and start-up about 1 s. Without `--character-set-server=utf8mb4` this build
   defaults to utf8mb3, so always pass it. `--user=$(id -un)` lets it run as root. With no client binaries,
   readiness is a TCP poll of the port followed by retrying a Go connection (`migrate version`). The root account

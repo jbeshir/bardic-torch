@@ -241,6 +241,17 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
     logged as a warning.
   - `q` is at most 200 code points of valid UTF-8 and must not be blank. Prefix matches have no score, so with
     `sort=relevance` they come in sort-key order. `relevance` is the default with `q` and a 400 without it.
+- **Response conventions.**
+  - Every scalar property is required, `type: [X, "null"]` when it can be empty, and arrays are required and
+    possibly empty; every object is closed.
+  - Never exposed: `legacy_*` columns, `claimed_by_user_id`, `normalized_url`, internal person, term and piece IDs
+    (collections and revisions are addressed by ID by design), user IDs, and preference profiles until BE5.
+  - Unknown path slugs and non-public slugs are one 404. A malformed slug is a 400.
+  - An unknown ENUM value read from the database, a snapshot with an unsupported `schema_version` and a search the
+    server stops after 2 s are 500s, logged, never panics. Enum values inside stored documents are not validated on
+    read (BE4's `Validate` guards writes).
+  - Piece facet counts list only values above zero; needs-work `counts` always list all four reasons, zeros
+    included.
 - **Status sources:** "a status other than active needs a source" is domain validation (BE4), not a CHECK. The
   importer uses the legacy wiki page URL as the source. `conservation_history` has a `source_url`.
 
