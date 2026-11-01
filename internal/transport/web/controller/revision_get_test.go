@@ -125,7 +125,7 @@ func TestRevisionGet_ServeHTTP(t *testing.T) {
 			}},
 		},
 	}
-	statusDate := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	statusDate := domain.Date{Time: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)}
 
 	cases := []struct {
 		name       string
@@ -141,10 +141,9 @@ func TestRevisionGet_ServeHTTP(t *testing.T) {
 					ID: 42, Source: domain.RevisionSourceUser, Summary: "Credit the words.",
 					Author: &domain.RevisionAuthor{DisplayName: testDisplayName}, CreatedAt: testRevisionCreatedAt,
 				},
-				Entity:         testKettle,
-				BaseRevisionID: &baseID,
-				Snapshot:       testPieceSnapshot(),
-				BaseSnapshot:   &base,
+				Entity:   testKettle,
+				Snapshot: testPieceSnapshot(),
+				Base:     &domain.RevisionBase[domain.PieceSnapshot]{ID: baseID, Snapshot: base},
 			},
 			wantStatus: http.StatusOK,
 			wantBody: `{"entity_type": "piece", "id": 42, "source": "user", "summary": "Credit the words.",

@@ -82,15 +82,15 @@ func TestHistoryGet_ServeHTTP(t *testing.T) {
 	t.Parallel()
 
 	// The history path of each entity type, given a slug.
-	for pathOf, entityType := range map[string]domain.EntityType{
-		"/v1/pieces/%s/history": domain.EntityTypePiece, "/v1/persons/%s/history": domain.EntityTypePerson,
-		"/v1/terms/%s/history": domain.EntityTypeTerm, "/v1/events/%s/history": domain.EntityTypeEvent,
+	for pathOf, entityType := range map[string]domain.SlugEntityType{
+		"/v1/pieces/%s/history": domain.SlugEntityTypePiece, "/v1/persons/%s/history": domain.SlugEntityTypePerson,
+		"/v1/terms/%s/history": domain.SlugEntityTypeTerm, "/v1/events/%s/history": domain.SlugEntityTypeEvent,
 	} {
-		t.Run(string(entityType), func(t *testing.T) {
+		t.Run(entityType.String(), func(t *testing.T) {
 			t.Parallel()
 
 			target := fmt.Sprintf(pathOf, testPieceSlug)
-			for _, tc := range historyCases(string(entityType) + " not found") {
+			for _, tc := range historyCases(entityType.String() + " not found") {
 				t.Run(tc.name, func(t *testing.T) {
 					t.Parallel()
 

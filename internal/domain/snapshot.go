@@ -1,21 +1,25 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
-	"time"
 )
 
 // Snapshot views are what the public API shows of a stored snapshot document. A document is never served as
 // stored: it references other entities by internal ID and may hold what a public read must not show. A view
 // holds the document's editor-owned fields, except preference profiles (which nothing exposes until BE5), with:
 //   - each reference resolved to the entity's summary as it is now, or left out if the entity is not public now;
-//   - each link shown by URL, and left out if the link is hidden now;
+//   - each link shown by URL, and only if a link that is not hidden now has exactly that URL, as entered or
+//     normalized: a link since hidden, deleted, or given another URL is left out;
 //   - a person's alias shown only if it is public in the document and is now a public alias of the person;
+//   - a person's name shown only if it is their name now or one of their public alias names now, and their
+//     current name otherwise, so that a former name that is now a hidden alias never shows;
 //   - credits, performers and relations of persons who are not public, or prefer no page, now left out;
 //   - of a person who prefers no page, now or in the document, only the identity.
 //
 // Redaction follows the catalogue's current state, not the document's, so that hiding an alias or a link, or a
-// person's choosing not to have a page, also hides them in every earlier revision.
+// person's choosing not to have a page, also hides them in every earlier revision. What a view shows must be
+// allowed by the current state, compared exactly, so that anything the current state does not know fails closed.
 
 // SnapshotReferences are the other entities and the links that one or more documents reference, which the
 // SnapshotVisibility for their views must cover. IDs and URLs may repeat.
@@ -26,7 +30,8 @@ type SnapshotReferences struct {
 	CollectionIDs []int64
 	EventIDs      []int64
 	LinkURLs      []string
-	// AliasPersonIDs are the persons whose public alias names a view needs: the person a document is of.
+	// AliasPersonIDs are the persons whose public alias names a view needs: the person a document is of, who is
+	// among PersonIDs too.
 	AliasPersonIDs []int64
 }
 
@@ -48,8 +53,9 @@ type SnapshotVisibility struct {
 	Collections map[int64]CollectionSummary
 	// Events are the public events and venues.
 	Events map[int64]EventSummary
-	// HiddenLinkURLs are the referenced URLs of hidden links, matched on the link's URL or normalized URL.
-	HiddenLinkURLs map[string]bool
+	// VisibleLinkURLs are the referenced URLs that are exactly the URL or the normalized URL of a link that is not
+	// hidden, and of no hidden link: the only links a view shows.
+	VisibleLinkURLs map[string]bool
 }
 
 // PieceSnapshot is the public view of a PieceDocument.
@@ -123,7 +129,7 @@ type PersonSnapshot struct {
 	Name            string
 	Kind            PersonKind
 	Status          PersonStatus
-	StatusDate      *time.Time
+	StatusDate      *Date
 	StatusSourceURL *string
 	IsStub          bool
 	Profile         *PersonSnapshotProfile
@@ -294,7 +300,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		}
 	}
 	for _, link := range d.Links {
-		if vis.HiddenLinkURLs[link.URL] {
+		if !vis.VisibleLinkURLs[link.URL] {
 			continue
 		}
 		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink)}
@@ -363,25 +369,34 @@ func (v SnapshotVisibility) performance(p DocPerformance) PiecePerformance {
 	return performance
 }
 
-// NewPersonSnapshot returns the public view of the document of the person personID. It fails if the document's
-// status date is not a date.
+// ErrPersonNotPublic is returned by NewPersonSnapshot for a person vis does not hold as public.
+var ErrPersonNotPublic = errors.New("person is not public")
+
+// NewPersonSnapshot returns the public view of the document of the person personID. It fails with
+// ErrPersonNotPublic if vis does not hold the person as public, as their current name is then unknown.
 func NewPersonSnapshot(personID int64, d PersonDocument, vis SnapshotVisibility) (PersonSnapshot, error) {
+	current, ok := vis.Persons[personID]
+	_, noPage := vis.NoPagePersons[personID]
+	if noPage {
+		current, ok = vis.NoPagePersons[personID], true
+	}
+	if !ok {
+		return PersonSnapshot{}, fmt.Errorf("%w [%d]", ErrPersonNotPublic, personID)
+	}
+
 	snapshot := PersonSnapshot{
-		Name:            d.Name,
+		Name:            current.Name,
 		Kind:            d.Kind,
 		Status:          d.Status,
+		StatusDate:      d.StatusDate,
 		StatusSourceURL: d.StatusSourceURL,
 		IsStub:          d.IsStub,
 	}
-	if d.StatusDate != nil {
-		date, err := time.Parse(time.DateOnly, *d.StatusDate)
-		if err != nil {
-			return PersonSnapshot{}, fmt.Errorf("status date of person [%d]: %w", personID, err)
-		}
-		snapshot.StatusDate = &date
+	if d.Name == current.Name || vis.PublicAliases[personID][d.Name] {
+		snapshot.Name = d.Name
 	}
 
-	if _, noPage := vis.NoPagePersons[personID]; noPage || d.Status == PersonStatusPrefersNoPage {
+	if noPage || d.Status == PersonStatusPrefersNoPage {
 		snapshot.IsStub = true
 		return snapshot, nil
 	}
@@ -417,7 +432,7 @@ func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisi
 		}
 	}
 	for _, link := range d.Links {
-		if vis.HiddenLinkURLs[link.URL] {
+		if !vis.VisibleLinkURLs[link.URL] {
 			continue
 		}
 		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink)}

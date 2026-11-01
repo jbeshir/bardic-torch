@@ -132,8 +132,10 @@ func TestMigrations_EnumColumns(t *testing.T) {
 	}
 
 	db := mysqltest.NewDatabase(t)
-	rows, err := db.QueryContext(t.Context(), "SELECT CONCAT(table_name, '.', column_name), column_type "+
-		"FROM information_schema.columns WHERE table_schema = DATABASE() AND data_type = 'enum'")
+	rows, err := db.QueryContext(t.Context(), "SELECT CONCAT(c.table_name, '.', c.column_name), c.column_type "+
+		"FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema = c.table_schema "+
+		"AND t.table_name = c.table_name WHERE c.table_schema = DATABASE() AND t.table_type = 'BASE TABLE' "+
+		"AND c.data_type = 'enum'")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rows.Close() })
 

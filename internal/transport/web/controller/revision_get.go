@@ -100,9 +100,11 @@ func entityRevisionFromDomain[E, S, JE, JS any](
 		EntityType:      entityType,
 		RevisionSummary: revisionSummaryFromDomain(r.RevisionSummary),
 		Entity:          entity(r.Entity),
-		BaseRevisionID:  r.BaseRevisionID,
 		Snapshot:        snapshot(r.Snapshot),
-		BaseSnapshot:    optional(r.BaseSnapshot, snapshot),
+	}
+	if r.Base != nil {
+		base := snapshot(r.Base.Snapshot)
+		revision.BaseRevisionID, revision.BaseSnapshot = &r.Base.ID, &base
 	}
 
 	changed, err := changedFields(revision.Snapshot, revision.BaseSnapshot)

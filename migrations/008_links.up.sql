@@ -1,6 +1,7 @@
 CREATE TABLE `links` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `url` VARCHAR(2048) NOT NULL,
+    -- Binary, so that a snapshot's URL is shown only if a visible link has exactly that URL.
+    `url` VARCHAR(2048) COLLATE utf8mb4_0900_bin NOT NULL,
     `normalized_url` VARCHAR(2048) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     `title` VARCHAR(500) NULL,
     `description` TEXT NULL,

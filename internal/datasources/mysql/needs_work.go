@@ -50,7 +50,7 @@ func needsWorkReasonColumn(reason domain.NeedsWorkReason) (sqlFragment, error) {
 	case domain.NeedsWorkReasonDeadLinks:
 		return "c.dead_links", nil
 	default:
-		return "", fmt.Errorf("%w [%s] of needs-work reason", errUnknownEnumValue, reason)
+		return "", fmt.Errorf("%w [%s] of needs-work reason", domain.ErrUnknownEnumValue, reason)
 	}
 }
 
@@ -78,9 +78,7 @@ func writeNeedsWorkWith(s *statement) {
 	s.write(", EXISTS (SELECT 1 FROM link_attachments a JOIN links l ON l.id = a.link_id " +
 		"WHERE a.person_id = pe.id AND NOT l.is_hidden AND l.liveness = ")
 	s.arg(string(domain.LivenessDead))
-	s.write(") FROM persons pe WHERE pe.current_revision_id IS NOT NULL AND pe.status <> ")
-	s.arg(string(domain.PersonStatusPrefersNoPage))
-	s.write(")")
+	s.write(") FROM listed_persons pe)")
 }
 
 // needsWork is the condition that a candidate needs work for some reason.

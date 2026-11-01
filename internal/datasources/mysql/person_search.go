@@ -62,8 +62,9 @@ func (c *catalogueReader) personList(ctx context.Context, query datasources.Pers
 // Both statements start with the same WITH clause. If the search has a query, matched(person_id, score) holds
 // every person whose name, or a public alias, matches it, with the best score of those matches; aliases of
 // persons who prefer no page are not searched, and hidden aliases are filtered out inside their branch, so they
-// contribute neither a match nor a score. candidates holds every public person matching every filter but the
-// letter, with a letter_match column if the search has a letter.
+// contribute no match. Alias matches score 0, ranking after name matches: the alias index holds hidden aliases
+// too, and a MATCH score over it would depend on them. candidates holds every public person matching every filter
+// but the letter, with a letter_match column if the search has a letter.
 type personSearch struct {
 	query         datasources.PersonQuery
 	affiliationID *uint64
@@ -74,16 +75,17 @@ const (
 	personMatched sqlFragment = "matched AS (SELECT hits.person_id, MAX(hits.score) AS score FROM (" +
 		"SELECT p.id AS person_id, "
 	personAliasMatched sqlFragment = " UNION ALL SELECT a.person_id, "
-	personAliasFrom    sqlFragment = " FROM person_aliases a JOIN persons ap ON ap.id = a.person_id " +
-		"WHERE a.is_public AND ap.status <> 'prefers_no_page' AND "
+	personAliasFrom    sqlFragment = " FROM person_aliases a JOIN listed_persons ap ON ap.id = a.person_id " +
+		"WHERE a.is_public AND "
 	personMatchedEnd sqlFragment = ") hits GROUP BY hits.person_id), "
 	personCandidates sqlFragment = "candidates AS (SELECT p.id, p.slug, p.name, p.sort_name, p.sort_letter, " +
 		"p.kind, p.status, p.is_stub"
-	personHasPage sqlFragment = " AND p.status <> 'prefers_no_page'"
+	personHasPage sqlFragment = " AND EXISTS (SELECT 1 FROM listed_persons lp WHERE lp.id = p.id)"
 	personHasRole sqlFragment = " AND EXISTS (SELECT 1 FROM person_roles r " +
 		"WHERE r.person_id = p.id AND r.role IN ("
 	personAffiliated sqlFragment = " AND EXISTS (SELECT 1 FROM person_affiliations pa " +
-		"JOIN term_ancestors ta ON ta.descendant_id = pa.term_id WHERE pa.person_id = p.id AND ta.ancestor_id = "
+		"JOIN term_ancestors ta ON ta.descendant_id = pa.term_id" + publicDescendantJoin +
+		" WHERE pa.person_id = p.id AND ta.ancestor_id = "
 	personItemsSelect sqlFragment = " SELECT " + executionTimeHint +
 		" c.slug, c.name, c.kind, c.status, c.is_stub FROM candidates c WHERE TRUE"
 )
@@ -94,9 +96,9 @@ func (ps personSearch) writeWith(s *statement) {
 	s.write("WITH ")
 	if q.Search != nil {
 		s.write(personMatched)
-		writeMatch(s, *q.Search, "p.name", "p.name", " FROM persons p WHERE ")
+		writeMatch(s, *q.Search, "p.name", "p.name", " FROM persons p WHERE ", true)
 		s.write(personAliasMatched)
-		writeMatch(s, *q.Search, "a.name", "a.name", personAliasFrom)
+		writeMatch(s, *q.Search, "a.name", "a.name", personAliasFrom, false)
 		s.write(personMatchedEnd)
 	}
 
@@ -123,7 +125,7 @@ func (ps personSearch) writeWith(s *statement) {
 	if ps.affiliationID != nil {
 		s.write(personHasPage, personAffiliated)
 		s.arg(*ps.affiliationID)
-		s.write(" AND ", descendantTermPublic, ")")
+		s.write(")")
 	}
 	s.write(")")
 }

@@ -70,8 +70,9 @@ WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 -- Catalogue: public reads
 --
 -- An entity is public when it has an approved revision (current_revision_id IS NOT NULL); a term also needs
--- every ancestor approved, which the term_ancestors closure checks (it includes the term's own depth-0 row).
--- prefers_no_page persons are dropped from every list that references them, and hidden links from every read.
+-- every ancestor approved (the public_terms view). Persons who prefer no page are dropped from every list that
+-- references them (the listed_persons view), and hidden links from every read. What a link records is shown on
+-- another entity's page only if the link has a public attachment (the public_link_attachments view).
 -- ============================================
 
 -- name: GetPublicPiece :one
@@ -96,21 +97,16 @@ ORDER BY id;
 -- name: ListPublicPieceTerms :many
 SELECT t.slug, t.facet, t.display_name, pt.is_primary, pt.part
 FROM piece_terms pt
-JOIN terms t ON t.id = pt.term_id
+JOIN public_terms t ON t.id = pt.term_id
 WHERE pt.piece_id = ?
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
-    )
 ORDER BY t.facet, pt.position, t.id;
 
 -- name: ListPublicPieceCredits :many
 SELECT c.role, c.attribution, c.certainty, c.part, c.note,
     p.slug AS person_slug, p.name AS person_name, p.kind AS person_kind, p.is_stub AS person_is_stub
 FROM piece_credits c
-LEFT JOIN persons p ON p.id = c.person_id
-WHERE c.piece_id = ?
-    AND (c.person_id IS NULL OR (p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'))
+LEFT JOIN listed_persons p ON p.id = c.person_id
+WHERE c.piece_id = ? AND (c.person_id IS NULL OR p.id IS NOT NULL)
 ORDER BY c.position, c.id;
 
 -- name: ListPublicPieceRelationsTo :many
@@ -126,6 +122,10 @@ FROM piece_relations r
 JOIN pieces p ON p.id = r.from_piece_id
 WHERE r.to_piece_id = ? AND p.current_revision_id IS NOT NULL
 ORDER BY r.type, p.sort_title, p.id;
+
+-- ListPublicPieceLinks and ListPublicPersonLinks differ only in the attachment column, so that each uses its
+-- (entity, position) index: a merged query with an OR of the two columns is planned as a scan of links. They must
+-- select the same columns, which personLinkRows' conversion of one row type to the other checks at compile time.
 
 -- name: ListPublicPieceLinks :many
 SELECT l.id, l.url, l.title, l.description, l.platform, l.place_type, c.id AS collection_id,
@@ -149,9 +149,8 @@ ORDER BY perf.link_id, perf.id;
 -- name: ListPublicPerformers :many
 SELECT pp.performance_id, p.slug, p.name, p.kind, p.is_stub
 FROM performance_performers pp
-JOIN persons p ON p.id = pp.person_id
+JOIN listed_persons p ON p.id = pp.person_id
 WHERE pp.performance_id IN (sqlc.slice('performance_ids'))
-    AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
 ORDER BY pp.performance_id, pp.position;
 
 -- name: ListConservationHistory :many
@@ -181,27 +180,25 @@ ORDER BY role;
 -- name: ListPublicPersonAffiliations :many
 SELECT t.slug, t.facet, t.display_name
 FROM person_affiliations pa
-JOIN terms t ON t.id = pa.term_id
+JOIN public_terms t ON t.id = pa.term_id
 WHERE pa.person_id = ?
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
-    )
 ORDER BY t.position, t.display_name, t.id;
 
 -- name: ListPublicPersonRelationsTo :many
 SELECT r.type, p.slug, p.name, p.kind, p.is_stub
 FROM person_relations r
-JOIN persons p ON p.id = r.to_person_id
-WHERE r.from_person_id = ? AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
+JOIN listed_persons p ON p.id = r.to_person_id
+WHERE r.from_person_id = ?
 ORDER BY r.type, p.sort_name, p.id;
 
 -- name: ListPublicPersonRelationsFrom :many
 SELECT r.type, p.slug, p.name, p.kind, p.is_stub
 FROM person_relations r
-JOIN persons p ON p.id = r.from_person_id
-WHERE r.to_person_id = ? AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
+JOIN listed_persons p ON p.id = r.from_person_id
+WHERE r.to_person_id = ?
 ORDER BY r.type, p.sort_name, p.id;
+
+-- Identical to ListPublicPieceLinks but for the attachment column.
 
 -- name: ListPublicPersonLinks :many
 SELECT l.id, l.url, l.title, l.description, l.platform, l.place_type, c.id AS collection_id,
@@ -226,7 +223,8 @@ FROM piece_credits c
 JOIN pieces p ON p.id = c.piece_id
 WHERE c.person_id = ? AND p.current_revision_id IS NOT NULL;
 
--- A person's performances are those they perform in and those recorded by links attached to them. A
+-- A person's performances are those recorded by links attached to them, and those they perform in on links with
+-- a public attachment, as a performance only an unapproved or no-page entity's links record may name them. A
 -- performance of a piece that is not public is left out entirely, as its description may name the piece.
 
 -- name: ListPublicPersonPerformances :many
@@ -241,8 +239,9 @@ LEFT JOIN events e ON e.id = perf.event_id AND e.current_revision_id IS NOT NULL
 WHERE NOT l.is_hidden
     AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
     AND (
-        EXISTS (SELECT 1 FROM performance_performers pp
-            WHERE pp.performance_id = perf.id AND pp.person_id = sqlc.arg(performer_id))
+        (EXISTS (SELECT 1 FROM performance_performers pp
+                WHERE pp.performance_id = perf.id AND pp.person_id = sqlc.arg(performer_id))
+            AND EXISTS (SELECT 1 FROM public_link_attachments pa WHERE pa.link_id = perf.link_id))
         OR EXISTS (SELECT 1 FROM link_attachments a
             WHERE a.link_id = perf.link_id AND a.person_id = sqlc.arg(attached_person_id))
     )
@@ -257,81 +256,47 @@ LEFT JOIN pieces p ON p.id = perf.piece_id
 WHERE NOT l.is_hidden
     AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
     AND (
-        EXISTS (SELECT 1 FROM performance_performers pp
-            WHERE pp.performance_id = perf.id AND pp.person_id = sqlc.arg(performer_id))
+        (EXISTS (SELECT 1 FROM performance_performers pp
+                WHERE pp.performance_id = perf.id AND pp.person_id = sqlc.arg(performer_id))
+            AND EXISTS (SELECT 1 FROM public_link_attachments pa WHERE pa.link_id = perf.link_id))
         OR EXISTS (SELECT 1 FROM link_attachments a
             WHERE a.link_id = perf.link_id AND a.person_id = sqlc.arg(attached_person_id))
     );
 
--- A term's counts are of the distinct public pieces tagged with, and public persons with a page affiliated
--- with, the term or any public descendant: both ends of the closure are checked, so a pending term hides its
--- subtree from its ancestors' counts too.
-
 -- name: ListPublicTerms :many
-SELECT t.slug, t.facet, t.name, t.display_name, parent.slug AS parent_slug,
-    (SELECT COUNT(DISTINCT pt.piece_id)
-        FROM term_ancestors ta
-        JOIN piece_terms pt ON pt.term_id = ta.descendant_id
-        JOIN pieces p ON p.id = pt.piece_id
-        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL
-            AND NOT EXISTS (
-                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
-                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
-            )
-    ) AS piece_count,
-    (SELECT COUNT(DISTINCT pa.person_id)
-        FROM term_ancestors ta
-        JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
-        JOIN persons p ON p.id = pa.person_id
-        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
-            AND NOT EXISTS (
-                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
-                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
-            )
-    ) AS person_count
-FROM terms t
+SELECT t.id, t.slug, t.facet, t.name, t.display_name, parent.slug AS parent_slug
+FROM public_terms t
 LEFT JOIN terms parent ON parent.id = t.parent_id
 WHERE (sqlc.narg(facet) IS NULL OR t.facet = sqlc.narg(facet))
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
-    )
 ORDER BY t.facet, t.position, t.display_name, t.id;
 
 -- name: GetPublicTerm :one
 SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md,
-    ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name,
-    (SELECT COUNT(DISTINCT pt.piece_id)
-        FROM term_ancestors ta
-        JOIN piece_terms pt ON pt.term_id = ta.descendant_id
-        JOIN pieces p ON p.id = pt.piece_id
-        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL
-            AND NOT EXISTS (
-                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
-                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
-            )
-    ) AS piece_count,
-    (SELECT COUNT(DISTINCT pa.person_id)
-        FROM term_ancestors ta
-        JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
-        JOIN persons p ON p.id = pa.person_id
-        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
-            AND NOT EXISTS (
-                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
-                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
-            )
-    ) AS person_count
-FROM terms t
-LEFT JOIN terms ra ON ra.id = t.related_affiliation_id
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = ra.id AND anc.current_revision_id IS NULL
-    )
-WHERE t.slug = ?
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
-    );
+    ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name
+FROM public_terms t
+LEFT JOIN public_terms ra ON ra.id = t.related_affiliation_id
+WHERE t.slug = ?;
+
+-- A term's counts are of the distinct public pieces tagged with, and public persons with a page affiliated
+-- with, the term or any public descendant: both ends of the closure are checked, so a pending term hides its
+-- subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
+
+-- name: ListPublicTermCounts :many
+SELECT ta.ancestor_id AS term_id, 'piece' AS member, COUNT(DISTINCT pt.piece_id) AS n
+FROM term_ancestors ta
+JOIN public_terms d ON d.id = ta.descendant_id
+JOIN piece_terms pt ON pt.term_id = ta.descendant_id
+JOIN pieces p ON p.id = pt.piece_id
+WHERE ta.ancestor_id IN (sqlc.slice('piece_term_ids')) AND p.current_revision_id IS NOT NULL
+GROUP BY ta.ancestor_id
+UNION ALL
+SELECT ta.ancestor_id, 'person', COUNT(DISTINCT pa.person_id)
+FROM term_ancestors ta
+JOIN public_terms d ON d.id = ta.descendant_id
+JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
+JOIN listed_persons p ON p.id = pa.person_id
+WHERE ta.ancestor_id IN (sqlc.slice('person_term_ids'))
+GROUP BY ta.ancestor_id;
 
 -- name: ListTermAliases :many
 SELECT name
@@ -348,34 +313,11 @@ JOIN terms anc ON anc.id = ta.ancestor_id
 WHERE ta.descendant_id = ? AND ta.depth > 0
 ORDER BY ta.depth DESC;
 
+
 -- name: ListPublicTermChildren :many
-SELECT t.slug, t.facet, t.display_name,
-    (SELECT COUNT(DISTINCT pt.piece_id)
-        FROM term_ancestors ta
-        JOIN piece_terms pt ON pt.term_id = ta.descendant_id
-        JOIN pieces p ON p.id = pt.piece_id
-        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL
-            AND NOT EXISTS (
-                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
-                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
-            )
-    ) AS piece_count,
-    (SELECT COUNT(DISTINCT pa.person_id)
-        FROM term_ancestors ta
-        JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
-        JOIN persons p ON p.id = pa.person_id
-        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
-            AND NOT EXISTS (
-                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
-                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
-            )
-    ) AS person_count
-FROM terms t
+SELECT t.id, t.slug, t.facet, t.display_name
+FROM public_terms t
 WHERE t.parent_id = ?
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
-    )
 ORDER BY t.position, t.display_name, t.id;
 
 -- name: ListPublicTermPieces :many
@@ -386,28 +328,21 @@ WHERE p.current_revision_id IS NOT NULL
         SELECT 1
         FROM piece_terms pt
         JOIN term_ancestors ta ON ta.descendant_id = pt.term_id
+        JOIN public_terms d ON d.id = ta.descendant_id
         WHERE pt.piece_id = p.id AND ta.ancestor_id = sqlc.arg(term_id)
-            AND NOT EXISTS (
-                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
-                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
-            )
     )
 ORDER BY p.sort_title, p.id
 LIMIT ? OFFSET ?;
 
 -- name: ListPublicTermPersons :many
 SELECT p.slug, p.name, p.kind, p.is_stub
-FROM persons p
-WHERE p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
-    AND EXISTS (
+FROM listed_persons p
+WHERE EXISTS (
         SELECT 1
         FROM person_affiliations pa
         JOIN term_ancestors ta ON ta.descendant_id = pa.term_id
+        JOIN public_terms d ON d.id = ta.descendant_id
         WHERE pa.person_id = p.id AND ta.ancestor_id = sqlc.arg(term_id)
-            AND NOT EXISTS (
-                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
-                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
-            )
     )
 ORDER BY p.sort_name, p.id
 LIMIT ? OFFSET ?;
@@ -418,11 +353,7 @@ SELECT c.id, c.name, c.kind, c.url, c.is_bardic_resource, c.description_md, c.en
     parent.id AS parent_id, parent.name AS parent_name, parent.kind AS parent_kind, parent.url AS parent_url,
     parent.is_bardic_resource AS parent_is_bardic_resource
 FROM collections c
-LEFT JOIN terms r ON r.id = c.region_term_id
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = r.id AND anc.current_revision_id IS NULL
-    )
+LEFT JOIN public_terms r ON r.id = c.region_term_id
 LEFT JOIN collections parent ON parent.id = c.parent_id AND parent.current_revision_id IS NOT NULL
 WHERE c.id = ? AND c.current_revision_id IS NOT NULL;
 
@@ -442,11 +373,10 @@ SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, a.piece_id, a.person
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
     pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub
 FROM links l
-JOIN link_attachments a ON a.link_id = l.id
-LEFT JOIN pieces p ON p.id = a.piece_id AND p.current_revision_id IS NOT NULL
+JOIN public_link_attachments a ON a.link_id = l.id
+LEFT JOIN pieces p ON p.id = a.piece_id
 LEFT JOIN persons pe ON pe.id = a.person_id
-    AND pe.current_revision_id IS NOT NULL AND pe.status <> 'prefers_no_page'
-WHERE l.collection_id = ? AND NOT l.is_hidden AND (p.id IS NOT NULL OR pe.id IS NOT NULL)
+WHERE l.collection_id = ? AND NOT l.is_hidden
 ORDER BY sort_key, l.id, a.piece_id, a.person_id
 LIMIT ?;
 
@@ -455,11 +385,8 @@ SELECT COUNT(*)
 FROM (
     SELECT DISTINCT l.id, a.piece_id, a.person_id
     FROM links l
-    JOIN link_attachments a ON a.link_id = l.id
-    LEFT JOIN pieces p ON p.id = a.piece_id AND p.current_revision_id IS NOT NULL
-    LEFT JOIN persons pe ON pe.id = a.person_id
-        AND pe.current_revision_id IS NOT NULL AND pe.status <> 'prefers_no_page'
-    WHERE l.collection_id = ? AND NOT l.is_hidden AND (p.id IS NOT NULL OR pe.id IS NOT NULL)
+    JOIN public_link_attachments a ON a.link_id = l.id
+    WHERE l.collection_id = ? AND NOT l.is_hidden
 ) cited;
 
 -- name: ListLinkAttachmentRoles :many
@@ -498,15 +425,7 @@ JOIN links l ON l.id = perf.link_id
 LEFT JOIN pieces p ON p.id = perf.piece_id
 WHERE perf.event_id = sqlc.arg(event_id) AND NOT l.is_hidden
     AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
-    AND EXISTS (
-        SELECT 1
-        FROM link_attachments a
-        LEFT JOIN pieces ap ON ap.id = a.piece_id
-        LEFT JOIN persons apr ON apr.id = a.person_id
-        WHERE a.link_id = perf.link_id
-            AND (ap.current_revision_id IS NOT NULL
-                OR (apr.current_revision_id IS NOT NULL AND apr.status <> 'prefers_no_page'))
-    )
+    AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = perf.link_id)
 ORDER BY perf.year IS NULL, perf.year DESC, perf.id
 LIMIT ?;
 
@@ -517,15 +436,7 @@ JOIN links l ON l.id = perf.link_id
 LEFT JOIN pieces p ON p.id = perf.piece_id
 WHERE perf.event_id = ? AND NOT l.is_hidden
     AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
-    AND EXISTS (
-        SELECT 1
-        FROM link_attachments a
-        LEFT JOIN pieces ap ON ap.id = a.piece_id
-        LEFT JOIN persons apr ON apr.id = a.person_id
-        WHERE a.link_id = perf.link_id
-            AND (ap.current_revision_id IS NOT NULL
-                OR (apr.current_revision_id IS NOT NULL AND apr.status <> 'prefers_no_page'))
-    );
+    AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = perf.link_id);
 
 -- ============================================
 -- Catalogue: public history and revisions
@@ -541,12 +452,8 @@ SELECT id FROM persons WHERE slug = ? AND current_revision_id IS NOT NULL;
 
 -- name: GetPublicTermID :one
 SELECT t.id
-FROM terms t
-WHERE t.slug = ?
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
-    );
+FROM public_terms t
+WHERE t.slug = ?;
 
 -- name: GetPublicEventID :one
 SELECT id FROM events WHERE slug = ? AND current_revision_id IS NOT NULL;
@@ -607,12 +514,8 @@ WHERE person_id IN (sqlc.slice('person_ids')) AND is_public;
 
 -- name: ListPublicTermsByID :many
 SELECT t.id, t.slug, t.facet, t.display_name
-FROM terms t
-WHERE t.id IN (sqlc.slice('ids'))
-    AND NOT EXISTS (
-        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
-        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
-    );
+FROM public_terms t
+WHERE t.id IN (sqlc.slice('ids'));
 
 -- name: ListPublicCollectionsByID :many
 SELECT id, name, kind, url, is_bardic_resource
@@ -624,9 +527,11 @@ SELECT id, slug, name, kind
 FROM events
 WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 
--- A snapshot's link is hidden if a hidden link has its URL as entered or normalized.
+-- A snapshot's link is shown only if a link that is not hidden has exactly its URL, as entered or normalized, and
+-- no hidden link does. Both columns are binary, and the caller compares the URLs these rows hold exactly too, so a
+-- URL that differs in any way, or a link since deleted, fails closed.
 
--- name: ListHiddenLinkURLs :many
-SELECT url, normalized_url
+-- name: ListLinksByURL :many
+SELECT url, normalized_url, is_hidden
 FROM links
-WHERE is_hidden AND (url IN (sqlc.slice('urls')) OR normalized_url IN (sqlc.slice('normalized_urls')));
+WHERE url IN (sqlc.slice('urls')) OR normalized_url IN (sqlc.slice('normalized_urls'));

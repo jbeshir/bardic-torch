@@ -2,7 +2,11 @@ package domain_test
 
 import (
 	"encoding/json"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -66,7 +70,7 @@ func fullPersonDocument() domain.PersonDocument {
 		Name:             "Wren of the Vale",
 		Kind:             domain.PersonKindCommunityBard,
 		Status:           domain.PersonStatusDeceased,
-		StatusDate:       ptr("2024-05-01"),
+		StatusDate:       &domain.Date{Time: time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)},
 		StatusSourceURL:  ptr("https://example.org/wren"),
 		Pronouns:         ptr("they/them"),
 		NotesMD:          ptr("Sang at every revel."),
@@ -221,7 +225,6 @@ func TestDecodeDocument_Malformed(t *testing.T) {
 		"not JSON":        `{"schema_version": 1,`,
 		"not an object":   `[1]`,
 		"version string":  `{"schema_version": "1"}`,
-		"unknown field":   `{"schema_version": 1, "name": "Harvest Revel", "kind": "event", "slug": "harvest-revel"}`,
 		"wrong type":      `{"schema_version": 1, "name": 7}`,
 		"trailing object": `{"schema_version": 1, "name": "Harvest Revel"} {}`,
 	} {
@@ -241,4 +244,177 @@ func TestDecodeDocument_TrailingWhitespace(t *testing.T) {
 		[]byte("{\"schema_version\": 1, \"name\": \"Harvest Revel\", \"kind\": \"venue\"}\n"))
 	require.NoError(t, err)
 	assert.Equal(t, domain.EventDocument{SchemaVersion: 1, Name: "Harvest Revel", Kind: domain.EventKindVenue}, doc)
+}
+
+// TestDecodeDocument_UnknownFields checks that fields the document type does not have, at any depth, are
+// ignored, as a later release may add them: the document decodes to the fields this release knows.
+func TestDecodeDocument_UnknownFields(t *testing.T) {
+	t.Parallel()
+
+	data := withValues(t, fullPersonDocument(), map[string]any{
+		"added_field":                    "a later release's",
+		"aliases.0.added_field":          true,
+		"links.0.added_field":            7,
+		"links.0.performances.0.added":   []any{"x"},
+		"relations.0.added_field":        nil,
+		"links.0.performances.0.nested":  map[string]any{"status": "not an enum here"},
+		"preferences.0.added_field_note": "ignored",
+	})
+	got, err := domain.DecodeDocument[domain.PersonDocument](data)
+	require.NoError(t, err)
+	assert.Equal(t, fullPersonDocument(), got)
+}
+
+// TestDecodeDocument_UnknownEnumValue checks that a vocabulary value this release does not know fails the
+// decode with ErrUnknownEnumValue, wherever it is in the document, as one in a column fails a read.
+// unknownValue is a value of no vocabulary, and kindField the field most documents hold their kind in.
+const (
+	unknownValue = "bogus"
+	kindField    = "kind"
+)
+
+func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
+	t.Parallel()
+
+	pieceFields := []string{
+		kindField, "secondary_kinds.0", "conservation.status", "licensing_status", "licence", "aliases.0.kind",
+		"terms.0.part", "relations.0.type", "credits.0.role", "credits.0.attribution", "credits.0.certainty",
+		"credits.0.part", "links.0.place_type", "links.0.roles.1", "preferences.0.dimension",
+	}
+	for _, field := range pieceFields {
+		t.Run("piece."+field, func(t *testing.T) {
+			t.Parallel()
+			_, err := domain.DecodeDocument[domain.PieceDocument](
+				withValues(t, fullPieceDocument(), map[string]any{field: unknownValue}))
+			require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+		})
+	}
+
+	personFields := []string{
+		kindField, "status", "licensing_status", "aliases.1.kind", "roles.0", "relations.0.type", "links.0.roles.0",
+		"links.0.place_type", "preferences.0.dimension",
+	}
+	for _, field := range personFields {
+		t.Run("person."+field, func(t *testing.T) {
+			t.Parallel()
+			_, err := domain.DecodeDocument[domain.PersonDocument](
+				withValues(t, fullPersonDocument(), map[string]any{field: unknownValue}))
+			require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+		})
+	}
+
+	t.Run("term.facet", func(t *testing.T) {
+		t.Parallel()
+		_, err := domain.DecodeDocument[domain.TermDocument](
+			withValues(t, fullTermDocument(), map[string]any{"facet": unknownValue}))
+		require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+	})
+	for _, field := range []string{kindField, "enumerable"} {
+		t.Run("collection."+field, func(t *testing.T) {
+			t.Parallel()
+			_, err := domain.DecodeDocument[domain.CollectionDocument](
+				withValues(t, fullCollectionDocument(), map[string]any{field: unknownValue}))
+			require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+		})
+	}
+	t.Run("event.kind", func(t *testing.T) {
+		t.Parallel()
+		_, err := domain.DecodeDocument[domain.EventDocument](
+			withValues(t, fullEventDocument(), map[string]any{kindField: unknownValue}))
+		require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+	})
+	t.Run("missing_required", func(t *testing.T) {
+		t.Parallel()
+		_, err := domain.DecodeDocument[domain.EventDocument](
+			[]byte(`{"schema_version": 1, "name": "Harvest Revel", "description_md": null}`))
+		require.ErrorIs(t, err, domain.ErrUnknownEnumValue, "an empty kind is not a kind")
+	})
+}
+
+// TestDocuments_EnumFieldsAreValidated checks that every field of a document whose type is one of the domain's
+// named string types is a vocabulary with a Valid method, which DecodeDocument checks.
+func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
+	t.Parallel()
+
+	validator := reflect.TypeFor[interface{ Valid() bool }]()
+	domainPkg := reflect.TypeFor[domain.PieceKind]().PkgPath()
+	seen := map[reflect.Type]bool{}
+	var visit func(typ reflect.Type, path string)
+	visit = func(typ reflect.Type, path string) {
+		for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice {
+			typ = typ.Elem()
+		}
+		switch {
+		case typ.Kind() == reflect.String && typ.PkgPath() == domainPkg:
+			seen[typ] = true
+			assert.True(t, typ.Implements(validator), "%s: %s has no Valid method", path, typ)
+		case typ.Kind() == reflect.Struct && typ.PkgPath() == domainPkg && typ != reflect.TypeFor[domain.Date]():
+			for i := range typ.NumField() {
+				visit(typ.Field(i).Type, path+"."+typ.Field(i).Name)
+			}
+		}
+	}
+	for _, doc := range []any{domain.PieceDocument{}, domain.PersonDocument{}, domain.TermDocument{},
+		domain.CollectionDocument{}, domain.EventDocument{}} {
+		visit(reflect.TypeOf(doc), reflect.TypeOf(doc).Name())
+	}
+	assert.Len(t, seen, 22, "the vocabularies documents use")
+}
+
+func TestDecodeDocument_StatusDate(t *testing.T) {
+	t.Parallel()
+
+	got, err := domain.DecodeDocument[domain.PersonDocument](
+		withValues(t, fullPersonDocument(), map[string]any{"status_date": nil}))
+	require.NoError(t, err)
+	assert.Nil(t, got.StatusDate)
+
+	for _, invalid := range []any{"March 2024", "2024-02-30", "2024-05-01T00:00:00Z", "", 20240501} {
+		_, err := domain.DecodeDocument[domain.PersonDocument](
+			withValues(t, fullPersonDocument(), map[string]any{"status_date": invalid}))
+		assert.Error(t, err, "%v", invalid)
+	}
+}
+
+// withValues returns the encoding of doc with the value at each dotted path (object keys and list indexes) set,
+// adding object keys that are missing.
+func withValues(t *testing.T, doc any, values map[string]any) []byte {
+	t.Helper()
+
+	data, err := json.Marshal(doc)
+	require.NoError(t, err)
+	var tree any
+	require.NoError(t, json.Unmarshal(data, &tree))
+
+	for path, value := range values {
+		keys := strings.Split(path, ".")
+		node := tree
+		for i, key := range keys {
+			last := i == len(keys)-1
+			switch n := node.(type) {
+			case map[string]any:
+				if last {
+					n[key] = value
+				} else {
+					node = n[key]
+				}
+			case []any:
+				index, err := strconv.Atoi(key)
+				require.NoError(t, err, path)
+				require.Less(t, index, len(n), path)
+				if last {
+					n[index] = value
+				} else {
+					node = n[index]
+				}
+			default:
+				require.Failf(t, "no such path", "%s", path)
+			}
+		}
+	}
+
+	data, err = json.Marshal(tree)
+	require.NoError(t, err)
+
+	return data
 }

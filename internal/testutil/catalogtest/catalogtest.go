@@ -188,7 +188,7 @@ func (c *Catalog) Person(f Person) Ref {
 		ref.ID = w.exec("INSERT INTO persons (slug, name, sort_name, sort_letter, kind, status, status_date, "+
 			"status_source_url, pronouns, notes_md, licensing_notes_md, licensing_status, is_stub) "+
 			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ref.Slug, doc.Name, sortName, sortLetter, doc.Kind,
-			doc.Status, doc.StatusDate, doc.StatusSourceURL, doc.Pronouns, doc.NotesMD, doc.LicensingNotesMD,
+			doc.Status, dateValue(doc.StatusDate), doc.StatusSourceURL, doc.Pronouns, doc.NotesMD, doc.LicensingNotesMD,
 			doc.LicensingStatus, doc.IsStub)
 		for _, alias := range doc.Aliases {
 			w.exec("INSERT INTO person_aliases (person_id, name, kind, is_public) VALUES (?, ?, ?, ?)",
@@ -509,4 +509,13 @@ func letterOf(key string) string {
 	default:
 		return "0"
 	}
+}
+
+// dateValue returns d as a DATE column's value: its time, or NULL for nil.
+func dateValue(d *domain.Date) any {
+	if d == nil {
+		return nil
+	}
+
+	return d.Time
 }

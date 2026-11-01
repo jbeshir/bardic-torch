@@ -131,13 +131,16 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 
 ### 4.1 Catalogue decisions refined in BE2
 
-BE2 built the catalogue schema (migrations 003–008) and the public read API. These decisions refine §4 and §6;
+BE2 built the catalogue schema (migrations 003–009) and the public read API. These decisions refine §4 and §6;
 the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
 
 - **Visibility is approval.** An entity is public exactly when `current_revision_id IS NOT NULL`; a term also needs
   every ancestor approved. The `terms.status` column was dropped as redundant: a pending suggestion is a term with
   no approved revision (BE4 deletes rejected new-entity rows, or adds a column). References from a public entity to
   a non-public one are omitted from every read, and an unknown slug and a non-public slug answer identically.
+  The shared rules are defined once, as views (migration 009) that queries join instead of restating them:
+  `public_terms` (approved, with every ancestor approved), `listed_persons` (public persons with a page) and
+  `public_link_attachments` (attachments to a public piece or a public person with a page).
 - **Kinds are an enum** (`pieces.kind` plus `piece_secondary_kinds`), not terms, so `terms.facet` has no `kind`. The
   `kind` filter matches the primary or a secondary kind. The list grows by appending ENUM values (an instant ALTER).
   **Enum growth rule:** a new value ships in code one release before any data uses it, so a rollback never reads a
@@ -145,14 +148,20 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
 - **Disputed is a certainty**, not an attribution (§2.4's wording). The database checks that a credit has a person
   exactly when `attribution = named`.
 - **Hidden aliases** (`person_aliases.is_public = false`, the default, so a forgotten value fails closed) never
-  appear in a public read, a search match or score, a snapshot or a diff. BE2 cannot scrub free text, so the
+  appear in a public read, a search match or score, a snapshot or a diff. Alias search matches score 0, as the alias
+  FULLTEXT index's statistics include hidden aliases. A snapshot's person `name` is shown only if it is the
+  person's current name or one of their current public alias names (compared exactly), and is their current name
+  otherwise, so a former name kept as a hidden alias never shows. BE2 cannot scrub free text, so the
   importer (BE3) hides `redirect` aliases equal to a hidden alias and lists free text containing a hidden alias
   in `import-review.md`.
 - **`prefers_no_page` persons** show only their identity (name, kind, status, date and source; `profile: null`).
   They are listed as stubs and found only by name. They are excluded from role/affiliation filters, every person
   count and member list, every credit (the credit is omitted), performer list, relation list (both directions),
   collection citation and needs-work.
-- **Hidden links** (`links.is_hidden`) are excluded from every read, including snapshots and needs-work.
+- **Hidden links** (`links.is_hidden`) are excluded from every read, including snapshots and needs-work. In a
+  snapshot, a link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL as
+  entered or normalized: a link deleted since, or whose URL changed before it was hidden, is dropped too.
+  `links.url` is binary (`utf8mb4_0900_bin`), so the SQL and Go comparisons are both exact.
 - **Slugs** are ASCII `[a-z0-9]+(-[a-z0-9]+)*`, at most 191 characters and unique per table. Term slugs keep the
   wiki's disambiguation suffix (`12th-century` in origin, `12th-century-topic` in topic), while `display_name`
   drops it. The importer's `Slugify` uses NFKD, strips marks, lowercases and turns non-alphanumeric runs into `-`.
@@ -165,7 +174,9 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
     Đ/Ð→D, Æ→A, Œ→O, ß→S, Þ→T and ﬁ→F. Anything else (digits, punctuation, other scripts) is `0`.
   - Persons sort by name as written.
 - **Search** uses InnoDB FULLTEXT in boolean mode with the server's default stopwords. The API tokenises `q` itself:
-  - it splits on non-letters and drops tokens shorter than 3 characters and InnoDB stopwords;
+  - it splits on characters other than letters, digits, underscores and combining marks (as InnoDB's parser
+    does), removes combining marks, and drops tokens with no letter or digit, tokens shorter than 3 or longer
+    than 84 characters (`innodb_ft_min_token_size`, `innodb_ft_max_token_size`) and InnoDB stopwords;
   - it sends `+token*` for at most 8 tokens, so user operators never reach MySQL;
   - if no token survives, it falls back to an accent-insensitive title/alias prefix match.
 
@@ -196,8 +207,11 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   - A revision is public if it is approved and its entity is public now; anything else is the same 404. History
     lists approved revisions newest first (`created_at`, then ID).
   - Views hold the document's editor-owned fields except preference profiles; links have no liveness or other
-    system state. A link is dropped if a hidden link has its URL as entered or normalized.
-  - An alias is shown only if public in the document and now a public alias of the person, by name. Credits,
+    system state. A link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL
+    as entered or normalized.
+  - An alias is shown only if public in the document and now a public alias of the person, by name. A person's
+    name is shown only if it is their current name or a current public alias name, and is their current name
+    otherwise. Credits,
     performers and relations of persons not public with a page now are dropped (a named credit entirely), as is a
     person's performance of a piece that is not public.
   - A person who prefers no page now, or did in the document, is shown by identity only (`profile: null`), in the
@@ -205,7 +219,11 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   - The base is shown only if it is an approved revision of the same entity; otherwise `base_revision_id` and
     `base_snapshot` are both null. `changed_fields` lists the sorted top-level view fields whose encodings
     differ, or with no base those that are not empty (null, `[]`, `""`, false, 0); a person's profile is one field.
-  - A snapshot that does not decode (unknown `schema_version`, wrong shape) is a 500, logged.
+  - A snapshot that does not decode (unknown `schema_version`, wrong shape, a status date that is not a date, a
+    vocabulary value this release does not know) is a 500, logged. Fields the document type does not have are
+    ignored, so a rollback after a release adds a document field keeps serving the revisions written in between:
+    a field is added without a new `schema_version`, and any other change to a document's shape needs one (see
+    DEPLOY.md).
 - **Needs-work** (`GET /v1/needs-work`) lists public pieces and persons with a page that are stubs, unassessed
   (pieces), of unknown licensing (pieces, and community bards) or with a visible dead link; restricted pieces only
   for being stubs. Pieces come first, then persons, each by sort key. `counts` has every reason, whatever the
@@ -214,8 +232,9 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   defines and validates their `value_json` shapes.
 - **Public reads ignore credentials.** The catalogue reads are served outside the authentication middleware, like
   the health checks: invalid, expired or uncheckable credentials and blocked users get the same answer as an
-  anonymous request, and no user is looked up or created. A person's page lists the performances they perform in
-  and those recorded by links attached to them; a performance of a piece that is not public is left out.
+  anonymous request, and no user is looked up or created. A person's page lists the performances recorded by
+  links attached to them, and those they perform in on links with a public attachment (as on an event's page);
+  a performance of a piece that is not public is left out.
 - **Terms, collections and events.** A term's `piece_count`/`person_count` count distinct public pieces, and
   public persons with a page, tagged with or affiliated with the term or any public descendant; a term under a
   pending parent is hidden with its subtree, from its ancestors' counts too. The term list is in tree order
@@ -239,7 +258,12 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
     filters. A piece search makes at most three round trips (term resolution, the page, every count in one
     statement), and every statement carries `MAX_EXECUTION_TIME(2000)`. A search the server stops answers 500 and is
     logged as a warning.
-  - `q` is at most 200 code points of valid UTF-8 and must not be blank. Prefix matches have no score, so with
+  - Every connection also sets the session `max_execution_time` to 2000 (`ConfigFromURL`), so every `SELECT`, sqlc
+    reads included, is stopped after 2 s; writes and DDL are not, and the migrator clears it for golang-migrate's
+    `GET_LOCK` wait. The hint stays on builder statements, built from the same constant, so searches stay capped
+    on a connection that lifts the session limit.
+  - `q` is at most 200 code points of valid UTF-8 and must not be blank: only ASCII spaces, tabs and line breaks
+    are blank, which the spec's pattern `[^ \t\n\f\r]` states exactly. Prefix matches have no score, so with
     `sort=relevance` they come in sort-key order. `relevance` is the default with `q` and a 400 without it.
 - **Response conventions.**
   - Every scalar property is required, `type: [X, "null"]` when it can be empty, and arrays are required and
@@ -247,9 +271,8 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   - Never exposed: `legacy_*` columns, `claimed_by_user_id`, `normalized_url`, internal person, term and piece IDs
     (collections and revisions are addressed by ID by design), user IDs, and preference profiles until BE5.
   - Unknown path slugs and non-public slugs are one 404. A malformed slug is a 400.
-  - An unknown ENUM value read from the database, a snapshot with an unsupported `schema_version` and a search the
-    server stops after 2 s are 500s, logged, never panics. Enum values inside stored documents are not validated on
-    read (BE4's `Validate` guards writes).
+  - An unknown ENUM value read from the database or in a stored document, a snapshot with an unsupported
+    `schema_version` and a read the server stops after 2 s are 500s, logged, never panics.
   - Piece facet counts list only values above zero; needs-work `counts` always list all four reasons, zeros
     included.
 - **Status sources:** "a status other than active needs a source" is domain validation (BE4), not a CHECK. The

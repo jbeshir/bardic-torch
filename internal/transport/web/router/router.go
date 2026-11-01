@@ -57,7 +57,13 @@ func routes(deps Dependencies) []route {
 		{method: http.MethodGet, path: "/healthz", handler: controller.Healthz{}},
 		{method: http.MethodGet, path: "/readyz", handler: controller.Readyz{Pinger: deps.Pinger}},
 
-		// Public catalogue reads.
+		// Public catalogue reads. The ServeMux routes a request to the most specific matching pattern, whatever the
+		// order of this table, so a later authenticated route with a literal segment where these have a wildcard,
+		// such as GET /v1/pieces/mine or /v1/revisions/pending, is routed to its own handler and not answered by the
+		// public {slug} or {revision_id} route. Two patterns that overlap with neither more specific than the other,
+		// such as /v1/pieces/{slug} and /v1/{collection}/mine, make newRouter panic. The literal segment must be
+		// sent as is: one sent with an encoded letter, such as /v1/pieces/min%65, would match no route.
+		// TestRouter_AuthMatrix fails for an authenticated operation a public route answers.
 		{method: http.MethodGet, path: "/v1/pieces", handler: controller.PieceListGet{Lister: deps.PublicPieceLister}},
 		{method: http.MethodGet, path: "/v1/pieces/{slug}", handler: controller.PieceGet{Getter: deps.PublicPieceGetter}},
 		{method: http.MethodGet, path: "/v1/persons",
@@ -74,16 +80,16 @@ func routes(deps Dependencies) []route {
 		{method: http.MethodGet, path: "/v1/events/{slug}", handler: controller.EventGet{Getter: deps.PublicEventGetter}},
 		// History, of the entities addressed by slug and of collections.
 		{method: http.MethodGet, path: "/v1/pieces/{slug}/history", handler: controller.HistoryGet{
-			Lister: deps.PublicHistoryLister, EntityType: domain.EntityTypePiece,
+			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypePiece,
 		}},
 		{method: http.MethodGet, path: "/v1/persons/{slug}/history", handler: controller.HistoryGet{
-			Lister: deps.PublicHistoryLister, EntityType: domain.EntityTypePerson,
+			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypePerson,
 		}},
 		{method: http.MethodGet, path: "/v1/terms/{slug}/history", handler: controller.HistoryGet{
-			Lister: deps.PublicHistoryLister, EntityType: domain.EntityTypeTerm,
+			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypeTerm,
 		}},
 		{method: http.MethodGet, path: "/v1/events/{slug}/history", handler: controller.HistoryGet{
-			Lister: deps.PublicHistoryLister, EntityType: domain.EntityTypeEvent,
+			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypeEvent,
 		}},
 		{method: http.MethodGet, path: "/v1/collections/{collection_id}/history",
 			handler: controller.CollectionHistoryGet{Lister: deps.PublicCollectionHistoryLister}},

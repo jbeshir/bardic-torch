@@ -25,6 +25,9 @@ var migratedTables = []string{
 	"links", "link_attachments", "performances", "performance_performers",
 }
 
+// migratedViews are the views the migrations create.
+var migratedViews = []string{"public_terms", "listed_persons", "public_link_attachments"}
+
 func TestMigrations_UpDownUp(t *testing.T) {
 	t.Parallel()
 
@@ -35,14 +38,17 @@ func TestMigrations_UpDownUp(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
-	require.ElementsMatch(t, migratedTables, listTables(t, db))
+	require.ElementsMatch(t, migratedTables, listTables(t, db, baseTable))
+	require.ElementsMatch(t, migratedViews, listTables(t, db, view))
 
 	m, err := mysql.NewMigrator(cfg)
 	require.NoError(t, err)
 	require.NoError(t, m.Down())
-	assert.Empty(t, listTables(t, db))
+	assert.Empty(t, listTables(t, db, baseTable))
+	assert.Empty(t, listTables(t, db, view))
 	require.NoError(t, m.Up())
-	assert.ElementsMatch(t, migratedTables, listTables(t, db))
+	assert.ElementsMatch(t, migratedTables, listTables(t, db, baseTable))
+	assert.ElementsMatch(t, migratedViews, listTables(t, db, view))
 
 	version, dirty, err := m.Version()
 	require.NoError(t, err)
@@ -63,12 +69,18 @@ func TestMigrations_UpDownUp(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// listTables returns the base tables of the current database, except golang-migrate's schema_migrations.
-func listTables(t *testing.T, db *sql.DB) []string {
+// The table types listTables lists.
+const (
+	baseTable = "BASE TABLE"
+	view      = "VIEW"
+)
+
+// listTables returns the tables of tableType in the current database, except golang-migrate's schema_migrations.
+func listTables(t *testing.T, db *sql.DB, tableType string) []string {
 	t.Helper()
 
 	rows, err := db.QueryContext(t.Context(), "SELECT table_name FROM information_schema.tables "+
-		"WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' AND table_name <> 'schema_migrations'")
+		"WHERE table_schema = DATABASE() AND table_type = ? AND table_name <> 'schema_migrations'", tableType)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rows.Close() })
 
@@ -84,8 +96,8 @@ func listTables(t *testing.T, db *sql.DB) []string {
 }
 
 // Identifier columns use binary collations so that IDs compare case-sensitively; text columns do not. User IDs
-// use a NO PAD collation, so that trailing spaces are not ignored. Slugs, sort letters, normalized URLs and
-// platforms are ASCII and binary.
+// use a NO PAD collation, so that trailing spaces are not ignored, as do link URLs, so that a snapshot's URL
+// matches a link's only exactly. Slugs, sort letters, normalized URLs and platforms are ASCII and binary.
 const (
 	binaryCollation      = "utf8mb4_0900_bin"
 	asciiBinaryCollation = "ascii_bin"
@@ -109,6 +121,7 @@ var identifierCollations = map[string]string{
 	"persons.claimed_by_user_id": binaryCollation,
 	"pieces.slug":                asciiBinaryCollation,
 	"pieces.sort_letter":         asciiBinaryCollation,
+	"links.url":                  binaryCollation,
 	"links.normalized_url":       asciiBinaryCollation,
 	"links.platform":             asciiBinaryCollation,
 }
@@ -118,16 +131,18 @@ var identifierCollations = map[string]string{
 var textColumns = []string{
 	"users.display_name", "terms.name", "terms.display_name", "collections.name", "collections.sort_name",
 	"persons.name", "persons.sort_name", "person_aliases.name", "pieces.title", "pieces.sort_title",
-	"pieces.notes_md", "piece_aliases.text", "links.url",
+	"pieces.notes_md", "piece_aliases.text", "links.title",
 }
 
 func TestMigrations_ColumnCollations(t *testing.T) {
 	t.Parallel()
 
 	db := mysqltest.NewDatabase(t)
-	rows, err := db.QueryContext(t.Context(), "SELECT CONCAT(table_name, '.', column_name), collation_name "+
-		"FROM information_schema.columns WHERE table_schema = DATABASE() AND collation_name IS NOT NULL "+
-		"AND table_name <> 'schema_migrations'")
+	// Views' columns have their tables' collations.
+	rows, err := db.QueryContext(t.Context(), "SELECT CONCAT(c.table_name, '.', c.column_name), c.collation_name "+
+		"FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema = c.table_schema "+
+		"AND t.table_name = c.table_name WHERE c.table_schema = DATABASE() AND t.table_type = 'BASE TABLE' "+
+		"AND c.collation_name IS NOT NULL AND c.table_name <> 'schema_migrations'")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rows.Close() })
 
@@ -150,4 +165,26 @@ func TestMigrations_ColumnCollations(t *testing.T) {
 			assert.Equal(t, textCollation, collation, "column [%s]", column)
 		}
 	}
+}
+
+// TestMigrations_ViewsCheckTheReader checks that every view checks the privileges of the user reading it, so that
+// no view depends on the user that created it still existing.
+func TestMigrations_ViewsCheckTheReader(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	rows, err := db.QueryContext(t.Context(),
+		"SELECT table_name, security_type FROM information_schema.views WHERE table_schema = DATABASE()")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = rows.Close() })
+
+	var views []string
+	for rows.Next() {
+		var name, security string
+		require.NoError(t, rows.Scan(&name, &security))
+		assert.Equal(t, "INVOKER", security, name)
+		views = append(views, name)
+	}
+	require.NoError(t, rows.Err())
+	assert.ElementsMatch(t, migratedViews, views)
 }

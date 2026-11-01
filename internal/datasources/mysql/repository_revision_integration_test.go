@@ -26,6 +26,8 @@ type revisionFixture struct {
 	edit, redacted, imported, foreignBase                     int64
 	pending, rejected, draft, withdrawn, pendingPieceApproved int64
 	quietEdit, futureVersion, wrongShape, brokenBase          int64
+	// unknownEnum holds a kind this release does not know; addedField a field it does not know.
+	unknownEnum, addedField int64
 }
 
 // Fixture strings the revision tests compare more than once.
@@ -264,7 +266,13 @@ var revisions = catalogtest.NewShared(func(c *catalogtest.Catalog) revisionFixtu
 	fx.futureVersion = broken(json.RawMessage(`{"schema_version": 2, "title": "From a newer release"}`), 0)
 	fx.wrongShape = broken(json.RawMessage(`{"schema_version": 1, "title": 7}`), 0)
 	fx.brokenBase = broken(domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: "Broken Song",
-		Kind: domain.PieceKindSong}, fx.wrongShape)
+		Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+		LicensingStatus: domain.LicensingStatusUnknown}, fx.wrongShape)
+	fx.unknownEnum = broken(json.RawMessage(`{"schema_version": 1, "title": "Broken Ballad", "kind": "ballad", `+
+		`"conservation": {"status": "unassessed", "source_url": null}, "licensing_status": "unknown"}`), 0)
+	fx.addedField = broken(json.RawMessage(`{"schema_version": 1, "title": "Later Song", "kind": "song", `+
+		`"conservation": {"status": "unassessed", "source_url": null}, "licensing_status": "unknown", `+
+		`"added_in_a_later_release": {"nested": true}}`), 0)
 
 	return fx
 })
@@ -335,7 +343,7 @@ func TestRepository_ListPublicHistory(t *testing.T) {
 	foreignBase := domain.RevisionSummary{ID: fx.foreignBase, Source: domain.RevisionSourceImport,
 		CreatedAt: revisionsAt(time.May, 1)}
 
-	history, err := repo.ListPublicHistory(ctx, domain.EntityTypePiece, fx.harvest.Slug,
+	history, err := repo.ListPublicHistory(ctx, domain.SlugEntityTypePiece, fx.harvest.Slug,
 		domain.Page{Limit: domain.DefaultPageLimit})
 	require.NoError(t, err)
 	require.Len(t, history.Revisions, 5)
@@ -347,23 +355,23 @@ func TestRepository_ListPublicHistory(t *testing.T) {
 		Total: 5,
 	}, history)
 
-	page, err := repo.ListPublicHistory(ctx, domain.EntityTypePiece, fx.harvest.Slug, domain.Page{Limit: 2, Offset: 1})
+	page, err := repo.ListPublicHistory(ctx, domain.SlugEntityTypePiece, fx.harvest.Slug, domain.Page{Limit: 2, Offset: 1})
 	require.NoError(t, err)
 	assert.Equal(t, domain.RevisionHistory{Revisions: []domain.RevisionSummary{redacted, edit}, Total: 5}, page)
 
-	past, err := repo.ListPublicHistory(ctx, domain.EntityTypePiece, fx.harvest.Slug, domain.Page{Limit: 2, Offset: 5})
+	past, err := repo.ListPublicHistory(ctx, domain.SlugEntityTypePiece, fx.harvest.Slug, domain.Page{Limit: 2, Offset: 5})
 	require.NoError(t, err)
 	assert.Equal(t, domain.RevisionHistory{Revisions: []domain.RevisionSummary{}, Total: 5}, past)
 
 	for _, entity := range []struct {
-		entityType domain.EntityType
+		entityType domain.SlugEntityType
 		ref        catalogtest.Ref
 		total      int64
 	}{
-		{domain.EntityTypePerson, fx.lark, 1},
-		{domain.EntityTypePerson, fx.quiet, 2},
-		{domain.EntityTypeTerm, fx.seaBallads, 1},
-		{domain.EntityTypeEvent, fx.fair, 1},
+		{domain.SlugEntityTypePerson, fx.lark, 1},
+		{domain.SlugEntityTypePerson, fx.quiet, 2},
+		{domain.SlugEntityTypeTerm, fx.seaBallads, 1},
+		{domain.SlugEntityTypeEvent, fx.fair, 1},
 	} {
 		history, err := repo.ListPublicHistory(ctx, entity.entityType, entity.ref.Slug,
 			domain.Page{Limit: domain.DefaultPageLimit})
@@ -390,17 +398,17 @@ func TestRepository_ListPublicHistory_NotFound(t *testing.T) {
 	page := domain.Page{Limit: domain.DefaultPageLimit}
 
 	for _, entity := range []struct {
-		entityType domain.EntityType
+		entityType domain.SlugEntityType
 		slug       string
 	}{
-		{domain.EntityTypePiece, fx.pendingPiece.Slug},
-		{domain.EntityTypePiece, "no-such-piece"},
-		{domain.EntityTypePerson, fx.pendingPerson.Slug},
-		{domain.EntityTypeTerm, fx.pendingTopic.Slug},
-		{domain.EntityTypeTerm, fx.underPending.Slug},
-		{domain.EntityTypeEvent, fx.pendingFair.Slug},
+		{domain.SlugEntityTypePiece, fx.pendingPiece.Slug},
+		{domain.SlugEntityTypePiece, "no-such-piece"},
+		{domain.SlugEntityTypePerson, fx.pendingPerson.Slug},
+		{domain.SlugEntityTypeTerm, fx.pendingTopic.Slug},
+		{domain.SlugEntityTypeTerm, fx.underPending.Slug},
+		{domain.SlugEntityTypeEvent, fx.pendingFair.Slug},
 		// Slugs are per entity type.
-		{domain.EntityTypeEvent, fx.harvest.Slug},
+		{domain.SlugEntityTypeEvent, fx.harvest.Slug},
 	} {
 		_, err := repo.ListPublicHistory(t.Context(), entity.entityType, entity.slug, page)
 		require.ErrorIs(t, err, datasources.ErrNotFound, entity.slug)
@@ -411,7 +419,7 @@ func TestRepository_ListPublicHistory_NotFound(t *testing.T) {
 		require.ErrorIs(t, err, datasources.ErrNotFound, id)
 	}
 
-	_, err := repo.ListPublicHistory(t.Context(), domain.EntityTypeCollection, fx.archive.Slug, page)
+	_, err := repo.ListPublicHistory(t.Context(), domain.SlugEntityType{}, fx.archive.Slug, page)
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, datasources.ErrNotFound)
 }
@@ -437,9 +445,8 @@ func TestRepository_GetPublicRevision_Piece(t *testing.T) {
 			Author: quillAuthor, CreatedAt: revisionsAt(time.June, 1)},
 		Entity: domain.PieceSummary{Slug: fx.harvest.Slug, Title: harvestTitle, Kind: domain.PieceKindSong,
 			SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusEndangered},
-		BaseRevisionID: &harvestID,
-		Snapshot:       edited,
-		BaseSnapshot:   &base,
+		Snapshot: edited,
+		Base:     &domain.RevisionBase[domain.PieceSnapshot]{ID: harvestID, Snapshot: base},
 	}, revision)
 }
 
@@ -454,9 +461,9 @@ func TestRepository_GetPublicRevision_RedactedChange(t *testing.T) {
 	require.NoError(t, err)
 	pieceRevision, ok := revision.(domain.PieceRevision)
 	require.True(t, ok, "%T", revision)
-	require.NotNil(t, pieceRevision.BaseSnapshot)
-	assert.Equal(t, *pieceRevision.BaseSnapshot, pieceRevision.Snapshot)
-	assert.Equal(t, fx.edit, *pieceRevision.BaseRevisionID)
+	require.NotNil(t, pieceRevision.Base)
+	assert.Equal(t, pieceRevision.Base.Snapshot, pieceRevision.Snapshot)
+	assert.Equal(t, fx.edit, pieceRevision.Base.ID)
 }
 
 // TestRepository_GetPublicRevision_Base checks that a base is shown only if it is an approved revision of the
@@ -475,8 +482,7 @@ func TestRepository_GetPublicRevision_Base(t *testing.T) {
 		require.NoError(t, err, name)
 		pieceRevision, ok := revision.(domain.PieceRevision)
 		require.True(t, ok, "%s: %T", name, revision)
-		assert.Nil(t, pieceRevision.BaseRevisionID, name)
-		assert.Nil(t, pieceRevision.BaseSnapshot, name)
+		assert.Nil(t, pieceRevision.Base, name)
 	}
 
 	imported, err := repo.GetPublicRevision(t.Context(), fx.imported)
@@ -497,7 +503,7 @@ func TestRepository_GetPublicRevision_Person(t *testing.T) {
 	personRevision, ok := revision.(domain.PersonRevision)
 	require.True(t, ok, "%T", revision)
 	assert.Equal(t, larkSummary, personRevision.Entity)
-	assert.Nil(t, personRevision.BaseSnapshot)
+	assert.Nil(t, personRevision.Base)
 	assert.Equal(t, domain.PersonSnapshot{
 		Name:   larkName,
 		Kind:   domain.PersonKindCommunityBard,
@@ -540,9 +546,8 @@ func TestRepository_GetPublicRevision_NoPage(t *testing.T) {
 			CreatedAt: revisionsAt(time.June, 1)},
 		Entity: domain.PersonSummary{Slug: fx.quiet.Slug, Name: quietName, Kind: domain.PersonKindCommunityBard,
 			IsStub: true},
-		BaseRevisionID: &baseID,
-		Snapshot:       identity,
-		BaseSnapshot:   &identity,
+		Snapshot: identity,
+		Base:     &domain.RevisionBase[domain.PersonSnapshot]{ID: baseID, Snapshot: identity},
 	}, revision)
 }
 
@@ -624,4 +629,16 @@ func TestRepository_GetPublicRevision_Undecodable(t *testing.T) {
 		require.NotErrorIs(t, err, datasources.ErrNotFound, name)
 		require.NotErrorIs(t, err, domain.ErrUnsupportedSchemaVersion, name)
 	}
+
+	// A vocabulary value this release does not know, as after rolling back past the release that added it.
+	_, err = repo.GetPublicRevision(t.Context(), fx.unknownEnum)
+	require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+	require.NotErrorIs(t, err, datasources.ErrNotFound)
+
+	// A field this release does not know, as after rolling back past the release that added it, is ignored.
+	revision, err := repo.GetPublicRevision(t.Context(), fx.addedField)
+	require.NoError(t, err)
+	pieceRevision, ok := revision.(domain.PieceRevision)
+	require.True(t, ok, "%T", revision)
+	assert.Equal(t, "Later Song", pieceRevision.Snapshot.Title)
 }

@@ -48,7 +48,7 @@ func (_m *PublicHistoryLister) EXPECT() *PublicHistoryLister_Expecter {
 }
 
 // ListPublicHistory provides a mock function for the type PublicHistoryLister
-func (_mock *PublicHistoryLister) ListPublicHistory(ctx context.Context, entityType domain.EntityType, slug string, page domain.Page) (domain.RevisionHistory, error) {
+func (_mock *PublicHistoryLister) ListPublicHistory(ctx context.Context, entityType domain.SlugEntityType, slug string, page domain.Page) (domain.RevisionHistory, error) {
 	ret := _mock.Called(ctx, entityType, slug, page)
 
 	if len(ret) == 0 {
@@ -57,15 +57,15 @@ func (_mock *PublicHistoryLister) ListPublicHistory(ctx context.Context, entityT
 
 	var r0 domain.RevisionHistory
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.EntityType, string, domain.Page) (domain.RevisionHistory, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.SlugEntityType, string, domain.Page) (domain.RevisionHistory, error)); ok {
 		return returnFunc(ctx, entityType, slug, page)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.EntityType, string, domain.Page) domain.RevisionHistory); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.SlugEntityType, string, domain.Page) domain.RevisionHistory); ok {
 		r0 = returnFunc(ctx, entityType, slug, page)
 	} else {
 		r0 = ret.Get(0).(domain.RevisionHistory)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.EntityType, string, domain.Page) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.SlugEntityType, string, domain.Page) error); ok {
 		r1 = returnFunc(ctx, entityType, slug, page)
 	} else {
 		r1 = ret.Error(1)
@@ -80,22 +80,22 @@ type PublicHistoryLister_ListPublicHistory_Call struct {
 
 // ListPublicHistory is a helper method to define mock.On call
 //   - ctx context.Context
-//   - entityType domain.EntityType
+//   - entityType domain.SlugEntityType
 //   - slug string
 //   - page domain.Page
 func (_e *PublicHistoryLister_Expecter) ListPublicHistory(ctx any, entityType any, slug any, page any) *PublicHistoryLister_ListPublicHistory_Call {
 	return &PublicHistoryLister_ListPublicHistory_Call{Call: _e.mock.On("ListPublicHistory", ctx, entityType, slug, page)}
 }
 
-func (_c *PublicHistoryLister_ListPublicHistory_Call) Run(run func(ctx context.Context, entityType domain.EntityType, slug string, page domain.Page)) *PublicHistoryLister_ListPublicHistory_Call {
+func (_c *PublicHistoryLister_ListPublicHistory_Call) Run(run func(ctx context.Context, entityType domain.SlugEntityType, slug string, page domain.Page)) *PublicHistoryLister_ListPublicHistory_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 domain.EntityType
+		var arg1 domain.SlugEntityType
 		if args[1] != nil {
-			arg1 = args[1].(domain.EntityType)
+			arg1 = args[1].(domain.SlugEntityType)
 		}
 		var arg2 string
 		if args[2] != nil {
@@ -120,7 +120,7 @@ func (_c *PublicHistoryLister_ListPublicHistory_Call) Return(revisionHistory dom
 	return _c
 }
 
-func (_c *PublicHistoryLister_ListPublicHistory_Call) RunAndReturn(run func(ctx context.Context, entityType domain.EntityType, slug string, page domain.Page) (domain.RevisionHistory, error)) *PublicHistoryLister_ListPublicHistory_Call {
+func (_c *PublicHistoryLister_ListPublicHistory_Call) RunAndReturn(run func(ctx context.Context, entityType domain.SlugEntityType, slug string, page domain.Page) (domain.RevisionHistory, error)) *PublicHistoryLister_ListPublicHistory_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -418,12 +418,17 @@ func TestPersonSearch_Statements(t *testing.T) {
 				assert.Contains(t, runner.statements[0].String(), "t.facet = ?")
 				items := runner.statements[1].String()
 				// Hidden aliases, and every alias of a person who prefers no page, are filtered inside the alias
-				// branch; such persons match no role or affiliation.
-				assert.Contains(t, items, "FROM person_aliases a JOIN persons ap ON ap.id = a.person_id "+
-					"WHERE a.is_public AND ap.status <> 'prefers_no_page' AND MATCH (a.name)")
-				assert.Contains(t, items, "AND p.status <> 'prefers_no_page' AND EXISTS (SELECT 1 FROM person_roles")
-				assert.Contains(t, items, "AND p.status <> 'prefers_no_page' AND EXISTS (SELECT 1 FROM "+
-					"person_affiliations")
+				// branch, which is not scored, as the alias index's statistics include hidden aliases; persons
+				// who prefer no page match no role or affiliation.
+				assert.Contains(t, items, "SELECT p.id AS person_id, MATCH (p.name) AGAINST (? IN BOOLEAN MODE) AS score")
+				assert.Contains(t, items, "UNION ALL SELECT a.person_id, 0 AS score FROM person_aliases a "+
+					"JOIN listed_persons ap ON ap.id = a.person_id WHERE a.is_public AND MATCH (a.name)")
+				assert.NotContains(t, items, "MATCH (a.name) AGAINST (? IN BOOLEAN MODE) AS score")
+				assert.Contains(t, items, "AND EXISTS (SELECT 1 FROM listed_persons lp WHERE lp.id = p.id) "+
+					"AND EXISTS (SELECT 1 FROM person_roles")
+				assert.Contains(t, items, "AND EXISTS (SELECT 1 FROM listed_persons lp WHERE lp.id = p.id) "+
+					"AND EXISTS (SELECT 1 FROM person_affiliations pa JOIN term_ancestors ta ON ta.descendant_id = "+
+					"pa.term_id JOIN public_terms dt ON dt.id = ta.descendant_id")
 				assert.Contains(t, items, "ORDER BY c.score DESC, c.sort_name, c.id LIMIT ? OFFSET ?")
 			}
 		})
@@ -437,8 +442,8 @@ func TestPersonSearch_PrefixFallbackFiltersHiddenAliases(t *testing.T) {
 	c := runner.reader()
 	c.personList(t.Context(), datasources.PersonQuery{Search: &theSearch, Sort: domain.PersonSortName})
 	require.NoError(t, c.err)
-	assert.Contains(t, runner.statements[0].String(), "WHERE a.is_public AND ap.status <> 'prefers_no_page' AND "+
-		"a.name LIKE ? ESCAPE '!'")
+	assert.Contains(t, runner.statements[0].String(), "JOIN listed_persons ap ON ap.id = a.person_id "+
+		"WHERE a.is_public AND a.name LIKE ? ESCAPE '!'")
 }
 
 func TestPersonSearch_Rows(t *testing.T) {
@@ -518,6 +523,24 @@ func TestQueryError(t *testing.T) {
 	require.NotErrorIs(t, queryError(other), datasources.ErrQueryTimeout)
 	require.NotErrorIs(t, queryError(errors.New("connection refused")), datasources.ErrQueryTimeout)
 	assert.NoError(t, queryError(nil))
+}
+
+func TestFetch_QueryTimeout(t *testing.T) {
+	t.Parallel()
+
+	// A sqlc read the server stops, under the session limit every connection has, is a timeout as a search's is.
+	c := &catalogueReader{}
+	fetch(t.Context(), c, "terms", func(context.Context, int) (int, error) {
+		return 0, &mysqldriver.MySQLError{Number: erQueryTimeout, Message: "maximum statement execution time exceeded"}
+	}, 0)
+	require.ErrorIs(t, c.err, datasources.ErrQueryTimeout)
+
+	c = &catalogueReader{}
+	fetch(t.Context(), c, "terms", func(context.Context, int) (int, error) {
+		return 0, errors.New("connection refused")
+	}, 0)
+	require.Error(t, c.err)
+	require.NotErrorIs(t, c.err, datasources.ErrQueryTimeout)
 }
 
 func TestPrefixPattern(t *testing.T) {

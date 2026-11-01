@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
+	"time"
 )
 
 // Snapshot documents are the editable content of a catalogue entity, as stored in revisions.snapshot_json. A
@@ -20,7 +22,13 @@ import (
 // identified by URL. The order of a list is the stored position of its elements.
 //
 // TestDocumentCoverage (internal/datasources/mysql) fails when a column of a table a document owns is neither a
-// document field nor classified as system-owned. Any change to a document's shape needs a new schema version.
+// document field nor classified as system-owned.
+//
+// A reader ignores fields it does not know, so a release may add a field to documents without a new schema
+// version: a rolled-back release keeps serving the documents written in between, and their views show only the
+// fields it knows. Any other change to a document's shape (removing, renaming or retyping a field, or changing
+// what one means) needs a new schema version, which an older release refuses to read. A vocabulary value is
+// added as for ENUM columns: the value ships one release before any document uses it.
 
 // DocumentSchemaVersion is the schema version of every document this code writes and reads.
 const DocumentSchemaVersion = 1
@@ -35,8 +43,9 @@ type Document interface {
 }
 
 // DecodeDocument decodes a stored snapshot document. It fails with ErrUnsupportedSchemaVersion if the document's
-// schema_version is not DocumentSchemaVersion, and with an error if the JSON is malformed, has a field the
-// document type does not have, or is followed by more data. It does not validate the field values.
+// schema_version is not DocumentSchemaVersion, and with an error if the JSON is malformed or followed by more
+// data, a value has the wrong type, a date is not a date, or a vocabulary field holds a value this release does
+// not know. Fields the document type does not have are ignored. It does not validate the other field values.
 func DecodeDocument[D Document](data []byte) (D, error) {
 	var doc D
 
@@ -51,15 +60,89 @@ func DecodeDocument[D Document](data []byte) (D, error) {
 	}
 
 	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
 	if err := dec.Decode(&doc); err != nil {
 		return doc, fmt.Errorf("decoding document: %w", err)
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
 		return doc, errors.New("decoding document: unexpected data after the document")
 	}
+	if err := validateEnums(reflect.ValueOf(doc), ""); err != nil {
+		return doc, fmt.Errorf("decoding document: %w", err)
+	}
 
 	return doc, nil
+}
+
+// ErrUnknownEnumValue is returned for a vocabulary value this release does not know.
+var ErrUnknownEnumValue = errors.New("unknown enum value")
+
+// validator is the method of Enum, which a type assertion can use.
+type validator interface {
+	Valid() bool
+}
+
+// validateEnums checks every Enum in v, descending into pointers, lists and exported struct fields, and returns
+// ErrUnknownEnumValue, with the field's path, for the first that is not Valid.
+func validateEnums(v reflect.Value, path string) error {
+	switch kind := v.Kind(); {
+	case kind == reflect.Pointer:
+		if v.IsNil() {
+			return nil
+		}
+		return validateEnums(v.Elem(), path)
+	case kind == reflect.Slice && v.Type() != reflect.TypeFor[json.RawMessage]():
+		for i := range v.Len() {
+			if err := validateEnums(v.Index(i), fmt.Sprintf("%s[%d]", path, i)); err != nil {
+				return err
+			}
+		}
+	case kind == reflect.Struct:
+		return validateFieldEnums(v, path)
+	case kind == reflect.String:
+		if e, ok := v.Interface().(validator); ok && !e.Valid() {
+			return fmt.Errorf("%w [%s] at %s", ErrUnknownEnumValue, v.String(), path)
+		}
+	}
+
+	return nil
+}
+
+// validateFieldEnums is validateEnums for each exported field of the struct v.
+func validateFieldEnums(v reflect.Value, path string) error {
+	for i := range v.NumField() {
+		if field := v.Type().Field(i); field.IsExported() {
+			if err := validateEnums(v.Field(i), path+"."+field.Name); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Date is a calendar date, without a time of day, in UTC. In JSON it is a string, YYYY-MM-DD.
+type Date struct {
+	time.Time
+}
+
+// MarshalJSON encodes d as YYYY-MM-DD.
+func (d Date) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.Format(time.DateOnly))
+}
+
+// UnmarshalJSON decodes a YYYY-MM-DD string, failing for anything else.
+func (d *Date) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("decoding date: %w", err)
+	}
+	t, err := time.Parse(time.DateOnly, s)
+	if err != nil {
+		return fmt.Errorf("decoding date: %w", err)
+	}
+	d.Time = t
+
+	return nil
 }
 
 // PieceDocument is the editable content of a piece (pieces and its child tables, plus the links attached to it).
@@ -176,7 +259,7 @@ type PersonDocument struct {
 	Name             string              `json:"name"`
 	Kind             PersonKind          `json:"kind"`
 	Status           PersonStatus        `json:"status"`
-	StatusDate       *string             `json:"status_date"` // YYYY-MM-DD
+	StatusDate       *Date               `json:"status_date"`
 	StatusSourceURL  *string             `json:"status_source_url"`
 	Pronouns         *string             `json:"pronouns"`
 	NotesMD          *string             `json:"notes_md"`

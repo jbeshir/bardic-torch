@@ -120,10 +120,10 @@ type PublicCollectionLister interface {
 // PublicHistoryLister lists the history of public entities addressed by slug.
 type PublicHistoryLister interface {
 	// ListPublicHistory lists one page of the approved revisions of the public piece, person, term or event
-	// (entityType, which must not be EntityTypeCollection) with slug, newest first, with how many there are in all.
-	// It returns ErrNotFound if no public entity of the type has the slug.
+	// (entityType) with slug, newest first, with how many there are in all. It returns ErrNotFound if no public
+	// entity of the type has the slug.
 	ListPublicHistory(
-		ctx context.Context, entityType domain.EntityType, slug string, page domain.Page,
+		ctx context.Context, entityType domain.SlugEntityType, slug string, page domain.Page,
 	) (domain.RevisionHistory, error)
 }
 

@@ -3,6 +3,7 @@
 package mysql_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +39,9 @@ func TestRepository_ListPublicPieces_Text(t *testing.T) {
 	// The wanderer is only in an alias of the morning glory, three times over, and in the lamplighter's notes once.
 	piece("morning-glory", "Morning Glory", "", nil, "Wanderer's Hymn, Wanderer's Rest and Wanderer's Road")
 	piece(textLampSlug, "Lamplighter", "", new("A wanderer's tune from the hills."))
+	// InnoDB indexes "ember_glow" as one word, and never indexes a word longer than 84 characters.
+	piece("ember-glow", "Ember_Glow Reel", "", nil)
+	piece("long-word", longWord+" Reel", "", nil)
 	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Unapproved Rover"}, Slug: "unapproved-rover",
 		Unapproved: true})
 
@@ -68,6 +72,13 @@ func TestRepository_ListPublicPieces_Text(t *testing.T) {
 		{name: "alias_scores", q: "wanderer", want: []string{"morning-glory", textLampSlug}},
 		{name: "alias_scores_by_title", q: "wanderer", sort: domain.PieceSortTitle,
 			want: []string{textLampSlug, "morning-glory"}},
+		// An underscore joins words, as in the index; a word too long to be indexed falls back to a prefix match;
+		// a query of combining marks alone has no word, and its prefix match finds nothing.
+		{name: "underscore_joins", q: "ember_glow", want: []string{"ember-glow"}},
+		{name: "too_long_word_prefix", q: longWord, want: []string{"long-word"}},
+		{name: "too_long_word_ignored", q: longWord + " reel", sort: domain.PieceSortTitle,
+			want: []string{"ember-glow", "long-word"}},
+		{name: "marks_only", q: "\u0301\u0301\u0301", want: []string{}},
 	}
 	check := func(t *testing.T) {
 		t.Helper()
@@ -116,3 +127,35 @@ const (
 	textEireSlug  = "eire"
 	textLampSlug  = "lamplighter"
 )
+
+// TestRepository_ListPublicPersons_AliasMatchesUnscored checks that a person matched only by a public alias
+// scores 0, ranking after every name match and then by sort name, however often the alias repeats the word: the
+// alias index holds hidden aliases too, and a score over it would depend on them.
+func TestRepository_ListPublicPersons_AliasMatchesUnscored(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	c := catalogtest.New(t, db)
+	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Zed Moor", Aliases: []domain.DocPersonAlias{
+		{Name: "Smith of Smithfield, Smith of Moor", Kind: domain.PersonAliasKindNickname, IsPublic: true},
+		{Name: "Smith Smithson", Kind: domain.PersonAliasKindLegal},
+		{Name: "Old Smith", Kind: domain.PersonAliasKindLegal},
+	}}})
+	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Ada Moor", Aliases: []domain.DocPersonAlias{
+		{Name: "The Smith of Moor", Kind: domain.PersonAliasKindNickname, IsPublic: true},
+	}}})
+	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Wynn Smith"}})
+
+	search := mustSearch(t, "smith")
+	got, err := mysql.New(db).ListPublicPersons(t.Context(), datasources.PersonQuery{Search: &search,
+		Sort: domain.PersonSortRelevance, Page: domain.Page{Limit: 10}})
+	require.NoError(t, err)
+	slugs := []string{}
+	for _, p := range got.Persons {
+		slugs = append(slugs, p.Slug)
+	}
+	assert.Equal(t, []string{"wynn-smith", "ada-moor", "zed-moor"}, slugs)
+}
+
+// longWord is a word longer than InnoDB's longest FULLTEXT token (innodb_ft_max_token_size).
+var longWord = "Lo" + strings.Repeat("o", domain.MaxSearchTokenLength) + "ng"

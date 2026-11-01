@@ -1942,6 +1942,27 @@ type LinkAttachment struct {
 	Position uint16
 }
 
+type ListedPerson struct {
+	ID                uint64
+	Slug              string
+	Name              string
+	SortName          string
+	SortLetter        string
+	Kind              PersonsKind
+	Status            PersonsStatus
+	StatusDate        sql.NullTime
+	StatusSourceUrl   sql.NullString
+	Pronouns          sql.NullString
+	NotesMd           sql.NullString
+	LicensingNotesMd  sql.NullString
+	LicensingStatus   PersonsLicensingStatus
+	IsStub            bool
+	ClaimedByUserID   sql.NullString
+	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
+	LegacyTitle       sql.NullString
+}
+
 type Performance struct {
 	ID                  uint64
 	LinkID              uint64
@@ -2076,6 +2097,30 @@ type PieceTerm struct {
 	IsPrimary bool
 	Part      NullPieceTermsPart
 	Position  uint16
+}
+
+type PublicLinkAttachment struct {
+	ID       uint64
+	LinkID   uint64
+	PieceID  sql.NullInt64
+	PersonID sql.NullInt64
+	Role     LinkAttachmentsRole
+	Position uint16
+}
+
+type PublicTerm struct {
+	ID                   uint64
+	Facet                TermsFacet
+	Name                 string
+	DisplayName          string
+	Slug                 string
+	ParentID             sql.NullInt64
+	RelatedAffiliationID sql.NullInt64
+	DescriptionMd        sql.NullString
+	Position             int32
+	CurrentRevisionID    sql.NullInt64
+	LegacyWikiPageid     sql.NullInt32
+	LegacyTitle          sql.NullString
 }
 
 type Revision struct {

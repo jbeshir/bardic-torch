@@ -1,10 +1,9 @@
 package domain
 
-import "fmt"
-
 // The catalogue's vocabularies. Each type mirrors a MySQL ENUM column (see migrations 003–008) or a request
 // parameter; the integration test TestMigrations_EnumColumns keeps the two in step. Types parsed from requests
-// have a Parse function; the others are only read from the database.
+// have a Parse function; the others are only read from the database and from snapshot documents. Each type's values
+// are listed once, in enum.go, which gives every type a Valid method.
 //
 // An ENUM grows by appending a value. The new value ships here one release before any data uses it, so that a
 // rolled-back release never reads a value it does not know.
@@ -24,6 +23,31 @@ const (
 	// EntityTypeEvent is an event or venue (events).
 	EntityTypeEvent EntityType = "event"
 )
+
+// SlugEntityType is the type of an entity addressed by slug: a piece, person, term or event, but never a
+// collection, which is addressed by ID. Outside this package it holds only one of the SlugEntityType values, or
+// none (the zero value).
+type SlugEntityType struct {
+	entityType EntityType
+}
+
+// The types of entity addressed by slug.
+var (
+	SlugEntityTypePiece  = SlugEntityType{EntityTypePiece}
+	SlugEntityTypePerson = SlugEntityType{EntityTypePerson}
+	SlugEntityTypeTerm   = SlugEntityType{EntityTypeTerm}
+	SlugEntityTypeEvent  = SlugEntityType{EntityTypeEvent}
+)
+
+// EntityType returns the entity type t is, or "" for the zero value.
+func (t SlugEntityType) EntityType() EntityType {
+	return t.entityType
+}
+
+// String returns the entity type's name.
+func (t SlugEntityType) String() string {
+	return string(t.entityType)
+}
 
 // RevisionSource is where a revision came from.
 type RevisionSource string
@@ -79,13 +103,7 @@ const (
 
 // ParseFacet returns the Facet named by s, or an error if s is not a known facet.
 func ParseFacet(s string) (Facet, error) {
-	switch f := Facet(s); f {
-	case FacetMood, FacetTopic, FacetCulture, FacetLanguage, FacetLegendaria, FacetForm, FacetOrigin, FacetOther,
-		FacetAffiliation:
-		return f, nil
-	default:
-		return "", fmt.Errorf("unknown facet [%s]", s)
-	}
+	return parseEnum[Facet](s, "facet")
 }
 
 // CollectionKind is what sort of resource a collection is.
@@ -122,15 +140,7 @@ const (
 
 // ParseCollectionKind returns the CollectionKind named by s, or an error if s is not a known collection kind.
 func ParseCollectionKind(s string) (CollectionKind, error) {
-	switch k := CollectionKind(s); k {
-	case CollectionKindIndexOrLinkList, CollectionKindSongbookPDF, CollectionKindSongbookWebsite,
-		CollectionKindWebsite, CollectionKindWikiCategory, CollectionKindWiki, CollectionKindYouTubeChannel,
-		CollectionKindYouTubePlaylist, CollectionKindGoogleDocSongbook, CollectionKindBlog,
-		CollectionKindArchivedSongbook, CollectionKindHostedDocument, CollectionKindOther:
-		return k, nil
-	default:
-		return "", fmt.Errorf("unknown collection kind [%s]", s)
-	}
+	return parseEnum[CollectionKind](s, "collection kind")
 }
 
 // CollectionEnumerable is whether, and how, a collection's contents can be listed.
@@ -163,12 +173,7 @@ const (
 
 // ParseEventKind returns the EventKind named by s, or an error if s is not a known event kind.
 func ParseEventKind(s string) (EventKind, error) {
-	switch k := EventKind(s); k {
-	case EventKindVenue, EventKindEvent:
-		return k, nil
-	default:
-		return "", fmt.Errorf("unknown event kind [%s]", s)
-	}
+	return parseEnum[EventKind](s, "event kind")
 }
 
 // PersonKind is what sort of person a person row is.
@@ -185,12 +190,7 @@ const (
 
 // ParsePersonKind returns the PersonKind named by s, or an error if s is not a known person kind.
 func ParsePersonKind(s string) (PersonKind, error) {
-	switch k := PersonKind(s); k {
-	case PersonKindCommunityBard, PersonKindHistorical, PersonKindGroup:
-		return k, nil
-	default:
-		return "", fmt.Errorf("unknown person kind [%s]", s)
-	}
+	return parseEnum[PersonKind](s, "person kind")
 }
 
 // PersonStatus is a person's status, which decides how much of their page is shown.
@@ -257,13 +257,7 @@ const (
 
 // ParsePersonRole returns the PersonRole named by s, or an error if s is not a known person role.
 func ParsePersonRole(s string) (PersonRole, error) {
-	switch r := PersonRole(s); r {
-	case PersonRoleSinger, PersonRoleSongwriter, PersonRoleMusician, PersonRoleInstrumentalist,
-		PersonRoleStoryteller, PersonRolePoet, PersonRoleJester, PersonRoleDancer:
-		return r, nil
-	default:
-		return "", fmt.Errorf("unknown person role [%s]", s)
-	}
+	return parseEnum[PersonRole](s, "person role")
 }
 
 // PersonRelationType is how one person relates to another.
@@ -321,12 +315,7 @@ const (
 
 // ParsePieceKind returns the PieceKind named by s, or an error if s is not a known piece kind.
 func ParsePieceKind(s string) (PieceKind, error) {
-	switch k := PieceKind(s); k {
-	case PieceKindSong, PieceKindPoem, PieceKindStory, PieceKindDanceMusic, PieceKindInstrumental, PieceKindComedy:
-		return k, nil
-	default:
-		return "", fmt.Errorf("unknown piece kind [%s]", s)
-	}
+	return parseEnum[PieceKind](s, "piece kind")
 }
 
 // ConservationStatus is how at risk a piece is of being lost.
@@ -348,13 +337,7 @@ const (
 // ParseConservationStatus returns the ConservationStatus named by s, or an error if s is not a known
 // conservation status.
 func ParseConservationStatus(s string) (ConservationStatus, error) {
-	switch c := ConservationStatus(s); c {
-	case ConservationStatusUnassessed, ConservationStatusLowRisk, ConservationStatusEndangered,
-		ConservationStatusCriticallyEndangered, ConservationStatusRestricted:
-		return c, nil
-	default:
-		return "", fmt.Errorf("unknown conservation status [%s]", s)
-	}
+	return parseEnum[ConservationStatus](s, "conservation status")
 }
 
 // Licence is the licence a piece is published under.
@@ -566,12 +549,7 @@ func NeedsWorkReasons() []NeedsWorkReason {
 
 // ParseNeedsWorkReason returns the NeedsWorkReason named by s, or an error if s is not a known reason.
 func ParseNeedsWorkReason(s string) (NeedsWorkReason, error) {
-	switch r := NeedsWorkReason(s); r {
-	case NeedsWorkReasonStub, NeedsWorkReasonUnassessed, NeedsWorkReasonMissingLicensing, NeedsWorkReasonDeadLinks:
-		return r, nil
-	default:
-		return "", fmt.Errorf("unknown needs-work reason [%s]", s)
-	}
+	return parseEnum[NeedsWorkReason](s, "needs-work reason")
 }
 
 // PieceSort is the order of a piece list.
@@ -586,12 +564,7 @@ const (
 
 // ParsePieceSort returns the PieceSort named by s, or an error if s is not a known piece order.
 func ParsePieceSort(s string) (PieceSort, error) {
-	switch o := PieceSort(s); o {
-	case PieceSortTitle, PieceSortRelevance:
-		return o, nil
-	default:
-		return "", fmt.Errorf("unknown piece sort [%s]", s)
-	}
+	return parseEnum[PieceSort](s, "piece sort")
 }
 
 // PersonSort is the order of a person list.
@@ -606,10 +579,5 @@ const (
 
 // ParsePersonSort returns the PersonSort named by s, or an error if s is not a known person order.
 func ParsePersonSort(s string) (PersonSort, error) {
-	switch o := PersonSort(s); o {
-	case PersonSortName, PersonSortRelevance:
-		return o, nil
-	default:
-		return "", fmt.Errorf("unknown person sort [%s]", s)
-	}
+	return parseEnum[PersonSort](s, "person sort")
 }

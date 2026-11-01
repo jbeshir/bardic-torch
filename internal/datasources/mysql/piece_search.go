@@ -68,7 +68,8 @@ const (
 	pieceCandidates   sqlFragment = "candidates AS (SELECT p.id, p.slug, p.title, p.sort_title, p.sort_letter, " +
 		"p.kind, p.conservation_status, p.is_stub"
 	pieceTagged sqlFragment = ", EXISTS (SELECT 1 FROM piece_terms pt " +
-		"JOIN term_ancestors ta ON ta.descendant_id = pt.term_id WHERE pt.piece_id = p.id AND ta.ancestor_id IN ("
+		"JOIN term_ancestors ta ON ta.descendant_id = pt.term_id" + publicDescendantJoin +
+		" WHERE pt.piece_id = p.id AND ta.ancestor_id IN ("
 	pieceKindMatch   sqlFragment = "kind_match"
 	pieceStatusMatch sqlFragment = "status_match"
 	pieceItemsSelect sqlFragment = " SELECT " + executionTimeHint +
@@ -76,8 +77,8 @@ const (
 		"(SELECT GROUP_CONCAT(sk.kind ORDER BY sk.kind SEPARATOR ',') FROM piece_secondary_kinds sk " +
 		"WHERE sk.piece_id = c.id) FROM candidates c WHERE TRUE"
 	pieceTermCounts sqlFragment = " UNION ALL SELECT 'term', t.slug, 0, COUNT(DISTINCT c.id) FROM candidates c " +
-		"JOIN piece_terms pt ON pt.piece_id = c.id JOIN term_ancestors ta ON ta.descendant_id = pt.term_id " +
-		"JOIN terms t ON t.id = ta.ancestor_id WHERE TRUE"
+		"JOIN piece_terms pt ON pt.piece_id = c.id JOIN term_ancestors ta ON ta.descendant_id = pt.term_id" +
+		publicDescendantJoin + " JOIN terms t ON t.id = ta.ancestor_id WHERE TRUE"
 	pieceTermGroup  sqlFragment = " GROUP BY t.id, t.slug"
 	pieceKindCounts sqlFragment = " UNION ALL SELECT 'kind', k.kind, k.ordinal, COUNT(DISTINCT c.id) " +
 		"FROM candidates c JOIN (SELECT id AS piece_id, kind, kind + 0 AS ordinal FROM pieces " +
@@ -152,9 +153,9 @@ func (ps pieceSearch) writeWith(s *statement) {
 	s.write("WITH ")
 	if q.Search != nil {
 		s.write(pieceMatched)
-		writeMatch(s, *q.Search, "p.title, p.notes_md", "p.title", " FROM pieces p WHERE ")
+		writeMatch(s, *q.Search, "p.title, p.notes_md", "p.title", " FROM pieces p WHERE ", true)
 		s.write(pieceAliasMatched)
-		writeMatch(s, *q.Search, "a.text", "a.text", " FROM piece_aliases a WHERE ")
+		writeMatch(s, *q.Search, "a.text", "a.text", " FROM piece_aliases a WHERE ", true)
 		s.write(pieceMatchedEnd)
 	}
 
@@ -165,7 +166,7 @@ func (ps pieceSearch) writeWith(s *statement) {
 	for _, group := range ps.groups {
 		s.write(pieceTagged)
 		list(s, group.ids)
-		s.write(") AND ", descendantTermPublic, ") AS ", facetMatch(group.facet))
+		s.write(")) AS ", facetMatch(group.facet))
 	}
 	if len(q.Kinds) > 0 {
 		s.write(", (p.kind IN (")
@@ -233,14 +234,14 @@ func (ps pieceSearch) countsStatement() *statement {
 		s.write(", ")
 		s.arg(string(group.facet))
 	}
-	s.write(") AND ", descendantTermPublic, pieceTermGroup)
+	s.write(")", pieceTermGroup)
 	// Terms of each facet the search filters on, ignoring that facet's terms.
 	for _, group := range ps.groups {
 		s.write(pieceTermCounts)
 		ps.writeMatches(s, facetMatch(group.facet))
 		s.write(" AND t.facet = ")
 		s.arg(string(group.facet))
-		s.write(" AND ", descendantTermPublic, pieceTermGroup)
+		s.write(pieceTermGroup)
 	}
 
 	s.write(pieceKindCounts)

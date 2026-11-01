@@ -269,7 +269,8 @@ func parseClasses(t *testing.T, spec string) map[string]map[string]columnClass {
 }
 
 // documentFieldPaths returns the leaf field paths of a document type: JSON names joined by ".", descending into
-// structs and lists of structs, and flattening embedded structs as encoding/json does.
+// structs and lists of structs, and flattening embedded structs as encoding/json does. A struct with its own JSON
+// encoding, such as domain.Date, is a leaf.
 func documentFieldPaths(typ reflect.Type, prefix string) []string {
 	var paths []string
 	for i := range typ.NumField() {
@@ -285,7 +286,7 @@ func documentFieldPaths(typ reflect.Type, prefix string) []string {
 		for elem.Kind() == reflect.Pointer || (elem.Kind() == reflect.Slice && elem != reflect.TypeFor[json.RawMessage]()) {
 			elem = elem.Elem()
 		}
-		if elem.Kind() == reflect.Struct {
+		if elem.Kind() == reflect.Struct && !reflect.PointerTo(elem).Implements(reflect.TypeFor[json.Unmarshaler]()) {
 			paths = append(paths, documentFieldPaths(elem, path+".")...)
 		} else {
 			paths = append(paths, path)

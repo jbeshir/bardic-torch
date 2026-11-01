@@ -25,7 +25,7 @@ var errNotSlugAddressed = errors.New("entity type is not addressed by slug")
 // ListPublicHistory lists one page of the approved revisions of the public piece, person, term or event with
 // slug, newest first, returning datasources.ErrNotFound if no public entity of entityType has the slug.
 func (r *Repository) ListPublicHistory(
-	ctx context.Context, entityType domain.EntityType, slug string, page domain.Page,
+	ctx context.Context, entityType domain.SlugEntityType, slug string, page domain.Page,
 ) (domain.RevisionHistory, error) {
 	var history domain.RevisionHistory
 	err := r.readOnly(ctx, func(c *catalogueReader) error {
@@ -33,7 +33,7 @@ func (r *Repository) ListPublicHistory(
 		if err != nil {
 			return err
 		}
-		history = c.history(ctx, queries.RevisionsEntityType(entityType), id, page)
+		history = c.history(ctx, queries.RevisionsEntityType(entityType.EntityType()), id, page)
 		return c.err
 	})
 	if err != nil {
@@ -81,27 +81,25 @@ func lookupError(what string, err error) error {
 
 // publicEntityID returns the ID of the public entity of entityType with slug.
 func (c *catalogueReader) publicEntityID(
-	ctx context.Context, entityType domain.EntityType, slug string,
+	ctx context.Context, entityType domain.SlugEntityType, slug string,
 ) (uint64, error) {
 	var lookup func(context.Context, string) (uint64, error)
 	switch entityType {
-	case domain.EntityTypePiece:
+	case domain.SlugEntityTypePiece:
 		lookup = c.q.GetPublicPieceID
-	case domain.EntityTypePerson:
+	case domain.SlugEntityTypePerson:
 		lookup = c.q.GetPublicPersonID
-	case domain.EntityTypeTerm:
+	case domain.SlugEntityTypeTerm:
 		lookup = c.q.GetPublicTermID
-	case domain.EntityTypeEvent:
+	case domain.SlugEntityTypeEvent:
 		lookup = c.q.GetPublicEventID
-	case domain.EntityTypeCollection:
-		return 0, fmt.Errorf("%w [%s]", errNotSlugAddressed, entityType)
 	default:
 		return 0, fmt.Errorf("%w [%s]", errNotSlugAddressed, entityType)
 	}
 
 	id, err := lookup(ctx, slug)
 	if err != nil {
-		return 0, lookupError(string(entityType), err)
+		return 0, lookupError(entityType.String(), err)
 	}
 
 	return id, nil
@@ -220,7 +218,7 @@ func (c *catalogueReader) revision(ctx context.Context, row queries.GetApprovedR
 	case queries.RevisionsEntityTypeEvent:
 		return entityRevision(ctx, c, row, entity.Events, eventSnapshots)
 	default:
-		return nil, fmt.Errorf("%w [%s] of revision entity type", errUnknownEnumValue, row.EntityType)
+		return nil, fmt.Errorf("%w [%s] of revision entity type", domain.ErrUnknownEnumValue, row.EntityType)
 	}
 }
 
@@ -334,7 +332,7 @@ func entityRevision[D domain.Document, E, S any](
 		if err != nil {
 			return nil, fmt.Errorf("base snapshot [%d]: %w", baseID, err)
 		}
-		revision.BaseRevisionID, revision.BaseSnapshot = &baseID, &view
+		revision.Base = &domain.RevisionBase[S]{ID: baseID, Snapshot: view}
 	}
 
 	return revision, c.err
@@ -364,14 +362,14 @@ func baseDocument[D domain.Document](ctx context.Context, c *catalogueReader, id
 // there is.
 func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotReferences) domain.SnapshotVisibility {
 	vis := domain.SnapshotVisibility{
-		Pieces:         make(map[int64]domain.PieceSummary),
-		Persons:        make(map[int64]domain.PersonSummary),
-		NoPagePersons:  make(map[int64]domain.PersonSummary),
-		PublicAliases:  make(map[int64]map[string]bool),
-		Terms:          make(map[int64]domain.TermSummary),
-		Collections:    make(map[int64]domain.CollectionSummary),
-		Events:         make(map[int64]domain.EventSummary),
-		HiddenLinkURLs: make(map[string]bool),
+		Pieces:          make(map[int64]domain.PieceSummary),
+		Persons:         make(map[int64]domain.PersonSummary),
+		NoPagePersons:   make(map[int64]domain.PersonSummary),
+		PublicAliases:   make(map[int64]map[string]bool),
+		Terms:           make(map[int64]domain.TermSummary),
+		Collections:     make(map[int64]domain.CollectionSummary),
+		Events:          make(map[int64]domain.EventSummary),
+		VisibleLinkURLs: make(map[string]bool),
 	}
 
 	if ids := unsignedIDs(refs.PieceIDs); len(ids) > 0 {
@@ -440,13 +438,21 @@ func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis
 	}
 }
 
-// linkVisibility loads which of the referenced URLs are hidden links': a link is matched on its URL as entered
-// or its normalized URL, so a snapshot that wrote the URL in either form is redacted.
+// linkVisibility loads which of the referenced URLs are visible links': those that are exactly the URL as entered,
+// or the normalized URL, of a link that is not hidden, and of no hidden link. Only the URLs the rows hold are
+// trusted, compared exactly, so a URL MySQL matched otherwise, or one no link has now, is not visible.
 func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis *domain.SnapshotVisibility) {
-	for _, row := range fetch(ctx, c, "hidden links", c.q.ListHiddenLinkURLs,
-		queries.ListHiddenLinkURLsParams{Urls: urls, NormalizedUrls: urls}) {
-		vis.HiddenLinkURLs[row.Url] = true
-		vis.HiddenLinkURLs[row.NormalizedUrl] = true
+	hidden := make(map[string]bool)
+	for _, row := range fetch(ctx, c, "links", c.q.ListLinksByURL,
+		queries.ListLinksByURLParams{Urls: urls, NormalizedUrls: urls}) {
+		if row.IsHidden {
+			hidden[row.Url], hidden[row.NormalizedUrl] = true, true
+		} else {
+			vis.VisibleLinkURLs[row.Url], vis.VisibleLinkURLs[row.NormalizedUrl] = true, true
+		}
+	}
+	for url := range hidden {
+		delete(vis.VisibleLinkURLs, url)
 	}
 }
 

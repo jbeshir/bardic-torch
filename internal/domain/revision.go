@@ -36,12 +36,17 @@ type Revision interface {
 // EntityRevision is a public revision of an entity, shown as Entity, whose snapshot view is of type S.
 type EntityRevision[E, S any] struct {
 	RevisionSummary
-	Entity E
-	// BaseRevisionID is the revision this one was based on, if that is an approved revision of the same entity;
-	// BaseSnapshot is then its snapshot view. Both are nil otherwise.
-	BaseRevisionID *int64
-	Snapshot       S
-	BaseSnapshot   *S
+	Entity   E
+	Snapshot S
+	// Base is the revision this one was based on, if that is an approved revision of the same entity, and nil
+	// otherwise.
+	Base *RevisionBase[S]
+}
+
+// RevisionBase is the revision another was based on, with its snapshot view of type S.
+type RevisionBase[S any] struct {
+	ID       int64
+	Snapshot S
 }
 
 func (EntityRevision[E, S]) isRevision() {}

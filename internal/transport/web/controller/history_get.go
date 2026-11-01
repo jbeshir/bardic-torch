@@ -20,8 +20,8 @@ type RevisionHistory struct {
 // exactly like an unknown one.
 type HistoryGet struct {
 	Lister datasources.PublicHistoryLister
-	// EntityType is the type of entity the route addresses, other than collections.
-	EntityType domain.EntityType
+	// EntityType is the type of entity the route addresses.
+	EntityType domain.SlugEntityType
 }
 
 func (c HistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +35,7 @@ func (c HistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	history, err := c.Lister.ListPublicHistory(r.Context(), c.EntityType, slug, page)
-	writeHistory(w, r, string(c.EntityType), history, err)
+	writeHistory(w, r, c.EntityType.String(), history, err)
 }
 
 // CollectionHistoryGet handles GET /v1/collections/{collection_id}/history, one page of the approved revisions of

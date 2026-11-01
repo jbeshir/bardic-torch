@@ -17,10 +17,6 @@ var (
 	_ datasources.PublicPersonGetter = (*Repository)(nil)
 )
 
-// errUnknownEnumValue is returned, wrapped, for an ENUM value this release does not know: one a newer release
-// wrote before a rollback. The read fails rather than serve a value outside the API's contract.
-var errUnknownEnumValue = errors.New("unknown ENUM value")
-
 // GetPublicPiece retrieves a public piece by slug with everything its page shows, returning
 // datasources.ErrNotFound if no public piece has the slug. Visibility is decided by the queries: unapproved
 // entities, references to them, hidden links and prefers_no_page persons are filtered out in SQL.
@@ -98,7 +94,7 @@ func fetch[A, T any](
 
 	value, err := query(ctx, arg)
 	if err != nil {
-		c.fail(fmt.Errorf("fetching %s: %w", what, err))
+		c.fail(fmt.Errorf("fetching %s: %w", what, queryError(err)))
 		return zero
 	}
 
@@ -128,18 +124,21 @@ type dbEnum interface {
 	Valid() bool
 }
 
-// enumOf converts an ENUM value read from the database to its domain type, failing the read if the value is
-// not one this release knows.
-func enumOf[D ~string, E dbEnum](c *catalogueReader, value E) D {
-	if !value.Valid() {
-		c.fail(fmt.Errorf("%w [%s] of %T", errUnknownEnumValue, string(value), value))
+// enumOf converts an ENUM value read from the database to its domain type, failing the read with
+// domain.ErrUnknownEnumValue if the value is not one this release knows: one a newer release wrote before a
+// rollback. The read fails rather than serve a value outside the API's contract. The value must be known to both
+// the column's type and the domain type, so that converting a column to the wrong domain type fails too.
+func enumOf[D domain.Enum, E dbEnum](c *catalogueReader, value E) D {
+	converted := D(value)
+	if !value.Valid() || !converted.Valid() {
+		c.fail(fmt.Errorf("%w [%s] of %T as %T", domain.ErrUnknownEnumValue, string(value), value, converted))
 	}
 
-	return D(value)
+	return converted
 }
 
 // nullEnumOf is enumOf for a nullable column, returning nil for NULL.
-func nullEnumOf[D ~string, E dbEnum](c *catalogueReader, value E, valid bool) *D {
+func nullEnumOf[D domain.Enum, E dbEnum](c *catalogueReader, value E, valid bool) *D {
 	if !valid {
 		return nil
 	}
@@ -481,7 +480,7 @@ func (c *catalogueReader) personProfile(ctx context.Context, row queries.GetPubl
 }
 
 // personLinkRows converts a person's link rows to the piece link rows, which have the same columns, so that
-// links groups both.
+// links groups both. The conversion compiles only while the two queries select the same columns.
 func personLinkRows(rows []queries.ListPublicPersonLinksRow) []queries.ListPublicPieceLinksRow {
 	converted := make([]queries.ListPublicPieceLinksRow, 0, len(rows))
 	for _, row := range rows {

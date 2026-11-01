@@ -117,7 +117,7 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	})
 	noPage := c.Person(catalogtest.Person{
 		Doc: domain.PersonDocument{
-			Name: hollisName, Status: domain.PersonStatusPrefersNoPage, StatusDate: new("2026-03-01"),
+			Name: hollisName, Status: domain.PersonStatusPrefersNoPage, StatusDate: &domain.Date{Time: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
 			StatusSourceURL: new("https://example.org/requests/12"), NotesMD: new("Private notes."),
 			Aliases:        []domain.DocPersonAlias{{Name: "Holly", Kind: domain.PersonAliasKindNickname, IsPublic: true}},
 			Roles:          []domain.PersonRole{domain.PersonRoleSinger},
@@ -525,9 +525,11 @@ func TestRepository_CatalogueReads_UnknownEnumValue(t *testing.T) {
 
 	repo := mysql.New(db)
 	_, err := repo.GetPublicPiece(t.Context(), piece.Slug)
-	require.ErrorContains(t, err, "unknown ENUM value [ballad]")
+	require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+	require.ErrorContains(t, err, "[ballad]")
 	require.NotErrorIs(t, err, datasources.ErrNotFound)
 
 	_, err = repo.GetPublicPerson(t.Context(), person.Slug)
-	require.ErrorContains(t, err, "unknown ENUM value [harper]")
+	require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+	require.ErrorContains(t, err, "[harper]")
 }

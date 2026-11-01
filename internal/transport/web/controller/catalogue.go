@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -155,8 +156,8 @@ func performanceLinkFromDomain(l domain.PerformanceLink) PerformanceLink {
 }
 
 // slugRule is what an invalid slug parameter's 400 says a slug must be.
-const slugRule = "must be lowercase ASCII letters and digits, in runs joined by single hyphens, " +
-	"at most 191 characters"
+var slugRule = fmt.Sprintf("must be lowercase ASCII letters and digits, in runs joined by single hyphens, "+
+	"at most %d characters", domain.MaxSlugLength)
 
 var errNotSlug = errors.New("not a slug")
 

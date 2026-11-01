@@ -25,7 +25,14 @@ func TestParseSearchQuery(t *testing.T) {
 		{name: "apostrophe_splits", q: "O'Neill", wantText: "O'Neill", wantTokens: []string{"neill"}},
 		{name: "hyphen_splits", q: "Twenty-Two", wantText: "Twenty-Two", wantTokens: []string{"twenty", "two"}},
 		{name: "accents_kept", q: "Éire", wantText: "Éire", wantTokens: []string{"éire"}},
-		{name: "decomposed_accent", q: "E\u0301ire", wantText: "E\u0301ire", wantTokens: []string{"e\u0301ire"}},
+		{name: "decomposed_accent_stripped", q: "E\u0301ire", wantText: "E\u0301ire", wantTokens: []string{"eire"}},
+		{name: "marks_only_dropped", q: "\u0301\u0301\u0301 \u0300\u0301\u0302\u0303", wantText: "\u0301\u0301\u0301 \u0300\u0301\u0302\u0303"},
+		{name: "marks_not_counted", q: "e\u0301\u0301\u0301", wantText: "e\u0301\u0301\u0301"},
+		{name: "underscore_joins", q: testUnderscored, wantText: testUnderscored, wantTokens: []string{testUnderscored}},
+		{name: "underscores_only_dropped", q: "___ wild", wantText: "___ wild", wantTokens: []string{testWild}},
+		{name: "longest_token", q: strings.Repeat("x", MaxSearchTokenLength), wantText: strings.Repeat("x", MaxSearchTokenLength), wantTokens: []string{strings.Repeat("x", MaxSearchTokenLength)}},
+		{name: "too_long_token_dropped", q: strings.Repeat("x", MaxSearchTokenLength+1) + " wild", wantText: strings.Repeat("x", MaxSearchTokenLength+1) + " wild", wantTokens: []string{testWild}},
+		{name: "only_too_long_token", q: strings.Repeat("\u00e9", MaxSearchTokenLength+1), wantText: strings.Repeat("\u00e9", MaxSearchTokenLength+1)},
 		{name: "digits", q: "16th century", wantText: "16th century", wantTokens: []string{"16th", "century"}},
 		{name: "deduplicated", q: "Rover rover ROVER", wantText: "Rover rover ROVER", wantTokens: []string{testRover}},
 		{
@@ -41,8 +48,7 @@ func TestParseSearchQuery(t *testing.T) {
 		{name: "spaces_collapsed", q: " \tthe \n wild\r\f", wantText: "the wild", wantTokens: []string{testWild}},
 		{name: "only_punctuation", q: "%_!", wantText: "%_!"},
 		{name: "non_ascii_space_kept", q: "the\u00a0end", wantText: "the\u00a0end", wantTokens: []string{"end"}},
-		{name: "longest", q: strings.Repeat("é", MaxSearchLength), wantText: strings.Repeat("é", MaxSearchLength),
-			wantTokens: []string{strings.Repeat("é", MaxSearchLength)}},
+		{name: "longest", q: strings.Repeat("é", MaxSearchLength), wantText: strings.Repeat("é", MaxSearchLength)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -81,12 +87,13 @@ func TestParseSearchQuery_Invalid(t *testing.T) {
 func TestSearchStopwords(t *testing.T) {
 	t.Parallel()
 
-	stopwords := SearchStopwords()
-	assert.Contains(t, stopwords, "the")
-	assert.IsIncreasing(t, stopwords)
-
-	stopwords[0] = "changed"
-	assert.NotContains(t, SearchStopwords(), "changed", "the list is a copy")
+	assert.Contains(t, innoDBDefaultStopwords, "the")
+	assert.IsIncreasing(t, innoDBDefaultStopwords)
+	for _, word := range innoDBDefaultStopwords {
+		if len(word) >= MinSearchTokenLength {
+			assert.Empty(t, searchTokens(word), word)
+		}
+	}
 }
 
 func TestParseLetter(t *testing.T) {
@@ -111,4 +118,6 @@ func TestParseLetter(t *testing.T) {
 const (
 	testRover = "rover"
 	testWild  = "wild"
+	// testUnderscored is one word, as InnoDB's parser counts underscores as word characters.
+	testUnderscored = "foo_bar"
 )

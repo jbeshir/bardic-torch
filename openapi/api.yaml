@@ -1309,15 +1309,17 @@ components:
       in: query
       required: false
       description: |
-        Words to search for, at most 200 characters. Each word of three or more letters or digits that is not a
-        stopword must start a word of the match; punctuation separates words and has no other meaning. A query
-        with no such word (such as `the` or `Oi`) matches the start of titles and names instead. Matching ignores
-        case and accents.
+        Words to search for, at most 200 characters, not only spaces, tabs or line breaks (other spaces, such as
+        no-break spaces, are characters like any other). A word is a run of letters, digits and underscores, so
+        other punctuation separates words and has no other meaning; combining marks are ignored. Each word of 3 to
+        84 characters with a letter or digit that is not a stopword must start a word of the match. A query with no
+        such word (such as `the` or `Oi`) matches the start of titles and names instead. Matching ignores case and
+        accents.
       schema:
         type: string
         minLength: 1
         maxLength: 200
-        pattern: '\S'
+        pattern: '[^ \t\n\f\r]'
         examples:
           - wild rover
     Letter:

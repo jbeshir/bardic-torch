@@ -27,7 +27,12 @@ func (r *Repository) ListPublicTerms(ctx context.Context, facet *domain.Facet) (
 
 	var terms []domain.TermListItem
 	err := r.readOnly(ctx, func(c *catalogueReader) error {
-		terms = c.termTree(fetch(ctx, c, "terms", c.q.ListPublicTerms, params))
+		rows := fetch(ctx, c, "terms", c.q.ListPublicTerms, params)
+		ids := make([]uint64, 0, len(rows))
+		for _, row := range rows {
+			ids = append(ids, row.ID)
+		}
+		terms = c.termTree(rows, c.termCounts(ctx, ids))
 		return c.err
 	})
 	if err != nil {
@@ -53,8 +58,10 @@ func (r *Repository) GetPublicTerm(ctx context.Context, slug string, members dom
 }
 
 // termTree orders rows, which are ordered by facet, position, display name and ID, so that each term comes
-// right after its parent and its earlier siblings' subtrees.
-func (c *catalogueReader) termTree(rows []queries.ListPublicTermsRow) []domain.TermListItem {
+// right after its parent and its earlier siblings' subtrees, with its counts.
+func (c *catalogueReader) termTree(
+	rows []queries.ListPublicTermsRow, counts map[uint64]domain.TermCounts,
+) []domain.TermListItem {
 	listed := make(map[string]bool, len(rows))
 	for _, row := range rows {
 		listed[row.Slug] = true
@@ -78,7 +85,7 @@ func (c *catalogueReader) termTree(rows []queries.ListPublicTermsRow) []domain.T
 			TermSummary: c.termSummary(row.Slug, row.Facet, row.DisplayName),
 			Name:        row.Name,
 			ParentSlug:  stringPtr(row.ParentSlug),
-			TermCounts:  domain.TermCounts{PieceCount: row.PieceCount, PersonCount: row.PersonCount},
+			TermCounts:  counts[row.ID],
 		})
 		for _, child := range children[row.Slug] {
 			visit(child)
@@ -108,9 +115,16 @@ func (c *catalogueReader) term(ctx context.Context, slug string, members domain.
 		DescriptionMD: stringPtr(row.DescriptionMd),
 		Aliases:       fetch(ctx, c, "aliases", c.q.ListTermAliases, row.ID),
 		Ancestors:     c.termAncestors(fetch(ctx, c, "ancestors", c.q.ListTermAncestors, row.ID)),
-		Children:      c.termChildren(fetch(ctx, c, "children", c.q.ListPublicTermChildren, c.nullID(row.ID))),
-		TermCounts:    domain.TermCounts{PieceCount: row.PieceCount, PersonCount: row.PersonCount},
 	}
+	children := fetch(ctx, c, "children", c.q.ListPublicTermChildren, c.nullID(row.ID))
+	ids := []uint64{row.ID}
+	for _, child := range children {
+		ids = append(ids, child.ID)
+	}
+	counts := c.termCounts(ctx, ids)
+	term.TermCounts = counts[row.ID]
+	term.Children = c.termChildren(children, counts)
+
 	if row.RelatedSlug.Valid {
 		related := c.termSummary(row.RelatedSlug.String, row.RelatedFacet.TermsFacet, row.RelatedDisplayName.String)
 		term.RelatedAffiliation = &related
@@ -136,12 +150,14 @@ func (c *catalogueReader) termAncestors(rows []queries.ListTermAncestorsRow) []d
 	return ancestors
 }
 
-func (c *catalogueReader) termChildren(rows []queries.ListPublicTermChildrenRow) []domain.TermChild {
+func (c *catalogueReader) termChildren(
+	rows []queries.ListPublicTermChildrenRow, counts map[uint64]domain.TermCounts,
+) []domain.TermChild {
 	children := make([]domain.TermChild, 0, len(rows))
 	for _, row := range rows {
 		children = append(children, domain.TermChild{
 			Term:       c.termSummary(row.Slug, row.Facet, row.DisplayName),
-			TermCounts: domain.TermCounts{PieceCount: row.PieceCount, PersonCount: row.PersonCount},
+			TermCounts: counts[row.ID],
 		})
 	}
 
@@ -172,4 +188,35 @@ func (c *catalogueReader) termPersons(rows []queries.ListPublicTermPersonsRow) [
 	}
 
 	return persons
+}
+
+// Members a term count row counts, as ListPublicTermCounts labels them.
+const (
+	termCountPieces  = "piece"
+	termCountPersons = "person"
+)
+
+// termCounts returns the counts of the public terms with ids, by ID. A term with no members has no row, and so
+// counts of 0. It runs no statement for no IDs.
+func (c *catalogueReader) termCounts(ctx context.Context, ids []uint64) map[uint64]domain.TermCounts {
+	counts := make(map[uint64]domain.TermCounts, len(ids))
+	if len(ids) == 0 {
+		return counts
+	}
+
+	for _, row := range fetch(ctx, c, "term counts", c.q.ListPublicTermCounts,
+		queries.ListPublicTermCountsParams{PieceTermIds: ids, PersonTermIds: ids}) {
+		count := counts[row.TermID]
+		switch row.Member {
+		case termCountPieces:
+			count.PieceCount = row.N
+		case termCountPersons:
+			count.PersonCount = row.N
+		default:
+			c.fail(fmt.Errorf("unexpected term count member [%s]", row.Member))
+		}
+		counts[row.TermID] = count
+	}
+
+	return counts
 }

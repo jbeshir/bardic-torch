@@ -26,8 +26,10 @@ import (
 type sqlFragment string
 
 // executionTimeHint is the optimizer hint, placed right after a statement's top-level SELECT, that has MySQL stop
-// the statement after 2 seconds (error 3024).
-const executionTimeHint sqlFragment = "/*+ MAX_EXECUTION_TIME(2000) */"
+// the statement after maxExecutionTimeMillis (error 3024). The session limit every connection has (ConfigFromURL)
+// is the same, so the hint changes nothing there; it keeps searches, the costliest statements and the ones whose
+// shape a request chooses, capped on a connection that has lifted the session limit, such as a writer's.
+const executionTimeHint sqlFragment = "/*+ MAX_EXECUTION_TIME(" + maxExecutionTimeMillis + ") */"
 
 // erQueryTimeout is MySQL's ER_QUERY_TIMEOUT: a statement exceeded its maximum execution time.
 const erQueryTimeout = 3024
@@ -118,10 +120,9 @@ var errRelevanceWithoutSearch = errors.New("relevance order needs a search")
 
 // Fragments shared by the search statements.
 const (
-	// descendantTermPublic follows a join of term_ancestors ta: the tagged term ta.descendant_id, and so each of
-	// its ancestors, is public. The closure's depth-0 row covers the term itself.
-	descendantTermPublic sqlFragment = "NOT EXISTS (SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = " +
-		"da.ancestor_id WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL)"
+	// publicDescendantJoin follows a join of term_ancestors ta, keeping the rows whose tagged term
+	// ta.descendant_id, and so each of its ancestors, is public.
+	publicDescendantJoin sqlFragment = " JOIN public_terms dt ON dt.id = ta.descendant_id"
 	// letterMatch is the name of a candidates column saying whether the candidate matches the letter filter.
 	letterMatch sqlFragment = "letter_match"
 	// totalCountSelect starts, after a WITH clause defining the candidates, the SELECT of a counts statement:
@@ -249,7 +250,7 @@ type termGroup struct {
 // in the ENUM's order, then ID.
 func publicTermsStatement(slugs []string, facets termFacets) *statement {
 	s := &statement{}
-	s.write("SELECT ", executionTimeHint, " t.id, t.slug, t.facet FROM terms t WHERE t.slug IN (")
+	s.write("SELECT ", executionTimeHint, " t.id, t.slug, t.facet FROM public_terms t WHERE t.slug IN (")
 	list(s, slugs)
 	s.write(") AND t.facet ")
 	switch facets {
@@ -259,9 +260,7 @@ func publicTermsStatement(slugs []string, facets termFacets) *statement {
 		s.write("= ")
 	}
 	s.arg(string(domain.FacetAffiliation))
-	// The closure's depth-0 row covers the term's own approval.
-	s.write(" AND NOT EXISTS (SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id " +
-		"WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL) ORDER BY t.facet, t.id")
+	s.write(" ORDER BY t.facet, t.id")
 
 	return s
 }
@@ -325,24 +324,39 @@ func prefixPattern(prefix string) string {
 }
 
 // writeMatch writes the condition matching search with the FULLTEXT index on columns, or, if search has no
-// tokens, the condition matching prefixColumn by prefix; and before it, if scored, the score column's
-// expression and FROM clause from.
+// tokens, the condition matching prefixColumn by prefix; and before it the score column's expression and FROM
+// clause from.
 //
 // The two forms are: "MATCH (columns) AGAINST (? IN BOOLEAN MODE) AS score FROM ... WHERE ... MATCH (columns)
 // AGAINST (? IN BOOLEAN MODE)", and "0 AS score FROM ... WHERE ... prefixColumn LIKE ? ESCAPE '!'". Prefix
-// matches all score 0, so they are ordered by sort key.
-func writeMatch(s *statement, search domain.SearchQuery, columns, prefixColumn, from sqlFragment) {
-	if len(search.Tokens) == 0 {
-		s.write("0 AS score", from, prefixColumn, " LIKE ")
-		s.arg(prefixPattern(search.Text))
-		s.write(" ESCAPE '!'")
+// matches all score 0, so they are ordered by sort key. Unless scored, a FULLTEXT match scores 0 too: a MATCH
+// score depends on every row of the index, so an index holding rows a search must not reveal, such as hidden
+// aliases, must not be scored. Whether a row matches a boolean-mode query of required tokens does not depend on
+// the other rows.
+func writeMatch(s *statement, search domain.SearchQuery, columns, prefixColumn, from sqlFragment, scored bool) {
+	if len(search.Tokens) == 0 || !scored {
+		s.write("0 AS score", from)
+		writeMatchCondition(s, search, columns, prefixColumn)
 		return
 	}
 
 	query := booleanQuery(search.Tokens)
 	s.write("MATCH (", columns, ") AGAINST (")
 	s.arg(query)
-	s.write(" IN BOOLEAN MODE) AS score", from, "MATCH (", columns, ") AGAINST (")
-	s.arg(query)
+	s.write(" IN BOOLEAN MODE) AS score", from)
+	writeMatchCondition(s, search, columns, prefixColumn)
+}
+
+// writeMatchCondition writes the condition of writeMatch.
+func writeMatchCondition(s *statement, search domain.SearchQuery, columns, prefixColumn sqlFragment) {
+	if len(search.Tokens) == 0 {
+		s.write(prefixColumn, " LIKE ")
+		s.arg(prefixPattern(search.Text))
+		s.write(" ESCAPE '!'")
+		return
+	}
+
+	s.write("MATCH (", columns, ") AGAINST (")
+	s.arg(booleanQuery(search.Tokens))
 	s.write(" IN BOOLEAN MODE)")
 }

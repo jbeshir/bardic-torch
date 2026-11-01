@@ -88,7 +88,7 @@ func TestConfigFromURL(t *testing.T) {
 			assert.True(t, cfg.ParseTime)
 			assert.Equal(t, time.UTC, cfg.Loc)
 			assert.True(t, cfg.ClientFoundRows)
-			assert.Equal(t, map[string]string{"time_zone": "'+00:00'"}, cfg.Params)
+			assert.Equal(t, map[string]string{"time_zone": "'+00:00'", "max_execution_time": "2000"}, cfg.Params)
 		})
 	}
 }

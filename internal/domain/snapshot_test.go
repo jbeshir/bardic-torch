@@ -27,11 +27,15 @@ const (
 )
 
 const (
-	visibleURL  = "https://example.org/visible"
-	hiddenURL   = "https://example.org/hidden"
-	otherURL    = "https://example.org/other"
+	visibleURL = "https://example.org/visible"
+	hiddenURL  = "https://example.org/hidden"
+	otherURL   = "https://example.org/other"
+	// deletedURL is no link's URL now, and recasedURL differs from visibleURL in case only: neither is visible.
+	deletedURL  = "https://example.org/deleted"
+	recasedURL  = "https://example.org/Visible"
 	revelName   = "Midwinter Revel"
 	wrenName    = "Wren of the Vale"
+	wrenSlug    = "wren-of-the-vale"
 	stageName   = "Wren"
 	hiddenAlias = "Jo Marker"
 )
@@ -48,17 +52,17 @@ var (
 )
 
 // testVisibility is the current state of the referenced entities: one public entity of each type, a no-page
-// person, the subject person's current public alias, and a hidden link.
+// person, the subject person's current public alias, and two visible links: hiddenURL is a hidden link's.
 func testVisibility() SnapshotVisibility {
 	return SnapshotVisibility{
-		Pieces:         map[int64]PieceSummary{publicPieceID: brassKettle},
-		Persons:        map[int64]PersonSummary{publicPersonID: hollis},
-		NoPagePersons:  map[int64]PersonSummary{noPagePersonID: quietPerson},
-		PublicAliases:  map[int64]map[string]bool{subjectPersonID: {stageName: true}},
-		Terms:          map[int64]TermSummary{publicTermID: war},
-		Collections:    map[int64]CollectionSummary{publicCollectionID: songbook},
-		Events:         map[int64]EventSummary{publicEventID: revel},
-		HiddenLinkURLs: map[string]bool{hiddenURL: true},
+		Pieces:          map[int64]PieceSummary{publicPieceID: brassKettle},
+		Persons:         map[int64]PersonSummary{publicPersonID: hollis},
+		NoPagePersons:   map[int64]PersonSummary{noPagePersonID: quietPerson},
+		PublicAliases:   map[int64]map[string]bool{subjectPersonID: {stageName: true}},
+		Terms:           map[int64]TermSummary{publicTermID: war},
+		Collections:     map[int64]CollectionSummary{publicCollectionID: songbook},
+		Events:          map[int64]EventSummary{publicEventID: revel},
+		VisibleLinkURLs: map[string]bool{visibleURL: true, otherURL: true},
 	}
 }
 
@@ -115,6 +119,8 @@ func TestNewPieceSnapshot(t *testing.T) {
 				},
 			},
 			{DocLink: DocLink{URL: otherURL, CollectionID: id(hiddenCollectionID)}},
+			{DocLink: DocLink{URL: deletedURL, Title: new("Deleted")}},
+			{DocLink: DocLink{URL: recasedURL, Title: new("Recased")}},
 		},
 		Preferences: []DocPreference{{Dimension: PreferenceDimensionLicensing, Value: json.RawMessage(`{}`),
 			SourceURL: "https://example.org/prefs"}},
@@ -164,7 +170,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 		TermIDs:       []int64{hiddenTermID, publicTermID},
 		CollectionIDs: []int64{publicCollectionID, hiddenCollectionID},
 		EventIDs:      []int64{publicEventID, hiddenEventID},
-		LinkURLs:      []string{hiddenURL, visibleURL, otherURL},
+		LinkURLs:      []string{hiddenURL, visibleURL, otherURL, deletedURL, recasedURL},
 	}, refs)
 }
 
@@ -176,7 +182,7 @@ func personDocument() PersonDocument {
 		Name:             wrenName,
 		Kind:             PersonKindCommunityBard,
 		Status:           PersonStatusActive,
-		StatusDate:       new("2026-03-01"),
+		StatusDate:       &Date{time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
 		StatusSourceURL:  new("https://example.org/status"),
 		Pronouns:         new("she/her"),
 		NotesMD:          new("A bard."),
@@ -216,9 +222,9 @@ func TestNewPersonSnapshot(t *testing.T) {
 	t.Parallel()
 
 	vis := testVisibility()
-	vis.Persons[subjectPersonID] = PersonSummary{Slug: "wren-of-the-vale", Name: wrenName,
+	vis.Persons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName,
 		Kind: PersonKindCommunityBard}
-	statusDate := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	statusDate := Date{time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)}
 
 	snapshot, err := NewPersonSnapshot(subjectPersonID, personDocument(), vis)
 	require.NoError(t, err)
@@ -272,7 +278,7 @@ func TestNewPersonSnapshot_NoPage(t *testing.T) {
 		Name:            wrenName,
 		Kind:            PersonKindCommunityBard,
 		Status:          PersonStatusActive,
-		StatusDate:      new(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)),
+		StatusDate:      &Date{time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
 		StatusSourceURL: new("https://example.org/status"),
 		IsStub:          true,
 	}
@@ -281,7 +287,8 @@ func TestNewPersonSnapshot_NoPage(t *testing.T) {
 		t.Parallel()
 
 		vis := testVisibility()
-		vis.NoPagePersons[subjectPersonID] = quietPerson
+		vis.NoPagePersons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName,
+			Kind: PersonKindCommunityBard, IsStub: true}
 		snapshot, err := NewPersonSnapshot(subjectPersonID, personDocument(), vis)
 		require.NoError(t, err)
 		assert.Equal(t, identity, snapshot)
@@ -293,7 +300,8 @@ func TestNewPersonSnapshot_NoPage(t *testing.T) {
 		doc := personDocument()
 		doc.Status = PersonStatusPrefersNoPage
 		vis := testVisibility()
-		vis.Persons[subjectPersonID] = hollis
+		vis.Persons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName,
+			Kind: PersonKindCommunityBard}
 		snapshot, err := NewPersonSnapshot(subjectPersonID, doc, vis)
 		require.NoError(t, err)
 		want := identity
@@ -302,13 +310,56 @@ func TestNewPersonSnapshot_NoPage(t *testing.T) {
 	})
 }
 
-func TestNewPersonSnapshot_InvalidStatusDate(t *testing.T) {
+// TestNewPersonSnapshot_Name checks that a snapshot shows the document's name only if it is the person's name
+// now, or one of their public alias names now, compared exactly, and their current name otherwise: a former name
+// that is now a hidden alias must not show, with or without a page.
+func TestNewPersonSnapshot_Name(t *testing.T) {
 	t.Parallel()
 
-	doc := personDocument()
-	doc.StatusDate = new("March 2026")
-	_, err := NewPersonSnapshot(subjectPersonID, doc, testVisibility())
-	assert.Error(t, err)
+	const currentName = "Wren Ashdown"
+	current := PersonSummary{Slug: "wren-ashdown", Name: currentName, Kind: PersonKindCommunityBard}
+	cases := []struct {
+		name    string
+		docName string
+		noPage  bool
+		want    string
+	}{
+		{name: "current_name", docName: currentName, want: currentName},
+		{name: "public_alias", docName: stageName, want: stageName},
+		{name: "hidden_alias", docName: hiddenAlias, want: currentName},
+		{name: "unknown_name", docName: "Wren the Elder", want: currentName},
+		{name: "current_name_recased", docName: "wren ashdown", want: currentName},
+		{name: "public_alias_recased", docName: "WREN", want: currentName},
+		{name: "no_page_hidden_alias", docName: hiddenAlias, noPage: true, want: currentName},
+		{name: "no_page_public_alias", docName: stageName, noPage: true, want: stageName},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			vis := testVisibility()
+			if tc.noPage {
+				vis.NoPagePersons[subjectPersonID] = current
+			} else {
+				vis.Persons[subjectPersonID] = current
+			}
+			doc := personDocument()
+			doc.Name = tc.docName
+			snapshot, err := NewPersonSnapshot(subjectPersonID, doc, vis)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, snapshot.Name)
+			assert.Equal(t, tc.noPage, snapshot.Profile == nil)
+		})
+	}
+}
+
+// TestNewPersonSnapshot_NotPublic checks that the view of a person the visibility does not hold fails, as their
+// current name, which a redacted name is replaced with, is unknown.
+func TestNewPersonSnapshot_NotPublic(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewPersonSnapshot(subjectPersonID, personDocument(), testVisibility())
+	require.ErrorIs(t, err, ErrPersonNotPublic)
 }
 
 func TestNewTermSnapshot(t *testing.T) {

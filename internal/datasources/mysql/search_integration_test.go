@@ -3,7 +3,6 @@
 package mysql_test
 
 import (
-	"slices"
 	"strings"
 	"testing"
 
@@ -709,8 +708,8 @@ func TestRepository_ListPublicCollections(t *testing.T) {
 	}
 }
 
-// TestSearchStopwords_MatchInnoDB (A1.9) checks that the tokeniser drops exactly the words FULLTEXT indexes
-// built with the server's default stopwords leave out.
+// TestSearchStopwords_MatchInnoDB (A1.9) checks that the tokeniser drops every word of the server's default
+// FULLTEXT stopword list, which indexes leave out, and keeps words that are not on it.
 func TestSearchStopwords_MatchInnoDB(t *testing.T) {
 	t.Parallel()
 
@@ -726,7 +725,16 @@ func TestSearchStopwords_MatchInnoDB(t *testing.T) {
 		server = append(server, strings.ToLower(word))
 	}
 	require.NoError(t, rows.Err())
-	// The server's list has "the" twice.
-	slices.Sort(server)
-	assert.Equal(t, slices.Compact(server), domain.SearchStopwords())
+	require.NotEmpty(t, server)
+	for _, word := range server {
+		q, err := domain.ParseSearchQuery(word + " lantern")
+		require.NoError(t, err)
+		assert.Equal(t, []string{"lantern"}, q.Tokens, "stopword [%s]", word)
+	}
+	// Words that are not stopwords are kept, the shortest included.
+	for _, word := range []string{"abc", "theme", "about_us", "wilder"} {
+		q, err := domain.ParseSearchQuery(word)
+		require.NoError(t, err)
+		assert.Equal(t, []string{word}, q.Tokens, "word [%s]", word)
+	}
 }

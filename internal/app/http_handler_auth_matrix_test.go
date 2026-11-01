@@ -373,10 +373,10 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 			m.events.EXPECT().GetPublicEvent(mock.Anything, matrixSlug).Return(matrixEvent, nil)
 		},
 	},
-	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/history"}:  historyRow(domain.EntityTypePiece),
-	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: historyRow(domain.EntityTypePerson),
-	{Method: http.MethodGet, Path: "/v1/terms/{slug}/history"}:   historyRow(domain.EntityTypeTerm),
-	{Method: http.MethodGet, Path: "/v1/events/{slug}/history"}:  historyRow(domain.EntityTypeEvent),
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/history"}:  historyRow(domain.SlugEntityTypePiece),
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: historyRow(domain.SlugEntityTypePerson),
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/history"}:   historyRow(domain.SlugEntityTypeTerm),
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/history"}:  historyRow(domain.SlugEntityTypeEvent),
 	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/history"}: {
 		access:        public,
 		pathParams:    map[string]string{"collection_id": strconv.Itoa(matrixCollectionID)},
@@ -405,7 +405,7 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 }
 
 // historyRow is the row of the history of the public entity of entityType with slug matrixSlug.
-func historyRow(entityType domain.EntityType) matrixRow {
+func historyRow(entityType domain.SlugEntityType) matrixRow {
 	return matrixRow{
 		access:        public,
 		pathParams:    map[string]string{slugParam: matrixSlug},
@@ -423,7 +423,8 @@ func historyRow(entityType domain.EntityType) matrixRow {
 func TestRouter_AuthMatrix(t *testing.T) {
 	t.Parallel()
 
-	operations := openapitest.New(t).Operations()
+	contract := openapitest.New(t)
+	operations := contract.Operations()
 	for op := range authMatrix {
 		assert.Contains(t, operations, op, "authMatrix has a row for an operation the spec does not have")
 	}
@@ -433,6 +434,10 @@ func TestRouter_AuthMatrix(t *testing.T) {
 		if !assert.True(t, ok, "%s %s has no row in authMatrix", op.Method, op.Path) {
 			continue
 		}
+		// A row's access must agree with the spec's security, so that a route registered without the auth its
+		// spec declares, with a row written to match the route, still fails.
+		assert.Equal(t, !contract.Public(op), row.access.authenticated,
+			"%s %s: the row's access is authenticated exactly when the spec declares security", op.Method, op.Path)
 
 		t.Run(op.Method+" "+op.Path, func(t *testing.T) {
 			t.Parallel()

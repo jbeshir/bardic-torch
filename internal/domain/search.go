@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"unicode"
@@ -9,8 +10,8 @@ import (
 )
 
 // The rules of catalogue search. A search query is matched against InnoDB FULLTEXT indexes built with the
-// server's default stopwords and minimum token size, so the tokeniser drops exactly the tokens those indexes
-// never hold: a required token the index cannot contain would make every search containing it find nothing.
+// server's default stopwords and token sizes, so the tokeniser drops exactly the tokens those indexes never hold:
+// a required token the index cannot contain would make every search containing it find nothing.
 const (
 	// MaxSearchLength is the longest search query, in code points.
 	MaxSearchLength = 200
@@ -19,6 +20,9 @@ const (
 	// MinSearchTokenLength is the shortest token, in code points, that FULLTEXT indexes hold
 	// (innodb_ft_min_token_size).
 	MinSearchTokenLength = 3
+	// MaxSearchTokenLength is the longest token, in code points, that FULLTEXT indexes hold
+	// (innodb_ft_max_token_size).
+	MaxSearchTokenLength = 84
 )
 
 // innoDBDefaultStopwords is InnoDB's default FULLTEXT stopword list
@@ -29,34 +33,30 @@ var innoDBDefaultStopwords = []string{
 	"will", "with", "www",
 }
 
-// SearchStopwords returns the words a search query never matches on, because FULLTEXT indexes do not hold
-// them: InnoDB's default stopwords, in alphabetical order.
-func SearchStopwords() []string {
-	return slices.Clone(innoDBDefaultStopwords)
-}
-
 var (
 	errSearchInvalidUTF8 = errors.New("must be valid UTF-8")
-	errSearchTooLong     = errors.New("must be at most 200 characters")
+	errSearchTooLong     = fmt.Errorf("must be at most %d characters", MaxSearchLength)
 	errSearchBlank       = errors.New("must contain a character other than spaces")
 )
 
 // SearchQuery is a parsed search query. Tokens are what a FULLTEXT search matches as word prefixes, all of which
-// a match must contain. If there are none, because every word is too short or a stopword, Text is matched as a
-// prefix of titles and names instead.
+// a match must contain. If there are none, because every word is too short, too long or a stopword, Text is
+// matched as a prefix of titles and names instead.
 type SearchQuery struct {
 	// Text is the query with leading and trailing spaces removed and each run of spaces made one space.
 	Text string
-	// Tokens are the query's distinct words, lower-cased, at most MaxSearchTokens of them, in query order. A word
-	// is a run of letters, digits and combining marks, so punctuation, including apostrophes and every FULLTEXT
-	// operator, separates words and never reaches the database: "O'Neill" is "o" and "neill". Words shorter than
-	// MinSearchTokenLength and stopwords are dropped.
+	// Tokens are the query's distinct words, lower-cased and without combining marks, at most MaxSearchTokens of
+	// them, in query order. A word is a run of letters, digits, underscores and combining marks, as InnoDB's
+	// parser splits text, so other punctuation, including apostrophes and every FULLTEXT operator, separates
+	// words and never reaches the database: "O'Neill" is "o" and "neill", and "foo_bar" one word. Words without
+	// a letter or digit, words shorter than MinSearchTokenLength or longer than MaxSearchTokenLength, and
+	// stopwords are dropped.
 	Tokens []string
 }
 
 // ParseSearchQuery parses a search query of at most MaxSearchLength code points of valid UTF-8 containing a
 // character other than spaces. Spaces are the ASCII space, tab, line feed, form feed and carriage return: the
-// characters the spec's \S pattern excludes.
+// characters the spec's [^ \t\n\f\r] pattern excludes.
 func ParseSearchQuery(q string) (SearchQuery, error) {
 	switch {
 	case !utf8.ValidString(q):
@@ -77,17 +77,31 @@ func isSearchSpace(r rune) bool {
 	return r == ' ' || r == '\t' || r == '\n' || r == '\f' || r == '\r'
 }
 
-// isWordRune reports whether r is part of a word: a letter, a digit, or a combining mark (as in a decomposed
-// accented letter).
+// isWordRune reports whether r is part of a word: a letter, a digit, an underscore, or a combining mark (as in a
+// decomposed accented letter).
 func isWordRune(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.Is(unicode.M, r)
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || unicode.Is(unicode.M, r)
+}
+
+// isMark reports whether r is a combining mark. InnoDB's parser does not hold marks in tokens, so a token of
+// marks alone would match everything.
+func isMark(r rune) bool {
+	return unicode.Is(unicode.M, r)
 }
 
 func searchTokens(q string) []string {
 	var tokens []string
 	for _, word := range strings.FieldsFunc(strings.ToLower(q), func(r rune) bool { return !isWordRune(r) }) {
-		if utf8.RuneCountInString(word) < MinSearchTokenLength || slices.Contains(innoDBDefaultStopwords, word) ||
-			slices.Contains(tokens, word) {
+		word = strings.Map(func(r rune) rune {
+			if isMark(r) {
+				return -1
+			}
+			return r
+		}, word)
+		length := utf8.RuneCountInString(word)
+		if length < MinSearchTokenLength || length > MaxSearchTokenLength ||
+			!strings.ContainsFunc(word, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }) ||
+			slices.Contains(innoDBDefaultStopwords, word) || slices.Contains(tokens, word) {
 			continue
 		}
 		tokens = append(tokens, word)

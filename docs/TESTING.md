@@ -170,18 +170,24 @@ them, and MySQL serialises much of that DDL, so parallel tests do not hide it. R
 seeded database (see catalogtest), and new private-database tests should be kept to what needs one.
 
 - **Schema** (`internal/datasources/mysql/*schema*_integration_test.go`, `migrate_integration_test.go`):
-  - `TestMigrations_UpDownUp` checks the exact set of tables after up, none after down and the version;
+  - `TestMigrations_UpDownUp` checks the exact sets of tables and views after up, none after down and the
+    version, and `TestMigrations_ViewsCheckTheReader` that every view is `SQL SECURITY INVOKER`;
   - `TestMigrations_ColumnCollations` has an exact map of the non-default collations (user IDs `utf8mb4_0900_bin`;
-    slugs, `sort_letter`, `normalized_url`, `platform` and token columns `ascii_bin`) and requires every other
-    collated column to be `utf8mb4_0900_ai_ci`;
+    and `links.url` `utf8mb4_0900_bin`; slugs, `sort_letter`, `normalized_url`, `platform` and token columns
+    `ascii_bin`) and requires every other collated column of a base table to be `utf8mb4_0900_ai_ci` (views'
+    columns have their tables' collations);
   - `TestMigrations_EnumColumns` builds the expected `column_type` of every ENUM column from the Go constants in
-    `internal/domain`, so value order matters, and fails for an ENUM column that is not listed;
+    `internal/domain`, so value order matters, and fails for an ENUM column of a base table that is not listed;
   - `TestMigrations_Constraints` breaks one CHECK, unique or foreign-key rule per case and asserts the MySQL error
     number (3819, 1062, 1451, 1452) after `seedCatalogue` has shown that valid rows are accepted;
     `TestMigrations_ConstraintsAllowCascades` and `TestMigrations_PersonAliasHiddenByDefault` cover the cascades
     and the fail-closed `is_public` default.
-- **Stopwords** (`TestSearchStopwords_MatchInnoDB`): the Go list `domain.SearchStopwords` must equal the server's
-  `INFORMATION_SCHEMA.INNODB_FT_DEFAULT_STOPWORD` (as a set; the server lists "the" twice).
+- **Stopwords** (`TestSearchStopwords_MatchInnoDB`): `domain.ParseSearchQuery` must drop every word of the server's
+  `INFORMATION_SCHEMA.INNODB_FT_DEFAULT_STOPWORD`, and keep words that are not on it.
+- **Session time limit** (`TestConnect_SelectTimeLimit`): a connection from `ConfigFromURL` has
+  `max_execution_time` 2000, the server stops a `SELECT SLEEP(5)` after 2 s, and an `INSERT … SELECT SLEEP(3)`
+  runs to the end. `TestMigratorConfig` (unit) checks that the migrator clears the limit, and
+  `TestFetch_QueryTimeout` that a sqlc read the server stops is `datasources.ErrQueryTimeout`.
 - **Document coverage** (`TestDocumentCoverage`, `TestDocumentFieldPaths`, A1.8): classifies every column of the
   tables each snapshot document owns as a document field or system-owned, with a reason, and every document field
   as stored by exactly one column. A new column, document field or table fails it until it is classified.
@@ -215,7 +221,12 @@ seeded database (see catalogtest), and new private-database tests should be kept
 - **Snapshot views**: the views and their redaction are pure functions in `internal/domain/snapshot.go`,
   unit-tested with a hand-built `SnapshotVisibility` (`snapshot_test.go`); `repository_revision_integration_test.go`
   checks them against current database state (an alias, links and a person hidden after the revision was written,
-  corrupt snapshots, bases). `needs_work_integration_test.go` covers the needs-work reasons.
+  corrupt snapshots, bases). `repository_redaction_integration_test.go` covers the fail-closed rules: a former
+  name that is now a hidden alias, with and without a page; links deleted, moved and hidden, or hidden under
+  another case, since the revision; and a person's performances on links with no public attachment.
+  `document_test.go` checks that `DecodeDocument` ignores unknown fields at any depth, rejects an unknown
+  vocabulary value in every document field that holds one (`TestDocuments_EnumFieldsAreValidated` fails for a
+  vocabulary field without a `Valid` method), and rejects a status date that is not a date. `needs_work_integration_test.go` covers the needs-work reasons.
 - **Repository reads** (`repository_*_integration_test.go`): exact structs for details, lists and caps (201 → 200
   with a total), each on a shared fixture, plus `TestRepository_CatalogueReads_UnknownEnumValue` (an unknown ENUM
   value is an error, not a 404).
@@ -229,8 +240,11 @@ seeded database (see catalogtest), and new private-database tests should be kept
 `TestHTTP_LeakMatrix` (`internal/app/leak_matrix_integration_test.go`) sends requests to every public catalogue
 read through the production handler over a real repository holding a shared fixture of hidden data: a hidden legal
 alias, a `prefers_no_page` person with notes, aliases, roles, an affiliation, relations, credits, performances and
-a link, a hidden link, unapproved pieces, persons, terms, collections and events referred to by public ones, and
-never-exposed system fields (legacy titles, claims, normalized URLs). Every marked string contains `leakmark`, and
+a link, a hidden link, unapproved pieces, persons, terms, collections and events referred to by public ones,
+performances of a public person on links attached only to no-page or unapproved persons, persons renamed since
+their first revision whose former name is now a hidden alias (with and without a page), a piece whose first
+revision holds links since deleted, moved and hidden, or hidden under another case, and never-exposed system
+fields (legacy titles, claims, normalized URLs). Every marked string contains `leakmark`, and
 each raw response body must not contain it (case-insensitively), except for the strings a request lists in
 `reveals` (for example the no-page person's identity on their own page or in a person list). Each response also
 goes through the contract helper. `requireLeakMarkersStored` checks with SQL that each kind of marker is stored, so
