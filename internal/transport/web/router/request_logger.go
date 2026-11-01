@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
@@ -30,16 +29,21 @@ func recordUserID(ctx context.Context, userID string) {
 
 // requestLogger stores a logger annotated with the request's method, route template and a fresh request ID in
 // the request context, and logs the response status, duration and, for authenticated requests, the user ID
-// once the request completes. routes is used only to look up the route template.
-func requestLogger(routes *mux.Router) func(http.Handler) http.Handler {
+// once the request completes. lookup returns the route template, or false for requests no route matches.
+func requestLogger(lookup func(*http.Request) (string, bool)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			ctx := r.Context()
 
+			route, ok := lookup(r)
+			if !ok {
+				route = unmatchedRoute
+			}
+
 			logger := domain.LoggerFromContext(ctx).With(
 				"method", r.Method,
-				"route", routeTemplate(routes, r),
+				"route", route,
 				"request_id", uuid.NewString(),
 			)
 			ctx = domain.ContextWithLogger(ctx, logger)
@@ -57,22 +61,6 @@ func requestLogger(routes *mux.Router) func(http.Handler) http.Handler {
 			logger.InfoContext(ctx, "request completed", attrs...)
 		})
 	}
-}
-
-func routeTemplate(routes *mux.Router, r *http.Request) string {
-	var match mux.RouteMatch
-	// Requests no route matches are still matched, with an error, by the not found and method not allowed
-	// handlers.
-	if !routes.Match(r, &match) || match.MatchErr != nil || match.Route == nil {
-		return unmatchedRoute
-	}
-
-	template, err := match.Route.GetPathTemplate()
-	if err != nil {
-		return unmatchedRoute
-	}
-
-	return template
 }
 
 // statusRecorder records the status code written through it.

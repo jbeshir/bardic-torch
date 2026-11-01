@@ -73,6 +73,9 @@ func newValidator(spec []byte) (*Validator, error) {
 	// Routes otherwise only match requests addressed to the spec's servers; tests send requests to any host.
 	doc.Servers = nil
 
+	// kin-openapi's gorillamux router matches the escaped path as the API's router does, so an encoded "/" or
+	// "|" stays inside one path parameter and a trailing slash matches no operation. Its legacy router matches
+	// the decoded path, and would not find an operation for /v1/users/auth0%7Ca%2Fb/blocked.
 	router, err := gorillamux.NewRouter(doc)
 	if err != nil {
 		return nil, fmt.Errorf("building router: %w", err)

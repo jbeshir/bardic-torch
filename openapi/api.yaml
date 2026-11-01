@@ -13,6 +13,8 @@ info:
       `method_not_allowed` with an `Allow` header listing the supported methods. Neither authenticates the
       request.
     - Request headers over 16 KiB get a plain-text 431 from the server, before any operation runs.
+    - A request URI that is not validly percent-encoded gets a plain-text 400 from the server, before any
+      operation runs.
     - operationIds are camelCase.
   version: 1.0.0
   contact:
@@ -328,15 +330,6 @@ paths:
       responses:
         "204":
           description: The token is revoked.
-        "400":
-          description: The `token_id` is not validly percent-encoded; the error code is `invalid_request`.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                code: invalid_request
-                message: invalid encoding of path parameter token_id
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -371,8 +364,7 @@ components:
   responses:
     InvalidRequest:
       description: |
-        The request body is malformed or invalid, or a path parameter is not validly percent-encoded; the error
-        code is `invalid_request`.
+        The request body is malformed or invalid; the error code is `invalid_request`.
       content:
         application/json:
           schema:

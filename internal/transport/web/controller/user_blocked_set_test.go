@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -29,7 +28,7 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 
 	const (
 		targetID = "google-oauth2|456"
-		// encodedTargetID is targetID as it appears in the path, which is how the router passes it on.
+		// encodedTargetID is targetID as it appears in the path; the router decodes it once for the controller.
 		encodedTargetID = "google-oauth2%7C456"
 		targetBody      = `{"id":"google-oauth2|456","display_name":"Morwen","role":"contributor"}`
 		blockBody       = `{"blocked":true}`
@@ -37,10 +36,8 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 	target := domain.User{ID: targetID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: testNow}
 
 	cases := []struct {
-		name string
-		body string
-		// pathID is the user_id path variable; empty means encodedTargetID.
-		pathID      string
+		name        string
+		body        string
 		contentType string
 		// invalidRequest marks requests that deliberately break the request schema, so only the response is
 		// checked against the spec.
@@ -114,14 +111,6 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 			wantBody:       `{"code":"invalid_request","message":"field blocked has the wrong type"}`,
 		},
 		{
-			name:           "invalid_path_encoding",
-			body:           blockBody,
-			pathID:         "google-oauth2%zz",
-			invalidRequest: true,
-			wantStatus:     http.StatusBadRequest,
-			wantBody:       `{"code":"invalid_request","message":"invalid encoding of path parameter user_id"}`,
-		},
-		{
 			name:           tooLargeCase,
 			body:           `{"blocked":true,"padding":"` + strings.Repeat("a", httpjson.MaxBodyBytes) + `"}`,
 			invalidRequest: true,
@@ -153,17 +142,13 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 				},
 			)}
 
-			pathID := encodedTargetID
-			if tc.pathID != "" {
-				pathID = tc.pathID
-			}
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/v1/users/"+encodedTargetID+"/blocked",
 				strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")
 			if tc.contentType != "" {
 				req.Header.Set("Content-Type", tc.contentType)
 			}
-			req = mux.SetURLVars(req, map[string]string{"user_id": pathID})
+			req.SetPathValue("user_id", targetID)
 
 			validator := openapitest.New(t)
 			var rec *httptest.ResponseRecorder

@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,7 +167,6 @@ func TestAuthMiddleware_Rejections(t *testing.T) {
 func TestAuthMiddleware_LogsUserID(t *testing.T) {
 	t.Parallel()
 
-	routes := mux.NewRouter()
 	authenticated := authMiddleware(
 		[]AuthValidator{authenticatesAs(Identity{UserID: testUserID, Method: domain.AuthMethodAuth0})},
 		resolveTo(testUser),
@@ -178,8 +176,10 @@ func TestAuthMiddleware_LogsUserID(t *testing.T) {
 		domain.LoggerFromContext(r.Context()).InfoContext(r.Context(), "handling")
 		w.WriteHeader(http.StatusNoContent)
 	})
-	routes.Handle("/authenticated", authenticated(handler))
-	routes.Handle("/anonymous", anonymous(handler))
+	routes := []route{
+		{method: http.MethodGet, path: "/authenticated", handler: authenticated(handler)},
+		{method: http.MethodGet, path: "/anonymous", handler: anonymous(handler)},
+	}
 
 	_, entries := serveLogged(t, routes,
 		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/authenticated", nil))

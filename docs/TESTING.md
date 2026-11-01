@@ -91,8 +91,9 @@ through the helper, so the command's name rules are checked against the spec's `
 
 ### Router tests: route parity and the auth matrix
 
-- `TestRouter_RoutesMatchOpenAPI` (`router/router_test.go`) walks the production router and fails, listing the
-  difference, if a route × method is missing from the spec or a spec operation has no route.
+- `TestRouter_RoutesMatchOpenAPI` (`router/router_test.go`) walks the route table and fails, listing the
+  difference, if a route × method is missing from the spec or a spec operation has no route. It also checks
+  that the router built from the table routes each entry's method and path to that entry.
 - `TestRouter_Routing` (`router/router_routing_test.go`) sends a fixed corpus through `router.New` and asserts
   every observable part of each answer: status, `Allow`, `Location`, CORS and security headers, `Content-Type`,
   body, whether authentication ran, the ID the controller received and the logged route. It covers every
@@ -154,7 +155,8 @@ in parallel. A missing `TEST_MYSQL_ADMIN_URL` fails the test rather than skippin
    request and response schemas with examples, and **every status its handler and middleware can produce**
    (reuse `components/responses` such as `Unauthenticated`, `Forbidden`, `Internal`). `make lint-openapi` must
    stay clean.
-2. **Route**: register it in `router.newRoutes` behind the right `require*` middleware.
+2. **Route**: add it to the route table in `router.routes`: method, path pattern, handler behind the right
+   `require*` middleware, and `authenticated: true` unless it is public.
    `TestRouter_RoutesMatchOpenAPI` fails until the spec and the router agree.
 3. **Auth matrix**: add a row to `authMatrix` with the operation's `access` and a successful request (path
    parameters, body, success status, mock expectations). `TestRouter_AuthMatrix` fails until you do. A new

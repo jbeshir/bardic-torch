@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,11 +49,12 @@ func TestCORSMiddleware_PreflightReturns204WithoutCallingNext(t *testing.T) {
 func TestCORSMiddleware_RouteMethodsListsEachMethodOnce(t *testing.T) {
 	t.Parallel()
 
-	routes := mux.NewRouter()
-	routes.Handle("/a", http.NotFoundHandler()).Methods(http.MethodGet, http.MethodPost)
-	routes.Handle("/b", http.NotFoundHandler()).Methods(http.MethodGet)
-	sub := routes.PathPrefix("/v1").Subrouter()
-	sub.Handle("/c", http.NotFoundHandler()).Methods(http.MethodDelete)
+	routes := []route{
+		{method: http.MethodGet, path: "/a"},
+		{method: http.MethodPost, path: "/a"},
+		{method: http.MethodGet, path: "/b"},
+		{method: http.MethodDelete, path: "/v1/c"},
+	}
 
 	assert.Equal(t, []string{http.MethodDelete, http.MethodGet, http.MethodPost}, routeMethods(routes))
 }

@@ -141,9 +141,6 @@ type routeRow struct {
 	path string
 	// allow is the Allow header of a 405 answer for the path.
 	allow string
-	// unroutedRoute is the logged route of requests for the path with a method it is not routed for, or of
-	// OPTIONS requests; empty means unmatched.
-	unroutedRoute string
 	// routed are the answers to anonymous requests for each method the path is routed for.
 	routed map[string]routingCase
 }
@@ -178,9 +175,10 @@ var routeRows = []routeRow{
 		http.MethodGet:  anonymousAuthRequired(routingTokens),
 		http.MethodPost: anonymousAuthRequired(routingTokens),
 	}},
-	// gorilla/mux quirk: the last /v1 route clears the subrouter's method mismatch, so a wrong method matches the
-	// /v1 prefix route itself, and the 405 probe finds every method.
-	{path: routingTokenPath, allow: allRouteMethods, unroutedRoute: "/v1", routed: map[string]routingCase{
+	// gorilla/mux answered a wrong method here with every method in Allow, and logged the route /v1: the last /v1
+	// route cleared the subrouter's method mismatch. That contradicted the spec's rule that Allow lists the
+	// supported methods, and is fixed.
+	{path: routingTokenPath, allow: "DELETE", routed: map[string]routingCase{
 		http.MethodDelete: anonymousAuthRequired(revokeTemplate),
 	}},
 }
@@ -192,16 +190,11 @@ func everyRouteAndMethod() []routingCase {
 	for _, row := range routeRows {
 		for _, method := range everyMethod {
 			tc, routed := row.routed[method]
-			unroutedRoute := unmatched
-			if row.unroutedRoute != "" {
-				unroutedRoute = row.unroutedRoute
-			}
 			switch {
 			case method == http.MethodOptions:
-				tc = routingCase{status: http.StatusNoContent, route: unroutedRoute}
+				tc = routingCase{status: http.StatusNoContent, route: unmatched}
 			case !routed:
 				tc = methodNotAllowed(row.allow)
-				tc.route = unroutedRoute
 			}
 			tc.method, tc.target = method, row.path
 			cases = append(cases, tc)
@@ -268,11 +261,7 @@ func unroutedCases() []routingCase {
 		notAllowedAt(http.MethodDelete, routingMe, routingInvalid, "GET, PATCH"),
 		notAllowedAt(http.MethodHead, routingMe, routingInvalid, "GET, PATCH"),
 		notAllowedAt(http.MethodPut, routingTokens, routingInvalid, "GET, POST"),
-		{
-			method: http.MethodGet, target: routingTokenPath, authorization: routingInvalid,
-			status: http.StatusMethodNotAllowed, allow: allRouteMethods, contentType: jsonContentType,
-			respBody: notAllowedBody, route: "/v1",
-		},
+		notAllowedAt(http.MethodGet, routingTokenPath, routingInvalid, "DELETE"),
 		notAllowedAt(http.MethodGet, routingBlockedPath, routingInvalid, "PUT"),
 		notAllowedAt(http.MethodPost, routingHealthz, routingInvalid, "GET"),
 		notAllowedAt(http.MethodConnect, routingHealthz, "", "GET"),
@@ -317,9 +306,11 @@ func cleaningCases() []routingCase {
 		// A CONNECT request in authority form has an empty path, which cleans to "/".
 		redirect(http.MethodConnect, routingConnectHost, routingConnectRedir),
 		redirect(http.MethodPut, "/v1/users//blocked/", "/v1/users/blocked/"),
+		// gorilla/mux logged this redirect with the route its uncleaned path matched, user_id ".". The answer is
+		// unchanged, but the log now says unmatched, as for every other redirect: no route serves it.
 		{
 			method: http.MethodPut, target: "/v1/users/./blocked", authorization: routingInvalid,
-			status: http.StatusMovedPermanently, location: "/v1/users/blocked", route: blockedTemplate,
+			status: http.StatusMovedPermanently, location: "/v1/users/blocked", route: unmatched,
 		},
 	}
 }
@@ -334,8 +325,11 @@ func encodedIDCases() []routingCase {
 		blockAsModerator("/v1/users/a%2E%2E/blocked", "a.."),
 		blockAsModerator("/v1/users/%2E%2E/blocked", ".."),
 		blockAsModerator("/v1/users/%2Fx/blocked", "/x"),
-		blockAsModerator("/v1/users/%2F/blocked", "/"),
-		revokeAsModerator("/v1/tokens/%2F"),
+		// An ID that is exactly %2F decodes to "/", which ServeMux reads as an extra path segment, so no route
+		// matches. gorilla/mux routed these to their controllers, which answered 404 user or token not found
+		// after authenticating. No user or token ID is "/", so both remain 404s.
+		notFound(http.MethodPut, "/v1/users/%2F/blocked", routingModerator),
+		notFound(http.MethodDelete, "/v1/tokens/%2F", routingModerator),
 		revokeAsModerator("/v1/tokens/a%2Fb"),
 		{
 			method: http.MethodDelete, target: routingTokenPath, authorization: routingModerator,

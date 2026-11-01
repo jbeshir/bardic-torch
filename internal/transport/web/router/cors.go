@@ -3,8 +3,6 @@ package router
 import (
 	"net/http"
 	"slices"
-
-	"github.com/gorilla/mux"
 )
 
 // cors allows cross-origin requests from any origin, answering every preflight (OPTIONS) request with 204
@@ -25,16 +23,12 @@ func cors(allowedMethods string) func(http.Handler) http.Handler {
 	}
 }
 
-// routeMethods returns the methods of every route registered on routes, sorted and without duplicates.
-func routeMethods(routes *mux.Router) []string {
-	var methods []string
-	_ = routes.Walk(func(route *mux.Route, _ *mux.Router, _ []*mux.Route) error {
-		routeMethods, err := route.GetMethods()
-		if err == nil {
-			methods = append(methods, routeMethods...)
-		}
-		return nil
-	})
+// routeMethods returns the methods of routes, sorted and without duplicates.
+func routeMethods(routes []route) []string {
+	methods := make([]string, 0, len(routes))
+	for _, rt := range routes {
+		methods = append(methods, rt.method)
+	}
 
 	slices.Sort(methods)
 	return slices.Compact(methods)

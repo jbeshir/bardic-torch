@@ -25,10 +25,7 @@ func (c APITokenRevoke) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenID, ok := pathVarOrBadRequest(w, r, "token_id")
-	if !ok {
-		return
-	}
+	tokenID := r.PathValue("token_id")
 
 	// Token IDs are UUIDs in canonical form, so any other ID names no token. Rejecting it here, before the lookup,
 	// keeps matching exact whatever the ID column's collation makes of trailing spaces or case.

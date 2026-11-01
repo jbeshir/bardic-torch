@@ -24,11 +24,6 @@ type UserBlockedSet struct {
 func (c UserBlockedSet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	userID, ok := pathVarOrBadRequest(w, r, "user_id")
-	if !ok {
-		return
-	}
-
 	var body UserBlockedSetRequest
 	if !httpjson.DecodeJSONBody(w, r, &body) {
 		return
@@ -38,6 +33,7 @@ func (c UserBlockedSet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := r.PathValue("user_id")
 	user, err := c.Command.Execute(ctx, command.SetUserBlockedRequest{UserID: userID, Blocked: *body.Blocked})
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):

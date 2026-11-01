@@ -72,7 +72,7 @@ Every decision below was confirmed by John on 2026-10-31.
 Two new repos, both copied from the alignment-feed skeletons (layering, idioms, CLAUDE.md quality checks, CI):
 
 - **`bardic-torch`** (Go API)
-  - Packages: transport/web (gorilla/mux) → command → domain → datasources/mysql (sqlc), plus migrations (golang-migrate).
+  - Packages: transport/web (net/http `ServeMux`) → command → domain → datasources/mysql (sqlc), plus migrations (golang-migrate).
   - Four entrypoints:
     - `cmd/app`: the API server
     - `cmd/migrate`: applies the embedded migrations; dokku runs `migrate up` as the predeploy step

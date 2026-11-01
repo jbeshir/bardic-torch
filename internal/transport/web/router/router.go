@@ -5,18 +5,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/controller"
-	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
 // Dependencies are what the routes are built from.
 type Dependencies struct {
 	Pinger datasources.Pinger
-	// AuthValidators authenticate /v1 requests; with none, every request is anonymous.
+	// AuthValidators authenticate requests to authenticated routes; with none, every request is anonymous.
 	AuthValidators    []AuthValidator
 	ResolveUser       command.Command[string, domain.User]
 	UpdateDisplayName command.Command[command.UpdateDisplayNameRequest, domain.User]
@@ -27,88 +25,50 @@ type Dependencies struct {
 	Now               func() time.Time
 }
 
+// route is one operation the router serves.
+type route struct {
+	method string
+	// path is a net/http.ServeMux path pattern, such as /v1/users/{user_id}/blocked. It must not end in "/" or
+	// contain a {name...} wildcard: newRouter panics if it does.
+	path    string
+	handler http.Handler
+	// authenticated routes run behind the auth middleware, which sets the request's principal; handler then
+	// applies the route's require* middleware. Other routes answer whatever credentials a request carries.
+	authenticated bool
+}
+
+// routes returns every route the API serves. Each method and path pair is a separate route.
+func routes(deps Dependencies) []route {
+	return []route{
+		{method: http.MethodGet, path: "/healthz", handler: controller.Healthz{}},
+		{method: http.MethodGet, path: "/readyz", handler: controller.Readyz{Pinger: deps.Pinger}},
+
+		{method: http.MethodGet, path: "/v1/me", handler: requireAuth(controller.MeGet{}), authenticated: true},
+		{method: http.MethodPatch, path: "/v1/me", authenticated: true, handler: requireAuth(controller.MePatch{
+			Command: deps.UpdateDisplayName,
+		})},
+
+		// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
+		{method: http.MethodPut, path: "/v1/users/{user_id}/blocked", authenticated: true,
+			handler: requireModerator(controller.UserBlockedSet{Command: deps.SetUserBlocked})},
+
+		// API tokens cannot manage API tokens, so a leaked token cannot be used to mint or revoke others.
+		{method: http.MethodPost, path: "/v1/tokens", authenticated: true,
+			handler: requireNonAPIToken(controller.APITokenCreate{Command: deps.CreateAPIToken})},
+		{method: http.MethodGet, path: "/v1/tokens", authenticated: true,
+			handler: requireNonAPIToken(controller.APITokenList{Lister: deps.APITokenLister})},
+		{method: http.MethodDelete, path: "/v1/tokens/{token_id}", authenticated: true,
+			handler: requireNonAPIToken(controller.APITokenRevoke{Revoker: deps.APITokenRevoker, Now: deps.Now})},
+	}
+}
+
 // New returns the handler for every route. Each request passes through the request logger, then the security
 // headers, then CORS, which answers preflight requests itself, before any authentication.
 //
-// Health checks are registered directly on the root router so that no authentication applies to them; they
-// answer whatever credentials a request carries. Every /v1 route passes through the auth middleware, and then
-// the require* middleware for its route. Requests no route matches get a JSON 404, or 405 if a route matches
-// the path but not the method, without authenticating.
+// Authenticated routes pass through the auth middleware and then the require* middleware for their route; the
+// health checks are not authenticated. Requests no route matches get a JSON 404, or 405 if a route matches the
+// path but not the method, without authenticating.
 func New(deps Dependencies) http.Handler {
-	routes := newRoutes(deps)
-	return requestLogger(routes)(securityHeaders(cors(strings.Join(routeMethods(routes), ", "))(routes)))
-}
-
-// newRoutes registers every route, behind its authentication and authorisation, on a new router.
-func newRoutes(deps Dependencies) *mux.Router {
-	// Encoded paths keep percent-encoded characters, such as %2F, inside a single path variable.
-	routes := mux.NewRouter().UseEncodedPath()
-
-	routes.Handle("/healthz", controller.Healthz{}).Methods(http.MethodGet)
-	routes.Handle("/readyz", controller.Readyz{Pinger: deps.Pinger}).Methods(http.MethodGet)
-
-	v1 := routes.PathPrefix("/v1").Subrouter()
-	v1.Use(authMiddleware(deps.AuthValidators, deps.ResolveUser))
-
-	v1.Handle("/me", requireAuth(controller.MeGet{})).Methods(http.MethodGet)
-	v1.Handle("/me", requireAuth(controller.MePatch{
-		Command: deps.UpdateDisplayName,
-	})).Methods(http.MethodPatch)
-
-	// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
-	v1.Handle("/users/{user_id}/blocked", requireModerator(controller.UserBlockedSet{
-		Command: deps.SetUserBlocked,
-	})).Methods(http.MethodPut)
-
-	// API tokens cannot manage API tokens, so a leaked token cannot be used to mint or revoke others.
-	v1.Handle("/tokens", requireNonAPIToken(controller.APITokenCreate{
-		Command: deps.CreateAPIToken,
-	})).Methods(http.MethodPost)
-	v1.Handle("/tokens", requireNonAPIToken(controller.APITokenList{
-		Lister: deps.APITokenLister,
-	})).Methods(http.MethodGet)
-	v1.Handle("/tokens/{token_id}", requireNonAPIToken(controller.APITokenRevoke{
-		Revoker: deps.APITokenRevoker,
-		Now:     deps.Now,
-	})).Methods(http.MethodDelete)
-
-	// Both routers need the handler, as the /v1 subrouter answers for every path under /v1. It runs without the
-	// subrouter's middleware, so requests no route matches are not authenticated.
-	unrouted := unroutedHandler(routes, routeMethods(routes))
-	for _, r := range []*mux.Router{routes, v1} {
-		r.NotFoundHandler = unrouted
-		r.MethodNotAllowedHandler = unrouted
-	}
-
-	return routes
-}
-
-// unroutedHandler answers requests no route of routes matches. If a route matches the path with another of
-// methods, the answer is 405 with those methods in Allow; otherwise it is 404.
-//
-// It checks the methods itself because mux reports a wrong method on a /v1 path as not found whenever a later
-// /v1 route does not match the path.
-func unroutedHandler(routes *mux.Router, methods []string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		var allowed []string
-		for _, method := range methods {
-			probe := r.WithContext(ctx)
-			probe.Method = method
-			var match mux.RouteMatch
-			if routes.Match(probe, &match) && match.MatchErr == nil {
-				allowed = append(allowed, method)
-			}
-		}
-
-		if len(allowed) == 0 {
-			httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "no route matches the path")
-			return
-		}
-
-		w.Header().Set("Allow", strings.Join(allowed, ", "))
-		httpjson.WriteError(ctx, w, http.StatusMethodNotAllowed, httpjson.CodeMethodNotAllowed,
-			"method not allowed for this path")
-	})
+	r := newRouter(routes(deps), authMiddleware(deps.AuthValidators, deps.ResolveUser))
+	return requestLogger(r.lookup)(securityHeaders(cors(strings.Join(r.methods, ", "))(r)))
 }

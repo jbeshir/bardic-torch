@@ -9,23 +9,23 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// serveLogged serves req through requestLogger wrapping routes, with a JSON logger in the request context, and
+// serveLogged serves req through requestLogger wrapping a router for routes, with a JSON logger in the request context, and
 // returns the decoded log entries.
-func serveLogged(t *testing.T, routes *mux.Router, req *http.Request) (*httptest.ResponseRecorder, []map[string]any) {
+func serveLogged(t *testing.T, routes []route, req *http.Request) (*httptest.ResponseRecorder, []map[string]any) {
 	t.Helper()
 
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&logs, nil))
 	req = req.WithContext(domain.ContextWithLogger(req.Context(), logger))
 
+	router := newRouter(routes, authMiddleware(nil, nil))
 	rec := httptest.NewRecorder()
-	requestLogger(routes)(routes).ServeHTTP(rec, req)
+	requestLogger(router.lookup)(router).ServeHTTP(rec, req)
 
 	var entries []map[string]any
 	for line := range strings.Lines(logs.String()) {
@@ -40,13 +40,14 @@ func serveLogged(t *testing.T, routes *mux.Router, req *http.Request) (*httptest
 func TestRequestLogger_LogsStatusAndRoute(t *testing.T) {
 	t.Parallel()
 
-	routes := mux.NewRouter()
-	routes.Handle("/songs/{song_id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		domain.LoggerFromContext(r.Context()).InfoContext(r.Context(), "handling")
-		w.WriteHeader(http.StatusTeapot)
-		_, _ = w.Write([]byte("body"))
-		w.WriteHeader(http.StatusInternalServerError)
-	})).Methods(http.MethodGet)
+	routes := []route{{method: http.MethodGet, path: "/songs/{song_id}", handler: http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			domain.LoggerFromContext(r.Context()).InfoContext(r.Context(), "handling")
+			w.WriteHeader(http.StatusTeapot)
+			_, _ = w.Write([]byte("body"))
+			w.WriteHeader(http.StatusInternalServerError)
+		},
+	)}}
 
 	rec, entries := serveLogged(t, routes,
 		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/songs/123", nil))
@@ -72,10 +73,11 @@ func TestRequestLogger_LogsStatusAndRoute(t *testing.T) {
 func TestRequestLogger_DefaultStatusAndUnmatchedRoute(t *testing.T) {
 	t.Parallel()
 
-	routes := mux.NewRouter()
-	routes.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("ok"))
-	})).Methods(http.MethodGet)
+	routes := []route{{method: http.MethodGet, path: "/healthz", handler: http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte("ok"))
+		},
+	)}}
 
 	_, entries := serveLogged(t, routes,
 		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz", nil))
@@ -92,8 +94,7 @@ func TestRequestLogger_DefaultStatusAndUnmatchedRoute(t *testing.T) {
 func TestRequestLogger_RequestIDsAreUnique(t *testing.T) {
 	t.Parallel()
 
-	routes := mux.NewRouter()
-	routes.Handle("/healthz", http.NotFoundHandler())
+	routes := []route{{method: http.MethodGet, path: "/healthz", handler: http.NotFoundHandler()}}
 
 	_, first := serveLogged(t, routes, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz", nil))
 	_, second := serveLogged(t, routes, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz", nil))
