@@ -125,16 +125,10 @@ type corpusCounts struct {
 	collectionPageSeen bool
 }
 
-// collectionsPage is the meta page listing the collections.
-const collectionsPage = "Collections"
-
 func countCorpus(d mediawiki.Dump) corpusCounts {
 	c := corpusCounts{PagesByType: map[mediawiki.PageType]int{}, RedirectsByNS: map[int]int{},
 		pagesByID: map[int64]pageCounts{}}
-	maxYear := mediawiki.MinPerformanceYear
-	for _, p := range d.Pages {
-		maxYear = max(maxYear, p.LastRevTimestamp.Year())
-	}
+	maxYear := mediawiki.LatestYear(d.Pages)
 	for _, p := range d.Pages {
 		if KeptNamespaces[p.NS] {
 			c.addPage(p, countPage(p, maxYear))
@@ -171,7 +165,7 @@ func (c *corpusCounts) addPage(p mediawiki.Page, pc pageCounts) {
 	c.Sections += len(pc.Sections)
 	c.Wikilinks += pc.Wikilinks
 	c.ExternalLinks += pc.ExternalLinks
-	if p.Title != collectionsPage {
+	if p.Title != mediawiki.CollectionsPage {
 		return
 	}
 	c.collectionPageSeen = true

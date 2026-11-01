@@ -79,10 +79,9 @@ func collectPhrases(pages []mediawiki.Page, redirects []mediawiki.Redirect) ([]d
 		c.published[mediawiki.FoldName(name)] = true
 	}
 	bards := map[string]bool{}
-	maxYear := mediawiki.MinPerformanceYear
+	maxYear := mediawiki.LatestYear(pages)
 	for _, p := range pages {
 		c.titles = append(c.titles, folded(strings.TrimPrefix(p.Title, "Category:")))
-		maxYear = max(maxYear, p.LastRevTimestamp.Year())
 		if mediawiki.TypePage(p) != mediawiki.PageTypeBard {
 			continue
 		}

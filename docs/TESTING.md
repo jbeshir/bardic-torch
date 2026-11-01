@@ -83,6 +83,23 @@ with `go tool`, so nothing needs installing.
   persons, 58 performers, 22 categories, 1 malformed URL and 2 not imported, 78 stub pieces and the 15/4
   disagreement pages, and `TestScrubbedPeople_*` the examples (Lasair's two spellings, Dunstan, Samantha Moore,
   My Thing Is My Own, March of Cambreadth, Malkin Grey).
+- **Links, collections, performances and events** (`internal/mediawiki`, synthetic wikis and the scrubbed copy):
+  links (`TestExtractLinks_*`: the role of each section, official key links on a credited person's website, one
+  link per normalised URL keeping the first URL, text and locator and every role, platforms and place types,
+  repaired double-bracket and bare URLs, URLs that do not normalise dropped, infobox links only as occurrences;
+  `TestLocator`, `TestHasTrackingParameter`); the Collections page (`TestParseCollections_*`: entries and
+  nesting, every kind, the not-bardic note, the duplicate URL merged, the region kingdom; `TestMatchCollection_*`:
+  exact URL first, a fragment aside, the longest prefix only for website-like kinds off shared document hosts,
+  ties matching none); performances (`TestParsePerformance_*`, `TestParsePerformanceText_EventCapitalisedAndCut`,
+  `TestPlacePerformance_*`: on the piece page's link, a bard page's performance of a known piece recorded once on
+  the piece, repeated and unlinked items listed), events (`TestEvents_*`: one per folded name, venue pages,
+  similar names listed), performers (`TestPerformers_ResolveToBardsAndStubs`), canonical links per normalised URL
+  with conflicts (`TestParseLinks_CanonicalPerURL`) and profile links of infobox credits. On the scrubbed copy,
+  `TestScrubbedLinks_ResearchCounts` asserts 62 collection entries (61 collections, the West Kingdom duplicate
+  merged), 2 nested, 1 not bardic, the 12 kinds, 112 tracking-parameter URLs, 35 pages repeating a URL and 2 bare
+  URLs, and `TestScrubbedLinks_*` the examples (the Green Dragon venue, Marian of Heatherdale matched to Heather
+  Dale, Dahrien Cordell's repaired performance link on Rite of Passage, one set of fields per URL, YouTube links
+  never in a collection by prefix, ties).
 - **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
   `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; the
   milestone gates set it to the research output). The crawl holds legal names and lyrics, so these tests report
@@ -95,7 +112,9 @@ with `go tool`, so nothing needs installing.
   alternate titles) and the quality lists (drift, redirect-category links, inline-lyrics pages, assessed pieces);
   `oracle_people_research_test.go` the infobox person items, bard pages (redirects, works, roles, kingdom and group
   categories, In Memoriam, licensing), the red-link map, the credit-signal quality lists, and that the scrubbed copy
-  keeps every people count. Each deliberate difference is an entry of `oracleDeviations` with its reason;
+  keeps every people count; `oracle_links_research_test.go` every external link occurrence (URL, text, brackets and
+  section key), the links deduplicated by normalised URL, the Collections page (letter, label, URL, host, note,
+  depth, parent, kind, description) and the link quality lists (bare URLs, tracking parameters, repeated URLs). Each deliberate difference is an entry of `oracleDeviations` with its reason;
   any other is a failure.
 - **Privacy scrubber** (`internal/scrub`, `cmd/scrub-dump`): the committed scrubbed copy of the crawl,
   `testdata/wiki-dump/`, is what every other wiki test reads (`wikidumptest.Scrubbed`). Unit tests on synthetic

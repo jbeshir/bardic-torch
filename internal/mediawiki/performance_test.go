@@ -2,6 +2,7 @@ package mediawiki
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -39,9 +40,9 @@ func TestParsePerformanceText_FullGrammar(t *testing.T) {
 			Event: "Pennsic War", Year: 2019, Piece: aSong,
 		},
 		"[https://example.org/v A Song, recorded by WrenSings on YouTube] performed by [[Ash Placeholder]] and " +
-			"[[Rowan Placeholder]] at the [[Green Dragon]], 2010": {
+			"[[Rowan Placeholder]] at the [[" + greenDragon + "]], 2010": {
 			Uploader: "WrenSings", Platform: youTube, Performers: []string{ash, rowan},
-			Event: "Green Dragon", Year: 2010,
+			Event: greenDragon, Year: 2010,
 		},
 		"[https://example.org/v A Song, uploaded to YouTube by Wren Placeholder, sung in choir in 2010]": {
 			Uploader: wren, Platform: youTube, Year: 2010,
@@ -97,4 +98,61 @@ func TestParsePerformanceText_EventSpan(t *testing.T) {
 	assert.Equal(t, "Spring Revel", p.Event.Text)
 	assert.Equal(t, p.Event.Text, item[p.Event.Start:p.Event.End])
 	assert.Equal(t, 2009, p.Year)
+}
+
+func TestParsePerformanceText_EventCapitalisedAndCut(t *testing.T) {
+	for item, want := range map[string]string{
+		"[https://example.org/v A Song] at around the 10:52 mark":                   "",
+		"[https://example.org/v A Song], beginning at 40:51":                        "",
+		"[https://example.org/v A Song] at an [[:Category:Amtgard|Amtgard]] event":  "",
+		"[https://example.org/v A Song, recorded at the Green Dragon for YouTube]":  greenDragon,
+		"[https://example.org/v A Song] at the Green Dragon at Spring War on May 1": greenDragon,
+		"[https://example.org/v A Song] at Coronation of Wren & Ash":                "Coronation of Wren & Ash",
+	} {
+		assert.Equal(t, want, ParsePerformanceText(item, testMaxYear).Event.Text, item)
+	}
+}
+
+func TestParsePerformance_FullGrammar(t *testing.T) {
+	rec := ParsePerformance(ListItem{Depth: 1, Raw: "[https://example.org/v Recording by Wren Placeholder on " +
+		"YouTube] of [[Ash Placeholder]] and [[Rowan Placeholder]] singing [[A Song]] at Pennsic War, 2019"},
+		testMaxYear)
+
+	assert.Equal(t, PerformanceRecord{
+		DescriptionVerbatim: "[https://example.org/v Recording by Wren Placeholder on YouTube] of [[Ash Placeholder]] " +
+			"and [[Rowan Placeholder]] singing [[A Song]] at Pennsic War, 2019",
+		Uploader: wren, EventText: "Pennsic War", Year: 2019, Performers: []string{ash, rowan}, Piece: aSong,
+	}, rec)
+}
+
+func TestParsePerformance_VerbatimUnchanged(t *testing.T) {
+	item := "[https://example.org/v ''A Song'']  sung   &amp; ''played'' by [[Ash Placeholder|Ash]] — 1999 "
+	parsed := ParsePage("== Performances & Recordings ==\n** " + item + "\n")
+
+	rec := ParsePerformance(parsed.Sections[1].Content.Items[0], testMaxYear)
+
+	assert.Equal(t, item[:len(item)-1], rec.DescriptionVerbatim, "only the list markers and trailing space go")
+	assert.Equal(t, 1999, rec.Year)
+}
+
+func TestParsePerformance_YearBounds(t *testing.T) {
+	assert.Zero(t, ParsePerformance(ListItem{Raw: "[https://example.org/v A] in 1965"}, testMaxYear).Year)
+	assert.Zero(t, ParsePerformance(ListItem{Raw: "[https://example.org/v A] in 2027"}, testMaxYear).Year)
+	assert.Equal(t, 2026, ParsePerformance(ListItem{Raw: "[https://example.org/v A] in 2026"}, testMaxYear).Year)
+}
+
+func TestParsePerformance_NoEvent(t *testing.T) {
+	rec := ParsePerformance(ListItem{Raw: "[https://example.org/v A Song] of [[Ash Placeholder]]"}, testMaxYear)
+
+	assert.Empty(t, rec.EventText)
+	assert.Empty(t, rec.Uploader)
+	assert.Equal(t, []string{ash}, rec.Performers)
+}
+
+func TestLatestYear(t *testing.T) {
+	assert.Equal(t, MinPerformanceYear, LatestYear(nil))
+	assert.Equal(t, 2024, LatestYear([]Page{
+		{LastRevTimestamp: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{LastRevTimestamp: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)},
+	}))
 }

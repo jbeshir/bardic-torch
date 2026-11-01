@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 )
 
 // wikiFixture builds a synthetic dump: categories with their parents and pages with their categories, keeping
@@ -86,9 +87,15 @@ func (w *wikiFixture) redirectCategory(from, to string) {
 	w.redirects = append(w.redirects, Redirect{From: "Category:" + from, NS: NSCategory, To: ":Category:" + to})
 }
 
+// fixtureRevisionTime is when the fixture pages were last revised, so performances up to 2026 have their year.
+var fixtureRevisionTime = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
 func (w *wikiFixture) page(p Page) Page {
 	if p.PageID == 0 {
 		p.PageID = int64(100 + len(w.pages))
+	}
+	if p.LastRevTimestamp.IsZero() {
+		p.LastRevTimestamp = fixtureRevisionTime
 	}
 	p.URL = "https://wiki.example.invalid/wiki/" + strings.ReplaceAll(p.Title, " ", "_")
 	for _, c := range p.Categories {

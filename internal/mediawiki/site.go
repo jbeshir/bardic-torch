@@ -10,8 +10,10 @@ import (
 type Site struct {
 	Taxonomy Taxonomy
 	Terms    TermPlan
-	pages    map[string]Page
-	ordered  []Page
+	// Year is the latest year a performance can be from (LatestYear of the dump).
+	Year    int
+	pages   map[string]Page
+	ordered []Page
 	// redirects maps a redirect page's title to its target's.
 	redirects map[string]string
 	// categoryPages are the names of the categories that have a page.
@@ -21,8 +23,8 @@ type Site struct {
 // NewSite indexes a dump.
 func NewSite(d Dump) Site {
 	taxonomy := ClassifyCategories(d)
-	s := Site{Taxonomy: taxonomy, Terms: PlanTerms(taxonomy), pages: map[string]Page{}, redirects: map[string]string{},
-		categoryPages: map[string]bool{}}
+	s := Site{Taxonomy: taxonomy, Terms: PlanTerms(taxonomy), Year: LatestYear(d.Pages), pages: map[string]Page{},
+		redirects: map[string]string{}, categoryPages: map[string]bool{}}
 	for _, p := range d.Pages {
 		switch p.NS {
 		case NSMain:
@@ -117,4 +119,23 @@ func (s Site) caseVariantOf(title string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// Page returns the main-namespace page titled title.
+func (s Site) Page(title string) (Page, bool) {
+	p, ok := s.pages[title]
+
+	return p, ok
+}
+
+// Venues are the venue pages of the main namespace, by page ID.
+func (s Site) Venues() []Page {
+	var out []Page
+	for _, p := range s.ordered {
+		if TypePage(p) == PageTypeVenue {
+			out = append(out, p)
+		}
+	}
+
+	return out
 }

@@ -219,11 +219,11 @@ func TestClassifyRedLink_Positions(t *testing.T) {
 		"0:Https://example.org/c Recording by Placeholder on YouTube": RedLinkMalformedURL,
 		"0:The Placeholder Example":                                   RedLinkNotImported,
 	}, classes)
-	// Persons named in prose are stub persons; performers are matched with the performances.
+	// Persons named in prose and performers are stub persons.
 	_, ok := people.Persons.Stub(rowan + " the Bold")
 	assert.True(t, ok)
 	_, ok = people.Persons.Stub(wrenOfTheVale)
-	assert.False(t, ok)
+	assert.True(t, ok)
 }
 
 func TestClassifyRedLink_Unclassified(t *testing.T) {

@@ -373,8 +373,18 @@ the DDL is in `migrations/003`–`009`.
    the person is related (heir_of, same_as) to a credited person; listed works without a page become stub pieces
    credited to the bard. Plain-text names are matched to persons by folded name (apostrophes, case, accents), then
    fuzzily (one edit, or a unique first word), and listed.
-6. Extract links, with role taken from the section, platform from the host, collection match by host plus path prefix, and the locator. Deduplicate by normalised URL, keeping multiple roles.
-7. Parse performance descriptions; the verbatim text is always kept.
+6. Extract links, with role taken from the section (official for a key link on a credited person's website), platform
+   from the host, and the locator ("p. 63", "page 63", "#page=63"). A link belongs to a collection of the
+   Collections page with its exact normalised URL (a fragment aside), else, for website, songbook website, wiki and
+   blog collections not on YouTube, Google Docs, Scribd or Yumpu, the one whose path prefix (at least one segment) is
+   longest; collections tying match none and are listed. Deduplicate by normalised URL, keeping multiple roles; one
+   set of link fields per normalised URL (the first document's, pieces by page ID before persons), with the
+   differences listed. Infobox credits naming a person by an external link attach it to the person
+   (external_profile). The Collections page's duplicate URL is merged into one collection and listed.
+7. Parse performance descriptions; the verbatim text is always kept (the import redacts hidden names in it).
+   Performers ("of [[X]]") are matched as persons, or become stubs; events come from "at <event>", one per folded
+   name, the venue pages included, with similar names listed, never merged. A performance on a bard page whose piece
+   has a page is recorded once, on the piece's link, and the bard keeps the link with role performance.
 8. Turn redirects into aliases and red links into stubs.
 9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`.
 10. Write all imported data as approved revisions with `source = import`, crediting wiki contributors.

@@ -83,14 +83,14 @@ type People struct {
 }
 
 // ParsePeople parses the bard pages and matches every person the pieces and bard pages name: infobox credits,
-// bard-name categories, relations and the red links naming persons in prose. Each piece's credits are then the
-// union of three signals: its infobox's credits, its bard-name categories and the bard pages listing it. A
-// category or a works list naming a person the infobox does not credit adds a credit (role lyrics, certainty
-// possible), unless the person is related to a credited person.
+// bard-name categories, relations, the red links naming persons in prose and the performers of performance items.
+// Each piece's credits are then the union of three signals: its infobox's credits, its bard-name categories and the
+// bard pages listing it. A category or a works list naming a person the infobox does not credit adds a credit
+// (role lyrics, certainty possible), unless the person is related to a credited person.
 func ParsePeople(s Site, pieces []PieceRecord) People {
 	bards := s.Bards()
 	redLinks := ClassifyRedLinks(s, pieces, bards)
-	persons := ResolvePersons(NewPersonIndex(bards), personMentions(pieces, bards, redLinks), s)
+	persons := ResolvePersons(NewPersonIndex(bards), personMentions(s, pieces, bards, redLinks), s)
 	u := creditUnion{site: s, bards: bards, persons: persons, related: relatedPersons(bards, persons)}
 	p := People{Bards: bards, Persons: persons, Credits: map[int64][]PieceCredit{}, RedLinks: redLinks}
 	listers := u.listers()
@@ -104,8 +104,9 @@ func ParsePeople(s Site, pieces []PieceRecord) People {
 }
 
 // personMentions are the persons the pages name, in a fixed order: each piece's infobox credits and bard-name
-// categories, the bards' relations, and the red links naming persons in prose.
-func personMentions(pieces []PieceRecord, bards []BardRecord, redLinks []RedLink) []PersonMention {
+// categories, the bards' relations, the red links naming persons in prose and the performers of the performance
+// items.
+func personMentions(s Site, pieces []PieceRecord, bards []BardRecord, redLinks []RedLink) []PersonMention {
 	var out []PersonMention
 	for _, p := range pieces {
 		for _, c := range p.Credits {
@@ -123,7 +124,41 @@ func personMentions(pieces []PieceRecord, bards []BardRecord, redLinks []RedLink
 		}
 	}
 
-	return append(out, personRedLinkMentions(redLinks)...)
+	out = append(out, personRedLinkMentions(redLinks)...)
+
+	return append(out, performerMentions(s, pieces, bards)...)
+}
+
+// performerMentions are the performers the performance items of the pieces and bards link to: bard pages and
+// pages that do not exist (a link "of [[X]]" to a piece names no performer).
+func performerMentions(s Site, pieces []PieceRecord, bards []BardRecord) []PersonMention {
+	isBard := map[string]bool{}
+	for _, b := range bards {
+		isBard[b.Title] = true
+	}
+	var out []PersonMention
+	add := func(page string, parsed ParsedPage) {
+		for _, it := range performanceItems(parsed) {
+			for _, target := range ParsePerformance(it.ListItem, s.Year).Performers {
+				if name := performerName(s, target); isBard[name.Name] || !s.HasPage(name.Name) {
+					out = append(out, PersonMention{Name: name, Page: page})
+				}
+			}
+		}
+	}
+	for _, p := range pieces {
+		add(p.Title, p.Parsed)
+	}
+	for _, b := range bards {
+		add(b.Title, b.Parsed)
+	}
+
+	return out
+}
+
+// performerName is a performer link's target as the person it names, read through redirects.
+func performerName(s Site, target string) PersonName {
+	return PersonName{Name: s.ResolveRedirect(target), Form: NamePageLink}
 }
 
 func relationName(r PersonRelation) PersonName {

@@ -24,6 +24,8 @@ var oracleDeviations = map[string]string{
 	"pages.test_type": "the template test page Roses of the East is typed test; the reference types it other",
 	"links.dedupe": "an external URL repeated on a page is one link with several roles (chunk 6); the reference " +
 		"lists each occurrence",
+	"links.repaired_markup": "external links are read after RepairMarkup, so a double-bracket URL ([[https://… text]]) " +
+		"is a bracketed link with its text; pages with one are skipped in the occurrence comparison",
 	"sections.single_line_headings": "Sections is hand-coded, RE2 having no backreference, and a heading never " +
 		"spans two lines; the reference's \\s may cross a line break (the dump has no such heading)",
 	"titles.parentheticals": "a title field that is the page title and a trailing parenthetical gives the " +

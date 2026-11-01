@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // MinPerformanceYear is the earliest year a performance can have: the SCA was founded in 1966.
@@ -58,13 +60,15 @@ var (
 	leadingYear  = regexp.MustCompile(`^\d{4}[ \t]+`)
 	yearWord     = regexp.MustCompile(`\b\d{4}\b`)
 	pieceSung    = regexp.MustCompile(`(?i)\bsinging[ \t]+$`)
+	eventPlace   = regexp.MustCompile(`[ \t]+(?:at|for|on)[ \t]+`)
 )
 
 // ParsePerformanceText reads a performance item's wikitext (without its bullet):
 //   - the uploader and platform from "Recording by U on P", "uploaded to P by U", "recorded for P by U",
 //     "recorded by U (on P)", "on P by U" and "by U on P", where P is capitalised;
 //   - the performers: the page links after "of", "by", or a list separator, but not after "tune by";
-//   - the event after "at" (a linked page, or text up to a comma, full stop or "singing"), without a year;
+//   - the event after "at": a linked page, or text up to a comma, full stop, "singing" or a further "at", "for"
+//     or "on", without a year, and only if it is capitalised ("at around the 10:52 mark" is no event);
 //   - the year: the first four-digit number from MinPerformanceYear to maxYear outside URLs;
 //   - the piece: the page link after "singing".
 func ParsePerformanceText(item string, maxYear int) PerformanceText {
@@ -170,13 +174,72 @@ func event(masked string, links []Wikilink) TextSpan {
 		start += y[1]
 	}
 	text := masked[start:end]
+	if cut := eventPlace.FindStringIndex(text); cut != nil {
+		text = text[:cut[0]]
+	}
 	if y := trailingYear.FindStringIndex(text); y != nil {
 		text = text[:y[0]]
 	}
 	text = strings.TrimRightFunc(text, isSpace)
-	if text == "" || yearWord.MatchString(text) && len(text) == 4 {
+	if first, _ := utf8.DecodeRuneInString(text); !unicode.IsUpper(first) {
 		return TextSpan{}
 	}
 
 	return TextSpan{Text: text, Start: start, End: start + len(text)}
+}
+
+// LatestYear is the latest year a performance on pages can be from: the year of their latest revision, and at least
+// MinPerformanceYear.
+func LatestYear(pages []Page) int {
+	year := MinPerformanceYear
+	for _, p := range pages {
+		year = max(year, p.LastRevTimestamp.Year())
+	}
+
+	return year
+}
+
+// PerformanceRecord is what one performance item says: the item as written without its list markers
+// (DescriptionVerbatim, kept as the performance's description), and as ParsePerformanceText reads it its
+// uploader, event, year, the targets of its performer links and the piece it says is sung.
+type PerformanceRecord struct {
+	DescriptionVerbatim string
+	Uploader            string
+	EventText           string
+	Year                int
+	Performers          []string
+	Piece               string
+}
+
+// ParsePerformance reads one item of a performances section.
+func ParsePerformance(item ListItem, maxYear int) PerformanceRecord {
+	verbatim := strings.TrimRightFunc(item.Raw, isSpace)
+	text := ParsePerformanceText(verbatim, maxYear)
+	rec := PerformanceRecord{DescriptionVerbatim: verbatim, Uploader: text.Uploader.Text, EventText: text.Event.Text,
+		Year: text.Year, Piece: text.Piece}
+	for _, l := range text.Performers {
+		rec.Performers = append(rec.Performers, l.Target)
+	}
+
+	return rec
+}
+
+// performanceItems are the items of a parsed page's performances sections, with the key of their section.
+func performanceItems(parsed ParsedPage) []sectionItem {
+	var out []sectionItem
+	for _, sec := range parsed.Sections {
+		if sec.Key.IsPerformanceSection() {
+			for _, it := range sec.Content.Items {
+				out = append(out, sectionItem{ListItem: it, Section: sec.Key})
+			}
+		}
+	}
+
+	return out
+}
+
+// sectionItem is a list item with the key of its section.
+type sectionItem struct {
+	ListItem
+	Section SectionKey
 }

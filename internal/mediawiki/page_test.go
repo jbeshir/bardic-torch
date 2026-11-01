@@ -18,7 +18,7 @@ func TestTypePage(t *testing.T) {
 		"bard":              {Page{Title: wren, Categories: []string{CategoryBards, CategoryPieces}}, PageTypeBard},
 		"piece by category": {Page{Title: aSong, Categories: []string{CategoryPieces}}, PageTypePiece},
 		"piece by infobox":  {Page{Title: aSong, Wikitext: "{{ Infobox poem\n}}"}, PageTypePiece},
-		"venue":             {Page{Title: "Green Dragon", Categories: []string{"Venue"}}, PageTypeVenue},
+		"venue":             {Page{Title: greenDragon, Categories: []string{"Venue"}}, PageTypeVenue},
 		"other":             {Page{Title: "Something", Wikitext: "{{Other}}"}, PageTypeOther},
 		"other namespace":   {Page{NS: NSCategory, Title: "Category:Bards", Categories: []string{CategoryBards}}, PageTypeOther},
 		"infobox in a comment, as in the reference": {Page{Title: aSong, Wikitext: "<!-- {{Infobox song}} -->"}, PageTypePiece},
