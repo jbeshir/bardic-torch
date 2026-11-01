@@ -150,3 +150,7 @@ func slugOrBadRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 
 	return slug, true
 }
+
+func performanceLinkFromDomain(l domain.PerformanceLink) PerformanceLink {
+	return PerformanceLink{URL: l.URL, Title: l.Title, Platform: l.Platform}
+}

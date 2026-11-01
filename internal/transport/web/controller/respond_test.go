@@ -33,8 +33,20 @@ const (
 	notJSONCase   = "not_json"
 	notFoundCase  = "not_found"
 
-	testPieceTitle = "The Copper Kettle"
-	testPersonName = "Wren of the Vale"
+	testPieceTitle      = "The Copper Kettle"
+	testPersonName      = "Wren of the Vale"
+	testTermName        = "War"
+	testEventName       = "Midwinter Revel"
+	testVideoURL        = "https://video.example.org/watch/kettle"
+	testAffiliationName = "Northmarch"
+	testAffiliationSlug = "northmarch"
+
+	slugVar         = "slug"
+	collectionIDVar = "collection_id"
+
+	getFailureCase  = "get_failure"
+	listFailureCase = "list_failure"
+	emptyListsCase  = "empty_lists"
 
 	unauthenticatedBody      = `{"code":"unauthenticated","message":"authentication required"}`
 	internalErrorBody        = `{"code":"internal","message":"internal error"}`

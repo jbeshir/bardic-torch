@@ -15,16 +15,21 @@ import (
 type Dependencies struct {
 	Pinger datasources.Pinger
 	// AuthValidators authenticate requests to authenticated routes; with none, every request is anonymous.
-	AuthValidators     []AuthValidator
-	ResolveUser        command.Command[string, domain.User]
-	UpdateDisplayName  command.Command[command.UpdateDisplayNameRequest, domain.User]
-	SetUserBlocked     command.Command[command.SetUserBlockedRequest, domain.User]
-	CreateAPIToken     command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
-	APITokenLister     datasources.ActiveAPITokenLister
-	APITokenRevoker    datasources.APITokenRevoker
-	PublicPieceGetter  datasources.PublicPieceGetter
-	PublicPersonGetter datasources.PublicPersonGetter
-	Now                func() time.Time
+	AuthValidators         []AuthValidator
+	ResolveUser            command.Command[string, domain.User]
+	UpdateDisplayName      command.Command[command.UpdateDisplayNameRequest, domain.User]
+	SetUserBlocked         command.Command[command.SetUserBlockedRequest, domain.User]
+	CreateAPIToken         command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
+	APITokenLister         datasources.ActiveAPITokenLister
+	APITokenRevoker        datasources.APITokenRevoker
+	PublicPieceGetter      datasources.PublicPieceGetter
+	PublicPersonGetter     datasources.PublicPersonGetter
+	PublicTermLister       datasources.PublicTermLister
+	PublicTermGetter       datasources.PublicTermGetter
+	PublicCollectionGetter datasources.PublicCollectionGetter
+	PublicEventLister      datasources.PublicEventLister
+	PublicEventGetter      datasources.PublicEventGetter
+	Now                    func() time.Time
 }
 
 // route is one operation the router serves.
@@ -49,6 +54,12 @@ func routes(deps Dependencies) []route {
 		{method: http.MethodGet, path: "/v1/pieces/{slug}", handler: controller.PieceGet{Getter: deps.PublicPieceGetter}},
 		{method: http.MethodGet, path: "/v1/persons/{slug}",
 			handler: controller.PersonGet{Getter: deps.PublicPersonGetter}},
+		{method: http.MethodGet, path: "/v1/terms", handler: controller.TermListGet{Lister: deps.PublicTermLister}},
+		{method: http.MethodGet, path: "/v1/terms/{slug}", handler: controller.TermGet{Getter: deps.PublicTermGetter}},
+		{method: http.MethodGet, path: "/v1/collections/{collection_id}",
+			handler: controller.CollectionGet{Getter: deps.PublicCollectionGetter}},
+		{method: http.MethodGet, path: "/v1/events", handler: controller.EventListGet{Lister: deps.PublicEventLister}},
+		{method: http.MethodGet, path: "/v1/events/{slug}", handler: controller.EventGet{Getter: deps.PublicEventGetter}},
 
 		{method: http.MethodGet, path: "/v1/me", handler: requireAuth(controller.MeGet{}), authenticated: true},
 		{method: http.MethodPatch, path: "/v1/me", authenticated: true, handler: requireAuth(controller.MePatch{

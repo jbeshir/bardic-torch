@@ -196,6 +196,17 @@ the milestone plan (`plan-be2.md` in the BE2 pipeline output) has the full DDL.
   the health checks: invalid, expired or uncheckable credentials and blocked users get the same answer as an
   anonymous request, and no user is looked up or created. A person's page lists the performances they perform in
   and those recorded by links attached to them; a performance of a piece that is not public is left out.
+- **Terms, collections and events.** A term's `piece_count`/`person_count` count distinct public pieces, and
+  public persons with a page, tagged with or affiliated with the term or any public descendant; a term under a
+  pending parent is hidden with its subtree, from its ancestors' counts too. The term list is in tree order
+  (facets in enum order, parents first, siblings by position and display name). A term page pages its members
+  with `limit`/`offset`: pieces, or persons for an `affiliation` term. A collection's citations are one per
+  visible link and public piece or person (not no-page) it is attached to, with that attachment's roles. An
+  event's performances leave out those of non-public pieces, as on a person's page, and those whose link is
+  attached to no public piece and no public person with a page, since only a hidden entity's document records
+  them. Collection citations and event performances are capped at 200 with totals; collection children are not
+  capped. Every query parameter is single-valued unless documented as repeatable: a repeated one, or a query
+  string that is not validly percent-encoded, is a 400.
 - **Status sources:** "a status other than active needs a source" is domain validation (BE4), not a CHECK. The
   importer uses the legacy wiki page URL as the source. `conservation_history` has a `source_url`.
 

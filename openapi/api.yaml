@@ -42,7 +42,9 @@ tags:
   - name: API tokens
     description: Personal API tokens for programmatic access
   - name: Catalogue
-    description: Public reads of the catalogue of pieces, persons and the terms that classify them
+    description: |
+      Public reads of the catalogue: pieces, persons, the terms that classify them, and the collections and
+      events that record them
 
 paths:
   /healthz:
@@ -474,6 +476,232 @@ paths:
         "500":
           $ref: "#/components/responses/Internal"
 
+  /v1/terms:
+    get:
+      tags:
+        - Catalogue
+      summary: List terms
+      description: |
+        Lists the public terms of one facet, or of every facet, in tree order: by facet in the order of the
+        `Facet` enum, each parent before its children, and siblings by position, then display name. A term
+        that is unapproved, or under an unapproved ancestor, is not listed, nor is its subtree. Each term's counts
+        are of the distinct public pieces, and public persons with a page, that it or any public descendant
+        classifies. Credentials are ignored.
+      operationId: listTerms
+      security: []
+      parameters:
+        - name: facet
+          in: query
+          required: false
+          description: Only list terms of this facet. Omitted, terms of every facet are listed.
+          schema:
+            $ref: "#/components/schemas/Facet"
+      responses:
+        "200":
+          description: The terms.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TermList"
+        "400":
+          description: |
+            The `facet` is not a facet or is given more than once, or the query string is not validly
+            percent-encoded; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid facet: not one of its allowed values"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/terms/{slug}:
+    get:
+      tags:
+        - Catalogue
+      summary: Get a term
+      description: |
+        Returns a public term with its aliases, ancestors, public children and related affiliation, and one page
+        of its members: the public pieces it or any public descendant classifies, or for an `affiliation` term,
+        the public persons with a page affiliated with it or any public descendant. The other member list is
+        empty. Members are ordered by sort title or sort name; `piece_count` and `person_count` are their totals.
+        A term that is unapproved, or under an unapproved ancestor, is not found, exactly like an unknown one.
+        Credentials are ignored.
+      operationId: getTerm
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The term.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Term"
+        "400":
+          description: |
+            The slug is not a valid slug, `limit` or `offset` is out of range or given more than once, or the
+            query string is not validly percent-encoded; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalidSlug:
+                  summary: The slug is not a valid slug
+                  value:
+                    code: invalid_request
+                    message: "invalid slug: must be lowercase ASCII letters and digits, in runs joined by single hyphens, at most 191 characters"
+                invalidLimit:
+                  summary: The limit is out of range
+                  value:
+                    code: invalid_request
+                    message: "invalid limit: must be an integer from 1 to 100"
+        "404":
+          description: No public term has this slug; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: term not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/collections/{collection_id}:
+    get:
+      tags:
+        - Catalogue
+      summary: Get a collection
+      description: |
+        Returns a public collection with its public region, parent and children, and its citations: each
+        visible link in the collection, once for each public piece, or public person with a page, it is attached
+        to, with the roles it is attached with. Citations are ordered by the piece's sort title or the person's
+        sort name and capped at 200, with a total. Hidden links never appear. An unapproved collection is not
+        found, exactly like an unknown one. Credentials are ignored.
+      operationId: getCollection
+      security: []
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          description: The collection's `id`.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            examples:
+              - 12
+      responses:
+        "200":
+          description: The collection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Collection"
+        "400":
+          description: |
+            The `collection_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid collection_id: must be an integer from 1 to 9223372036854775807"
+        "404":
+          description: No public collection has this ID; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: collection not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/events:
+    get:
+      tags:
+        - Catalogue
+      summary: List events
+      description: |
+        Lists one page of the public events and venues, by name, with how many there are in all. Unapproved
+        events are not listed. Credentials are ignored.
+      operationId: listEvents
+      security: []
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          description: Only list events of this kind. Omitted, both kinds are listed.
+          schema:
+            $ref: "#/components/schemas/EventKind"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventList"
+        "400":
+          description: |
+            The `kind` is not an event kind, `limit` or `offset` is out of range, a parameter is given more than
+            once, or the query string is not validly percent-encoded; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid offset: must be an integer from 0 to 10000"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/events/{slug}:
+    get:
+      tags:
+        - Catalogue
+      summary: Get an event
+      description: |
+        Returns a public event or venue with the performances recorded at it, newest year first (unknown years
+        last), capped at 200, with a total. Performances on hidden links, of unapproved pieces, or recorded only
+        by links of entities that are unapproved or prefer not to have a page are left out, as are performers who
+        are unapproved or prefer not to have a page. An unapproved event is not found, exactly like an unknown
+        one. Credentials are ignored.
+      operationId: getEvent
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "404":
+          description: No public event has this slug; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: event not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
 
 components:
   securitySchemes:
@@ -502,6 +730,30 @@ components:
         maxLength: 191
         examples:
           - the-copper-kettle
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: The most items to return, from 1 to 100.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+        examples:
+          - 50
+    Offset:
+      name: offset
+      in: query
+      required: false
+      description: How many items to skip, from 0 to 10000.
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 10000
+        default: 0
+        examples:
+          - 0
 
   responses:
     InvalidRequest:
@@ -1753,6 +2005,461 @@ components:
           title: Midwinter Revel 2025
           platform: video.example.org
 
+    TermList:
+      type: object
+      description: The public terms, in tree order.
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TermListItem"
+      examples:
+        - data:
+            - slug: war
+              facet: topic
+              name: War
+              display_name: War
+              parent_slug: null
+              piece_count: 12
+              person_count: 0
+            - slug: swords
+              facet: topic
+              name: Swords
+              display_name: Swords
+              parent_slug: war
+              piece_count: 4
+              person_count: 0
+
+    TermListItem:
+      type: object
+      description: A public term in the list of terms, with its counts.
+      additionalProperties: false
+      required: [slug, facet, name, display_name, parent_slug, piece_count, person_count]
+      properties:
+        slug:
+          $ref: "#/components/schemas/TermSummary/properties/slug"
+        facet:
+          $ref: "#/components/schemas/Facet"
+        name:
+          type: string
+          description: The term's full name, including any disambiguation suffix.
+          examples:
+            - 16th Century (Origin)
+        display_name:
+          $ref: "#/components/schemas/TermSummary/properties/display_name"
+        parent_slug:
+          type: [string, "null"]
+          description: The slug of the term's parent, or null for a root term.
+          examples:
+            - war
+        piece_count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            How many distinct public pieces the term or any public descendant classifies.
+          examples:
+            - 4
+        person_count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            How many distinct public persons with a page are affiliated with the term or any public descendant.
+          examples:
+            - 0
+      examples:
+        - slug: swords
+          facet: topic
+          name: Swords
+          display_name: Swords
+          parent_slug: war
+          piece_count: 4
+          person_count: 0
+
+    Term:
+      type: object
+      description: A public term's page, with one page of its members.
+      additionalProperties: false
+      required:
+        - slug
+        - facet
+        - name
+        - display_name
+        - description_md
+        - aliases
+        - ancestors
+        - children
+        - related_affiliation
+        - piece_count
+        - person_count
+        - pieces
+        - persons
+      properties:
+        slug:
+          $ref: "#/components/schemas/TermSummary/properties/slug"
+        facet:
+          $ref: "#/components/schemas/Facet"
+        name:
+          $ref: "#/components/schemas/TermListItem/properties/name"
+        display_name:
+          $ref: "#/components/schemas/TermSummary/properties/display_name"
+        description_md:
+          type: [string, "null"]
+          description: What the term covers, in Markdown.
+          examples:
+            - Songs about war and warriors.
+        aliases:
+          type: array
+          description: Other names of the term.
+          items:
+            type: string
+            examples:
+              - Battle
+        ancestors:
+          type: array
+          description: The term's ancestors, root first.
+          items:
+            $ref: "#/components/schemas/TermSummary"
+        children:
+          type: array
+          description: The term's public children, by position, then display name.
+          items:
+            $ref: "#/components/schemas/TermChild"
+        related_affiliation:
+          description: The public affiliation term this term implies, if any.
+          oneOf:
+            - $ref: "#/components/schemas/TermSummary"
+            - type: "null"
+        piece_count:
+          $ref: "#/components/schemas/TermListItem/properties/piece_count"
+        person_count:
+          $ref: "#/components/schemas/TermListItem/properties/person_count"
+        pieces:
+          type: array
+          description: |
+            One page of the public pieces the term or any public descendant classifies, by sort title. Empty for
+            an `affiliation` term.
+          items:
+            $ref: "#/components/schemas/PieceSummary"
+        persons:
+          type: array
+          description: |
+            One page of the public persons with a page affiliated with the term or any public descendant, by sort
+            name. Empty unless the term is an `affiliation` term.
+          items:
+            $ref: "#/components/schemas/PersonSummary"
+      examples:
+        - slug: war
+          facet: topic
+          name: War
+          display_name: War
+          description_md: null
+          aliases: [Battle]
+          ancestors: []
+          children:
+            - term:
+                slug: swords
+                facet: topic
+                display_name: Swords
+              piece_count: 4
+              person_count: 0
+          related_affiliation: null
+          piece_count: 1
+          person_count: 0
+          pieces:
+            - slug: the-copper-kettle
+              title: The Copper Kettle
+              kind: song
+              secondary_kinds: []
+              conservation_status: endangered
+              is_stub: false
+          persons: []
+
+    TermChild:
+      type: object
+      description: A public child of a term, with its counts.
+      additionalProperties: false
+      required: [term, piece_count, person_count]
+      properties:
+        term:
+          $ref: "#/components/schemas/TermSummary"
+        piece_count:
+          $ref: "#/components/schemas/TermListItem/properties/piece_count"
+        person_count:
+          $ref: "#/components/schemas/TermListItem/properties/person_count"
+      examples:
+        - term:
+            slug: swords
+            facet: topic
+            display_name: Swords
+          piece_count: 4
+          person_count: 0
+
+    CollectionSummary:
+      type: object
+      description: A public collection, as lists of collections show it.
+      additionalProperties: false
+      required: [id, name, kind, url, is_bardic_resource]
+      properties:
+        id:
+          $ref: "#/components/schemas/CollectionRef/properties/id"
+        name:
+          $ref: "#/components/schemas/CollectionRef/properties/name"
+        kind:
+          $ref: "#/components/schemas/CollectionKind"
+        url:
+          type: [string, "null"]
+          description: Where the collection is.
+          examples:
+            - https://example.org/songbook.pdf
+        is_bardic_resource:
+          type: boolean
+          description: Whether the collection is a resource made for or by bards.
+          examples:
+            - true
+      examples:
+        - id: 12
+          name: The Northmarch Songbook
+          kind: songbook_pdf
+          url: https://example.org/songbook.pdf
+          is_bardic_resource: true
+
+    Collection:
+      type: object
+      description: A public collection's page.
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - kind
+        - url
+        - is_bardic_resource
+        - description_md
+        - enumerable
+        - region
+        - parent
+        - children
+        - citations
+        - citations_total
+      properties:
+        id:
+          $ref: "#/components/schemas/CollectionRef/properties/id"
+        name:
+          $ref: "#/components/schemas/CollectionRef/properties/name"
+        kind:
+          $ref: "#/components/schemas/CollectionKind"
+        url:
+          $ref: "#/components/schemas/CollectionSummary/properties/url"
+        is_bardic_resource:
+          $ref: "#/components/schemas/CollectionSummary/properties/is_bardic_resource"
+        description_md:
+          type: [string, "null"]
+          description: What the collection holds, in Markdown.
+          examples:
+            - Songs of the northern marches.
+        enumerable:
+          $ref: "#/components/schemas/CollectionEnumerable"
+        region:
+          description: The public term for the region the collection is from, if any.
+          oneOf:
+            - $ref: "#/components/schemas/TermSummary"
+            - type: "null"
+        parent:
+          description: The public collection this one is part of, if any.
+          oneOf:
+            - $ref: "#/components/schemas/CollectionSummary"
+            - type: "null"
+        children:
+          type: array
+          description: The public collections that are part of this one, by sort name.
+          items:
+            $ref: "#/components/schemas/CollectionSummary"
+        citations:
+          type: array
+          description: |
+            The collection's visible links, once for each public piece, or public person with a page, each is
+            attached to, by the piece's sort title or the person's sort name. At most 200.
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/CollectionCitation"
+        citations_total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many citations the collection has in all.
+          examples:
+            - 1
+      examples:
+        - id: 12
+          name: The Northmarch Songbook
+          kind: songbook_pdf
+          url: https://example.org/songbook.pdf
+          is_bardic_resource: true
+          description_md: null
+          enumerable: pdf
+          region: null
+          parent: null
+          children: []
+          citations:
+            - piece:
+                slug: the-copper-kettle
+                title: The Copper Kettle
+                kind: song
+                secondary_kinds: []
+                conservation_status: endangered
+                is_stub: false
+              person: null
+              url: https://example.org/songbook.pdf
+              title: The Northmarch Songbook
+              locator: p. 12
+              roles: [lyrics]
+          citations_total: 1
+
+    CollectionCitation:
+      type: object
+      description: |
+        A link in a collection, attached to a piece or a person: exactly one of `piece` and `person` is set.
+      additionalProperties: false
+      required: [piece, person, url, title, locator, roles]
+      properties:
+        piece:
+          description: The public piece the link is attached to, or null if it is attached to a person.
+          oneOf:
+            - $ref: "#/components/schemas/PieceSummary"
+            - type: "null"
+        person:
+          description: The public person the link is attached to, or null if it is attached to a piece.
+          oneOf:
+            - $ref: "#/components/schemas/PersonSummary"
+            - type: "null"
+        url:
+          $ref: "#/components/schemas/PersonLink/properties/url"
+        title:
+          $ref: "#/components/schemas/PersonLink/properties/title"
+        locator:
+          $ref: "#/components/schemas/PersonLink/properties/locator"
+        roles:
+          type: array
+          description: The roles the link is attached to the piece or person with, in attachment order.
+          items:
+            $ref: "#/components/schemas/LinkRole"
+      examples:
+        - piece: null
+          person:
+            slug: wren-of-the-vale
+            name: Wren of the Vale
+            kind: community_bard
+            is_stub: false
+          url: https://example.org/songbook.pdf
+          title: null
+          locator: p. 3
+          roles: [external_profile]
+
+    EventList:
+      type: object
+      description: One page of the public events and venues, by name.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventSummary"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many events match, over every page.
+          examples:
+            - 1
+      examples:
+        - data:
+            - slug: midwinter-revel
+              name: Midwinter Revel
+              kind: event
+          total: 1
+
+    Event:
+      type: object
+      description: A public event's or venue's page.
+      additionalProperties: false
+      required: [slug, name, kind, description_md, performances, performances_total]
+      properties:
+        slug:
+          $ref: "#/components/schemas/EventSummary/properties/slug"
+        name:
+          $ref: "#/components/schemas/EventSummary/properties/name"
+        kind:
+          $ref: "#/components/schemas/EventKind"
+        description_md:
+          type: [string, "null"]
+          description: About the event or venue, in Markdown.
+          examples:
+            - A winter gathering of the northern marches.
+        performances:
+          type: array
+          description: The performances recorded at the event, newest year first, unknown years last. At most 200.
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/EventPerformance"
+        performances_total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many performances the event has in all.
+          examples:
+            - 1
+      examples:
+        - slug: midwinter-revel
+          name: Midwinter Revel
+          kind: event
+          description_md: null
+          performances:
+            - piece: null
+              link:
+                url: https://video.example.org/watch/revel
+                title: Midwinter Revel 2025
+                platform: video.example.org
+              year: 2025
+              performers: []
+              description_verbatim: Wren opens the evening
+          performances_total: 1
+
+    EventPerformance:
+      type: object
+      description: |
+        A performance on an event's page. Performers who are not public or prefer not to have a page are left
+        out.
+      additionalProperties: false
+      required: [piece, link, year, performers, description_verbatim]
+      properties:
+        piece:
+          $ref: "#/components/schemas/PersonPerformance/properties/piece"
+        link:
+          $ref: "#/components/schemas/PerformanceLink"
+        year:
+          $ref: "#/components/schemas/PiecePerformance/properties/year"
+        performers:
+          $ref: "#/components/schemas/PiecePerformance/properties/performers"
+        description_verbatim:
+          $ref: "#/components/schemas/PiecePerformance/properties/description_verbatim"
+      examples:
+        - piece: null
+          link:
+            url: https://video.example.org/watch/revel
+            title: Midwinter Revel 2025
+            platform: video.example.org
+          year: 2025
+          performers:
+            - slug: wren-of-the-vale
+              name: Wren of the Vale
+              kind: community_bard
+              is_stub: false
+          description_verbatim: Wren opens the evening
+
     PieceKind:
       type: string
       description: What sort of piece a piece is.
@@ -1931,3 +2638,32 @@ components:
         - other
       examples:
         - lyrics
+
+    CollectionKind:
+      type: string
+      description: What sort of resource a collection is.
+      enum:
+        - index_or_link_list
+        - songbook_pdf
+        - songbook_website
+        - website
+        - wiki_category
+        - wiki
+        - youtube_channel
+        - youtube_playlist
+        - google_doc_songbook
+        - blog
+        - archived_songbook
+        - hosted_document
+        - other
+      examples:
+        - songbook_pdf
+
+    CollectionEnumerable:
+      type: string
+      description: |
+        Whether, and how, a collection's contents can be listed: `yes`, from a `pdf`, with a `browser`, through
+        an `api`, `no`, or `unknown` if not yet assessed.
+      enum: [unknown, "yes", pdf, browser, api, "no"]
+      examples:
+        - pdf

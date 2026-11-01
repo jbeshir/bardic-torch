@@ -59,7 +59,7 @@ func TestAPITokenList_ServeHTTP(t *testing.T) {
 			wantBody:   `{"data":[]}`,
 		},
 		{
-			name:       "list_failure",
+			name:       listFailureCase,
 			listErr:    errors.New("connection refused"),
 			wantStatus: http.StatusInternalServerError,
 			wantBody:   internalErrorBody,

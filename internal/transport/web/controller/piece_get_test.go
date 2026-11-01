@@ -69,7 +69,7 @@ func testPiece() domain.Piece {
 		Links: []domain.PieceLink{
 			{
 				Link: domain.Link{
-					URL:           "https://video.example.org/watch/kettle",
+					URL:           testVideoURL,
 					Title:         new("At the revel"),
 					Description:   new("A recording."),
 					Platform:      new("video.example.org"),
@@ -86,7 +86,7 @@ func testPiece() domain.Piece {
 						Year: new(int16(2025)), Uploader: new("Northmarch Bards"),
 						DescriptionVerbatim: "Sung at the revel",
 						Event: &domain.EventSummary{
-							Slug: "midwinter-revel", Name: "Midwinter Revel", Kind: domain.EventKindEvent,
+							Slug: "midwinter-revel", Name: testEventName, Kind: domain.EventKindEvent,
 						},
 						Performers: []domain.PersonSummary{wren},
 					},
@@ -171,7 +171,7 @@ func TestPieceGet_ServeHTTP(t *testing.T) {
 		wantBody   string
 	}{
 		{name: "piece", piece: testPiece(), wantStatus: http.StatusOK, wantBody: testPieceBody},
-		{name: "empty_lists", piece: emptyPiece, wantStatus: http.StatusOK, wantBody: emptyPieceBody},
+		{name: emptyListsCase, piece: emptyPiece, wantStatus: http.StatusOK, wantBody: emptyPieceBody},
 		{
 			name:       notFoundCase,
 			getErr:     datasources.ErrNotFound,
@@ -179,7 +179,7 @@ func TestPieceGet_ServeHTTP(t *testing.T) {
 			wantBody:   `{"code":"not_found","message":"piece not found"}`,
 		},
 		{
-			name:       "get_failure",
+			name:       getFailureCase,
 			getErr:     errors.New("connection refused"),
 			wantStatus: http.StatusInternalServerError,
 			wantBody:   internalErrorBody,

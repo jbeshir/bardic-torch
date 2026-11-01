@@ -61,6 +61,11 @@ type handlerMocks struct {
 	revoker      *mocks.APITokenRevoker
 	pieces       *mocks.PublicPieceGetter
 	persons      *mocks.PublicPersonGetter
+	termLister   *mocks.PublicTermLister
+	terms        *mocks.PublicTermGetter
+	collections  *mocks.PublicCollectionGetter
+	eventLister  *mocks.PublicEventLister
+	events       *mocks.PublicEventGetter
 	handler      http.Handler
 	validate     *openapitest.Validator
 }
@@ -78,6 +83,11 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		revoker:      mocks.NewAPITokenRevoker(t),
 		pieces:       mocks.NewPublicPieceGetter(t),
 		persons:      mocks.NewPublicPersonGetter(t),
+		termLister:   mocks.NewPublicTermLister(t),
+		terms:        mocks.NewPublicTermGetter(t),
+		collections:  mocks.NewPublicCollectionGetter(t),
+		eventLister:  mocks.NewPublicEventLister(t),
+		events:       mocks.NewPublicEventGetter(t),
 		validate:     openapitest.New(t),
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
@@ -86,17 +96,22 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 			prefixValidator("auth0|", domain.AuthMethodAuth0),
 			prefixValidator(domain.APITokenPrefix, domain.AuthMethodAPIToken),
 		},
-		UserGetter:            m.users,
-		UserEnsurer:           mocks.NewUserEnsurer(t),
-		DisplayNameUpdater:    m.displayNames,
-		UserBlocker:           m.blocker,
-		UserUnblocker:         m.unblocker,
-		APITokenCreator:       m.creator,
-		ActiveAPITokenCounter: m.counter,
-		ActiveAPITokenLister:  m.lister,
-		APITokenRevoker:       m.revoker,
-		PublicPieceGetter:     m.pieces,
-		PublicPersonGetter:    m.persons,
+		UserGetter:             m.users,
+		UserEnsurer:            mocks.NewUserEnsurer(t),
+		DisplayNameUpdater:     m.displayNames,
+		UserBlocker:            m.blocker,
+		UserUnblocker:          m.unblocker,
+		APITokenCreator:        m.creator,
+		ActiveAPITokenCounter:  m.counter,
+		ActiveAPITokenLister:   m.lister,
+		APITokenRevoker:        m.revoker,
+		PublicPieceGetter:      m.pieces,
+		PublicPersonGetter:     m.persons,
+		PublicTermLister:       m.termLister,
+		PublicTermGetter:       m.terms,
+		PublicCollectionGetter: m.collections,
+		PublicEventLister:      m.eventLister,
+		PublicEventGetter:      m.events,
 		Now: func() time.Time {
 			return handlerNow
 		},

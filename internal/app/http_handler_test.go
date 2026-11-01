@@ -19,6 +19,9 @@ const (
 	readyzPath  = "/readyz"
 	mePath      = "/v1/me"
 	tokensPath  = "/v1/tokens"
+	termsPath   = "/v1/terms"
+	eventsPath  = "/v1/events"
+	slugParam   = "slug"
 	// methodNotAllowedBody is the response to a method no route at the path accepts.
 	methodNotAllowedBody = `{"code":"method_not_allowed","message":"method not allowed for this path"}`
 	// noRouteBody is the response to a path no route matches.

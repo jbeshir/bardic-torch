@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -179,10 +180,11 @@ const blockTargetID = "google-oauth2|123"
 
 const revokeTargetID = "6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55"
 
-// matrixSlug is the slug of the piece and person the catalogue operations read.
+// matrixSlug is the slug of the piece, person, term and event the catalogue operations read.
 const matrixSlug = "the-copper-kettle"
 
-// matrixPiece and matrixPerson are what the catalogue operations read: the least a valid response needs.
+// matrixPiece, matrixPerson, matrixTerm, matrixCollection and matrixEvent are what the catalogue operations
+// read: the least a valid response needs.
 var (
 	matrixPiece = domain.Piece{
 		PieceSummary: domain.PieceSummary{
@@ -197,7 +199,26 @@ var (
 		},
 		Status: domain.PersonStatusPrefersNoPage,
 	}
+	matrixTerm = domain.Term{
+		TermSummary: domain.TermSummary{Slug: matrixSlug, Facet: domain.FacetTopic, DisplayName: "Kettles"},
+		Name:        "Kettles",
+	}
+	matrixCollection = domain.Collection{
+		CollectionSummary: domain.CollectionSummary{
+			ID: matrixCollectionID, Name: "The Northmarch Songbook", Kind: domain.CollectionKindSongbookPDF,
+		},
+		Enumerable: domain.CollectionEnumerableUnknown,
+	}
+	matrixEvent = domain.Event{
+		EventSummary: domain.EventSummary{Slug: matrixSlug, Name: "Midwinter Revel", Kind: domain.EventKindEvent},
+	}
 )
+
+// matrixCollectionID is the ID of the collection the catalogue operations read.
+const matrixCollectionID = 12
+
+// matrixPage is the page list operations read when a request sets no limit or offset.
+var matrixPage = domain.Page{Limit: domain.DefaultPageLimit}
 
 // authMatrix is the access every operation in the OpenAPI spec requires. TestRouter_AuthMatrix fails for an
 // operation without a row, so each new endpoint adds one here.
@@ -264,7 +285,7 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 	},
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: {
 		access:        public,
-		pathParams:    map[string]string{"slug": matrixSlug},
+		pathParams:    map[string]string{slugParam: matrixSlug},
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.pieces.EXPECT().GetPublicPiece(mock.Anything, matrixSlug).Return(matrixPiece, nil)
@@ -272,10 +293,50 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 	},
 	{Method: http.MethodGet, Path: "/v1/persons/{slug}"}: {
 		access:        public,
-		pathParams:    map[string]string{"slug": matrixSlug},
+		pathParams:    map[string]string{slugParam: matrixSlug},
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.persons.EXPECT().GetPublicPerson(mock.Anything, matrixSlug).Return(matrixPerson, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: termsPath}: {
+		access:        public,
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.termLister.EXPECT().ListPublicTerms(mock.Anything, (*domain.Facet)(nil)).Return(nil, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}"}: {
+		access:        public,
+		pathParams:    map[string]string{slugParam: matrixSlug},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.terms.EXPECT().GetPublicTerm(mock.Anything, matrixSlug, matrixPage).Return(matrixTerm, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}"}: {
+		access:        public,
+		pathParams:    map[string]string{"collection_id": strconv.Itoa(matrixCollectionID)},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.collections.EXPECT().GetPublicCollection(mock.Anything, int64(matrixCollectionID)).
+				Return(matrixCollection, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: eventsPath}: {
+		access:        public,
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.eventLister.EXPECT().ListPublicEvents(mock.Anything, (*domain.EventKind)(nil), matrixPage).
+				Return(domain.EventList{}, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: "/v1/events/{slug}"}: {
+		access:        public,
+		pathParams:    map[string]string{slugParam: matrixSlug},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.events.EXPECT().GetPublicEvent(mock.Anything, matrixSlug).Return(matrixEvent, nil)
 		},
 	},
 }

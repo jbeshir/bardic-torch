@@ -138,7 +138,7 @@ func personProfileFromDomain(p domain.PersonProfile) PersonProfile {
 		Performances: mapSlice(p.Performances, func(pp domain.PersonPerformance) PersonPerformance {
 			return PersonPerformance{
 				Piece:               optional(pp.Piece, pieceSummaryFromDomain),
-				Link:                PerformanceLink{URL: pp.Link.URL, Title: pp.Link.Title, Platform: pp.Link.Platform},
+				Link:                performanceLinkFromDomain(pp.Link),
 				Year:                pp.Year,
 				Event:               optional(pp.Event, eventSummaryFromDomain),
 				DescriptionVerbatim: pp.DescriptionVerbatim,

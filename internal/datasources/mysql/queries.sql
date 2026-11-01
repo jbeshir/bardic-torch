@@ -262,3 +262,267 @@ WHERE NOT l.is_hidden
         OR EXISTS (SELECT 1 FROM link_attachments a
             WHERE a.link_id = perf.link_id AND a.person_id = sqlc.arg(attached_person_id))
     );
+
+-- A term's counts are of the distinct public pieces tagged with, and public persons with a page affiliated
+-- with, the term or any public descendant: both ends of the closure are checked, so a pending term hides its
+-- subtree from its ancestors' counts too.
+
+-- name: ListPublicTerms :many
+SELECT t.slug, t.facet, t.name, t.display_name, parent.slug AS parent_slug,
+    (SELECT COUNT(DISTINCT pt.piece_id)
+        FROM term_ancestors ta
+        JOIN piece_terms pt ON pt.term_id = ta.descendant_id
+        JOIN pieces p ON p.id = pt.piece_id
+        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
+                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
+            )
+    ) AS piece_count,
+    (SELECT COUNT(DISTINCT pa.person_id)
+        FROM term_ancestors ta
+        JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
+        JOIN persons p ON p.id = pa.person_id
+        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
+            AND NOT EXISTS (
+                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
+                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
+            )
+    ) AS person_count
+FROM terms t
+LEFT JOIN terms parent ON parent.id = t.parent_id
+WHERE (sqlc.narg(facet) IS NULL OR t.facet = sqlc.narg(facet))
+    AND NOT EXISTS (
+        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
+        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
+    )
+ORDER BY t.facet, t.position, t.display_name, t.id;
+
+-- name: GetPublicTerm :one
+SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md,
+    ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name,
+    (SELECT COUNT(DISTINCT pt.piece_id)
+        FROM term_ancestors ta
+        JOIN piece_terms pt ON pt.term_id = ta.descendant_id
+        JOIN pieces p ON p.id = pt.piece_id
+        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
+                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
+            )
+    ) AS piece_count,
+    (SELECT COUNT(DISTINCT pa.person_id)
+        FROM term_ancestors ta
+        JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
+        JOIN persons p ON p.id = pa.person_id
+        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
+            AND NOT EXISTS (
+                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
+                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
+            )
+    ) AS person_count
+FROM terms t
+LEFT JOIN terms ra ON ra.id = t.related_affiliation_id
+    AND NOT EXISTS (
+        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
+        WHERE ta.descendant_id = ra.id AND anc.current_revision_id IS NULL
+    )
+WHERE t.slug = ?
+    AND NOT EXISTS (
+        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
+        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
+    );
+
+-- name: ListTermAliases :many
+SELECT name
+FROM term_aliases
+WHERE term_id = ?
+ORDER BY id;
+
+-- A public term's ancestors are all public.
+
+-- name: ListTermAncestors :many
+SELECT anc.slug, anc.facet, anc.display_name
+FROM term_ancestors ta
+JOIN terms anc ON anc.id = ta.ancestor_id
+WHERE ta.descendant_id = ? AND ta.depth > 0
+ORDER BY ta.depth DESC;
+
+-- name: ListPublicTermChildren :many
+SELECT t.slug, t.facet, t.display_name,
+    (SELECT COUNT(DISTINCT pt.piece_id)
+        FROM term_ancestors ta
+        JOIN piece_terms pt ON pt.term_id = ta.descendant_id
+        JOIN pieces p ON p.id = pt.piece_id
+        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
+                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
+            )
+    ) AS piece_count,
+    (SELECT COUNT(DISTINCT pa.person_id)
+        FROM term_ancestors ta
+        JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
+        JOIN persons p ON p.id = pa.person_id
+        WHERE ta.ancestor_id = t.id AND p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
+            AND NOT EXISTS (
+                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
+                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
+            )
+    ) AS person_count
+FROM terms t
+WHERE t.parent_id = ?
+    AND NOT EXISTS (
+        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
+        WHERE ta.descendant_id = t.id AND anc.current_revision_id IS NULL
+    )
+ORDER BY t.position, t.display_name, t.id;
+
+-- name: ListPublicTermPieces :many
+SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub
+FROM pieces p
+WHERE p.current_revision_id IS NOT NULL
+    AND EXISTS (
+        SELECT 1
+        FROM piece_terms pt
+        JOIN term_ancestors ta ON ta.descendant_id = pt.term_id
+        WHERE pt.piece_id = p.id AND ta.ancestor_id = sqlc.arg(term_id)
+            AND NOT EXISTS (
+                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
+                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
+            )
+    )
+ORDER BY p.sort_title, p.id
+LIMIT ? OFFSET ?;
+
+-- name: ListPublicTermPersons :many
+SELECT p.slug, p.name, p.kind, p.is_stub
+FROM persons p
+WHERE p.current_revision_id IS NOT NULL AND p.status <> 'prefers_no_page'
+    AND EXISTS (
+        SELECT 1
+        FROM person_affiliations pa
+        JOIN term_ancestors ta ON ta.descendant_id = pa.term_id
+        WHERE pa.person_id = p.id AND ta.ancestor_id = sqlc.arg(term_id)
+            AND NOT EXISTS (
+                SELECT 1 FROM term_ancestors da JOIN terms anc ON anc.id = da.ancestor_id
+                WHERE da.descendant_id = ta.descendant_id AND anc.current_revision_id IS NULL
+            )
+    )
+ORDER BY p.sort_name, p.id
+LIMIT ? OFFSET ?;
+
+-- name: GetPublicCollection :one
+SELECT c.id, c.name, c.kind, c.url, c.is_bardic_resource, c.description_md, c.enumerable,
+    r.slug AS region_slug, r.facet AS region_facet, r.display_name AS region_display_name,
+    parent.id AS parent_id, parent.name AS parent_name, parent.kind AS parent_kind, parent.url AS parent_url,
+    parent.is_bardic_resource AS parent_is_bardic_resource
+FROM collections c
+LEFT JOIN terms r ON r.id = c.region_term_id
+    AND NOT EXISTS (
+        SELECT 1 FROM term_ancestors ta JOIN terms anc ON anc.id = ta.ancestor_id
+        WHERE ta.descendant_id = r.id AND anc.current_revision_id IS NULL
+    )
+LEFT JOIN collections parent ON parent.id = c.parent_id AND parent.current_revision_id IS NOT NULL
+WHERE c.id = ? AND c.current_revision_id IS NOT NULL;
+
+-- name: ListPublicCollectionChildren :many
+SELECT id, name, kind, url, is_bardic_resource
+FROM collections
+WHERE parent_id = ? AND current_revision_id IS NOT NULL
+ORDER BY sort_name, id;
+
+-- A collection's citations are its visible links, once per public piece or public person with a page that each
+-- is attached to, whatever roles it is attached with.
+
+-- name: ListPublicCollectionCitations :many
+SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, a.piece_id, a.person_id,
+    COALESCE(p.sort_title, pe.sort_name) AS sort_key,
+    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
+    pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub
+FROM links l
+JOIN link_attachments a ON a.link_id = l.id
+LEFT JOIN pieces p ON p.id = a.piece_id AND p.current_revision_id IS NOT NULL
+LEFT JOIN persons pe ON pe.id = a.person_id
+    AND pe.current_revision_id IS NOT NULL AND pe.status <> 'prefers_no_page'
+WHERE l.collection_id = ? AND NOT l.is_hidden AND (p.id IS NOT NULL OR pe.id IS NOT NULL)
+ORDER BY sort_key, l.id, a.piece_id, a.person_id
+LIMIT ?;
+
+-- name: CountPublicCollectionCitations :one
+SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT l.id, a.piece_id, a.person_id
+    FROM links l
+    JOIN link_attachments a ON a.link_id = l.id
+    LEFT JOIN pieces p ON p.id = a.piece_id AND p.current_revision_id IS NOT NULL
+    LEFT JOIN persons pe ON pe.id = a.person_id
+        AND pe.current_revision_id IS NOT NULL AND pe.status <> 'prefers_no_page'
+    WHERE l.collection_id = ? AND NOT l.is_hidden AND (p.id IS NOT NULL OR pe.id IS NOT NULL)
+) cited;
+
+-- name: ListLinkAttachmentRoles :many
+SELECT link_id, piece_id, person_id, role
+FROM link_attachments
+WHERE link_id IN (sqlc.slice('link_ids'))
+ORDER BY link_id, position, id;
+
+-- name: ListPublicEvents :many
+SELECT slug, name, kind
+FROM events
+WHERE current_revision_id IS NOT NULL AND (sqlc.narg(kind) IS NULL OR kind = sqlc.narg(kind))
+ORDER BY name, id
+LIMIT ? OFFSET ?;
+
+-- name: CountPublicEvents :one
+SELECT COUNT(*)
+FROM events
+WHERE current_revision_id IS NOT NULL AND (sqlc.narg(kind) IS NULL OR kind = sqlc.narg(kind));
+
+-- name: GetPublicEvent :one
+SELECT id, slug, name, kind, description_md
+FROM events
+WHERE slug = ? AND current_revision_id IS NOT NULL;
+
+-- An event's performances are on visible links attached to a public piece or a public person with a page, as
+-- a performance only an unapproved or no-page entity's links record may name them. A performance of a piece
+-- that is not public is left out entirely, as on a person's page.
+
+-- name: ListPublicEventPerformances :many
+SELECT perf.id, perf.year, perf.description_verbatim, l.url, l.title, l.platform,
+    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub
+FROM performances perf
+JOIN links l ON l.id = perf.link_id
+LEFT JOIN pieces p ON p.id = perf.piece_id
+WHERE perf.event_id = sqlc.arg(event_id) AND NOT l.is_hidden
+    AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
+    AND EXISTS (
+        SELECT 1
+        FROM link_attachments a
+        LEFT JOIN pieces ap ON ap.id = a.piece_id
+        LEFT JOIN persons apr ON apr.id = a.person_id
+        WHERE a.link_id = perf.link_id
+            AND (ap.current_revision_id IS NOT NULL
+                OR (apr.current_revision_id IS NOT NULL AND apr.status <> 'prefers_no_page'))
+    )
+ORDER BY perf.year IS NULL, perf.year DESC, perf.id
+LIMIT ?;
+
+-- name: CountPublicEventPerformances :one
+SELECT COUNT(*)
+FROM performances perf
+JOIN links l ON l.id = perf.link_id
+LEFT JOIN pieces p ON p.id = perf.piece_id
+WHERE perf.event_id = ? AND NOT l.is_hidden
+    AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
+    AND EXISTS (
+        SELECT 1
+        FROM link_attachments a
+        LEFT JOIN pieces ap ON ap.id = a.piece_id
+        LEFT JOIN persons apr ON apr.id = a.person_id
+        WHERE a.link_id = perf.link_id
+            AND (ap.current_revision_id IS NOT NULL
+                OR (apr.current_revision_id IS NOT NULL AND apr.status <> 'prefers_no_page'))
+    );

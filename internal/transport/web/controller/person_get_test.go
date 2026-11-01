@@ -38,7 +38,7 @@ func testPerson() domain.Person {
 			Aliases:          []domain.PersonAlias{{Name: "Wren", Kind: domain.PersonAliasKindNickname}},
 			Roles:            []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRolePoet},
 			Affiliations: []domain.TermSummary{
-				{Slug: "northmarch", Facet: domain.FacetAffiliation, DisplayName: "Northmarch"},
+				{Slug: testAffiliationSlug, Facet: domain.FacetAffiliation, DisplayName: testAffiliationName},
 			},
 			Relations: []domain.PersonRelation{{
 				Type: domain.PersonRelationTypeMemberOf, Direction: domain.RelationDirectionOutgoing,
@@ -68,7 +68,7 @@ func testPerson() domain.Person {
 				{
 					Piece: &kettle,
 					Link: domain.PerformanceLink{
-						URL: "https://video.example.org/watch/kettle", Title: new("At the revel"),
+						URL: testVideoURL, Title: new("At the revel"),
 						Platform: new("video.example.org"),
 					},
 					Year:                new(int16(2025)),
@@ -152,7 +152,7 @@ func TestPersonGet_ServeHTTP(t *testing.T) {
 				"profile": null}`,
 		},
 		{
-			name:       "empty_lists",
+			name:       emptyListsCase,
 			person:     emptyProfile,
 			wantStatus: http.StatusOK,
 			wantBody: `{"slug": "wren-of-the-vale", "name": "Wren of the Vale", "kind": "group", "is_stub": false,
@@ -168,7 +168,7 @@ func TestPersonGet_ServeHTTP(t *testing.T) {
 			wantBody:   `{"code":"not_found","message":"person not found"}`,
 		},
 		{
-			name:       "get_failure",
+			name:       getFailureCase,
 			getErr:     errors.New("connection refused"),
 			wantStatus: http.StatusInternalServerError,
 			wantBody:   internalErrorBody,

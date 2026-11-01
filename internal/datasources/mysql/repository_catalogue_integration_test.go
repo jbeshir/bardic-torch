@@ -38,6 +38,12 @@ var (
 // Fixture strings the tests compare more than once.
 const (
 	revelName        = "Midwinter Revel"
+	revelSlug        = "midwinter-revel"
+	warName          = "War"
+	swordsName       = "Swords"
+	northmarchName   = "Northmarch"
+	eastmarchName    = "Eastmarch"
+	hollisName       = "Hollis Fenn"
 	revelPerformance = "Sung at the revel"
 	wrenName         = "Wren of the Vale"
 	wrenURL          = "https://example.org/wren"
@@ -49,8 +55,8 @@ const (
 const manyItems = domain.MaxNestedListItems + 1
 
 var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
-	war := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "War"}})
-	swords := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Swords",
+	war := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: warName}})
+	swords := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: swordsName,
 		ParentID: &war.ID}})
 	century := c.Term(catalogtest.Term{
 		Doc:  domain.TermDocument{Facet: domain.FacetOrigin, Name: "16th Century (Origin)", DisplayName: "16th Century"},
@@ -61,9 +67,9 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	underPending := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetMood, Name: "Very Wistful",
 		ParentID: &pendingTerm.ID}})
 	northmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
-		Name: "Northmarch", Position: 2}})
+		Name: northmarchName, Position: 2}})
 	eastmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
-		Name: "Eastmarch", Position: 1}})
+		Name: eastmarchName, Position: 1}})
 	southmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
 		Name: "Southmarch"}, Unapproved: true})
 
@@ -111,7 +117,7 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	})
 	noPage := c.Person(catalogtest.Person{
 		Doc: domain.PersonDocument{
-			Name: "Hollis Fenn", Status: domain.PersonStatusPrefersNoPage, StatusDate: new("2026-03-01"),
+			Name: hollisName, Status: domain.PersonStatusPrefersNoPage, StatusDate: new("2026-03-01"),
 			StatusSourceURL: new("https://example.org/requests/12"), NotesMD: new("Private notes."),
 			Aliases:        []domain.DocPersonAlias{{Name: "Holly", Kind: domain.PersonAliasKindNickname, IsPublic: true}},
 			Roles:          []domain.PersonRole{domain.PersonRoleSinger},
@@ -309,8 +315,8 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 		},
 		// By facet (topic before origin), then position; neither the unapproved mood term nor its approved child.
 		Terms: []domain.PieceTerm{
-			{Term: domain.TermSummary{Slug: "swords", Facet: domain.FacetTopic, DisplayName: "Swords"}},
-			{Term: domain.TermSummary{Slug: "war", Facet: domain.FacetTopic, DisplayName: "War"}, IsPrimary: true},
+			{Term: domain.TermSummary{Slug: "swords", Facet: domain.FacetTopic, DisplayName: swordsName}},
+			{Term: domain.TermSummary{Slug: "war", Facet: domain.FacetTopic, DisplayName: warName}, IsPrimary: true},
 			{Term: domain.TermSummary{Slug: "16th-century", Facet: domain.FacetOrigin, DisplayName: "16th Century"},
 				Part: &tune},
 		},
@@ -342,7 +348,7 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 					{
 						Year: new(int16(2025)), Uploader: new("Northmarch Bards"),
 						DescriptionVerbatim: revelPerformance,
-						Event: &domain.EventSummary{Slug: "midwinter-revel", Name: revelName,
+						Event: &domain.EventSummary{Slug: revelSlug, Name: revelName,
 							Kind: domain.EventKindEvent},
 						Performers: []domain.PersonSummary{wrenSummary, bardsSummary},
 					},
@@ -400,8 +406,8 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 			Roles: []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
 			// By position.
 			Affiliations: []domain.TermSummary{
-				{Slug: "eastmarch", Facet: domain.FacetAffiliation, DisplayName: "Eastmarch"},
-				{Slug: "northmarch", Facet: domain.FacetAffiliation, DisplayName: "Northmarch"},
+				{Slug: "eastmarch", Facet: domain.FacetAffiliation, DisplayName: eastmarchName},
+				{Slug: "northmarch", Facet: domain.FacetAffiliation, DisplayName: northmarchName},
 			},
 			Relations: []domain.PersonRelation{
 				{Type: domain.PersonRelationTypeMemberOf, Direction: domain.RelationDirectionOutgoing, Person: bardsSummary},
@@ -421,7 +427,7 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 					Link: domain.PerformanceLink{URL: kettleVideoURL, Title: new("At the revel"),
 						Platform: new("example.org")},
 					Year: new(int16(2025)),
-					Event: &domain.EventSummary{Slug: "midwinter-revel", Name: revelName,
+					Event: &domain.EventSummary{Slug: revelSlug, Name: revelName,
 						Kind: domain.EventKindEvent},
 					DescriptionVerbatim: revelPerformance,
 				},
@@ -460,7 +466,7 @@ func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, domain.Person{
-		PersonSummary:   domain.PersonSummary{Slug: "hollis-fenn", Name: "Hollis Fenn", Kind: domain.PersonKindCommunityBard, IsStub: true},
+		PersonSummary:   domain.PersonSummary{Slug: "hollis-fenn", Name: hollisName, Kind: domain.PersonKindCommunityBard, IsStub: true},
 		Status:          domain.PersonStatusPrefersNoPage,
 		StatusDate:      new(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)),
 		StatusSourceURL: new("https://example.org/requests/12"),

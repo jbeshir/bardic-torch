@@ -234,3 +234,127 @@ type PerformanceLink struct {
 	Title    *string
 	Platform *string
 }
+
+// Page is the window of a paginated list to return: at most Limit items, after skipping Offset.
+type Page struct {
+	Limit  int32
+	Offset int32
+}
+
+// The bounds of a Page that requests may ask for.
+const (
+	// DefaultPageLimit is the limit of a request that sets none.
+	DefaultPageLimit = 50
+	// MaxPageLimit is the largest limit a request may set.
+	MaxPageLimit = 100
+	// MaxPageOffset is the largest offset a request may set.
+	MaxPageOffset = 10000
+)
+
+// TermListItem is a public term in the list of terms, with how many public pieces and persons it classifies.
+type TermListItem struct {
+	TermSummary
+	Name string
+	// ParentSlug is the slug of the term's parent, or nil for a root term. A public term's parent is public.
+	ParentSlug *string
+	TermCounts
+}
+
+// TermCounts are how many distinct public pieces, and public persons who do not prefer no page, a term or any
+// of its public descendants classifies.
+type TermCounts struct {
+	PieceCount  int64
+	PersonCount int64
+}
+
+// Term is a public term's page.
+type Term struct {
+	TermSummary
+	Name          string
+	DescriptionMD *string
+	Aliases       []string
+	// Ancestors are the term's ancestors, root first.
+	Ancestors []TermSummary
+	// Children are the term's public children, by position, display name and ID.
+	Children []TermChild
+	// RelatedAffiliation is the public affiliation term this term implies, if any.
+	RelatedAffiliation *TermSummary
+	TermCounts
+	// Pieces are one page of the public pieces the term or a descendant classifies, by sort title, for a term
+	// that classifies pieces; otherwise empty. Their total is PieceCount.
+	Pieces []PieceSummary
+	// Persons are one page of the public persons, other than those who prefer no page, affiliated with the term
+	// or a descendant, by sort name, for an affiliation term; otherwise empty. Their total is PersonCount.
+	Persons []PersonSummary
+}
+
+// TermChild is a public child of a term, with its counts.
+type TermChild struct {
+	Term TermSummary
+	TermCounts
+}
+
+// CollectionSummary is how a public collection is shown in lists of collections.
+type CollectionSummary struct {
+	ID               int64
+	Name             string
+	Kind             CollectionKind
+	URL              *string
+	IsBardicResource bool
+}
+
+// Collection is a public collection's page.
+type Collection struct {
+	CollectionSummary
+	DescriptionMD *string
+	Enumerable    CollectionEnumerable
+	// Region is the collection's public region term, if any.
+	Region *TermSummary
+	// Parent is the collection's public parent, if any.
+	Parent *CollectionSummary
+	// Children are the collection's public children, by sort name.
+	Children []CollectionSummary
+	// Citations are the visible links in the collection, once per public piece or person each is attached to,
+	// by the piece's sort title or person's sort name, at most MaxNestedListItems. Persons who prefer no page are
+	// left out.
+	Citations      []Citation
+	CitationsTotal int64
+}
+
+// Citation is a link in a collection attached to a piece or person: exactly one of Piece and Person is set.
+type Citation struct {
+	Piece   *PieceSummary
+	Person  *PersonSummary
+	URL     string
+	Title   *string
+	Locator *string
+	// Roles are the roles the link is attached to the piece or person with, in attachment order.
+	Roles []LinkRole
+}
+
+// EventList is one page of the public events and venues, by name, with how many there are in all.
+type EventList struct {
+	Events []EventSummary
+	Total  int64
+}
+
+// Event is a public event's or venue's page.
+type Event struct {
+	EventSummary
+	DescriptionMD *string
+	// Performances are the performances at the event on visible links, newest year first (unknown years last),
+	// at most MaxNestedListItems. A performance of a piece that is not public is left out, as is one whose link
+	// is attached to no public piece and no public person with a page.
+	Performances      []EventPerformance
+	PerformancesTotal int64
+}
+
+// EventPerformance is a performance on an event's page. Piece is nil for a performance of no particular piece.
+// Performers who are not public or prefer no page are left out.
+type EventPerformance struct {
+	Piece               *PieceSummary
+	Link                PerformanceLink
+	Year                *int16
+	Performers          []PersonSummary
+	DescriptionVerbatim string
+}

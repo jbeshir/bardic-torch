@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -31,6 +32,15 @@ type leakFixture struct {
 	// noPage prefers not to have a page: their own page shows their identity, which is marked, and nothing else.
 	noPage                                            catalogtest.Ref
 	unapprovedPiece, unapprovedPerson, unapprovedEcho catalogtest.Ref
+	// lanterns is a public topic with an unapproved child and related affiliation, tagging unapproved pieces;
+	// westmarch is a public affiliation of the no-page person and an unapproved person.
+	lanterns, westmarch                              catalogtest.Ref
+	unapprovedTerm, underUnapproved, unapprovedChild catalogtest.Ref
+	unapprovedAffiliation                            catalogtest.Ref
+	// archive is a public collection citing links of every hidden kind, under an unapproved collection.
+	archive, unapprovedCollection catalogtest.Ref
+	// moot is a public event at which every hidden kind of performance was recorded.
+	moot, unapprovedEvent catalogtest.Ref
 }
 
 // noPageName is the no-page person's name, which only their own page shows.
@@ -44,27 +54,56 @@ const hiddenLinkURL = "https://example.org/leakmark-hidden-link"
 //     relations in both directions, a credit, a performance as performer and a link with a performance;
 //   - a hidden link attached to a piece and a person, each with a performance;
 //   - an unapproved piece, person, term (and an approved term under it), affiliation, collection and event, each
-//     referred to by public entities, and unapproved entities referring to public ones;
+//     referred to by public entities, and unapproved entities referring to public ones: an unapproved child and
+//     related affiliation of a public term, unapproved pieces tagged with it, an unapproved parent, child and
+//     region of a public collection, and unapproved and no-page persons affiliated with a public affiliation;
+//   - in a public collection, and at a public event, links and performances of the hidden link, the no-page
+//     person and unapproved pieces and persons;
 //   - system fields that are never exposed: legacy titles, a claim by a user and normalized URLs.
 var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixture {
-	lanterns := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Lanterns"}})
+	unapprovedAffiliation := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
+		Name: "Leakmark Unapproved Affiliation"}, Unapproved: true})
+	lanterns := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Lanterns",
+		RelatedAffiliationID: &unapprovedAffiliation.ID}})
+	unapprovedChild := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic,
+		Name: "Leakmark Unapproved Child", ParentID: &lanterns.ID}, Unapproved: true})
 	unapprovedTerm := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic,
 		Name: "Leakmark Unapproved Term"}, Unapproved: true})
 	underUnapproved := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic,
 		Name: "Leakmark Under Unapproved", ParentID: &unapprovedTerm.ID}})
 	westmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation, Name: "Westmarch"}})
-	unapprovedAffiliation := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
-		Name: "Leakmark Unapproved Affiliation"}, Unapproved: true})
 	unapprovedCollection := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{
 		Name: "Leakmark Unapproved Collection"}, Unapproved: true})
+	// A public collection under an unapproved one, in an unapproved region, citing everything below.
+	archive := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Lantern Archive",
+		ParentID: &unapprovedCollection.ID, RegionTermID: &unapprovedAffiliation.ID}})
+	c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Lantern Annex", ParentID: &archive.ID}})
+	c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Leakmark Unapproved Annex",
+		ParentID: &archive.ID}, Unapproved: true})
 	unapprovedEvent := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Leakmark Unapproved Event"},
 		Unapproved: true})
+	// A public event every performance below is at.
+	moot := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Lantern Moot"}})
 
 	group := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Lantern Band", Kind: domain.PersonKindGroup}})
 	unapprovedPerson := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Leakmark Unapproved Person",
-		Relations: []domain.DocPersonRelation{{ToPersonID: group.ID, Type: domain.PersonRelationTypeMemberOf}}},
+		AffiliationIDs: []int64{westmarch.ID},
+		Relations:      []domain.DocPersonRelation{{ToPersonID: group.ID, Type: domain.PersonRelationTypeMemberOf}},
+		Links: []domain.DocPersonLink{{
+			DocLink: domain.DocLink{URL: "https://example.org/leakmark-unapproved-person-link",
+				CollectionID: &archive.ID, Roles: []domain.LinkRole{domain.LinkRoleWebsite}},
+			Performances: []domain.DocPersonPerformance{{DocPerformance: domain.DocPerformance{EventID: &moot.ID,
+				DescriptionVerbatim: "Leakmark unapproved person performance"}}},
+		}}},
 		Unapproved: true})
-	unapprovedPiece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Leakmark Unapproved Piece"},
+	unapprovedPiece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Leakmark Unapproved Piece",
+		Terms: []domain.DocPieceTerm{{TermID: lanterns.ID}},
+		Links: []domain.DocPieceLink{{
+			DocLink: domain.DocLink{URL: "https://example.org/leakmark-unapproved-piece-link",
+				CollectionID: &archive.ID, Roles: []domain.LinkRole{domain.LinkRoleLyrics}},
+			Performances: []domain.DocPerformance{{EventID: &moot.ID,
+				DescriptionVerbatim: "Leakmark unapproved piece moot performance"}},
+		}}},
 		Unapproved: true})
 	noPage := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
 		Name:             noPageName,
@@ -83,8 +122,8 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		Relations:      []domain.DocPersonRelation{{ToPersonID: group.ID, Type: domain.PersonRelationTypeMemberOf}},
 		Links: []domain.DocPersonLink{{
 			DocLink: domain.DocLink{URL: "https://example.org/leakmark-nopage-link", Title: new("Leakmark Nopage Link"),
-				Roles: []domain.LinkRole{domain.LinkRoleWebsite}},
-			Performances: []domain.DocPersonPerformance{{DocPerformance: domain.DocPerformance{
+				CollectionID: &archive.ID, Roles: []domain.LinkRole{domain.LinkRoleWebsite}},
+			Performances: []domain.DocPersonPerformance{{DocPerformance: domain.DocPerformance{EventID: &moot.ID,
 				DescriptionVerbatim: "Leakmark nopage performance"}}},
 		}},
 	}})
@@ -104,15 +143,15 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		Links: []domain.DocPersonLink{
 			{
 				DocLink: domain.DocLink{URL: hiddenLinkURL, Title: new("Leakmark Hidden Link"),
-					Roles: []domain.LinkRole{domain.LinkRoleOther}},
-				Performances: []domain.DocPersonPerformance{{DocPerformance: domain.DocPerformance{
+					CollectionID: &archive.ID, Roles: []domain.LinkRole{domain.LinkRoleOther}},
+				Performances: []domain.DocPersonPerformance{{DocPerformance: domain.DocPerformance{EventID: &moot.ID,
 					DescriptionVerbatim: "Leakmark hidden link performance"}}},
 			},
 			{
 				DocLink: domain.DocLink{URL: "https://example.org/rowan", CollectionID: &unapprovedCollection.ID,
 					Roles: []domain.LinkRole{domain.LinkRoleWebsite}},
 				Performances: []domain.DocPersonPerformance{
-					{PieceID: &unapprovedPiece.ID, DocPerformance: domain.DocPerformance{
+					{PieceID: &unapprovedPiece.ID, DocPerformance: domain.DocPerformance{EventID: &moot.ID,
 						DescriptionVerbatim: "Leakmark unapproved piece performance"}},
 					{DocPerformance: domain.DocPerformance{EventID: &unapprovedEvent.ID,
 						DescriptionVerbatim: "Rowan at a moot"}},
@@ -135,20 +174,27 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 			{
 				DocLink: domain.DocLink{URL: "https://example.org/lantern", CollectionID: &unapprovedCollection.ID,
 					Roles: []domain.LinkRole{domain.LinkRolePerformance}},
-				Performances: []domain.DocPerformance{{EventID: &unapprovedEvent.ID, DescriptionVerbatim: "Sung by Rowan",
-					PerformerIDs: []int64{person.ID, noPage.ID, unapprovedPerson.ID}}},
+				Performances: []domain.DocPerformance{
+					{EventID: &unapprovedEvent.ID, DescriptionVerbatim: "Sung by Rowan",
+						PerformerIDs: []int64{person.ID, noPage.ID, unapprovedPerson.ID}},
+					{EventID: &moot.ID, DescriptionVerbatim: "Sung at the moot",
+						PerformerIDs: []int64{person.ID, noPage.ID, unapprovedPerson.ID}},
+				},
 			},
 			{
 				DocLink: domain.DocLink{URL: hiddenLinkURL, Roles: []domain.LinkRole{domain.LinkRoleLyrics}},
-				Performances: []domain.DocPerformance{{DescriptionVerbatim: "Leakmark hidden piece performance",
-					PerformerIDs: []int64{person.ID}}},
+				Performances: []domain.DocPerformance{{EventID: &moot.ID,
+					DescriptionVerbatim: "Leakmark hidden piece performance", PerformerIDs: []int64{person.ID}}},
 			},
+			{DocLink: domain.DocLink{URL: "https://example.org/lantern-archive", CollectionID: &archive.ID,
+				Locator: new("shelf 3"), Roles: []domain.LinkRole{domain.LinkRoleText}}},
 		},
 	}})
 	c.SetLinkState(hiddenLinkURL, catalogtest.LinkState{IsHidden: true})
 
 	// Unapproved and no-page entities referring to the public ones, seeded after them.
 	unapprovedEcho := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Leakmark Unapproved Echo",
+		Terms:     []domain.DocPieceTerm{{TermID: lanterns.ID}},
 		Relations: []domain.DocPieceRelation{{ToPieceID: piece.ID, Type: domain.PieceRelationTypeContrafactumOf}},
 		Credits:   []domain.DocCredit{{PersonID: &person.ID, Role: domain.CreditRoleLyrics}}}, Unapproved: true})
 	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Leakmark Unapproved Admirer",
@@ -165,11 +211,15 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		"google-oauth2|leakmark-claimer", "Leakmark Legacy Person")
 	c.Exec("UPDATE pieces SET legacy_title = ?, legacy_wiki_pageid = id", "Leakmark Legacy Piece")
 	c.Exec("UPDATE terms SET legacy_title = ?", "Leakmark Legacy Term")
+	c.Exec("UPDATE events SET legacy_title = ?", "Leakmark Legacy Event")
 	c.Exec("UPDATE links SET normalized_url = CONCAT('leakmark-normalized-', id)")
 
 	return leakFixture{
 		piece: piece, group: group, person: person, noPage: noPage,
 		unapprovedPiece: unapprovedPiece, unapprovedPerson: unapprovedPerson, unapprovedEcho: unapprovedEcho,
+		lanterns: lanterns, westmarch: westmarch, unapprovedTerm: unapprovedTerm, underUnapproved: underUnapproved,
+		unapprovedChild: unapprovedChild, unapprovedAffiliation: unapprovedAffiliation,
+		archive: archive, unapprovedCollection: unapprovedCollection, moot: moot, unapprovedEvent: unapprovedEvent,
 	}
 })
 
@@ -199,6 +249,45 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: "/v1/persons/" + fx.group.Slug, status: http.StatusOK},
 			{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK, reveals: []string{fx.noPage.Slug, noPageName}},
 			{path: "/v1/persons/" + fx.unapprovedPerson.Slug, status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: termsPath}: func(leakFixture) []leakRequest {
+		return []leakRequest{
+			{path: termsPath, status: http.StatusOK},
+			{path: "/v1/terms?facet=topic", status: http.StatusOK},
+			{path: "/v1/terms?facet=affiliation", status: http.StatusOK},
+		}
+	},
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}"}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			// Pieces, without the unapproved ones tagged with it; children and related affiliation, unapproved.
+			{path: "/v1/terms/" + fx.lanterns.Slug, status: http.StatusOK},
+			// Persons, without the no-page and unapproved ones affiliated with it.
+			{path: "/v1/terms/" + fx.westmarch.Slug, status: http.StatusOK},
+			{path: "/v1/terms/" + fx.unapprovedTerm.Slug, status: http.StatusNotFound},
+			{path: "/v1/terms/" + fx.underUnapproved.Slug, status: http.StatusNotFound},
+			{path: "/v1/terms/" + fx.unapprovedChild.Slug, status: http.StatusNotFound},
+			{path: "/v1/terms/" + fx.unapprovedAffiliation.Slug, status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}"}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			// Citations of a public piece only; the parent, region and a child are unapproved.
+			{path: "/v1/collections/" + strconv.FormatInt(fx.archive.ID, 10), status: http.StatusOK},
+			{path: "/v1/collections/" + strconv.FormatInt(fx.unapprovedCollection.ID, 10), status: http.StatusNotFound},
+		}
+	},
+	{Method: http.MethodGet, Path: eventsPath}: func(leakFixture) []leakRequest {
+		return []leakRequest{
+			{path: eventsPath, status: http.StatusOK},
+			{path: "/v1/events?kind=event", status: http.StatusOK},
+		}
+	},
+	{Method: http.MethodGet, Path: "/v1/events/{slug}"}: func(fx leakFixture) []leakRequest {
+		return []leakRequest{
+			// Performances of public pieces on visible links, with public performers only.
+			{path: "/v1/events/" + fx.moot.Slug, status: http.StatusOK},
+			{path: "/v1/events/" + fx.unapprovedEvent.Slug, status: http.StatusNotFound},
 		}
 	},
 }
@@ -299,6 +388,13 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 		"SELECT COUNT(*) FROM terms WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM persons WHERE claimed_by_user_id LIKE '%leakmark%'",
 		"SELECT COUNT(*) FROM links WHERE normalized_url LIKE 'leakmark%'",
+		"SELECT COUNT(*) FROM collections WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
+		"SELECT COUNT(*) FROM events WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
+		// Marked performances at a public event, and marked links in a public collection.
+		"SELECT COUNT(*) FROM performances perf JOIN events e ON e.id = perf.event_id " +
+			"WHERE e.current_revision_id IS NOT NULL AND perf.description_verbatim LIKE '%Leakmark%'",
+		"SELECT COUNT(*) FROM links l JOIN collections c ON c.id = l.collection_id " +
+			"WHERE c.current_revision_id IS NOT NULL AND l.url LIKE '%leakmark%'",
 	} {
 		var count int
 		require.NoError(t, db.QueryRowContext(t.Context(), query).Scan(&count), query)
