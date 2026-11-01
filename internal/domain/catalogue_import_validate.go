@@ -34,7 +34,9 @@ const (
 //     (CollationKey), and the CHECKs hold: a credit names a person iff its attribution is named, a period starts
 //     before it ends, a licence needs a known licensing status, nothing relates to itself;
 //   - each document link's URL normalises to a Links row whose fields it carries, roles aside;
-//   - TermAncestors is the closure of the terms' parents (TermClosure), and every summary is an import summary.
+//   - TermAncestors is the closure of the terms' parents (TermClosure), and every summary is an import summary;
+//   - no name, title, alias, slug, sort key or uploader holds a withheld-text placeholder (HoldsWithheldText): a
+//     name the import withholds is dropped with its entity, never published as a placeholder.
 //
 // It fails with ErrInvalidImport, naming the entity type, ID and field of the first problem, never its value.
 func (imp CatalogueImport) Validate() error {
@@ -113,6 +115,13 @@ func (c *entityCheck) require(ok bool, field, problem string) {
 	}
 }
 
+// name checks a name or title of the catalogue (a required VARCHAR(255)): it fits, and holds no withheld-text
+// placeholder (WithheldName, WithheldEmail), which only free text may hold.
+func (c *entityCheck) name(s, field string) {
+	c.varchar(s, maxNameLength, field, true)
+	c.require(!HoldsWithheldText(s), field, "holds a withheld-text placeholder")
+}
+
 // varchar checks a VARCHAR(n) value: at most n characters, and not empty if required.
 func (c *entityCheck) varchar(s string, n int, field string, required bool) {
 	c.require(!required || s != "", field, "is empty")
@@ -158,6 +167,7 @@ func (v *importValidator) system(c *entityCheck, ids map[int64]bool, slugs map[s
 	ids[c.id] = true
 	if slug != nil {
 		c.require(IsSlug(*slug), "slug", "is not a slug")
+		c.require(!HoldsWithheldText(*slug), "slug", "holds a withheld-text placeholder")
 		c.require(!slugs[*slug], "slug", "is not unique")
 		slugs[*slug] = true
 	}
@@ -182,7 +192,7 @@ func (v *importValidator) system(c *entityCheck, ids map[int64]bool, slugs map[s
 
 // sortKey checks a sort key and its letter.
 func (c *entityCheck) sortKey(key string, letter Letter, field string) {
-	c.varchar(key, maxNameLength, field, true)
+	c.name(key, field)
 	_, err := ParseLetter(string(letter))
 	c.require(err == nil, "sort_letter", "is not a letter")
 }
@@ -210,8 +220,8 @@ func (v *importValidator) checkTerms() error {
 		v.system(c, ids, slugs, &t.Slug, t.Legacy, legacy, t.Revision)
 		document(c, t.Doc, t.Doc.SchemaVersion)
 		d := t.Doc
-		c.varchar(d.Name, maxNameLength, "doc.name", true)
-		c.varchar(d.DisplayName, maxNameLength, "doc.display_name", true)
+		c.name(d.Name, "doc.name")
+		c.name(d.DisplayName, "doc.display_name")
 		c.text(d.DescriptionMD, "doc.description_md")
 		key := string(d.Facet) + "\x00" + CollationKey(d.Name)
 		c.require(!names[key], "doc.name", "is not unique in its facet")
@@ -227,7 +237,7 @@ func (v *importValidator) checkTerms() error {
 		}
 		aliases := make([]string, 0, len(d.Aliases))
 		for k, a := range d.Aliases {
-			c.varchar(a, maxNameLength, fmt.Sprintf("doc.aliases[%d]", k), true)
+			c.name(a, fmt.Sprintf("doc.aliases[%d]", k))
 			aliases = append(aliases, CollationKey(a))
 		}
 		c.unique(aliases, "doc.aliases")
@@ -255,7 +265,7 @@ func (v *importValidator) checkCollections() error {
 		c.sortKey(col.SortName, col.SortLetter, "sort_name")
 		document(c, col.Doc, col.Doc.SchemaVersion)
 		d := col.Doc
-		c.varchar(d.Name, maxNameLength, "doc.name", true)
+		c.name(d.Name, "doc.name")
 		c.url(d.URL, "doc.url")
 		c.text(d.DescriptionMD, "doc.description_md")
 		if d.RegionTermID != nil {
@@ -279,7 +289,7 @@ func (v *importValidator) checkEvents() error {
 		c := &entityCheck{entity: EntityTypeEvent, id: e.ID}
 		v.system(c, ids, slugs, &e.Slug, e.Legacy, legacy, e.Revision)
 		document(c, e.Doc, e.Doc.SchemaVersion)
-		c.varchar(e.Doc.Name, maxNameLength, "doc.name", true)
+		c.name(e.Doc.Name, "doc.name")
 		c.text(e.Doc.DescriptionMD, "doc.description_md")
 		if c.err != nil {
 			return c.err
@@ -297,14 +307,14 @@ func (v *importValidator) checkPersons() error {
 		c.sortKey(p.SortName, p.SortLetter, "sort_name")
 		document(c, p.Doc, p.Doc.SchemaVersion)
 		d := p.Doc
-		c.varchar(d.Name, maxNameLength, "doc.name", true)
+		c.name(d.Name, "doc.name")
 		c.url(d.StatusSourceURL, "doc.status_source_url")
 		c.optionalVarchar(d.Pronouns, maxPronounsLength, "doc.pronouns")
 		c.text(d.NotesMD, "doc.notes_md")
 		c.text(d.LicensingNotesMD, "doc.licensing_notes_md")
 		aliases := make([]string, 0, len(d.Aliases))
 		for k, a := range d.Aliases {
-			c.varchar(a.Name, maxNameLength, fmt.Sprintf("doc.aliases[%d].name", k), true)
+			c.name(a.Name, fmt.Sprintf("doc.aliases[%d].name", k))
 			aliases = append(aliases, CollationKey(a.Name))
 		}
 		c.unique(aliases, "doc.aliases")
@@ -364,7 +374,7 @@ func (v *importValidator) checkPieces() error {
 
 func (v *importValidator) pieceDocument(c *entityCheck, p ImportedPiece) {
 	d := p.Doc
-	c.varchar(d.Title, maxNameLength, "doc.title", true)
+	c.name(d.Title, "doc.title")
 	for _, f := range []struct {
 		s     *string
 		field string
@@ -382,7 +392,7 @@ func (v *importValidator) pieceDocument(c *entityCheck, p ImportedPiece) {
 	c.unique(stringsOf(d.SecondaryKinds), "doc.secondary_kinds")
 	aliases := make([]string, 0, len(d.Aliases))
 	for k, a := range d.Aliases {
-		c.varchar(a.Text, maxNameLength, fmt.Sprintf("doc.aliases[%d].text", k), true)
+		c.name(a.Text, fmt.Sprintf("doc.aliases[%d].text", k))
 		aliases = append(aliases, CollationKey(a.Text))
 	}
 	c.unique(aliases, "doc.aliases")
@@ -472,7 +482,9 @@ func (v *importValidator) performance(c *entityCheck, p DocPerformance, field st
 	if p.EventID != nil {
 		c.require(v.events[*p.EventID], field+".event_id", "is not an event")
 	}
-	c.optionalVarchar(p.Uploader, maxNameLength, field+".uploader")
+	if p.Uploader != nil {
+		c.name(*p.Uploader, field+".uploader")
+	}
 	c.require(len(p.DescriptionVerbatim) <= maxTextBytes, field+".description_verbatim",
 		fmt.Sprintf("is longer than %d bytes", maxTextBytes))
 	performers := make([]string, 0, len(p.PerformerIDs))

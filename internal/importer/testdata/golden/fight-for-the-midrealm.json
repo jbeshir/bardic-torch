@@ -66,7 +66,7 @@
           "description": null,
           "platform": "sites.google.com",
           "place_type": "community_archive",
-          "collection_id": 40,
+          "collection_id": 37,
           "locator": null,
           "roles": [
             "lyrics"
@@ -88,7 +88,7 @@
             {
               "event_id": 30,
               "year": 2012,
-              "uploader": "[name withheld]",
+              "uploader": null,
               "description_verbatim": "[https://youtu.be/XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt singing her song at Midrealm Bardic Madness in 2012]",
               "performer_ids": []
             }
@@ -103,7 +103,7 @@
       "title": "Fight for the Midrealm"
     },
     "revision": {
-      "id": 517,
+      "id": 498,
       "summary": "Imported from the wiki (page revision 881).",
       "contributors": [
         "Wiki User 01"
@@ -119,22 +119,28 @@
       "text": "The infobox_title gives the title \"Voice of the Dragon\", which is another page's. Guess: the page title \"Fight for the Midrealm\"; the alternative: \"Voice of the Dragon\"."
     },
     {
-      "id": "NAME-097",
+      "id": "NAME-142",
       "kind": "free_text",
       "page": "Fight for the Midrealm",
       "text": "link https://youtu.be/XmgUpSreHi4, title: \"Legal Name 024\" was withheld. Context: \"Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s\"."
     },
     {
-      "id": "NAME-321",
+      "id": "NAME-440",
       "kind": "free_text",
       "page": "Fight for the Midrealm",
       "text": "performance item, uploader: \"Legal Name 024\" was withheld. Context: \"[name withheld]\"."
     },
     {
-      "id": "NAME-322",
+      "id": "NAME-441",
       "kind": "free_text",
       "page": "Fight for the Midrealm",
       "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"tps://youtu.be/XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s\"."
+    },
+    {
+      "id": "NAME-442",
+      "kind": "uploader",
+      "page": "Fight for the Midrealm",
+      "text": "A performance item's uploader is withheld: the performance is imported without an uploader."
     },
     {
       "id": "CREDIT-044",
@@ -155,7 +161,7 @@
       "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "PERF-248",
+      "id": "PERF-249",
       "kind": "incomplete",
       "page": "Fight for the Midrealm",
       "text": "A performance item has no performer the importer could read: \"[https://youtu.be/XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair …\"."

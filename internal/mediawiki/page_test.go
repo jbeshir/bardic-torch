@@ -56,7 +56,7 @@ func TestSectionKey_Variants(t *testing.T) {
 		"Translations":                     SectionTranslations,
 		"'''Lyrics'''":                     SectionLyrics,
 		"[[Wren Placeholder|Wren]]":        "other:Wren",
-		"Legal Name":                "other:Legal Name",
+		"Sample Heading":                   "other:Sample Heading",
 	}
 	for heading, want := range tests {
 		assert.Equal(t, want, KeyOf(Section{Level: 2, Heading: heading}), heading)

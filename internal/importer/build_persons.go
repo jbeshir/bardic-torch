@@ -35,8 +35,9 @@ func (b *builder) bard(bard mediawiki.BardRecord, links []mediawiki.LinkRecord) 
 	id := b.personIDs[ref]
 	page, _ := b.c.Site.Page(bard.Title)
 	entity := "person " + bard.Title
-	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: b.name(bard.Title, entity,
-		"name", bard.Title), Kind: domain.PersonKindCommunityBard, Status: bard.Status, StatusDate: bard.StatusDate,
+	name, _ := b.name(bard.Title, entity, "name", bard.Title)
+	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
+		Kind: domain.PersonKindCommunityBard, Status: bard.Status, StatusDate: bard.StatusDate,
 		NotesMD:          b.free(bard.Title, entity, "notes", bard.NotesMD),
 		LicensingStatus:  bard.LicensingStatus,
 		LicensingNotesMD: b.free(bard.Title, entity, "licensing notes", bard.LicensingNotesMD),
@@ -177,11 +178,8 @@ func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecor
 	if kind == domain.PersonKindCommunityBard && historical[ref] && !sca {
 		kind = domain.PersonKindHistorical
 	}
-	page := ""
-	if len(s.Mentions) > 0 {
-		page = s.Mentions[0].Page
-	}
-	name := b.name(page, "stub person", "name", s.Name)
+	page := firstMention(s)
+	name, _ := b.name(page, "stub person", "name", s.Name)
 	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: kind,
 		Status: domain.PersonStatusActive, LicensingStatus: domain.LicensingStatusUnknown, IsStub: true,
 		Aliases: []domain.DocPersonAlias{}, Roles: []domain.PersonRole{}, AffiliationIDs: []int64{},

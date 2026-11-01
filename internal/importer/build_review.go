@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
@@ -112,7 +113,7 @@ func (b *builder) reviewCredits() {
 }
 
 func (b *builder) reviewRedLinks() {
-	for _, sp := range b.c.People.StubPieces {
+	for _, sp := range b.stubPieces {
 		persons := make([]string, 0, len(sp.Credits))
 		for _, c := range sp.Credits {
 			persons = append(persons, string(c.Person))
@@ -121,11 +122,7 @@ func (b *builder) reviewRedLinks() {
 			"Stub piece %q, credited (lyrics, possible) to %s.", sp.Title, strings.Join(persons, ", ")))
 	}
 	for _, s := range b.stubs {
-		page := ""
-		if len(s.Mentions) > 0 {
-			page = s.Mentions[0].Page
-		}
-		b.review.RedLinks = append(b.review.RedLinks, item("stub_person", page, "Stub person %q (%s), named on "+
+		b.review.RedLinks = append(b.review.RedLinks, item("stub_person", firstMention(s), "Stub person %q (%s), named on "+
 			"%d page(s).", s.Name, s.Kind, len(s.Mentions)))
 	}
 	for _, r := range b.c.People.RedLinks {
@@ -369,19 +366,39 @@ func (b *builder) reviewContributors() {
 	}
 	sort.Strings(users)
 	hidden := map[string]bool{}
-	for _, n := range b.w.names {
-		if n.Legal {
-			hidden[mediawiki.FoldName(n.Text)] = true
-		}
+	for _, n := range b.w.legal {
+		hidden[mediawiki.FoldName(n.Text)] = true
 	}
 	for _, u := range users {
 		flag := ""
-		if hidden[mediawiki.FoldName(u)] || b.w.holdsName(u) {
+		switch {
+		case hidden[mediawiki.FoldName(u)] || b.w.holdsName(u):
 			flag = " It matches a hidden alias or possible legal name: consider hiding it."
+		case personNameShaped(u):
+			flag = " It is shaped like a personal name (capitalised words): it may be a legal name; check it may be " +
+				"credited publicly."
 		}
 		b.review.Contributors = append(b.review.Contributors, item("contributor", "", "%q: %d edit(s).%s", u,
 			edits[u], flag))
 	}
+}
+
+// personNameShaped reports whether a user name is two or more words, each a capital letter followed by letters
+// ("Firstname Lastname"), as a legal name is written and a handle seldom is.
+func personNameShaped(u string) bool {
+	words := strings.Fields(u)
+	if len(words) < 2 {
+		return false
+	}
+	for _, w := range words {
+		for k, r := range w {
+			if k == 0 && !unicode.IsUpper(r) || !unicode.IsLetter(r) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func (b *builder) counts() Counts {

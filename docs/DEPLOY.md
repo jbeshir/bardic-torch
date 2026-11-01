@@ -359,9 +359,11 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
    review and prints the counts (pieces by kind, persons, terms, collections, events, links, revisions and review
    items).
 2. **Review.** The moderators work through the review (`import-review.md`): every alias classification, every
-   name withheld from public text, the ambiguous records, the stubs and the rest. Where the importer guessed
-   wrong, note the item ID: it is corrected in the catalogue after the import. Run the dry run again whenever
-   the crawl changes.
+   name withheld from public text, every collection, event, stub, alias or uploader left out because its name
+   holds a possible legal name, every URL that may name a person, the wiki users shaped like personal names
+   (credited publicly as written), the ambiguous records, the stubs and the rest. Where the importer guessed
+   wrong, note the item ID: it is corrected in the catalogue after the import (an entity left out is created by
+   hand once its name is cleared). Run the dry run again whenever the crawl changes.
 3. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
    one-off container a private directory holding the crawl, which the image's user (10001) can write the review
    to:

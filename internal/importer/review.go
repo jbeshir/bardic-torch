@@ -6,6 +6,8 @@ package importer
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // Item is one entry of the import review: its stable ID (a section prefix and a number, "ALIAS-007"), what kind
@@ -74,10 +76,11 @@ func (r *Review) sections() []reviewSection {
 			"and the rule that decided it. Unsure classifications come first; they are hidden until reviewed.",
 			&r.Aliases},
 		{"Hidden names withheld from public text", "NAME", "Every place a hidden alias or another possible " +
-			"legal name was found in public text and replaced with \"" + NameWithheld + "\", and every link " +
-			"imported hidden because its URL holds one. The context shows the text after withholding.",
-			&r.HiddenNames},
-		{"Contact details withheld", "EMAIL", "Email addresses replaced with \"" + EmailWithheld + "\". " +
+			"legal name was found in public text and replaced with \"" + domain.WithheldName + "\"; every link " +
+			"imported hidden because its URL holds a legal name, and every other URL that may name a person; " +
+			"and every collection, event, stub person, stub piece, alias or uploader left out because its name " +
+			"holds a legal name. The context shows the text after withholding.", &r.HiddenNames},
+		{"Contact details withheld", "EMAIL", "Email addresses replaced with \"" + domain.WithheldEmail + "\". " +
 			"Restore any the person wants published.", &r.Contacts},
 		{"Fuzzy-matched persons", "MATCH", "Names matched to a person otherwise than exactly, with the " +
 			"candidates.", &r.PersonMatches},
@@ -105,8 +108,9 @@ func (r *Review) sections() []reviewSection {
 			"licence needs a source.", &r.Licensing},
 		{"Markup and text problems", "MARKUP", "Broken markup repaired or found, and names with characters " +
 			"an editor could not enter.", &r.Markup},
-		{"Credited wiki contributors", "USER", "The wiki user names credited in revision history. Check that " +
-			"none needs hiding.", &r.Contributors},
+		{"Credited wiki contributors", "USER", "The wiki user names credited in revision history, flagged when " +
+			"one matches a private name or is shaped like a personal name. Check that none needs hiding.",
+			&r.Contributors},
 	}
 }
 

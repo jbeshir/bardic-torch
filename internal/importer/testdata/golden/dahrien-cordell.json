@@ -92,7 +92,7 @@
       "title": "Dahrien Cordell"
     },
     "revision": {
-      "id": 259,
+      "id": 255,
       "summary": "Imported from the wiki (page revision 439).",
       "contributors": [
         "Wiki User 01"
@@ -102,7 +102,7 @@
   },
   "review": [
     {
-      "id": "STUB-194",
+      "id": "STUB-176",
       "kind": "malformed_url",
       "page": "Dahrien Cordell",
       "text": "Red link \"Https://youtu.be/oDRTvZHFl9o?si=Dk9IWBG3h9W0RmAy Recording by Cerian Cantwr on YouTube\" (namespace 0, malformed_url), from Dahrien Cordell: not imported."
@@ -132,7 +132,7 @@
       "text": "A performance item has no performer the importer could read: \"[https://youtu.be/Z09yAAZGuhY?si=LH6bAvqARxikmJWx Dahrien Cordell sings One More…\"."
     },
     {
-      "id": "PERF-279",
+      "id": "PERF-280",
       "kind": "repeated",
       "page": "Dahrien Cordell",
       "text": "A performance item the piece page \"Rite of Passage\" already records on the same link: imported once, from the piece page."

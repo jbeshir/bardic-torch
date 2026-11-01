@@ -54,7 +54,7 @@
           "description": null,
           "platform": "pdf",
           "place_type": "book",
-          "collection_id": 45,
+          "collection_id": 42,
           "locator": "p. 63",
           "roles": [
             "sheet_music"
@@ -97,7 +97,7 @@
         },
         {
           "url": "https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1",
-          "title": "Black Alman on Legal Name's YouTube, as taught at Christmas Tourney 2022",
+          "title": "Black Alman on [name withheld]'s YouTube, as taught at Christmas Tourney 2022",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -111,7 +111,7 @@
               "event_id": 26,
               "year": 2022,
               "uploader": null,
-              "description_verbatim": "[https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1 Black Alman on Legal Name's YouTube, as taught at Christmas Tourney 2022]",
+              "description_verbatim": "[https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1 Black Alman on [name withheld]'s YouTube, as taught at Christmas Tourney 2022]",
               "performer_ids": []
             }
           ]
@@ -125,7 +125,7 @@
       "title": "Black Alman"
     },
     "revision": {
-      "id": 497,
+      "id": 478,
       "summary": "Imported from the wiki (page revision 769).",
       "contributors": [
         "Wiki User 01"
@@ -134,6 +134,18 @@
     }
   },
   "review": [
+    {
+      "id": "NAME-126",
+      "kind": "free_text",
+      "page": "Black Alman",
+      "text": "link https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1, title: \"Legal Name 099\" was withheld. Context: \"Black Alman on [name withheld]'s YouTube, as taught at Christmas Tourn\"."
+    },
+    {
+      "id": "NAME-408",
+      "kind": "free_text",
+      "page": "Black Alman",
+      "text": "performance item, description: \"Legal Name 099\" was withheld. Context: \"VCF0?si=CLLtL7qb5TFDNrD1 Black Alman on [name withheld]'s YouTube, as taught at Christmas Tourn\"."
+    },
     {
       "id": "TITLE-029",
       "kind": "alternate",
@@ -186,7 +198,7 @@
       "id": "PERF-229",
       "kind": "incomplete",
       "page": "Black Alman",
-      "text": "A performance item has no performer the importer could read: \"[https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1 Black Alman on Legal Name…\"."
+      "text": "A performance item has no performer the importer could read: \"[https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1 Black Alman on [name withheld]…\"."
     },
     {
       "id": "LICENCE-019",

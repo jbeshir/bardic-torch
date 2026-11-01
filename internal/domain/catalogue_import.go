@@ -31,6 +31,24 @@ type CatalogueImport struct {
 // a value, which may be private.
 var ErrInvalidImport = errors.New("invalid catalogue import")
 
+// What the import writes in free text in place of a private name or an email address it withholds.
+const (
+	WithheldName  = "[name withheld]"
+	WithheldEmail = "[email withheld]"
+)
+
+// HoldsWithheldText reports whether s holds a withheld-text placeholder, as written or slugified
+// ("name-withheld").
+func HoldsWithheldText(s string) bool {
+	for _, p := range []string{WithheldName, WithheldEmail} {
+		if strings.Contains(s, p) || strings.Contains(s, Slugify(p)) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ImportedRevision is an imported entity's first revision: approved, of source import, with no author. Summary is
 // one of the neutral import summaries (ImportSummary…), and Contributors are the wiki users credited for the page
 // (revision_contributors, in order).

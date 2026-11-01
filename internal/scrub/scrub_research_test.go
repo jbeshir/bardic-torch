@@ -203,6 +203,78 @@ func TestScrubPreservesResearchCounts(t *testing.T) {
 	}
 }
 
+// TestScrubbedCopyHasNoResearchLyrics checks the committed copy against the crawl's inline lyrics found
+// independently of the detector the scrubber uses (wikidumptest.OracleLyrics, in the sections the reference
+// analysis lists as holding inline text): no 5-word window of them is in the copy unless the crawl's text outside
+// the lyrics has it too. A detector that misses a block fails here once the copy is regenerated.
+func TestScrubbedCopyHasNoResearchLyrics(t *testing.T) {
+	_, analysis := wikidumptest.Research(t)
+	d := researchDump(t)
+	sections := wikidumptest.InlineTextSections(t, analysis)
+	var outside []string
+	type pageBlocks struct {
+		page   mediawiki.Page
+		blocks [][]int
+	}
+	var all []pageBlocks
+	for _, p := range d.Pages {
+		blocks := wikidumptest.OracleLyrics(p.Wikitext, sections[p.PageID])
+		all = append(all, pageBlocks{page: p, blocks: blocks})
+		outside = append(append(outside, wikidumptest.OutsideSpans(p.Wikitext, blocks)...), p.Title)
+	}
+	outsideGrams := lyricGrams(outside)
+	var committed []string
+	for _, p := range loadScrubbed(t).Pages {
+		committed = append(committed, p.Wikitext)
+	}
+	committedGrams := lyricGrams(committed)
+
+	checked := 0
+	for _, pb := range all {
+		for _, block := range pb.blocks {
+			for _, gram := range lyricGramList(pb.page.Wikitext[block[0]:block[1]]) {
+				if outsideGrams[gram] {
+					continue
+				}
+				checked++
+				wikidumptest.Equal(t, wikidumptest.Location{PageID: pb.page.PageID, Field: "lyric window",
+					Offset: block[0]}, false, committedGrams[gram])
+			}
+		}
+	}
+	wikidumptest.Equal(t, wikidumptest.Location{Field: "lyric windows checked", Offset: -1}, true, checked > 0)
+}
+
+// scrubLyricWindow is the word count of a lyric window.
+const scrubLyricWindow = 5
+
+// lyricGramList are the windows of scrubLyricWindow folded words of text.
+func lyricGramList(text string) []string {
+	words := mediawiki.Words(text)
+	var out []string
+	for k := 0; k+scrubLyricWindow <= len(words); k++ {
+		gram := make([]string, 0, scrubLyricWindow)
+		for _, w := range words[k : k+scrubLyricWindow] {
+			gram = append(gram, w.Folded)
+		}
+		out = append(out, strings.Join(gram, " "))
+	}
+
+	return out
+}
+
+// lyricGrams are the windows of every text, each text on its own.
+func lyricGrams(texts []string) map[string]bool {
+	out := map[string]bool{}
+	for _, text := range texts {
+		for _, g := range lyricGramList(text) {
+			out[g] = true
+		}
+	}
+
+	return out
+}
+
 // TestRepositoryHasNoResearchPrivateText scans every text file of the repository, in clear, for every deny phrase
 // of the crawl (with its honorific forms, its last word before its first, and every form mediawiki.NameMatcher
 // finds) and for every email and phone number of the crawl. It is the check the deny list cannot be: names are

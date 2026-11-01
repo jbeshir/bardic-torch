@@ -68,7 +68,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 161,
+          "person_id": 146,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -175,7 +175,7 @@
       "title": "Band of Brothers"
     },
     "revision": {
-      "id": 392,
+      "id": 373,
       "summary": "Imported from the wiki (page revision 458).",
       "contributors": [
         "Wiki User 01"
@@ -185,19 +185,19 @@
   },
   "review": [
     {
-      "id": "NAME-007",
+      "id": "NAME-031",
       "kind": "free_text",
       "page": "Band of Brothers",
-      "text": "link https://www.Legal Name.com/band-of-brothers-song/, title: \"Legal Name 041\" was withheld. Context: \"Song page at [name withheld]\"."
+      "text": "link https://www.Legal Name.com/band-of-brothers-song/, title: \"Legal Name 053\" was withheld. Context: \"Song page at [name withheld]\"."
     },
     {
-      "id": "NAME-008",
+      "id": "NAME-032",
       "kind": "free_text",
       "page": "Band of Brothers",
-      "text": "link https://www.Legal Name.com/sheet-music/, title: \"Legal Name 041\" was withheld. Context: \"Download sheet music or song sheets at [name withheld]\"."
+      "text": "link https://www.Legal Name.com/sheet-music/, title: \"Legal Name 053\" was withheld. Context: \"Download sheet music or song sheets at [name withheld]\"."
     },
     {
-      "id": "NAME-167",
+      "id": "NAME-216",
       "kind": "free_text",
       "page": "Band of Brothers",
       "text": "piece Band of Brothers, version notes: \"Legal Name 022\" was withheld. Context: \"The words of this song are adapted from [name withheld], a play about events in the 1400s (15th\"."
@@ -221,7 +221,7 @@
       "text": "credited_not_listed: \"Lisa Theriot\" (person Lisa Theriot)."
     },
     {
-      "id": "STUB-191",
+      "id": "STUB-173",
       "kind": "stub_person",
       "page": "Band of Brothers",
       "text": "Stub person \"William Shakespeare\" (historical), named on 1 page(s)."
@@ -257,7 +257,7 @@
       "text": "A performance item has no performer, event or year the importer could read: \"[https://www.youtube.com/watch?v=1Ct5749N4RM\u0026list=RD1Ct5749N4RM\u0026start_radio=1 Of…\"."
     },
     {
-      "id": "PERSON-204",
+      "id": "PERSON-189",
       "kind": "stub_kind",
       "page": "Band of Brothers",
       "text": "Stub person \"William Shakespeare\" (named on 1 page(s)) is guessed to be historical."

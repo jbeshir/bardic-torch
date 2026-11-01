@@ -38,12 +38,22 @@ var wikiUserPlaceholder = regexp.MustCompile(`^Wiki User \d{2}$`)
 
 // TestScrubbedDumpStructuralPrivacy checks the committed copy without the private crawl: what would be a leak if
 // the scrubber had missed it.
+// poemTags are the tags of a <poem> element.
+var poemTags = regexp.MustCompile(`(?i)</?poem\b[^>]*>`)
+
 func TestScrubbedDumpStructuralPrivacy(t *testing.T) {
 	d := loadScrubbed(t)
 
 	for where, text := range texts(d) {
 		requirePlaceholderLyrics(t, where, text)
 		requireNoContactDetails(t, where, text)
+	}
+	for _, p := range d.Pages {
+		for _, block := range wikidumptest.OracleLyrics(p.Wikitext, []string{"Lyrics", "Text"}) {
+			body := poemTags.ReplaceAllString(p.Wikitext[block[0]:block[1]], "")
+			assert.True(t, onlyPlaceholders(body), "%s: a lyrics run at byte %d (found without the detector) is not "+
+				"placeholder lines", p.Title, block[0])
+		}
 	}
 	for _, p := range d.Pages {
 		if mediawiki.TypePage(p) != mediawiki.PageTypeBard {
@@ -84,8 +94,9 @@ func requirePlaceholderLyrics(t *testing.T, where, text string) {
 // in prose but placeholders.
 func requireNoContactDetails(t *testing.T, where, text string) {
 	t.Helper()
-	for _, e := range mediawiki.EmailAddress.FindAllString(text, -1) {
-		assert.True(t, strings.HasSuffix(e, placeholderDomain), "%s: email %s", where, e)
+	for _, e := range mediawiki.EmailAddress.FindAllStringIndex(text, -1) {
+		assert.True(t, strings.HasSuffix(text[e[0]:e[1]], placeholderDomain),
+			"%s: email at byte %d is not a placeholder", where, e[0])
 	}
 	s := scrubber{}
 	s.prose(text, phonePattern, func(m []int, text string) string {

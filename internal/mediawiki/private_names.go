@@ -15,7 +15,7 @@ var PublicNames = []string{"Ambra Michelli", "Bardic Torch"}
 // PrivacyReason is why a possible person name of the wiki is or is not a private name.
 type PrivacyReason string
 
-// The reasons. A name is private for the first four; the others make it public.
+// The reasons. A name is private for the first five; the others make it public.
 const (
 	// PrivacyHiddenAlias: a bard's alias, or a redirect to a bard, that the classifier does not make public.
 	PrivacyHiddenAlias PrivacyReason = "hidden_alias"
@@ -25,6 +25,9 @@ const (
 	PrivacyUnsure PrivacyReason = "unsure"
 	// PrivacyRepeated: the name is already a private name.
 	PrivacyRepeated PrivacyReason = "denied"
+	// PrivacyPairedName: the name is paired by "/" with a public name (CandidateSlashPair), so it is another name
+	// of a person who has a public one: a legal name.
+	PrivacyPairedName PrivacyReason = "paired_name"
 
 	// PrivacyPlaceholder: the name is a placeholder of the scrubbed copy already (IsPlaceholderName).
 	PrivacyPlaceholder PrivacyReason = "placeholder"
@@ -32,21 +35,24 @@ const (
 	PrivacyPublishedName PrivacyReason = "published_name"
 	// PrivacyPublicAlias: the classifier makes the name public, or it is a bard's public alias.
 	PrivacyPublicAlias PrivacyReason = "public_alias"
-	// PrivacyPageTitle: the name's words are words of a page title or category name, which are public.
+	// PrivacyPageTitle: the name's words are words of a page title, category name or SCA kingdom, which are public.
 	PrivacyPageTitle PrivacyReason = "page_title"
 	// PrivacyNoCapital: no word of the text is capitalised, so it is not a name ("the author").
 	PrivacyNoCapital PrivacyReason = "no_capital"
 	// PrivacySingleWord: a single word that is not an uploader (an H1 or parenthesis "(Song)", "(Poem)").
 	PrivacySingleWord PrivacyReason = "single_word"
+	// PrivacyTitlePair: the name is paired by "/" with the title of a page that is not a bard's, so it is an
+	// alternate title ("Song Title / Other Spelling").
+	PrivacyTitlePair PrivacyReason = "title_pair"
 )
 
 // Private reports whether a name so decided is a private name.
 func (r PrivacyReason) Private() bool {
 	switch r {
-	case PrivacyHiddenAlias, PrivacyLegalMarker, PrivacyUnsure, PrivacyRepeated:
+	case PrivacyHiddenAlias, PrivacyLegalMarker, PrivacyUnsure, PrivacyRepeated, PrivacyPairedName:
 		return true
 	case PrivacyPlaceholder, PrivacyPublishedName, PrivacyPublicAlias, PrivacyPageTitle, PrivacyNoCapital,
-		PrivacySingleWord:
+		PrivacySingleWord, PrivacyTitlePair:
 		return false
 	}
 
@@ -78,29 +84,36 @@ type PrivateName struct {
 // PrivateNames decides on every possible person name of pages (sorted by page ID) and of redirects: first each
 // bard's aliases (BardAliases) and each redirect to a bard, classified with ClassifyPersonAlias; then every
 // PersonNameCandidates candidate, which is private unless it is a placeholder, a published name, a public alias,
-// words of a page title, has no capitalised word, is a single word not given as an uploader, or classifies
-// confidently as public. A name after a marker is private. The private names are returned in the order they are
+// words of a page title, has no capitalised word, is a single word not given as an uploader, classifies
+// confidently as public, or is paired by "/" with the title of a page that is not a bard's (an alternate title). A
+// name after a marker is a legal name, and so is a name paired by "/" with a person's public name: the other name
+// of someone who has a public one. The private names are returned in the order they are
 // found, each once (by FoldName), with every decision taken. The scrubber replaces them in the committed copy and
 // the importer withholds them from public text, so both agree on what is private.
 func PrivateNames(pages []Page, redirects []Redirect) ([]PrivateName, []PrivacyDecision) {
-	c := privacyCollector{public: map[string]bool{}, published: map[string]bool{}, numbers: map[string]int{}}
+	c := privacyCollector{public: map[string]bool{}, published: map[string]bool{}, numbers: map[string]int{},
+		bards: map[string]bool{}, otherTitles: map[string]bool{}}
 	for _, name := range PublicNames {
 		c.published[FoldName(name)] = true
 	}
-	bards := map[string]bool{}
 	maxYear := LatestYear(pages)
+	for kingdom := range scaKingdoms {
+		c.titles = append(c.titles, foldedWords(kingdom))
+	}
 	for _, p := range pages {
 		c.titles = append(c.titles, foldedWords(strings.TrimPrefix(p.Title, categoryPrefix)))
 		if TypePage(p) != PageTypeBard {
+			c.otherTitles[NormTitle(p.Title)] = true
+
 			continue
 		}
-		bards[NormTitle(p.Title)] = true
+		c.bards[NormTitle(p.Title)] = true
 		for _, a := range BardAliases(p) {
 			c.alias(p.PageID, string(a.Source), a.Name, ClassifyPersonAlias(a))
 		}
 	}
 	for _, r := range redirects {
-		if r.NS == NSMain && bards[NormTitle(r.To)] {
+		if r.NS == NSMain && c.bards[NormTitle(r.To)] {
 			a := AliasCandidate{Name: r.From, Source: AliasFromH1Parenthetical}
 			c.alias(0, RuleRedirect, r.From, ClassifyPersonAlias(a))
 		}
@@ -116,12 +129,15 @@ func PrivateNames(pages []Page, redirects []Redirect) ([]PrivateName, []PrivacyD
 
 // privacyCollector decides, in a fixed order, which possible names are private, and numbers those.
 type privacyCollector struct {
-	titles    [][]string
-	public    map[string]bool
-	published map[string]bool
-	numbers   map[string]int
-	names     []PrivateName
-	decisions []PrivacyDecision
+	titles [][]string
+	bards  map[string]bool
+	// otherTitles are the titles of the pages that are not bards', by NormTitle.
+	otherTitles map[string]bool
+	public      map[string]bool
+	published   map[string]bool
+	numbers     map[string]int
+	names       []PrivateName
+	decisions   []PrivacyDecision
 }
 
 func (c *privacyCollector) alias(pageID int64, rule, name string, class AliasClassification) {
@@ -170,9 +186,22 @@ func (c *privacyCollector) reason(cand NameCandidate) (reason PrivacyReason, cla
 		return PrivacyLegalMarker, false
 	case ClassifyPersonAlias(AliasCandidate{Name: name, Source: AliasFromH1Parenthetical}).Public():
 		return PrivacyPublicAlias, true
+	case cand.Partner != "" && c.isPublicPerson(cand.Partner):
+		return PrivacyPairedName, false
+	case cand.Partner != "" && c.otherTitles[NormTitle(cand.Partner)]:
+		return PrivacyTitlePair, false
 	}
 
 	return PrivacyUnsure, false
+}
+
+// isPublicPerson reports whether name is a person's public name: a published name, a bard's page title or public
+// alias, or a name the classifier makes public. A piece title is not ("Song Title / Other Title").
+func (c *privacyCollector) isPublicPerson(name string) bool {
+	key := FoldName(name)
+
+	return c.published[key] || c.public[key] || c.bards[NormTitle(name)] ||
+		ClassifyPersonAlias(AliasCandidate{Name: name, Source: AliasFromH1Parenthetical}).Public()
 }
 
 // known decides on a candidate that is a placeholder or a name already decided on.
@@ -183,6 +212,8 @@ func (c *privacyCollector) known(cand NameCandidate) (PrivacyReason, bool) {
 		return PrivacyPlaceholder, true
 	case c.numbers[key] > 0 && cand.Rule == CandidateMarker:
 		return PrivacyLegalMarker, true
+	case c.numbers[key] > 0 && cand.Partner != "" && c.isPublicPerson(cand.Partner):
+		return PrivacyPairedName, true
 	case c.numbers[key] > 0:
 		return PrivacyRepeated, true
 	case c.published[key]:
@@ -224,7 +255,7 @@ func (c *privacyCollector) private(pageID int64, rule, name string, reason Priva
 		c.numbers[key] = len(c.names) + 1
 		c.names = append(c.names, PrivateName{Text: name})
 	}
-	if reason == PrivacyHiddenAlias || reason == PrivacyLegalMarker {
+	if reason == PrivacyHiddenAlias || reason == PrivacyLegalMarker || reason == PrivacyPairedName {
 		c.names[c.numbers[key]-1].Legal = true
 	}
 	c.decisions = append(c.decisions, PrivacyDecision{

@@ -48,8 +48,9 @@ const capitalisedWord = `(?:\p{Lu}\.|\p{Lu}[\p{L}\p{M}'’-]*)`
 const nameParticles = `(?:of|the|de|del|della|di|du|la|le|van|von|zu|ap|ab|verch|ferch|inghen|inghean|ingen|` +
 	`ní|ni|nic|mac|mc|ui|ua|ó|bint|ibn|na|an)`
 
-// nameMarker matches "legal name", "mundane name", "aka" and "a.k.a." followed by a capitalised name.
-var nameMarker = regexp.MustCompile(`(?:\b([Ll]egal|[Mm]undane)[ \t]+[Nn]ame|\b[Aa]\.[Kk]\.[Aa]\.|\b[Aa][Kk][Aa]\b)` +
+// nameMarker matches "legal name", "mundane name", "real name", "aka" and "a.k.a." followed by a capitalised name.
+var nameMarker = regexp.MustCompile(`(?:\b([Ll]egal|[Mm]undane|[Rr]eal)[ \t]+[Nn]ame|` +
+	`\b[Aa]\.[Kk]\.[Aa]\.|\b[Aa][Kk][Aa]\b)` +
 	`(?:[ \t]*:)?[ \t]*(?:(?:is|was)[ \t]+)?(` + capitalisedName + `)`)
 
 // BardAliases returns the names a bard page gives besides its title: every parenthetical of its H1, split at

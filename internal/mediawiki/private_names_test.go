@@ -48,3 +48,28 @@ func TestIsPlaceholderName(t *testing.T) {
 	}
 	assert.False(t, IsPlaceholderName("Legally Named"))
 }
+
+func TestPrivateNames_SlashPairWithPublicPersonIsLegal(t *testing.T) {
+	const hidden = "Ash Hiddenname"
+	pages := []Page{
+		{NS: NSMain, Title: "Song One", PageID: 1, Wikitext: "Credited to Wren of the Vale / " + hidden + ".\n" +
+			"Sung as Song One / Song Two Here, and by Rowan Placeholder / Hazel Placeholder."},
+	}
+
+	names, decisions := PrivateNames(pages, nil)
+
+	assert.Contains(t, names, PrivateName{Text: hidden, Legal: true},
+		"the other name of a person with a public one is a legal name")
+	assert.Contains(t, names, PrivateName{Text: "Rowan Placeholder"}, "a pair of unsure names stays unsure")
+	assert.Contains(t, names, PrivateName{Text: "Hazel Placeholder"})
+	assert.NotContains(t, names, PrivateName{Text: "Song Two Here"}, "a title paired with a piece title is a title")
+	reasons := map[string]PrivacyReason{}
+	for _, d := range decisions {
+		reasons[d.Text] = d.Reason
+		if d.Text == hidden {
+			assert.Equal(t, PrivacyPairedName, d.Reason)
+			assert.True(t, d.Private)
+		}
+	}
+	assert.Equal(t, PrivacyTitlePair, reasons["Song Two Here"])
+}

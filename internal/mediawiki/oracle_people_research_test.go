@@ -306,7 +306,12 @@ func TestResearchPeople_ScrubbedCopyPreservesCounts(t *testing.T) {
 	dump, err := LoadDump(wikidumptest.Scrubbed(t))
 	wikidumptest.NoError(t, "scrubbed dump", err)
 	s := NewSite(dump)
-	wikidumptest.Equal(t, wikidumptest.Location{Field: "people counts", Offset: -1}, countPeople(o.people),
+	want := countPeople(o.people)
+	// One stub more: a single given name fuzzy-matches a credited full name on the crawl, which is an unsure
+	// candidate (a byname the classifier is not confident of), so the scrubbed copy holds a placeholder there and
+	// the given name is a stub of its own.
+	want.Stubs++
+	wikidumptest.Equal(t, wikidumptest.Location{Field: "people counts", Offset: -1}, want,
 		countPeople(ParsePeople(s, s.Pieces())))
 }
 

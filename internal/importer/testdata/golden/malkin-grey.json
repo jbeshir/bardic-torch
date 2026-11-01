@@ -66,7 +66,7 @@
       "title": "Malkin Grey"
     },
     "revision": {
-      "id": 241,
+      "id": 237,
       "summary": "Imported from the wiki (page revision 126).",
       "contributors": [
         "Wiki User 01"
@@ -82,13 +82,13 @@
       "text": "\"Legal Name 009\": kind legal, hidden (source h1_parenthetical, rule default, unsure)."
     },
     {
-      "id": "NAME-118",
+      "id": "NAME-167",
       "kind": "free_text",
       "page": "Malkin Grey",
       "text": "link https://fancyclopedia.org/wiki/Legal_Name_009, title: \"Legal Name 009\" was withheld. Context: \"[name withheld] at Fancyclopedia\"."
     },
     {
-      "id": "NAME-119",
+      "id": "NAME-168",
       "kind": "link_url",
       "page": "Malkin Grey",
       "text": "The link https://fancyclopedia.org/wiki/Legal_Name_009 holds a possible legal name in its URL: it is imported hidden."

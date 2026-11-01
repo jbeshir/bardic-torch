@@ -22,7 +22,7 @@ func (b *builder) buildPieces() {
 	for _, p := range b.c.Pieces {
 		b.out.Pieces = append(b.out.Pieces, b.piece(p, links[p.PageID]))
 	}
-	for _, sp := range b.c.People.StubPieces {
+	for _, sp := range b.stubPieces {
 		b.out.Pieces = append(b.out.Pieces, b.stubPiece(sp))
 	}
 }
@@ -32,8 +32,9 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 	page, _ := b.c.Site.Page(p.Title)
 	entity := "piece " + p.Title
 	c := p.Content
+	title, _ := b.name(p.Title, entity, "title", p.Title)
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion,
-		Title: b.name(p.Title, entity, "title", p.Title), Kind: p.Kind, SecondaryKinds: uniqueOf(p.SecondaryKinds),
+		Title: title, Kind: p.Kind, SecondaryKinds: uniqueOf(p.SecondaryKinds),
 		Conservation:       domain.DocConservation{Status: p.Conservation()},
 		NotesMD:            b.free(p.Title, entity, "notes", c.NotesMD),
 		VersionNotesMD:     b.free(p.Title, entity, "version notes", c.VersionNotesMD),
@@ -54,14 +55,14 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 		LegacyHadInlineLyrics: p.Lyrics.HadInlineLyrics, Legacy: legacy(page), Revision: b.revision(&page, "")}
 }
 
-// pieceAliases are a piece's alternate titles, withheld as free text, each once as the collation compares them
-// and none equal to the title.
+// pieceAliases are a piece's alternate titles, each once as the collation compares them and none equal to the
+// title; one holding a legal name is dropped (and listed by name).
 func (b *builder) pieceAliases(p mediawiki.PieceRecord) []domain.DocPieceAlias {
 	out := []domain.DocPieceAlias{}
 	seen := map[string]bool{domain.CollationKey(p.Title): true}
 	for _, a := range p.Titles.Alternates {
-		text := b.name(p.Title, "piece "+p.Title, "alias", a.Text)
-		if key := domain.CollationKey(text); !seen[key] {
+		text, ok := b.name(p.Title, "piece "+p.Title, "alias", a.Text)
+		if key := domain.CollationKey(text); ok && !seen[key] {
 			seen[key] = true
 			out = append(out, domain.DocPieceAlias{Text: text, Kind: a.Kind})
 		}
@@ -110,7 +111,8 @@ func (b *builder) pieceRelations(p mediawiki.PieceRecord) []domain.DocPieceRelat
 }
 
 // credits are a piece's credits. A named credit whose person was not resolved, which the schema cannot hold, is
-// imported as unknown and listed.
+// imported as unknown and listed; one naming a person whose name is withheld (withheldStubs) keeps the fact that
+// someone is named as the note WithheldName.
 func (b *builder) credits(page string, credits []mediawiki.PieceCredit) []domain.DocCredit {
 	out := []domain.DocCredit{}
 	for _, c := range credits {
@@ -119,6 +121,12 @@ func (b *builder) credits(page string, credits []mediawiki.PieceCredit) []domain
 		if c.Attribution == domain.AttributionNamed {
 			if id, ok := b.personIDs[c.Person]; ok && c.Person != "" {
 				d.PersonID = &id
+			} else if b.withheldStubs[c.Person] {
+				d.Attribution = domain.AttributionUnknown
+				if d.Note == nil {
+					note := domain.WithheldName
+					d.Note = &note
+				}
 			} else {
 				d.Attribution = domain.AttributionUnknown
 				b.review.Credits = append(b.review.Credits, item("unresolved", page,
@@ -137,7 +145,7 @@ func (b *builder) stubPiece(sp mediawiki.StubPiece) domain.ImportedPiece {
 	if len(sp.Credits) > 0 {
 		page = string(sp.Credits[0].Person)
 	}
-	title := b.name(page, "stub piece", "title", sp.Title)
+	title, _ := b.name(page, "stub piece", "title", sp.Title)
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: title,
 		Kind: domain.PieceKindSong, SecondaryKinds: []domain.PieceKind{},
 		Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed}, IsStub: true,

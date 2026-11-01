@@ -43,7 +43,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 82,
+          "person_id": 81,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -51,7 +51,7 @@
           "note": null
         },
         {
-          "person_id": 82,
+          "person_id": 81,
           "role": "tune",
           "attribution": "named",
           "certainty": "certain",
@@ -66,7 +66,7 @@
           "description": null,
           "platform": "sites.google.com",
           "place_type": "community_archive",
-          "collection_id": 40,
+          "collection_id": 37,
           "locator": null,
           "roles": [
             "lyrics"
@@ -105,7 +105,7 @@
       "title": "Voice of the Dragon"
     },
     "revision": {
-      "id": 516,
+      "id": 497,
       "summary": "Imported from the wiki (page revision 880).",
       "contributors": [
         "Wiki User 01"
@@ -115,7 +115,7 @@
   },
   "review": [
     {
-      "id": "STUB-112",
+      "id": "STUB-108",
       "kind": "stub_person",
       "page": "Voice of the Dragon",
       "text": "Stub person \"Emil Allzuwissender\" (community_bard), named on 3 page(s)."
@@ -127,13 +127,13 @@
       "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "PERF-247",
+      "id": "PERF-248",
       "kind": "incomplete",
       "page": "Voice of the Dragon",
       "text": "A performance item has no event the importer could read: \"[https://youtu.be/7lyp8SRDzbg?si=eYFirpi3AdLPUd-y Recording by Cerian Cantwr on …\"."
     },
     {
-      "id": "PERSON-125",
+      "id": "PERSON-124",
       "kind": "stub_kind",
       "page": "Voice of the Dragon",
       "text": "Stub person \"Emil Allzuwissender\" (named on 3 page(s)) is guessed to be community_bard."

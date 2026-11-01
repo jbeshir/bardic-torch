@@ -38,6 +38,10 @@ var (
 	lyricPlaceholder        = regexp.MustCompile(`scrubbedlyric`)
 	legalNamePlaceholder    = regexp.MustCompile(`(?i)legal[ _-]?name[ _-]?[0-9]{3}`)
 	numberedWithheldMarkers = regexp.MustCompile(`\[[a-z]+ withheld\][ _-]?[0-9]{2,3}\b`)
+	// The scrubber's email and phone placeholders (internal/scrub): the importer withholds every email, and no
+	// public text is a phone number.
+	emailPlaceholder = regexp.MustCompile(`email-[0-9]{3}@example\.invalid`)
+	phonePlaceholder = regexp.MustCompile(`000-000-[0-9]{4}`)
 )
 
 // hiddenAliases returns the aliases imp hides.
@@ -54,12 +58,14 @@ func hiddenAliases(imp domain.CatalogueImport) []string {
 	return out
 }
 
-// importedLeaks returns what of the scrubbed copy's private data body shows: each kind of placeholder, and each
+// importedLeaks returns what of the scrubbed copy's private data body shows: each kind of placeholder (lyrics,
+// names, emails and phones), and each
 // hidden alias (as a whole word or words).
 func importedLeaks(body string, hidden []*regexp.Regexp) []string {
 	var leaks []string
 	for name, marker := range map[string]*regexp.Regexp{"lyric placeholder": lyricPlaceholder,
-		"legal name placeholder": legalNamePlaceholder, "numbered withheld marker": numberedWithheldMarkers} {
+		"legal name placeholder": legalNamePlaceholder, "numbered withheld marker": numberedWithheldMarkers,
+		"email placeholder": emailPlaceholder, "phone placeholder": phonePlaceholder} {
 		if found := marker.FindString(body); found != "" {
 			leaks = append(leaks, name+": "+found)
 		}
@@ -227,7 +233,8 @@ func TestHTTP_ImportedCatalogue_PlantedLeakFails(t *testing.T) {
 
 	assert.NotEmpty(t, importedLeaks(rec.Body.String(), aliasPatterns(t, hidden)))
 	for _, planted := range []string{"scrubbedlyric placeholder line", "by Legal Name 007", "/wiki/Legal_Name_007",
-		"legal-name-007.example.org", "by [name withheld] 007"} {
+		"legal-name-007.example.org", "by [name withheld] 007", "mail email-001@example.invalid",
+		"call 000-000-0001"} {
 		assert.NotEmpty(t, importedLeaks(`{"notes_md":"`+planted+`"}`, nil), planted)
 	}
 	assert.Empty(t, importedLeaks(`{"notes_md":"[name withheld], 2003; Wiki User 01"}`, nil))

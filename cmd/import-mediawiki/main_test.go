@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 	"github.com/jbeshir/bardic-torch/internal/scrub"
 	"github.com/jbeshir/bardic-torch/internal/testutil/wikidumptest"
 )
@@ -122,14 +123,19 @@ func TestRun_DryRunScrubbedCounts(t *testing.T) {
 	t.Parallel()
 
 	var stdout bytes.Buffer
-	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun, flagReview,
-		filepath.Join(t.TempDir(), "import-review.md")}, noDatabase(t), &stdout)
+	review := filepath.Join(t.TempDir(), "import-review.md")
+	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun, flagReview, review}, noDatabase(t),
+		&stdout)
 
 	require.NoError(t, err)
-	// The research counts (PLAN §7, "Tests assert"): 142 pieces by kind, 48 bards and 61 collections.
+	// The research counts (PLAN §7, "Tests assert"): 142 pieces by kind, 48 bards and 61 collections, of which the
+	// scrubbed copy's 4 named by a placeholder (each counts as a legal name) are withheld and listed.
 	assert.Contains(t, stdout.String(), "pieces 142 (dance_music 1, poem 4, song 135, story 2)")
 	assert.Contains(t, stdout.String(), "bards 48")
-	assert.Contains(t, stdout.String(), "collections 61")
+	assert.Contains(t, stdout.String(), "collections 57")
+	content, err := os.ReadFile(filepath.Clean(review))
+	require.NoError(t, err)
+	assert.Equal(t, 4, strings.Count(string(content), "is not imported: its name or URL holds"))
 	assert.NotContains(t, stdout.String(), lyricMarker)
 }
 
@@ -160,5 +166,14 @@ func TestRun_RealDumpDryRun(t *testing.T) {
 		if !strings.ContainsAny(line, "0123456789") {
 			t.Errorf("stdout has a line without a count")
 		}
+	}
+	crawl, err := mediawiki.LoadDump(os.DirFS(dump))
+	wikidumptest.NoError(t, "loading the crawl", err)
+	names := mediawiki.NewPrivateNameMatcher(mediawiki.ParseCorpus(crawl).PrivateNames)
+	for _, m := range names.Find(stdout.String()) {
+		wikidumptest.Equal(t, wikidumptest.Location{Field: "standard output", Offset: m.Start}, "no private name", "name")
+	}
+	for _, m := range mediawiki.EmailAddress.FindAllStringIndex(stdout.String(), -1) {
+		wikidumptest.Equal(t, wikidumptest.Location{Field: "standard output", Offset: m[0]}, "no email", "email")
 	}
 }

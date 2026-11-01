@@ -22,9 +22,9 @@ func TestBuild_ValidatesOutput(t *testing.T) {
 
 func TestBuild_ResearchCounts(t *testing.T) {
 	c := scrubbedCorpus(t)
-	imp, _ := Build(c, BuildOptions{Now: buildTime})
+	imp, review := Build(c, BuildOptions{Now: buildTime})
 
-	assert.Equal(t, researchCounts, importCounts(c, imp))
+	assert.Equal(t, researchCounts, importCounts(c, imp, review))
 }
 
 func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {

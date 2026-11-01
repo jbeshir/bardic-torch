@@ -56,12 +56,12 @@
           "note": null
         },
         {
-          "person_id": 115,
+          "person_id": null,
           "role": "tune",
-          "attribution": "named",
+          "attribution": "unknown",
           "certainty": "certain",
           "part": null,
-          "note": null
+          "note": "[name withheld]"
         }
       ],
       "links": [
@@ -106,7 +106,7 @@
             {
               "event_id": null,
               "year": null,
-              "uploader": "[name withheld]",
+              "uploader": null,
               "description_verbatim": "[https://www.youtube.com/watch?v=Y-DSvojaL3g Warrior's Wyrd on YouTube by '[name withheld]']",
               "performer_ids": []
             }
@@ -127,7 +127,7 @@
             {
               "event_id": null,
               "year": null,
-              "uploader": "[name withheld]",
+              "uploader": null,
               "description_verbatim": "[https://www.youtube.com/watch?v=GkFyoVrTEok Warrior's Wyrd on YouTube by [name withheld]]",
               "performer_ids": []
             }
@@ -148,7 +148,7 @@
             {
               "event_id": 11,
               "year": null,
-              "uploader": "[name withheld]",
+              "uploader": null,
               "description_verbatim": "[https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Celebration]",
               "performer_ids": []
             }
@@ -163,7 +163,7 @@
       "title": "Warrior's Wyrd"
     },
     "revision": {
-      "id": 434,
+      "id": 415,
       "summary": "Imported from the wiki (page revision 371).",
       "contributors": [
         "Wiki User 01"
@@ -173,82 +173,94 @@
   },
   "review": [
     {
-      "id": "NAME-040",
-      "kind": "free_text",
+      "id": "NAME-008",
+      "kind": "stub_withheld",
       "page": "Warrior's Wyrd",
-      "text": "link https://www.youtube.com/watch?v=Y-DSvojaL3g, title: \"Legal Name 046\" was withheld. Context: \"Warrior's Wyrd on YouTube by '[name withheld]'\"."
+      "text": "The name \"Legal Name 064\", credited on 1 page(s), holds a possible legal name: no person is created, and its credits are imported as unknown with the note \"[name withheld]\". Create the person by hand once cleared."
     },
     {
-      "id": "NAME-041",
+      "id": "NAME-073",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
-      "text": "link https://www.youtube.com/watch?v=GkFyoVrTEok, title: \"Legal Name 050\" was withheld. Context: \"Warrior's Wyrd on YouTube by [name withheld]\"."
+      "text": "link https://www.youtube.com/watch?v=Y-DSvojaL3g, title: \"Legal Name 061\" was withheld. Context: \"Warrior's Wyrd on YouTube by '[name withheld]'\"."
     },
     {
-      "id": "NAME-042",
+      "id": "NAME-074",
+      "kind": "free_text",
+      "page": "Warrior's Wyrd",
+      "text": "link https://www.youtube.com/watch?v=GkFyoVrTEok, title: \"Legal Name 065\" was withheld. Context: \"Warrior's Wyrd on YouTube by [name withheld]\"."
+    },
+    {
+      "id": "NAME-075",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
       "text": "link https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU, title: \"Legal Name 024\" was withheld. Context: \"Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce\"."
     },
     {
-      "id": "NAME-153",
+      "id": "NAME-316",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
-      "text": "stub person, name: \"Legal Name 049\" was withheld. Context: \"[name withheld]\"."
+      "text": "piece Warrior's Wyrd, licensing notes: \"Legal Name 064\" was withheld. Context: \"It is likely that [name withheld] still holds the copyright to the tune;\"."
     },
     {
-      "id": "NAME-239",
+      "id": "NAME-317",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
-      "text": "piece Warrior's Wyrd, licensing notes: \"Legal Name 049\" was withheld. Context: \"It is likely that [name withheld] still holds the copyright to the tune;\"."
+      "text": "performance item, uploader: \"Legal Name 061\" was withheld. Context: \"[name withheld]\"."
     },
     {
-      "id": "NAME-240",
+      "id": "NAME-318",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
-      "text": "performance item, uploader: \"Legal Name 046\" was withheld. Context: \"[name withheld]\"."
+      "text": "performance item, description: \"Legal Name 061\" was withheld. Context: \"DSvojaL3g Warrior's Wyrd on YouTube by '[name withheld]']\"."
     },
     {
-      "id": "NAME-241",
+      "id": "NAME-319",
+      "kind": "uploader",
+      "page": "Warrior's Wyrd",
+      "text": "A performance item's uploader is withheld: the performance is imported without an uploader."
+    },
+    {
+      "id": "NAME-320",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
-      "text": "performance item, description: \"Legal Name 046\" was withheld. Context: \"DSvojaL3g Warrior's Wyrd on YouTube by '[name withheld]']\"."
+      "text": "performance item, uploader: \"Legal Name 065\" was withheld. Context: \"[name withheld]\"."
     },
     {
-      "id": "NAME-242",
+      "id": "NAME-321",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
-      "text": "performance item, uploader: \"Legal Name 050\" was withheld. Context: \"[name withheld]\"."
+      "text": "performance item, description: \"Legal Name 065\" was withheld. Context: \"kFyoVrTEok Warrior's Wyrd on YouTube by [name withheld]]\"."
     },
     {
-      "id": "NAME-243",
-      "kind": "free_text",
+      "id": "NAME-322",
+      "kind": "uploader",
       "page": "Warrior's Wyrd",
-      "text": "performance item, description: \"Legal Name 050\" was withheld. Context: \"kFyoVrTEok Warrior's Wyrd on YouTube by [name withheld]]\"."
+      "text": "A performance item's uploader is withheld: the performance is imported without an uploader."
     },
     {
-      "id": "NAME-244",
+      "id": "NAME-323",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
       "text": "performance item, uploader: \"Legal Name 024\" was withheld. Context: \"[name withheld]\"."
     },
     {
-      "id": "NAME-245",
+      "id": "NAME-324",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
       "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce\"."
+    },
+    {
+      "id": "NAME-325",
+      "kind": "uploader",
+      "page": "Warrior's Wyrd",
+      "text": "A performance item's uploader is withheld: the performance is imported without an uploader."
     },
     {
       "id": "CREDIT-012",
       "kind": "category_without_linked_credit",
       "page": "Warrior's Wyrd",
       "text": "category_without_linked_credit: \"Ivar Battleskald\" (person Ivar Battleskald)."
-    },
-    {
-      "id": "STUB-145",
-      "kind": "stub_person",
-      "page": "Warrior's Wyrd",
-      "text": "Stub person \"Legal Name 049\" (community_bard), named on 1 page(s)."
     },
     {
       "id": "TITLE-010",
@@ -279,12 +291,6 @@
       "kind": "incomplete",
       "page": "Warrior's Wyrd",
       "text": "A performance item has no performer or year the importer could read: \"[https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU Warrior's Wyrd on YouTube, rec…\"."
-    },
-    {
-      "id": "PERSON-158",
-      "kind": "stub_kind",
-      "page": "Warrior's Wyrd",
-      "text": "Stub person \"[name withheld]\" (named on 1 page(s)) is guessed to be community_bard."
     }
   ]
 }

@@ -20,6 +20,9 @@ func (b *builder) buildLinkRows() {
 		if row.IsHidden {
 			b.review.HiddenNames = append(b.review.HiddenNames, item("link_url", page,
 				"The link %s holds a possible legal name in its URL: it is imported hidden.", f.URL))
+		} else if note := b.w.urlNote(f.URL); note != "" {
+			b.review.HiddenNames = append(b.review.HiddenNames, item("link_url_name", page,
+				"The link %s %s: check it names no one who should be hidden.", f.URL, note))
 		}
 		b.out.Links = append(b.out.Links, row)
 	}
@@ -100,13 +103,18 @@ func (b *builder) personLinks(links []mediawiki.LinkRecord) []domain.DocPersonLi
 }
 
 // performance is a performance's document form. Its description is kept as written, but for the names and
-// addresses withheld from it; so is its uploader.
+// addresses withheld from it; an uploader with anything withheld is left out, and listed.
 func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 	entity := "performance item"
 	out := domain.DocPerformance{
 		Uploader:            b.free(p.Page, entity, "uploader", p.Uploader),
 		DescriptionVerbatim: b.freeText(p.Page, entity, "description", p.DescriptionVerbatim),
 		PerformerIDs:        []int64{},
+	}
+	if out.Uploader != nil && domain.HoldsWithheldText(*out.Uploader) {
+		out.Uploader = nil
+		b.review.HiddenNames = append(b.review.HiddenNames, item("uploader", p.Page, "A performance item's "+
+			"uploader is withheld: the performance is imported without an uploader."))
 	}
 	if id, ok := b.eventIDs[p.Event]; ok && p.Event != "" {
 		out.EventID = &id
@@ -120,23 +128,29 @@ func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 			out.PerformerIDs = append(out.PerformerIDs, id)
 		}
 	}
-	var missing []string
-	if len(out.PerformerIDs) == 0 {
-		missing = append(missing, "performer")
-	}
-	if out.EventID == nil {
-		missing = append(missing, "event")
-	}
-	if out.Year == nil {
-		missing = append(missing, "year")
-	}
-	if len(missing) > 0 {
+	if missing := missingFields(out); len(missing) > 0 {
 		b.review.Performances = append(b.review.Performances, item("incomplete", p.Page,
 			"A performance item has no %s the importer could read: %s.", joinWords(missing),
 			fmt.Sprintf("%q", truncate(out.DescriptionVerbatim, 2*contextRunes))))
 	}
 
 	return out
+}
+
+// missingFields names what a performance lacks of its performers, event and year.
+func missingFields(p domain.DocPerformance) []string {
+	var missing []string
+	if len(p.PerformerIDs) == 0 {
+		missing = append(missing, "performer")
+	}
+	if p.EventID == nil {
+		missing = append(missing, "event")
+	}
+	if p.Year == nil {
+		missing = append(missing, "year")
+	}
+
+	return missing
 }
 
 // truncate cuts s to at most n runes.

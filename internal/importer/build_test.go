@@ -167,7 +167,7 @@ func TestBuild_FreeTextContainingHiddenAliasListed(t *testing.T) {
 	public := strings.ToLower(publicJSON(t, imp))
 	assert.NotContains(t, public, strings.ToLower(hiddenSurname))
 	for _, field := range []string{"notes", "version notes", "licensing notes", "alias", "title", "description",
-		"uploader", "name"} {
+		"uploader"} {
 		found := false
 		for _, it := range review.HiddenNames {
 			found = found || strings.Contains(it.Text, ", "+field+":")
@@ -176,12 +176,23 @@ func TestBuild_FreeTextContainingHiddenAliasListed(t *testing.T) {
 	}
 	wrenDoc := personNamed(t, imp, wren).Doc
 	require.NotNil(t, wrenDoc.NotesMD)
-	assert.Equal(t, "Wren sings. "+NameWithheld+" wrote back.", *wrenDoc.NotesMD, "the honorific form is withheld")
+	assert.Equal(t, "Wren sings. "+domain.WithheldName+" wrote back.", *wrenDoc.NotesMD, "the honorific form is withheld")
 	song := pieceTitled(t, imp, songTitle).Doc
 	require.NotNil(t, song.NotesMD)
-	assert.Equal(t, "Written for "+NameWithheld+".", *song.NotesMD)
-	assert.Contains(t, song.Aliases, domain.DocPieceAlias{Text: NameWithheld + "'s Song",
-		Kind: domain.PieceAliasKindAltTitle})
+	assert.Equal(t, "Written for "+domain.WithheldName+".", *song.NotesMD)
+	for _, a := range song.Aliases {
+		assert.False(t, domain.HoldsWithheldText(a.Text), "an alias holding the hidden alias is dropped, not withheld")
+	}
+
+	assert.Empty(t, imp.Collections, "a collection named by the hidden alias is not imported")
+	assert.Empty(t, imp.Events, "nor is an event")
+	assert.True(t, containsKind(review.HiddenNames, "collection_withheld"), "the collection is listed")
+	assert.True(t, containsKind(review.HiddenNames, "event_withheld"), "the event is listed")
+	for _, l := range pieceTitled(t, imp, songTitle).Doc.Links {
+		for _, p := range l.Performances {
+			assert.Nil(t, p.Uploader, "a withheld uploader is left out, not a placeholder")
+		}
+	}
 
 	hidden := 0
 	for _, l := range imp.Links {
@@ -199,7 +210,7 @@ func TestBuild_EmailsWithheldAndListed(t *testing.T) {
 	assert.NotContains(t, publicJSON(t, imp), "@example.org")
 	notes := personNamed(t, imp, wren).Doc.LicensingNotesMD
 	require.NotNil(t, notes)
-	assert.Contains(t, *notes, EmailWithheld)
+	assert.Contains(t, *notes, domain.WithheldEmail)
 	require.Len(t, review.Contacts, 1)
 	assert.Contains(t, review.Contacts[0].Text, "ash@example.org", "the private review names the address")
 }
@@ -301,4 +312,59 @@ func TestBuild_StringsAreNFC(t *testing.T) {
 	require.NotNil(t, notes)
 	assert.Equal(t, "Café notes.", *notes)
 	require.NoError(t, imp.Validate())
+}
+
+func TestBuild_PublicAliasHoldingHiddenAliasHidden(t *testing.T) {
+	// The alias has a confident SCA form, so the classifier alone makes it public; it holds the hidden alias.
+	sca := hiddenAlias + " of the Vale"
+	require.True(t, mediawiki.ClassifyPersonAlias(mediawiki.AliasCandidate{Name: sca,
+		Source: mediawiki.AliasFromH1Parenthetical}).Public())
+	d := syntheticDump()
+	d.Pages[0].Wikitext = "= " + wren + " (" + hiddenAlias + ", " + sca + ") =\nWren sings.\n"
+
+	imp, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+
+	var got []domain.DocPersonAlias
+	for _, a := range personNamed(t, imp, wren).Doc.Aliases {
+		if a.Name == sca {
+			got = append(got, a)
+		}
+	}
+	require.Len(t, got, 1)
+	assert.False(t, got[0].IsPublic, "a public alias holding a hidden alias is hidden")
+	assert.True(t, containsKind(review.HiddenNames, "public_alias"), "and listed")
+}
+
+func containsKind(items []Item, kind string) bool {
+	for _, it := range items {
+		if it.Kind == kind {
+			return true
+		}
+	}
+
+	return false
+}
+
+func TestBuild_StubPersonWithLegalNameNotCreated(t *testing.T) {
+	// A credit names someone the wiki gives as a legal name elsewhere: no person is created, the credit keeps that
+	// someone is named, and the review lists it.
+	legal := "Hazel Legalname"
+	d := syntheticDump()
+	d.Pages = append(d.Pages, page(50, "Song of Hiding", []string{mediawiki.CategoryPieces, mediawiki.CategorySongs},
+		"{{Infobox Song\n|lyrics_by="+legal+"\n}}\nThe writer's legal name is "+legal+".\n"))
+
+	imp, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+
+	require.NoError(t, imp.Validate())
+	for _, p := range imp.Persons {
+		assert.NotContains(t, p.Doc.Name, "Legalname")
+		assert.False(t, domain.HoldsWithheldText(p.Doc.Name), "no person is named by a placeholder")
+	}
+	credits := pieceTitled(t, imp, "Song of Hiding").Doc.Credits
+	require.Len(t, credits, 1)
+	assert.Equal(t, domain.AttributionUnknown, credits[0].Attribution)
+	assert.Nil(t, credits[0].PersonID)
+	require.NotNil(t, credits[0].Note)
+	assert.Equal(t, domain.WithheldName, *credits[0].Note)
+	assert.True(t, containsKind(review.HiddenNames, "stub_withheld"))
 }

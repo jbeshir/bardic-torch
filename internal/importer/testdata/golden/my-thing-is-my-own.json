@@ -48,7 +48,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 155,
+          "person_id": 140,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -80,7 +80,7 @@
         },
         {
           "url": "https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own",
-          "title": "Lyrics on Cunnan, a Lochac wiki, taken from the Legal Name Songbook",
+          "title": "Lyrics on Cunnan, a Lochac wiki, taken from the [name withheld] Songbook",
           "description": null,
           "platform": "cunnan.lochac.sca.org",
           "place_type": null,
@@ -126,7 +126,7 @@
       "title": "My Thing is My Own"
     },
     "revision": {
-      "id": 502,
+      "id": 483,
       "summary": "Imported from the wiki (page revision 814).",
       "contributors": [
         "Wiki User 01"
@@ -136,13 +136,19 @@
   },
   "review": [
     {
+      "id": "NAME-128",
+      "kind": "free_text",
+      "page": "My Thing is My Own",
+      "text": "link https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own, title: \"Legal Name 073\" was withheld. Context: \"n Cunnan, a Lochac wiki, taken from the [name withheld] Songbook\"."
+    },
+    {
       "id": "CREDIT-042",
       "kind": "missing_bard_category",
       "page": "My Thing is My Own",
       "text": "missing_bard_category: \"Thomas d'Urfey\" (person Thomas d'Urfey)."
     },
     {
-      "id": "STUB-185",
+      "id": "STUB-167",
       "kind": "stub_person",
       "page": "My Thing is My Own",
       "text": "Stub person \"Thomas d'Urfey\" (community_bard), named on 1 page(s)."
@@ -154,7 +160,7 @@
       "text": "2 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "PERSON-198",
+      "id": "PERSON-183",
       "kind": "stub_kind",
       "page": "My Thing is My Own",
       "text": "Stub person \"Thomas d'Urfey\" (named on 1 page(s)) is guessed to be historical."

@@ -106,9 +106,14 @@ with `go tool`, so nothing needs installing.
   term parents and related affiliations, link rows, the closure, NFC), each failing with `ErrInvalidImport` and
   never showing the value. `TestBuild_*` cover revisions and contributors, neutral summaries, stable slug
   collisions, sort keys, the closure, legacy URLs as status and conservation sources, hidden, redirect and unsure
-  aliases, every kind of free text withheld (`TestBuild_FreeTextContainingHiddenAliasListed`), emails, one link row
-  per normalised URL, legacy columns, NFC and determinism. On the scrubbed copy, `TestBuild_ResearchCounts` asserts
-  142 pieces (135/4/2/1), 48 bards, 62 collection entries (61 written) and 11 pieces with inline lyrics,
+  aliases, every kind of free text withheld and every entity named by a legal name left out
+  (`TestBuild_FreeTextContainingHiddenAliasListed`, `TestBuild_StubPersonWithLegalNameNotCreated`), a public alias
+  holding a hidden alias hidden (`TestBuild_PublicAliasHoldingHiddenAliasHidden`), emails, one link row per
+  normalised URL, legacy columns, NFC and determinism. `TestWithholder_*` pin the withholder: legal names in names,
+  unsure names in free text only, overlapping forms withheld once, whole wikilinks, URLs hidden only by a legal
+  name and listed for an unsure name or a home directory. On the scrubbed copy, `TestBuild_ResearchCounts` asserts
+  142 pieces (135/4/2/1), 48 bards, 62 collection entries (61 collections, written or withheld) and 11 pieces with
+  inline lyrics,
   `TestBuild_NoLyricMarkerAnywhere` that no lyric placeholder line is in any field or the review, and
   `TestBuild_NoPlaceholderInPublicFields` that no name placeholder is in a public field (hidden aliases, legacy
   columns and hidden links aside); `TestCorpus_ResearchCounts` asserts `mediawiki.Stats`. `TestRenderReview_*` and
@@ -116,15 +121,18 @@ with `go tool`, so nothing needs installing.
   listed. `TestGoldenPages` (16 tricky pages, with semantic checks in `golden_assert_test.go`) and
   `TestReviewGolden` compare with `internal/importer/testdata/`; after a deliberate change, rewrite them with
   `go test ./internal/importer -run Golden -update` and review the diff (the repository privacy scans cover them).
-  Gated: the same counts on the real crawl, no private name (in clear, every form) or email in a public field of
-  the real import, and no 5-word window or whole line of any dropped lyrics in the real import or its review.
+  Gated: the same counts on the real crawl, no legal name (in clear, every form) or email in any public field of
+  the real import and no private name in its free text, and no 5-word window or whole line of the crawl's inline
+  lyrics in the real import or its review, the lyrics found without the detector under test
+  (`wikidumptest.OracleLyrics` in the sections the research analysis lists).
   `internal/testutil/importtest` gives other packages the scrubbed import, built once per test binary
   (`importtest.Scrubbed`).
 - **Import command** (`cmd/import-mediawiki`, `internal/command`, `internal/repopath`): `TestParseOptions` (exactly one
   mode, `--dump` and `--review` required in both), `TestRun_RefusesReviewInsideRepository`,
   `TestRun_DryRunNeedsNoDatabase` (the run never asks for `DATABASE_URL`, and the review is written with mode
   0600 even over a wider file), `TestRun_DryRunScrubbedCounts` (the research counts on stdout) and, gated,
-  `TestRun_RealDumpDryRun` (no deny-listed lyric n-gram in the real review or stdout).
+  `TestRun_RealDumpDryRun` (no deny-listed lyric n-gram in the real review or stdout, and no private name or email
+  on stdout).
   `TestApplyCatalogueImport_*` (mocks): an invalid import never reaches the writer, and the writer's typed errors
   pass through. `TestInside` pins the repository check `cmd/scrub-dump` shares.
 - **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
@@ -137,6 +145,12 @@ with `go tool`, so nothing needs installing.
   flag (11 pieces) and bard aliases; `oracle_pieces_research_test.go` the taxonomy (every category's class, facets,
   ancestors and redirect), pieces (kind, section keys, H1, bard-name categories, both drift lists, conservation and
   alternate titles) and the quality lists (drift, redirect-category links, inline-lyrics pages, assessed pieces);
+  `oracle_privacy_research_test.go` checks the privacy classifier independently of its candidate rules: every run of
+  two or more capitalised words of the crawl's prose and link titles (its own simple rules: URLs, link targets,
+  `<poem>` bodies and lyric lines blanked, runs split at generic non-name words) must be words of an entity the
+  parse names (page titles, categories, alternate titles, stub pieces and persons, events, collections), of a
+  link label that is its wiki article's title, of a reviewed non-name phrase (`oracleNonNamePhrases`, no personal
+  name), or lie in a name the classifier decided on; a run that is none of these is a name form no rule sees.
   `oracle_people_research_test.go` the infobox person items, bard pages (redirects, works, roles, kingdom and group
   categories, In Memoriam, licensing), the red-link map, the credit-signal quality lists, and that the scrubbed copy
   keeps every people count; `oracle_links_research_test.go` every external link occurrence (URL, text, brackets and
@@ -156,14 +170,17 @@ with `go tool`, so nothing needs installing.
   - `TestRepositoryHasNoDenylistedText` scans every text file of the repository (skipping `.git`, binary files
     and what `.gitignore` ignores) for the 8-word n-grams of the dropped lyrics, whose salted hashes are
     `testdata/wiki-dump/denylist.txt` (no name is ever hashed);
-  - `TestScrubbedDumpStructuralPrivacy`: lyric blocks are only placeholder lines, no email outside
+  - `TestScrubbedDumpStructuralPrivacy`: lyric blocks (by the detector, and every run of four or more prose lines of
+    a Lyrics or Text section found without it) are only placeholder lines, no email outside
     `example.invalid`, no phone number in prose, every honorific followed by a placeholder, every hidden H1 alias a
     placeholder, no possible person name left that would be a deny phrase, and only placeholder wiki users;
   - `TestScrubbedDumpIsAFixedPoint`: scrubbing the copy again changes nothing.
 
   Research-gated (`scrub_research_test.go`): `TestRepositoryHasNoResearchPrivateText` scans the whole repository
   in clear for every deny phrase of the crawl in every form `NameMatcher` finds, and for its emails and phones;
-  `TestScrubbedDumpIsUpToDate` regenerates the copy and requires it byte for byte; `TestScrubPreservesResearchCounts`
+  `TestScrubbedDumpIsUpToDate` regenerates the copy and requires it byte for byte; `TestScrubbedCopyHasNoResearchLyrics`
+  finds the crawl's inline lyrics without the detector (`wikidumptest.OracleLyrics`) and requires no 5-word window
+  of them in the copy; `TestScrubPreservesResearchCounts`
   compares page types, bards, inline-lyrics pieces, redirects, categories and members, sections, links, templates,
   infoboxes, Collections page URLs and performance items with performers, per page and in total.
 - **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list

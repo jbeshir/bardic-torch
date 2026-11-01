@@ -1389,19 +1389,6 @@
       ],
       "subcategories": []
     },
-    "Legal Name": {
-      "description_wikitext": "",
-      "name": "Legal Name",
-      "page_exists": false,
-      "pages": [
-        {
-          "ns": 0,
-          "title": "The Torture Song"
-        }
-      ],
-      "parents": [],
-      "subcategories": []
-    },
     "Ealdormere": {
       "description_wikitext": "[https://ealdormere.ca/ Ealdormere] is the sixteenth kingdom of the SCA and encompasses most of Ontario, Canada.\n\nThis page is for bards from Ealdormere. Use [[:Category:Patriotic (Ealdormere)|Patriotic (Ealdormere)]] for Ealdormerean anthems.\n\n[[Category:SCA Kingdom]]",
       "name": "Ealdormere",
@@ -2402,19 +2389,6 @@
       "parents": [],
       "subcategories": []
     },
-    "Legal Name": {
-      "description_wikitext": "",
-      "name": "Legal Name",
-      "page_exists": false,
-      "pages": [
-        {
-          "ns": 0,
-          "title": "InDUCKtion"
-        }
-      ],
-      "parents": [],
-      "subcategories": []
-    },
     "Joyful": {
       "description_wikitext": "Joyful should be used for all pieces that are happy, victorious, triumphant (but not [[:Category:Warlike|warlike]]), upbeat, 'party' music or otherwise suitable for celebrations.\n\nMood tags on Bardic Torch are used to help bards select appropriate works for a particular context. Joyful pieces should be appropriate for performing at parties and celebrations, in taverns, in bardic circles where the mood is upbeat and cheerful, and at other occasions where happy music is called for. \n\nSee all [[:Category:Moods|Moods]] or read more at [[Categories]].\n[[Category:Moods]]",
       "name": "Joyful",
@@ -2496,32 +2470,6 @@
       "parents": [
         "Moods"
       ],
-      "subcategories": []
-    },
-    "Legal Name": {
-      "description_wikitext": "",
-      "name": "Legal Name",
-      "page_exists": false,
-      "pages": [
-        {
-          "ns": 0,
-          "title": "Causes of Rebellion"
-        }
-      ],
-      "parents": [],
-      "subcategories": []
-    },
-    "Legal Name": {
-      "description_wikitext": "",
-      "name": "Legal Name",
-      "page_exists": false,
-      "pages": [
-        {
-          "ns": 0,
-          "title": "A Sailor's Love Song"
-        }
-      ],
-      "parents": [],
       "subcategories": []
     },
     "Ken Theriot": {
@@ -2622,27 +2570,14 @@
       ],
       "subcategories": []
     },
-    "Legal Name 053": {
+    "Legal Name 068": {
       "description_wikitext": "",
-      "name": "Legal Name 053",
+      "name": "Legal Name 068",
       "page_exists": false,
       "pages": [
         {
           "ns": 0,
           "title": "Why I Fight"
-        }
-      ],
-      "parents": [],
-      "subcategories": []
-    },
-    "Legal Name 058": {
-      "description_wikitext": "",
-      "name": "Legal Name 058",
-      "page_exists": false,
-      "pages": [
-        {
-          "ns": 0,
-          "title": "Queen of Argyll"
         }
       ],
       "parents": [],
@@ -2655,20 +2590,7 @@
       "pages": [
         {
           "ns": 0,
-          "title": "Where is the Light of the East"
-        }
-      ],
-      "parents": [],
-      "subcategories": []
-    },
-    "Legal Name 078": {
-      "description_wikitext": "",
-      "name": "Legal Name 078",
-      "page_exists": false,
-      "pages": [
-        {
-          "ns": 0,
-          "title": "Song for a Young Squire"
+          "title": "Queen of Argyll"
         }
       ],
       "parents": [],
@@ -2681,7 +2603,98 @@
       "pages": [
         {
           "ns": 0,
+          "title": "Causes of Rebellion"
+        }
+      ],
+      "parents": [],
+      "subcategories": []
+    },
+    "Legal Name 089": {
+      "description_wikitext": "",
+      "name": "Legal Name 089",
+      "page_exists": false,
+      "pages": [
+        {
+          "ns": 0,
+          "title": "What Price Honor"
+        }
+      ],
+      "parents": [],
+      "subcategories": []
+    },
+    "Legal Name 102": {
+      "description_wikitext": "",
+      "name": "Legal Name 102",
+      "page_exists": false,
+      "pages": [
+        {
+          "ns": 0,
+          "title": "Where is the Light of the East"
+        }
+      ],
+      "parents": [],
+      "subcategories": []
+    },
+    "Legal Name 104": {
+      "description_wikitext": "",
+      "name": "Legal Name 104",
+      "page_exists": false,
+      "pages": [
+        {
+          "ns": 0,
+          "title": "Song for a Young Squire"
+        }
+      ],
+      "parents": [],
+      "subcategories": []
+    },
+    "Legal Name 107": {
+      "description_wikitext": "",
+      "name": "Legal Name 107",
+      "page_exists": false,
+      "pages": [
+        {
+          "ns": 0,
+          "title": "A Sailor's Love Song"
+        }
+      ],
+      "parents": [],
+      "subcategories": []
+    },
+    "Legal Name 115": {
+      "description_wikitext": "",
+      "name": "Legal Name 115",
+      "page_exists": false,
+      "pages": [
+        {
+          "ns": 0,
+          "title": "The Torture Song"
+        }
+      ],
+      "parents": [],
+      "subcategories": []
+    },
+    "Legal Name 118": {
+      "description_wikitext": "",
+      "name": "Legal Name 118",
+      "page_exists": false,
+      "pages": [
+        {
+          "ns": 0,
           "title": "A Light Above The Door"
+        }
+      ],
+      "parents": [],
+      "subcategories": []
+    },
+    "Legal Name 121": {
+      "description_wikitext": "",
+      "name": "Legal Name 121",
+      "page_exists": false,
+      "pages": [
+        {
+          "ns": 0,
+          "title": "InDUCKtion"
         }
       ],
       "parents": [],
@@ -2984,19 +2997,6 @@
         "Tragic",
         "Warlike"
       ]
-    },
-    "Legal Name": {
-      "description_wikitext": "",
-      "name": "Legal Name",
-      "page_exists": false,
-      "pages": [
-        {
-          "ns": 0,
-          "title": "What Price Honor"
-        }
-      ],
-      "parents": [],
-      "subcategories": []
     },
     "Morric Haast": {
       "description_wikitext": "This is the category page for [[Morric Haast]]. Because any piece with <nowiki>[[Category:Morric Haast]]</nowiki> is added here automatically, it may sometimes be more comprehensive than his actual page [[Morric Haast]] (which has to be edited by humans).",

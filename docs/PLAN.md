@@ -153,8 +153,8 @@ the DDL is in `migrations/003`–`009`.
   person's current name or one of their current public alias names (compared exactly), and is their current name
   otherwise, so a former name kept as a hidden alias never shows. BE2 cannot scrub free text, so the
   importer (BE3) hides `redirect` aliases equal to a hidden alias, withholds every hidden alias and other private
-  name from the free text it writes (`[name withheld]`, §7), imports a link whose URL holds one hidden, and lists
-  each in `import-review.md`.
+  name from the free text it writes (`[name withheld]`, §7), imports a link whose URL holds a legal name hidden,
+  never writes a placeholder into a name or title, and lists each in `import-review.md`.
 - **`prefers_no_page` persons** show only their identity (name, kind, status, date and source; `profile: null`).
   They are listed as stubs and found only by name. They are excluded from role/affiliation filters, every person
   count and member list, every credit (the credit is omitted), performer list, relation list (both directions),
@@ -362,7 +362,7 @@ the DDL is in `migrations/003`–`009`.
 
 ## 7. Importer (`cmd/import-mediawiki`)
 
-**Input:** the research dump format (`pages.jsonl`, `categories.json`, `redirects.json` and `activity.json`). Reading a live crawl of the wiki directly is deferred (a backlog item): the research `scripts/crawl.mjs` produces a dump, which is the input. The research `scripts/` define the expected behaviour and are ported to Go. A **scrubbed** copy of the dump is committed under `testdata/wiki-dump/` (regenerated with `cmd/scrub-dump`), so tests are deterministic and need no network: legal and mundane names (the aliases the importer classifies as legal, every other possible person name it cannot classify confidently as public, and their honorific forms), emails, phones and wiki user names are replaced with numbered placeholders, the same number everywhere a name occurs (wikitext, titles, categories, redirects, activity); inline lyrics with placeholder lines (keeping the ≥4-line classification); and only the namespaces, files and fields the importer reads are kept. Every count the tests assert is preserved. No name is hashed into the repository: `testdata/wiki-dump/denylist.txt` holds only salted hashes of the dropped lyrics' 8-word n-grams, and a unit test fails if any appears anywhere in the repository. The names, emails and phones are checked in clear, against the whole repository, by tests that run only when `BARDIC_RESEARCH_DIR` points at the research output, which is never committed; so do the tests against the real dump and the research oracle (`analysis/*.json`).
+**Input:** the research dump format (`pages.jsonl`, `categories.json`, `redirects.json` and `activity.json`). Reading a live crawl of the wiki directly is deferred (a backlog item): the research `scripts/crawl.mjs` produces a dump, which is the input. The research `scripts/` define the expected behaviour and are ported to Go. A **scrubbed** copy of the dump is committed under `testdata/wiki-dump/` (regenerated with `cmd/scrub-dump`), so tests are deterministic and need no network: legal and mundane names (the aliases the importer classifies as legal, every other possible person name it cannot classify confidently as public, and their honorific forms; the candidates are H1 and "Name (Name)" parentheticals, the legal/mundane/real-name and "aka" markers, uploaders, and in prose and link titles the names after "by", "from", "credited to", "attributed to" or "copyright", either side of "/", "and" or "&", before a possessive such as "'s YouTube" or "'s blog" or a verb such as "singing", in an "also known as" list, and a link label its website's host spells; a name paired by "/" with a person's public name is a legal name), emails, phones and wiki user names are replaced with numbered placeholders, the same number everywhere a name occurs (wikitext, titles, categories, redirects, activity); inline lyrics with placeholder lines (keeping the ≥4-line classification); and only the namespaces, files and fields the importer reads are kept. Every count the tests assert is preserved. No name is hashed into the repository: `testdata/wiki-dump/denylist.txt` holds only salted hashes of the dropped lyrics' 8-word n-grams, and a unit test fails if any appears anywhere in the repository. The names, emails and phones are checked in clear, against the whole repository, by tests that run only when `BARDIC_RESEARCH_DIR` points at the research output, which is never committed; so do the tests against the real dump and the research oracle (`analysis/*.json`).
 
 **Steps** (report §8):
 1. Type the pages: Pieces / Bards, skipping meta pages, redirects and the test page.
@@ -399,15 +399,27 @@ the DDL is in `migrations/003`–`009`.
 - Use the legacy page URL as the source of a non-active person status, and as the conservation source where the
   wiki gives none.
 - Hide legal aliases, any `redirect` alias equal to a hidden alias, and any public alias holding a hidden alias.
-- Withhold private names from every public free-text field written (notes, version, licensing and historical
-  notes, credit notes, link titles, performance descriptions and uploaders, term and collection descriptions and
-  names, event names, piece aliases): each occurrence of a hidden alias or of a name the scrubber treats as private
-  (`mediawiki.PrivateNames`; legal names in every `PrivateNameMatcher` form: honorific, reversed, URL forms),
-  and any honorific with a surname ("Mr. Surname"), becomes `[name withheld]`; each email address becomes
-  `[email withheld]`. This is the one exception to keeping a performance description as written (§2.14), because
-  an approved import revision cannot be redacted later. A link whose URL holds such a name is imported hidden
-  (`links.is_hidden`). Every withheld span and hidden link is an item of `import-review.md`, so moderators can
-  restore what may be public. No licence is inferred from prose ("public domain" is a review item).
+- Withhold private names by confidence. **Legal names** (hidden aliases, `mediawiki.PrivateNames` marked legal:
+  names after a marker or paired by "/" with a public name; and every placeholder of the scrubbed copy), honorific
+  names ("Mr. Surname") and email addresses are withheld from every public field. **Unsure names** (the other
+  private names: possible names the classifier cannot show are public) are withheld from free text only: notes,
+  version, licensing and historical notes, credit notes, link titles and descriptions, performance descriptions
+  and uploaders, term, collection and event descriptions. Each occurrence (legal names in every
+  `PrivateNameMatcher` form: honorific, reversed, URL forms; a name inside a wikilink takes the whole link) becomes
+  `[name withheld]`, each email address `[email withheld]`. This is the one exception to keeping a performance
+  description as written (§2.14), because an approved import revision cannot be redacted later.
+- Names and titles never hold a placeholder (`Validate` rejects one in any name, title, alias, slug, sort key or
+  uploader). A name the wiki itself gives an entity (a credited person, a piece title, alias or subtitle, a
+  collection label, an event) is imported as written when it holds only an unsure name, and listed. When it holds a
+  legal name, the entity is left out and listed: a stub person is not created (its credits are imported as unknown
+  with the note `[name withheld]`; a bard's hidden alias already finds the bard), nor is a stub piece, a
+  collection (its links are imported without it; also when its URL holds a legal name), an event (its
+  performances are imported without it) or a piece or term alias; a withheld uploader is left out.
+- A link whose URL holds a legal name is imported hidden (`links.is_hidden`); a URL holding an unsure name or a
+  home directory (`/~user`) is listed. URLs are never rewritten. Every withheld span, left-out entity, hidden link
+  and listed URL is an item of `import-review.md`, so moderators can restore what may be public. Wiki user names
+  credited as revision contributors are listed, flagged when one matches a private name or is shaped like a
+  personal name ("Firstname Lastname"). No licence is inferred from prose ("public domain" is a review item).
 - Normalise every imported string to NFC; list names that `domain.CheckTextCharacters` rejects.
 - Check the whole import before writing (`CatalogueImport.Validate`): it mirrors every constraint of the schema
   (unique keys as the collation compares them, primary keys, column widths, CHECKs, references and insert order),
@@ -442,12 +454,12 @@ mode 0600, then print counts only. `--dry-run` stops there: it never reads `DATA
 then `--apply` once against the empty production database.
 
 **Tests assert:**
-- the research counts: 142 pieces (135/4/2/1 by kind), 48 bards, 62 collection entries (61 collections written), 11 inline-lyrics pages flagged
-- on the scrubbed copy (always): unit tests, the lyric n-gram scan and the structural privacy checks; against the research output (only with `BARDIC_RESEARCH_DIR`): the oracle, that the copy is up to date and keeps the research counts, the in-clear scan for names, emails and phones, that no private name and no dropped lyric reaches the real import, and a real dry run
+- the research counts: 142 pieces (135/4/2/1 by kind), 48 bards, 62 collection entries (61 collections, written or withheld: the scrubbed copy's placeholders count as legal names, so 4 of its collections are withheld), 11 inline-lyrics pages flagged
+- on the scrubbed copy (always): unit tests, the lyric n-gram scan and the structural privacy checks; against the research output (only with `BARDIC_RESEARCH_DIR`): the oracle, that the copy is up to date and keeps the research counts, the in-clear scan for names, emails and phones, an independent name oracle (every run of two or more capitalised words of the crawl's prose and link titles is a title, a reviewed non-name phrase, or a name the classifier decided on), that no legal name reaches any public field of the real import and no private name its free text, an independent lyrics oracle (every `<poem>` element and every run of four or more prose lines of the sections the research analysis lists) absent from the real import and the scrubbed copy, and a real dry run
 - the dropped inline lyrics are absent from every public field
 - golden snapshots of 16 tricky pages: Three Words, My Thing is My Own, Fight for the Midrealm, Band of Brothers, Black Alman, The Burning of Tara, Samantha Moore, Lasair inghen ui h’Airt, Auld Lang Syne, Malkin Grey, Dahrien Cordell, Greensleeves, Greensleeves (SCA Version), Voice of the Dragon, Birthday Dirge and Warrior's Wyrd, and of the review
 - the writer (integration): every row written, every table empty after a failure planted in the last table, a catalogue that is not empty refused, exactly one of two concurrent imports succeeding, the normalised URL invariant and decodable snapshots
-- the imported catalogue end to end (`TestHTTP_ImportedCatalogue`): every page of every list, every entity, history and revision read through the API is valid by the spec and shows no lyric placeholder, no legal-name placeholder in any form and no hidden alias
+- the imported catalogue end to end (`TestHTTP_ImportedCatalogue`): every page of every list, every entity, history and revision read through the API is valid by the spec and shows no lyric placeholder, no legal-name, email or phone placeholder in any form and no hidden alias
 
 ## 8. Frontend
 

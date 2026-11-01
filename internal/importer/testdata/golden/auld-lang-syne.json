@@ -53,7 +53,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 137,
+          "person_id": 123,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -127,7 +127,7 @@
       "title": "Auld Lang Syne"
     },
     "revision": {
-      "id": 428,
+      "id": 409,
       "summary": "Imported from the wiki (page revision 891).",
       "contributors": [
         "Wiki User 01"
@@ -137,19 +137,19 @@
   },
   "review": [
     {
-      "id": "NAME-033",
+      "id": "NAME-066",
       "kind": "free_text",
       "page": "Auld Lang Syne",
-      "text": "link https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA, title: \"Legal Name 045\" was withheld. Context: \"Auld Lang Syne sung by [name withheld]\"."
+      "text": "link https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA, title: \"Legal Name 060\" was withheld. Context: \"Auld Lang Syne sung by [name withheld]\"."
     },
     {
-      "id": "NAME-225",
+      "id": "NAME-296",
       "kind": "free_text",
       "page": "Auld Lang Syne",
-      "text": "performance item, description: \"Legal Name 045\" was withheld. Context: \"7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld]]\"."
+      "text": "performance item, description: \"Legal Name 060\" was withheld. Context: \"7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld]]\"."
     },
     {
-      "id": "STUB-167",
+      "id": "STUB-150",
       "kind": "stub_person",
       "page": "Auld Lang Syne",
       "text": "Stub person \"Robert Burns\" (community_bard), named on 2 page(s)."
@@ -179,7 +179,7 @@
       "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name w…\"."
     },
     {
-      "id": "PERSON-180",
+      "id": "PERSON-166",
       "kind": "stub_kind",
       "page": "Auld Lang Syne",
       "text": "Stub person \"Robert Burns\" (named on 2 page(s)) is guessed to be historical."

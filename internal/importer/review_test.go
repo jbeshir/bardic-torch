@@ -75,7 +75,7 @@ func TestReview_ListsEveryAmbiguity(t *testing.T) {
 		texts = append(texts, it.Page+" "+it.Text)
 	}
 	all := strings.Join(texts, "\n")
-	for _, want := range []string{"Fight for the Midrealm", "My Thing Is My Own", "Dunstan", "Marian of Heatherdale",
+	for _, want := range []string{"Fight for the Midrealm", "My Thing Is My Own", "Marian of Heatherdale",
 		"Samantha Moore"} {
 		assert.Contains(t, all, want, "PLAN §2.9 ambiguity")
 	}
@@ -95,4 +95,26 @@ func TestReview_ListsEveryAliasClassification(t *testing.T) {
 		assert.False(t, seenSure && !sure, "unsure classifications come first: %s", it.ID)
 		seenSure = seenSure || sure
 	}
+}
+
+func TestPersonNameShaped(t *testing.T) {
+	for u, want := range map[string]bool{"Wren Placeholder": true, "Wren Q Placeholder": true, "Wren": false,
+		"WrenP": false, "Wiki User 07": false, "wren placeholder": false, "Wren_Placeholder": false} {
+		assert.Equal(t, want, personNameShaped(u), u)
+	}
+}
+
+func TestReview_FlagsNameShapedContributors(t *testing.T) {
+	d := syntheticDump()
+	d.Activity = append(d.Activity, mediawiki.PageActivity{Title: songTitle, NS: mediawiki.NSMain, Revisions: 1,
+		Users: map[string]int{"Hazel Placeholder": 1, "HazelP": 1}})
+
+	_, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+
+	flagged := map[string]bool{}
+	for _, it := range review.Contributors {
+		flagged[strings.SplitN(it.Text, "\"", 3)[1]] = strings.Contains(it.Text, "shaped like a personal name")
+	}
+	assert.True(t, flagged["Hazel Placeholder"])
+	assert.False(t, flagged["HazelP"])
 }

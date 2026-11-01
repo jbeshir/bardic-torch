@@ -66,7 +66,7 @@
           "note": null
         },
         {
-          "person_id": 135,
+          "person_id": 121,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "possible",
@@ -115,7 +115,7 @@
           "description": null,
           "platform": "sca.claypool.me",
           "place_type": "community_archive",
-          "collection_id": 18,
+          "collection_id": 17,
           "locator": null,
           "roles": [
             "lyrics"
@@ -153,9 +153,9 @@
               "uploader": "Cerian Cantwr",
               "description_verbatim": "[https://youtu.be/19X5WNh4y9w Recording by Cerian Cantwr on YouTube] of Greensleeves sung by [[Heregyth Ketilsdottir]], [[Heinrich von Stuttgart]], and [[Jonathan Ospry]]",
               "performer_ids": [
-                95,
-                93,
-                105
+                94,
+                92,
+                103
               ]
             }
           ]
@@ -178,9 +178,9 @@
               "uploader": null,
               "description_verbatim": "https://www.youtube.com/watch?v=IAHnmqSQdDw Music video on YouTube demonstrating all the clothing articles mentioned in the song. Musical performance by [[Richard de Winter]], [[Robin Jeffre]], [[Sam Brown]], and [[Allison Kinder]].",
               "performer_ids": [
-                136,
-                138,
-                140,
+                122,
+                124,
+                126,
                 51
               ]
             }
@@ -195,7 +195,7 @@
       "title": "Greensleeves"
     },
     "revision": {
-      "id": 489,
+      "id": 470,
       "summary": "Imported from the wiki (page revision 946).",
       "contributors": [
         "Wiki User 01",
@@ -206,49 +206,49 @@
   },
   "review": [
     {
-      "id": "STUB-081",
+      "id": "STUB-078",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Allison Kinder\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-123",
+      "id": "STUB-119",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Heinrich von Stuttgart\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-125",
+      "id": "STUB-121",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Heregyth Ketilsdottir\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-135",
+      "id": "STUB-130",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Jonathan Ospry\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-165",
+      "id": "STUB-148",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Richard Jones\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-166",
+      "id": "STUB-149",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Richard de Winter\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-168",
+      "id": "STUB-151",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Robin Jeffre\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-170",
+      "id": "STUB-153",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Sam Brown\" (community_bard), named on 1 page(s)."
@@ -290,43 +290,43 @@
       "text": "Stub person \"Allison Kinder\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-136",
+      "id": "PERSON-135",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Heinrich von Stuttgart\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-138",
+      "id": "PERSON-137",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Heregyth Ketilsdottir\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-148",
+      "id": "PERSON-146",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Jonathan Ospry\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-178",
+      "id": "PERSON-164",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Richard Jones\" (named on 1 page(s)) is guessed to be historical."
     },
     {
-      "id": "PERSON-179",
+      "id": "PERSON-165",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Richard de Winter\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-181",
+      "id": "PERSON-167",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Robin Jeffre\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-183",
+      "id": "PERSON-169",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Sam Brown\" (named on 1 page(s)) is guessed to be community_bard."

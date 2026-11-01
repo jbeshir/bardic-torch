@@ -111,6 +111,7 @@ func TestScrubbedPeople_Credits(t *testing.T) {
 }
 
 func TestScrubbedPeople_Ambiguities(t *testing.T) {
+	const marian = "Marian of Heatherdale"
 	people, _ := scrubbedPeople(t)
 	kinds := map[AmbiguityKind][]Ambiguity{}
 	for _, a := range people.Ambiguities() {
@@ -119,8 +120,10 @@ func TestScrubbedPeople_Ambiguities(t *testing.T) {
 
 	require.Len(t, kinds[AmbiguityCanonicalName], 1)
 	assert.Equal(t, "Samantha Moore", kinds[AmbiguityCanonicalName][0].Guess)
-	assert.Contains(t, kinds[AmbiguityFuzzyPerson], Ambiguity{Kind: AmbiguityFuzzyPerson, Page: "Thirteenth Virtue",
-		Name: "Dunstan", Guess: "Legal Name", Alternatives: []string{"Dunstan"}})
+	// The Thirteenth Virtue's "Dunstan" is no longer a fuzzy match here: the full name it matched on the crawl is
+	// an unsure candidate (a "le" byname, not a confident SCA form), so the scrubbed copy has a placeholder.
+	assert.Contains(t, kinds[AmbiguityFuzzyPerson], Ambiguity{Kind: AmbiguityFuzzyPerson, Page: "Song of the Wain",
+		Name: marian, Guess: "Heather Dale", Alternatives: []string{marian}})
 	assert.Equal(t, []Ambiguity{{Kind: AmbiguityCaseVariantWork, Page: "Eliane Halevy", Name: "My Thing Is My Own",
 		Guess: "My Thing Is My Own", Alternatives: []string{"My Thing is My Own"}}}, kinds[AmbiguityCaseVariantWork])
 }
