@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -81,8 +83,8 @@ type validator interface {
 	Valid() bool
 }
 
-// validateEnums checks every Enum in v, descending into pointers, lists and exported struct fields, and returns
-// ErrUnknownEnumValue, with the field's path, for the first that is not Valid.
+// validateEnums checks every Enum in v, descending into pointers, slices, arrays, map keys and values and exported
+// struct fields, and returns ErrUnknownEnumValue, with the field's path, for the first that is not Valid.
 func validateEnums(v reflect.Value, path string) error {
 	switch kind := v.Kind(); {
 	case kind == reflect.Pointer:
@@ -90,17 +92,44 @@ func validateEnums(v reflect.Value, path string) error {
 			return nil
 		}
 		return validateEnums(v.Elem(), path)
-	case kind == reflect.Slice && v.Type() != reflect.TypeFor[json.RawMessage]():
-		for i := range v.Len() {
-			if err := validateEnums(v.Index(i), fmt.Sprintf("%s[%d]", path, i)); err != nil {
-				return err
-			}
-		}
+	case (kind == reflect.Slice && v.Type() != reflect.TypeFor[json.RawMessage]()) || kind == reflect.Array:
+		return validateListEnums(v, path)
+	case kind == reflect.Map:
+		return validateMapEnums(v, path)
 	case kind == reflect.Struct:
 		return validateFieldEnums(v, path)
 	case kind == reflect.String:
 		if e, ok := v.Interface().(validator); ok && !e.Valid() {
 			return fmt.Errorf("%w [%s] at %s", ErrUnknownEnumValue, v.String(), path)
+		}
+	}
+
+	return nil
+}
+
+// validateListEnums is validateEnums for each element of the slice or array v.
+func validateListEnums(v reflect.Value, path string) error {
+	for i := range v.Len() {
+		if err := validateEnums(v.Index(i), fmt.Sprintf("%s[%d]", path, i)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateMapEnums is validateEnums for each key and value of the map v, in key order so that the error found
+// first does not depend on Go's map iteration order.
+func validateMapEnums(v reflect.Value, path string) error {
+	keys := v.MapKeys()
+	slices.SortFunc(keys, func(a, b reflect.Value) int { return strings.Compare(fmt.Sprint(a), fmt.Sprint(b)) })
+	for _, key := range keys {
+		keyPath := fmt.Sprintf("%s[%v]", path, key)
+		if err := validateEnums(key, keyPath+" (key)"); err != nil {
+			return err
+		}
+		if err := validateEnums(v.MapIndex(key), keyPath); err != nil {
+			return err
 		}
 	}
 

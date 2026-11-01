@@ -4,8 +4,9 @@
 -- still existing.
 --
 -- MySQL expands a view's * when the view is created, so a column added to terms, persons or link_attachments
--- later is not in these views until a migration recreates them (CREATE OR REPLACE VIEW), and a column cannot be
--- dropped from those tables while a view still selects it.
+-- later is not in these views until a migration recreates them (CREATE OR REPLACE VIEW). Dropping or renaming a
+-- column a view selects still succeeds, but the view is then invalid and every read using it fails (error 1356),
+-- so a migration that drops or renames such a column must recreate the views without it in the same migration.
 
 -- A public term: approved, with every ancestor approved. The closure's depth-0 row covers the term itself.
 CREATE ALGORITHM = MERGE SQL SECURITY INVOKER VIEW `public_terms` AS

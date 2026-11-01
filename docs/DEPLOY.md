@@ -375,11 +375,17 @@ before it:
   a rollback, the older release keeps serving the revisions written in between, showing only the fields it knows.
   Removing, renaming or retyping a field, or changing what one means, needs a new `schema_version`, which every
   older release refuses (a logged 500 for each such revision): ship the reader for the new version one release
-  before any release writes it.
+  before any release writes it. A new field that hides or redacts other document data (a privacy flag on a link
+  or an alias, say) is not additive, even though older readers would parse it: they would ignore it and show
+  what it hides. Such a field needs a new `schema_version`, so that an older release refuses those documents
+  rather than failing open.
 - **Views** (`public_terms`, `listed_persons`, `public_link_attachments`, migration 009) define the visibility
   rules once. MySQL fixes a view's columns when it is created, so a migration that adds a column a public read
-  needs from `terms`, `persons` or `link_attachments` also recreates the view (`CREATE OR REPLACE VIEW`), and a
-  column a view selects cannot be dropped until a migration has recreated the view without it.
+  needs from `terms`, `persons` or `link_attachments` also recreates the view (`CREATE OR REPLACE VIEW`). MySQL
+  does not stop a migration from dropping or renaming a column a view selects: the `ALTER TABLE` succeeds, but
+  the view is then invalid and every read using it fails (error 1356), so every public read would answer 500
+  once the migration ran. A migration that drops or renames such a column must recreate the views without it in
+  the same migration. `TestMigrations_UpDownUp` reads every view after migrating up.
 
 ### Failed migrations (dirty state)
 

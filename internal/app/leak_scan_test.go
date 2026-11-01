@@ -13,9 +13,9 @@ import (
 const leakMarker = "leakmark"
 
 // leakedMarker returns the first marked text left in a raw JSON response body once the revealed strings are
-// removed, or "" if there is none. A revealed string is removed only where it is a whole JSON string value,
-// quotes included and case-sensitive. A longer string that merely starts with, ends with or contains a revealed
-// string therefore still counts as a leak.
+// removed, or "" if there is none. A revealed string is removed only where it is a whole JSON string, value or
+// key, quotes included and case-sensitive. A longer string that merely starts with, ends with or contains a
+// revealed string therefore still counts as a leak.
 func leakedMarker(body string, reveals []string) string {
 	for _, revealed := range reveals {
 		quoted, err := json.Marshal(revealed)
@@ -55,7 +55,9 @@ func TestLeakedMarker(t *testing.T) {
 			body: `{"slug":"leakmark-fennel","url":"https://example.org/leakmark-fennel-link"}`},
 		{name: "planted_unrelated_marker", leak: true, body: `{"name":"Leakmark Fennel","x":"leakmark/pronoun"}`},
 		{name: "revealed_name_with_other_case", leak: true, body: `{"name":"LEAKMARK FENNEL"}`},
-		{name: "revealed_name_as_key", leak: true, body: `{"Leakmark Fennel":1,"y":"leakmark"}`},
+		// Keys are stripped like values: a revealed string is removed wherever it is a whole JSON string.
+		{name: "revealed_name_as_key", body: `{"Leakmark Fennel":1}`},
+		{name: "planted_marker_after_revealed_key", leak: true, body: `{"Leakmark Fennel":1,"y":"leakmark"}`},
 		{name: "marker_inside_longer_value", leak: true, body: `{"name":"The Leakmark Fennel"}`},
 		{name: "marker_in_error_message", leak: true,
 			body: `{"code":"invalid_request","message":"unknown term: leakmark-fennel"}`},

@@ -195,3 +195,49 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 		domain.NeedsWorkReasonStub, domain.NeedsWorkReasonUnassessed, domain.NeedsWorkReasonMissingLicensing,
 	}, work.Data[0].Reasons)
 }
+
+// TestHTTP_RevisionWithNonASCIILinkURL checks that a revision whose links hold URLs with non-ASCII characters
+// answers 200 through the production handler and still shows only the visible link's URL, dropping the hidden
+// one's.
+func TestHTTP_RevisionWithNonASCIILinkURL(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	c := catalogtest.New(t, db)
+	const (
+		visibleRaw = "https://example.org/café-songs"
+		hiddenRaw  = "https://example.org/fjörd-songs"
+	)
+	links := func(urls ...string) []domain.DocPieceLink {
+		out := []domain.DocPieceLink{}
+		for _, u := range urls {
+			out = append(out, domain.DocPieceLink{DocLink: domain.DocLink{URL: u,
+				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}})
+		}
+		return out
+	}
+	// The links are seeded with ASCII URLs, which catalogtest also stores as their normalized URLs, and then
+	// given the URLs as entered.
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Songs of the Inn",
+		Links: links("https://example.org/caf%C3%A9-songs", "https://example.org/fj%C3%B6rd-songs")}})
+	c.Exec("UPDATE links SET url = ? WHERE url = ?", visibleRaw, "https://example.org/caf%C3%A9-songs")
+	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", hiddenRaw,
+		"https://example.org/fj%C3%B6rd-songs")
+	later := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
+		Snapshot: domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: "Songs of the Inn",
+			Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+			LicensingStatus: domain.LicensingStatusUnknown, Links: links(visibleRaw, hiddenRaw)},
+		BaseRevisionID: piece.RevisionID})
+
+	e := endToEnd{
+		handler:  NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil)),
+		contract: openapitest.New(t),
+	}
+	revision := sendOK[controller.EntityRevision[controller.PieceSummary, controller.PieceSnapshot]](
+		t, e, http.MethodGet, "/v1/revisions/"+strconv.FormatInt(later, 10), "", "", http.StatusOK)
+	var urls []string
+	for _, link := range revision.Snapshot.Links {
+		urls = append(urls, link.URL)
+	}
+	assert.Equal(t, []string{visibleRaw}, urls)
+}

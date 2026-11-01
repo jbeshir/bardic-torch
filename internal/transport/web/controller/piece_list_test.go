@@ -166,6 +166,8 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 		{name: "term_not_slug", query: "term=War", wantBody: invalidTermBody},
 		{name: "term_injection", query: "term=war%27%3B+DROP+TABLE+pieces", wantBody: invalidTermBody},
 		{name: "term_empty", query: "term=", wantBody: invalidTermBody},
+		// Ruled out here, as a non-ASCII value must never reach the ASCII slug column.
+		{name: "term_non_ascii", query: "term=caf%C3%A9", wantBody: invalidTermBody},
 		{name: unknownKindCase, query: "kind=opera", wantBody: invalidKindBody},
 		{name: "empty_kind", query: "kind=", wantBody: invalidKindBody},
 		{name: duplicateKindsCase, query: "kind=song&kind=poem&kind=song",
@@ -214,6 +216,8 @@ var invalidSearchCases = []invalidQueryCase{
 	{name: "letter_lower_case", query: "letter=w", wantBody: invalidLetterBody},
 	{name: "letter_two", query: "letter=AB", wantBody: invalidLetterBody},
 	{name: "letter_digit", query: "letter=1", wantBody: invalidLetterBody},
+	// Ruled out here, as a non-ASCII value must never reach the ASCII sort_letter column.
+	{name: "letter_non_ascii", query: "letter=%C3%89", wantBody: invalidLetterBody},
 }
 
 const (

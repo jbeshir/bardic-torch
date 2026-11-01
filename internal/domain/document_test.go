@@ -332,7 +332,8 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 }
 
 // TestDocuments_EnumFieldsAreValidated checks that every field of a document whose type is one of the domain's
-// named string types is a vocabulary with a Valid method, which DecodeDocument checks.
+// named string types is a vocabulary with a Valid method, which DecodeDocument checks. It looks through pointers,
+// slices, arrays and map keys and values, as DecodeDocument does (TestValidateEnums_MapsAndArrays).
 func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
 	t.Parallel()
 
@@ -341,10 +342,13 @@ func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
 	seen := map[reflect.Type]bool{}
 	var visit func(typ reflect.Type, path string)
 	visit = func(typ reflect.Type, path string) {
-		for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice {
+		for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice || typ.Kind() == reflect.Array {
 			typ = typ.Elem()
 		}
 		switch {
+		case typ.Kind() == reflect.Map:
+			visit(typ.Key(), path+"[key]")
+			visit(typ.Elem(), path+"[]")
 		case typ.Kind() == reflect.String && typ.PkgPath() == domainPkg:
 			seen[typ] = true
 			assert.True(t, typ.Implements(validator), "%s: %s has no Valid method", path, typ)
@@ -417,4 +421,38 @@ func withValues(t *testing.T, doc any, values map[string]any) []byte {
 	require.NoError(t, err)
 
 	return data
+}
+
+// TestValidateEnums_MapsAndArrays checks that enum validation also reaches enums in arrays and in map keys and
+// values, which no document has yet, so that a document field of such a type is validated when one is added.
+func TestValidateEnums_MapsAndArrays(t *testing.T) {
+	t.Parallel()
+
+	type holder struct {
+		Fixed  [2]domain.PieceKind
+		ByKind map[domain.PieceKind]string
+		Kinds  map[string]*domain.PieceKind
+	}
+	valid := func() holder {
+		return holder{
+			Fixed:  [2]domain.PieceKind{domain.PieceKindSong, domain.PieceKindPoem},
+			ByKind: map[domain.PieceKind]string{domain.PieceKindSong: "x"},
+			Kinds:  map[string]*domain.PieceKind{"a": ptr(domain.PieceKindPoem), "b": nil},
+		}
+	}
+	require.NoError(t, domain.ValidateEnums(reflect.ValueOf(valid()), "holder"))
+
+	unknown := domain.PieceKind(unknownValue)
+	for name, mutate := range map[string]func(*holder){
+		"array_element": func(h *holder) { h.Fixed[1] = unknown },
+		"map_key":       func(h *holder) { h.ByKind[unknown] = "y" },
+		"map_value":     func(h *holder) { h.Kinds["c"] = &unknown },
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			h := valid()
+			mutate(&h)
+			require.ErrorIs(t, domain.ValidateEnums(reflect.ValueOf(h), "holder"), domain.ErrUnknownEnumValue)
+		})
+	}
 }

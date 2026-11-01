@@ -304,7 +304,8 @@ func (c *catalogueReader) termGroups(ctx context.Context, slugs []string, facets
 }
 
 // booleanQuery returns the FULLTEXT boolean-mode query matching text with a word starting with each of tokens.
-// Tokens are letters, digits and marks only (domain.SearchQuery), so they hold no boolean-mode operator.
+// Tokens are letters, digits and underscores only, with combining marks removed (domain.SearchQuery), so they
+// hold no boolean-mode operator.
 func booleanQuery(tokens []string) string {
 	required := make([]string, 0, len(tokens))
 	for _, token := range tokens {

@@ -158,3 +158,57 @@ func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
 	}
 	assert.Equal(t, []string{visible, normalized}, urls)
 }
+
+// TestRepository_GetPublicRevision_NonASCIILinkURL checks that a revision whose links hold non-ASCII URLs reads
+// and keeps its redaction. Normalized URLs are ASCII, and MySQL refuses to compare an ASCII column with a
+// non-ASCII parameter, so such a URL must match only the URLs as entered: shown if a visible link was entered
+// with it, dropped if a hidden link was or no link has it.
+func TestRepository_GetPublicRevision_NonASCIILinkURL(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	c := catalogtest.New(t, db)
+	const (
+		shownEncoded  = "https://example.org/caf%C3%A9"
+		shownRaw      = "https://example.org/café"
+		hiddenEncoded = "https://example.org/cr%C3%A8me"
+		hiddenRaw     = "https://example.org/crème"
+		unknownRaw    = "https://example.org/naïve"
+	)
+	links := func(urls ...string) []domain.DocPieceLink {
+		out := []domain.DocPieceLink{}
+		for _, url := range urls {
+			out = append(out, domain.DocPieceLink{DocLink: domain.DocLink{URL: url,
+				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}})
+		}
+		return out
+	}
+	// catalogtest stores each URL as its own normalized URL, which the ASCII column needs, so the links are
+	// seeded encoded and then given the URL as entered.
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Willow Glen",
+		Links: links(shownEncoded, hiddenEncoded)}})
+	c.Exec("UPDATE links SET url = ? WHERE url = ?", shownRaw, shownEncoded)
+	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", hiddenRaw, hiddenEncoded)
+
+	later := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
+		Snapshot: domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: "The Willow Glen",
+			Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+			LicensingStatus: domain.LicensingStatusUnknown,
+			Links:           links(shownRaw, hiddenRaw, unknownRaw, shownEncoded, hiddenEncoded)},
+		BaseRevisionID: piece.RevisionID})
+
+	revision, err := mysql.New(db).GetPublicRevision(t.Context(), later)
+	require.NoError(t, err)
+	pieceRevision, ok := revision.(domain.PieceRevision)
+	require.True(t, ok, "%T", revision)
+	urls := func(got []domain.SnapshotPieceLink) []string {
+		var out []string
+		for _, link := range got {
+			out = append(out, link.URL)
+		}
+		return out
+	}
+	assert.Equal(t, []string{shownRaw, shownEncoded}, urls(pieceRevision.Snapshot.Links))
+	require.NotNil(t, pieceRevision.Base)
+	assert.Equal(t, []string{shownEncoded}, urls(pieceRevision.Base.Snapshot.Links))
+}

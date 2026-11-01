@@ -4,6 +4,8 @@ package mysql_test
 
 import (
 	"database/sql"
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -40,6 +42,7 @@ func TestMigrations_UpDownUp(t *testing.T) {
 
 	require.ElementsMatch(t, migratedTables, listTables(t, db, baseTable))
 	require.ElementsMatch(t, migratedViews, listTables(t, db, view))
+	requireViewsReadable(t, db)
 
 	m, err := mysql.NewMigrator(cfg)
 	require.NoError(t, err)
@@ -49,6 +52,7 @@ func TestMigrations_UpDownUp(t *testing.T) {
 	require.NoError(t, m.Up())
 	assert.ElementsMatch(t, migratedTables, listTables(t, db, baseTable))
 	assert.ElementsMatch(t, migratedViews, listTables(t, db, view))
+	requireViewsReadable(t, db)
 
 	version, dirty, err := m.Version()
 	require.NoError(t, err)
@@ -187,4 +191,37 @@ func TestMigrations_ViewsCheckTheReader(t *testing.T) {
 	}
 	require.NoError(t, rows.Err())
 	assert.ElementsMatch(t, migratedViews, views)
+}
+
+// requireViewsReadable reads from every view, which fails once a table column a view selects has been dropped or
+// renamed: MySQL lets the ALTER TABLE succeed and fails the view's reads instead (error 1356).
+func requireViewsReadable(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	require.ElementsMatch(t, migratedViews, slices.Collect(maps.Keys(viewReads)), "a read for every view")
+	for name, read := range viewReads {
+		_, err := db.ExecContext(t.Context(), read)
+		require.NoError(t, err, "reading view [%s]", name)
+	}
+}
+
+// viewReads reads each of migratedViews, without returning a row.
+var viewReads = map[string]string{
+	"public_terms":            "SELECT * FROM public_terms LIMIT 0",
+	"listed_persons":          "SELECT * FROM listed_persons LIMIT 0",
+	"public_link_attachments": "SELECT * FROM public_link_attachments LIMIT 0",
+}
+
+// TestMigrations_DroppedViewColumnBreaksReads pins the MySQL behaviour that migration 009 and DEPLOY.md warn of:
+// dropping a column a view selects succeeds, and reads of the view then fail, so only reading the views (as
+// TestMigrations_UpDownUp does) catches a migration that forgets to recreate them.
+func TestMigrations_DroppedViewColumnBreaksReads(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	_, err := db.ExecContext(t.Context(), "ALTER TABLE persons DROP COLUMN pronouns")
+	require.NoError(t, err, "MySQL does not refuse to drop a column a view selects")
+
+	_, err = db.ExecContext(t.Context(), viewReads["listed_persons"])
+	require.ErrorContains(t, err, "1356")
 }

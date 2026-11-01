@@ -93,6 +93,7 @@ func TestCollectionListGet_ServeHTTP(t *testing.T) {
 		{name: duplicateKindsCase, query: "kind=wiki&kind=wiki",
 			wantBody: duplicateKindBody},
 		{name: "letter_lower_case", query: "letter=n", wantBody: invalidLetterBody},
+		{name: "letter_non_ascii", query: "letter=%C3%89", wantBody: invalidLetterBody},
 		{name: "letter_repeated", query: "letter=N&letter=N",
 			wantBody: `{"code":"invalid_request","message":"query parameter letter must be given at most once"}`},
 	}, invalidPageCases...)

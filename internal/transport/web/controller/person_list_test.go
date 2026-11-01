@@ -127,6 +127,10 @@ func TestPersonListGet_ServeHTTP(t *testing.T) {
 		{name: "affiliation_not_slug", query: "affiliation=North+March",
 			wantBody: `{"code":"invalid_request","message":"invalid affiliation: must be lowercase ASCII letters and ` +
 				`digits, in runs joined by single hyphens, at most 191 characters"}`},
+		// Ruled out here, as a non-ASCII value must never reach the ASCII slug column.
+		{name: "affiliation_non_ascii", query: "affiliation=caf%C3%A9",
+			wantBody: `{"code":"invalid_request","message":"invalid affiliation: must be lowercase ASCII letters and ` +
+				`digits, in runs joined by single hyphens, at most 191 characters"}`},
 		{name: "affiliation_repeated", query: "affiliation=northmarch&affiliation=eastmarch",
 			wantBody: `{"code":"invalid_request","message":"query parameter affiliation must be given at most once"}`},
 		{name: "relevance_without_search", query: "sort=relevance",

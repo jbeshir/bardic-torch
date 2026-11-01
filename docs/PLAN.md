@@ -161,7 +161,9 @@ the DDL is in `migrations/003`–`009`.
 - **Hidden links** (`links.is_hidden`) are excluded from every read, including snapshots and needs-work. In a
   snapshot, a link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL as
   entered or normalized: a link deleted since, or whose URL changed before it was hidden, is dropped too.
-  `links.url` is binary (`utf8mb4_0900_bin`), so the SQL and Go comparisons are both exact.
+  `links.url` is binary (`utf8mb4_0900_bin`), so the SQL and Go comparisons are both exact. `normalized_url` is
+  ASCII, and MySQL refuses to compare an ASCII column with a non-ASCII parameter, so a snapshot URL with any other
+  character is compared only with the URLs as entered (it cannot be a normalized URL).
 - **Slugs** are ASCII `[a-z0-9]+(-[a-z0-9]+)*`, at most 191 characters and unique per table. Term slugs keep the
   wiki's disambiguation suffix (`12th-century` in origin, `12th-century-topic` in topic), while `display_name`
   drops it. The importer's `Slugify` uses NFKD, strips marks, lowercases and turns non-alphanumeric runs into `-`.
@@ -181,6 +183,13 @@ the DDL is in `migrations/003`–`009`.
   - if no token survives, it falls back to an accent-insensitive title/alias prefix match.
 
   FULLTEXT sees only committed rows, so BE4 searches after its approval transaction commits.
+
+  Known ranking effect: relevance scores from the person name and the piece title, notes and alias indexes
+  depend on index-wide statistics. Those indexes also hold entities that are not public (unapproved drafts), so
+  draft words shift public results' scores and order, though never which results match. Scoring these indexes 0,
+  as is done for person aliases, would remove relevance ranking entirely, and InnoDB cannot narrow a FULLTEXT
+  index's statistics to some of its rows, so this is accepted. It reveals at most that words occur in drafts,
+  not hidden names. Revisit it if BE4 creates drafts in volume.
 - **Snapshots** hold only editor-owned fields. Left out:
   - IDs, `current_revision_id`, `legacy_*`, `claimed_by_user_id` and sort keys;
   - `conservation_history`, which is appended on approval from the document's `conservation {status,
@@ -223,7 +232,9 @@ the DDL is in `migrations/003`–`009`.
     vocabulary value this release does not know) is a 500, logged. Fields the document type does not have are
     ignored, so a rollback after a release adds a document field keeps serving the revisions written in between:
     a field is added without a new `schema_version`, and any other change to a document's shape needs one (see
-    DEPLOY.md).
+    DEPLOY.md). A field that hides or redacts other document data (such as a per-link or per-alias privacy flag)
+    is such a change, not an additive field: an older release would ignore it and show what it hides, so it needs
+    a new `schema_version`, which older releases refuse.
 - **Needs-work** (`GET /v1/needs-work`) lists public pieces and persons with a page that are stubs, unassessed
   (pieces), of unknown licensing (pieces, and community bards) or with a visible dead link; restricted pieces only
   for being stubs. Pieces come first, then persons, each by sort key. `counts` has every reason, whatever the

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
@@ -439,7 +440,7 @@ func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis
 func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis *domain.SnapshotVisibility) {
 	hidden := make(map[string]bool)
 	for _, row := range fetch(ctx, c, "links", c.q.ListLinksByURL,
-		queries.ListLinksByURLParams{Urls: urls, NormalizedUrls: urls}) {
+		queries.ListLinksByURLParams{Urls: urls, NormalizedUrls: asciiOnly(urls)}) {
 		if row.IsHidden {
 			hidden[row.Url], hidden[row.NormalizedUrl] = true, true
 		} else {
@@ -449,6 +450,30 @@ func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis
 	for url := range hidden {
 		delete(vis.VisibleLinkURLs, url)
 	}
+}
+
+// asciiOnly returns the strings of ss that are pure ASCII. MySQL refuses a statement that compares an ASCII
+// column with a parameter holding any other character (error 3988) instead of finding no match. Such a value
+// cannot equal an ASCII column anyway, so it is left out: a URL as entered with an accented letter, for example,
+// is never a normalized URL. An empty result is safe, since sqlc writes an empty slice as IN (NULL).
+func asciiOnly(ss []string) []string {
+	ascii := make([]string, 0, len(ss))
+	for _, s := range ss {
+		if isASCII(s) {
+			ascii = append(ascii, s)
+		}
+	}
+	return ascii
+}
+
+// isASCII reports whether s holds only ASCII bytes.
+func isASCII(s string) bool {
+	for i := range len(s) {
+		if s[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 // personVisibility loads the referenced public persons, with and without a page.

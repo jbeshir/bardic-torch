@@ -24,7 +24,8 @@ with `go tool`, so nothing needs installing.
 - **Catalogue domain** (`internal/domain`): `TestEnums_ValidAndParse` and the `Parse*` table tests; `ParseSearchQuery`
   (`TestParseSearchQuery`: the tokeniser rules, including `_` as a word character, the 84-character token limit and
   combining marks); `DecodeDocument` (`TestDecodeDocument_*`: unknown fields ignored, unknown vocabulary values and
-  bad dates rejected, `TestDocuments_EnumFieldsAreValidated`); the snapshot views (`snapshot_test.go`, pure
+  bad dates rejected, `TestDocuments_EnumFieldsAreValidated`, and `TestValidateEnums_MapsAndArrays` for enums in
+  arrays and maps); the snapshot views (`snapshot_test.go`, pure
   functions over a hand-built `SnapshotVisibility`); and `TestSpec_EnumSchemasMatchDomain`, which loads
   `openapi/api.yaml` and requires every named enum schema to list exactly the values, in order, of the domain
   vocabulary it describes (`specEnums` in `spec_enums_test.go` maps each schema to its list; a new enum schema
@@ -181,7 +182,9 @@ seeded database (see catalogtest), and new private-database tests should be kept
 
 - **Schema** (`internal/datasources/mysql/*schema*_integration_test.go`, `migrate_integration_test.go`):
   - `TestMigrations_UpDownUp` checks the exact sets of tables and views after up, none after down and the
-    version, and `TestMigrations_ViewsCheckTheReader` that every view is `SQL SECURITY INVOKER`;
+    version, and reads every view after each up; `TestMigrations_DroppedViewColumnBreaksReads` pins that MySQL
+    lets a migration drop a column a view selects and fails the view's reads instead (error 1356);
+    `TestMigrations_ViewsCheckTheReader` checks that every view is `SQL SECURITY INVOKER`;
   - `TestMigrations_ColumnCollations` has an exact map of the non-default collations (user IDs `utf8mb4_0900_bin`;
     and `links.url` `utf8mb4_0900_bin`; slugs, `sort_letter`, `normalized_url`, `platform` and token columns
     `ascii_bin`) and requires every other collated column of a base table to be `utf8mb4_0900_ai_ci` (views'
@@ -230,7 +233,10 @@ seeded database (see catalogtest), and new private-database tests should be kept
   checks them against current database state (an alias, links and a person hidden after the revision was written,
   corrupt snapshots, bases). `repository_redaction_integration_test.go` covers the fail-closed rules: a former
   name that is now a hidden alias, with and without a page; links deleted, moved and hidden, or hidden under
-  another case, since the revision; and a person's performances on links with no public attachment.
+  another case, since the revision; links whose URLs hold non-ASCII characters, which must read (never compared
+  with the ASCII `normalized_url`, MySQL error 3988) and still be shown or dropped exactly
+  (`TestRepository_GetPublicRevision_NonASCIILinkURL`, and `TestHTTP_RevisionWithNonASCIILinkURL` for the 200);
+  and a person's performances on links with no public attachment.
   `TestRepository_GetPublicRevision_Undecodable` checks that a stored revision of another schema version, or with
   an unknown vocabulary value, is an error other than not-found, and one with an extra field is served. `needs_work_integration_test.go` covers the
   needs-work reasons.
