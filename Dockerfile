@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 # Production image for dokku: the API server and the migrate command, which app.json's predeploy step runs.
-FROM golang:1.27.3-alpine AS builder
+# The builder names its alpine release so that it matches the runtime stage below; dependabot bumps both.
+FROM golang:1.27.3-alpine3.24 AS builder
 
 # Build with the image's Go, which is the version go.mod requires, rather than downloading a toolchain.
 ENV GOTOOLCHAIN=local CGO_ENABLED=0
@@ -16,7 +17,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -trimpath -o /out/bardic-torch ./cmd/app && \
     go build -trimpath -o /out/migrate ./cmd/migrate
 
-FROM alpine:3.22
+FROM alpine:3.24
 
 # ca-certificates for TLS to Auth0's JWKS endpoint; tzdata so time zones resolve inside the container.
 RUN apk add --no-cache ca-certificates tzdata && \
