@@ -1,0 +1,115 @@
+{
+  "person": {
+    "id": 13,
+    "slug": "malkin-grey",
+    "sort_name": "Malkin Grey",
+    "sort_letter": "M",
+    "doc": {
+      "schema_version": 1,
+      "name": "Malkin Grey",
+      "kind": "community_bard",
+      "status": "deceased",
+      "status_date": "2020-10-31",
+      "status_source_url": "https://bardictorch.miraheze.org/wiki/Malkin_Grey",
+      "pronouns": null,
+      "notes_md": "- [Deceased October 31, 2020](http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/)",
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "is_stub": false,
+      "aliases": [
+        {
+          "name": "Legal Name 009",
+          "kind": "legal",
+          "is_public": false
+        }
+      ],
+      "roles": [
+        "songwriter"
+      ],
+      "affiliation_ids": [
+        4,
+        1
+      ],
+      "relations": [],
+      "links": [
+        {
+          "url": "https://fancyclopedia.org/wiki/Legal_Name_009",
+          "title": "[name withheld] at Fancyclopedia",
+          "description": null,
+          "platform": "fancyclopedia.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "external_profile"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/",
+          "title": "Deceased October 31, 2020",
+          "description": null,
+          "platform": "falconbanner.gladiusinfractus.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        }
+      ],
+      "preferences": []
+    },
+    "legacy": {
+      "page_id": 55,
+      "title": "Malkin Grey"
+    },
+    "revision": {
+      "id": 241,
+      "summary": "Imported from the wiki (page revision 126).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "ALIAS-010",
+      "kind": "alias",
+      "page": "Malkin Grey",
+      "text": "\"Legal Name 009\": kind legal, hidden (source h1_parenthetical, rule default, unsure)."
+    },
+    {
+      "id": "NAME-118",
+      "kind": "free_text",
+      "page": "Malkin Grey",
+      "text": "link https://fancyclopedia.org/wiki/Legal_Name_009, title: \"Legal Name 009\" was withheld. Context: \"[name withheld] at Fancyclopedia\"."
+    },
+    {
+      "id": "NAME-119",
+      "kind": "link_url",
+      "page": "Malkin Grey",
+      "text": "The link https://fancyclopedia.org/wiki/Legal_Name_009 holds a possible legal name in its URL: it is imported hidden."
+    },
+    {
+      "id": "PERSON-023",
+      "kind": "status",
+      "page": "Malkin Grey",
+      "text": "Status deceased (date: 2020-10-31) from the In Memoriam category, sourced to the wiki page."
+    },
+    {
+      "id": "PERSON-024",
+      "kind": "affiliations",
+      "page": "Malkin Grey",
+      "text": "Affiliations from categories: Atlantia, SCA Bards."
+    },
+    {
+      "id": "PERSON-025",
+      "kind": "roles",
+      "page": "Malkin Grey",
+      "text": "Roles from performer-type categories: songwriter."
+    }
+  ]
+}

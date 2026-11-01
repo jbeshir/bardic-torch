@@ -1,0 +1,256 @@
+{
+  "piece": {
+    "id": 137,
+    "slug": "three-words",
+    "sort_title": "Three Words",
+    "sort_letter": "T",
+    "doc": {
+      "schema_version": 1,
+      "title": "Three Words",
+      "kind": "song",
+      "secondary_kinds": [],
+      "conservation": {
+        "status": "unassessed",
+        "source_url": null
+      },
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": "According to Eliane's Bardic Book: Use of her work \"is limited to non-profit, non-recorded performances by individuals. All lyrics and tunes written by me, or translations of existing lyrics, are copyright [name withheld] and may not be reproduced in print or in electronic format without my express (written) permission.\"\n\nThe tune for the chorus is in the public domain.",
+      "licence": null,
+      "historical_source_md": null,
+      "period_start": null,
+      "period_end": null,
+      "aliases": [],
+      "terms": [
+        {
+          "term_id": 55,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 66,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 103,
+          "is_primary": true,
+          "part": "tune"
+        },
+        {
+          "term_id": 102,
+          "is_primary": false,
+          "part": "tune"
+        },
+        {
+          "term_id": 100,
+          "is_primary": false,
+          "part": "tune"
+        },
+        {
+          "term_id": 120,
+          "is_primary": true,
+          "part": "verses"
+        },
+        {
+          "term_id": 112,
+          "is_primary": false,
+          "part": "chorus"
+        }
+      ],
+      "relations": [],
+      "credits": [
+        {
+          "person_id": 45,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        },
+        {
+          "person_id": 45,
+          "role": "tune",
+          "attribution": "named",
+          "certainty": "certain",
+          "part": "verses",
+          "note": null
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "anonymous",
+          "certainty": "certain",
+          "part": "chorus",
+          "note": null
+        }
+      ],
+      "links": [
+        {
+          "url": "https://www.gflower.org/threewords.htm",
+          "title": "Three Words on Eliane Halevy's page",
+          "description": null,
+          "platform": "gflower.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other",
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtu.be/dhqH0Sra8aU",
+          "title": "Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle Kingdom 50 Year Anniversary",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": 22,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "[https://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle Kingdom 50 Year Anniversary]",
+              "performer_ids": []
+            }
+          ]
+        },
+        {
+          "url": "https://youtu.be/WdPLbQkX2ig",
+          "title": "Recording by [name withheld]: Eliane Halevy singing Three Words, accompanied by Heather Dale on the bohdrun, in 2009",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": 2009,
+              "uploader": null,
+              "description_verbatim": "[https://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, accompanied by Heather Dale on the bohdrun, in 2009]",
+              "performer_ids": []
+            }
+          ]
+        }
+      ],
+      "preferences": []
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 360,
+      "title": "Three Words"
+    },
+    "revision": {
+      "id": 527,
+      "summary": "Imported from the wiki (page revision 934).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "NAME-109",
+      "kind": "free_text",
+      "page": "Three Words",
+      "text": "link https://youtu.be/dhqH0Sra8aU, title: \"Legal Name 024\" was withheld. Context: \"Recording by [name withheld]: Eliane Halevy performing her original\"."
+    },
+    {
+      "id": "NAME-110",
+      "kind": "free_text",
+      "page": "Three Words",
+      "text": "link https://youtu.be/dhqH0Sra8aU, title: \"Legal Name\" was withheld. Context: \"levy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle\"."
+    },
+    {
+      "id": "NAME-111",
+      "kind": "free_text",
+      "page": "Three Words",
+      "text": "link https://youtu.be/WdPLbQkX2ig, title: \"Legal Name 024\" was withheld. Context: \"Recording by [name withheld]: Eliane Halevy singing Three Words, acc\"."
+    },
+    {
+      "id": "NAME-340",
+      "kind": "free_text",
+      "page": "Three Words",
+      "text": "piece Three Words, licensing notes: \"Legal Name 021\" was withheld. Context: \"tions of existing lyrics, are copyright [name withheld] and may not be reproduced in print or i\"."
+    },
+    {
+      "id": "NAME-341",
+      "kind": "free_text",
+      "page": "Three Words",
+      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"tps://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original\"."
+    },
+    {
+      "id": "NAME-342",
+      "kind": "free_text",
+      "page": "Three Words",
+      "text": "performance item, description: \"Legal Name\" was withheld. Context: \"levy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle\"."
+    },
+    {
+      "id": "NAME-343",
+      "kind": "free_text",
+      "page": "Three Words",
+      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"tps://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, acc\"."
+    },
+    {
+      "id": "CREDIT-052",
+      "kind": "part_inferred",
+      "page": "Three Words",
+      "text": "The tune credit of \"Eliane Halevy\" is scoped to the verses, inferred from the piece's origins."
+    },
+    {
+      "id": "CREDIT-053",
+      "kind": "part_inferred",
+      "page": "Three Words",
+      "text": "The tune credit of \"anonymous\" is scoped to the chorus, inferred from the piece's origins."
+    },
+    {
+      "id": "LINK-205",
+      "kind": "normalised",
+      "page": "Three Words",
+      "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "LINK-206",
+      "kind": "repeated",
+      "page": "Three Words",
+      "text": "URLs written more than once, imported once each: https://www.gflower.org/threewords.htm."
+    },
+    {
+      "id": "LINK-207",
+      "kind": "roles",
+      "page": "Three Words",
+      "text": "https://www.gflower.org/threewords.htm has several roles: other, lyrics."
+    },
+    {
+      "id": "PERF-262",
+      "kind": "incomplete",
+      "page": "Three Words",
+      "text": "A performance item has no performer or year the importer could read: \"[https://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy perfor…\"."
+    },
+    {
+      "id": "PERF-263",
+      "kind": "incomplete",
+      "page": "Three Words",
+      "text": "A performance item has no performer or event the importer could read: \"[https://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singin…\"."
+    },
+    {
+      "id": "LICENCE-025",
+      "kind": "says_public_domain",
+      "page": "Three Words",
+      "text": "The licensing text says \"public domain\"; no licence is set without a source."
+    }
+  ]
+}

@@ -1,0 +1,229 @@
+{
+  "piece": {
+    "id": 136,
+    "slug": "the-burning-of-tara",
+    "sort_title": "Burning of Tara",
+    "sort_letter": "B",
+    "doc": {
+      "schema_version": 1,
+      "title": "The Burning of Tara",
+      "kind": "story",
+      "secondary_kinds": [],
+      "conservation": {
+        "status": "unassessed",
+        "source_url": null
+      },
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "licence": null,
+      "historical_source_md": "- [Version of Fionn's origin story in 'Gods and Fighting Men', 1905](https://www.gutenberg.org/files/14465/14465-h/14465-h.htm#L28)\n- ['Fionn and the Goblin' at Ireland's Myths \u0026 Legends](https://www.irelandsmythsandlegends.com/fionn-and-the-fianna)\n- [The Burning of Tara in Fionn Folklore, Harvard's collection of oral tradition recordings](https://fionnfolklore.org/en/lays/dta)",
+      "period_start": null,
+      "period_end": null,
+      "aliases": [
+        {
+          "text": "Fionn and the Dragon",
+          "kind": "alt_title"
+        },
+        {
+          "text": "How Finn became leader of the Fianna",
+          "kind": "alt_title"
+        }
+      ],
+      "terms": [
+        {
+          "term_id": 84,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 52,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 46,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 47,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 98,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 115,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 110,
+          "is_primary": true,
+          "part": null
+        }
+      ],
+      "relations": [],
+      "credits": [],
+      "links": [
+        {
+          "url": "https://www.gutenberg.org/files/14465/14465-h/14465-h.htm#L28",
+          "title": "Version of Fionn's origin story in 'Gods and Fighting Men', 1905",
+          "description": null,
+          "platform": "gutenberg",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "text_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.irelandsmythsandlegends.com/fionn-and-the-fianna",
+          "title": "'Fionn and the Goblin' at Ireland's Myths \u0026 Legends",
+          "description": null,
+          "platform": "irelandsmythsandlegends.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "text_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://fionnfolklore.org/en/lays/dta",
+          "title": "The Burning of Tara in Fionn Folklore, Harvard's collection of oral tradition recordings",
+          "description": null,
+          "platform": "fionnfolklore.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "text_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB",
+          "title": "Fionn and the Dragon on [name withheld] 087 podcast",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "[https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB Fionn and the Dragon on [name withheld] 087 podcast]",
+              "performer_ids": []
+            }
+          ]
+        },
+        {
+          "url": "https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o",
+          "title": "Retelling from Deardubh's perspective from [name withheld] 087",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "[https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o Retelling from Deardubh's perspective from [name withheld] 087]",
+              "performer_ids": []
+            }
+          ]
+        }
+      ],
+      "preferences": []
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 356,
+      "title": "The Burning of Tara"
+    },
+    "revision": {
+      "id": 526,
+      "summary": "Imported from the wiki (page revision 929).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "NAME-107",
+      "kind": "free_text",
+      "page": "The Burning of Tara",
+      "text": "link https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB, title: \"Legal Name\" was withheld. Context: \"Fionn and the Dragon on [name withheld] 087 podcast\"."
+    },
+    {
+      "id": "NAME-108",
+      "kind": "free_text",
+      "page": "The Burning of Tara",
+      "text": "link https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o, title: \"Legal Name\" was withheld. Context: \"elling from Deardubh's perspective from [name withheld] 087\"."
+    },
+    {
+      "id": "NAME-338",
+      "kind": "free_text",
+      "page": "The Burning of Tara",
+      "text": "performance item, description: \"Legal Name\" was withheld. Context: \"qHqngp8PuAFDgGB Fionn and the Dragon on [name withheld] 087 podcast]\"."
+    },
+    {
+      "id": "NAME-339",
+      "kind": "free_text",
+      "page": "The Burning of Tara",
+      "text": "performance item, description: \"Legal Name\" was withheld. Context: \"elling from Deardubh's perspective from [name withheld] 087]\"."
+    },
+    {
+      "id": "TITLE-035",
+      "kind": "alternate",
+      "page": "The Burning of Tara",
+      "text": "Alias \"Fionn and the Dragon\" (alt_title, from the also_known_as)."
+    },
+    {
+      "id": "TITLE-036",
+      "kind": "alternate",
+      "page": "The Burning of Tara",
+      "text": "Alias \"How Finn became leader of the Fianna\" (alt_title, from the also_known_as)."
+    },
+    {
+      "id": "LINK-204",
+      "kind": "normalised",
+      "page": "The Burning of Tara",
+      "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "PERF-260",
+      "kind": "incomplete",
+      "page": "The Burning of Tara",
+      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB Fionn and the Dragon on [name …\"."
+    },
+    {
+      "id": "PERF-261",
+      "kind": "incomplete",
+      "page": "The Burning of Tara",
+      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o Retelling from Deardubh's pers…\"."
+    }
+  ]
+}

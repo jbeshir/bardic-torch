@@ -1,0 +1,146 @@
+{
+  "piece": {
+    "id": 100,
+    "slug": "greensleeves-sca-version",
+    "sort_title": "Greensleeves (SCA Version)",
+    "sort_letter": "G",
+    "doc": {
+      "schema_version": 1,
+      "title": "Greensleeves (SCA Version)",
+      "kind": "song",
+      "secondary_kinds": [],
+      "conservation": {
+        "status": "unassessed",
+        "source_url": null
+      },
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "licence": null,
+      "historical_source_md": null,
+      "period_start": null,
+      "period_end": null,
+      "aliases": [],
+      "terms": [
+        {
+          "term_id": 19,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 75,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 76,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 77,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 112,
+          "is_primary": true,
+          "part": null
+        }
+      ],
+      "relations": [
+        {
+          "to_piece_id": 99,
+          "type": "contrafactum_of"
+        }
+      ],
+      "credits": [
+        {
+          "person_id": null,
+          "role": "lyrics",
+          "attribution": "unknown",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "traditional",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        }
+      ],
+      "links": [
+        {
+          "url": "https://www.beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf",
+          "title": "The Veil lyrics in the Beadmakers' Songbook",
+          "description": null,
+          "platform": "pdf",
+          "place_type": "book",
+          "collection_id": 10,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        }
+      ],
+      "preferences": []
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 276,
+      "title": "Greensleeves (SCA Version)"
+    },
+    "revision": {
+      "id": 490,
+      "summary": "Imported from the wiki (page revision 699).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "AMBIG-001",
+      "kind": "other_page_title",
+      "page": "Greensleeves (SCA Version)",
+      "text": "The infobox_title gives the title \"Greensleeves\", which is another page's. Guess: the page title \"Greensleeves (SCA Version)\"; the alternative: \"Greensleeves\"."
+    },
+    {
+      "id": "TITLE-001",
+      "kind": "relation",
+      "page": "Greensleeves (SCA Version)",
+      "text": "Related to \"Greensleeves\" as contrafactum_of, from the titles."
+    },
+    {
+      "id": "TITLE-026",
+      "kind": "rejected",
+      "page": "Greensleeves (SCA Version)",
+      "text": "Not imported: \"Greensleeves\" (from the infobox_title): other_page."
+    },
+    {
+      "id": "DRIFT-032",
+      "kind": "in_infobox_not_tagged",
+      "page": "Greensleeves (SCA Version)",
+      "text": "in_infobox_not_tagged: \"Traditional \u0026 Folk\" (read as \"Traditional \u0026 Folk\")."
+    },
+    {
+      "id": "LINK-158",
+      "kind": "normalised",
+      "page": "Greensleeves (SCA Version)",
+      "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "LINK-292",
+      "kind": "conflict",
+      "page": "Greensleeves (SCA Version)",
+      "text": "https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's."
+    }
+  ]
+}

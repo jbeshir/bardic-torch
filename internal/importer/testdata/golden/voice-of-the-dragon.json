@@ -1,0 +1,142 @@
+{
+  "piece": {
+    "id": 126,
+    "slug": "voice-of-the-dragon",
+    "sort_title": "Voice of the Dragon",
+    "sort_letter": "V",
+    "doc": {
+      "schema_version": 1,
+      "title": "Voice of the Dragon",
+      "kind": "song",
+      "secondary_kinds": [],
+      "conservation": {
+        "status": "unassessed",
+        "source_url": null
+      },
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "licence": null,
+      "historical_source_md": null,
+      "period_start": null,
+      "period_end": null,
+      "aliases": [],
+      "terms": [
+        {
+          "term_id": 55,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 65,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 120,
+          "is_primary": true,
+          "part": null
+        }
+      ],
+      "relations": [],
+      "credits": [
+        {
+          "person_id": 82,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        },
+        {
+          "person_id": 82,
+          "role": "tune",
+          "attribution": "named",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        }
+      ],
+      "links": [
+        {
+          "url": "https://sites.google.com/site/bardicmadnessmid/midrealm-song-sheet-project/Lyrics-Online#h.pj7a9tfw9oy",
+          "title": "Lyrics in Midrealm Bardic Madness Song Sheets",
+          "description": null,
+          "platform": "sites.google.com",
+          "place_type": "community_archive",
+          "collection_id": 40,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtu.be/7lyp8SRDzbg?si=eYFirpi3AdLPUd-y",
+          "title": "Recording by Cerian Cantwr on YouTube",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": 2023,
+              "uploader": "Cerian Cantwr",
+              "description_verbatim": "[https://youtu.be/7lyp8SRDzbg?si=eYFirpi3AdLPUd-y Recording by Cerian Cantwr on YouTube] of [[Sadb ingen Donnchadha]] singing Voice of the Dragon in 2023",
+              "performer_ids": [
+                18
+              ]
+            }
+          ]
+        }
+      ],
+      "preferences": []
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 341,
+      "title": "Voice of the Dragon"
+    },
+    "revision": {
+      "id": 516,
+      "summary": "Imported from the wiki (page revision 880).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "STUB-112",
+      "kind": "stub_person",
+      "page": "Voice of the Dragon",
+      "text": "Stub person \"Emil Allzuwissender\" (community_bard), named on 3 page(s)."
+    },
+    {
+      "id": "LINK-194",
+      "kind": "normalised",
+      "page": "Voice of the Dragon",
+      "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "PERF-247",
+      "kind": "incomplete",
+      "page": "Voice of the Dragon",
+      "text": "A performance item has no event the importer could read: \"[https://youtu.be/7lyp8SRDzbg?si=eYFirpi3AdLPUd-y Recording by Cerian Cantwr on …\"."
+    },
+    {
+      "id": "PERSON-125",
+      "kind": "stub_kind",
+      "page": "Voice of the Dragon",
+      "text": "Stub person \"Emil Allzuwissender\" (named on 3 page(s)) is guessed to be community_bard."
+    }
+  ]
+}

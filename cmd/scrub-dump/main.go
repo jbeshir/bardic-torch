@@ -156,7 +156,7 @@ func printCounts(w io.Writer, res scrub.Result) error {
 	reasons := map[string]int{}
 	for _, c := range res.Candidates {
 		reasons[c.Rule+" "+string(c.Reason)]++
-		if c.Deny {
+		if c.Private {
 			phrases[c.Placeholder] = true
 		}
 	}
@@ -189,7 +189,7 @@ func candidatesList(decisions []scrub.CandidateDecision) []byte {
 	cell := strings.NewReplacer("|", `\|`, "\n", " ")
 	for _, c := range decisions {
 		decision := "keep"
-		if c.Deny {
+		if c.Private {
 			decision = "legal"
 		}
 		fmt.Fprintf(&b, "| %d | %s | %s | %s | %s | %s |\n", c.PageID, c.Rule, cell.Replace(c.Text), decision, c.Reason,

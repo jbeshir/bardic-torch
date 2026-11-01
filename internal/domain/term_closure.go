@@ -20,9 +20,9 @@ var (
 // TermAncestor is a row of the term_ancestors closure: AncestorID is DescendantID itself (Depth 0) or an ancestor
 // Depth levels above it.
 type TermAncestor struct {
-	AncestorID   int64
-	DescendantID int64
-	Depth        int
+	AncestorID   int64 `json:"ancestor_id"`
+	DescendantID int64 `json:"descendant_id"`
+	Depth        int   `json:"depth"`
 }
 
 // TermClosure returns the closure rows of the terms of parents, which maps each term's ID to its parent's ID, or

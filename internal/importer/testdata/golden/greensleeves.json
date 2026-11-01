@@ -1,0 +1,341 @@
+{
+  "piece": {
+    "id": 99,
+    "slug": "greensleeves",
+    "sort_title": "Greensleeves",
+    "sort_letter": "G",
+    "doc": {
+      "schema_version": 1,
+      "title": "Greensleeves",
+      "kind": "song",
+      "secondary_kinds": [],
+      "conservation": {
+        "status": "unassessed",
+        "source_url": null
+      },
+      "is_stub": false,
+      "notes_md": "See also Greensleeves (SCA Version).",
+      "version_notes_md": "There are many, many versions.",
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "licence": null,
+      "historical_source_md": null,
+      "period_start": 1501,
+      "period_end": 1600,
+      "aliases": [],
+      "terms": [
+        {
+          "term_id": 123,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 27,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 50,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 96,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 115,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 119,
+          "is_primary": false,
+          "part": null
+        }
+      ],
+      "relations": [],
+      "credits": [
+        {
+          "person_id": null,
+          "role": "lyrics",
+          "attribution": "traditional",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        },
+        {
+          "person_id": 135,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "possible",
+          "part": null,
+          "note": null
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "traditional",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        }
+      ],
+      "links": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Greensleeves",
+          "title": "Greensleeves on Wikipedia",
+          "description": null,
+          "platform": "wikipedia",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf",
+          "title": "The Veil lyrics in the Beadmakers' Songbook",
+          "description": null,
+          "platform": "pdf",
+          "place_type": "book",
+          "collection_id": 10,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://sca.claypool.me/songs.html",
+          "title": "Lyrics on Claypool's SCA Songs",
+          "description": null,
+          "platform": "sca.claypool.me",
+          "place_type": "community_archive",
+          "collection_id": 18,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.thebards.net/music/lyrics/Greensleeves_Medley.shtml",
+          "title": "Lyrics and chords at The Bard's Celtic Lyrics Directory",
+          "description": null,
+          "platform": "thebards.net",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtu.be/19X5WNh4y9w",
+          "title": "Recording by Cerian Cantwr on YouTube",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": "Cerian Cantwr",
+              "description_verbatim": "[https://youtu.be/19X5WNh4y9w Recording by Cerian Cantwr on YouTube] of Greensleeves sung by [[Heregyth Ketilsdottir]], [[Heinrich von Stuttgart]], and [[Jonathan Ospry]]",
+              "performer_ids": [
+                95,
+                93,
+                105
+              ]
+            }
+          ]
+        },
+        {
+          "url": "https://www.youtube.com/watch?v=IAHnmqSQdDw",
+          "title": null,
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "https://www.youtube.com/watch?v=IAHnmqSQdDw Music video on YouTube demonstrating all the clothing articles mentioned in the song. Musical performance by [[Richard de Winter]], [[Robin Jeffre]], [[Sam Brown]], and [[Allison Kinder]].",
+              "performer_ids": [
+                136,
+                138,
+                140,
+                51
+              ]
+            }
+          ]
+        }
+      ],
+      "preferences": []
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 275,
+      "title": "Greensleeves"
+    },
+    "revision": {
+      "id": 489,
+      "summary": "Imported from the wiki (page revision 946).",
+      "contributors": [
+        "Wiki User 01",
+        "Wiki User 11"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "STUB-081",
+      "kind": "stub_person",
+      "page": "Greensleeves",
+      "text": "Stub person \"Allison Kinder\" (community_bard), named on 1 page(s)."
+    },
+    {
+      "id": "STUB-123",
+      "kind": "stub_person",
+      "page": "Greensleeves",
+      "text": "Stub person \"Heinrich von Stuttgart\" (community_bard), named on 1 page(s)."
+    },
+    {
+      "id": "STUB-125",
+      "kind": "stub_person",
+      "page": "Greensleeves",
+      "text": "Stub person \"Heregyth Ketilsdottir\" (community_bard), named on 1 page(s)."
+    },
+    {
+      "id": "STUB-135",
+      "kind": "stub_person",
+      "page": "Greensleeves",
+      "text": "Stub person \"Jonathan Ospry\" (community_bard), named on 1 page(s)."
+    },
+    {
+      "id": "STUB-165",
+      "kind": "stub_person",
+      "page": "Greensleeves",
+      "text": "Stub person \"Richard Jones\" (community_bard), named on 1 page(s)."
+    },
+    {
+      "id": "STUB-166",
+      "kind": "stub_person",
+      "page": "Greensleeves",
+      "text": "Stub person \"Richard de Winter\" (community_bard), named on 1 page(s)."
+    },
+    {
+      "id": "STUB-168",
+      "kind": "stub_person",
+      "page": "Greensleeves",
+      "text": "Stub person \"Robin Jeffre\" (community_bard), named on 1 page(s)."
+    },
+    {
+      "id": "STUB-170",
+      "kind": "stub_person",
+      "page": "Greensleeves",
+      "text": "Stub person \"Sam Brown\" (community_bard), named on 1 page(s)."
+    },
+    {
+      "id": "LINK-157",
+      "kind": "normalised",
+      "page": "Greensleeves",
+      "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "LINK-290",
+      "kind": "conflict",
+      "page": "Greensleeves",
+      "text": "https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's."
+    },
+    {
+      "id": "LINK-291",
+      "kind": "conflict",
+      "page": "Greensleeves",
+      "text": "http://sca.claypool.me/songs.html: its title differ from those March of Cambreadth gives; the import uses March of Cambreadth's."
+    },
+    {
+      "id": "PERF-218",
+      "kind": "incomplete",
+      "page": "Greensleeves",
+      "text": "A performance item has no event or year the importer could read: \"[https://youtu.be/19X5WNh4y9w Recording by Cerian Cantwr on YouTube] of Greensle…\"."
+    },
+    {
+      "id": "PERF-219",
+      "kind": "incomplete",
+      "page": "Greensleeves",
+      "text": "A performance item has no event or year the importer could read: \"https://www.youtube.com/watch?v=IAHnmqSQdDw Music video on YouTube demonstrating…\"."
+    },
+    {
+      "id": "PERSON-094",
+      "kind": "stub_kind",
+      "page": "Greensleeves",
+      "text": "Stub person \"Allison Kinder\" (named on 1 page(s)) is guessed to be community_bard."
+    },
+    {
+      "id": "PERSON-136",
+      "kind": "stub_kind",
+      "page": "Greensleeves",
+      "text": "Stub person \"Heinrich von Stuttgart\" (named on 1 page(s)) is guessed to be community_bard."
+    },
+    {
+      "id": "PERSON-138",
+      "kind": "stub_kind",
+      "page": "Greensleeves",
+      "text": "Stub person \"Heregyth Ketilsdottir\" (named on 1 page(s)) is guessed to be community_bard."
+    },
+    {
+      "id": "PERSON-148",
+      "kind": "stub_kind",
+      "page": "Greensleeves",
+      "text": "Stub person \"Jonathan Ospry\" (named on 1 page(s)) is guessed to be community_bard."
+    },
+    {
+      "id": "PERSON-178",
+      "kind": "stub_kind",
+      "page": "Greensleeves",
+      "text": "Stub person \"Richard Jones\" (named on 1 page(s)) is guessed to be historical."
+    },
+    {
+      "id": "PERSON-179",
+      "kind": "stub_kind",
+      "page": "Greensleeves",
+      "text": "Stub person \"Richard de Winter\" (named on 1 page(s)) is guessed to be community_bard."
+    },
+    {
+      "id": "PERSON-181",
+      "kind": "stub_kind",
+      "page": "Greensleeves",
+      "text": "Stub person \"Robin Jeffre\" (named on 1 page(s)) is guessed to be community_bard."
+    },
+    {
+      "id": "PERSON-183",
+      "kind": "stub_kind",
+      "page": "Greensleeves",
+      "text": "Stub person \"Sam Brown\" (named on 1 page(s)) is guessed to be community_bard."
+    },
+    {
+      "id": "LICENCE-018",
+      "kind": "period",
+      "page": "Greensleeves",
+      "text": "Period 1501–1600 from the century origins 16th Century."
+    }
+  ]
+}

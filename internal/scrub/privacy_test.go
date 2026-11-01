@@ -51,7 +51,7 @@ func TestScrubbedDumpStructuralPrivacy(t *testing.T) {
 		}
 		for _, h1 := range mediawiki.BardAliases(p) {
 			if h1.Source == mediawiki.AliasFromH1Parenthetical && !mediawiki.ClassifyPersonAlias(h1).Public() {
-				assert.True(t, isPlaceholder(h1.Name) || slices.Contains(PublicNames, h1.Name),
+				assert.True(t, mediawiki.IsPlaceholderName(h1.Name) || slices.Contains(mediawiki.PublicNames, h1.Name),
 					"%s: hidden H1 alias is not a placeholder", p.Title)
 			}
 		}
@@ -84,7 +84,7 @@ func requirePlaceholderLyrics(t *testing.T, where, text string) {
 // in prose but placeholders.
 func requireNoContactDetails(t *testing.T, where, text string) {
 	t.Helper()
-	for _, e := range emailPattern.FindAllString(text, -1) {
+	for _, e := range mediawiki.EmailAddress.FindAllString(text, -1) {
 		assert.True(t, strings.HasSuffix(e, placeholderDomain), "%s: email %s", where, e)
 	}
 	s := scrubber{}
@@ -95,7 +95,7 @@ func requireNoContactDetails(t *testing.T, where, text string) {
 
 		return p
 	})
-	s.prose(text, honorificPattern, func(m []int, text string) string {
+	s.prose(text, mediawiki.HonorificName, func(m []int, text string) string {
 		assert.True(t, startsWithPlaceholder(text[m[2]:]), "%s: honorific at byte %d is not a placeholder", where,
 			m[0])
 

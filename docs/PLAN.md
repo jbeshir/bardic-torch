@@ -388,14 +388,29 @@ the DDL is in `migrations/003`–`009`.
 8. Turn redirects into aliases and red links into stubs.
 9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`.
 10. Write all imported data as approved revisions with `source = import`, crediting wiki contributors.
-11. Write `import-review.md` for the moderators, listing every flagged ambiguity, drift item and fuzzy-matched person.
+11. Write `import-review.md` for the moderators (John and Fabian), listing every flagged ambiguity, alias
+    classification, withheld name and email, drift item and fuzzy-matched person, each with a stable ID
+    (`ALIAS-007`). It is private: it names hidden aliases in clear, so it is written outside the repository only,
+    and it never holds lyrics (only their page, section and line count).
 
 **Writing into the BE2 schema** (§4.1):
 - Write sort keys and `sort_letter`. Build the `term_ancestors` closure, including each term's row for itself.
 - Use the legacy page URL as the source of a non-active person status, and as the conservation source where the
   wiki gives none.
-- Hide legal aliases, and any `redirect` alias equal to a hidden alias. List free text containing a hidden alias in
-  `import-review.md`.
+- Hide legal aliases, any `redirect` alias equal to a hidden alias, and any public alias holding a hidden alias.
+- Withhold private names from every public free-text field written (notes, version, licensing and historical
+  notes, credit notes, link titles, performance descriptions and uploaders, term and collection descriptions and
+  names, event names, piece aliases): each occurrence of a hidden alias or of a name the scrubber treats as private
+  (`mediawiki.PrivateNames`; legal names in every `PrivateNameMatcher` form: honorific, reversed, URL forms),
+  and any honorific with a surname ("Mr. Surname"), becomes `[name withheld]`; each email address becomes
+  `[email withheld]`. This is the one exception to keeping a performance description as written (§2.14), because
+  an approved import revision cannot be redacted later. A link whose URL holds such a name is imported hidden
+  (`links.is_hidden`). Every withheld span and hidden link is an item of `import-review.md`, so moderators can
+  restore what may be public. No licence is inferred from prose ("public domain" is a review item).
+- Normalise every imported string to NFC; list names that `domain.CheckTextCharacters` rejects.
+- Check the whole import before writing (`CatalogueImport.Validate`): it mirrors every constraint of the schema
+  (unique keys as the collation compares them, primary keys, column widths, CHECKs, references and insert order),
+  with error messages that name the entity, ID and field, never a value.
 - Write documents with editor-owned fields only. Write the link system state (liveness) to `links` directly.
 - Write revision `summary` text that is neutral: it is free text shown on every approved revision, including those of
   persons without a page, and nothing checks it against hidden aliases. BE4 should flag editor summaries that

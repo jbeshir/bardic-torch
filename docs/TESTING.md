@@ -100,6 +100,24 @@ with `go tool`, so nothing needs installing.
   URLs, and `TestScrubbedLinks_*` the examples (the Green Dragon venue, Marian of Heatherdale matched to Heather
   Dale, Dahrien Cordell's repaired performance link on Rite of Passage, one set of fields per URL, YouTube links
   never in a collection by prefix, ties).
+- **Building the import** (`internal/importer`, `domain.CatalogueImport`, synthetic wikis and the scrubbed copy):
+  `TestCatalogueImportValidate_*` mirror each schema constraint (IDs, slugs, legacy page IDs, summaries, documents
+  decoding, column widths, collation-folded uniques, child primary keys, CHECKs, references, the insert order of
+  term parents and related affiliations, link rows, the closure, NFC), each failing with `ErrInvalidImport` and
+  never showing the value. `TestBuild_*` cover revisions and contributors, neutral summaries, stable slug
+  collisions, sort keys, the closure, legacy URLs as status and conservation sources, hidden, redirect and unsure
+  aliases, every kind of free text withheld (`TestBuild_FreeTextContainingHiddenAliasListed`), emails, one link row
+  per normalised URL, legacy columns, NFC and determinism. On the scrubbed copy, `TestBuild_ResearchCounts` asserts
+  142 pieces (135/4/2/1), 48 bards, 62 collection entries (61 written) and 11 pieces with inline lyrics,
+  `TestBuild_NoLyricMarkerAnywhere` that no lyric placeholder line is in any field or the review, and
+  `TestBuild_NoPlaceholderInPublicFields` that no name placeholder is in a public field (hidden aliases, legacy
+  columns and hidden links aside); `TestCorpus_ResearchCounts` asserts `mediawiki.Stats`. `TestRenderReview_*` and
+  `TestReview_*` check the review: every section in order, determinism, the PLAN §2.9 ambiguities, every alias
+  listed. `TestGoldenPages` (16 tricky pages, with semantic checks in `golden_assert_test.go`) and
+  `TestReviewGolden` compare with `internal/importer/testdata/`; after a deliberate change, rewrite them with
+  `go test ./internal/importer -run Golden -update` and review the diff (the repository privacy scans cover them).
+  Gated: the same counts on the real crawl, no private name (in clear, every form) or email in a public field of
+  the real import, and no 5-word window or whole line of any dropped lyrics in the real import or its review.
 - **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
   `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; the
   milestone gates set it to the research output). The crawl holds legal names and lyrics, so these tests report

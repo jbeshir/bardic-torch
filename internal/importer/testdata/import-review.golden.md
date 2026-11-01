@@ -1,0 +1,1878 @@
+# Import review
+
+For John and Fabian, the moderators: this lists everything the importer decided that the wiki
+does not state, so you can check it. Where the wiki is ambiguous the importer applied its best guess; change it
+in the catalogue after the import. Every item has an ID (such as ALIAS-007) to refer to it by.
+
+**Private: do not publish or commit this file.** It names hidden aliases and other possible legal names in clear,
+so that you can review them. It never contains lyrics: inline lyrics are dropped and only their page, section and
+line count are listed.
+
+## Counts
+
+| What | Count |
+|---|---|
+| Pieces: dance_music | 1 |
+| Pieces: poem | 4 |
+| Pieces: song | 135 |
+| Pieces: story | 2 |
+| Stub pieces | 78 |
+| Persons | 162 |
+| Bards (with a page) | 48 |
+| Stub persons | 114 |
+| Terms | 129 |
+| Collections | 61 |
+| Events | 38 |
+| Links | 553 |
+| Links imported hidden | 7 |
+| Revisions | 610 |
+
+## 1. Ambiguous records
+
+Records the wiki leaves ambiguous (PLAN §2.9): the importer's guess, and the alternative.
+
+- **AMBIG-001** [Greensleeves (SCA Version)] The infobox_title gives the title "Greensleeves", which is another page's. Guess: the page title "Greensleeves (SCA Version)"; the alternative: "Greensleeves".
+- **AMBIG-002** [Fight for the Midrealm] The infobox_title gives the title "Voice of the Dragon", which is another page's. Guess: the page title "Fight for the Midrealm"; the alternative: "Voice of the Dragon".
+- **AMBIG-003** [Samantha Moore] "Ambra Michelli": guess "Samantha Moore"; alternatives: "Ambra Michelli".
+- **AMBIG-004** [Song of the Wain] "Marian of Heatherdale": guess "Heather Dale"; alternatives: "Marian of Heatherdale".
+- **AMBIG-005** [Thirteenth Virtue] "Dunstan": guess "Legal Name"; alternatives: "Dunstan".
+- **AMBIG-006** [Eliane Halevy] "My Thing Is My Own": guess "My Thing Is My Own"; alternatives: "My Thing is My Own".
+
+## 2. Alias classifications
+
+Every alias of every person, with its kind, whether it is public and the rule that decided it. Unsure classifications come first; they are hidden until reviewed.
+
+- **ALIAS-001** [Lucia Elena Braganza] "Legal Name 001": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-002** [Lisa Theriot] "Legal Name 002": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-003** [Samantha Moore] "Ambra Michelli": kind legal, hidden (source h1_lead, rule default, unsure).
+- **ALIAS-004** [Morric Haast] "Legal Name 003": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-005** [Emer nic Aidan] "Legal Name 004": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-006** [Bird the Bard] "Legal Name 005": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-007** [Bird the Bard] "Legal Name 006": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-008** [Garraed Galbraith] "Legal Name 007": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-009** [Rosalind Jehanne] "Legal Name 008": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-010** [Malkin Grey] "Legal Name 009": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-011** [Conn MacNeill] "Legal Name 010": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-012** [Wyndreth Berginsdottir] "Legal Name 011": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-013** [Anubh de Mona] "Legal Name 012": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-014** [Drake Oranwood] "Legal Name 013": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-015** [Colette la trouvère] "Legal Name 014": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-016** [Aneleda Falconbridge] "Legal Name 015": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-017** [Baldwin of Erebor] "Legal Name 016": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-018** [Warjna Waleska Katzjmjr] "Legal Name 017": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-019** [Peregrynne Wyndrider] "Legal Name 018": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-020** [Mikal the Ram] "Legal Name 019": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-021** [Mikal the Ram] "Legal Name 020": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-022** [Eliane Halevy] "Legal Name 021": kind legal, hidden (source h1_parenthetical, rule default, unsure).
+- **ALIAS-023** [Heather Dale] "Marion of Heatherdale": kind sca, public (source h1_parenthetical, rule byname, confident).
+- **ALIAS-024** [Colette la trouvère] "Colette the Bard": kind sca, public (source h1_parenthetical, rule byname, confident).
+- **ALIAS-025** [Ken Theriot] "Kenneth MacQuarrie of Tobermory": kind sca, public (source h1_parenthetical, rule byname, confident).
+- **ALIAS-026** [Jim Pipkin] "James Treebull the Stubborn": kind sca, public (source h1_parenthetical, rule byname, confident).
+- **ALIAS-027** [Ann Cass] "Astra of the Grey Shadows": kind sca, public (source h1_parenthetical, rule byname, confident).
+
+## 3. Hidden names withheld from public text
+
+Every place a hidden alias or another possible legal name was found in public text and replaced with "[name withheld]", and every link imported hidden because its URL holds one. The context shows the text after withholding.
+
+- **NAME-001** [Collections] collection http://calonsong.org/CalontirSongs/Songbook-Ansteorra2.pdf, description: "Legal Name" was withheld. Context: "2nd edition - compiled by [name withheld] 030".
+- **NAME-002** [Collections] collection http://unclej.ca/Campfire.asp, description: "Legal Name" was withheld. Context: "[name withheld] 068' songbook".
+- **NAME-003** [Collections] collection https://yumpu.com/en/document/read/36398267/kates-song-book, name: "Legal Name" was withheld. Context: "[name withheld] 031 (West Kingdom)".
+- **NAME-004** [Valkyrie's Lullaby] link https://www.youtube.com/watch?v=-hRDt5LMkYg&list=RD-hRDt5LMkYg&start_radio=1, title: "Legal Name 024" was withheld. Context: "Lasair performing for [name withheld] on YouTube".
+- **NAME-005** [Valkyrie's Lullaby] link https://www.youtube.com/watch?v=q2oUW8MfVeI&list=RDq2oUW8MfVeI&start_radio=1, title: "Ambra Michelli" was withheld. Context: "[name withheld] performing for [name withheld] on YouTu".
+- **NAME-006** [Valkyrie's Lullaby] link https://www.youtube.com/watch?v=q2oUW8MfVeI&list=RDq2oUW8MfVeI&start_radio=1, title: "Legal Name 024" was withheld. Context: "[name withheld] performing for [name withheld] on YouTube at the Green Dragon".
+- **NAME-007** [Band of Brothers] link https://www.Legal Name.com/band-of-brothers-song/, title: "Legal Name 041" was withheld. Context: "Song page at [name withheld]".
+- **NAME-008** [Band of Brothers] link https://www.Legal Name.com/sheet-music/, title: "Legal Name 041" was withheld. Context: "Download sheet music or song sheets at [name withheld]".
+- **NAME-009** [Undefeated] link https://youtu.be/Jof9TROND0s?si=EcbfSBbZqf3S0Dnp, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-010** [Belt and Chain] link https://www.youtube.com/watch?v=-sObDNjrJ0s&list=RD-sObDNjrJ0s&start_radio=1, title: "Legal Name 025" was withheld. Context: "Performance on YouTube by [name withheld]".
+- **NAME-011** [Belt and Chain] link https://www.youtube.com/watch?v=mcy0bGQ_NyI&list=RDmcy0bGQ_NyI&start_radio=1, title: "Legal Name 026" was withheld. Context: "Performance on YouTube by [name withheld] for the Kingdom of Trimaris channel".
+- **NAME-012** [Come and Be Welcome] link https://www.youtube.com/watch?v=ImSc9JE7jdc, title: "Legal Name" was withheld. Context: "Performance by [name withheld] 027, recorded by Cerian Cantwr on YouTu".
+- **NAME-013** [One for the Leaving] link https://www.youtube.com/watch?v=EiYBQA869Gk&list=RDEiYBQA869Gk&start_radio=1, title: "Legal Name 024" was withheld. Context: "[name withheld] on YouTube:".
+- **NAME-014** [The Veil] link https://www.youtube.com/watch?v=0Cunacusm2Q, title: "Legal Name 024" was withheld. Context: "sung by Garraed Galbraith, recorded by [name withheld] at the Green Dragon for YouTube".
+- **NAME-015** [Song of the Shieldwall] link https://www.youtube.com/watch?v=DCFr6QvzPm0, title: "Legal Name 029" was withheld. Context: "Cover by [name withheld] on YouTube".
+- **NAME-016** [Song of Roland] link https://www.youtube.com/watch?v=j8F6QZyCz6g&list=RDj8F6QZyCz6g, title: "Legal Name 024" was withheld. Context: "Rosalind Jehanne singing, recorded by [name withheld] on YouTube".
+- **NAME-017** [Song of Roland] link https://www.youtube.com/watch?v=7tWEYLUIoCs&list=RD7tWEYLUIoCs, title: "Legal Name 024" was withheld. Context: "rforms at the Green Dragon, recorded by [name withheld] for YouTube".
+- **NAME-018** [The Peasant Knight] link https://youtu.be/N4TBj0pHtWY?si=lHtpeVzwfTDPNPZd, title: "Legal Name 024" was withheld. Context: "osalind Jehanne on YouTube, recorded by [name withheld]".
+- **NAME-019** [The Peasant Knight] link https://www.youtube.com/watch?v=JolNxVlndxE&list=RDJolNxVlndxE&start_radio=1, title: "Legal Name 024" was withheld. Context: "Peasant Knight, recorded on YouTube by [name withheld]".
+- **NAME-020** [Savage Daughter] link https://youtu.be/CvEtPBN4SmE?si=tbRM-x_6tNuVZqwz, title: "Legal Name 024" was withheld. Context: "by Wyndreth Berginsdottir, recorded by [name withheld] on YouTube".
+- **NAME-021** [Savage Daughter] link https://www.youtube.com/watch?v=F2RbigV9h_8, title: "Legal Name 032" was withheld. Context: "Savage Daughter, recorded on YouTube by [name withheld]".
+- **NAME-022** [Sumer is icumen in] link https://www.youtube.com/watch?v=bQLaLdRIF10&list=RDbQLaLdRIF10, title: "Legal Name 036" was withheld. Context: "Recording on YouTube by [name withheld]".
+- **NAME-023** [Second Cross] link https://www.youtube.com/watch?v=qUWAdlprQ7w&list=RDqUWAdlprQ7w, title: "Legal Name 024" was withheld. Context: "Second Cross recorded on YouTube by [name withheld]".
+- **NAME-024** [Second Cross] link https://www.youtube.com/watch?v=4Yp8UTniHdM&list=RD4Yp8UTniHdM, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-025** [Welcome to the Current Middle Ages] link https://history.westkingdom.org/bardic/bardic_piece.php?bp_id=1100, title: "Legal Name" was withheld. Context: "Lyrics from [name withheld] 040".
+- **NAME-026** [Welcome to the Current Middle Ages] link https://history.westkingdom.org/bardic/attachments/1100/Welcome_to_the_Current_Middle_Ages.pdf, title: "Legal Name" was withheld. Context: "sic from the An Tir Songbook, hosted by [name withheld] 040".
+- **NAME-027** [I Add My Shield to the Wall] link https://www.youtube.com/watch?v=FyW6aYOq50k&list=RDFyW6aYOq50k, title: "Ambra Michelli" was withheld. Context: "[name withheld] sings I Add My Shield to the Wall on Yo".
+- **NAME-028** [Vivat the Dream] The link http://thebardsofseagirt.blogspot.com/2013/11/vivat-dream-legal-name-017.html holds a possible legal name in its URL: it is imported hidden.
+- **NAME-029** [Vivat the Dream] link https://youtu.be/lamyg5uO1x8?si=L6nn3oh0gjUs25hE, title: "Legal Name 024" was withheld. Context: "Vivat the Dream, recorded by [name withheld] on YouTube".
+- **NAME-030** [Ban the Fencers] link https://www.Legal Name.com/9-2/thomas-bordeaux/, title: "Legal Name 041" was withheld. Context: "[name withheld] – Thomas Bordeaux".
+- **NAME-031** [Ban the Fencers] link https://www.Legal Name.com/Lyrics/SCABardslyrics.doc, title: "Legal Name 041" was withheld. Context: "Lyrics download from [name withheld]".
+- **NAME-032** [Ban the Fencers] link https://youtu.be/Ylz_EAk2ahE?si=FVrDIot-8fyQTRJQ, title: "Legal Name 041" was withheld. Context: "Ban the Fencers on YouTube by [name withheld]".
+- **NAME-033** [Auld Lang Syne] link https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA, title: "Legal Name" was withheld. Context: "Auld Lang Syne sung by [name withheld] 045".
+- **NAME-034** [Born on the Listfield] link https://www.youtube.com/watch?v=1wQ14JaaZ5g, title: "Legal Name 046" was withheld. Context: "Born on a Listfield on YouTube by '[name withheld]'".
+- **NAME-035** [Born on the Listfield] link https://www.youtube.com/watch?v=nTladAQYmaA&list=RDnTladAQYmaA, title: "Legal Name 024" was withheld. Context: "n the Listfield, recorded on YouTube by [name withheld]".
+- **NAME-036** [Born on the Listfield] link https://www.youtube.com/watch?v=0s1BlXT7lxo, title: "Legal Name 047" was withheld. Context: "Recording on YouTube by '[name withheld]'".
+- **NAME-037** [Born on the Listfield] link https://www.youtube.com/watch?v=rq-5grAShxI, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-038** [Worms of the Earth] link https://www.youtube.com/watch?v=QrARHJE9Las, title: "Legal Name 046" was withheld. Context: "Recording on YouTube by '[name withheld]'".
+- **NAME-039** [Lifeblood] link https://www.youtube.com/watch?v=7gjrMXdYdNs&list=RD7gjrMXdYdNs, title: "Legal Name 024" was withheld. Context: "h Berginsdottir, recorded on YouTube by [name withheld]".
+- **NAME-040** [Warrior's Wyrd] link https://www.youtube.com/watch?v=Y-DSvojaL3g, title: "Legal Name 046" was withheld. Context: "Warrior's Wyrd on YouTube by '[name withheld]'".
+- **NAME-041** [Warrior's Wyrd] link https://www.youtube.com/watch?v=GkFyoVrTEok, title: "Legal Name 050" was withheld. Context: "Warrior's Wyrd on YouTube by [name withheld]".
+- **NAME-042** [Warrior's Wyrd] link https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU, title: "Legal Name 024" was withheld. Context: "Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce".
+- **NAME-043** [By the Weight of the Chain] link https://www.youtube.com/watch?v=r3SmF1Z_28Y, title: "Legal Name" was withheld. Context: "By the Weight of the Chain by [name withheld] 051 on YouTube".
+- **NAME-044** [By the Weight of the Chain] link https://www.youtube.com/watch?v=lztQYOaopVk, title: "Legal Name 024" was withheld. Context: "By The Weight Of The Chain, recorded by [name withheld] on YouTube".
+- **NAME-045** [By the Weight of the Chain] link https://youtu.be/i3RAwcce4X0?si=hE76bMSemtdkH4mK, title: "Legal Name" was withheld. Context: "Weight of the Chain on YouTube, sung by [name withheld] 052".
+- **NAME-046** [Why I Fight] link https://www.youtube.com/watch?v=As77tjW12Nk, title: "Legal Name 024" was withheld. Context: "Why I Fight recorded by [name withheld] on YouTube, at the SCA 50 Year Celebrat".
+- **NAME-047** [After Cambreadth] link https://legalname054.livejournal.com/99250.html?utm_source=3userpost, title: "Legal Name 054" was withheld. Context: "Legal Name by [name withheld] on LiveJournal".
+- **NAME-048** [After Cambreadth] The link https://legalname054.livejournal.com/99250.html?utm_source=3userpost holds a possible legal name in its URL: it is imported hidden.
+- **NAME-049** [Joan] link https://www.youtube.com/watch?v=GmPLgc4olFU, title: "Legal Name" was withheld. Context: "Upload by [name withheld] 055 of Joan".
+- **NAME-050** [Joan] link https://youtu.be/Ed91Vs3FfOo?si=PrgESi8wj9Uw6dZZ, title: "Legal Name 024" was withheld. Context: "Upload by [name withheld] on YouTube".
+- **NAME-051** [Hold Your Lines] link https://www.youtube.com/watch?v=ThvinILH8iA, title: "Legal Name 024" was withheld. Context: "Hold Your Lines, recorded by [name withheld] on YouTube".
+- **NAME-052** [Hold Your Lines] link https://youtu.be/YWPR4YZKE2Y?si=64Wj99WhSwit4dWa, title: "Legal Name 024" was withheld. Context: "Hold Your Lines, recorded by [name withheld] on YouTube".
+- **NAME-053** [Rise] link https://youtu.be/bIuCABe-XuI, title: "Legal Name 024" was withheld. Context: "Rise, recorded by [name withheld] on YouTube".
+- **NAME-054** [Banners of Scarlet] link https://www.youtube.com/watch?v=tq7jakeObvY, title: "Legal Name 024" was withheld. Context: "ners of Scarlet, uploaded to YouTube by [name withheld], sung in choir in the Barony of Windhav".
+- **NAME-055** [God Rest Ye Frantic Autocrat] link https://youtu.be/qWkEUbfLIuA?si=usxpWklTTatYX6t4, title: "Legal Name 056" was withheld. Context: "d Rest Ye Frantic Autocrat, recorded by [name withheld] on YouTube for the Barony of Stonemarch".
+- **NAME-056** [The Herald's Complaint] link https://youtu.be/e__iDM-LHDI?si=CZMuhUXFGBVKCuux, title: "Legal Name" was withheld. Context: "The Herald's Complaint on YouTube, from [name withheld] 057 of SCA Bards Sampler".
+- **NAME-057** [Flower of the Desert] link https://www.Legal Name.com/9-2/baldwin-of-erebor/, title: "Legal Name 041" was withheld. Context: "Album page on [name withheld]".
+- **NAME-058** [Flower of the Desert] link https://youtu.be/4tjk-iYC5qU?si=0R6MMKWpvkyYqCPu, title: "Legal Name 024" was withheld. Context: "Flower of the Desert, recorded by [name withheld] on YouTube".
+- **NAME-059** [Agincourt] link https://www.youtube.com/watch?v=z6IoFIwn0uM, title: "Legal Name 024" was withheld. Context: "Agincourt, recorded by [name withheld] on YouTube".
+- **NAME-060** [Queen of Argyll] link https://en.wikipedia.org/wiki/Kiss_the_Tears_Away, title: "Legal Name" was withheld. Context: "Kiss The Tears Away, the fifth album by [name withheld] 058, released 1983".
+- **NAME-061** [The Parting Glass] link https://youtu.be/m-vDNaE-3rM?si=8ZQcdRy6QwodRrWD, title: "Legal Name 047" was withheld. Context: "Performance by '[name withheld]' on YouTube".
+- **NAME-062** [Quantas Sabedes Amar Amigo] link https://commons.wikimedia.org/wiki/File:Legal_Name_059_-_Quantas_sabedes_amar_amigo.png, title: "Legal Name" was withheld. Context: "on of the cantiga with sheet music from [name withheld] 060 in Las siete canciones de amor (191".
+- **NAME-063** [Quantas Sabedes Amar Amigo] The link https://commons.wikimedia.org/wiki/File:Legal_Name_059_-_Quantas_sabedes_amar_amigo.png holds a possible legal name in its URL: it is imported hidden.
+- **NAME-064** [Quantas Sabedes Amar Amigo] link https://youtu.be/L4iEtyXgc8E?si=Ej270i3dEhfQxv-B, title: "Legal Name" was withheld. Context: "Recording by [name withheld] 061 of the song sung by [name withheld]".
+- **NAME-065** [Quantas Sabedes Amar Amigo] link https://youtu.be/L4iEtyXgc8E?si=Ej270i3dEhfQxv-B, title: "Legal Name" was withheld. Context: "[name withheld] 061 of the song sung by [name withheld] 062".
+- **NAME-066** [Burden of the Crown] link https://history.westkingdom.org/bardic/bardic_piece.php?bp_id=1103, title: "Legal Name" was withheld. Context: "Lyrics on [name withheld] 040".
+- **NAME-067** [Burden of the Crown] link https://history.westkingdom.org/bardic/attachments/1103/The_Burden_of_the_Crown.pdf, title: "Legal Name" was withheld. Context: "sic from the An Tir Songbook, hosted by [name withheld] 040".
+- **NAME-068** [Journey's Just Begun] link https://www.youtube.com/watch?v=chkCdLEajpw, title: "Legal Name 024" was withheld. Context: "oore performing on YouTube, recorded by [name withheld]".
+- **NAME-069** [Stand Brother Stand] link https://www.youtube.com/watch?v=cU46yoA6mzw, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-070** [Stand Brother Stand] link https://youtu.be/KjWxkaIWZGM?si=kALkeVKrNy3BH5NQ, title: "Legal Name 063" was withheld. Context: "Recording on YouTube by [name withheld]".
+- **NAME-071** [Bow to the Crown] link https://www.youtube.com/watch?v=6cjWFPOHRps, title: "Legal Name 024" was withheld. Context: "Heather Dale, recorded by [name withheld] on YouTube, singing during SCA 50 Year".
+- **NAME-072** [Call the Names] link https://youtu.be/V8B-034i8bc?si=EUQKsH-6R2-1Oz_0, title: "Legal Name 024" was withheld. Context: "Call the Names, recorded on YouTube by [name withheld]".
+- **NAME-073** [Circles] link https://www.youtube.com/watch?v=MVkPQJTTESg, title: "Legal Name" was withheld. Context: "Windmills by [name withheld] 065".
+- **NAME-074** [Song of the Waves] link https://www.youtube.com/watch?v=-DhgTp5MAWY, title: "Legal Name 067" was withheld. Context: "Song of the Waves by [name withheld] (Gideon ap Stephen) on YouTube".
+- **NAME-075** [Were-Llama] link https://youtu.be/7sSsIzandoY, title: "Legal Name 024" was withheld. Context: "Were-Llama on [name withheld]'s YouTube".
+- **NAME-076** [The Man Who Wouldn't Die] link http://unclej.ca/NotDie.asp, title: "Legal Name" was withheld. Context: "The Man Who Wouldn't Die, hosted by [name withheld] 068".
+- **NAME-077** [The Trial of Lancelot] link https://youtu.be/vEXPgY1Tbdo?si=JEwWrXlij40R_OF0, title: "Legal Name" was withheld. Context: "Trial of Lancelot, from [name withheld] 069 channel".
+- **NAME-078** [Pastime with Good Company] link https://www.youtube.com/watch?v=faMvRGSKbnY, title: "Legal Name 070" was withheld. Context: "Recording on YouTube by [name withheld]".
+- **NAME-079** [Mirie it is While Sumer Ilast] link https://www.youtube.com/watch?v=2HXT4hLeatM, title: "Legal Name 071" was withheld. Context: "Mirie it is while sumer ilast by [name withheld] on YouTube".
+- **NAME-080** [Moose] link http://unclej.ca/Campfire.6.8.asp, title: "Legal Name" was withheld. Context: "The Moose Song in [name withheld] 068' songbook".
+- **NAME-081** [A&S Fight Song] link https://youtu.be/-MvEq69vdQc?si=K8B_UWapfqLmNiPT, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of the song performed by the".
+- **NAME-082** [Mordred's Lullaby] link https://youtu.be/6W0E9QnzpOE?si=HNFKbLh_3CVEXDDI, title: "Legal Name 073" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-083** [The Salmon of Wisdom] link https://youtu.be/BecourfhUUQ?si=Cx8XbB5JATcDPC_7, title: "Legal Name" was withheld. Context: "ionn and the Salmon of Knowledge on the [name withheld] 087 podcast".
+- **NAME-084** [To the West] link https://youtu.be/el6QhNROjok?si=_MoxYb9ovrZS9u4q, title: "Legal Name" was withheld. Context: "YouTube recording by [name withheld] 075 of To The West performed by the Wes".
+- **NAME-085** [To the West] link https://www.youtube.com/watch?v=BcGIwgh-kqM, title: "Legal Name 024" was withheld. Context: "YouTube recording by [name withheld] of To The West".
+- **NAME-086** [Light of the East] link https://www.youtube.com/watch?v=LXGqIu06-zU, title: "Legal Name 024" was withheld. Context: "Recording on [name withheld]'s YouTube channel of a recording by [na".
+- **NAME-087** [Light of the East] link https://www.youtube.com/watch?v=LXGqIu06-zU, title: "Legal Name" was withheld. Context: "ld]'s YouTube channel of a recording by [name withheld] 077".
+- **NAME-088** [Proud Southern Warrior] link https://youtu.be/Jm6N30VIzCs, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-089** [Song for a Young Squire] link https://youtu.be/C6JMXf9AQ5A, title: "Legal Name" was withheld. Context: "Lyric video by [name withheld] 078 on her own YouTube channel".
+- **NAME-090** [Raven Banner] link https://www.youtube.com/watch?v=UQVZ_74dEC4, title: "Legal Name 024" was withheld. Context: "[name withheld] recording on YouTube".
+- **NAME-091** [Raven Banner] link https://youtu.be/Ph4To4YVuDE, title: "Legal Name 041" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-092** [Reign for All Time] link https://youtu.be/RjW7mFxj1EU, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-093** [InDUCKtion] link https://youtu.be/iRAPnoX3EFc, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-094** [Twa Corbies] link https://youtu.be/GfVAxJPVhrg, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of the song".
+- **NAME-095** [Loki's Song] link https://youtu.be/y6ANCM3cG-c, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of Loki's Song".
+- **NAME-096** [Short Road] link https://sites.google.com/site/bardicmadnessmid/midrealm-song-sheet-project/Lyrics-Online#h.vkrrhgok3yo7, title: "Legal Name" was withheld. Context: "Short Road [name withheld] 080 lyrics on Bardic Madness Midrealm s".
+- **NAME-097** [Fight for the Midrealm] link https://youtu.be/XmgUpSreHi4, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s".
+- **NAME-098** [I'm a Duke and You're Not] link https://youtu.be/sGtMqtthqog, title: "Legal Name 081" was withheld. Context: "I'm A Duke and You're Not on YouTube by [name withheld]".
+- **NAME-099** [I'm a Duke and You're Not] link https://youtu.be/2lNdAUZLzaY, title: "Legal Name 024" was withheld. Context: "I'm A Duke And You're Not, recorded by [name withheld] on YouTube,".
+- **NAME-100** [Squires] link https://youtu.be/bEpXQLy_CLY, title: "Legal Name 082" was withheld. Context: "Squires, recorded by [name withheld] on YouTube".
+- **NAME-101** [The Torture Song] link https://youtu.be/J1l5DqXVNDI, title: "Legal Name 082" was withheld. Context: "he Torture Song, uploaded to YouTube by [name withheld]".
+- **NAME-102** [Rosin the Bow] link https://youtu.be/suvyiAWkdpo, title: "Legal Name 085" was withheld. Context: "Róisín the Bow, recorded on YouTube by [name withheld]".
+- **NAME-103** [A Light Above The Door] link https://youtu.be/CTbuUwQNsCk, title: "Legal Name 086" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-104** [A Light Above The Door] link https://youtu.be/jP0SEnT3kpY, title: "Legal Name 086" was withheld. Context: "ecording by Cerian Cantwr on YouTube of [name withheld] performing at Pennsic 2025".
+- **NAME-105** [The Ride of El Cid] link https://www.Legal Name.com/The-Ride-of-El-Cid.pdf, title: "Legal Name 041" was withheld. Context: "Lyrics PDF from [name withheld]".
+- **NAME-106** [The Ride of El Cid] link https://youtu.be/CwtVYpFvHSI, title: "Legal Name 024" was withheld. Context: "[name withheld] recording on YouTube of The Ride of El".
+- **NAME-107** [The Burning of Tara] link https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB, title: "Legal Name" was withheld. Context: "Fionn and the Dragon on [name withheld] 087 podcast".
+- **NAME-108** [The Burning of Tara] link https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o, title: "Legal Name" was withheld. Context: "elling from Deardubh's perspective from [name withheld] 087".
+- **NAME-109** [Three Words] link https://youtu.be/dhqH0Sra8aU, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld]: Eliane Halevy performing her original".
+- **NAME-110** [Three Words] link https://youtu.be/dhqH0Sra8aU, title: "Legal Name" was withheld. Context: "levy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle".
+- **NAME-111** [Three Words] link https://youtu.be/WdPLbQkX2ig, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld]: Eliane Halevy singing Three Words, acc".
+- **NAME-112** [The Joyful Knight] link https://www.youtube.com/watch?v=fnbXOxsci00, title: "Legal Name 024" was withheld. Context: "Heather Dale, recorded by [name withheld] on YouTube at the Green Dragon at Gulf".
+- **NAME-113** [True And Destined Prince] link https://www.youtube.com/watch?v=L9HHmWQrrGM, title: "Legal Name 090" was withheld. Context: "Heather Dale, recorded by [name withheld] at the SCA 50 Year Celebration".
+- **NAME-114** [Lisa Theriot] link https://www.Legal Name.com/9-2/lisa-theriot/, title: "Legal Name 041" was withheld. Context: "[name withheld] page".
+- **NAME-115** [Lisa Theriot] link https://www.Legal Name.com/period-filk/, title: "Legal Name 041" was withheld. Context: "According to an essay on [name withheld], Lisa Theriot's opinions on the ethics".
+- **NAME-116** [Lisa Theriot] The link https://caidwiki.org/index.php/Legal_Name_002 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-117** [Samantha Moore] link https://www.Legal Name.com/9-2/samantha-moore/, title: "Legal Name 041" was withheld. Context: "[name withheld] page".
+- **NAME-118** [Malkin Grey] link https://fancyclopedia.org/wiki/Legal_Name_009, title: "Legal Name 009" was withheld. Context: "[name withheld] at Fancyclopedia".
+- **NAME-119** [Malkin Grey] The link https://fancyclopedia.org/wiki/Legal_Name_009 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-120** [Ken Theriot] link https://www.Legal Name.com/9-2/ken-theriot/, title: "Legal Name 041" was withheld. Context: "[name withheld] – Ken Theriot page".
+- **NAME-121** [Ken Theriot] link https://www.Legal Name.com/band-of-brothers-a-song-for-st-crispins-day/, title: "Legal Name 041" was withheld. Context: "hers – Spotify and Apple Music links on [name withheld] site".
+- **NAME-122** [Mikal the Ram] link http://www.calonsong.org/CalontirSongs/mikal.htm, title: "Legal Name 019" was withheld. Context: "[name withheld]'s works on CalonSong".
+- **NAME-123** [Legal Name 034] link https://en.wikipedia.org/wiki/Legal_Name_034, title: "Legal Name" was withheld. Context: "[name withheld] 034".
+- **NAME-124** [Legal Name 034] The link https://en.wikipedia.org/wiki/Legal_Name_034 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-125** [Legal Name 058] link https://en.wikipedia.org/wiki/Legal_Name_058, title: "Legal Name" was withheld. Context: "[name withheld] 058".
+- **NAME-126** [Legal Name 058] The link https://en.wikipedia.org/wiki/Legal_Name_058 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-127** [Lisa Theriot] person Lisa Theriot, licensing notes: "Legal Name 041" was withheld. Context: "nformation. - [According to an essay on [name withheld], Lisa Theriot's opinions on the ethics".
+- **NAME-128** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 024" was withheld. Context: "According to [[name withheld] on YouTube, in the description of One f".
+- **NAME-129** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
+- **NAME-130** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with [name withheld] withheld], please contact him at [email withheld]".
+- **NAME-131** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
+- **NAME-132** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with [name withheld] withheld], please contact him at [email withheld]".
+- **NAME-133** [Garraed Galbraith] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-134** [Garraed Galbraith] performance item, description: "Legal Name 024" was withheld. Context: "Dragon in 2010, recorded for YouTube by [name withheld]]".
+- **NAME-135** [Drake Oranwood] person Drake Oranwood, licensing notes: "Legal Name 013" was withheld. Context: "All song copyrights are retained by [name withheld] ([per his Bardic Work page](https://dra".
+- **NAME-136** [Aneleda Falconbridge] person Aneleda Falconbridge, licensing notes: "Legal Name 015" was withheld. Context: "on this website are copyright 2006-2019 [name withheld] (known in the Society as Aneleda Falcon".
+- **NAME-137** [Aneleda Falconbridge] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-138** [Aneleda Falconbridge] performance item, description: "Legal Name 024" was withheld. Context: "By The Weight Of The Chain, recorded by [name withheld] on YouTube]".
+- **NAME-139** [Ken Theriot] performance item, description: "Legal Name 041" was withheld. Context: "hers – Spotify and Apple Music links on [name withheld] site]".
+- **NAME-140** [Aibhilin inghean Daibhidh] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-141** [Aibhilin inghean Daibhidh] performance item, description: "Legal Name" was withheld. Context: ".com/watch?v=As77tjW12Nk Why I Fight by [name withheld] 053 recorded by [name withheld] on YouT".
+- **NAME-142** [Aibhilin inghean Daibhidh] performance item, description: "Legal Name 024" was withheld. Context: "ight by [name withheld] 053 recorded by [name withheld] on YouTube, at the SCA 50 Year Celebrat".
+- **NAME-143** [Aibhilin inghean Daibhidh] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-144** [Aibhilin inghean Daibhidh] performance item, description: "Legal Name 024" was withheld. Context: "ist=RDThvinILH8iA Aibhilin, recorded by [name withheld] on YouTube] performing [[Hold Your Line".
+- **NAME-145** [Aibhilin inghean Daibhidh] performance item, description: "Legal Name" was withheld. Context: "be] performing [[Hold Your Lines]] by [[[name withheld] 053]] and [[Gunnar Oxnamagin]]".
+- **NAME-146** [Eliane Halevy] person Eliane Halevy, licensing notes: "Legal Name 021" was withheld. Context: "tions of existing lyrics, are copyright [name withheld] and may not be reproduced in print or i".
+- **NAME-147** [Eliane Halevy] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing] her song [[T".
+- **NAME-148** [Eliane Halevy] performance item, description: "Legal Name" was withheld. Context: "orming] her song [[Three Words]] with [[[name withheld] 027]] on the drum".
+- **NAME-149** [Eliane Halevy] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing] her song [[Thre".
+- **NAME-150** [Wild Rover] stub person, name: "Legal Name" was withheld. Context: "[name withheld] 027".
+- **NAME-151** [Wild Rover] Stub person "[name withheld] 027": its legacy title, which is never public, holds a possible legal name.
+- **NAME-152** [Wild Mountain Thyme] stub person, name: "Legal Name" was withheld. Context: "[name withheld] 034".
+- **NAME-153** [Warrior's Wyrd] stub person, name: "Legal Name" was withheld. Context: "[name withheld] 049".
+- **NAME-154** [Why I Fight] stub person, name: "Legal Name" was withheld. Context: "[name withheld] 053".
+- **NAME-155** [Why I Fight] Stub person "[name withheld] 053": its legacy title, which is never public, holds a possible legal name.
+- **NAME-156** [Queen of Argyll] stub person, name: "Legal Name" was withheld. Context: "[name withheld] 058".
+- **NAME-157** [Circles] stub person, name: "Legal Name" was withheld. Context: "[name withheld] 065".
+- **NAME-158** [Where is the Light of the East] stub person, name: "Legal Name" was withheld. Context: "[name withheld] 076".
+- **NAME-159** [Where is the Light of the East] Stub person "[name withheld] 076": its legacy title, which is never public, holds a possible legal name.
+- **NAME-160** [Song for a Young Squire] stub person, name: "Legal Name" was withheld. Context: "[name withheld] 078".
+- **NAME-161** [Song for a Young Squire] Stub person "[name withheld] 078": its legacy title, which is never public, holds a possible legal name.
+- **NAME-162** [A Light Above The Door] stub person, name: "Legal Name 086" was withheld. Context: "[name withheld]".
+- **NAME-163** [A Light Above The Door] Stub person "[name withheld]": its legacy title, which is never public, holds a possible legal name.
+- **NAME-164** [Valkyrie's Lullaby] performance item, description: "Legal Name 024" was withheld. Context: "kYg&start_radio=1 Lasair performing for [name withheld] on YouTube]".
+- **NAME-165** [Valkyrie's Lullaby] performance item, description: "Ambra Michelli" was withheld. Context: "8MfVeI&list=RDq2oUW8MfVeI&start_radio=1 [name withheld] performing for [name withheld] on YouTu".
+- **NAME-166** [Valkyrie's Lullaby] performance item, description: "Legal Name 024" was withheld. Context: "_radio=1 [name withheld] performing for [name withheld] on YouTube at the Green Dragon]".
+- **NAME-167** [Band of Brothers] piece Band of Brothers, version notes: "Legal Name" was withheld. Context: "The words of this song are adapted from [name withheld] 022, a play about events in the 1400s (".
+- **NAME-168** [Undefeated] piece Undefeated, licensing notes: "Legal Name 001" was withheld. Context: "paying venues, attaching the copyright \"[name withheld] 2003\", is granted according to MidBards".
+- **NAME-169** [Undefeated] piece Undefeated, alias: "Legal Name" was withheld. Context: "[name withheld] 023".
+- **NAME-170** [Undefeated] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-171** [Undefeated] performance item, description: "Legal Name 024" was withheld. Context: "ROND0s?si=EcbfSBbZqf3S0Dnp Recording by [name withheld] on YouTube] of [[Lucia Elena Braganza]]".
+- **NAME-172** [Belt and Chain] piece Belt and Chain, licensing notes: "Legal Name 003" was withheld. Context: "t for the song belongs to Morric Haast ([name withheld]). The date is \"1996 or before\" accordin".
+- **NAME-173** [Belt and Chain] performance item, uploader: "Legal Name 025" was withheld. Context: "[name withheld]".
+- **NAME-174** [Belt and Chain] performance item, description: "Legal Name 025" was withheld. Context: "start_radio=1 Performance on YouTube by [name withheld]]".
+- **NAME-175** [Belt and Chain] performance item, uploader: "Legal Name 026" was withheld. Context: "[name withheld]".
+- **NAME-176** [Belt and Chain] performance item, description: "Legal Name 026" was withheld. Context: "start_radio=1 Performance on YouTube by [name withheld] for the Kingdom of Trimaris channel]".
+- **NAME-177** [Come and Be Welcome] piece Come and Be Welcome, licensing notes: "Legal Name 004" was withheld. Context: "The song belongs to Emer nic Aidan ([name withheld]).".
+- **NAME-178** [Come and Be Welcome] performance item, description: "Legal Name" was withheld. Context: ".com/watch?v=ImSc9JE7jdc Performance by [name withheld] 027, recorded by Cerian Cantwr on YouTu".
+- **NAME-179** [Azure and Argent and Rose] piece Azure and Argent and Rose, licensing notes: "Legal Name 005" was withheld. Context: "song is by Bird the Bard, also known as [name withheld] or [name withheld].".
+- **NAME-180** [Azure and Argent and Rose] piece Azure and Argent and Rose, licensing notes: "Legal Name 006" was withheld. Context: "Bard, also known as [name withheld] or [name withheld].".
+- **NAME-181** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 024" was withheld. Context: "ten by Garraed Galbraith. According to [[name withheld] on YouTube:](https://www.youtube.com/wa".
+- **NAME-182** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
+- **NAME-183** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with [name withheld] withheld], please contact him at [email withheld]".
+- **NAME-184** [One for the Leaving] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-185** [One for the Leaving] performance item, description: "Legal Name 024" was withheld. Context: "Dragon in 2010, recorded for YouTube by [name withheld]]".
+- **NAME-186** [The Veil] piece The Veil, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
+- **NAME-187** [The Veil] piece The Veil, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with [name withheld] withheld], please contact him at [email withheld]".
+- **NAME-188** [The Veil] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-189** [The Veil] performance item, description: "Legal Name 024" was withheld. Context: "sung by Garraed Galbraith, recorded by [name withheld] at the Green Dragon for YouTube]".
+- **NAME-190** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name 009" was withheld. Context: "The song is by Malkin Grey ([name withheld]) and [name withheld] 028 ([name withhel".
+- **NAME-191** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name" was withheld. Context: "is by Malkin Grey ([name withheld]) and [name withheld] 028 ([name withheld]), copyright 1979.".
+- **NAME-192** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name 018" was withheld. Context: "ame withheld]) and [name withheld] 028 ([name withheld]), copyright 1979.".
+- **NAME-193** [Song of the Shieldwall] performance item, uploader: "Legal Name 029" was withheld. Context: "[name withheld]".
+- **NAME-194** [Song of the Shieldwall] performance item, description: "Legal Name 029" was withheld. Context: "outube.com/watch?v=DCFr6QvzPm0 Cover by [name withheld] on YouTube]".
+- **NAME-195** [Song of Roland] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-196** [Song of Roland] performance item, description: "Legal Name 024" was withheld. Context: "g Rosalind Jehanne singing, recorded by [name withheld] on YouTube]".
+- **NAME-197** [Song of Roland] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-198** [Song of Roland] performance item, description: "Legal Name 024" was withheld. Context: "rforms at the Green Dragon, recorded by [name withheld] for YouTube]".
+- **NAME-199** [The Peasant Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-200** [The Peasant Knight] performance item, description: "Legal Name 024" was withheld. Context: "osalind Jehanne on YouTube, recorded by [name withheld]]".
+- **NAME-201** [The Peasant Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-202** [The Peasant Knight] performance item, description: "Legal Name 024" was withheld. Context: "Peasant Knight, recorded on YouTube by [name withheld]], sung by [[Kári Gáranhirsson]] at the".
+- **NAME-203** [Savage Daughter] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-204** [Savage Daughter] performance item, description: "Legal Name 024" was withheld. Context: "ir singing Savage Daughter, recorded by [name withheld] on YouTube]".
+- **NAME-205** [Savage Daughter] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-206** [Savage Daughter] performance item, description: "Legal Name 024" was withheld. Context: "by Wyndreth Berginsdottir, recorded by [name withheld] on YouTube]".
+- **NAME-207** [Savage Daughter] performance item, uploader: "Legal Name 032" was withheld. Context: "[name withheld]".
+- **NAME-208** [Savage Daughter] performance item, description: "Legal Name 032" was withheld. Context: "Savage Daughter, recorded on YouTube by [name withheld]] sung by [[Sadb ingen Donnchadha]] in 2".
+- **NAME-209** [Life of the Bard] piece Life of the Bard, licensing notes: "Legal Name 008" was withheld. Context: "Song by Rosalind Jehanne ([name withheld])".
+- **NAME-210** [Wild Rover] performance item, description: "Legal Name" was withheld. Context: "on YouTube] of the song performed by [[[name withheld] 027]]".
+- **NAME-211** [Wild Mountain Thyme] piece Wild Mountain Thyme, licensing notes: "Legal Name" was withheld. Context: "uted. Some claim that it was written by [name withheld] 033; however, it is strongly based on t".
+- **NAME-212** [Wild Mountain Thyme] piece Wild Mountain Thyme, licensing notes: "Legal Name" was withheld. Context: "the song \"The Braes of Balquhither\" by [name withheld] 034 and Legal Name, likely based o".
+- **NAME-213** [Sumer is icumen in] performance item, uploader: "Legal Name 036" was withheld. Context: "[name withheld]".
+- **NAME-214** [Sumer is icumen in] performance item, description: "Legal Name 036" was withheld. Context: "t=RDbQLaLdRIF10 Recording on YouTube by [name withheld]]".
+- **NAME-215** [Second Cross] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-216** [Second Cross] performance item, description: "Legal Name 024" was withheld. Context: "Q7w Second Cross recorded on YouTube by [name withheld]] performed by [[Beatriu De Schattentor]".
+- **NAME-217** [Second Cross] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-218** [Second Cross] performance item, description: "Legal Name 024" was withheld. Context: "UTniHdM&list=RD4Yp8UTniHdM Recording by [name withheld] on YouTube] of Second Cross sung by [[A".
+- **NAME-219** [Welcome to the Current Middle Ages] piece Welcome to the Current Middle Ages, licensing notes: "Legal Name 016" was withheld. Context: "Erebor. The song is copyright 1979 by [name withheld], All Rights Reserved".
+- **NAME-220** [I Add My Shield to the Wall] performance item, description: "Ambra Michelli" was withheld. Context: "/watch?v=FyW6aYOq50k&list=RDFyW6aYOq50k [name withheld] sings I Add My Shield to the Wall on Yo".
+- **NAME-221** [Vivat the Dream] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-222** [Vivat the Dream] performance item, description: "Legal Name 024" was withheld. Context: "h0gjUs25hE Vivat the Dream, recorded by [name withheld] on YouTube] as sung by [[Beatrice Domen".
+- **NAME-223** [Ban the Fencers] performance item, uploader: "Legal Name 041" was withheld. Context: "[name withheld]".
+- **NAME-224** [Ban the Fencers] performance item, description: "Legal Name 041" was withheld. Context: "-8fyQTRJQ Ban the Fencers on YouTube by [name withheld]] performed by [[Ken Theriot]] and [[Lis".
+- **NAME-225** [Auld Lang Syne] performance item, description: "Legal Name" was withheld. Context: "7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld] 045]".
+- **NAME-226** [Born on the Listfield] performance item, uploader: "Legal Name 046" was withheld. Context: "[name withheld]".
+- **NAME-227** [Born on the Listfield] performance item, description: "Legal Name 046" was withheld. Context: "aZ5g Born on a Listfield on YouTube by '[name withheld]']".
+- **NAME-228** [Born on the Listfield] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-229** [Born on the Listfield] performance item, description: "Legal Name 024" was withheld. Context: "n the Listfield, recorded on YouTube by [name withheld]] sung by [[Terafan Greydragon]]".
+- **NAME-230** [Born on the Listfield] performance item, uploader: "Legal Name 047" was withheld. Context: "[name withheld]".
+- **NAME-231** [Born on the Listfield] performance item, description: "Legal Name 047" was withheld. Context: "?v=0s1BlXT7lxo Recording on YouTube by '[name withheld]'] of a performance from the Rising Wind".
+- **NAME-232** [Born on the Listfield] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-233** [Born on the Listfield] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=rq-5grAShxI Recording by [name withheld] on YouTube] of [[Dolan Madoc]] singing".
+- **NAME-234** [Worms of the Earth] performance item, uploader: "Legal Name 046" was withheld. Context: "[name withheld]".
+- **NAME-235** [Worms of the Earth] performance item, description: "Legal Name 046" was withheld. Context: "?v=QrARHJE9Las Recording on YouTube by '[name withheld]']".
+- **NAME-236** [Lifeblood] piece Lifeblood, alias: "Legal Name" was withheld. Context: "[name withheld] 048".
+- **NAME-237** [Lifeblood] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-238** [Lifeblood] performance item, description: "Legal Name 024" was withheld. Context: "h Berginsdottir, recorded on YouTube by [name withheld]]".
+- **NAME-239** [Warrior's Wyrd] piece Warrior's Wyrd, licensing notes: "Legal Name" was withheld. Context: "It is likely that [name withheld] 049 still holds the copyright to the tu".
+- **NAME-240** [Warrior's Wyrd] performance item, uploader: "Legal Name 046" was withheld. Context: "[name withheld]".
+- **NAME-241** [Warrior's Wyrd] performance item, description: "Legal Name 046" was withheld. Context: "DSvojaL3g Warrior's Wyrd on YouTube by '[name withheld]']".
+- **NAME-242** [Warrior's Wyrd] performance item, uploader: "Legal Name 050" was withheld. Context: "[name withheld]".
+- **NAME-243** [Warrior's Wyrd] performance item, description: "Legal Name 050" was withheld. Context: "kFyoVrTEok Warrior's Wyrd on YouTube by [name withheld]]".
+- **NAME-244** [Warrior's Wyrd] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-245** [Warrior's Wyrd] performance item, description: "Legal Name 024" was withheld. Context: "Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce".
+- **NAME-246** [By the Weight of the Chain] performance item, description: "Legal Name" was withheld. Context: "SmF1Z_28Y By the Weight of the Chain by [name withheld] 051 on YouTube]".
+- **NAME-247** [By the Weight of the Chain] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-248** [By the Weight of the Chain] performance item, description: "Legal Name 024" was withheld. Context: "By The Weight Of The Chain, recorded by [name withheld] on YouTube]".
+- **NAME-249** [By the Weight of the Chain] performance item, description: "Legal Name" was withheld. Context: "Weight of the Chain on YouTube, sung by [name withheld] 052]".
+- **NAME-250** [Why I Fight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-251** [Why I Fight] performance item, description: "Legal Name 024" was withheld. Context: "h?v=As77tjW12Nk Why I Fight recorded by [name withheld] on YouTube, at the SCA 50 Year Celebrat".
+- **NAME-252** [Joan] performance item, description: "Legal Name" was withheld. Context: "utube.com/watch?v=GmPLgc4olFU Upload by [name withheld] 055 of Joan] performed by [[Heather Dal".
+- **NAME-253** [Joan] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-254** [Joan] performance item, description: "Legal Name 024" was withheld. Context: "91Vs3FfOo?si=PrgESi8wj9Uw6dZZ Upload by [name withheld] on YouTube] of [[Heather Dale]] perform".
+- **NAME-255** [Hold Your Lines] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-256** [Hold Your Lines] performance item, description: "Legal Name 024" was withheld. Context: "hvinILH8iA Hold Your Lines, recorded by [name withheld] on YouTube] performed by [[Aibhilin ing".
+- **NAME-257** [Hold Your Lines] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-258** [Hold Your Lines] performance item, description: "Legal Name 024" was withheld. Context: "WhSwit4dWa Hold Your Lines, recorded by [name withheld] on YouTube], performed by [[Aibhilin in".
+- **NAME-259** [Rise] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-260** [Rise] performance item, description: "Legal Name 024" was withheld. Context: "/youtu.be/bIuCABe-XuI Rise, recorded by [name withheld] on YouTube], performed by [[Garraed Gal".
+- **NAME-261** [Banners of Scarlet] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-262** [Banners of Scarlet] performance item, description: "Legal Name 024" was withheld. Context: "ners of Scarlet, uploaded to YouTube by [name withheld], sung in choir in the Barony of Windhav".
+- **NAME-263** [God Rest Ye Frantic Autocrat] performance item, uploader: "Legal Name 056" was withheld. Context: "[name withheld]".
+- **NAME-264** [God Rest Ye Frantic Autocrat] performance item, description: "Legal Name 056" was withheld. Context: "d Rest Ye Frantic Autocrat, recorded by [name withheld] on YouTube for the Barony of Stonemarch".
+- **NAME-265** [The Herald's Complaint] piece The Herald's Complaint, licensing notes: "Legal Name 016" was withheld. Context: "The song is copyrighted to [name withheld], 1978.".
+- **NAME-266** [The Herald's Complaint] performance item, description: "Legal Name" was withheld. Context: "The Herald's Complaint on YouTube, from [name withheld] 057 of SCA Bards Sampler]".
+- **NAME-267** [Flower of the Desert] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-268** [Flower of the Desert] performance item, description: "Legal Name 024" was withheld. Context: "YqCPu Flower of the Desert, recorded by [name withheld] on YouTube], performed by [[Lisa Therio".
+- **NAME-269** [Flower of the Desert] performance item, description: "Legal Name 002" was withheld. Context: "ouTube], performed by [[Lisa Theriot]] ([name withheld]).".
+- **NAME-270** [Agincourt] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-271** [Agincourt] performance item, description: "Legal Name 024" was withheld. Context: "ch?v=z6IoFIwn0uM Agincourt, recorded by [name withheld] on YouTube] performed by [[Roisin ingen".
+- **NAME-272** [The Parting Glass] performance item, uploader: "Legal Name 047" was withheld. Context: "[name withheld]".
+- **NAME-273** [The Parting Glass] performance item, description: "Legal Name 047" was withheld. Context: "3rM?si=8ZQcdRy6QwodRrWD Performance by '[name withheld]' on YouTube] at an [[:Category:Amtgard|".
+- **NAME-274** [Quantas Sabedes Amar Amigo] piece Quantas Sabedes Amar Amigo, alias: "Legal Name" was withheld. Context: "Quantas Sabedes ([name withheld] 059)".
+- **NAME-275** [Quantas Sabedes Amar Amigo] performance item, description: "Legal Name" was withheld. Context: "yXgc8E?si=Ej270i3dEhfQxv-B Recording by [name withheld] 061 of the song sung by [name withheld]".
+- **NAME-276** [Quantas Sabedes Amar Amigo] performance item, description: "Legal Name" was withheld. Context: "[name withheld] 061 of the song sung by [name withheld] 062]".
+- **NAME-277** [Journey's Just Begun] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-278** [Journey's Just Begun] performance item, description: "Legal Name 024" was withheld. Context: "oore performing on YouTube, recorded by [name withheld]] at the [[Green Dragon]], 2019".
+- **NAME-279** [Stand Brother Stand] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-280** [Stand Brother Stand] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=cU46yoA6mzw Recording by [name withheld] on YouTube] of [[Aibhilin inghean Daibh".
+- **NAME-281** [Stand Brother Stand] performance item, uploader: "Legal Name 063" was withheld. Context: "[name withheld]".
+- **NAME-282** [Stand Brother Stand] performance item, description: "Legal Name 063" was withheld. Context: "ALkeVKrNy3BH5NQ Recording on YouTube by [name withheld]] of [[Sidi KuroSH al-Din]] performing i".
+- **NAME-283** [Bow to the Crown] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-284** [Bow to the Crown] performance item, description: "Legal Name 024" was withheld. Context: "v=6cjWFPOHRps Heather Dale, recorded by [name withheld] on YouTube, singing during SCA 50 Year".
+- **NAME-285** [Oathkeeping] piece Oathkeeping, version notes: "Legal Name" was withheld. Context: "bardic\\_piece.php?bp\\_id=1159 Lyrics at [name withheld] 040, apparently from \"A Book Of Songs 2".
+- **NAME-286** [Oathkeeping] piece Oathkeeping, version notes: "Legal Name" was withheld. Context: "apparently from \"A Book Of Songs 2.5 by [name withheld] 064, AS 40\"".
+- **NAME-287** [Call the Names] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-288** [Call the Names] performance item, description: "Legal Name 024" was withheld. Context: "Call the Names, recorded on YouTube by [name withheld]], sung by Heather Dale and [[Ben Descha".
+- **NAME-289** [Song of the Waves] performance item, uploader: "Legal Name 067" was withheld. Context: "[name withheld]".
+- **NAME-290** [Song of the Waves] performance item, description: "Legal Name 067" was withheld. Context: "atch?v=-DhgTp5MAWY Song of the Waves by [name withheld] (Gideon ap Stephen) on YouTube]".
+- **NAME-291** [Were-Llama] performance item, description: "Legal Name 024" was withheld. Context: "ps://youtu.be/7sSsIzandoY Were-Llama on [name withheld]'s YouTube] sung by [[Cerian Cantwr]] at".
+- **NAME-292** [Pastime with Good Company] performance item, uploader: "Legal Name 070" was withheld. Context: "[name withheld]".
+- **NAME-293** [Pastime with Good Company] performance item, description: "Legal Name 070" was withheld. Context: "h?v=faMvRGSKbnY Recording on YouTube by [name withheld]]".
+- **NAME-294** [Mirie it is While Sumer Ilast] performance item, uploader: "Legal Name 071" was withheld. Context: "[name withheld]".
+- **NAME-295** [Mirie it is While Sumer Ilast] performance item, description: "Legal Name 071" was withheld. Context: "hLeatM Mirie it is while sumer ilast by [name withheld] on YouTube]".
+- **NAME-296** [Conn's Song] piece Conn's Song, alias: "Legal Name" was withheld. Context: "[name withheld] 072".
+- **NAME-297** [A&S Fight Song] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-298** [A&S Fight Song] performance item, description: "Legal Name 024" was withheld. Context: "69vdQc?si=K8B_UWapfqLmNiPT Recording by [name withheld] on YouTube of the song performed by the".
+- **NAME-299** [Mordred's Lullaby] performance item, uploader: "Legal Name 073" was withheld. Context: "[name withheld]".
+- **NAME-300** [Mordred's Lullaby] performance item, description: "Legal Name 073" was withheld. Context: "QnzpOE?si=HNFKbLh_3CVEXDDI Recording by [name withheld] on YouTube] of [[Heather Dale]] perform".
+- **NAME-301** [The Salmon of Wisdom] performance item, description: "Legal Name" was withheld. Context: "ionn and the Salmon of Knowledge on the [name withheld] 087 podcast]".
+- **NAME-302** [To the West] performance item, description: "Legal Name" was withheld. Context: "i=_MoxYb9ovrZS9u4q YouTube recording by [name withheld] 075 of To The West performed by the Wes".
+- **NAME-303** [To the West] performance item, description: "Legal Name 024" was withheld. Context: "atch?v=BcGIwgh-kqM YouTube recording by [name withheld] of To The West] by [[Siobhán ní hEodhus".
+- **NAME-304** [Light of the East] piece Light of the East, notes: "Legal Name" was withheld. Context: "songs by the same name. For the song by [name withheld] 076, see Where is the Light of the East".
+- **NAME-305** [Light of the East] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=LXGqIu06-zU Recording on [name withheld]'s YouTube channel of a recording by [na".
+- **NAME-306** [Light of the East] performance item, description: "Legal Name" was withheld. Context: "ld]'s YouTube channel of a recording by [name withheld] 077] of [[Fiana of Clare]] singing her".
+- **NAME-307** [Proud Southern Warrior] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-308** [Proud Southern Warrior] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/Jm6N30VIzCs Recording by [name withheld] on YouTube] of the song performed by [[".
+- **NAME-309** [Raven Banner] performance item, description: "Legal Name 024" was withheld. Context: "s://www.youtube.com/watch?v=UQVZ_74dEC4 [name withheld] recording on YouTube] of a campfire sin".
+- **NAME-310** [Raven Banner] performance item, uploader: "Legal Name 041" was withheld. Context: "[name withheld]".
+- **NAME-311** [Raven Banner] performance item, description: "Legal Name 041" was withheld. Context: "tps://youtu.be/Ph4To4YVuDE Recording by [name withheld] on YouTube] of Legal Name / Grim".
+- **NAME-312** [Reign for All Time] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-313** [Reign for All Time] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/RjW7mFxj1EU Recording by [name withheld] on YouTube] of [[Dolan Madoc]] singing".
+- **NAME-314** [InDUCKtion] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-315** [InDUCKtion] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/iRAPnoX3EFc Recording by [name withheld] on YouTube] of the song performed by [[".
+- **NAME-316** [Twa Corbies] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-317** [Twa Corbies] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/GfVAxJPVhrg Recording by [name withheld] on YouTube of the song] performed by [[".
+- **NAME-318** [Loki's Song] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-319** [Loki's Song] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/y6ANCM3cG-c Recording by [name withheld] on YouTube of Loki's Song] performed by".
+- **NAME-320** [Short Road] piece Short Road, alias: "Legal Name" was withheld. Context: "[name withheld] 080".
+- **NAME-321** [Fight for the Midrealm] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-322** [Fight for the Midrealm] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s".
+- **NAME-323** [I'm a Duke and You're Not] performance item, uploader: "Legal Name 081" was withheld. Context: "[name withheld]".
+- **NAME-324** [I'm a Duke and You're Not] performance item, description: "Legal Name 081" was withheld. Context: "I'm A Duke and You're Not on YouTube by [name withheld]]".
+- **NAME-325** [I'm a Duke and You're Not] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-326** [I'm a Duke and You're Not] performance item, description: "Legal Name 024" was withheld. Context: "I'm A Duke And You're Not, recorded by [name withheld] on YouTube,] performed by [[Thomas Bord".
+- **NAME-327** [Squires] performance item, uploader: "Legal Name 082" was withheld. Context: "[name withheld]".
+- **NAME-328** [Squires] performance item, description: "Legal Name 082" was withheld. Context: "utu.be/bEpXQLy_CLY Squires, recorded by [name withheld] on YouTube] sung by [name withheld] 083".
+- **NAME-329** [Squires] performance item, description: "Legal Name" was withheld. Context: "by [name withheld] on YouTube] sung by [name withheld] 083 of Lochac. The song begins at aroun".
+- **NAME-330** [The Torture Song] performance item, uploader: "Legal Name 082" was withheld. Context: "[name withheld]".
+- **NAME-331** [The Torture Song] performance item, description: "Legal Name 082" was withheld. Context: "he Torture Song, uploaded to YouTube by [name withheld]], performed by [[Dunstan le Heryngmonge".
+- **NAME-332** [Rosin the Bow] performance item, uploader: "Legal Name 085" was withheld. Context: "[name withheld]".
+- **NAME-333** [Rosin the Bow] performance item, description: "Legal Name 085" was withheld. Context: "Róisín the Bow, recorded on YouTube by [name withheld]]".
+- **NAME-334** [A Light Above The Door] performance item, uploader: "Legal Name 086" was withheld. Context: "[name withheld]".
+- **NAME-335** [A Light Above The Door] performance item, description: "Legal Name 086" was withheld. Context: "tps://youtu.be/CTbuUwQNsCk Recording by [name withheld] on YouTube]".
+- **NAME-336** [A Light Above The Door] performance item, description: "Legal Name 086" was withheld. Context: "ecording by Cerian Cantwr on YouTube of [name withheld] performing at Pennsic 2025]".
+- **NAME-337** [The Ride of El Cid] performance item, description: "Legal Name 024" was withheld. Context: "[https://youtu.be/CwtVYpFvHSI [name withheld] recording on YouTube of The Ride of El".
+- **NAME-338** [The Burning of Tara] performance item, description: "Legal Name" was withheld. Context: "qHqngp8PuAFDgGB Fionn and the Dragon on [name withheld] 087 podcast]".
+- **NAME-339** [The Burning of Tara] performance item, description: "Legal Name" was withheld. Context: "elling from Deardubh's perspective from [name withheld] 087]".
+- **NAME-340** [Three Words] piece Three Words, licensing notes: "Legal Name 021" was withheld. Context: "tions of existing lyrics, are copyright [name withheld] and may not be reproduced in print or i".
+- **NAME-341** [Three Words] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original".
+- **NAME-342** [Three Words] performance item, description: "Legal Name" was withheld. Context: "levy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle".
+- **NAME-343** [Three Words] performance item, description: "Legal Name 024" was withheld. Context: "tps://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, acc".
+- **NAME-344** [Death Doom and Gloom] piece Death Doom and Gloom, alias: "Legal Name 088" was withheld. Context: "[name withheld]".
+- **NAME-345** [The Joyful Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-346** [The Joyful Knight] performance item, description: "Legal Name 024" was withheld. Context: "v=fnbXOxsci00 Heather Dale, recorded by [name withheld] on YouTube at the Green Dragon at Gulf".
+- **NAME-347** [True And Destined Prince] performance item, uploader: "Legal Name 090" was withheld. Context: "[name withheld]".
+- **NAME-348** [True And Destined Prince] performance item, description: "Legal Name 090" was withheld. Context: "v=L9HHmWQrrGM Heather Dale, recorded by [name withheld] at the SCA 50 Year Celebration]".
+- **NAME-349** [Drake Oranwood] stub piece, title: "Legal Name" was withheld. Context: "[name withheld] 037 (Thomas the Rhymer)".
+- **NAME-350** [Baldwin of Erebor] stub piece, title: "Legal Name" was withheld. Context: "[name withheld] 039 (Song of the Old Used Queen)".
+- **NAME-351** [Drake Oranwood] stub piece, title: "Legal Name" was withheld. Context: "Masters of the Game ([name withheld] 038)".
+
+## 4. Contact details withheld
+
+Email addresses replaced with "[email withheld]". Restore any the person wants published.
+
+- **EMAIL-001** [Garraed Galbraith] person Garraed Galbraith, licensing notes: the address "email-001@example.invalid" was withheld. Context: ". [name withheld], please contact him at [email withheld]\" [According to Calonsong's version of".
+- **EMAIL-002** [Garraed Galbraith] person Garraed Galbraith, licensing notes: the address "email-001@example.invalid" was withheld. Context: ". [name withheld], please contact him at [email withheld]\"".
+- **EMAIL-003** [Rohais de Ravenscroft] person Rohais de Ravenscroft, licensing notes: the address "email-002@example.invalid" was withheld. Context: "ut permission. Rohais can be reached at [email withheld] [An example of Rohais' attribution](ht".
+- **EMAIL-004** [One for the Leaving] piece One for the Leaving, licensing notes: the address "email-001@example.invalid" was withheld. Context: ". [name withheld], please contact him at [email withheld]\"".
+- **EMAIL-005** [The Veil] piece The Veil, licensing notes: the address "email-001@example.invalid" was withheld. Context: ". [name withheld], please contact him at [email withheld]\"".
+
+## 5. Fuzzy-matched persons
+
+Names matched to a person otherwise than exactly, with the candidates.
+
+- **MATCH-001** [Song of the Wain] "Marian of Heatherdale" (page_link) matched Heather Dale via public_alias (rule edit_distance); candidates: "Heather Dale".
+- **MATCH-002** [Thirteenth Virtue] "Dunstan" (text) matched Legal Name via stub (rule first_word); candidates: "Legal Name".
+
+## 6. Credit signals
+
+Where the infobox credits, the bard-name categories and the bards' works lists disagree, and credits the importer completed or could not read.
+
+- **CREDIT-001** [Valkyrie's Lullaby] missing_bard_category: "Lasair inghen ui h’Airt" (person Lasair inghen ui h’Airt).
+- **CREDIT-002** [Band of Brothers] missing_bard_category: "Ken Theriot" (person Ken Theriot).
+- **CREDIT-003** [Band of Brothers] missing_bard_category: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-004** [Band of Brothers] credited_not_listed: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-005** [Argent and Azure] missing_bard_category: "Samantha Moore" (person Samantha Moore).
+- **CREDIT-006** [Argent and Azure] missing_bard_category: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-007** [Argent and Azure] credited_not_listed: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-008** [Atlantian Steel] credited_not_listed: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-009** [March of Cambreadth] category_without_linked_credit: "Alexander James Adams" (person Alexander James Adams).
+- **CREDIT-010** [March of Cambreadth] related_person: "Alexander James Adams" (person Alexander James Adams).
+- **CREDIT-011** [Lifeblood] credited_not_listed: "Wyndreth Berginsdottir" (person Wyndreth Berginsdottir).
+- **CREDIT-012** [Warrior's Wyrd] category_without_linked_credit: "Ivar Battleskald" (person Ivar Battleskald).
+- **CREDIT-013** [After Cambreadth] missing_bard_category: "Heather Alexander" (person Heather Alexander).
+- **CREDIT-014** [After Cambreadth] credited_not_listed: "Heather Alexander" (person Heather Alexander).
+- **CREDIT-015** [Hold Your Lines] missing_bard_category: "Legal Name 053" (person Legal Name 053).
+- **CREDIT-016** [Hold Your Lines] missing_bard_category: "Gunnar Oxnamagin" (person Gunnar Oxnamagin).
+- **CREDIT-017** [Sons of the Dragon] credited_not_listed: "Garraed Galbraith" (person Garraed Galbraith).
+- **CREDIT-018** [Rise] credited_not_listed: "Colette la trouvère" (person Colette la trouvère).
+- **CREDIT-019** [God Rest Ye Frantic Autocrat] missing_bard_category: "Traditional & Folk" (person none).
+- **CREDIT-020** [Agincourt] credited_not_listed: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-021** [Another Tournament Fight] credited_not_listed: "Conn MacNeill" (person Conn MacNeill).
+- **CREDIT-022** [Queen of Argyll] category_without_linked_credit: "Legal Name 058" (person Legal Name 058).
+- **CREDIT-023** [Quantas Sabedes Amar Amigo] category_without_linked_credit: "Martin Codax" (person Martin Codax).
+- **CREDIT-024** [I Follow My King] missing_bard_category: "Heather Dale" (person Heather Dale).
+- **CREDIT-025** [Bow to the Crown] credited_not_listed: "Heather Dale" (person Heather Dale).
+- **CREDIT-026** [Call the Names] credited_not_listed: "Heather Dale" (person Heather Dale).
+- **CREDIT-027** [Circles] missing_bard_category: "Ann Cass" (person Ann Cass).
+- **CREDIT-028** [Song of the Wain] credited_not_listed: "Garraed Galbraith" (person Garraed Galbraith).
+- **CREDIT-029** [Song of the Waves] missing_bard_category: "Gideon ap Stephen" (person Gideon ap Stephen).
+- **CREDIT-030** [Song of the Waves] credited_not_listed: "Garraed Galbraith" (person Garraed Galbraith).
+- **CREDIT-031** [Starset] missing_bard_category: "Miura Suzume" (person Miura Suzume).
+- **CREDIT-032** [The Man Who Wouldn't Die] missing_bard_category: "Cipriano de Alvarez" (person Cipriano de Alvarez).
+- **CREDIT-033** [The Trial of Lancelot] credited_not_listed: "Heather Dale" (person Heather Dale).
+- **CREDIT-034** [Conn's Song] credited_not_listed: "Conn MacNeill" (person Conn MacNeill).
+- **CREDIT-035** [When A Knight Won His Spurs (SCA Version)] missing_bard_category: "Forannán Glórach" (person Forannán Glórach).
+- **CREDIT-036** [Moose] missing_bard_category: "Legal Name" (person Legal Name).
+- **CREDIT-037** [For Her I Dare] missing_bard_category: "Samantha Moore" (person Samantha Moore).
+- **CREDIT-038** [For Her I Dare] missing_bard_category: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-039** [For Her I Dare] credited_not_listed: "Samantha Moore" (person Samantha Moore).
+- **CREDIT-040** [For Her I Dare] credited_not_listed: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-041** [Blood Oath] credited_not_listed: "Conn MacNeill" (person Conn MacNeill).
+- **CREDIT-042** [My Thing is My Own] missing_bard_category: "Thomas d'Urfey" (person Thomas d'Urfey).
+- **CREDIT-043** [Short Road] credited_not_listed: "Lucia Elena Braganza" (person Lucia Elena Braganza).
+- **CREDIT-044** [Fight for the Midrealm] credited_not_listed: "Lasair inghen ui h'Airt" (person Lasair inghen ui h’Airt).
+- **CREDIT-045** [Marshall] credited_not_listed: "Fernando Rodriguez de Falcon" (person Fernando Rodriguez de Falcon).
+- **CREDIT-046** [The Ride of El Cid] credited_not_listed: "Lisa Theriot" (person Lisa Theriot).
+- **CREDIT-047** [The Ride of El Cid] credited_not_listed: "Ken Theriot" (person Ken Theriot).
+- **CREDIT-048** [Drink Boys Drink] credited_not_listed: "Michael Kelly" (person Michael Kelly).
+- **CREDIT-049** [Death Doom and Gloom] credited_not_listed: "Cerian Cantwr" (person Cerian Cantwr).
+- **CREDIT-050** [The Joyful Knight] credited_not_listed: "Heather Dale" (person Heather Dale).
+- **CREDIT-051** [True And Destined Prince] credited_not_listed: "Heather Dale" (person Heather Dale).
+- **CREDIT-052** [Three Words] The tune credit of "Eliane Halevy" is scoped to the verses, inferred from the piece's origins.
+- **CREDIT-053** [Three Words] The tune credit of "anonymous" is scoped to the chorus, inferred from the piece's origins.
+
+## 7. Red links and stubs
+
+Pieces and persons the wiki only names, imported as stubs, and the red links that were not imported.
+
+- **STUB-001** [Colette la trouvère] Stub piece "A Song for Robbin", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-002** [Heather Dale] Stub piece "Black Fox", credited (lyrics, possible) to Heather Dale.
+- **STUB-003** [Hector of the Black Height] Stub piece "Blazing Scarlet Banner", credited (lyrics, possible) to Hector of the Black Height.
+- **STUB-004** [Rohais de Ravenscroft] Stub piece "Blessings", credited (lyrics, possible) to Rohais de Ravenscroft.
+- **STUB-005** [Justin du Coeur] Stub piece "Bound for Pennsic", credited (lyrics, possible) to Justin du Coeur.
+- **STUB-006** [Anubh de Mona] Stub piece "Brewsong", credited (lyrics, possible) to Anubh de Mona.
+- **STUB-007** [Colette la trouvère] Stub piece "By the Rose", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-008** [Colette la trouvère] Stub piece "Caid's Crescent Lands", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-009** [Justin du Coeur] Stub piece "Charlie and the SCA", credited (lyrics, possible) to Justin du Coeur.
+- **STUB-010** [Drake Oranwood] Stub piece "Concordian Soil", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-011** [Rohais de Ravenscroft] Stub piece "Courage to the Cottar", credited (lyrics, possible) to Rohais de Ravenscroft.
+- **STUB-012** [Davock Walkere] Stub piece "Dancing Firelight", credited (lyrics, possible) to Davock Walkere.
+- **STUB-013** [Rosalind Jehanne] Stub piece "Diedre of the Sorrows", credited (lyrics, possible) to Rosalind Jehanne.
+- **STUB-014** [Colette la trouvère] Stub piece "Fair An Tir", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-015** [Rohais de Ravenscroft] Stub piece "Fairy Ring", credited (lyrics, possible) to Rohais de Ravenscroft.
+- **STUB-016** [Aneleda Falconbridge] Stub piece "Follow Me", credited (lyrics, possible) to Aneleda Falconbridge.
+- **STUB-017** [Conn MacNeill] Stub piece "For Crown and For Kingdom", credited (lyrics, possible) to Conn MacNeill.
+- **STUB-018** [Rohais de Ravenscroft] Stub piece "Gentle Grace", credited (lyrics, possible) to Rohais de Ravenscroft.
+- **STUB-019** [Hector of the Black Height] Stub piece "Guardsmen of Eoforwic", credited (lyrics, possible) to Hector of the Black Height.
+- **STUB-020** [Drake Oranwood] Stub piece "Hidden Gold", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-021** [Drake Oranwood] Stub piece "Hold the Door Open", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-022** [Hector of the Black Height] Stub piece "Home to Ealdormere", credited (lyrics, possible) to Hector of the Black Height.
+- **STUB-023** [Drake Oranwood] Stub piece "Homecoming", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-024** [Aneleda Falconbridge] Stub piece "I Am of the North", credited (lyrics, possible) to Aneleda Falconbridge.
+- **STUB-025** [Drake Oranwood] Stub piece "I asked of thee a boon", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-026** [Ken Theriot] Stub piece "King Orfeo", credited (lyrics, possible) to Ken Theriot.
+- **STUB-027** [Eliane Halevy] Stub piece "Lady of Northshield", credited (lyrics, possible) to Eliane Halevy.
+- **STUB-028** [Drake Oranwood] Stub piece "Lady of the Rose", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-029** [Baldwin of Erebor] Stub piece "Lass with the Golden Hair", credited (lyrics, possible) to Baldwin of Erebor.
+- **STUB-030** [Thomas Bordeaux] Stub piece "Last of the Mighty", credited (lyrics, possible) to Thomas Bordeaux.
+- **STUB-031** [Drake Oranwood] Stub piece "Legal Name 037 (Thomas the Rhymer)", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-032** [Baldwin of Erebor] Stub piece "Legal Name 039 (Song of the Old Used Queen)", credited (lyrics, possible) to Baldwin of Erebor.
+- **STUB-033** [Baldwin of Erebor] Stub piece "Maiden in Your Lofty Tower", credited (lyrics, possible) to Baldwin of Erebor.
+- **STUB-034** [Rohais de Ravenscroft] Stub piece "Make a Stand", credited (lyrics, possible) to Rohais de Ravenscroft.
+- **STUB-035** [Colette la trouvère] Stub piece "Mani, Bright Mani", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-036** [Drake Oranwood] Stub piece "Masters of the Game (Legal Name 038)", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-037** [Drake Oranwood] Stub piece "Mug Your Gate", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-038** [Aneleda Falconbridge] Stub piece "My Summer Brothers", credited (lyrics, possible) to Aneleda Falconbridge.
+- **STUB-039** [Eliane Halevy] Stub piece "My Thing Is My Own", credited (lyrics, possible) to Eliane Halevy.
+- **STUB-040** [Colette la trouvère] Stub piece "Nothing to Fear", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-041** [Colette la trouvère] Stub piece "O My Love", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-042** [Colette la trouvère] Stub piece "On Starkhafn Soil", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-043** [Baldwin of Erebor] Stub piece "One Day from Atenveldt", credited (lyrics, possible) to Baldwin of Erebor.
+- **STUB-044** [Aneleda Falconbridge] Stub piece "Our Lady Rose", credited (lyrics, possible) to Aneleda Falconbridge.
+- **STUB-045** [Drake Oranwood] Stub piece "Pack Out Day", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-046** [Drake Oranwood] Stub piece "Plant Your Feet", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-047** [Thomas Bordeaux] Stub piece "Prodigal Bard", credited (lyrics, possible) to Thomas Bordeaux.
+- **STUB-048** [Drake Oranwood] Stub piece "Shine, Child", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-049** [Ken Theriot] Stub piece "Son of the Sea", credited (lyrics, possible) to Ken Theriot.
+- **STUB-050** [Colette la trouvère] Stub piece "Song Calls to Song", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-051** [Colette la trouvère] Stub piece "Song of Sir Melion", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-052** [Hector of the Black Height] Stub piece "Song of the Northern Wanderer", credited (lyrics, possible) to Hector of the Black Height.
+- **STUB-053** [Eliane Halevy] Stub piece "Song of the Northshield", credited (lyrics, possible) to Eliane Halevy.
+- **STUB-054** [Colette la trouvère] Stub piece "Summer Bride", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-055** [Baldwin of Erebor] Stub piece "Talking Grand Melee Blues", credited (lyrics, possible) to Baldwin of Erebor.
+- **STUB-056** [Drake Oranwood] Stub piece "Tam Lin of the Elves", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-057** [Colette la trouvère] Stub piece "The Beggar's Inn", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-058** [Thomas Bordeaux] Stub piece "The Coming of Spring", credited (lyrics, possible) to Thomas Bordeaux.
+- **STUB-059** [Colette la trouvère] Stub piece "The Dragon Bride's Tale", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-060** [Ken Theriot] Stub piece "The Feast Song", credited (lyrics, possible) to Ken Theriot.
+- **STUB-061** [Hector of the Black Height] Stub piece "The Field Battle, Pennsic XVII", credited (lyrics, possible) to Hector of the Black Height.
+- **STUB-062** [Baldwin of Erebor] Stub piece "The Gage of War", credited (lyrics, possible) to Baldwin of Erebor.
+- **STUB-063** [Drake Oranwood] Stub piece "The Last Plantagenet", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-064** [Baldwin of Erebor] Stub piece "The Last Rhyme of True Thomas", credited (lyrics, possible) to Baldwin of Erebor.
+- **STUB-065** [Aneleda Falconbridge] Stub piece "The March Home", credited (lyrics, possible) to Aneleda Falconbridge.
+- **STUB-066** [Justin du Coeur] Stub piece "The Pennsic Land Lottery Debate", credited (lyrics, possible) to Justin du Coeur.
+- **STUB-067** [Rohais de Ravenscroft] Stub piece "The Pollen Song", credited (lyrics, possible) to Rohais de Ravenscroft.
+- **STUB-068** [Colette la trouvère] Stub piece "The Quest for the Elixir of Life", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-069** [Justin du Coeur] Stub piece "The Twelve Days of Pennsic", credited (lyrics, possible) to Justin du Coeur.
+- **STUB-070** [Ken Theriot] Stub piece "To Serve the Lily", credited (lyrics, possible) to Ken Theriot.
+- **STUB-071** [Duncan MacLeod] Stub piece "Two Harps", credited (lyrics, possible) to Duncan MacLeod.
+- **STUB-072** [Justin du Coeur] Stub piece "Uncooked Liver", credited (lyrics, possible) to Justin du Coeur.
+- **STUB-073** [Drake Oranwood] Stub piece "We Are the East", credited (lyrics, possible) to Drake Oranwood.
+- **STUB-074** [Aneleda Falconbridge] Stub piece "We Wear the Purple and Gold", credited (lyrics, possible) to Aneleda Falconbridge.
+- **STUB-075** [Rohais de Ravenscroft] Stub piece "When Meridies Goes to War", credited (lyrics, possible) to Rohais de Ravenscroft.
+- **STUB-076** [Hector of the Black Height] Stub piece "Wolves Song", credited (lyrics, possible) to Hector of the Black Height.
+- **STUB-077** [Colette la trouvère] Stub piece "You Are Music", credited (lyrics, possible) to Colette la trouvère.
+- **STUB-078** [Baldwin of Erebor] Stub piece "Young Cathan", credited (lyrics, possible) to Baldwin of Erebor.
+- **STUB-079** [Second Cross] Stub person "Aleksandr Vasilevych Lev" (community_bard), named on 1 page(s).
+- **STUB-080** [Burden of the Crown] Stub person "Alexander de Seton" (community_bard), named on 2 page(s).
+- **STUB-081** [Greensleeves] Stub person "Allison Kinder" (community_bard), named on 1 page(s).
+- **STUB-082** [God Rest Ye Frantic Autocrat] Stub person "Amalberga de Scriver" (community_bard), named on 1 page(s).
+- **STUB-083** [Quantas Sabedes Amar Amigo] Stub person "Amelie d'Anjou" (community_bard), named on 2 page(s).
+- **STUB-084** [Hotspur] Stub person "Andrew Lyon of Wolvenwood" (community_bard), named on 3 page(s).
+- **STUB-085** [Savage Daughter] Stub person "Angharat Goch" (community_bard), named on 1 page(s).
+- **STUB-086** [O Death Rock Me Asleep] Stub person "Anne Boleyn" (historical), named on 1 page(s).
+- **STUB-087** [Health to the Company] Stub person "Aranwen Verch Catuethen" (community_bard), named on 1 page(s).
+- **STUB-088** [Health to the Company] Stub person "Astrið of Owl's Rest" (community_bard), named on 1 page(s).
+- **STUB-089** [Moose] Stub person "Axel the Sot" (community_bard), named on 1 page(s).
+- **STUB-090** [Vivat the Dream] Stub person "Beatrice Domenici della Campana" (community_bard), named on 1 page(s).
+- **STUB-091** [Second Cross] Stub person "Beatriu De Schattentor" (community_bard), named on 1 page(s).
+- **STUB-092** [Loki's Song] Stub person "Belle de la Tour" (community_bard), named on 1 page(s).
+- **STUB-093** [Call the Names] Stub person "Legal Name" (community_bard), named on 1 page(s).
+- **STUB-094** [Welcome Home] Stub person "Brendan O Corraidhe" (community_bard), named on 1 page(s).
+- **STUB-095** [Born on the Listfield] Stub person "Brigitta Olavsdatter" (community_bard), named on 1 page(s).
+- **STUB-096** [Marshall] Stub person "Cariadoc of the Bow" (community_bard), named on 2 page(s).
+- **STUB-097** [The Man Who Wouldn't Die] Stub person "Cipriano de Alvarez" (community_bard), named on 1 page(s).
+- **STUB-098** [Gentle Hand] Stub person "Corwyn Moray" (community_bard), named on 3 page(s).
+- **STUB-099** [Davock Walkere] Stub person "Dancing Firelight" (community_bard), named on 1 page(s).
+- **STUB-100** [Raven Banner] Stub person "Devin Breighallach" (community_bard), named on 1 page(s).
+- **STUB-101** [Welcome Home] Stub person "Diana Fiona O'Shera" (community_bard), named on 1 page(s).
+- **STUB-102** [Life of the Bard] Stub person "Diana of Viroconium" (community_bard), named on 1 page(s).
+- **STUB-103** [Crusader's Song] Stub person "Diarmait mac Brandubh ua Griobhtha" (community_bard), named on 1 page(s).
+- **STUB-104** [Reign for All Time] Stub person "Dolan Madoc" (community_bard), named on 6 page(s).
+- **STUB-105** [Welcome Home] Stub person "Dorigen of the Grey Gate" (community_bard), named on 3 page(s).
+- **STUB-106** [Second Cross] Stub person "Dorothea de Beckham" (community_bard), named on 1 page(s).
+- **STUB-107** [Thirteenth Virtue] Stub person "Legal Name" (community_bard), named on 6 page(s).
+- **STUB-108** [Blood Oath] Stub person "Eadmund Swordhwita" (community_bard), named on 1 page(s).
+- **STUB-109** [Health to the Company] Stub person "Elaisse de Garrigues" (community_bard), named on 1 page(s).
+- **STUB-110** [Stand Brother Stand] Stub person "Eleanor Fairchild" (community_bard), named on 3 page(s).
+- **STUB-111** [Proud Southern Warrior] Stub person "Eleanor of Ashley" (community_bard), named on 3 page(s).
+- **STUB-112** [Voice of the Dragon] Stub person "Emil Allzuwissender" (community_bard), named on 3 page(s).
+- **STUB-113** [Round for the Barony of Stierbach] Stub person "Etan Askani" (community_bard), named on 1 page(s).
+- **STUB-114** [Light of the East] Stub person "Fiana of Clare" (community_bard), named on 4 page(s).
+- **STUB-115** [Oathkeeping] Stub person "Frederick of Holland" (community_bard), named on 3 page(s).
+- **STUB-116** [Vivat the Dream] Stub person "Freydís in tryggva Sigurðardóttir" (community_bard), named on 1 page(s).
+- **STUB-117** [Song of the Waves] Stub person "Gideon ap Stephen" (community_bard), named on 1 page(s).
+- **STUB-118** [To the West] Stub person "Ginevra da Ravenna" (community_bard), named on 1 page(s).
+- **STUB-119** [Hold Your Lines] Stub person "Gunnar Oxnamagin" (community_bard), named on 3 page(s).
+- **STUB-120** [Circles] Stub person "Gwen Zak" (community_bard), named on 1 page(s).
+- **STUB-121** [Banners of Scarlet] Stub person "Gwendolyn the Graceful" (community_bard), named on 3 page(s).
+- **STUB-122** [Conn's Song] Stub person "Gwenhwyvar verch Owen ap Morgan" (community_bard), named on 1 page(s).
+- **STUB-123** [Greensleeves] Stub person "Heinrich von Stuttgart" (community_bard), named on 1 page(s).
+- **STUB-124** [Pastime with Good Company] Stub person "Henry VIII" (historical), named on 2 page(s).
+- **STUB-125** [Greensleeves] Stub person "Heregyth Ketilsdottir" (community_bard), named on 1 page(s).
+- **STUB-126** [Call the Names] Stub person "Hildigunnr Halldorsdottir" (community_bard), named on 2 page(s).
+- **STUB-127** [By Right of Song] Stub person "Hilla Stormbringer" (community_bard), named on 4 page(s).
+- **STUB-128** [Road to Rome] Stub person "Iain Geirmundsson" (community_bard), named on 3 page(s).
+- **STUB-129** [To the West] Stub person "Ivone PonsLeyr" (community_bard), named on 1 page(s).
+- **STUB-130** [When a Knight Won His Spurs] Stub person "Jan Struther" (historical), named on 2 page(s).
+- **STUB-131** [A Grazing Mace] Stub person "Jenna of Southwind" (community_bard), named on 1 page(s).
+- **STUB-132** [Nottinghill Coill] Stub person "Johann von Solothurn" (community_bard), named on 3 page(s).
+- **STUB-133** [InDUCKtion] Stub person "Legal Name" (community_bard), named on 6 page(s).
+- **STUB-134** [Men of Harlech] Stub person "John ap Wynne" (community_bard), named on 1 page(s).
+- **STUB-135** [Greensleeves] Stub person "Jonathan Ospry" (community_bard), named on 1 page(s).
+- **STUB-136** [Causes of Rebellion] Stub person "Legal Name" (community_bard), named on 2 page(s).
+- **STUB-137** [A Sailor's Love Song] Stub person "Legal Name" (community_bard), named on 3 page(s).
+- **STUB-138** [Folk of the Plaid] Stub person "Klodiya Del'Krowa" (community_bard), named on 1 page(s).
+- **STUB-139** [A&S Fight Song] Stub person "Kudrun Pilegrim" (community_bard), named on 3 page(s).
+- **STUB-140** [The Peasant Knight] Stub person "Kári Gáranhirsson" (community_bard), named on 1 page(s).
+- **STUB-141** [Lifeblood] Stub person "Leafy Greens & Mutton" (group), named on 1 page(s).
+- **STUB-142** [To the West] Stub person "Leah Raedaelf of Pagham" (community_bard), named on 1 page(s).
+- **STUB-143** [Wild Rover] Stub person "Legal Name 027" (community_bard), named on 1 page(s).
+- **STUB-144** [Wild Mountain Thyme] Stub person "Legal Name 034" (historical), named on 1 page(s).
+- **STUB-145** [Warrior's Wyrd] Stub person "Legal Name 049" (community_bard), named on 1 page(s).
+- **STUB-146** [Why I Fight] Stub person "Legal Name 053" (community_bard), named on 6 page(s).
+- **STUB-147** [Queen of Argyll] Stub person "Legal Name 058" (historical), named on 3 page(s).
+- **STUB-148** [Circles] Stub person "Legal Name 065" (community_bard), named on 1 page(s).
+- **STUB-149** [Where is the Light of the East] Stub person "Legal Name 076" (community_bard), named on 3 page(s).
+- **STUB-150** [Song for a Young Squire] Stub person "Legal Name 078" (community_bard), named on 3 page(s).
+- **STUB-151** [A Light Above The Door] Stub person "Legal Name 086" (community_bard), named on 2 page(s).
+- **STUB-152** [Wild Rover] Stub person "Liam von Metten" (community_bard), named on 1 page(s).
+- **STUB-153** [Squires] Stub person "Llewen the Unruly" (community_bard), named on 3 page(s).
+- **STUB-154** [Stand Brother Stand] Stub person "Lorelei Skye" (community_bard), named on 1 page(s).
+- **STUB-155** [Welcome Home] Stub person "Maddalena Valeta" (community_bard), named on 1 page(s).
+- **STUB-156** [Sadb ingen Donnchadha] Stub person "Maedhbh Ní Manainn" (community_bard), named on 1 page(s).
+- **STUB-157** [To the West] Stub person "Mari Alesander" (community_bard), named on 1 page(s).
+- **STUB-158** [Quantas Sabedes Amar Amigo] Stub person "Martin Codax" (historical), named on 3 page(s).
+- **STUB-159** [Rise] Stub person "Mateo Montero de Madrid" (community_bard), named on 1 page(s).
+- **STUB-160** [What Price Honor] Stub person "Legal Name" (community_bard), named on 3 page(s).
+- **STUB-161** [Welcome Home] Stub person "Morgana bro Morganwg" (community_bard), named on 1 page(s).
+- **STUB-162** [Welcome Home] Stub person "Owen Alun" (community_bard), named on 1 page(s).
+- **STUB-163** [Atlantian Bloodsong] Stub person "Rhiannon Bloodsong" (community_bard), named on 3 page(s).
+- **STUB-164** [Sons of the Dragon] Stub person "Rhodri ap Hywel" (community_bard), named on 1 page(s).
+- **STUB-165** [Greensleeves] Stub person "Richard Jones" (community_bard), named on 1 page(s).
+- **STUB-166** [Greensleeves] Stub person "Richard de Winter" (community_bard), named on 1 page(s).
+- **STUB-167** [Auld Lang Syne] Stub person "Robert Burns" (community_bard), named on 2 page(s).
+- **STUB-168** [Greensleeves] Stub person "Robin Jeffre" (community_bard), named on 1 page(s).
+- **STUB-169** [Agincourt] Stub person "Roisin ingen Ailil" (community_bard), named on 1 page(s).
+- **STUB-170** [Greensleeves] Stub person "Sam Brown" (community_bard), named on 1 page(s).
+- **STUB-171** [Another Tournament Fight] Stub person "Sam Cooke" (historical), named on 1 page(s).
+- **STUB-172** [Stand Brother Stand] Stub person "Sidi KuroSH al-Din" (community_bard), named on 1 page(s).
+- **STUB-173** [Uislenn] Stub person "Silfren the Singer" (community_bard), named on 3 page(s).
+- **STUB-174** [Round for the Barony of Stierbach] Stub person "Simon de Spaldyng" (community_bard), named on 3 page(s).
+- **STUB-175** [Song of the Wain] Stub person "Simonetta Musaregni" (community_bard), named on 1 page(s).
+- **STUB-176** [Reign for All Time] Stub person "Siobhán an Einigh" (community_bard), named on 1 page(s).
+- **STUB-177** [To the West] Stub person "Siobhán ní hEodhusa" (community_bard), named on 4 page(s).
+- **STUB-178** [Crusader's Song] Stub person "Sivrid Brumbach" (community_bard), named on 3 page(s).
+- **STUB-179** [Folk of the Plaid] Stub person "Staggmara IngenMurchú" (community_bard), named on 1 page(s).
+- **STUB-180** [One Thing Led to Another] Stub person "Tali Essen of the Isles" (community_bard), named on 2 page(s).
+- **STUB-181** [Welcome Home] Stub person "Tegan de Moreton" (community_bard), named on 1 page(s).
+- **STUB-182** [Born on the Listfield] Stub person "Terafan Greydragon" (community_bard), named on 1 page(s).
+- **STUB-183** [Wild Rover] Stub person "Thomas Lanfiere" (community_bard), named on 1 page(s).
+- **STUB-184** [Moose] Stub person "Legal Name" (community_bard), named on 1 page(s).
+- **STUB-185** [My Thing is My Own] Stub person "Thomas d'Urfey" (community_bard), named on 1 page(s).
+- **STUB-186** [God Rest Ye Frantic Autocrat] Stub person "Tivar Moondragon" (community_bard), named on 2 page(s).
+- **STUB-187** [Duncan MacLeod] Stub person "Two Harps" (community_bard), named on 1 page(s).
+- **STUB-188** [Warhorns of Summer] Stub person "Verrix Verctissignos" (community_bard), named on 3 page(s).
+- **STUB-189** [Worms of the Earth] Stub person "Volodomir Kambionets" (community_bard), named on 3 page(s).
+- **STUB-190** [Sumer is icumen in] Stub person "W. de Wycombe" (community_bard), named on 1 page(s).
+- **STUB-191** [Band of Brothers] Stub person "William Shakespeare" (historical), named on 1 page(s).
+- **STUB-192** [Savage Daughter] Stub person "Úlfrún Barefooted" (community_bard), named on 1 page(s).
+- **STUB-193** [Easy Start Add a Song] Red link "Search" (namespace -1, not_imported), from Easy Start Add a Song: not imported.
+- **STUB-194** [Dahrien Cordell] Red link "Https://youtu.be/oDRTvZHFl9o?si=Dk9IWBG3h9W0RmAy Recording by Cerian Cantwr on YouTube" (namespace 0, malformed_url), from Dahrien Cordell: not imported.
+- **STUB-195** [Easy Start Add a Song] Red link "The Daring Exploits of Knight McKnight" (namespace 0, not_imported), from Easy Start Add a Song: not imported.
+
+## 8. Alternate titles
+
+Titles imported as aliases, titles rejected (with the reason) and prose naming other titles that was not parsed.
+
+- **TITLE-001** [Greensleeves (SCA Version)] Related to "Greensleeves" as contrafactum_of, from the titles.
+- **TITLE-002** [Valkyrie's Lullaby] Alias "Valkyries Lullaby" (redirect, from the redirect).
+- **TITLE-003** [Undefeated] Alias "Legal Name 023" (subtitle, from the infobox_title).
+- **TITLE-004** [Come and Be Welcome] Alias "Come and be Welcome" (redirect, from the redirect).
+- **TITLE-005** [Life of the Bard] Alias "Life of a Bard" (redirect, from the redirect).
+- **TITLE-006** [Ode to Commius (Song)] Alias "Ode to Commius" (alt_title, from the infobox_title).
+- **TITLE-007** [Ode to Commius (Poem)] Alias "Ode to Commius" (alt_title, from the infobox_title).
+- **TITLE-008** [Vivat (Alive Alive Alive)] Alias "Vivat" (alt_title, from the h1).
+- **TITLE-009** [Lifeblood] Alias "Legal Name 048" (subtitle, from the infobox_title).
+- **TITLE-010** [Warrior's Wyrd] Prose naming other titles, kept in the notes: "This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.".
+- **TITLE-011** [Crusader's Song] Alias "I'm for the Holy Land Sailing" (alt_title, from the also_known_as).
+- **TITLE-012** [Crusader's Song] Alias "Holy Land" (alt_title, from the also_known_as).
+- **TITLE-013** [Crusader's Song] Alias "Crusader's Prayer" (alt_title, from the also_known_as).
+- **TITLE-014** [After Cambreadth] Alias "Legal Name" (alt_title, from the also_known_as).
+- **TITLE-015** [Rise] Alias "We Shall Rise" (alt_title, from the infobox_title).
+- **TITLE-016** [Rise] Alias "Rise Ealdormere" (alt_title, from the infobox_title).
+- **TITLE-017** [Birthday Dirge] Alias "The Birthday Dirge" (alt_title, from the h1).
+- **TITLE-018** [Birthday Dirge] Not imported: "Miscellaneous" (from the infobox_title): category_word.
+- **TITLE-019** [Queen of Argyll] Alias "Queen of All Argyle" (redirect, from the redirect).
+- **TITLE-020** [Queen of Argyll] Alias "Queen of All Argyll" (alt_title, from the infobox_title).
+- **TITLE-021** [Quantas Sabedes Amar Amigo] Alias "Quantas Sabedes (Legal Name 059)" (alt_title, from the infobox_title).
+- **TITLE-022** [What Price Honor] Alias "What Price Honour" (redirect, from the redirect).
+- **TITLE-023** [Pastime with Good Company] Alias "Legal Name" (alt_title, from the also_known_as).
+- **TITLE-024** [Conn's Song] Alias "Legal Name 072" (subtitle, from the infobox_title).
+- **TITLE-025** [When A Knight Won His Spurs (SCA Version)] Alias "When A Knight Won Their Spurs" (alt_title, from the infobox_title).
+- **TITLE-026** [Greensleeves (SCA Version)] Not imported: "Greensleeves" (from the infobox_title): other_page.
+- **TITLE-027** [Moose] Alias "The Moose Song" (alt_title, from the infobox_title).
+- **TITLE-028** [Folk of the Plaid] Alias "The Thistle Bows Not To The Rose" (subtitle, from the infobox_title).
+- **TITLE-029** [Black Alman] Alias "Black Allemande" (alt_title, from the infobox_title).
+- **TITLE-030** [The Salmon of Wisdom] Alias "The Salmon of Knowledge" (alt_title, from the other_titles).
+- **TITLE-031** [The Salmon of Wisdom] Alias "Finn and the Salmon" (alt_title, from the other_titles).
+- **TITLE-032** [Blood Oath] Not imported: "Preachain!" (from the infobox_title): category_word.
+- **TITLE-033** [Short Road] Alias "Legal Name 080" (subtitle, from the infobox_title).
+- **TITLE-034** [Fight for the Midrealm] Not imported: "Voice of the Dragon" (from the infobox_title): other_page.
+- **TITLE-035** [The Burning of Tara] Alias "Fionn and the Dragon" (alt_title, from the also_known_as).
+- **TITLE-036** [The Burning of Tara] Alias "How Finn became leader of the Fianna" (alt_title, from the also_known_as).
+- **TITLE-037** [Death Doom and Gloom] Alias "Legal Name 088" (subtitle, from the h1).
+- **TITLE-038** [Nottinghill Coill] Alias "Song for Nottinghill Coill" (alt_title, from the infobox_title).
+
+## 9. Facet drift
+
+Where a piece's infobox and its categories disagree. Facets come from the categories.
+
+- **DRIFT-001** [Band of Brothers] tagged_not_in_infobox: "Pre-1600 Sources" (read as "Pre-1600 Sources").
+- **DRIFT-002** [Band of Brothers] tagged_not_in_infobox: "SCA Pieces" (read as "SCA Pieces").
+- **DRIFT-003** [Come and Be Welcome] tagged_not_in_infobox: "Opening Songs" (read as "Opening Songs").
+- **DRIFT-004** [When a Knight Won His Spurs] in_infobox_not_tagged: "Traditional&Folk" (read as "Traditional & Folk").
+- **DRIFT-005** [When a Knight Won His Spurs] redirect_category_link: "Traditional&Folk" (read as "Traditional & Folk").
+- **DRIFT-006** [Song of the Shieldwall] tagged_not_in_infobox: "Low Risk" (read as "Low Risk").
+- **DRIFT-007** [Wild Mountain Thyme] in_infobox_not_tagged: "Traditional&Folk" (read as "Traditional & Folk").
+- **DRIFT-008** [Wild Mountain Thyme] redirect_category_link: "Traditional&Folk" (read as "Traditional & Folk").
+- **DRIFT-009** [Ode to Commius (Poem)] in_infobox_not_tagged: "Story (Mood)" (read as "Story (Mood)").
+- **DRIFT-010** [Ode to Commius (Poem)] in_infobox_not_tagged: "Historical People & Events" (read as "Historical People & Events").
+- **DRIFT-011** [Ode to Commius (Poem)] in_infobox_not_tagged: "English" (read as "English").
+- **DRIFT-012** [Ode to Commius (Poem)] in_infobox_not_tagged: "French" (read as "French").
+- **DRIFT-013** [Ode to Commius (Poem)] in_infobox_not_tagged: "Spoken Word" (read as "Spoken Word").
+- **DRIFT-014** [Ode to Commius (Poem)] in_infobox_not_tagged: "SCA Pieces" (read as "SCA Pieces").
+- **DRIFT-015** [Battle of Maldon] tagged_not_in_infobox: "10th Century (Topic)" (read as "10th Century (Topic)").
+- **DRIFT-016** [Round for the Barony of Stierbach] tagged_not_in_infobox: "Instrumental" (read as "Instrumental").
+- **DRIFT-017** [Worms of the Earth] in_infobox_not_tagged: "Warlike" (read as "Warlike").
+- **DRIFT-018** [Hold Your Lines] tagged_not_in_infobox: "Endangered" (read as "Endangered").
+- **DRIFT-019** [Birthday Dirge] in_infobox_not_tagged: "Traditional & Folk" (read as "Traditional & Folk").
+- **DRIFT-020** [The Herald's Complaint] tagged_not_in_infobox: "Instrumental" (read as "Instrumental").
+- **DRIFT-021** [The Squire's Song] tagged_not_in_infobox: "Endangered" (read as "Endangered").
+- **DRIFT-022** [Burden of the Crown] tagged_not_in_infobox: "Instrumental" (read as "Instrumental").
+- **DRIFT-023** [Causes of Rebellion] in_infobox_not_tagged: "Crowns" (read as "Crowns").
+- **DRIFT-024** [Thirteenth Virtue] tagged_not_in_infobox: "Critically Endangered" (read as "Critically Endangered").
+- **DRIFT-025** [Warrior Bard] tagged_not_in_infobox: "Endangered" (read as "Endangered").
+- **DRIFT-026** [The Trial of Lancelot] tagged_not_in_infobox: "ASL (Language)" (read as "ASL (Language)").
+- **DRIFT-027** [What Price Honor] tagged_not_in_infobox: "Endangered" (read as "Endangered").
+- **DRIFT-028** [Mirie it is While Sumer Ilast] tagged_not_in_infobox: "Middle English (Language)" (read as "Middle English (Language)").
+- **DRIFT-029** [When A Knight Won His Spurs (SCA Version)] in_infobox_not_tagged: "Traditional&Folk" (read as "Traditional & Folk").
+- **DRIFT-030** [When A Knight Won His Spurs (SCA Version)] tagged_not_in_infobox: "Traditional & Folk" (read as "Traditional & Folk").
+- **DRIFT-031** [When A Knight Won His Spurs (SCA Version)] redirect_category_link: "Traditional&Folk" (read as "Traditional & Folk").
+- **DRIFT-032** [Greensleeves (SCA Version)] in_infobox_not_tagged: "Traditional & Folk" (read as "Traditional & Folk").
+- **DRIFT-033** [A&S Fight Song] tagged_not_in_infobox: "Endangered" (read as "Endangered").
+- **DRIFT-034** [Gentle Hand] tagged_not_in_infobox: "Endangered" (read as "Endangered").
+- **DRIFT-035** [Gentle Hand] tagged_not_in_infobox: "SCA Pieces" (read as "SCA Pieces").
+- **DRIFT-036** [Uislenn] in_infobox_not_tagged: "Warlike" (read as "Warlike").
+- **DRIFT-037** [Uislenn] in_infobox_not_tagged: "Gaelic" (read as "Gaelic").
+- **DRIFT-038** [Black Alman] in_infobox_not_tagged: "Dance" (read as "Dances").
+- **DRIFT-039** [Black Alman] tagged_not_in_infobox: "Dance Music" (read as "Dance Music").
+- **DRIFT-040** [Black Alman] tagged_not_in_infobox: "Dances" (read as "Dances").
+- **DRIFT-041** [Black Alman] redirect_category_link: "Dance" (read as "Dances").
+- **DRIFT-042** [The Salmon of Wisdom] tagged_not_in_infobox: "Fenian Cycle" (read as "Fenian Cycle").
+- **DRIFT-043** [Light of the East] tagged_not_in_infobox: "Endangered" (read as "Endangered").
+- **DRIFT-044** [Men of Harlech] in_infobox_not_tagged: "War" (read as "War").
+- **DRIFT-045** [Men of Harlech] tagged_not_in_infobox: "Welsh (Language)" (read as "Welsh (Language)").
+- **DRIFT-046** [I'm a Duke and You're Not] tagged_not_in_infobox: "True Events" (read as "True Events").
+- **DRIFT-047** [The Torture Song] tagged_not_in_infobox: "Endangered" (read as "Endangered").
+- **DRIFT-048** [Rosin the Bow] in_infobox_not_tagged: "Drinking" (read as "Drinking").
+- **DRIFT-049** [Marshall] in_infobox_not_tagged: "Long Pieces" (read as "Long Pieces").
+- **DRIFT-050** [True And Destined Prince] tagged_not_in_infobox: "SCA Combat" (read as "SCA Combat").
+
+## 10. Inline lyrics dropped
+
+Lyrics written on the wiki are never imported: the page, section and line count of each.
+
+- **LYRICS-001** [Band of Brothers] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-002** [Heirs of Atlantis] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-003** [When a Knight Won His Spurs] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: no.
+- **LYRICS-004** [Wild Rover] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-005** [Wild Mountain Thyme] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-006** [Sumer is icumen in] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-007** [The Parting Glass] Section "Lyrics": 8 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-008** [Pastime with Good Company] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-009** [O Death Rock Me Asleep] Section "Text": 4 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-010** [Mirie it is While Sumer Ilast] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: yes.
+- **LYRICS-011** [When A Knight Won His Spurs (SCA Version)] Section "Lyrics": 4 line(s) of lyrics dropped; licensing note kept: no.
+
+## 11. Links
+
+Links dropped, merged, matched to collections, normalised or given another document's fields.
+
+- **LINK-001** [Valkyrie's Lullaby] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-002** [Band of Brothers] 5 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-003** [Undefeated] 5 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-004** [Undefeated] URLs written more than once, imported once each: https://tilted-windmill.com/midbards/lyrics/undefeated.html.
+- **LINK-005** [Undefeated] https://tilted-windmill.com/midbards/lyrics/undefeated.html has several roles: lyrics, licensing_source.
+- **LINK-006** [Undefeated] https://tilted-windmill.com/midbards/lyrics/undefeated.html could belong to several collections (https://tilted-windmill.com/midbards/works.html, https://tilted-windmill.com/midbards/songbooks.html): it belongs to none.
+- **LINK-007** [Argent and Azure] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-008** [Argent and Azure] URLs written more than once, imported once each: https://www.hartshavenmusic.com/ironhart.
+- **LINK-009** [Argent and Azure] https://www.hartshavenmusic.com/ironhart has several roles: other, lyrics.
+- **LINK-010** [Atlantian Steel] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-011** [Atlantian Steel] URLs written more than once, imported once each: https://www.hartshavenmusic.com/ironhart.
+- **LINK-012** [Atlantian Steel] https://www.hartshavenmusic.com/ironhart has several roles: other, lyrics.
+- **LINK-013** [Fair Lady Atlantia] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-014** [Fair Lady Atlantia] URLs written more than once, imported once each: https://blibberinghumdingers.bandcamp.com/track/fair-lady-atlantia-1990s-version.
+- **LINK-015** [Fair Lady Atlantia] https://blibberinghumdingers.bandcamp.com/track/fair-lady-atlantia-1990s-version has several roles: other, lyrics, licensing_source.
+- **LINK-016** [Atlantian Bloodsong] URLs written more than once, imported once each: https://blibberinghumdingers.bandcamp.com/track/atlantian-bloodsong.
+- **LINK-017** [Atlantian Bloodsong] https://blibberinghumdingers.bandcamp.com/track/atlantian-bloodsong has several roles: licensing_source, performance.
+- **LINK-018** [Belt and Chain] 5 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-019** [Belt and Chain] URLs written more than once, imported once each: http://merryrose.atlantia.sca.org/archive/1997-06jun/msg00428.html, https://www.hartshavenmusic.com/ironhart.
+- **LINK-020** [Belt and Chain] http://merryrose.atlantia.sca.org/archive/1997-06jun/msg00428.html has several roles: lyrics, licensing_source.
+- **LINK-021** [Belt and Chain] https://www.hartshavenmusic.com/ironhart has several roles: licensing_source, performance.
+- **LINK-022** [Come and Be Welcome] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-023** [Come and Be Welcome] URLs written more than once, imported once each: https://bardicsong.wordpress.com/lyrics/come-and-be-welcome/, https://emholbert.bandcamp.com/album/waves-on-the-shore.
+- **LINK-024** [Come and Be Welcome] https://bardicsong.wordpress.com/lyrics/come-and-be-welcome/ has several roles: official, lyrics.
+- **LINK-025** [Come and Be Welcome] https://emholbert.bandcamp.com/album/waves-on-the-shore has several roles: other, performance.
+- **LINK-026** [Azure and Argent and Rose] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-027** [Azure and Argent and Rose] URLs written more than once, imported once each: https://birdthebard.wordpress.com/2018/04/02/the-banner-of-azure-and-argent-and-rose/.
+- **LINK-028** [Azure and Argent and Rose] https://birdthebard.wordpress.com/2018/04/02/the-banner-of-azure-and-argent-and-rose/ has several roles: official, lyrics.
+- **LINK-029** [Heirs of Atlantis] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-030** [Heirs of Atlantis] URLs written more than once, imported once each: https://forannanglorach.wordpress.com/2026/01/13/heirs-of-atlantis/.
+- **LINK-031** [Heirs of Atlantis] https://forannanglorach.wordpress.com/2026/01/13/heirs-of-atlantis/ has several roles: official, lyrics, licensing_source.
+- **LINK-032** [When a Knight Won His Spurs] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-033** [One for the Leaving] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-034** [One for the Leaving] https://www.youtube.com/watch?v=EiYBQA869Gk&list=RDEiYBQA869Gk&start_radio=1 has several roles: licensing_source, performance.
+- **LINK-035** [The Veil] 9 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-036** [The Veil] URLs written more than once, imported once each: http://www.calonsong.org/CalontirSongs/songoftheveil.pdf.
+- **LINK-037** [The Veil] http://www.calonsong.org/CalontirSongs/songoftheveil.pdf has several roles: lyrics, licensing_source.
+- **LINK-038** [Song of the Shieldwall] 7 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-039** [Song of the Shieldwall] http://www.calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf is in the collection http://calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf at "p. 14".
+- **LINK-040** [Song of Roland] 8 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-041** [The Peasant Knight] 7 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-042** [Rite of Passage] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-043** [Savage Daughter] 8 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-044** [Savage Daughter] URLs written more than once, imported once each: https://wyndrethsavagedaughtershieldmaid.bandcamp.com/track/my-mothers-savage-daughter-studio-2.
+- **LINK-045** [Savage Daughter] https://wyndrethsavagedaughtershieldmaid.bandcamp.com/track/my-mothers-savage-daughter-studio-2 has several roles: official, performance.
+- **LINK-046** [Savage Daughter] https://www.youtube.com/watch?v=PAuC6gX36tc has several roles: licensing_source, performance.
+- **LINK-047** [Life of the Bard] 5 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-048** [Life of the Bard] URLs written more than once, imported once each: http://www.rosalindjehanne.com/linked/the_life_of_the_bard.pdf.
+- **LINK-049** [Life of the Bard] http://www.rosalindjehanne.com/linked/the_life_of_the_bard.pdf has several roles: official, lyrics.
+- **LINK-050** [One of Us] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-051** [One of Us] URLs written more than once, imported once each: https://heatherdale.com/lyrics-imagineer-one-of-us/.
+- **LINK-052** [One of Us] https://heatherdale.com/lyrics-imagineer-one-of-us/ has several roles: official, lyrics.
+- **LINK-053** [Wild Rover] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-054** [Wild Mountain Thyme] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-055** [Ode to Commius (Song)] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-056** [Ode to Commius (Song)] URLs written more than once, imported once each: https://sites.google.com/view/Legal Name/teachingperformance/bardic-arts/not-ballad-of-commius?authuser=0.
+- **LINK-057** [Ode to Commius (Song)] https://sites.google.com/view/Legal Name/teachingperformance/bardic-arts/not-ballad-of-commius?authuser=0 has several roles: official, lyrics.
+- **LINK-058** [Ode to Commius (Poem)] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-059** [Ode to Commius (Poem)] URLs written more than once, imported once each: https://sites.google.com/view/Legal Name/teachingperformance/bardic-arts/ode-to-commius-story?authuser=0.
+- **LINK-060** [Ode to Commius (Poem)] https://sites.google.com/view/Legal Name/teachingperformance/bardic-arts/ode-to-commius-story?authuser=0 has several roles: official, text.
+- **LINK-061** [Sumer is icumen in] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-062** [Warrior Queen] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-063** [Vivat (Alive Alive Alive)] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-064** [Second Cross] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-065** [Welcome to the Current Middle Ages] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-066** [March of Cambreadth] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-067** [I Add My Shield to the Wall] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-068** [Battle of Maldon] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-069** [Vivat the Dream] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-070** [Vivat the Dream] URLs written more than once, imported once each: https://bardic.avacal.net/SongBook/PS14.html.
+- **LINK-071** [Vivat the Dream] https://bardic.avacal.net/SongBook/PS14.html has several roles: lyrics, licensing_source.
+- **LINK-072** [Ban the Fencers] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-073** [Ban the Fencers] URLs written more than once, imported once each: https://jpathomas.com/song-book/ban-the-fencers/.
+- **LINK-074** [Ban the Fencers] https://jpathomas.com/song-book/ban-the-fencers/ has several roles: official, lyrics.
+- **LINK-075** [Round for the Barony of Stierbach] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-076** [A Grazing Mace] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-077** [Auld Lang Syne] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-078** [Auld Lang Syne] URLs written more than once, imported once each: https://en.wikipedia.org/wiki/Auld_Lang_Syne.
+- **LINK-079** [Auld Lang Syne] https://en.wikipedia.org/wiki/Auld_Lang_Syne has several roles: other, lyrics.
+- **LINK-080** [One More Log] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-081** [The Elfin Knight] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-082** [The Elfin Knight] URLs written more than once, imported once each: https://en.wikipedia.org/wiki/The_Elfin_Knight.
+- **LINK-083** [The Elfin Knight] https://en.wikipedia.org/wiki/The_Elfin_Knight has several roles: other, lyrics.
+- **LINK-084** [Born on the Listfield] 7 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-085** [Worms of the Earth] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-086** [Lifeblood] 5 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-087** [Warrior's Wyrd] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-088** [By the Weight of the Chain] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-089** [Crusader's Song] 5 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-090** [In Praise of the New Knighthood] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-091** [Why I Fight] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-092** [The War I Wage] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-093** [After Cambreadth] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-094** [Joan] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-095** [Hold Your Lines] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-096** [Sons of the Dragon] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-097** [Rise] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-098** [Banners of Scarlet] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-099** [God Rest Ye Frantic Autocrat] 5 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-100** [Birthday Dirge] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-101** [The Herald's Complaint] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-102** [Flower of the Desert] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-103** [Flower of the Desert] URLs written more than once, imported once each: https://open.spotify.com/track/192w9lGQ0kbgMNQmTTx8Xp.
+- **LINK-104** [Flower of the Desert] https://open.spotify.com/track/192w9lGQ0kbgMNQmTTx8Xp has several roles: lyrics, performance.
+- **LINK-105** [Soldier's Song] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-106** [The Squire's Song] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-107** [The Squire's Song] URLs written more than once, imported once each: https://www.reverbnation.com/alinanicanbhaird/song/3017516-the-squires-song.
+- **LINK-108** [The Squire's Song] https://www.reverbnation.com/alinanicanbhaird/song/3017516-the-squires-song has several roles: lyrics, performance.
+- **LINK-109** [Agincourt] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-110** [Another Tournament Fight] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-111** [Another Tournament Fight] URLs written more than once, imported once each: https://en.wikipedia.org/wiki/Sam_Cooke.
+- **LINK-112** [Queen of Argyll] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-113** [Queen of Argyll] URLs written more than once, imported once each: https://en.wikipedia.org/wiki/Legal_Name_058.
+- **LINK-114** [The Parting Glass] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-115** [Quantas Sabedes Amar Amigo] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-116** [Quantas Sabedes Amar Amigo] URLs written more than once, imported once each: https://en.wikipedia.org/wiki/Martin_Codax.
+- **LINK-117** [Burden of the Crown] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-118** [I Follow My King] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-119** [Fruit of the Yew] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-120** [One Thing Led to Another] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-121** [Journey's Just Begun] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-122** [Stand Brother Stand] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-123** [Bow to the Crown] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-124** [Call the Names] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-125** [Circles] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-126** [Causes of Rebellion] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-127** [Causes of Rebellion] URLs written more than once, imported once each: http://www.calonsong.org/CalontirSongs/causesofrebellion.htm.
+- **LINK-128** [Causes of Rebellion] http://www.calonsong.org/CalontirSongs/causesofrebellion.htm has several roles: lyrics, licensing_source.
+- **LINK-129** [Awe Hail, Gleann Abhann] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-130** [Awe Hail, Gleann Abhann] URLs written more than once, imported once each: https://www.reverbnation.com/alinanicanbhaird/song/3017546-awe-hail-gleann-abhann.
+- **LINK-131** [Awe Hail, Gleann Abhann] https://www.reverbnation.com/alinanicanbhaird/song/3017546-awe-hail-gleann-abhann has several roles: lyrics, performance.
+- **LINK-132** [Road to Rome] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-133** [Health to the Company] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-134** [Thirteenth Virtue] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-135** [Song of the Wain] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-136** [Song of the Waves] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-137** [By Right of Song] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-138** [Warhorns of Summer] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-139** [Hotspur] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-140** [Hotspur] http://www.calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf is in the collection http://calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf at "p. 14".
+- **LINK-141** [Were-Llama] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-142** [Were-Llama] https://tilted-windmill.com/midbards/lyrics/were_llama.html could belong to several collections (https://tilted-windmill.com/midbards/works.html, https://tilted-windmill.com/midbards/songbooks.html): it belongs to none.
+- **LINK-143** [Starset] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-144** [Warrior Bard] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-145** [Warrior Bard] URLs written more than once, imported once each: https://www.youtube.com/watch?v=jKRrdeh3ORU.
+- **LINK-146** [Warrior Bard] https://www.youtube.com/watch?v=jKRrdeh3ORU has several roles: lyrics, performance.
+- **LINK-147** [The Man Who Wouldn't Die] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-148** [The Trial of Lancelot] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-149** [What Price Honor] URLs written more than once, imported once each: https://Legal Name.bandcamp.com/track/what-price-honor.
+- **LINK-150** [What Price Honor] https://Legal Name.bandcamp.com/track/what-price-honor has several roles: other, performance.
+- **LINK-151** [Pastime with Good Company] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-152** [Pastime with Good Company] URLs written more than once, imported once each: https://en.wikipedia.org/wiki/Henry_VIII.
+- **LINK-153** [Mirie it is While Sumer Ilast] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-154** [Welcome Home] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-155** [Conn's Song] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-156** [When A Knight Won His Spurs (SCA Version)] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-157** [Greensleeves] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-158** [Greensleeves (SCA Version)] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-159** [Moose] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-160** [A&S Fight Song] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-161** [Mordred's Lullaby] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-162** [Folk of the Plaid] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-163** [Gentle Hand] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-164** [Uislenn] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-165** [Black Alman] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-166** [Black Alman] https://pennsicdance.aands.org/pennsic46/PennsicPile46.pdf is in the collection https://pennsicdance.aands.org/pennsic46/PennsicPile46.pdf at "p. 63".
+- **LINK-167** [For Her I Dare] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-168** [Not Yet Done] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-169** [The Salmon of Wisdom] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-170** [Blood Oath] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-171** [My Thing is My Own] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-172** [To the West] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-173** [Light of the East] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-174** [Where is the Light of the East] URLs written more than once, imported once each: https://singfortheeast.bandcamp.com/track/light-of-the-east.
+- **LINK-175** [Where is the Light of the East] https://singfortheeast.bandcamp.com/track/light-of-the-east has several roles: lyrics, performance.
+- **LINK-176** [Proud Southern Warrior] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-177** [Song for a Young Squire] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-178** [Song for a Young Squire] https://youtu.be/C6JMXf9AQ5A has several roles: other, licensing_source.
+- **LINK-179** [Raven Banner] 5 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-180** [Raven Banner] http://www.calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf is in the collection http://calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf at "p. 14".
+- **LINK-181** [Men of Harlech] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-182** [Men of Harlech] URLs written more than once, imported once each: https://en.wikipedia.org/wiki/Men_of_Harlech.
+- **LINK-183** [Men of Harlech] https://en.wikipedia.org/wiki/Men_of_Harlech has several roles: other, lyrics.
+- **LINK-184** [Men of Harlech] http://www.calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf is in the collection http://calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf at "p. 14".
+- **LINK-185** [Reign for All Time] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-186** [InDUCKtion] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-187** [Twa Corbies] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-188** [Twa Corbies] URLs written more than once, imported once each: https://en.wikipedia.org/wiki/The_Three_Ravens.
+- **LINK-189** [Twa Corbies] https://en.wikipedia.org/wiki/The_Three_Ravens has several roles: other, lyrics.
+- **LINK-190** [Loki's Song] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-191** [Loki's Song] URLs written more than once, imported once each: http://www.calonsong.org/CalontirSongs/lokissong.htm.
+- **LINK-192** [Loki's Song] http://www.calonsong.org/CalontirSongs/lokissong.htm has several roles: lyrics, licensing_source.
+- **LINK-193** [Short Road] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-194** [Voice of the Dragon] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-195** [Fight for the Midrealm] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-196** [I'm a Duke and You're Not] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-197** [Squires] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-198** [The Torture Song] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-199** [Rosin the Bow] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-200** [A Light Above The Door] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-201** [Marshall] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-202** [The Ride of El Cid] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-203** [Drink Boys Drink] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-204** [The Burning of Tara] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-205** [Three Words] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-206** [Three Words] URLs written more than once, imported once each: https://www.gflower.org/threewords.htm.
+- **LINK-207** [Three Words] https://www.gflower.org/threewords.htm has several roles: other, lyrics.
+- **LINK-208** [Death Doom and Gloom] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-209** [The Joyful Knight] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-210** [True And Destined Prince] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-211** [Nottinghill Coill] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-212** [Nottinghill Coill] URLs written more than once, imported once each: https://www.johannthebard.com/original-bardic-pieces/original-bardic-pieces-page-2/nottinghill-coill/.
+- **LINK-213** [Nottinghill Coill] https://www.johannthebard.com/original-bardic-pieces/original-bardic-pieces-page-2/nottinghill-coill/ has several roles: other, lyrics.
+- **LINK-214** [Lasair inghen ui h’Airt] URLs written more than once, imported once each: https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40&brd_nm=Lasair%20Inghen%20Ui%20h%27Airt.
+- **LINK-215** [Lasair inghen ui h’Airt] https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40&brd_nm=Lasair%20Inghen%20Ui%20h%27Airt has several roles: performance, external_profile.
+- **LINK-216** [Lasair inghen ui h’Airt] https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40&brd_nm=Lasair%20Inghen%20Ui%20h%27Airt could belong to several collections (https://tilted-windmill.com/midbards/works.html, https://tilted-windmill.com/midbards/songbooks.html): it belongs to none.
+- **LINK-217** [Lucia Elena Braganza] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-218** [Lucia Elena Braganza] https://tilted-windmill.com/midbards/bard_vids.html?brd_id=43&brd_nm=Lucia%20Elena%20Braganza could belong to several collections (https://tilted-windmill.com/midbards/works.html, https://tilted-windmill.com/midbards/songbooks.html): it belongs to none.
+- **LINK-219** [Lisa Theriot] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-220** [Samantha Moore] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-221** [Efenwealt Wystle] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-222** [Emer nic Aidan] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-223** [Bird the Bard] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-224** [Forannán Glórach] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-225** [Garraed Galbraith] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-226** [Garraed Galbraith] https://www.youtube.com/watch?v=EiYBQA869Gk&list=RDEiYBQA869Gk&start_radio=1 has several roles: licensing_source, performance.
+- **LINK-227** [Rosalind Jehanne] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-228** [Conn MacNeill] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-229** [Anubh de Mona] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-230** [Sadb ingen Donnchadha] 10 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-231** [Drake Oranwood] URLs written more than once, imported once each: https://drakethebard.com/bardic/.
+- **LINK-232** [Drake Oranwood] https://drakethebard.com/bardic/ has several roles: licensing_source, other.
+- **LINK-233** [Colette la trouvère] URLs written more than once, imported once each: https://caidwiki.org/index.php/Colette_la_trouvere.
+- **LINK-234** [Colette la trouvère] https://caidwiki.org/index.php/Colette_la_trouvere has several roles: other, external_profile.
+- **LINK-235** [Aneleda Falconbridge] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-236** [Aneleda Falconbridge] URLs written more than once, imported once each: https://mbouchard.com/aneleda/.
+- **LINK-237** [Aneleda Falconbridge] https://mbouchard.com/aneleda/ has several roles: website, other, licensing_source.
+- **LINK-238** [Baldwin of Erebor] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-239** [Baldwin of Erebor] URLs written more than once, imported once each: https://www.Legal Name.com/9-2/baldwin-of-erebor/.
+- **LINK-240** [Baldwin of Erebor] https://www.Legal Name.com/9-2/baldwin-of-erebor/ has several roles: website, external_profile.
+- **LINK-241** [Ken Theriot] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-242** [Thomas Bordeaux] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-243** [Thomas Bordeaux] URLs written more than once, imported once each: https://www.patreon.com/tmsbrdo/about.
+- **LINK-244** [Thomas Bordeaux] https://www.patreon.com/tmsbrdo/about has several roles: website, licensing_source.
+- **LINK-245** [Warjna Waleska Katzjmjr] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-246** [Miura Suzume] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-247** [Aibhilin inghean Daibhidh] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-248** [Mathias Blackett] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-249** [Dahrien Cordell] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-250** [Michael Kelly] 4 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-251** [Fernando Rodriguez de Falcon] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-252** [Bryce de Byram] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-253** [Jim Pipkin] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-254** [Cerian Cantwr] 3 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-255** [Cerian Cantwr] https://tilted-windmill.com/midbards/index.html could belong to several collections (https://tilted-windmill.com/midbards/works.html, https://tilted-windmill.com/midbards/songbooks.html): it belongs to none.
+- **LINK-256** [Mikal the Ram] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-257** [Thórvé Skáld Rikardsdottir] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-258** [Justin du Coeur] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-259** [Eliane Halevy] 2 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-260** [Davock Walkere] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-261** [Duncan MacLeod] 1 URL(s) as written differ from their normalised form (tracking parameters, case, www).
+- **LINK-262** [Atlantian Steel] https://hartshavenmusic.com/ironhart: its title differ from those Argent and Azure gives; the import uses Argent and Azure's.
+- **LINK-263** [Belt and Chain] https://hartshavenmusic.com/ironhart: its title differ from those Argent and Azure gives; the import uses Argent and Azure's.
+- **LINK-264** [Come and Be Welcome] http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-265** [Song of the Shieldwall] https://hartshavenmusic.com/ironhart: its title differ from those Argent and Azure gives; the import uses Argent and Azure's.
+- **LINK-266** [Song of the Shieldwall] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-267** [Rite of Passage] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-268** [Savage Daughter] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-269** [Battle of Maldon] http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-270** [A Grazing Mace] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-271** [Born on the Listfield] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-272** [God Rest Ye Frantic Autocrat] http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-273** [God Rest Ye Frantic Autocrat] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-274** [Birthday Dirge] http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-275** [Birthday Dirge] https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-276** [The Herald's Complaint] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-277** [Agincourt] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-278** [Queen of Argyll] http://sca.claypool.me/songs.html: its title differ from those March of Cambreadth gives; the import uses March of Cambreadth's.
+- **LINK-279** [Queen of Argyll] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-280** [Burden of the Crown] http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-281** [Burden of the Crown] https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-282** [Fruit of the Yew] https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-283** [Journey's Just Begun] https://hartshavenmusic.com/hartofsteel: its title differ from those I Add My Shield to the Wall gives; the import uses I Add My Shield to the Wall's.
+- **LINK-284** [Bow to the Crown] http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-285** [Bow to the Crown] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-286** [Call the Names] http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-287** [Circles] http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-288** [Thirteenth Virtue] https://youtube.com/watch?v=jdyLkxpvD54: its title differ from those One for the Leaving gives; the import uses One for the Leaving's.
+- **LINK-289** [Hotspur] http://calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-290** [Greensleeves] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-291** [Greensleeves] http://sca.claypool.me/songs.html: its title differ from those March of Cambreadth gives; the import uses March of Cambreadth's.
+- **LINK-292** [Greensleeves (SCA Version)] https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-293** [Moose] http://sca.claypool.me/songs.html: its title differ from those March of Cambreadth gives; the import uses March of Cambreadth's.
+- **LINK-294** [Folk of the Plaid] https://hartshavenmusic.com/ironhart: its title differ from those Argent and Azure gives; the import uses Argent and Azure's.
+- **LINK-295** [For Her I Dare] https://hartshavenmusic.com/ironhart: its title differ from those Argent and Azure gives; the import uses Argent and Azure's.
+- **LINK-296** [Raven Banner] https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-297** [Raven Banner] http://calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-298** [Men of Harlech] http://calonsong.org/CalontirSongs/Songbook-CalontirArmySongbookTopSecret.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-299** [A Sailor's Love Song] https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-300** [Twa Corbies] https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-301** [Squires] https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's.
+- **LINK-302** [Efenwealt Wystle] https://youtube.com/watch?v=BQNxiHZhGF0: its title differ from those Fair Lady Atlantia gives; the import uses Fair Lady Atlantia's.
+- **LINK-303** [Morric Haast] http://merryrose.atlantia.sca.org/archive/1997-06jun/msg00428.html: its title differ from those Belt and Chain gives; the import uses Belt and Chain's.
+- **LINK-304** [Emer nic Aidan] https://youtube.com/watch?v=IvDMPd4f7k4: its title differ from those Come and Be Welcome gives; the import uses Come and Be Welcome's.
+- **LINK-305** [Forannán Glórach] https://forannanglorach.wordpress.com/2026/01/13/heirs-of-atlantis/: its title differ from those Heirs of Atlantis gives; the import uses Heirs of Atlantis's.
+- **LINK-306** [Forannán Glórach] https://youtube.com/watch?v=T5HqShcpdyw: its url, title differ from those Not Yet Done gives; the import uses Not Yet Done's.
+- **LINK-307** [Forannán Glórach] https://youtube.com/watch?v=byeNq-MNpCA: its title differ from those When A Knight Won His Spurs (SCA Version) gives; the import uses When A Knight Won His Spurs (SCA Version)'s.
+- **LINK-308** [Forannán Glórach] https://youtube.com/watch?v=-3OL4Gc2gK8: its url, title differ from those Heirs of Atlantis gives; the import uses Heirs of Atlantis's.
+- **LINK-309** [Garraed Galbraith] https://youtube.com/watch?v=EiYBQA869Gk: its title differ from those One for the Leaving gives; the import uses One for the Leaving's.
+- **LINK-310** [Garraed Galbraith] http://calonsong.org/CalontirSongs/songoftheveil.pdf: its title differ from those The Veil gives; the import uses The Veil's.
+- **LINK-311** [Sadb ingen Donnchadha] https://youtube.com/watch?v=W4WjmLT2RPk: its title differ from those Undefeated gives; the import uses Undefeated's.
+- **LINK-312** [Sadb ingen Donnchadha] https://youtube.com/watch?v=K0kYsxBYh0w: its title differ from those Savage Daughter gives; the import uses Savage Daughter's.
+- **LINK-313** [Sadb ingen Donnchadha] https://youtube.com/watch?v=F2RbigV9h_8: its title differ from those Savage Daughter gives; the import uses Savage Daughter's.
+- **LINK-314** [Sadb ingen Donnchadha] https://youtube.com/watch?v=yrzY286dee4: its title differ from those Battle of Maldon gives; the import uses Battle of Maldon's.
+- **LINK-315** [Baldwin of Erebor] https://Legal Name.com/9-2/baldwin-of-erebor/: its title differ from those Flower of the Desert gives; the import uses Flower of the Desert's.
+- **LINK-316** [Baldwin of Erebor] https://Legal Name.com/baldwin-of-erebor-the-burden-of-the-crown/: its title differ from those Burden of the Crown gives; the import uses Burden of the Crown's.
+- **LINK-317** [Thomas Bordeaux] https://Legal Name.com/9-2/thomas-bordeaux/: its title differ from those Ban the Fencers gives; the import uses Ban the Fencers's.
+- **LINK-318** [Miura Suzume] https://youtube.com/watch?v=jKRrdeh3ORU: its url, title differ from those Warrior Bard gives; the import uses Warrior Bard's.
+- **LINK-319** [Ivar Battleskald] https://bardic.avacal.net/SongBook/SP01.html: its title differ from those Born on the Listfield gives; the import uses Born on the Listfield's.
+- **LINK-320** [Aibhilin inghean Daibhidh] https://youtube.com/watch?v=As77tjW12Nk: its title differ from those Why I Fight gives; the import uses Why I Fight's.
+- **LINK-321** [Aibhilin inghean Daibhidh] https://youtube.com/watch?v=ThvinILH8iA: its url, title differ from those Hold Your Lines gives; the import uses Hold Your Lines's.
+- **LINK-322** [Mathias Blackett] https://youtube.com/watch?v=epHAvTA5jFY: its title differ from those The Herald's Complaint gives; the import uses The Herald's Complaint's.
+- **LINK-323** [Mathias Blackett] https://youtube.com/watch?v=G5jC77OBPck: its title differ from those The War I Wage gives; the import uses The War I Wage's.
+- **LINK-324** [Mathias Blackett] https://youtube.com/watch?v=vZiP_jnjAUI: its title differ from those Road to Rome gives; the import uses Road to Rome's.
+- **LINK-325** [Mathias Blackett] https://youtube.com/watch?v=YulayElK700: its title differ from those Road to Rome gives; the import uses Road to Rome's.
+- **LINK-326** [Dahrien Cordell] https://youtube.com/watch?v=oDRTvZHFl9o: its url differ from those Rite of Passage gives; the import uses Rite of Passage's.
+- **LINK-327** [Michael Kelly] https://youtube.com/watch?v=qc2mHTaeJqE: its title differ from those Lifeblood gives; the import uses Lifeblood's.
+- **LINK-328** [Michael Kelly] https://youtube.com/watch?v=mntMYBkCMj8: its title differ from those Rise gives; the import uses Rise's.
+- **LINK-329** [Michael Kelly] https://youtube.com/watch?v=pcQRD8i16BQ: its title differ from those Queen of Argyll gives; the import uses Queen of Argyll's.
+- **LINK-330** [Fernando Rodriguez de Falcon] https://youtube.com/watch?v=wcpmaf8cLkA: its title differ from those In Praise of the New Knighthood gives; the import uses In Praise of the New Knighthood's.
+- **LINK-331** [Fernando Rodriguez de Falcon] https://youtube.com/watch?v=6bBdjEOfy_Y: its title differ from those Another Tournament Fight gives; the import uses Another Tournament Fight's.
+- **LINK-332** [Cerian Cantwr] https://youtube.com/watch?v=JromFMQw15U: its title differ from those Hotspur gives; the import uses Hotspur's.
+- **LINK-333** [Cerian Cantwr] https://youtube.com/watch?v=ATbK2WzXagQ: its title differ from those Were-Llama gives; the import uses Were-Llama's.
+- **LINK-334** [Thórvé Skáld Rikardsdottir] https://youtube.com/watch?v=DNo-pcLlF5w: its url differ from those Warrior Queen gives; the import uses Warrior Queen's.
+- **LINK-335** [Eliane Halevy] https://youtube.com/watch?v=dhqH0Sra8aU: its title differ from those Three Words gives; the import uses Three Words's.
+- **LINK-336** [Eliane Halevy] https://youtube.com/watch?v=WdPLbQkX2ig: its title differ from those Three Words gives; the import uses Three Words's.
+
+## 12. Performances
+
+Performance items not fully read, events created and similar event names.
+
+- **PERF-001** [Lasair inghen ui h’Airt] A performance item has no performer, event or year the importer could read: "[https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40&brd_nm=Lasair%20I…".
+- **PERF-002** [Lucia Elena Braganza] A performance item has no performer, event or year the importer could read: "[https://youtube.com/playlist?list=PLCT-9Ovwzyj_-bhR0Tm2NFX02yMf58Aa5&si=0XEW1xe…".
+- **PERF-003** [Lucia Elena Braganza] A performance item has no performer, event or year the importer could read: "[https://tilted-windmill.com/midbards/bard_vids.html?brd_id=43&brd_nm=Lucia%20El…".
+- **PERF-004** [Efenwealt Wystle] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/36gqyI5aNqE5vIEjYCSDpV Fair Lady Atlantia on Spo…".
+- **PERF-005** [Efenwealt Wystle] A performance item has no performer the importer could read: "[https://www.youtube.com/watch?v=BQNxiHZhGF0 Efenwealt Wystle performing Fair La…".
+- **PERF-006** [Efenwealt Wystle] A performance item has no performer, event or year the importer could read: "[https://filkyeahfilk.com/2016/01/06/fair-lady-atlantia-she-rides-upon-the-wind-…".
+- **PERF-007** [Emer nic Aidan] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=IvDMPd4f7k4 Emer nic Aidan singing Come and Be …".
+- **PERF-008** [Emer nic Aidan] A performance item has no performer, event or year the importer could read: "[https://emholbert.bandcamp.com/album/waves-on-the-shore Album page for Waves on…".
+- **PERF-009** [Bird the Bard] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=TivwpV_Jmsc Bird the Bard performs Azure and Ar…".
+- **PERF-010** [Forannán Glórach] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=T5HqShcpdyw Not Yet Done on YouTube]".
+- **PERF-011** [Forannán Glórach] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=byeNq-MNpCA When A Knight Won His Spurs on YouT…".
+- **PERF-012** [Forannán Glórach] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=-3OL4Gc2gK8 Heirs of Atlantis on YouTube]".
+- **PERF-013** [Garraed Galbraith] A performance item has no performer the importer could read: "[https://www.youtube.com/watch?v=EiYBQA869Gk&list=RDEiYBQA869Gk Garraed Galbrait…".
+- **PERF-014** [Drake Oranwood] A performance item has no performer or event the importer could read: "[https://drakeoranwood.bandcamp.com/album/hold-the-door-open ''Hold the Door Ope…".
+- **PERF-015** [Drake Oranwood] A performance item has no performer or event the importer could read: "[https://drakeoranwood.bandcamp.com/album/hidden-gold-2 ''Hidden Gold'' (2015 al…".
+- **PERF-016** [Colette la trouvère] A performance item has no performer or event the importer could read: "[https://colettethebard.bandcamp.com/album/colette-the-bard-songs-for-caid ''Son…".
+- **PERF-017** [Colette la trouvère] A performance item has no performer or event the importer could read: "[https://colettethebard.bandcamp.com/album/song-calls-to-song-ep ''Song Calls to…".
+- **PERF-018** [Colette la trouvère] A performance item has no performer or event the importer could read: "[https://colettethebard.bandcamp.com/album/sylvan ''Sylvan'' (2022) – Bandcamp]".
+- **PERF-019** [Aneleda Falconbridge] A performance item has no performer or event the importer could read: "[https://aneledafalconbridge.bandcamp.com/album/i-am-of-the-north ''I Am of the …".
+- **PERF-020** [Aneleda Falconbridge] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=lztQYOaopVk Aneleda Falconbridge performs By Th…".
+- **PERF-021** [Baldwin of Erebor] A performance item has no performer, event or year the importer could read: "[https://cdbaby.com/cd/BaldwinofErebor ''Welcome to the Current Middle Ages'' – …".
+- **PERF-022** [Baldwin of Erebor] A performance item has no performer, event or year the importer could read: "[https://music.apple.com/us/artist/baldwin-of-erebor/348524873 Baldwin of Erebor…".
+- **PERF-023** [Baldwin of Erebor] A performance item has no performer, event or year the importer could read: "[https://www.soundclick.com/bands3/default.cfm?bandID=885354 Baldwin of Erebor o…".
+- **PERF-024** [Baldwin of Erebor] A performance item has no performer the importer could read: "[https://www.Legal Name.com/baldwin-of-erebor-the-burden-of-the-crown/ Burden…".
+- **PERF-025** [Ken Theriot] A performance item has no performer or event the importer could read: "[https://www.cdbaby.com/cd/ktheriot ''Human History'' (2008) – CD Baby]".
+- **PERF-026** [Ken Theriot] A performance item has no performer, event or year the importer could read: "[https://www.Legal Name.com/band-of-brothers-a-song-for-st-crispins-day/ Band…".
+- **PERF-027** [Warjna Waleska Katzjmjr] A performance item has no performer, event or year the importer could read: "[https://www.amazon.com/Vivat-Embracing-Dream-Various-Artists/dp/B00BUOUNXE ''Vi…".
+- **PERF-028** [Miura Suzume] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=jKRrdeh3ORU&list=RDjKRrdeh3ORU Miura Suzume sin…".
+- **PERF-029** [Miura Suzume] A performance item has no performer the importer could read: "[https://www.youtube.com/watch?v=qdTgowguU70&pp=ygUabWl1cmEgc3V6dW1lIGNlcmlhbiBj…".
+- **PERF-030** [Aibhilin inghean Daibhidh] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=As77tjW12Nk Why I Fight by [name withheld] 053 …".
+- **PERF-031** [Aibhilin inghean Daibhidh] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=ThvinILH8iA&list=RDThvinILH8iA Aibhilin, record…".
+- **PERF-032** [Mathias Blackett] A performance item has no performer, event or year the importer could read: "[https://youtu.be/G5jC77OBPck?si=2vzrruIWFnooz0pk Mathias Blackett on YouTube] p…".
+- **PERF-033** [Dahrien Cordell] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=bgd32gAG9jE Dahrien Cordell & Company sing One …".
+- **PERF-034** [Dahrien Cordell] A performance item has no performer the importer could read: "[https://youtu.be/Z09yAAZGuhY?si=LH6bAvqARxikmJWx Dahrien Cordell sings One More…".
+- **PERF-035** [Michael Kelly] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=qc2mHTaeJqE&list=RDqc2mHTaeJqE Michael Kelly on…".
+- **PERF-036** [Michael Kelly] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=mntMYBkCMj8 Michael Kelly on YouTube] with [[Co…".
+- **PERF-037** [Fernando Rodriguez de Falcon] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=wcpmaf8cLkA Fernando on YouTube, recorded by Ce…".
+- **PERF-038** [Thórvé Skáld Rikardsdottir] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=DNo-pcLlF5w Recording by Cerian Cantwr on YouTu…".
+- **PERF-039** [Thórvé Skáld Rikardsdottir] A performance item has no performer, event or year the importer could read: "[https://youtu.be/4cLUqRP096Q?si=v8xz25PmLf_hDvSH Recording by Cerian Cantwr on …".
+- **PERF-040** [Justin du Coeur] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=kccJRTvuHhI The Roses of the East (East Kingdom…".
+- **PERF-041** [Eliane Halevy] A performance item has no performer, event or year the importer could read: "[https://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy perfor…".
+- **PERF-042** [Eliane Halevy] A performance item has no event or year the importer could read: "[https://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singin…".
+- **PERF-043** [Davock Walkere] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=9GaqJn0hI7Y Davock Walkere] performing his orig…".
+- **PERF-044** [Duncan MacLeod] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=M5J5TPjMRBY&t=4s Duncan MacLeod] performing his…".
+- **PERF-045** [Valkyrie's Lullaby] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=-hRDt5LMkYg&list=RD-hRDt5LMkYg&start_radio=1 La…".
+- **PERF-046** [Valkyrie's Lullaby] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=q2oUW8MfVeI&list=RDq2oUW8MfVeI&start_radio=1 [n…".
+- **PERF-047** [Valkyrie's Lullaby] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=wTEHi0ZXDDQ&list=RDwTEHi0ZXDDQ Recording by Cer…".
+- **PERF-048** [Band of Brothers] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=1Ct5749N4RM&list=RD1Ct5749N4RM&start_radio=1 Of…".
+- **PERF-049** [Undefeated] A performance item has no performer or event the importer could read: "[https://www.youtube.com/watch?v=wzOq2ffvik0&list=RDwzOq2ffvik0 Recording by Cer…".
+- **PERF-050** [Undefeated] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=EB4rodw8NmQ Recording by Cerian Cantwr on YouTu…".
+- **PERF-051** [Undefeated] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=W4WjmLT2RPk&list=RDW4WjmLT2RPk Recording by Cer…".
+- **PERF-052** [Undefeated] A performance item has no event the importer could read: "[https://youtu.be/Jof9TROND0s?si=EcbfSBbZqf3S0Dnp Recording by [name withheld] o…".
+- **PERF-053** [Argent and Azure] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/6biNSOnJ7riUkTu4Akfyzw Argent and Azure on Spoti…".
+- **PERF-054** [Argent and Azure] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=V3rSSVWg4d0 Official YouTube video]".
+- **PERF-055** [Atlantian Steel] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/6p5TFBfpkb0Xs4BfFcjkOA Atlantian Steel on Spotif…".
+- **PERF-056** [Fair Lady Atlantia] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/36gqyI5aNqE5vIEjYCSDpV Fair Lady Atlantia on Spo…".
+- **PERF-057** [Fair Lady Atlantia] A performance item has no performer the importer could read: "[https://www.youtube.com/watch?v=BQNxiHZhGF0 Efenwealt Wystle performing at Gulf…".
+- **PERF-058** [Fair Lady Atlantia] A performance item has no performer, event or year the importer could read: "[https://filkyeahfilk.com/2016/01/06/fair-lady-atlantia-she-rides-upon-the-wind-…".
+- **PERF-059** [Atlantian Bloodsong] A performance item has no performer, event or year the importer could read: "[https://blibberinghumdingers.bandcamp.com/track/atlantian-bloodsong Recording b…".
+- **PERF-060** [Belt and Chain] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=3DQWoOtpU10&list=RD3DQWoOtpU10&start_radio=1 Pe…".
+- **PERF-061** [Belt and Chain] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=-sObDNjrJ0s&list=RD-sObDNjrJ0s&start_radio=1 Pe…".
+- **PERF-062** [Belt and Chain] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=mcy0bGQ_NyI&list=RDmcy0bGQ_NyI&start_radio=1 Pe…".
+- **PERF-063** [Come and Be Welcome] A performance item has no performer, event or year the importer could read: "[https://emholbert.bandcamp.com/album/waves-on-the-shore Album page for Waves on…".
+- **PERF-064** [Come and Be Welcome] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=IvDMPd4f7k4 Emer nic Aidan singing at Pennsic 4…".
+- **PERF-065** [Come and Be Welcome] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=ASKKvojlqro Performance on YouTube] by [[Heathe…".
+- **PERF-066** [Come and Be Welcome] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=ImSc9JE7jdc Performance by [name withheld] 027,…".
+- **PERF-067** [Come and Be Welcome] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=sAClG1gNcoQ&pp=0gcJCdkKAYcqIYzv Come and Be Wel…".
+- **PERF-068** [Azure and Argent and Rose] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=TivwpV_Jmsc Bird the Bard performs Azure and Ar…".
+- **PERF-069** [Heirs of Atlantis] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=-3OL4Gc2gK8&list=RD-3OL4Gc2gK8&start_radio=1 Re…".
+- **PERF-070** [When a Knight Won His Spurs] A performance item has no performer or event the importer could read: "[https://youtu.be/HCXuriEV-0Y?si=FMycoS0i5MIt3ryg Legal Name performs When A…".
+- **PERF-071** [One for the Leaving] A performance item has no performer the importer could read: "[https://www.youtube.com/watch?v=EiYBQA869Gk&list=RDEiYBQA869Gk Garraed Galbrait…".
+- **PERF-072** [One for the Leaving] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=jdyLkxpvD54 One for the Leaving included in Dun…".
+- **PERF-073** [The Veil] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=0Cunacusm2Q The Veil sung by Garraed Galbraith,…".
+- **PERF-074** [The Veil] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=Z_mYugfFcC4 The Veil sung by Sadb ingen Donncha…".
+- **PERF-075** [The Veil] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=q9_1u1hylEA The Veil sung by Mathias Blackett, …".
+- **PERF-076** [The Veil] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=QjwmoZMTjuo The Veil sung by Mathias Blackett &…".
+- **PERF-077** [Song of the Shieldwall] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=IAD7w1C_gU0 Atlantian version sung by Samantha …".
+- **PERF-078** [Song of the Shieldwall] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=DCFr6QvzPm0 Cover by [name withheld] on YouTube…".
+- **PERF-079** [Song of the Shieldwall] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=66xRAvLBuDo&list=RD66xRAvLBuDo&start_radio=1 Ca…".
+- **PERF-080** [Song of Roland] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=pLUf3vG9VdA&list=RDpLUf3vG9VdA Recording by Ros…".
+- **PERF-081** [Song of Roland] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=j8F6QZyCz6g&list=RDj8F6QZyCz6g Rosalind Jehanne…".
+- **PERF-082** [Song of Roland] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=7tWEYLUIoCs&list=RD7tWEYLUIoCs Rosalind Jehanne…".
+- **PERF-083** [Song of Roland] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=lNrzCoASqSI&list=RDlNrzCoASqSI Recording by Mic…".
+- **PERF-084** [Song of Roland] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=jnk5BO1-bko Sung by Amelie d'Anjou, recorded by…".
+- **PERF-085** [The Peasant Knight] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/4PLUMmbuenx9m6T7kUhbJZ?si=4a550329986647c7 Peasa…".
+- **PERF-086** [The Peasant Knight] A performance item has no performer, event or year the importer could read: "[https://music.youtube.com/watch?v=qa7-tpx02yk&si=WN5uXGOQLuCk4D2y Peasant Knigh…".
+- **PERF-087** [The Peasant Knight] A performance item has no performer, event or year the importer could read: "[https://youtu.be/N4TBj0pHtWY?si=lHtpeVzwfTDPNPZd Peasant Knight sung by Rosalin…".
+- **PERF-088** [The Peasant Knight] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=uyrykI7EbGE Legal Name singing, recorded by…".
+- **PERF-089** [The Peasant Knight] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=JolNxVlndxE&list=RDJolNxVlndxE&start_radio=1 Pe…".
+- **PERF-090** [Rite of Passage] A performance item has no performer, event or year the importer could read: "[https://youtu.be/7cwuPm0hB4s Recording on YouTube by Bryce de Byram]".
+- **PERF-091** [Rite of Passage] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=oDRTvZHFl9o Recording by Cerian Cantwr on YouTu…".
+- **PERF-092** [Savage Daughter] A performance item has no performer, event or year the importer could read: "[https://wyndrethsavagedaughtershieldmaid.bandcamp.com/track/my-mothers-savage-d…".
+- **PERF-093** [Savage Daughter] A performance item has no performer, event or year the importer could read: "[https://youtu.be/PAuC6gX36tc?si=N7_pGwJCitG9j4l2 Wyndreth Berginsdottir singing…".
+- **PERF-094** [Savage Daughter] A performance item has no performer, event or year the importer could read: "[https://youtu.be/CvEtPBN4SmE?si=tbRM-x_6tNuVZqwz Savage Daughter sung by Wyndre…".
+- **PERF-095** [Savage Daughter] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=XpQlDkev-0Y&list=RDXpQlDkev-0Y Savage Daughter …".
+- **PERF-096** [Savage Daughter] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=K0kYsxBYh0w Savage Daughter, recorded on YouTub…".
+- **PERF-097** [Savage Daughter] A performance item has no event the importer could read: "[https://www.youtube.com/watch?v=F2RbigV9h_8 Savage Daughter, recorded on YouTub…".
+- **PERF-098** [Life of the Bard] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=A8gwojHFVGE Life of the Bard by Rosalind Jehann…".
+- **PERF-099** [Life of the Bard] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=5Jet72X3ICM Rosalind Jehanne sings Life of a Ba…".
+- **PERF-100** [Life of the Bard] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=hT9vt43qYoY Life of a Bard, recorded on YouTube…".
+- **PERF-101** [One of Us] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/0Hl26EUlkPflqdiNqvNlKN One of Us by Heather Dale…".
+- **PERF-102** [One of Us] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=BfxePkGRJ_o One of Us (Perpetual Gift version) …".
+- **PERF-103** [One of Us] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=Kqie_rjYbak One of Us by Heather Dale on YouTub…".
+- **PERF-104** [Wild Rover] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=Rkcl3TMP8pA Recording by Cerian Cantwr on YouTu…".
+- **PERF-105** [Wild Rover] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=8lulNOC-6y8 Recording by Cerian Cantwr on YouTu…".
+- **PERF-106** [Wild Mountain Thyme] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=ywpJfozu60w YouTube recording by Cerian Cantwr]…".
+- **PERF-107** [Ode to Commius (Song)] A performance item has no performer, event or year the importer could read: "[https://drive.google.com/file/d/1J-Hbi5TebSF5OkqXaFcSp--guqM_h1RT/view Audio re…".
+- **PERF-108** [Ode to Commius (Poem)] A performance item has no performer, event or year the importer could read: "[https://youtu.be/sKyG4EzwHNo?si=4EcX0ThICNow3NO_ Ode to Commius performed by An…".
+- **PERF-109** [Sumer is icumen in] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=bQLaLdRIF10&list=RDbQLaLdRIF10 Recording on You…".
+- **PERF-110** [Sumer is icumen in] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=PfucDftKbbU Choral recording on YouTube by Ceri…".
+- **PERF-111** [Warrior Queen] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=4hXgcJ9I8F8 Recording by Cerian Cantwr on YouTu…".
+- **PERF-112** [Warrior Queen] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=DNo-pcLlF5w&list=RDDNo-pcLlF5w&start_radio=1 Re…".
+- **PERF-113** [Vivat (Alive Alive Alive)] A performance item has no performer or event the importer could read: "[https://www.youtube.com/watch?v=Pe7pSQeNz2E&list=RDPe7pSQeNz2E&start_radio=1 Fo…".
+- **PERF-114** [Second Cross] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=qUWAdlprQ7w&list=RDqUWAdlprQ7w Second Cross rec…".
+- **PERF-115** [Second Cross] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=2pf7HnOZ4Ao&list=RD2pf7HnOZ4Ao Recording by Cer…".
+- **PERF-116** [Second Cross] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=4Yp8UTniHdM&list=RD4Yp8UTniHdM Recording by [na…".
+- **PERF-117** [Welcome to the Current Middle Ages] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=BgBr33Or6xo Welcome to the Current Middle Ages …".
+- **PERF-118** [Welcome to the Current Middle Ages] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/0HHwWqfJgtfJcrxehXo5US?si=7370dd5d76f14314 Welco…".
+- **PERF-119** [March of Cambreadth] A performance item has no performer, event or year the importer could read: "[https://youtu.be/a3Jv-d80H1g?si=pZlK4E3ZZujzQ5by March of Cambreadth on YouTube…".
+- **PERF-120** [I Add My Shield to the Wall] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=FyW6aYOq50k&list=RDFyW6aYOq50k [name withheld] …".
+- **PERF-121** [Battle of Maldon] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=yrzY286dee4 Battle of Maldon recorded by Cerian…".
+- **PERF-122** [Vivat the Dream] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=PO0LRyfFcH4&list=RDPO0LRyfFcH4 Vivat the Dream …".
+- **PERF-123** [Vivat the Dream] A performance item has no event or year the importer could read: "[https://youtu.be/lamyg5uO1x8?si=L6nn3oh0gjUs25hE Vivat the Dream, recorded by […".
+- **PERF-124** [Ban the Fencers] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/3eVJ03RI5Y5yp12xmNfOSW Ban the Fencers by Thomas…".
+- **PERF-125** [Ban the Fencers] A performance item has no event or year the importer could read: "[https://youtu.be/Ylz_EAk2ahE?si=FVrDIot-8fyQTRJQ Ban the Fencers on YouTube by …".
+- **PERF-126** [Round for the Barony of Stierbach] A performance item has no event or year the importer could read: "[https://youtube.com/shorts/mpnjhoQTFyw?si=Mc_RUX_P_VexQ3kh Round for the Barony…".
+- **PERF-127** [Auld Lang Syne] A performance item has no performer, event or year the importer could read: "[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name w…".
+- **PERF-128** [One More Log] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=bgd32gAG9jE Dahrien Cordell & Company sing One …".
+- **PERF-129** [One More Log] A performance item has no performer the importer could read: "[https://youtu.be/Z09yAAZGuhY?si=LH6bAvqARxikmJWx Dahrien Cordell sings One More…".
+- **PERF-130** [The Elfin Knight] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=d7rWcBwqbH8&list=PLbuX8xPgqLjNN1KtxFpUAN-e1z93r…".
+- **PERF-131** [Born on the Listfield] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=1wQ14JaaZ5g Born on a Listfield on YouTube by '…".
+- **PERF-132** [Born on the Listfield] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=pNNXuo7QH40&list=RDpNNXuo7QH40 Born on the List…".
+- **PERF-133** [Born on the Listfield] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=nTladAQYmaA&list=RDnTladAQYmaA Born on the List…".
+- **PERF-134** [Born on the Listfield] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=0s1BlXT7lxo Recording on YouTube by '[name with…".
+- **PERF-135** [Worms of the Earth] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=QrARHJE9Las Recording on YouTube by '[name with…".
+- **PERF-136** [Lifeblood] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=J2ueHz2GCvI&list=RDJ2ueHz2GCvI Lifeblood perfor…".
+- **PERF-137** [Lifeblood] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=qc2mHTaeJqE&list=RDqc2mHTaeJqE Cover of Lifeblo…".
+- **PERF-138** [Lifeblood] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=7gjrMXdYdNs&list=RD7gjrMXdYdNs Lifeblood, perfo…".
+- **PERF-139** [Lifeblood] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=b-viiYz3z9o&list=RDb-viiYz3z9o Lifeblood perfor…".
+- **PERF-140** [Warrior's Wyrd] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=Y-DSvojaL3g Warrior's Wyrd on YouTube by '[name…".
+- **PERF-141** [Warrior's Wyrd] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=GkFyoVrTEok Warrior's Wyrd on YouTube by [name …".
+- **PERF-142** [Warrior's Wyrd] A performance item has no performer or year the importer could read: "[https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU Warrior's Wyrd on YouTube, rec…".
+- **PERF-143** [By the Weight of the Chain] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=r3SmF1Z_28Y By the Weight of the Chain by [name…".
+- **PERF-144** [By the Weight of the Chain] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=lztQYOaopVk Aneleda Falconbridge performs By Th…".
+- **PERF-145** [By the Weight of the Chain] A performance item has no performer, event or year the importer could read: "[https://youtu.be/i3RAwcce4X0?si=hE76bMSemtdkH4mK By the Weight of the Chain on …".
+- **PERF-146** [Crusader's Song] A performance item has no year the importer could read: "[https://youtu.be/CxaPL0ya0Ls Recording on YouTube at the Shenanigans In Seattle…".
+- **PERF-147** [In Praise of the New Knighthood] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=wcpmaf8cLkA In Praise of the New Knighthood, re…".
+- **PERF-148** [Why I Fight] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=As77tjW12Nk Why I Fight recorded by [name withh…".
+- **PERF-149** [The War I Wage] A performance item has no year the importer could read: "[https://youtu.be/G5jC77OBPck?si=2vzrruIWFnooz0pk The War I Wage on YouTube] per…".
+- **PERF-150** [Hold Your Lines] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=ThvinILH8iA Hold Your Lines, recorded by [name …".
+- **PERF-151** [Hold Your Lines] A performance item has no year the importer could read: "[https://youtu.be/YWPR4YZKE2Y?si=64Wj99WhSwit4dWa Hold Your Lines, recorded by […".
+- **PERF-152** [Sons of the Dragon] A performance item has no event the importer could read: "[https://youtu.be/cT_DIObzYRY?si=H8mC-L_WShenCOUr Cerian Cantwr's YouTube record…".
+- **PERF-153** [Rise] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=mntMYBkCMj8 Rise on YouTube] performed by [[Mic…".
+- **PERF-154** [Rise] A performance item has no year the importer could read: "[https://youtu.be/bIuCABe-XuI Rise, recorded by [name withheld] on YouTube], per…".
+- **PERF-155** [Banners of Scarlet] A performance item has no performer or year the importer could read: "[https://youtu.be/aabFfS22iZY Banners of Scarlet on YouTube, sung by a choir at …".
+- **PERF-156** [Banners of Scarlet] A performance item has no performer or event the importer could read: "[https://www.youtube.com/watch?v=tq7jakeObvY Banners of Scarlet, uploaded to You…".
+- **PERF-157** [God Rest Ye Frantic Autocrat] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=pWGaND0LVxU God Rest Ye Frantic Autocrat, recor…".
+- **PERF-158** [God Rest Ye Frantic Autocrat] A performance item has no performer, event or year the importer could read: "[https://youtu.be/qWkEUbfLIuA?si=usxpWklTTatYX6t4 God Rest Ye Frantic Autocrat, …".
+- **PERF-159** [The Herald's Complaint] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=zLsWRjpngXg The Herald's Complaint on YouTube, …".
+- **PERF-160** [The Herald's Complaint] A performance item has no performer, event or year the importer could read: "[https://youtu.be/e__iDM-LHDI?si=CZMuhUXFGBVKCuux The Herald's Complaint on YouT…".
+- **PERF-161** [Flower of the Desert] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/192w9lGQ0kbgMNQmTTx8Xp Baldwin of Erebor perform…".
+- **PERF-162** [Flower of the Desert] A performance item has no event or year the importer could read: "[https://youtu.be/4tjk-iYC5qU?si=0R6MMKWpvkyYqCPu Flower of the Desert, recorded…".
+- **PERF-163** [Soldier's Song] A performance item has no event or year the importer could read: "[https://youtu.be/M3HooPoqcBo?si=4jZWFu1cqC5jKyNP Recording by Cerian Cantwr on …".
+- **PERF-164** [The Squire's Song] A performance item has no performer, event or year the importer could read: "[https://www.reverbnation.com/alinanicanbhaird/song/3017516-the-squires-song Rec…".
+- **PERF-165** [Agincourt] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=6A7d5SLyI00& Agincourt by Ken Theriot on YouTub…".
+- **PERF-166** [Agincourt] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=z6IoFIwn0uM Agincourt, recorded by [name withhe…".
+- **PERF-167** [Another Tournament Fight] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=6bBdjEOfy_Y Another Tournament Fight, recorded …".
+- **PERF-168** [Queen of Argyll] A performance item has no event or year the importer could read: "[https://youtu.be/pcQRD8i16BQ?si=3H6YUI8BZ748zhgz Cover on YouTube] by [[Michael…".
+- **PERF-169** [The Parting Glass] A performance item has no performer, event or year the importer could read: "[https://youtu.be/m-vDNaE-3rM?si=8ZQcdRy6QwodRrWD Performance by '[name withheld…".
+- **PERF-170** [The Parting Glass] A performance item has no event the importer could read: "[https://youtu.be/WbO8uHJAZoI?si=yTqJjYhcS7GcfB4t Recording by Cerian Cantwr on …".
+- **PERF-171** [Quantas Sabedes Amar Amigo] A performance item has no year the importer could read: "[https://youtu.be/EJm0WIJsAko?si=KrujDfOmdZcdcjzd Recording by Cerian Cantwr on …".
+- **PERF-172** [Quantas Sabedes Amar Amigo] A performance item has no performer, event or year the importer could read: "[https://youtu.be/L4iEtyXgc8E?si=Ej270i3dEhfQxv-B Recording by [name withheld] 0…".
+- **PERF-173** [Burden of the Crown] A performance item has no performer the importer could read: "[https://www.Legal Name.com/baldwin-of-erebor-the-burden-of-the-crown/ Baldwi…".
+- **PERF-174** [Burden of the Crown] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/2dUlSWh2XwXFy9NwUnk6WN Burden of the Crown by Ba…".
+- **PERF-175** [Burden of the Crown] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=LAdQvHwXcPg&list=RDLAdQvHwXcPg Burden of the Cr…".
+- **PERF-176** [I Follow My King] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=l1lIIiBZYv8 YouTube by Heather Dale, from the a…".
+- **PERF-177** [Fruit of the Yew] A performance item has no performer, event or year the importer could read: "[https://youtu.be/qfMILG-8XCU?si=fhkLr81GA1SkxEOy Recording on YouTube by the au…".
+- **PERF-178** [Fruit of the Yew] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=wYY0h38YqvU Recording on YouTube] by [[Michael …".
+- **PERF-179** [One Thing Led to Another] A performance item has no event or year the importer could read: "[https://youtu.be/j9eWIVU3wP0?si=prKg5OKbbmklPFXU Cerian Cantwr recording on You…".
+- **PERF-180** [Journey's Just Begun] A performance item has no performer the importer could read: "[https://www.youtube.com/watch?v=chkCdLEajpw Samantha Moore performing on YouTub…".
+- **PERF-181** [Stand Brother Stand] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=IVRpBmkLDAM Stand Brother Stand, recorded on Yo…".
+- **PERF-182** [Stand Brother Stand] A performance item has no event the importer could read: "[https://www.youtube.com/watch?v=cU46yoA6mzw Recording by [name withheld] on You…".
+- **PERF-183** [Stand Brother Stand] A performance item has no event the importer could read: "[https://youtu.be/KjWxkaIWZGM?si=kALkeVKrNy3BH5NQ Recording on YouTube by [name …".
+- **PERF-184** [Bow to the Crown] A performance item has no performer, event or year the importer could read: "[https://youtu.be/AEtxGOjKx5c?si=bR2WOwRLAm9-quZE Heather Dale on YouTube]".
+- **PERF-185** [Bow to the Crown] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=6cjWFPOHRps Heather Dale, recorded by [name wit…".
+- **PERF-186** [Call the Names] A performance item has no performer, event or year the importer could read: "[https://youtu.be/YcdmYcl8YY0?si=z6OeLXYOhW3cbZ8F Call the Names by Heather Dale…".
+- **PERF-187** [Call the Names] A performance item has no event or year the importer could read: "[https://youtu.be/V8B-034i8bc?si=EUQKsH-6R2-1Oz_0 Call the Names, recorded on Yo…".
+- **PERF-188** [Causes of Rebellion] A performance item has no performer, event or year the importer could read: "[https://youtu.be/taP-RmXni3k?si=PEIWnW1dyqsIZl7j Recording by Cerian Cantwr on …".
+- **PERF-189** [Awe Hail, Gleann Abhann] A performance item has no performer, event or year the importer could read: "[https://www.reverbnation.com/alinanicanbhaird/song/3017546-awe-hail-gleann-abha…".
+- **PERF-190** [Road to Rome] A performance item has no performer, event or year the importer could read: "[https://youtu.be/LXRrhGbY7mQ?si=JVWGF3u9o8CM6SjL TelDoesStuff on YouTube]".
+- **PERF-191** [Health to the Company] A performance item has no event or year the importer could read: "[https://youtu.be/AsJUJ_pnzu0?si=UG6QJdhunASn2ZfZ Health to the Company, recorde…".
+- **PERF-192** [Thirteenth Virtue] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=jdyLkxpvD54 Thirteenth Virtue is found in the D…".
+- **PERF-193** [Song of the Wain] A performance item has no year the importer could read: "[https://youtu.be/yfe2ng_mono?si=geh4CcW56b4aALxu Song of the Wain - Ealdormere …".
+- **PERF-194** [Song of the Waves] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=-DhgTp5MAWY Song of the Waves by [name withheld…".
+- **PERF-195** [Warhorns of Summer] A performance item has no event or year the importer could read: "[https://youtu.be/E_nBItVLyuY?si=MU7ObJRoJR1eOK3H Recording by Cerian Cantwr on …".
+- **PERF-196** [Warhorns of Summer] A performance item has no event or year the importer could read: "[https://youtu.be/XZSWtF7_gx0?si=SNht8Bl7OGInWPr9 Recording by Cerian Cantwr on …".
+- **PERF-197** [Hotspur] A performance item has no event or year the importer could read: "[https://youtu.be/JromFMQw15U?si=F7_I7ovH3AthMaL0 Hotspur on YouTube] sung by [[…".
+- **PERF-198** [Hotspur] A performance item has no performer, event or year the importer could read: "[https://drive.google.com/file/d/1CYh9-bg-orAfS3hZQmYtppmNoty0d3y7/view?fbclid=I…".
+- **PERF-199** [Were-Llama] A performance item has no year the importer could read: "[https://www.youtube.com/watch?v=ATbK2WzXagQ Were-Llama on Cerian Cantwr's YouTu…".
+- **PERF-200** [Were-Llama] A performance item has no year the importer could read: "[https://youtu.be/7sSsIzandoY Were-Llama on [name withheld]'s YouTube] sung by […".
+- **PERF-201** [Starset] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=4xyJXrzUOIE Recording by Cerian Cantwr on YouTu…".
+- **PERF-202** [Warrior Bard] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=jKRrdeh3ORU Miura Suzume performing their piece…".
+- **PERF-203** [The Man Who Wouldn't Die] A performance item has no event or year the importer could read: "[https://youtu.be/gJklRWIWHk8?si=lXCiv51b5LY4lPln The Man Who Would Not Die, rec…".
+- **PERF-204** [The Man Who Wouldn't Die] A performance item has no event or year the importer could read: "[https://youtu.be/z9N9l2Bxu4M?si=umkdC3PFghcCmHeR The Man Who Wouldn't Die, set …".
+- **PERF-205** [The Trial of Lancelot] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=qgGbdhtMw48 Trial of Lancelot, recorded on YouT…".
+- **PERF-206** [The Trial of Lancelot] A performance item has no performer, event or year the importer could read: "[https://youtu.be/qtRepE3Z8IM?si=dn-SP9mfQ-pkDMf3 Heather Dale on YouTube]".
+- **PERF-207** [What Price Honor] A performance item has no performer, event or year the importer could read: "[https://Legal Name.bandcamp.com/track/what-price-honor What Price Honor o…".
+- **PERF-208** [Pastime with Good Company] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=faMvRGSKbnY Recording on YouTube by [name withh…".
+- **PERF-209** [Pastime with Good Company] A performance item has no performer, event or year the importer could read: "[https://youtu.be/JDZiYtURttw?si=mtYDKCAcppd5YXGZ Recording on YouTube by the Tu…".
+- **PERF-210** [Mirie it is While Sumer Ilast] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=2HXT4hLeatM Mirie it is while sumer ilast by [n…".
+- **PERF-211** [Mirie it is While Sumer Ilast] A performance item has no event or year the importer could read: "[https://youtu.be/75jt6I0_DXg Mirie it is while sumer ilast, recorded by Cerian …".
+- **PERF-212** [Welcome Home] A performance item has no performer the importer could read: "[https://youtu.be/7eTv3a_67ps?si=18Vt-lFGiItfn7L1 Recording by Cerian Cantwr on …".
+- **PERF-213** [Welcome Home] A performance item has no event or year the importer could read: "[https://youtu.be/NB0N5BqOst4?si=YxU-M_ErrUH3LEAD Recording by Cerian Cantwr on …".
+- **PERF-214** [Welcome Home] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=H_pM3eJ0pgo Welcome Home on YouTube] sung by [[…".
+- **PERF-215** [Welcome Home] A performance item has no event or year the importer could read: "[https://youtu.be/c-lMW0y4c-8?si=Ms8r_aQ0ue2WTPXZ Welcome Home on YouTube] sung …".
+- **PERF-216** [Conn's Song] A performance item has no event or year the importer could read: "[https://youtu.be/I3LdvdJGM_8?si=9W5zJyPEVxpekO2t Recording by Cerian Cantwr on …".
+- **PERF-217** [When A Knight Won His Spurs (SCA Version)] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=byeNq-MNpCA SCA version by Forannán Glórach on …".
+- **PERF-218** [Greensleeves] A performance item has no event or year the importer could read: "[https://youtu.be/19X5WNh4y9w Recording by Cerian Cantwr on YouTube] of Greensle…".
+- **PERF-219** [Greensleeves] A performance item has no event or year the importer could read: "https://www.youtube.com/watch?v=IAHnmqSQdDw Music video on YouTube demonstrating…".
+- **PERF-220** [Moose] A performance item has no performer or event the importer could read: "[https://www.youtube.com/watch?v=_0ZnG2T3y8A The Moose Song by Axel the Sot on Y…".
+- **PERF-221** [A&S Fight Song] A performance item has no performer or event the importer could read: "[https://youtu.be/-MvEq69vdQc?si=K8B_UWapfqLmNiPT Recording by [name withheld] o…".
+- **PERF-222** [Mordred's Lullaby] A performance item has no year the importer could read: "[https://youtu.be/6W0E9QnzpOE?si=HNFKbLh_3CVEXDDI Recording by [name withheld] o…".
+- **PERF-223** [Mordred's Lullaby] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=4X0jUg1B1vQ Mordred's Lullaby by Heather Dale o…".
+- **PERF-224** [Folk of the Plaid] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=WaIMb65Gjr8 Folk of the Plaid on YouTube] sung …".
+- **PERF-225** [Folk of the Plaid] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=6i9ZrlWcsWY Folk of the Plaid recorded by Ceria…".
+- **PERF-226** [Gentle Hand] A performance item has no performer, event or year the importer could read: "[https://open.spotify.com/track/673rk2BHbtLjbyo6oWgK4I?si=96848191681649a0 Gentl…".
+- **PERF-227** [Uislenn] A performance item has no performer, event or year the importer could read: "[https://youtu.be/I9OQ8KGI1NM?si=XCNUhcSXcj9dfzSX Uislenn on the SCA Lochac YouT…".
+- **PERF-228** [Black Alman] A performance item has no performer or event the importer could read: "[https://youtu.be/wsuoTng77dA?si=YFwofUVIAq6XWTlE Black Allemonde on the SCA Loc…".
+- **PERF-229** [Black Alman] A performance item has no performer the importer could read: "[https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1 Black Alman on Legal Name…".
+- **PERF-230** [For Her I Dare] A performance item has no performer, event or year the importer could read: "[https://youtu.be/AmcXQBUZcg8 For Her I Dare by Samantha Moore on YouTube]".
+- **PERF-231** [Not Yet Done] A performance item has no performer, event or year the importer could read: "[https://youtu.be/T5HqShcpdyw Not Yet Done sung by Forannán on his YouTube]".
+- **PERF-232** [The Salmon of Wisdom] A performance item has no performer, event or year the importer could read: "[https://youtu.be/BecourfhUUQ?si=Cx8XbB5JATcDPC_7 Fionn and the Salmon of Knowle…".
+- **PERF-233** [Blood Oath] A performance item has no event or year the importer could read: "[https://youtu.be/Z3Rr8WZTRVM Blood Oath, recorded by Cerian Cantwr on YouTube,]…".
+- **PERF-234** [To the West] A performance item has no performer, event or year the importer could read: "[https://youtu.be/el6QhNROjok?si=_MoxYb9ovrZS9u4q YouTube recording by [name wit…".
+- **PERF-235** [To the West] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=BcGIwgh-kqM YouTube recording by [name withheld…".
+- **PERF-236** [Light of the East] A performance item has no event or year the importer could read: "[https://www.youtube.com/watch?v=LXGqIu06-zU Recording on [name withheld]'s YouT…".
+- **PERF-237** [Where is the Light of the East] A performance item has no performer, event or year the importer could read: "[https://singfortheeast.bandcamp.com/track/light-of-the-east Performance in the …".
+- **PERF-238** [Proud Southern Warrior] A performance item has no event or year the importer could read: "[https://youtu.be/Jm6N30VIzCs Recording by [name withheld] on YouTube] of the so…".
+- **PERF-239** [Raven Banner] A performance item has no performer the importer could read: "[https://www.youtube.com/watch?v=UQVZ_74dEC4 [name withheld] recording on YouTub…".
+- **PERF-240** [Raven Banner] A performance item has no performer or event the importer could read: "[https://youtu.be/Ph4To4YVuDE Recording by [name withheld] on YouTube] of Kevin …".
+- **PERF-241** [Men of Harlech] A performance item has no event or year the importer could read: "[https://youtu.be/b1YBRQzz62E Recording on YouTube by Cerian Cantwr] of [[John a…".
+- **PERF-242** [InDUCKtion] A performance item has no year the importer could read: "[https://youtu.be/eGWSOoYN7Wg Recording by Cerian Cantwr on YouTube] of the song…".
+- **PERF-243** [Twa Corbies] A performance item has no year the importer could read: "[https://youtu.be/GfVAxJPVhrg Recording by [name withheld] on YouTube of the son…".
+- **PERF-244** [Loki's Song] A performance item has no performer or year the importer could read: "[https://youtu.be/y6ANCM3cG-c Recording by [name withheld] on YouTube of Loki's …".
+- **PERF-245** [Loki's Song] A performance item has no event the importer could read: "[https://youtu.be/Of0nx2j6oPE Recording by Cerian Cantwr on YouTube of Loki's So…".
+- **PERF-246** [Short Road] A performance item has no year the importer could read: "[https://youtu.be/UK1-2NcB17g Recording by Cerian Cantwr on YouTube of Short Roa…".
+- **PERF-247** [Voice of the Dragon] A performance item has no event the importer could read: "[https://youtu.be/7lyp8SRDzbg?si=eYFirpi3AdLPUd-y Recording by Cerian Cantwr on …".
+- **PERF-248** [Fight for the Midrealm] A performance item has no performer the importer could read: "[https://youtu.be/XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair …".
+- **PERF-249** [I'm a Duke and You're Not] A performance item has no performer, event or year the importer could read: "[https://youtu.be/UwQUE9tAyfA I'm A Duke & You're Not by Thomas Bordeaux on YouT…".
+- **PERF-250** [I'm a Duke and You're Not] A performance item has no performer, event or year the importer could read: "[https://youtu.be/sGtMqtthqog I'm A Duke and You're Not on YouTube by [name with…".
+- **PERF-251** [Squires] A performance item has no performer, event or year the importer could read: "[https://youtu.be/bEpXQLy_CLY Squires, recorded by [name withheld] on YouTube] s…".
+- **PERF-252** [The Torture Song] A performance item has no event or year the importer could read: "[https://youtu.be/J1l5DqXVNDI The Torture Song, uploaded to YouTube by [name wit…".
+- **PERF-253** [Rosin the Bow] A performance item has no performer, event or year the importer could read: "[https://youtu.be/suvyiAWkdpo Róisín the Bow, recorded on YouTube by [name withh…".
+- **PERF-254** [A Light Above The Door] A performance item has no performer, event or year the importer could read: "[https://youtu.be/CTbuUwQNsCk Recording by [name withheld] on YouTube]".
+- **PERF-255** [A Light Above The Door] A performance item has no performer the importer could read: "[https://youtu.be/jP0SEnT3kpY Recording by Cerian Cantwr on YouTube of [name wit…".
+- **PERF-256** [The Ride of El Cid] A performance item has no year the importer could read: "[https://youtu.be/CwtVYpFvHSI [name withheld] recording on YouTube of The Ride o…".
+- **PERF-257** [The Ride of El Cid] A performance item has no performer, event or year the importer could read: "[https://youtu.be/L2V9WdVtiJ8 The Ride of El Cid by Ken Theriot from CDBaby on Y…".
+- **PERF-258** [Drink Boys Drink] A performance item has no performer, event or year the importer could read: "[https://youtu.be/peIEIx30eK8 Drink Boys Drink by Michael Kelly on YouTube]".
+- **PERF-259** [Drink Boys Drink] A performance item has no year the importer could read: "[https://youtu.be/yXcbsVfVDHU Drink Boys Drink, recorded by Cerian Cantwr on You…".
+- **PERF-260** [The Burning of Tara] A performance item has no performer, event or year the importer could read: "[https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB Fionn and the Dragon on [name …".
+- **PERF-261** [The Burning of Tara] A performance item has no performer, event or year the importer could read: "[https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o Retelling from Deardubh's pers…".
+- **PERF-262** [Three Words] A performance item has no performer or year the importer could read: "[https://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy perfor…".
+- **PERF-263** [Three Words] A performance item has no performer or event the importer could read: "[https://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singin…".
+- **PERF-264** [Death Doom and Gloom] A performance item has no performer, event or year the importer could read: "[https://youtu.be/J4MSI7JvufM?si=dc9ISETHfMvTXvH7 Death, Doom and Gloom on YouTu…".
+- **PERF-265** [The Joyful Knight] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=UnABuDo9La4 Heather Dale on YouTube]".
+- **PERF-266** [The Joyful Knight] A performance item has no performer the importer could read: "[https://www.youtube.com/watch?v=fnbXOxsci00 Heather Dale, recorded by [name wit…".
+- **PERF-267** [True And Destined Prince] A performance item has no performer, event or year the importer could read: "[https://www.youtube.com/watch?v=VVt_Th6vaWY official Heather Dale recording on …".
+- **PERF-268** [True And Destined Prince] A performance item has no performer or year the importer could read: "[https://www.youtube.com/watch?v=L9HHmWQrrGM Heather Dale, recorded by [name wit…".
+- **PERF-269** [Sadb ingen Donnchadha] A performance item the piece page "Warrior Queen" already records on the same link: imported once, from the piece page.
+- **PERF-270** [Sadb ingen Donnchadha] A performance item the piece page "Warrior Queen" already records on the same link: imported once, from the piece page.
+- **PERF-271** [Sadb ingen Donnchadha] A performance item the piece page "Valkyrie's Lullaby" already records on the same link: imported once, from the piece page.
+- **PERF-272** [Sadb ingen Donnchadha] A performance item the piece page "Undefeated" already records on the same link: imported once, from the piece page.
+- **PERF-273** [Sadb ingen Donnchadha] A performance item the piece page "Savage Daughter" already records on the same link: imported once, from the piece page.
+- **PERF-274** [Sadb ingen Donnchadha] A performance item the piece page "Savage Daughter" already records on the same link: imported once, from the piece page.
+- **PERF-275** [Sadb ingen Donnchadha] A performance item the piece page "Battle of Maldon" already records on the same link: imported once, from the piece page.
+- **PERF-276** [Mathias Blackett] A performance item the piece page "The Herald's Complaint" already records on the same link: imported once, from the piece page.
+- **PERF-277** [Mathias Blackett] A performance item the piece page "Road to Rome" already records on the same link: imported once, from the piece page.
+- **PERF-278** [Mathias Blackett] A performance item the piece page "Road to Rome" already records on the same link: imported once, from the piece page.
+- **PERF-279** [Dahrien Cordell] A performance item the piece page "Rite of Passage" already records on the same link: imported once, from the piece page.
+- **PERF-280** [Michael Kelly] A performance item the piece page "Queen of Argyll" already records on the same link: imported once, from the piece page.
+- **PERF-281** [Fernando Rodriguez de Falcon] A performance item the piece page "Another Tournament Fight" already records on the same link: imported once, from the piece page.
+- **PERF-282** [Cerian Cantwr] A performance item the piece page "Hotspur" already records on the same link: imported once, from the piece page.
+- **PERF-283** [Cerian Cantwr] A performance item the piece page "Were-Llama" already records on the same link: imported once, from the piece page.
+- **PERF-284** Event "Green Dragon" (venue) created.
+- **PERF-285** Event "Gulf Wars" (event) created.
+- **PERF-286** Event "Midrealm Crown" (event) created.
+- **PERF-287** Event "Pennsic 45" (event) created.
+- **PERF-288** Event "Talon Crescent's Festival of the Rose" (event) created.
+- **PERF-289** Event "Known World Cooks & Bards" (event) created.
+- **PERF-290** Event "Atlantian Bardic Madness" (event) created.
+- **PERF-291** Event "Val Day" (event) created.
+- **PERF-292** Event "Pennsic 52" (event) created.
+- **PERF-293** Event "Midlands Bardic Circle" (event) created.
+- **PERF-294** Event "SCA 50 Year Celebration" (event) created.
+- **PERF-295** Event "Warriors & Warlords" (event) created.
+- **PERF-296** Event "Baroness Wars" (event) created.
+- **PERF-297** Event "Shenanigans In Seattle Sessions" (event) created.
+- **PERF-298** Event "Aethelmearc 20 Year" (event) created.
+- **PERF-299** Event "Pennsic 47" (event) created.
+- **PERF-300** Event "Cerian's Keep Bardic Circle" (event) created.
+- **PERF-301** Event "Coronation of Lucien & Catarina" (event) created.
+- **PERF-302** Event "Dragonshire Twelfth Night" (event) created.
+- **PERF-303** Event "Pennsic 51" (event) created.
+- **PERF-304** Event "Pennsic 41" (event) created.
+- **PERF-305** Event "Middle Kingdom 50 Year Anniversary" (event) created.
+- **PERF-306** Event "Northshield Bardic Circle" (event) created.
+- **PERF-307** Event "Florida Renaissance Festival" (event) created.
+- **PERF-308** Event "Legendary ConFusion in Detroit Michigan" (event) created.
+- **PERF-309** Event "Christmas Tourney" (event) created.
+- **PERF-310** Event "Rites of Spring" (event) created.
+- **PERF-311** Event "Bardic Bedlam" (event) created.
+- **PERF-312** Event "Middle Kingdom Bardic Madness" (event) created.
+- **PERF-313** Event "Midrealm Bardic Madness" (event) created.
+- **PERF-314** Event "Ivy Annex" (event) created.
+- **PERF-315** Event "Northshield Bardic Madness" (event) created.
+- **PERF-316** Event "Bardic Madness" (event) created.
+- **PERF-317** Event "Pennsic 42" (event) created.
+- **PERF-318** Event "Pennsic" (event) created.
+- **PERF-319** Event "Artisan's Day" (event) created.
+- **PERF-320** Event "Gulf Wars XX" (event) created.
+- **PERF-321** Event "First Bardic War" (event) created.
+- **PERF-322** Events "Pennsic 45" and "Pennsic 47" have similar names; they are not merged.
+- **PERF-323** Events "Pennsic 45" and "Pennsic 41" have similar names; they are not merged.
+- **PERF-324** Events "Pennsic 45" and "Pennsic 42" have similar names; they are not merged.
+- **PERF-325** Events "Pennsic 52" and "Pennsic 51" have similar names; they are not merged.
+- **PERF-326** Events "Pennsic 52" and "Pennsic 42" have similar names; they are not merged.
+- **PERF-327** Events "Pennsic 47" and "Pennsic 41" have similar names; they are not merged.
+- **PERF-328** Events "Pennsic 47" and "Pennsic 42" have similar names; they are not merged.
+- **PERF-329** Events "Pennsic 51" and "Pennsic 41" have similar names; they are not merged.
+- **PERF-330** Events "Pennsic 41" and "Pennsic 42" have similar names; they are not merged.
+
+## 13. Persons
+
+Statuses, roles, affiliations and relations inferred, and the kind guessed for each stub person.
+
+- **PERSON-001** [Lasair inghen ui h’Airt] Affiliations from categories: Atlantia, SCA Bards.
+- **PERSON-002** [Lucia Elena Braganza] Affiliations from categories: Midrealm, SCA Bards.
+- **PERSON-003** [Lucia Elena Braganza] Roles from performer-type categories: singer.
+- **PERSON-004** [Lisa Theriot] Affiliations from categories: SCA Bards.
+- **PERSON-005** [Lisa Theriot] Roles from performer-type categories: singer, songwriter.
+- **PERSON-006** [Samantha Moore] Affiliations from categories: Atlantia, SCA Bards, Trimaris.
+- **PERSON-007** [Samantha Moore] Roles from performer-type categories: singer, songwriter.
+- **PERSON-008** [Elizabeth de Spaldyng] Affiliations from categories: Atlantia, SCA Bards.
+- **PERSON-009** [Efenwealt Wystle] Affiliations from categories: Atlantia, SCA Bards.
+- **PERSON-010** [Efenwealt Wystle] Roles from performer-type categories: singer.
+- **PERSON-011** [Morric Haast] Affiliations from categories: SCA Bards, Trimaris.
+- **PERSON-012** [Morric Haast] Roles from performer-type categories: songwriter.
+- **PERSON-013** [Emer nic Aidan] Affiliations from categories: Ealdormere, SCA Bards.
+- **PERSON-014** [Emer nic Aidan] Roles from performer-type categories: singer, songwriter.
+- **PERSON-015** [Bird the Bard] Affiliations from categories: Midrealm, SCA Bards.
+- **PERSON-016** [Bird the Bard] Roles from performer-type categories: singer, songwriter.
+- **PERSON-017** [Forannán Glórach] Affiliations from categories: Atlantia, SCA Bards.
+- **PERSON-018** [Forannán Glórach] Roles from performer-type categories: singer, songwriter, storyteller.
+- **PERSON-019** [Garraed Galbraith] Affiliations from categories: Ealdormere, SCA Bards.
+- **PERSON-020** [Garraed Galbraith] Roles from performer-type categories: singer, songwriter.
+- **PERSON-021** [Rosalind Jehanne] Affiliations from categories: Atlantia, SCA Bards.
+- **PERSON-022** [Rosalind Jehanne] Roles from performer-type categories: singer, songwriter.
+- **PERSON-023** [Malkin Grey] Status deceased (date: 2020-10-31) from the In Memoriam category, sourced to the wiki page.
+- **PERSON-024** [Malkin Grey] Affiliations from categories: Atlantia, SCA Bards.
+- **PERSON-025** [Malkin Grey] Roles from performer-type categories: songwriter.
+- **PERSON-026** [Conn MacNeill] Affiliations from categories: Calontir, SCA Bards.
+- **PERSON-027** [Conn MacNeill] Roles from performer-type categories: songwriter.
+- **PERSON-028** [Heather Dale] Affiliations from categories: Ealdormere, SCA Bards.
+- **PERSON-029** [Heather Dale] Roles from performer-type categories: singer, songwriter.
+- **PERSON-030** [Wyndreth Berginsdottir] Affiliations from categories: Northshield, SCA Bards.
+- **PERSON-031** [Wyndreth Berginsdottir] Roles from performer-type categories: singer, songwriter.
+- **PERSON-032** [Anubh de Mona] Affiliations from categories: Anglesey, Atlantia, Dahlraidia, Preachain, SCA Bards.
+- **PERSON-033** [Anubh de Mona] Roles from performer-type categories: poet, singer, storyteller.
+- **PERSON-034** [Sadb ingen Donnchadha] Affiliations from categories: Midrealm, SCA Bards.
+- **PERSON-035** [Sadb ingen Donnchadha] Roles from performer-type categories: musician, singer.
+- **PERSON-036** [Drake Oranwood] Affiliations from categories: East Kingdom, SCA Bards.
+- **PERSON-037** [Drake Oranwood] Roles from performer-type categories: singer, songwriter.
+- **PERSON-038** [Colette la trouvère] Affiliations from categories: Caid, SCA Bards.
+- **PERSON-039** [Colette la trouvère] Roles from performer-type categories: singer, songwriter.
+- **PERSON-040** [Aneleda Falconbridge] Affiliations from categories: East Kingdom, SCA Bards.
+- **PERSON-041** [Aneleda Falconbridge] Roles from performer-type categories: singer, songwriter.
+- **PERSON-042** [Hector of the Black Height] Affiliations from categories: Ealdormere, SCA Bards.
+- **PERSON-043** [Hector of the Black Height] Roles from performer-type categories: singer, songwriter.
+- **PERSON-044** [Baldwin of Erebor] Affiliations from categories: Atenveldt, SCA Bards.
+- **PERSON-045** [Baldwin of Erebor] Roles from performer-type categories: musician, singer, songwriter.
+- **PERSON-046** [Ken Theriot] Affiliations from categories: Ansteorra, SCA Bards.
+- **PERSON-047** [Ken Theriot] Roles from performer-type categories: singer, songwriter.
+- **PERSON-048** [Thomas Bordeaux] Affiliations from categories: Northshield, SCA Bards.
+- **PERSON-049** [Thomas Bordeaux] Roles from performer-type categories: songwriter.
+- **PERSON-050** [Warjna Waleska Katzjmjr] Affiliations from categories: SCA Bards, Trimaris.
+- **PERSON-051** [Warjna Waleska Katzjmjr] Roles from performer-type categories: songwriter.
+- **PERSON-052** [Miura Suzume] Affiliations from categories: SCA Bards, Trimaris.
+- **PERSON-053** [Miura Suzume] Roles from performer-type categories: singer.
+- **PERSON-054** [Ivar Battleskald] Affiliations from categories: Ansteorra, SCA Bards.
+- **PERSON-055** [Ivar Battleskald] Roles from performer-type categories: songwriter.
+- **PERSON-056** [Aibhilin inghean Daibhidh] Affiliations from categories: SCA Bards, Trimaris.
+- **PERSON-057** [Aibhilin inghean Daibhidh] Roles from performer-type categories: musician, singer, songwriter.
+- **PERSON-058** [Mathias Blackett] Affiliations from categories: Meridies, SCA Bards.
+- **PERSON-059** [Mathias Blackett] Roles from performer-type categories: instrumentalist, musician, singer, songwriter.
+- **PERSON-060** [Dahrien Cordell] Affiliations from categories: Northshield, SCA Bards.
+- **PERSON-061** [Dahrien Cordell] Roles from performer-type categories: singer, songwriter.
+- **PERSON-062** [Alina nic an Bhaird] Affiliations from categories: Gleann Abhann, SCA Bards.
+- **PERSON-063** [Alina nic an Bhaird] Roles from performer-type categories: songwriter.
+- **PERSON-064** [Michael Kelly] Affiliations from categories: SCA Bards.
+- **PERSON-065** [Michael Kelly] Roles from performer-type categories: instrumentalist, singer.
+- **PERSON-066** [Fernando Rodriguez de Falcon] Affiliations from categories: SCA Bards.
+- **PERSON-067** [Fernando Rodriguez de Falcon] Roles from performer-type categories: singer.
+- **PERSON-068** [Bryce de Byram] Affiliations from categories: Atlantia, SCA Bards.
+- **PERSON-069** [Bryce de Byram] Roles from performer-type categories: singer, songwriter.
+- **PERSON-070** [Jim Pipkin] Affiliations from categories: SCA Bards.
+- **PERSON-071** [Jim Pipkin] Roles from performer-type categories: instrumentalist, singer, songwriter.
+- **PERSON-072** [Ann Cass] Affiliations from categories: SCA Bards.
+- **PERSON-073** [Heather Alexander] Roles from performer-type categories: songwriter.
+- **PERSON-074** [Alexander James Adams] Relation heir_of Heather Alexander, from the page's prose.
+- **PERSON-075** [Cerian Cantwr] Affiliations from categories: Midrealm, SCA Bards.
+- **PERSON-076** [Cerian Cantwr] Roles from performer-type categories: singer, songwriter.
+- **PERSON-077** [Peregrynne Wyndrider] Affiliations from categories: SCA Bards.
+- **PERSON-078** [Peregrynne Wyndrider] Roles from performer-type categories: songwriter.
+- **PERSON-079** [Mikal the Ram] Affiliations from categories: SCA Bards.
+- **PERSON-080** [Mikal the Ram] Roles from performer-type categories: songwriter.
+- **PERSON-081** [Thórvé Skáld Rikardsdottir] Affiliations from categories: SCA Bards.
+- **PERSON-082** [Thórvé Skáld Rikardsdottir] Roles from performer-type categories: singer, songwriter.
+- **PERSON-083** [Justin du Coeur] Affiliations from categories: East Kingdom, SCA Bards.
+- **PERSON-084** [Eliane Halevy] Affiliations from categories: Northshield, SCA Bards.
+- **PERSON-085** [Eliane Halevy] Roles from performer-type categories: singer, songwriter.
+- **PERSON-086** [Rohais de Ravenscroft] Affiliations from categories: Meridies, SCA Bards.
+- **PERSON-087** [Rohais de Ravenscroft] Roles from performer-type categories: musician, singer, songwriter.
+- **PERSON-088** [Davock Walkere] Affiliations from categories: Meridies, SCA Bards.
+- **PERSON-089** [Davock Walkere] Roles from performer-type categories: singer.
+- **PERSON-090** [Duncan MacLeod] Affiliations from categories: Ealdormere, SCA Bards.
+- **PERSON-091** [Duncan MacLeod] Roles from performer-type categories: singer.
+- **PERSON-092** [Second Cross] Stub person "Aleksandr Vasilevych Lev" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-093** [Burden of the Crown] Stub person "Alexander de Seton" (named on 2 page(s)) is guessed to be community_bard.
+- **PERSON-094** [Greensleeves] Stub person "Allison Kinder" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-095** [God Rest Ye Frantic Autocrat] Stub person "Amalberga de Scriver" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-096** [Quantas Sabedes Amar Amigo] Stub person "Amelie d'Anjou" (named on 2 page(s)) is guessed to be community_bard.
+- **PERSON-097** [Hotspur] Stub person "Andrew Lyon of Wolvenwood" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-098** [Savage Daughter] Stub person "Angharat Goch" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-099** [O Death Rock Me Asleep] Stub person "Anne Boleyn" (named on 1 page(s)) is guessed to be historical.
+- **PERSON-100** [Health to the Company] Stub person "Aranwen Verch Catuethen" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-101** [Health to the Company] Stub person "Astrið of Owl's Rest" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-102** [Moose] Stub person "Axel the Sot" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-103** [Vivat the Dream] Stub person "Beatrice Domenici della Campana" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-104** [Second Cross] Stub person "Beatriu De Schattentor" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-105** [Loki's Song] Stub person "Belle de la Tour" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-106** [Call the Names] Stub person "Legal Name" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-107** [Welcome Home] Stub person "Brendan O Corraidhe" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-108** [Born on the Listfield] Stub person "Brigitta Olavsdatter" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-109** [Marshall] Stub person "Cariadoc of the Bow" (named on 2 page(s)) is guessed to be community_bard.
+- **PERSON-110** [The Man Who Wouldn't Die] Stub person "Cipriano de Alvarez" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-111** [Gentle Hand] Stub person "Corwyn Moray" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-112** [Davock Walkere] Stub person "Dancing Firelight" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-113** [Raven Banner] Stub person "Devin Breighallach" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-114** [Welcome Home] Stub person "Diana Fiona O'Shera" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-115** [Life of the Bard] Stub person "Diana of Viroconium" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-116** [Crusader's Song] Stub person "Diarmait mac Brandubh ua Griobhtha" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-117** [Reign for All Time] Stub person "Dolan Madoc" (named on 6 page(s)) is guessed to be community_bard.
+- **PERSON-118** [Welcome Home] Stub person "Dorigen of the Grey Gate" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-119** [Second Cross] Stub person "Dorothea de Beckham" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-120** [Thirteenth Virtue] Stub person "Legal Name" (named on 6 page(s)) is guessed to be community_bard.
+- **PERSON-121** [Blood Oath] Stub person "Eadmund Swordhwita" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-122** [Health to the Company] Stub person "Elaisse de Garrigues" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-123** [Stand Brother Stand] Stub person "Eleanor Fairchild" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-124** [Proud Southern Warrior] Stub person "Eleanor of Ashley" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-125** [Voice of the Dragon] Stub person "Emil Allzuwissender" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-126** [Round for the Barony of Stierbach] Stub person "Etan Askani" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-127** [Light of the East] Stub person "Fiana of Clare" (named on 4 page(s)) is guessed to be community_bard.
+- **PERSON-128** [Oathkeeping] Stub person "Frederick of Holland" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-129** [Vivat the Dream] Stub person "Freydís in tryggva Sigurðardóttir" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-130** [Song of the Waves] Stub person "Gideon ap Stephen" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-131** [To the West] Stub person "Ginevra da Ravenna" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-132** [Hold Your Lines] Stub person "Gunnar Oxnamagin" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-133** [Circles] Stub person "Gwen Zak" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-134** [Banners of Scarlet] Stub person "Gwendolyn the Graceful" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-135** [Conn's Song] Stub person "Gwenhwyvar verch Owen ap Morgan" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-136** [Greensleeves] Stub person "Heinrich von Stuttgart" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-137** [Pastime with Good Company] Stub person "Henry VIII" (named on 2 page(s)) is guessed to be historical.
+- **PERSON-138** [Greensleeves] Stub person "Heregyth Ketilsdottir" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-139** [Call the Names] Stub person "Hildigunnr Halldorsdottir" (named on 2 page(s)) is guessed to be community_bard.
+- **PERSON-140** [By Right of Song] Stub person "Hilla Stormbringer" (named on 4 page(s)) is guessed to be community_bard.
+- **PERSON-141** [Road to Rome] Stub person "Iain Geirmundsson" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-142** [To the West] Stub person "Ivone PonsLeyr" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-143** [When a Knight Won His Spurs] Stub person "Jan Struther" (named on 2 page(s)) is guessed to be historical.
+- **PERSON-144** [A Grazing Mace] Stub person "Jenna of Southwind" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-145** [Nottinghill Coill] Stub person "Johann von Solothurn" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-146** [InDUCKtion] Stub person "Legal Name" (named on 6 page(s)) is guessed to be community_bard.
+- **PERSON-147** [Men of Harlech] Stub person "John ap Wynne" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-148** [Greensleeves] Stub person "Jonathan Ospry" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-149** [Causes of Rebellion] Stub person "Legal Name" (named on 2 page(s)) is guessed to be community_bard.
+- **PERSON-150** [A Sailor's Love Song] Stub person "Legal Name" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-151** [Folk of the Plaid] Stub person "Klodiya Del'Krowa" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-152** [A&S Fight Song] Stub person "Kudrun Pilegrim" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-153** [The Peasant Knight] Stub person "Kári Gáranhirsson" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-154** [Lifeblood] Stub person "Leafy Greens & Mutton" (named on 1 page(s)) is guessed to be group.
+- **PERSON-155** [To the West] Stub person "Leah Raedaelf of Pagham" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-156** [Wild Rover] Stub person "[name withheld] 027" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-157** [Wild Mountain Thyme] Stub person "[name withheld] 034" (named on 1 page(s)) is guessed to be historical.
+- **PERSON-158** [Warrior's Wyrd] Stub person "[name withheld] 049" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-159** [Why I Fight] Stub person "[name withheld] 053" (named on 6 page(s)) is guessed to be community_bard.
+- **PERSON-160** [Queen of Argyll] Stub person "[name withheld] 058" (named on 3 page(s)) is guessed to be historical.
+- **PERSON-161** [Circles] Stub person "[name withheld] 065" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-162** [Where is the Light of the East] Stub person "[name withheld] 076" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-163** [Song for a Young Squire] Stub person "[name withheld] 078" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-164** [A Light Above The Door] Stub person "[name withheld]" (named on 2 page(s)) is guessed to be historical.
+- **PERSON-165** [Wild Rover] Stub person "Liam von Metten" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-166** [Squires] Stub person "Llewen the Unruly" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-167** [Stand Brother Stand] Stub person "Lorelei Skye" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-168** [Welcome Home] Stub person "Maddalena Valeta" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-169** [Sadb ingen Donnchadha] Stub person "Maedhbh Ní Manainn" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-170** [To the West] Stub person "Mari Alesander" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-171** [Quantas Sabedes Amar Amigo] Stub person "Martin Codax" (named on 3 page(s)) is guessed to be historical.
+- **PERSON-172** [Rise] Stub person "Mateo Montero de Madrid" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-173** [What Price Honor] Stub person "Legal Name" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-174** [Welcome Home] Stub person "Morgana bro Morganwg" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-175** [Welcome Home] Stub person "Owen Alun" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-176** [Atlantian Bloodsong] Stub person "Rhiannon Bloodsong" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-177** [Sons of the Dragon] Stub person "Rhodri ap Hywel" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-178** [Greensleeves] Stub person "Richard Jones" (named on 1 page(s)) is guessed to be historical.
+- **PERSON-179** [Greensleeves] Stub person "Richard de Winter" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-180** [Auld Lang Syne] Stub person "Robert Burns" (named on 2 page(s)) is guessed to be historical.
+- **PERSON-181** [Greensleeves] Stub person "Robin Jeffre" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-182** [Agincourt] Stub person "Roisin ingen Ailil" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-183** [Greensleeves] Stub person "Sam Brown" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-184** [Another Tournament Fight] Stub person "Sam Cooke" (named on 1 page(s)) is guessed to be historical.
+- **PERSON-185** [Stand Brother Stand] Stub person "Sidi KuroSH al-Din" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-186** [Uislenn] Stub person "Silfren the Singer" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-187** [Round for the Barony of Stierbach] Stub person "Simon de Spaldyng" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-188** [Song of the Wain] Stub person "Simonetta Musaregni" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-189** [Reign for All Time] Stub person "Siobhán an Einigh" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-190** [To the West] Stub person "Siobhán ní hEodhusa" (named on 4 page(s)) is guessed to be community_bard.
+- **PERSON-191** [Crusader's Song] Stub person "Sivrid Brumbach" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-192** [Folk of the Plaid] Stub person "Staggmara IngenMurchú" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-193** [One Thing Led to Another] Stub person "Tali Essen of the Isles" (named on 2 page(s)) is guessed to be community_bard.
+- **PERSON-194** [Welcome Home] Stub person "Tegan de Moreton" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-195** [Born on the Listfield] Stub person "Terafan Greydragon" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-196** [Wild Rover] Stub person "Thomas Lanfiere" (named on 1 page(s)) is guessed to be historical.
+- **PERSON-197** [Moose] Stub person "Legal Name" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-198** [My Thing is My Own] Stub person "Thomas d'Urfey" (named on 1 page(s)) is guessed to be historical.
+- **PERSON-199** [God Rest Ye Frantic Autocrat] Stub person "Tivar Moondragon" (named on 2 page(s)) is guessed to be community_bard.
+- **PERSON-200** [Duncan MacLeod] Stub person "Two Harps" (named on 1 page(s)) is guessed to be community_bard.
+- **PERSON-201** [Warhorns of Summer] Stub person "Verrix Verctissignos" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-202** [Worms of the Earth] Stub person "Volodomir Kambionets" (named on 3 page(s)) is guessed to be community_bard.
+- **PERSON-203** [Sumer is icumen in] Stub person "W. de Wycombe" (named on 1 page(s)) is guessed to be historical.
+- **PERSON-204** [Band of Brothers] Stub person "William Shakespeare" (named on 1 page(s)) is guessed to be historical.
+- **PERSON-205** [Savage Daughter] Stub person "Úlfrún Barefooted" (named on 1 page(s)) is guessed to be community_bard.
+
+## 14. Taxonomy decisions
+
+How the categories became terms where the wiki does not say.
+
+- **TERM-001** [Samantha Moore] Categories not imported: Kingdom Name.
+- **TERM-002** Category "Kingdom Name": placeholder_dropped.
+- **TERM-003** Category "Seasons": unparented_placed.
+- **TERM-004** Category "Fire": unparented_placed.
+- **TERM-005** Category "Hope": unparented_placed.
+- **TERM-006** Category "Archery": unparented_placed ("War").
+- **TERM-007** Category "Short Pieces": unparented_placed.
+- **TERM-008** Category "Jewish": unparented_placed.
+- **TERM-009** Category "Sephardic": unparented_placed ("Jewish").
+- **TERM-010** Category "Portuguese": unparented_placed.
+- **TERM-011** Category "SCA Bards": organisation_renamed ("SCA").
+- **TERM-012** Category "Anglesey": group_placed ("Atlantia").
+- **TERM-013** Category "Dahlraidia": group_placed ("Atlantia").
+- **TERM-014** Category "Preachain": group_placed ("Atlantia").
+- **TERM-015** Category "Patriotic (Aethelmearc)": affiliation_linked ("Aethelmearc").
+- **TERM-016** Category "Patriotic (Ansteorra)": affiliation_linked ("Ansteorra").
+- **TERM-017** Category "Patriotic (Atenveldt)": affiliation_linked ("Atenveldt").
+- **TERM-018** Category "Patriotic (Atlantia)": affiliation_linked ("Atlantia").
+- **TERM-019** Category "Patriotic (Calontir)": affiliation_linked ("Calontir").
+- **TERM-020** Category "Patriotic (Ealdormere)": affiliation_linked ("Ealdormere").
+- **TERM-021** Category "Patriotic (East Kingdom)": affiliation_linked ("East Kingdom").
+- **TERM-022** Category "Patriotic (Gleann Abhann)": affiliation_linked ("Gleann Abhann").
+- **TERM-023** Category "Patriotic (Meridies)": affiliation_linked ("Meridies").
+- **TERM-024** Category "Patriotic (Midrealm)": affiliation_linked ("Midrealm").
+- **TERM-025** Category "Patriotic (Northshield)": affiliation_linked ("Northshield").
+- **TERM-026** Category "Patriotic (Preachain)": affiliation_linked ("Preachain").
+- **TERM-027** Category "Patriotic (Scotland)": no_affiliation_term ("Scotland").
+- **TERM-028** Category "Patriotic (Wales)": no_affiliation_term ("Wales").
+- **TERM-029** Category "Patriotic (West Kingdom)": affiliation_linked ("West Kingdom").
+- **TERM-030** Category "Dance": redirect_alias_dropped ("Dances").
+
+## 15. Collections
+
+Kinds guessed, nesting, merged entries, resources that are not bardic and labels that may name a person.
+
+- **COLL-001** [Collections] "Adhela's Bardic Links": kind index_or_link_list (guessed).
+- **COLL-002** [Collections] "Songs of Aethelmearc (2004)": kind songbook_pdf (guessed).
+- **COLL-003** [Collections] "Aíbell ingen Dairmata's songbook at Bucknell.edu": kind songbook_website (guessed).
+- **COLL-004** [Collections] "Songs of Ansteorra, Patriotic and Otherwise": kind songbook_pdf (guessed).
+- **COLL-005** [Collections] "Ansteorra Bardic page": kind website (guessed).
+- **COLL-006** [Collections] "Ansteorran Favourites for Newcomers": kind songbook_pdf (guessed).
+- **COLL-007** [Collections] "Around the Campfire with Uncle Justinian and Friends": kind songbook_website (guessed).
+- **COLL-008** [Collections] "An Tir's Wiki has a Songs category": kind wiki_category (guessed).
+- **COLL-009** [Collections] "Songs for Atlantia at Pennsic": kind songbook_website (guessed).
+- **COLL-010** [Collections] "Beadmaker's Songbook": kind songbook_pdf (guessed).
+- **COLL-011** [Collections] "Legal Name songbook": kind songbook_website (guessed).
+- **COLL-012** [Collections] "Call of the Wolf VI": kind songbook_website (guessed).
+- **COLL-013** [Collections] "CalonSong (Katriana's songbook)": kind songbook_website (guessed).
+- **COLL-014** [Collections] "CalonSong's directory of songbooks": kind index_or_link_list (guessed).
+- **COLL-015** [Collections] "Calontir Wiki songs": kind wiki_category (guessed).
+- **COLL-016** [Collections] "Cariadoc's Miscellany": kind website (guessed).
+- **COLL-017** [Collections] "Cerian Cantwr's YouTube": kind youtube_channel (guessed).
+- **COLL-018** [Collections] "Claypool's SCA Songs": kind songbook_website (guessed).
+- **COLL-019** [Collections] "College of St Ursula songbook": kind songbook_website (guessed).
+- **COLL-020** [Collections] "Cry of the Wolf": kind songbook_website (guessed).
+- **COLL-021** [Collections] "Legal Name's Songbook": kind google_doc_songbook (guessed).
+- **COLL-022** [Collections] "Heather Dale's Song Wiki": kind wiki (guessed).
+- **COLL-023** [Collections] "History of Ealdormere collection": kind blog (guessed).
+- **COLL-024** [Collections] "History of the Kingdom of the West": kind website (guessed).
+- **COLL-025** [Collections] "House Strangeways Songbook": kind archived_songbook (guessed).
+- **COLL-026** [Collections] "James Prescott's Folk Song Index": kind index_or_link_list (guessed).
+- **COLL-027** [Collections] "Janos' Little Brown Book": kind website (guessed).
+- **COLL-028** [Collections] "Jeff Suzuki's filk page": kind website (guessed).
+- **COLL-029** [Collections] "Jon Voisey's Calontiri Songs": kind songbook_website (guessed).
+- **COLL-030** [Collections] "Justin du Coeur's songbook": kind songbook_website (guessed).
+- **COLL-031** [Collections] "[name withheld] 031 (West Kingdom)": kind hosted_document (guessed).
+- **COLL-032** [Collections] "Kingdom Songs links": kind index_or_link_list (guessed).
+- **COLL-033** [Collections] "The Known Words": kind songbook_website (guessed).
+- **COLL-034** [Collections] "Book of La (Lochac songbook)": kind songbook_website (guessed).
+- **COLL-035** [Collections] "Lochac Snogbook": kind songbook_pdf (guessed).
+- **COLL-036** [Collections] "Lyrics and Themes: Popular SCA Songs in Calontir": kind hosted_document (guessed).
+- **COLL-037** [Collections] "Master Liam's 30 Essential SCA Songs": kind songbook_website (guessed).
+- **COLL-038** [Collections] "MidBards' collection of works": kind website (guessed).
+- **COLL-039** [Collections] "MidBards' collection of songbooks": kind songbook_website (guessed).
+- **COLL-040** [Collections] "Midrealm Songsheet Project": kind songbook_website (guessed).
+- **COLL-041** [Collections] "Minstrel Songbook": kind archived_songbook (guessed).
+- **COLL-042** [Collections] "MOAS list of songbooks": kind index_or_link_list (guessed).
+- **COLL-043** [Collections] "Northshield Bardic Performances": kind website (guessed).
+- **COLL-044** [Collections] "Outlands Bardic Playlist": kind youtube_playlist (guessed).
+- **COLL-045** [Collections] "The Pennsic Pile, Pennsic 46": kind songbook_pdf (guessed).
+- **COLL-046** [Collections] "Recorded Music for Listening and Purchase": kind website (guessed).
+- **COLL-047** [Collections] "Redwulf Songbook (Mooneschadowe, Ansteorra": kind songbook_pdf (guessed).
+- **COLL-048** [Collections] "Ren Faire songs at RenFaire.Com": kind songbook_website (guessed).
+- **COLL-049** [Collections] "Rise Up Singing songlist": kind website (guessed).
+- **COLL-050** [Collections] "SCA Bardic Arts Resource Page": kind index_or_link_list (guessed).
+- **COLL-051** [Collections] "Bards of Seagirt": kind blog (guessed).
+- **COLL-052** [Collections] "Legal Name's songbook and list of songbooks": kind index_or_link_list (guessed).
+- **COLL-053** [Collections] "Thank You Calontir": kind songbook_pdf (guessed).
+- **COLL-054** [Collections] "Tir Righ's songbook": kind songbook_website (guessed).
+- **COLL-055** [Collections] "Top Secret Calontir Army Songbook": kind songbook_pdf (guessed).
+- **COLL-056** [Collections] "Traditional Tunes Archive": kind wiki (guessed).
+- **COLL-057** [Collections] "Trobaire (mainly Atlantians)": kind website (guessed).
+- **COLL-058** [Collections] "The Tudor Songbook on YouTube": kind youtube_channel (guessed).
+- **COLL-059** [Collections] "Voices of the Star (Ansteorran songs)": kind songbook_pdf (guessed).
+- **COLL-060** [Collections] "We Wear Chainmail Knickers; an Ynys Fawr Songbook": kind songbook_pdf (guessed).
+- **COLL-061** [Collections] "World of Lobke": kind website (guessed).
+- **COLL-062** [Collections] The label of https://antir.sca.wiki/index.php?title=Category:Songs may name a person ("An Tir's Wiki has a Songs category"): check it may be public.
+- **COLL-063** [Collections] http://calonsong.org/CalontirSongs/songbooks.htm is nested under http://calonsong.org/songbook.php.
+- **COLL-064** [Collections] The label of https://youtube.com/@CeriansKeep may name a person ("Cerian Cantwr's YouTube - a huge archive of SCA performances from numerous performers & authors"): check it may be public.
+- **COLL-065** [Collections] The label of https://docs.google.com/document/u/0/d/1-0LUCvbBULb99Y2uKkaFELkGR0zlM30MSJNz88-a1Q8 may name a person ("Legal Name's Songbook"): check it may be public.
+- **COLL-066** [Collections] The label of https://heatherdale.com/song_wiki/ may name a person ("Heather Dale's Song Wiki"): check it may be public.
+- **COLL-067** [Collections] The label of https://jpnet.ca/data/music/fs_entry.html may name a person ("James Prescott's Folk Song Index - contains many SCA songs"): check it may be public.
+- **COLL-068** [Collections] The label of https://sites.google.com/site/jeffsuzukiproject/sca-filk may name a person ("Jeff Suzuki's filk page"): check it may be public.
+- **COLL-069** [Collections] The label of https://jonvoisey.net/calontirisongs.html may name a person ("Jon Voisey's Calontiri Songs"): check it may be public.
+- **COLL-070** [Collections] The label of https://mbouchard.com/aneleda/master-liams-thirty-essential-sca-songs-and-favorite-sca-singers may name a person ("Master Liam's 30 Essential SCA Songs"): check it may be public.
+- **COLL-071** [Collections] https://tilted-windmill.com/midbards/songbooks.html is nested under https://tilted-windmill.com/midbards/works.html.
+- **COLL-072** [Collections] https://riseupsinging.org/songs/lists/title/rise-up-singing is noted as not a bardic community resource.
+- **COLL-073** [Collections] The label of https://Legal Name.net/filk/scalink.html may name a person ("Legal Name's songbook and list of songbooks"): check it may be public.
+- **COLL-074** [Collections] The label of https://leeludallasmultiblog.wordpress.com/2022/05/24/tir-righ-songboke/ may name a person ("Tir Righ's songbook"): check it may be public.
+- **COLL-075** [Collections] A second entry for https://history.westkingdom.org/bardic/bardic_list.php is merged into the first.
+
+## 16. Licensing statements
+
+Statements the importer did not turn into a licence: every licence needs a source.
+
+- **LICENCE-001** [When a Knight Won His Spurs] Period 1901–2000 from the century origins 20th Century.
+- **LICENCE-002** [Wild Rover] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-003** [Wild Rover] Period 1601–1700 from the century origins 17th Century.
+- **LICENCE-004** [Sumer is icumen in] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-005** [Sumer is icumen in] Period 1201–1300 from the century origins 13th Century.
+- **LICENCE-006** [A Grazing Mace] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-007** [Auld Lang Syne] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-008** [The Elfin Knight] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-009** [Birthday Dirge] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-010** [The Parting Glass] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-011** [Quantas Sabedes Amar Amigo] Period 1201–1300 from the century origins 13th Century.
+- **LICENCE-012** [Pastime with Good Company] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-013** [Pastime with Good Company] Period 1501–1600 from the century origins 16th Century.
+- **LICENCE-014** [O Death Rock Me Asleep] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-015** [O Death Rock Me Asleep] Period 1501–1600 from the century origins 16th Century.
+- **LICENCE-016** [Mirie it is While Sumer Ilast] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-017** [Mirie it is While Sumer Ilast] Period 1201–1300 from the century origins 13th Century.
+- **LICENCE-018** [Greensleeves] Period 1501–1600 from the century origins 16th Century.
+- **LICENCE-019** [Black Alman] Period 1501–1600 from the century origins 16th Century.
+- **LICENCE-020** [The Salmon of Wisdom] Period 1101–1200 from the century origins 12th Century.
+- **LICENCE-021** [My Thing is My Own] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-022** [My Thing is My Own] Period 1701–1800 from the century origins 18th Century.
+- **LICENCE-023** [Men of Harlech] Period 1701–1800 from the century origins 18th Century.
+- **LICENCE-024** [Rosin the Bow] Period 1801–1900 from the century origins 19th Century.
+- **LICENCE-025** [Three Words] The licensing text says "public domain"; no licence is set without a source.
+- **LICENCE-026** [Bring Us In Good Ale] Period 1401–1500 from the century origins 15th Century.
+
+## 17. Markup and text problems
+
+Broken markup repaired or found, and names with characters an editor could not enter.
+
+- **MARKUP-001** [Belt and Chain] unbalanced_wikilinks at byte 2094.
+- **MARKUP-002** [Auld Lang Syne] unbalanced_wikilinks at byte 486.
+- **MARKUP-003** [Warrior Bard] unbalanced_wikilinks at byte 594.
+- **MARKUP-004** [My Thing is My Own] single_bracket_category at byte 113.
+- **MARKUP-005** [Efenwealt Wystle] A section headed with the page title ("Efenwealt Wystle") is imported into the notes.
+- **MARKUP-006** [Dahrien Cordell] double_bracket_url at byte 402.
+
+## 18. Credited wiki contributors
+
+The wiki user names credited in revision history. Check that none needs hiding.
+
+- **USER-001** "Wiki User 01": 910 edit(s).
+- **USER-002** "Wiki User 02": 1 edit(s).
+- **USER-003** "Wiki User 03": 2 edit(s).
+- **USER-004** "Wiki User 04": 1 edit(s).
+- **USER-005** "Wiki User 05": 14 edit(s).
+- **USER-006** "Wiki User 06": 1 edit(s).
+- **USER-007** "Wiki User 07": 7 edit(s).
+- **USER-008** "Wiki User 08": 2 edit(s).
+- **USER-009** "Wiki User 09": 2 edit(s).
+- **USER-010** "Wiki User 10": 1 edit(s).
+- **USER-011** "Wiki User 11": 4 edit(s).
+- **USER-012** "Wiki User 12": 8 edit(s).
+- **USER-013** "Wiki User 13": 2 edit(s).
+- **USER-014** "Wiki User 14": 13 edit(s).

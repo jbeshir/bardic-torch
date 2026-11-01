@@ -229,20 +229,20 @@ func TestRepositoryHasNoResearchPrivateText(t *testing.T) {
 	}
 }
 
-// denyPhrases are the deny phrases of decisions, numbered in order, a legal name if any decision on it says so.
-func denyPhrases(decisions []CandidateDecision) []denyPhrase {
+// denyPhrases are the private names of decisions, in placeholder order, legal if any decision on one says so.
+func denyPhrases(decisions []CandidateDecision) []mediawiki.PrivateName {
 	numbers := map[string]int{}
-	var phrases []denyPhrase
+	var phrases []mediawiki.PrivateName
 	for _, c := range decisions {
-		if !c.Deny {
+		if !c.Private {
 			continue
 		}
 		if numbers[c.Placeholder] == 0 {
-			phrases = append(phrases, denyPhrase{text: c.Text, number: len(phrases) + 1})
+			phrases = append(phrases, mediawiki.PrivateName{Text: c.Text})
 			numbers[c.Placeholder] = len(phrases)
 		}
-		if c.Reason == ReasonHiddenAlias || c.Reason == ReasonLegalMarker {
-			phrases[numbers[c.Placeholder]-1].name = true
+		if c.Reason == mediawiki.PrivacyHiddenAlias || c.Reason == mediawiki.PrivacyLegalMarker {
+			phrases[numbers[c.Placeholder]-1].Legal = true
 		}
 	}
 
@@ -254,7 +254,7 @@ func contactDetails(d mediawiki.Dump) map[string]bool {
 	private := map[string]bool{}
 	s := scrubber{}
 	for _, p := range d.Pages {
-		for _, e := range emailPattern.FindAllString(p.Wikitext, -1) {
+		for _, e := range mediawiki.EmailAddress.FindAllString(p.Wikitext, -1) {
 			private[strings.ToLower(e)] = true
 		}
 		s.prose(p.Wikitext, phonePattern, func(m []int, text string) string {

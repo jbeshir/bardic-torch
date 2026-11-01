@@ -178,7 +178,7 @@ func TestScrub_KeepsSCAAliasesAndTitles(t *testing.T) {
 		assert.Equal(t, d.Pages[k], p)
 	}
 	for _, c := range res.Candidates {
-		assert.False(t, c.Deny, c.Text)
+		assert.False(t, c.Private, c.Text)
 	}
 }
 
@@ -390,7 +390,7 @@ func TestScrub_Idempotent(t *testing.T) {
 	assert.Equal(t, once.Dump, twice.Dump)
 	assert.Zero(t, twice.Denylist.Len(), "placeholder lines are not lyrics")
 	for _, c := range twice.Candidates {
-		assert.False(t, c.Deny, c.Text)
+		assert.False(t, c.Private, c.Text)
 	}
 }
 
@@ -422,7 +422,7 @@ func TestScrub_PreservesStructure(t *testing.T) {
 func TestPublicNamesArePublishedInPlan(t *testing.T) {
 	plan, err := os.ReadFile(filepath.Join(wikidumptest.RepositoryRoot(t), "docs", "PLAN.md"))
 	require.NoError(t, err)
-	for _, name := range PublicNames {
+	for _, name := range mediawiki.PublicNames {
 		assert.Contains(t, string(plan), name)
 	}
 }

@@ -1,0 +1,198 @@
+{
+  "piece": {
+    "id": 107,
+    "slug": "black-alman",
+    "sort_title": "Black Alman",
+    "sort_letter": "B",
+    "doc": {
+      "schema_version": 1,
+      "title": "Black Alman",
+      "kind": "dance_music",
+      "secondary_kinds": [],
+      "conservation": {
+        "status": "unassessed",
+        "source_url": null
+      },
+      "is_stub": false,
+      "notes_md": "This is a joint page for the musical piece and the dance that is performed to it.",
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "licence": null,
+      "historical_source_md": null,
+      "period_start": 1501,
+      "period_end": 1600,
+      "aliases": [
+        {
+          "text": "Black Allemande",
+          "kind": "alt_title"
+        }
+      ],
+      "terms": [
+        {
+          "term_id": 115,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 119,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 21,
+          "is_primary": true,
+          "part": null
+        }
+      ],
+      "relations": [],
+      "credits": [],
+      "links": [
+        {
+          "url": "https://pennsicdance.aands.org/pennsic46/PennsicPile46.pdf",
+          "title": "Black Alman is found on page 63 of the Pennsic Pile from Pennsic 46",
+          "description": null,
+          "platform": "pdf",
+          "place_type": "book",
+          "collection_id": 45,
+          "locator": "p. 63",
+          "roles": [
+            "sheet_music"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://saltare.meridies.org/black-alman/",
+          "title": "Instructions on Saltare Meridies",
+          "description": null,
+          "platform": "saltare.meridies.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "dance_instructions"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtu.be/wsuoTng77dA?si=YFwofUVIAq6XWTlE",
+          "title": "Black Allemonde on the SCA Lochac YouTube",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": 2022,
+              "uploader": null,
+              "description_verbatim": "[https://youtu.be/wsuoTng77dA?si=YFwofUVIAq6XWTlE Black Allemonde on the SCA Lochac YouTube] from 2022",
+              "performer_ids": []
+            }
+          ]
+        },
+        {
+          "url": "https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1",
+          "title": "Black Alman on Legal Name's YouTube, as taught at Christmas Tourney 2022",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": 26,
+              "year": 2022,
+              "uploader": null,
+              "description_verbatim": "[https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1 Black Alman on Legal Name's YouTube, as taught at Christmas Tourney 2022]",
+              "performer_ids": []
+            }
+          ]
+        }
+      ],
+      "preferences": []
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 291,
+      "title": "Black Alman"
+    },
+    "revision": {
+      "id": 497,
+      "summary": "Imported from the wiki (page revision 769).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "TITLE-029",
+      "kind": "alternate",
+      "page": "Black Alman",
+      "text": "Alias \"Black Allemande\" (alt_title, from the infobox_title)."
+    },
+    {
+      "id": "DRIFT-038",
+      "kind": "in_infobox_not_tagged",
+      "page": "Black Alman",
+      "text": "in_infobox_not_tagged: \"Dance\" (read as \"Dances\")."
+    },
+    {
+      "id": "DRIFT-039",
+      "kind": "tagged_not_in_infobox",
+      "page": "Black Alman",
+      "text": "tagged_not_in_infobox: \"Dance Music\" (read as \"Dance Music\")."
+    },
+    {
+      "id": "DRIFT-040",
+      "kind": "tagged_not_in_infobox",
+      "page": "Black Alman",
+      "text": "tagged_not_in_infobox: \"Dances\" (read as \"Dances\")."
+    },
+    {
+      "id": "DRIFT-041",
+      "kind": "redirect_category_link",
+      "page": "Black Alman",
+      "text": "redirect_category_link: \"Dance\" (read as \"Dances\")."
+    },
+    {
+      "id": "LINK-165",
+      "kind": "normalised",
+      "page": "Black Alman",
+      "text": "2 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "LINK-166",
+      "kind": "collection",
+      "page": "Black Alman",
+      "text": "https://pennsicdance.aands.org/pennsic46/PennsicPile46.pdf is in the collection https://pennsicdance.aands.org/pennsic46/PennsicPile46.pdf at \"p. 63\"."
+    },
+    {
+      "id": "PERF-228",
+      "kind": "incomplete",
+      "page": "Black Alman",
+      "text": "A performance item has no performer or event the importer could read: \"[https://youtu.be/wsuoTng77dA?si=YFwofUVIAq6XWTlE Black Allemonde on the SCA Loc…\"."
+    },
+    {
+      "id": "PERF-229",
+      "kind": "incomplete",
+      "page": "Black Alman",
+      "text": "A performance item has no performer the importer could read: \"[https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1 Black Alman on Legal Name…\"."
+    },
+    {
+      "id": "LICENCE-019",
+      "kind": "period",
+      "page": "Black Alman",
+      "text": "Period 1501–1600 from the century origins 16th Century."
+    }
+  ]
+}

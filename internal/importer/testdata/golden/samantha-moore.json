@@ -1,0 +1,124 @@
+{
+  "person": {
+    "id": 4,
+    "slug": "samantha-moore",
+    "sort_name": "Samantha Moore",
+    "sort_letter": "S",
+    "doc": {
+      "schema_version": 1,
+      "name": "Samantha Moore",
+      "kind": "community_bard",
+      "status": "active",
+      "status_date": null,
+      "status_source_url": null,
+      "pronouns": null,
+      "notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "is_stub": false,
+      "aliases": [
+        {
+          "name": "Ambra Michelli",
+          "kind": "legal",
+          "is_public": false
+        }
+      ],
+      "roles": [
+        "singer",
+        "songwriter"
+      ],
+      "affiliation_ids": [
+        4,
+        1,
+        15
+      ],
+      "relations": [],
+      "links": [
+        {
+          "url": "https://www.Legal Name.com/9-2/samantha-moore/",
+          "title": "[name withheld] page",
+          "description": null,
+          "platform": "Legal Name.com",
+          "place_type": "author_site",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "website"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://hartshavenandco.wixsite.com/hartshavencompany",
+          "title": "Harts Haven homepage",
+          "description": null,
+          "platform": "hartshavenandco.wixsite.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        }
+      ],
+      "preferences": []
+    },
+    "legacy": {
+      "page_id": 19,
+      "title": "Samantha Moore"
+    },
+    "revision": {
+      "id": 232,
+      "summary": "Imported from the wiki (page revision 975).",
+      "contributors": [
+        "Wiki User 01",
+        "Wiki User 05"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "AMBIG-003",
+      "kind": "canonical_name",
+      "page": "Samantha Moore",
+      "text": "\"Ambra Michelli\": guess \"Samantha Moore\"; alternatives: \"Ambra Michelli\"."
+    },
+    {
+      "id": "ALIAS-003",
+      "kind": "alias",
+      "page": "Samantha Moore",
+      "text": "\"Ambra Michelli\": kind legal, hidden (source h1_lead, rule default, unsure)."
+    },
+    {
+      "id": "NAME-117",
+      "kind": "free_text",
+      "page": "Samantha Moore",
+      "text": "link https://www.Legal Name.com/9-2/samantha-moore/, title: \"Legal Name 041\" was withheld. Context: \"[name withheld] page\"."
+    },
+    {
+      "id": "LINK-220",
+      "kind": "normalised",
+      "page": "Samantha Moore",
+      "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "PERSON-006",
+      "kind": "affiliations",
+      "page": "Samantha Moore",
+      "text": "Affiliations from categories: Atlantia, SCA Bards, Trimaris."
+    },
+    {
+      "id": "PERSON-007",
+      "kind": "roles",
+      "page": "Samantha Moore",
+      "text": "Roles from performer-type categories: singer, songwriter."
+    },
+    {
+      "id": "TERM-001",
+      "kind": "dropped_categories",
+      "page": "Samantha Moore",
+      "text": "Categories not imported: Kingdom Name."
+    }
+  ]
+}

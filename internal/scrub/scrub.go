@@ -57,7 +57,7 @@ type Stats struct {
 //   - only pages, category members and activity of KeptNamespaces are kept;
 //   - every inline lyrics block (mediawiki.InlineLyricsBlocks) is replaced with LyricPlaceholderLine lines, at most
 //     InlineLyricsMinLines of them, so the inline-lyrics classification of every section is kept;
-//   - every deny phrase (CandidateDecision.Deny) is replaced with its numbered placeholder everywhere it occurs, as
+//   - every private name (CandidateDecision.Private) is replaced with its numbered placeholder everywhere it occurs, as
 //     mediawiki.NameMatcher finds it: in wikitext, titles, category names and members, redirects and activity; a
 //     legal name also with an honorific before its surname ("Mr. Surname") and with its last word before its first;
 //   - any other honorific followed by a capitalised word, emails, and phone numbers outside links are replaced;
@@ -213,18 +213,15 @@ func (s *scrubber) wikitext(text string) string {
 	var n int
 	text, n = s.names.replace(text, urlSpans(text))
 	s.stats.Names += n
-	text = emailPattern.ReplaceAllStringFunc(text, s.email)
+	text = mediawiki.EmailAddress.ReplaceAllStringFunc(text, s.email)
 	text = s.prose(text, phonePattern, s.phone)
-	text = s.prose(text, honorificPattern, s.honorific)
+	text = s.prose(text, mediawiki.HonorificName, s.honorific)
 
 	return s.userLinks(text)
 }
 
 var (
-	emailPattern = regexp.MustCompile(`[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+`)
 	phonePattern = regexp.MustCompile(`\+?\d[\d ().-]{7,}\d`)
-	// honorificPattern is an honorific and the capitalised word after it.
-	honorificPattern = regexp.MustCompile(`\b(?:Mr|Mrs|Ms|Mx|Dr|Miss)\.?[ \t]+(\p{Lu}[\p{L}\p{M}'’-]*)`)
 	// urlPattern is anything that looks like a URL, also where wikitext does not make it a link (a template
 	// parameter's value), so that names in it get the URL form of their placeholder.
 	urlPattern     = regexp.MustCompile(`(?i)(?:https?:)?//[^\s\[\]<>|{}"]+|\bwww\.[^\s\[\]<>|{}"]+`)
