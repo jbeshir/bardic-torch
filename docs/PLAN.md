@@ -152,8 +152,9 @@ the DDL is in `migrations/003`–`009`.
   FULLTEXT index's statistics include hidden aliases. A snapshot's person `name` is shown only if it is the
   person's current name or one of their current public alias names (compared exactly), and is their current name
   otherwise, so a former name kept as a hidden alias never shows. BE2 cannot scrub free text, so the
-  importer (BE3) hides `redirect` aliases equal to a hidden alias and lists free text containing a hidden alias
-  in `import-review.md`.
+  importer (BE3) hides `redirect` aliases equal to a hidden alias, withholds every hidden alias and other private
+  name from the free text it writes (`[name withheld]`, §7), imports a link whose URL holds one hidden, and lists
+  each in `import-review.md`.
 - **`prefers_no_page` persons** show only their identity (name, kind, status, date and source; `profile: null`).
   They are listed as stubs and found only by name. They are excluded from role/affiliation filters, every person
   count and member list, every credit (the credit is omitted), performer list, relation list (both directions),
@@ -361,7 +362,7 @@ the DDL is in `migrations/003`–`009`.
 
 ## 7. Importer (`cmd/import-mediawiki`)
 
-**Input:** the research dump format (`pages.jsonl` and `categories.json`), or a live crawl. The research `scripts/` define the expected behaviour and are ported to Go. A **scrubbed** copy of the dump is committed under `testdata/wiki-dump/` (regenerated with `cmd/scrub-dump`), so tests are deterministic and need no network: legal and mundane names (the aliases the importer classifies as legal, every other possible person name it cannot classify confidently as public, and their honorific forms), emails, phones and wiki user names are replaced with numbered placeholders, the same number everywhere a name occurs (wikitext, titles, categories, redirects, activity); inline lyrics with placeholder lines (keeping the ≥4-line classification); and only the namespaces, files and fields the importer reads are kept. Every count the tests assert is preserved. No name is hashed into the repository: `testdata/wiki-dump/denylist.txt` holds only salted hashes of the dropped lyrics' 8-word n-grams, and a unit test fails if any appears anywhere in the repository. The names, emails and phones are checked in clear, against the whole repository, by tests that run only when `BARDIC_RESEARCH_DIR` points at the research output, which is never committed; so do the tests against the real dump and the research oracle (`analysis/*.json`).
+**Input:** the research dump format (`pages.jsonl`, `categories.json`, `redirects.json` and `activity.json`). Reading a live crawl of the wiki directly is deferred (a backlog item): the research `scripts/crawl.mjs` produces a dump, which is the input. The research `scripts/` define the expected behaviour and are ported to Go. A **scrubbed** copy of the dump is committed under `testdata/wiki-dump/` (regenerated with `cmd/scrub-dump`), so tests are deterministic and need no network: legal and mundane names (the aliases the importer classifies as legal, every other possible person name it cannot classify confidently as public, and their honorific forms), emails, phones and wiki user names are replaced with numbered placeholders, the same number everywhere a name occurs (wikitext, titles, categories, redirects, activity); inline lyrics with placeholder lines (keeping the ≥4-line classification); and only the namespaces, files and fields the importer reads are kept. Every count the tests assert is preserved. No name is hashed into the repository: `testdata/wiki-dump/denylist.txt` holds only salted hashes of the dropped lyrics' 8-word n-grams, and a unit test fails if any appears anywhere in the repository. The names, emails and phones are checked in clear, against the whole repository, by tests that run only when `BARDIC_RESEARCH_DIR` points at the research output, which is never committed; so do the tests against the real dump and the research oracle (`analysis/*.json`).
 
 **Steps** (report §8):
 1. Type the pages: Pieces / Bards, skipping meta pages, redirects and the test page.
@@ -411,22 +412,42 @@ the DDL is in `migrations/003`–`009`.
 - Check the whole import before writing (`CatalogueImport.Validate`): it mirrors every constraint of the schema
   (unique keys as the collation compares them, primary keys, column widths, CHECKs, references and insert order),
   with error messages that name the entity, ID and field, never a value.
-- Write documents with editor-owned fields only. Write the link system state (liveness) to `links` directly.
-- Write revision `summary` text that is neutral: it is free text shown on every approved revision, including those of
-  persons without a page, and nothing checks it against hidden aliases. BE4 should flag editor summaries that
-  contain a hidden alias.
+- Assign every ID in the import (1..N per table, revisions 1..M), so that documents reference final IDs and the
+  dry run shows exactly what is written. This is safe only because `--apply` writes into an empty catalogue.
+- Write in one transaction: first take the advisory lock `GET_LOCK('bardic-torch-import:<database>', 0)` (another
+  import holding it fails with `ErrImportInProgress`), then, in the transaction, a locking read
+  (`SELECT 1 … LIMIT 1 FOR UPDATE`) of every catalogue table (any row fails with `ErrCatalogueNotEmpty`), then every
+  row in foreign-key order, all rows of a table before any table referring to it: revisions and their
+  contributors, terms (parents and related affiliations first), aliases and closure, collections (parents
+  first), events, persons and their child tables, pieces and their child tables, conservation history (one row
+  per assessed piece, at its revision), links, link attachments, performances and performers. Each entity row
+  carries its revision as `current_revision_id`. Any error rolls everything back, and a refused row is reported
+  by table and MySQL error number only, never with the server's message, which quotes values.
+- Write documents with editor-owned fields only. Write the link system state directly: `is_hidden` for a link whose
+  URL holds a private name, and liveness left at the column default (`unknown`; the wiki records none).
+- Write revision `summary` text from a fixed set of neutral templates ("Imported from the wiki (page revision N).",
+  "… as a stub.", "… Collections page.", "… categories.", "… performance listings."): a summary is free text shown on
+  every approved revision, including those of persons without a page, and nothing checks it against hidden
+  aliases. BE4 should flag editor summaries that contain a hidden alias.
 - Write every link's `normalized_url` as `domain.NormalizeURL(url)`, and drop (listing it in `import-review.md`) a
   URL that does not normalize. Hidden-link redaction relies on this invariant (§4.1 "Hidden links"; DEPLOY.md
   "The normalized URL invariant"): it normalises each document URL and looks it up by `normalized_url` only, so
   a link later edited to another spelling of the same URL stays redacted, or shown, in older snapshots.
 
-**Modes:** `--dry-run` (report only), and `--apply`, which only runs against an empty catalogue.
+**Modes:** `import-mediawiki --dump DIR (--dry-run | --apply) --review PATH`. Both modes build and validate the
+import and write `import-review.md` to `PATH`, which is required, refused inside the repository and written with
+mode 0600, then print counts only. `--dry-run` stops there: it never reads `DATABASE_URL` or opens a database.
+`--apply` writes the review before it opens the transaction, then writes the import into the empty catalogue at
+`DATABASE_URL`. The launch run is in DEPLOY.md ("Importing the legacy wiki"): a dry run, the moderators' review,
+then `--apply` once against the empty production database.
 
 **Tests assert:**
-- the research counts: 142 pieces (135/4/2/1 by kind), 48 bards, 62 collection entries, 11 inline-lyrics pages flagged
-- on the scrubbed copy (always): unit tests, the lyric n-gram scan and the structural privacy checks; against the research output (only with `BARDIC_RESEARCH_DIR`): the oracle, that the copy is up to date and keeps the research counts, and the in-clear scan for names, emails and phones
+- the research counts: 142 pieces (135/4/2/1 by kind), 48 bards, 62 collection entries (61 collections written), 11 inline-lyrics pages flagged
+- on the scrubbed copy (always): unit tests, the lyric n-gram scan and the structural privacy checks; against the research output (only with `BARDIC_RESEARCH_DIR`): the oracle, that the copy is up to date and keeps the research counts, the in-clear scan for names, emails and phones, that no private name and no dropped lyric reaches the real import, and a real dry run
 - the dropped inline lyrics are absent from every public field
-- golden snapshots for a hand-picked set of 15 or more tricky pages (Three Words, My Thing is My Own, Fight for the Midrealm, Band of Brothers, Black Alman, The Burning of Tara, Samantha Moore, Lasair inghen ui h’Airt, Auld Lang Syne…)
+- golden snapshots of 16 tricky pages: Three Words, My Thing is My Own, Fight for the Midrealm, Band of Brothers, Black Alman, The Burning of Tara, Samantha Moore, Lasair inghen ui h’Airt, Auld Lang Syne, Malkin Grey, Dahrien Cordell, Greensleeves, Greensleeves (SCA Version), Voice of the Dragon, Birthday Dirge and Warrior's Wyrd, and of the review
+- the writer (integration): every row written, every table empty after a failure planted in the last table, a catalogue that is not empty refused, exactly one of two concurrent imports succeeding, the normalised URL invariant and decodable snapshots
+- the imported catalogue end to end (`TestHTTP_ImportedCatalogue`): every page of every list, every entity, history and revision read through the API is valid by the spec and shows no lyric placeholder, no legal-name placeholder in any form and no hidden alias
 
 ## 8. Frontend
 
@@ -525,7 +546,7 @@ Each pipeline has the same internal shape:
 | BE1 | foundation | BE | H0 | Copy and strip the feed skeleton. Add the users table, roles and the moderator bootstrap, the auth carried over from the feed, the test harness (with the **in-sandbox MySQL spike**), the OpenAPI skeleton, CI, and the dokku files (Dockerfile, `app.json` predeploy migrate step). The cron entry lands with `cmd/check-links` in BE5. |
 | FE1 | foundation | FE | H0 (runs alongside BE1) | Copy and strip the feed FE. Add the wiki-style design system and layout, dark mode, auth, the type-generation pipeline, the fixture server, and the Playwright, axe and screenshot harness. Add the static help pages. |
 | BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search, A–Z and needs-work. The revisions table exists but only stores import data. Decisions refined in BE2 are in §4.1. |
-| BE3 | importer | BE | BE2 | Everything in §7. A dry-run report is produced for John and Fabian to read. |
+| BE3 | importer | BE | BE2 | Everything in §7 (reading a live crawl directly is deferred). A dry-run report is produced for John and Fabian to read. |
 | FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8 (including the read-only history and diff pages), the licensing card (licensing status and sourced notes) and conservation badge, the mobile facet drawer, and SEO. |
 | BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report and contact (Turnstile) endpoints. (needs-work, a public read, moved to BE2.) |
 | FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, revert, and the pending-version diff. (The read-only history and diff pages are FE2's.) |

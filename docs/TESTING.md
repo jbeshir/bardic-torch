@@ -118,6 +118,15 @@ with `go tool`, so nothing needs installing.
   `go test ./internal/importer -run Golden -update` and review the diff (the repository privacy scans cover them).
   Gated: the same counts on the real crawl, no private name (in clear, every form) or email in a public field of
   the real import, and no 5-word window or whole line of any dropped lyrics in the real import or its review.
+  `internal/testutil/importtest` gives other packages the scrubbed import, built once per test binary
+  (`importtest.Scrubbed`).
+- **Import command** (`cmd/import-mediawiki`, `internal/command`, `internal/repopath`): `TestParseOptions` (exactly one
+  mode, `--dump` and `--review` required in both), `TestRun_RefusesReviewInsideRepository`,
+  `TestRun_DryRunNeedsNoDatabase` (the run never asks for `DATABASE_URL`, and the review is written with mode
+  0600 even over a wider file), `TestRun_DryRunScrubbedCounts` (the research counts on stdout) and, gated,
+  `TestRun_RealDumpDryRun` (no deny-listed lyric n-gram in the real review or stdout).
+  `TestApplyCatalogueImport_*` (mocks): an invalid import never reaches the writer, and the writer's typed errors
+  pass through. `TestInside` pins the repository check `cmd/scrub-dump` shares.
 - **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
   `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; the
   milestone gates set it to the research output). The crawl holds legal names and lyrics, so these tests report
@@ -344,6 +353,19 @@ seeded database (see catalogtest), and new private-database tests should be kept
   `max_execution_time` 2000, the server stops a `SELECT SLEEP(5)` after 2 s, and an `INSERT … SELECT SLEEP(3)`
   runs to the end. `TestMigratorConfig` (unit) checks that the migrator clears the limit, and
   `TestFetch_QueryTimeout` that a sqlc read the server stops is `datasources.ErrQueryTimeout`.
+- **Catalogue import writer** (`repository_catalogue_import_integration_test.go`, the scrubbed import on a shared
+  fixture and on private databases): `TestRepository_ImportCatalogue_WritesEverything` (the row count of every
+  catalogue table, closure self rows, approved import revisions with no author, each entity's own current
+  revision, contributors in order, liveness left `unknown`), `_SystemFields` (hidden links, legacy columns, the 11
+  inline-lyrics flags), `_NormalizedURLInvariant`, `_SnapshotsDecode`, `_ReadAPI` (golden pieces, and no hidden
+  alias on a person's page), `_RefusesNonEmpty` (a revision, or rows of later tables only, give
+  `ErrCatalogueNotEmpty` and nothing is written), `_RollsBackOnError` (a duplicate planted in
+  `performance_performers`, the last table written, leaves every table empty, and the error names the table and
+  MySQL error number but not the server's message), `_ConcurrentImports` (of two imports at once exactly one
+  succeeds, the other gets `ErrImportInProgress` or `ErrCatalogueNotEmpty`, and the lock is released) and
+  `_CatalogueTablesAreEveryCatalogueTable`. `catalogtest`'s `c.Import(imp)` writes an import through the writer.
+  `TestRun_ApplyThenApplyAgainRefuses` (`cmd/import-mediawiki`) applies through the command line and refuses a
+  second run.
 - **Document coverage** (`TestDocumentCoverage`, `TestDocumentFieldPaths`): classifies every column of the
   tables each snapshot document owns as a document field or system-owned, with a reason, and every document field
   as stored by exactly one column. A new column, document field or table fails it until it is classified.
@@ -455,6 +477,15 @@ handler like `TestHTTP_EndToEnd`, seeds a small invented catalogue (a term tree,
 pieces including a stub and an unapproved draft, and a second approved revision) with catalogtest, and walks list →
 facet filter (counts) → search → piece, term and person detail → history → revision detail → needs-work. The
 reads are public, so it sends no credentials, and every response goes through the contract helper.
+
+`TestHTTP_ImportedCatalogue` (`internal/app/imported_catalogue_integration_test.go`) applies the scrubbed import to
+a shared database and reads all of it through the production handler and the contract helper: every page of every
+list, every piece, person, term (every page of its members), collection and event, every history and every
+revision. Every response is 200 and valid by the spec, and no body holds a lyric placeholder line
+(`scrubbedlyric`), a legal-name placeholder in any form (`Legal Name 001`, `legal-name-001`, `Legal_Name_001`,
+`LegalName001`), a withheld marker followed by a placeholder number (`[name withheld] 001`), or a hidden alias as
+whole words. `TestHTTP_ImportedCatalogue_PlantedLeakFails` is its self-test: with one hidden alias made public, the
+person's page shows it and the scan reports it, as it reports each planted placeholder form.
 
 ## Adding an endpoint
 

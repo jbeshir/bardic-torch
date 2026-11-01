@@ -19,11 +19,9 @@ import (
 	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
+	"github.com/jbeshir/bardic-torch/internal/repopath"
 	"github.com/jbeshir/bardic-torch/internal/scrub"
 )
-
-// modulePath is this repository's module; a directory whose go.mod declares it is inside the repository.
-const modulePath = "github.com/jbeshir/bardic-torch"
 
 var (
 	// ErrUsage is returned for a command line without --in or --out.
@@ -55,7 +53,7 @@ func parseOptions(args []string) (options, error) {
 		return options{}, ErrUsage
 	}
 	if o.candidates != "" {
-		inside, err := insideRepository(o.candidates)
+		inside, err := repopath.Inside(o.candidates)
 		if err != nil {
 			return options{}, err
 		}
@@ -108,36 +106,6 @@ func writeFiles(dir string, files map[string][]byte) error {
 	}
 
 	return nil
-}
-
-// insideRepository reports whether path is under a directory whose go.mod declares this module.
-func insideRepository(path string) (bool, error) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return false, err
-	}
-	for dir := filepath.Dir(abs); ; dir = filepath.Dir(dir) {
-		if declaresModule(filepath.Join(dir, "go.mod")) {
-			return true, nil
-		}
-		if filepath.Dir(dir) == dir {
-			return false, nil
-		}
-	}
-}
-
-func declaresModule(goMod string) bool {
-	content, err := os.ReadFile(filepath.Clean(goMod))
-	if err != nil {
-		return false
-	}
-	for _, line := range strings.Split(string(content), "\n") {
-		if fields := strings.Fields(line); len(fields) == 2 && fields[0] == "module" {
-			return fields[1] == modulePath
-		}
-	}
-
-	return false
 }
 
 func sortedNames(files map[string][]byte) []string {

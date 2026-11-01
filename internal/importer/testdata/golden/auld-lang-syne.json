@@ -99,7 +99,7 @@
         },
         {
           "url": "https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA",
-          "title": "Auld Lang Syne sung by [name withheld] 045",
+          "title": "Auld Lang Syne sung by [name withheld]",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -113,7 +113,7 @@
               "event_id": null,
               "year": null,
               "uploader": null,
-              "description_verbatim": "[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld] 045]",
+              "description_verbatim": "[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld]]",
               "performer_ids": []
             }
           ]
@@ -140,13 +140,13 @@
       "id": "NAME-033",
       "kind": "free_text",
       "page": "Auld Lang Syne",
-      "text": "link https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA, title: \"Legal Name\" was withheld. Context: \"Auld Lang Syne sung by [name withheld] 045\"."
+      "text": "link https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA, title: \"Legal Name 045\" was withheld. Context: \"Auld Lang Syne sung by [name withheld]\"."
     },
     {
       "id": "NAME-225",
       "kind": "free_text",
       "page": "Auld Lang Syne",
-      "text": "performance item, description: \"Legal Name\" was withheld. Context: \"7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld] 045]\"."
+      "text": "performance item, description: \"Legal Name 045\" was withheld. Context: \"7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld]]\"."
     },
     {
       "id": "STUB-167",

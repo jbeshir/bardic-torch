@@ -537,3 +537,118 @@ WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 SELECT normalized_url, is_hidden
 FROM links
 WHERE normalized_url IN (sqlc.slice('normalized_urls'));
+
+-- ============================================
+-- Catalogue import
+--
+-- The importer writes a whole catalogue into an empty database in one transaction, with the IDs the import
+-- assigned, every row of a table before the rows of tables referring to it. Each entity row carries its approved
+-- import revision as its current revision directly. A links row's normalized_url is domain.NormalizeURL(url)
+-- (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
+-- ============================================
+
+-- name: InsertImportedRevision :exec
+INSERT INTO revisions (id, entity_type, entity_id, source, status, snapshot_json, summary, created_at)
+VALUES (?, ?, ?, 'import', 'approved', ?, ?, ?);
+
+-- name: InsertRevisionContributor :exec
+INSERT INTO revision_contributors (revision_id, position, name)
+VALUES (?, ?, ?);
+
+-- name: InsertImportedTerm :exec
+INSERT INTO terms (id, facet, name, display_name, slug, parent_id, related_affiliation_id, description_md, position,
+    current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: InsertTermAlias :exec
+INSERT INTO term_aliases (term_id, name)
+VALUES (?, ?);
+
+-- name: InsertTermAncestor :exec
+INSERT INTO term_ancestors (ancestor_id, descendant_id, depth)
+VALUES (?, ?, ?);
+
+-- name: InsertImportedCollection :exec
+INSERT INTO collections (id, name, sort_name, sort_letter, url, kind, description_md, region_term_id, parent_id,
+    is_bardic_resource, enumerable, current_revision_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: InsertImportedEvent :exec
+INSERT INTO events (id, slug, name, kind, description_md, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: InsertImportedPerson :exec
+INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, status_date, status_source_url, pronouns,
+    notes_md, licensing_notes_md, licensing_status, is_stub, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: InsertPersonAlias :exec
+INSERT INTO person_aliases (person_id, name, kind, is_public)
+VALUES (?, ?, ?, ?);
+
+-- name: InsertPersonRole :exec
+INSERT INTO person_roles (person_id, role)
+VALUES (?, ?);
+
+-- name: InsertPersonAffiliation :exec
+INSERT INTO person_affiliations (person_id, term_id)
+VALUES (?, ?);
+
+-- name: InsertPersonRelation :exec
+INSERT INTO person_relations (from_person_id, to_person_id, type)
+VALUES (?, ?, ?);
+
+-- name: InsertPersonPreference :exec
+INSERT INTO person_preferences (person_id, dimension, value_json, source_url)
+VALUES (?, ?, ?, ?);
+
+-- name: InsertImportedPiece :exec
+INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
+    version_notes_md, licensing_notes_md, licensing_status, licence, historical_source_md, period_start, period_end,
+    legacy_had_inline_lyrics, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: InsertPieceSecondaryKind :exec
+INSERT INTO piece_secondary_kinds (piece_id, kind)
+VALUES (?, ?);
+
+-- name: InsertPieceAlias :exec
+INSERT INTO piece_aliases (piece_id, text, kind)
+VALUES (?, ?, ?);
+
+-- name: InsertPieceTerm :exec
+INSERT INTO piece_terms (piece_id, term_id, is_primary, part, position)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: InsertPieceRelation :exec
+INSERT INTO piece_relations (from_piece_id, to_piece_id, type)
+VALUES (?, ?, ?);
+
+-- name: InsertPieceCredit :exec
+INSERT INTO piece_credits (piece_id, person_id, role, attribution, certainty, part, note, position)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: InsertPiecePreference :exec
+INSERT INTO piece_preferences (piece_id, dimension, value_json, source_url)
+VALUES (?, ?, ?, ?);
+
+-- name: InsertConservationHistory :exec
+INSERT INTO conservation_history (piece_id, status, reason, source_url, revision_id, at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: InsertImportedLink :exec
+INSERT INTO links (id, url, normalized_url, title, description, platform, place_type, collection_id, locator,
+    is_hidden)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: InsertLinkAttachment :exec
+INSERT INTO link_attachments (link_id, piece_id, person_id, role, position)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: InsertPerformance :execlastid
+INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: InsertPerformancePerformer :exec
+INSERT INTO performance_performers (performance_id, person_id, position)
+VALUES (?, ?, ?);

@@ -36,6 +36,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
@@ -499,4 +500,18 @@ func dateValue(d *domain.Date) any {
 	}
 
 	return d.Time
+}
+
+// Import writes a whole catalogue import, as the importer's --apply does (mysql.Repository.ImportCatalogue), into
+// the database, which must be empty.
+func (c *Catalog) Import(imp domain.CatalogueImport) {
+	c.t.Helper()
+	if err := mysql.New(c.db).ImportCatalogue(c.t.Context(), imp); err != nil {
+		c.t.Fatalf("catalogtest: importing: %v", err)
+	}
+}
+
+// T returns the test the Catalog fails, for a Shared seed that needs it.
+func (c *Catalog) T() testing.TB {
+	return c.t
 }

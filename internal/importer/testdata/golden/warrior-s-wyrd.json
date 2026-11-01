@@ -17,7 +17,7 @@
       "notes_md": "This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.",
       "version_notes_md": null,
       "licensing_status": "unknown",
-      "licensing_notes_md": "It is likely that [name withheld] 049 still holds the copyright to the tune; please add to the wiki if you have more information.",
+      "licensing_notes_md": "It is likely that [name withheld] still holds the copyright to the tune; please add to the wiki if you have more information.",
       "licence": null,
       "historical_source_md": null,
       "period_start": null,
@@ -194,13 +194,13 @@
       "id": "NAME-153",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
-      "text": "stub person, name: \"Legal Name\" was withheld. Context: \"[name withheld] 049\"."
+      "text": "stub person, name: \"Legal Name 049\" was withheld. Context: \"[name withheld]\"."
     },
     {
       "id": "NAME-239",
       "kind": "free_text",
       "page": "Warrior's Wyrd",
-      "text": "piece Warrior's Wyrd, licensing notes: \"Legal Name\" was withheld. Context: \"It is likely that [name withheld] 049 still holds the copyright to the tu\"."
+      "text": "piece Warrior's Wyrd, licensing notes: \"Legal Name 049\" was withheld. Context: \"It is likely that [name withheld] still holds the copyright to the tune;\"."
     },
     {
       "id": "NAME-240",
@@ -284,7 +284,7 @@
       "id": "PERSON-158",
       "kind": "stub_kind",
       "page": "Warrior's Wyrd",
-      "text": "Stub person \"[name withheld] 049\" (named on 1 page(s)) is guessed to be community_bard."
+      "text": "Stub person \"[name withheld]\" (named on 1 page(s)) is guessed to be community_bard."
     }
   ]
 }

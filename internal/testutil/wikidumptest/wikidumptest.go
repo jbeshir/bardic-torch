@@ -25,12 +25,27 @@ const ResearchDirEnv = "BARDIC_RESEARCH_DIR"
 // ResearchDirEnv is unset or empty.
 func Research(t testing.TB) (dump, analysis fs.FS) {
 	t.Helper()
+	dir := researchDir(t)
+
+	return os.DirFS(filepath.Join(dir, "dump")), os.DirFS(filepath.Join(dir, "analysis"))
+}
+
+// ResearchDumpDir returns the directory of the research crawl, for a command that reads a directory, or skips the
+// test when ResearchDirEnv is unset or empty.
+func ResearchDumpDir(t testing.TB) string {
+	t.Helper()
+
+	return filepath.Join(researchDir(t), "dump")
+}
+
+func researchDir(t testing.TB) string {
+	t.Helper()
 	dir := os.Getenv(ResearchDirEnv)
 	if dir == "" {
 		t.Skip(ResearchDirEnv + " is not set")
 	}
 
-	return os.DirFS(filepath.Join(dir, "dump")), os.DirFS(filepath.Join(dir, "analysis"))
+	return dir
 }
 
 // RepositoryRoot returns the repository root, found from this file.

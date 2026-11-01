@@ -24,6 +24,16 @@ func TestWithholder_Text(t *testing.T) {
 	assert.True(t, found[0].Email)
 }
 
+func TestWithholder_PlaceholderNumberWithheld(t *testing.T) {
+	// A candidate rule of the scrubbed copy captured only the placeholder's words; its number goes with them.
+	w := withholder{matcher: mediawiki.NewPrivateNameMatcher([]mediawiki.PrivateName{{Text: "Legal Name", Legal: true}})}
+
+	out, found := w.text("compiled by Legal Name 030, in 2003; Legal Name 2004")
+
+	assert.Equal(t, "compiled by "+NameWithheld+", in 2003; "+NameWithheld+" 2004", out)
+	assert.Len(t, found, 2)
+}
+
 func TestWithholder_URLs(t *testing.T) {
 	w := withholder{matcher: mediawiki.NewPrivateNameMatcher([]mediawiki.PrivateName{{Text: hiddenAlias, Legal: true}})}
 

@@ -104,7 +104,7 @@
         },
         {
           "url": "https://youtu.be/dhqH0Sra8aU",
-          "title": "Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle Kingdom 50 Year Anniversary",
+          "title": "Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kingdom 50 Year Anniversary",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -118,7 +118,7 @@
               "event_id": 22,
               "year": null,
               "uploader": null,
-              "description_verbatim": "[https://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle Kingdom 50 Year Anniversary]",
+              "description_verbatim": "[https://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kingdom 50 Year Anniversary]",
               "performer_ids": []
             }
           ]
@@ -172,7 +172,7 @@
       "id": "NAME-110",
       "kind": "free_text",
       "page": "Three Words",
-      "text": "link https://youtu.be/dhqH0Sra8aU, title: \"Legal Name\" was withheld. Context: \"levy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle\"."
+      "text": "link https://youtu.be/dhqH0Sra8aU, title: \"Legal Name 027\" was withheld. Context: \"levy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kin\"."
     },
     {
       "id": "NAME-111",
@@ -196,7 +196,7 @@
       "id": "NAME-342",
       "kind": "free_text",
       "page": "Three Words",
-      "text": "performance item, description: \"Legal Name\" was withheld. Context: \"levy performing her original piece with [name withheld] 027 on the drum in the Tavern at Middle\"."
+      "text": "performance item, description: \"Legal Name 027\" was withheld. Context: \"levy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kin\"."
     },
     {
       "id": "NAME-343",
