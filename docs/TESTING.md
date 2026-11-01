@@ -157,7 +157,8 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   handler (`NewHTTPHandler` with Setup's own `repositoryHTTPDependencies`) over a real repository, the real Auth0
   validator against a local `auth0test` issuer and the real API-token validator, plus the real
   `BootstrapModerators` command. It walks a user's life: expired, wrong-audience, badly signed and oversized
-  Auth0 tokens get the spec's 401 `unauthenticated` body without creating the user, the first valid request
+  Auth0 tokens get the spec's 401 `unauthenticated` body without creating the user (and a 200 from the public
+  `GET /v1/pieces`, which never authenticates), the first valid request
   creates the user, rename persists, an
   API token authenticates as them, a bootstrapped moderator blocks them (both credentials get 403
   `user_blocked`), unblocks them, the token is revoked (401), and a second bootstrap run without the moderator's
