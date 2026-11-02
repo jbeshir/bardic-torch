@@ -54,14 +54,20 @@ func TestRouter_RoutesMatchOpenAPI(t *testing.T) {
 	assert.Empty(t, unrouted, "operations in openapi/api.yaml with no route")
 }
 
-// TestNewRouter_RejectsUnsupportedPaths checks that newRouter refuses paths whose ServeMux matching would
-// differ from the router's segment-by-segment rules.
+// TestNewRouter_RejectsUnsupportedPaths checks that newRouter refuses routes with no method, and paths whose
+// ServeMux matching would differ from the router's segment-by-segment rules.
 func TestNewRouter_RejectsUnsupportedPaths(t *testing.T) {
 	t.Parallel()
 
-	for _, path := range []string{"/v1/songs/", "/v1/files/{path...}"} {
+	for _, rt := range []route{
+		{method: http.MethodGet, path: "/v1/songs/"},
+		{method: http.MethodGet, path: "/v1/files/{path...}"},
+		{method: http.MethodGet, path: "api.bardictorch.org/v1/me"},
+		{method: "", path: "/v1/me"},
+	} {
+		rt.handler = http.NotFoundHandler()
 		assert.Panics(t, func() {
-			newRouter([]route{{method: http.MethodGet, path: path, handler: http.NotFoundHandler()}}, nil)
-		}, path)
+			newRouter([]route{rt}, nil)
+		}, "%q %q", rt.method, rt.path)
 	}
 }

@@ -27,8 +27,10 @@ type router struct {
 func newRouter(routes []route, authenticate func(http.Handler) http.Handler) *router {
 	mux := http.NewServeMux()
 	for _, rt := range routes {
-		if strings.HasSuffix(rt.path, "/") || strings.Contains(rt.path, "...}") {
-			panic(fmt.Sprintf("route %s %s: paths must not end in / or contain {name...}", rt.method, rt.path))
+		if rt.method == "" || !strings.HasPrefix(rt.path, "/") || strings.HasSuffix(rt.path, "/") ||
+			strings.Contains(rt.path, "...}") {
+			panic(fmt.Sprintf("route %q %q: routes need a method, and a path that starts but does not end in / "+
+				"and has no {name...} wildcard", rt.method, rt.path))
 		}
 
 		handler := rt.handler
@@ -49,7 +51,8 @@ func (rt *router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, ok := rt.lookup(r); ok {
-		// ServeHTTP, unlike the handler lookup returns, sets the request's Pattern and PathValue.
+		// Serve through the ServeMux, rather than the handler its Handler method returns, so that the request's
+		// Pattern and PathValue are set.
 		rt.mux.ServeHTTP(w, r)
 		return
 	}

@@ -240,4 +240,5 @@ GitHub Actions (`.github/workflows/ci.yml`, on every push and pull request) runs
 Dependabot (`.github/dependabot.yml`) opens weekly pull requests for Go modules (the pinned tools in one group,
 other minor and patch updates in another, major updates separately), GitHub Actions (in one group) and the
 Dockerfile's base images. The workflow pins every action to a full commit SHA with its release tag in a trailing
-comment (`actions/checkout@<sha> # v7.0.1`); dependabot updates both. A tool update can make MVS downgrade another tool's dependency; check `go.mod` in those pull requests.
+comment (`actions/checkout@<sha> # v7.0.1`); dependabot updates both. A tool update can make MVS downgrade
+another tool's dependency; check `go.mod` in those pull requests.

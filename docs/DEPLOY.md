@@ -21,7 +21,8 @@ Replace these in the commands below:
 ## Requirements
 
 - **dokku 0.35.0 or newer**: dokku-mysql 2.6.0 needs 0.35.0. The app.json `healthchecks`, the `ports:*`
-  commands, and reading `app.json` and `Procfile` from the repository root need 0.31.0. Check with `dokku version`. On modern dokku, `app.json` and
+  commands, and reading `app.json` and `Procfile` from the repository root need 0.31.0. Check with
+  `dokku version`. On modern dokku, `app.json` and
   `Procfile` are read from the root of the pushed repository. The Dockerfile also copies both into `/app`, the
   image's working directory, so versions that read them from the image find the same files.
 - **Docker builds with BuildKit**: the Dockerfile uses `RUN --mount=type=cache` and starts with

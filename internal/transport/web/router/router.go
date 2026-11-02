@@ -28,8 +28,8 @@ type Dependencies struct {
 // route is one operation the router serves.
 type route struct {
 	method string
-	// path is a net/http.ServeMux path pattern, such as /v1/users/{user_id}/blocked. It must not end in "/" or
-	// contain a {name...} wildcard: newRouter panics if it does.
+	// path is a net/http.ServeMux path pattern, such as /v1/users/{user_id}/blocked. It must start but not end in
+	// "/", and must not contain a {name...} wildcard; newRouter panics if it does, or if method is empty.
 	path    string
 	handler http.Handler
 	// authenticated routes run behind the auth middleware, which sets the request's principal; handler then

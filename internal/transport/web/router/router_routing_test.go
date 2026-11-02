@@ -326,10 +326,14 @@ func encodedIDCases() []routingCase {
 		blockAsModerator("/v1/users/%2E%2E/blocked", ".."),
 		blockAsModerator("/v1/users/%2Fx/blocked", "/x"),
 		// An ID that is exactly %2F decodes to "/", which ServeMux reads as an extra path segment, so no route
-		// matches. gorilla/mux routed these to their controllers, which answered 404 user or token not found
-		// after authenticating. No user or token ID is "/", so both remain 404s.
+		// matches. gorilla/mux routed these to their controllers, so a moderator got 404 user or token not found
+		// after authenticating, and anonymous or invalid-credential requests got 401. No user or token ID is "/",
+		// and none of these requests could be authorised to act on one; all of them now get the unrouted 404,
+		// without authenticating.
 		notFound(http.MethodPut, "/v1/users/%2F/blocked", routingModerator),
 		notFound(http.MethodDelete, "/v1/tokens/%2F", routingModerator),
+		notFound(http.MethodDelete, "/v1/tokens/%2F", ""),
+		notFound(http.MethodPut, "/v1/users/%2F/blocked", routingInvalid),
 		revokeAsModerator("/v1/tokens/a%2Fb"),
 		{
 			method: http.MethodDelete, target: routingTokenPath, authorization: routingModerator,

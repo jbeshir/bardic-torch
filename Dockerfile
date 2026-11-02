@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1
 # Production image for dokku: the API server and the migrate command, which app.json's predeploy step runs.
-# The builder names its alpine release so that it matches the runtime stage below; dependabot bumps both.
-FROM golang:1.27.3-alpine3.24 AS builder
+FROM golang:1.27.3-alpine AS builder
 
 # Build with the image's Go, which is the version go.mod requires, rather than downloading a toolchain.
 ENV GOTOOLCHAIN=local CGO_ENABLED=0

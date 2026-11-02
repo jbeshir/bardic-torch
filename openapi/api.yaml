@@ -13,7 +13,7 @@ info:
       `method_not_allowed` with an `Allow` header listing the supported methods. Neither authenticates the
       request.
     - Request headers over 16 KiB get a plain-text 431 from the server, before any operation runs.
-    - A request URI that is not validly percent-encoded gets a plain-text 400 from the server, before any
+    - A request whose path is not validly percent-encoded gets a plain-text 400 from the server, before any
       operation runs.
     - operationIds are camelCase.
   version: 1.0.0
