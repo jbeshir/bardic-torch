@@ -208,13 +208,19 @@ func publicCases() []routingCase {
 				`9223372036854775807"}` + "\n",
 			route: routingRevisionTemplate,
 		},
-		// A slug or ID that is exactly %2F is an unrouted 404, as on the authenticated routes. gorilla/mux routed
-		// these to their controllers, which answered 400 for the slug or ID.
+		// A slug or ID that is exactly %2F (or %2f) is an unrouted 404 for every method, as on the authenticated
+		// routes. gorilla/mux routed these to their controllers, which answered 400 for the slug or ID, and answered
+		// a wrong method with 405 and Allow: GET.
 		notFound(http.MethodGet, "/v1/pieces/%2F", ""),
 		notFound(http.MethodGet, "/v1/pieces/%2F", routingInvalid),
 		notFound(http.MethodGet, "/v1/pieces/%2F/history", ""),
 		notFound(http.MethodGet, "/v1/collections/%2F", ""),
 		notFound(http.MethodGet, "/v1/revisions/%2F", routingInvalid),
+		notFound(http.MethodGet, "/v1/pieces/%2f", ""),
+		notFound(http.MethodGet, "/v1/events/%2f/history", routingInvalid),
+		notFound(http.MethodPost, "/v1/pieces/%2F", routingInvalid),
+		notFound(http.MethodHead, "/v1/revisions/%2F", ""),
+		notFound(http.MethodDelete, "/v1/collections/%2f/history", routingInvalid),
 		// Unrouted paths around the public routes, none of which authenticates.
 		notFound(http.MethodGet, "/v1/pieces/", ""),
 		notFound(http.MethodGet, routingPiecePath+"/", routingInvalid),
