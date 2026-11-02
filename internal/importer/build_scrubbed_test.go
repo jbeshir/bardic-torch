@@ -26,16 +26,18 @@ func TestBuild_ValidatesOutput(t *testing.T) {
 
 func TestBuild_ResearchCounts(t *testing.T) {
 	c := scrubbedCorpus(t)
-	imp, review := Build(c, BuildOptions{Now: buildTime})
+	imp, review := Build(c, buildTime)
 
 	assert.Equal(t, researchCounts, importCounts(c, imp, review))
 }
 
 func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {
 	imp, _ := scrubbedImport(t)
+	ancestors, err := imp.TermAncestors()
+	require.NoError(t, err)
 
 	self := map[int64]bool{}
-	for _, a := range imp.TermAncestors {
+	for _, a := range ancestors {
 		if a.Depth == 0 {
 			assert.Equal(t, a.AncestorID, a.DescendantID)
 			self[a.DescendantID] = true
@@ -45,7 +47,7 @@ func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {
 	for _, term := range imp.Terms {
 		assert.True(t, self[term.ID], "term %d has its own row", term.ID)
 	}
-	assert.Greater(t, len(imp.TermAncestors), len(imp.Terms), "and rows for its ancestors")
+	assert.Greater(t, len(ancestors), len(imp.Terms), "and rows for its ancestors")
 }
 
 func TestBuild_SortKeys(t *testing.T) {

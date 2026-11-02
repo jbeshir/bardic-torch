@@ -36,8 +36,8 @@ func TestRenderReview_SectionsInOrder(t *testing.T) {
 
 func TestRenderReview_Deterministic(t *testing.T) {
 	c := scrubbedCorpus(t)
-	_, review := Build(c, BuildOptions{Now: buildTime})
-	_, again := Build(c, BuildOptions{Now: buildTime})
+	_, review := Build(c, buildTime)
+	_, again := Build(c, buildTime)
 
 	assert.Equal(t, RenderReview(review), RenderReview(again))
 	ids := map[string]bool{}
@@ -56,7 +56,7 @@ func TestRenderReview_NeverContainsLyrics(t *testing.T) {
 	d.Pages[2].Wikitext += poem
 	d.Pages[0].Wikitext += "\n== Notes ==\n<poem style=\"x\">\n" + marker + " in a bard's notes\n</poem>\n"
 
-	imp, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+	imp, review := Build(mediawiki.ParseCorpus(d), buildTime)
 
 	encoded, err := json.Marshal(imp)
 	require.NoError(t, err)
@@ -109,7 +109,7 @@ func TestReview_FlagsNameShapedContributors(t *testing.T) {
 	d.Activity = append(d.Activity, mediawiki.PageActivity{Title: songTitle, NS: mediawiki.NSMain, Revisions: 1,
 		Users: map[string]int{"Hazel Placeholder": 1, "HazelP": 1}})
 
-	_, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+	_, review := Build(mediawiki.ParseCorpus(d), buildTime)
 
 	flagged := map[string]bool{}
 	for _, it := range review.Contributors {

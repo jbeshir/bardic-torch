@@ -35,10 +35,10 @@
       "relations": [],
       "links": [
         {
-          "url": "https://www.Legal Name.com/9-2/samantha-moore/",
+          "url": "https://www.ravenboymusic.com/9-2/samantha-moore/",
           "title": "[name withheld] page",
           "description": null,
-          "platform": "Legal Name.com",
+          "platform": "ravenboymusic.com",
           "place_type": "author_site",
           "collection_id": null,
           "locator": null,
@@ -91,10 +91,10 @@
       "text": "\"Ambra Michelli\": kind legal, hidden (source h1_lead, rule default, unsure)."
     },
     {
-      "id": "NAME-162",
+      "id": "NAME-161",
       "kind": "free_text",
       "page": "Samantha Moore",
-      "text": "link https://www.Legal Name.com/9-2/samantha-moore/, title: \"Legal Name 053\" was withheld. Context: \"[name withheld] page\"."
+      "text": "link https://www.ravenboymusic.com/9-2/samantha-moore/, title: \"Legal Name 053\" was withheld. Context: \"[name withheld] page\"."
     },
     {
       "id": "LINK-230",

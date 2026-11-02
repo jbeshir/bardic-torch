@@ -20,7 +20,17 @@ const MinConcatenatedSubstring = 8
 // find the same occurrences.
 type NameMatcher struct {
 	byFirst map[string][]namePhrase
-	concat  []namePhrase
+	// concatWhole holds every concatenated form by itself, and concatInside the forms of at least
+	// MinConcatenatedSubstring bytes by their first MinConcatenatedSubstring bytes, so that a word is searched once
+	// for all of them.
+	concatWhole  map[string][]concatForm
+	concatInside map[string][]concatForm
+}
+
+// concatForm is a concatenated form of the name numbered name.
+type concatForm struct {
+	name int
+	form string
 }
 
 type namePhrase struct {
@@ -41,7 +51,11 @@ type NameMatch struct {
 // any punctuation between the words, but not concatenated or by their first and last word, which for a phrase
 // of common words would be found everywhere. Names and phrases with no letters or digits are never found.
 func NewNameMatcher(names, phrases []string) NameMatcher {
-	m := NameMatcher{byFirst: map[string][]namePhrase{}}
+	m := NameMatcher{
+		byFirst:      map[string][]namePhrase{},
+		concatWhole:  map[string][]concatForm{},
+		concatInside: map[string][]concatForm{},
+	}
 	for k, name := range names {
 		split, joined := nameTokens(name)
 		forms := [][]string{split, joined}
@@ -69,9 +83,14 @@ func addForms(m *NameMatcher, k int, forms [][]string, concatenated bool) {
 		}
 		seen[strings.Join(f, " ")] = true
 		m.byFirst[f[0]] = append(m.byFirst[f[0]], namePhrase{name: k, tokens: f})
-		if concatenated && len(f) >= 2 && !seen[strings.Join(f, "")] {
-			seen[strings.Join(f, "")] = true
-			m.concat = append(m.concat, namePhrase{name: k, tokens: []string{strings.Join(f, "")}})
+		if form := strings.Join(f, ""); concatenated && len(f) >= 2 && !seen[form] {
+			seen[form] = true
+			c := concatForm{name: k, form: form}
+			m.concatWhole[form] = append(m.concatWhole[form], c)
+			if len(form) >= MinConcatenatedSubstring {
+				key := form[:MinConcatenatedSubstring]
+				m.concatInside[key] = append(m.concatInside[key], c)
+			}
 		}
 	}
 }
@@ -103,9 +122,7 @@ func (m NameMatcher) Find(text string) []NameMatch {
 		}
 	}
 	for _, t := range joined {
-		for _, p := range m.concat {
-			found = append(found, concatMatches(t, p)...)
-		}
+		found = append(found, m.concatMatches(t)...)
 	}
 
 	return nonOverlapping(found)
@@ -124,24 +141,30 @@ func matchPhrase(tokens []nameToken, i int, phrase []string) (int, bool) {
 	return tokens[i+len(phrase)-1].end, true
 }
 
-func concatMatches(t nameToken, p namePhrase) []NameMatch {
-	form := p.tokens[0]
-	if t.folded == form {
-		return []NameMatch{{Name: p.name, Start: t.start, End: t.end}}
-	}
-	if len(form) < MinConcatenatedSubstring {
-		return nil
-	}
+// concatMatches returns the concatenated forms in t: a form that is the whole word, and each form of at least
+// MinConcatenatedSubstring bytes that is not, wherever it is inside the word (left to right, not overlapping
+// itself). One pass over the word looks every form up by its first bytes, so the cost does not grow with the
+// number of names times the length of the word.
+func (m NameMatcher) concatMatches(t nameToken) []NameMatch {
 	var out []NameMatch
-	for at := 0; ; {
-		k := strings.Index(t.folded[at:], form)
-		if k < 0 {
-			return out
-		}
-		at += k
-		out = append(out, NameMatch{Name: p.name, Start: t.origin(at), End: t.originEnd(at + len(form))})
-		at += len(form)
+	for _, c := range m.concatWhole[t.folded] {
+		out = append(out, NameMatch{Name: c.name, Start: t.start, End: t.end})
 	}
+	if len(m.concatInside) == 0 {
+		return out
+	}
+	next := map[concatForm]int{}
+	for at := 0; at+MinConcatenatedSubstring <= len(t.folded); at++ {
+		for _, c := range m.concatInside[t.folded[at:at+MinConcatenatedSubstring]] {
+			if c.form == t.folded || at < next[c] || !strings.HasPrefix(t.folded[at:], c.form) {
+				continue
+			}
+			next[c] = at + len(c.form)
+			out = append(out, NameMatch{Name: c.name, Start: t.origin(at), End: t.originEnd(at + len(c.form))})
+		}
+	}
+
+	return out
 }
 
 func nonOverlapping(found []NameMatch) []NameMatch {
@@ -181,44 +204,57 @@ func (t nameToken) originEnd(k int) int {
 	return t.ends[k-1]
 }
 
-func isApostrophe(r rune) bool {
-	switch r {
-	case '\'', '’', '‘', 'ʼ', '`':
-		return true
-	}
-
-	return false
-}
-
 // tokenizeNames splits text into folded tokens of letters, digits and combining marks. With joinApostrophes, an
 // apostrophe between two letters joins them into one token ("O'Brien" is "obrien"); otherwise it separates them.
 func tokenizeNames(text string, joinApostrophes bool) []nameToken {
 	var out []nameToken
+	var cur nameToken
+	var folded strings.Builder
 	inToken := false
+	endToken := func() {
+		if inToken {
+			cur.folded = folded.String()
+			out = append(out, cur)
+			folded.Reset()
+		}
+		inToken = false
+	}
 	for i := 0; i < len(text); {
 		r, size := utf8.DecodeRuneInString(text[i:])
 		switch {
-		case unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsMark(r) && inToken:
+		case isNameRune(r, inToken):
 			if !inToken {
-				out = append(out, nameToken{start: i})
+				cur = nameToken{start: i}
 				inToken = true
 			}
-			cur := &out[len(out)-1]
-			folded := foldRune(r)
-			for range len(folded) {
-				cur.offsets = append(cur.offsets, i)
-				cur.ends = append(cur.ends, i+size)
-			}
-			cur.folded += folded
-			cur.end = i + size
+			f := foldRune(r)
+			cur = cur.with(f, i, size)
+			folded.WriteString(f)
 		case joinApostrophes && isApostrophe(r) && inToken && startsWord(text[i+size:]):
 		default:
-			inToken = false
+			endToken()
 		}
 		i += size
 	}
+	endToken()
 
 	return out
+}
+
+// isNameRune reports whether r belongs to a name token: a letter or digit, or a combining mark inside one.
+func isNameRune(r rune, inToken bool) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsMark(r) && inToken
+}
+
+// with is the token extended by the character at text[at:at+size], whose folded form is f: its offsets and end.
+func (t nameToken) with(f string, at, size int) nameToken {
+	for range len(f) {
+		t.offsets = append(t.offsets, at)
+		t.ends = append(t.ends, at+size)
+	}
+	t.end = at + size
+
+	return t
 }
 
 func startsWord(s string) bool {
@@ -232,7 +268,7 @@ func foldRune(r rune) string {
 		return string(unicode.ToLower(r))
 	}
 
-	return strings.ToLower(domain.FoldLetters(string(r)))
+	return domain.CollationKey(string(r))
 }
 
 // isCapitalised reports whether word starts with an upper-case letter.

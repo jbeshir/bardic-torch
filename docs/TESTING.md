@@ -52,8 +52,12 @@ with `go tool`, so nothing needs installing.
   words in order); `ParsePerformanceText`,
   `PersonNameCandidates` and `RepairMarkup`/`FindMarkupIssues`. `FuzzFindTemplates`, `FuzzParseValue`,
   `FuzzSections` and `FuzzInlineLyricsBlocks` check that nothing panics, spans are in bounds and in order, and no
-  `<poem` tag survives `WithoutInlineLyrics`; `TestHostileInput_TimeBudget` runs every parser over 1 MB of unclosed
-  `{{[[(` within 20 seconds.
+  `<poem` tag survives `WithoutInlineLyrics`; `FuzzWikitextToMarkdown` that the Markdown holds no image, raw HTML
+  or link but to an absolute http(s) URL. `TestHostileInput_TimeBudget` runs every parser over 1 MB of unclosed
+  `{{[[(` within 20 seconds, and `TestHostileInput_QuadraticShapes` the shapes that once made a parser quadratic
+  (an unclosed "[http://" before every token, for `ParseValue` and `WikitextToMarkdown`; one long word for
+  `Words`; 2000 names' concatenated forms searched in one long word) at 256 KiB and 2 MiB within 3 seconds each,
+  failing as soon as one runs over.
 - **Pieces and taxonomy** (`internal/mediawiki`, synthetic wikis built by `site_fixtures_test.go`, and the
   scrubbed copy): category classes (`TestClassifyCategories_*`); the term plan (`TestTermPlan_*`: facets and
   parents, each PLAN §2.10 parent, display names without the facet suffix, Patriotic topics related to their
@@ -107,7 +111,7 @@ with `go tool`, so nothing needs installing.
 - **Building the import** (`internal/importer`, `domain.CatalogueImport`, synthetic wikis and the scrubbed copy):
   `TestCatalogueImportValidate_*` mirror each schema constraint (IDs, slugs, legacy page IDs, summaries, documents
   decoding, column widths, collation-folded uniques, child primary keys, CHECKs, references, the insert order of
-  term parents and related affiliations, link rows, the closure, NFC), each failing with `ErrInvalidImport` and
+  term parents and related affiliations, link rows, the closure, sort letters, NFC, control characters), each failing with `ErrInvalidImport` and
   never showing the value. `TestBuild_*` cover revisions and contributors, neutral summaries, stable slug
   collisions, sort keys, the closure, status sources (`TestBuild_PersonStatusSource`: the link the date is read
   from unless it is hidden, else the wiki page) and conservation sources (the piece's own page), hidden, redirect and unsure
@@ -115,14 +119,16 @@ with `go tool`, so nothing needs installing.
   (`TestBuild_FreeTextContainingHiddenAliasListed`, `TestBuild_StubPersonWithLegalNameNotCreated`), a public alias
   holding a hidden alias hidden (`TestBuild_PublicAliasHoldingHiddenAliasHidden`), emails, one link row per
   normalised URL, URLs without tracking parameters (`TestBuild_URLsWithoutTrackingParameters`), stub pieces
-  crediting the listing bard pages' contributors, legacy columns, NFC and determinism. `TestWithholder_*` pin the withholder: legal names in names,
+  crediting the listing bard pages' contributors, legacy columns, NFC, control characters removed and listed
+  (`TestBuild_ControlCharactersRemovedAndListed`) and determinism. `TestWithholder_*` pin the withholder: legal names in names,
   unsure names in free text only, overlapping forms withheld once, whole wikilinks, URLs hidden only by a legal
   name and listed for an unsure name or a home directory. On the scrubbed copy, `TestBuild_ResearchCounts` asserts
   142 pieces (135/4/2/1), 48 bards, 62 collection entries (61 collections, written or withheld) and 11 pieces with
   inline lyrics,
   `TestBuild_NoLyricMarkerAnywhere` that no lyric placeholder line is in any field or the review, and
   `TestBuild_NoPlaceholderInPublicFields` that no name placeholder is in a public field (hidden aliases, legacy
-  columns and hidden links aside); `TestCorpus_ResearchCounts` asserts `mediawiki.Stats`. `TestRenderReview_*` and
+  columns and hidden links aside); `TestCorpus_ResearchCounts` asserts the research counts (`Stats`, in
+  `stats_test.go` with the other lookups only tests need). `TestRenderReview_*` and
   `TestReview_*` check the review: every section in order, determinism, the PLAN §2.9 ambiguities, every alias
   listed. `TestGoldenPages` (16 tricky pages, with semantic checks in `golden_assert_test.go`) and
   `TestReviewGolden` compare with `internal/importer/testdata/`; after a deliberate change, rewrite them with
@@ -134,16 +140,20 @@ with `go tool`, so nothing needs installing.
   `internal/testutil/importtest` gives other packages the scrubbed import, built once per test binary
   (`importtest.Scrubbed`).
 - **Import command** (`cmd/import-mediawiki`, `internal/command`, `internal/repopath`): `TestParseOptions` (exactly one
-  mode, `--dump` and `--review` required in both), `TestRun_RefusesReviewInsideRepository`,
-  `TestRun_DryRunNeedsNoDatabase` (the run never asks for `DATABASE_URL`, and the review is written with mode
-  0600 even over a wider file), `TestRun_DryRunScrubbedCounts` (the research counts on stdout) and, gated,
-  `TestRun_RealDumpDryRun` (no deny-listed lyric n-gram in the real review or stdout, and no private name or email
-  on stdout).
-  `TestApplyCatalogueImport_*` (mocks): an invalid import never reaches the writer, and the writer's typed errors
-  pass through. `TestInside` pins the repository check `cmd/scrub-dump` shares.
+  mode, `--dump` and `--review` required in both), `TestRun_RefusesReviewInsideRepository` and
+  `_RefusesReviewIntoRepositoryThroughSymlinks`, `TestRun_DryRunNeedsNoDatabase` (the run never asks for
+  `DATABASE_URL`, and the review is written with mode 0600 over a 0644 file), `TestRun_DryRunScrubbedCounts` (the
+  research counts on stdout), the integration test `TestRun_ApplyThenApplyAgainRefuses` (a refused `--apply` still
+  writes its review, 0600, so the review precedes the transaction) and, gated, `TestRun_RealDumpDryRun`
+  (`main_research_test.go`: no deny-listed lyric n-gram in the real review or stdout, and no private name or email
+  on stdout). `TestApplyCatalogueImport_*` (mocks): an invalid import never reaches the writer, and the writer's
+  typed errors pass through. `internal/repopath` (`TestInside`, `TestWritePrivate_*`) pins the private-file
+  writer both commands share: symbolic links to a file or a directory in the repository, dangling or not, are
+  refused, and the mode is 0600 over an existing file. `TestConfigFromURL_ErrorsNeverQuoteThePassword` covers a
+  malformed `DATABASE_URL`.
 - **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
-  `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; the
-  milestone gates set it to the research output). The crawl holds legal names and lyrics, so these tests report
+  `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; set it
+  to the research output to run them). The crawl holds legal names and lyrics, so these tests report
   only through `wikidumptest.Equal` (page ID, field and offset, with digests in place of values) and
   `wikidumptest.NoError` (the error's type only); `TestResearchTestsReportOnlyThroughEqual` fails any test file that
   reads the crawl and also imports testify, logs or prints. `oracle_research_test.go` compares the Go port with the
@@ -386,7 +396,11 @@ seeded database (see catalogtest), and new private-database tests should be kept
   `performance_performers`, the last table written, leaves every table empty, and the error names the table and
   MySQL error number but not the server's message), `_ConcurrentImports` (of two imports at once exactly one
   succeeds, the other gets `ErrImportInProgress` or `ErrCatalogueNotEmpty`, and the lock is released) and
-  `_CatalogueTablesAreEveryCatalogueTable`. `catalogtest`'s `c.Import(imp)` writes an import through the writer.
+  `_CatalogueTablesAreEveryCatalogueTable`. `TestCatalogueImportValidate_MirrorsSchema` plants one violation of each
+  constraint class `Validate` mirrors (a collation-folded UNIQUE, a child primary key, a VARCHAR width, a CHECK) and
+  checks that `Validate` rejects it and MySQL, given it unvalidated, refuses it with that class's error number. Every
+  MySQL error of the import (a refused row, the lock, the commit) is an `ImportDatabaseError` without the server's
+  message. `catalogtest`'s `c.Import(imp)` writes an import through the writer.
   `TestRun_ApplyThenApplyAgainRefuses` (`cmd/import-mediawiki`) applies through the command line and refuses a
   second run.
 - **Document coverage** (`TestDocumentCoverage`, `TestDocumentFieldPaths`): classifies every column of the
@@ -397,7 +411,8 @@ seeded database (see catalogtest), and new private-database tests should be kept
   `c.Collection`, `c.Event`, `c.Revision`, `c.SetLinkState` and `c.Exec` (for system columns no document holds).
   Approved entities (the zero value) get an approved `import` revision as their current revision; `Unapproved:
   true` leaves it NULL. Term closure rows come from a recursive CTE, so parents are seeded first. Slugs, sort keys
-  and letters are naive defaults (tests about them pass literals). Every call commits before it returns, because
+  and letters default to what the importer writes (`domain.Slugify`, `domain.SortTitle` for titles, the name as
+  written for persons, and `domain.SortLetter`); tests about them pass literals. Every call commits before it returns, because
   FULLTEXT sees committed rows only. The package's own tests are `catalogtest_test.go`.
   - **Shared read-only fixture**: tests that only read share one seeded database per fixture through
     `fx := catalogtest.NewShared(seed)` and `db, refs := fx.Get(t)`. The first `Get` creates and seeds it; the
@@ -440,8 +455,8 @@ seeded database (see catalogtest), and new private-database tests should be kept
   value is an error, not a 404).
 - **FULLTEXT sees committed rows only.** InnoDB's FULLTEXT index is updated at commit, so a search never sees
   rows in an open transaction, and a fixture that searches inside the transaction that inserted would find nothing.
-  catalogtest commits on every call. Production code must follow the same rule: BE4 searches only after its
-  approval transaction commits.
+  catalogtest commits on every call. Production code must follow the same rule: a write that searches does so only
+  after its transaction commits.
 
 ### Leak matrix
 

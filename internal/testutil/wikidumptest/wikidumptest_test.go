@@ -10,6 +10,9 @@ import (
 	"testing"
 )
 
+// readsResearch matches what reads the research crawl: Research, ResearchDumpDir or the variable naming it.
+var readsResearch = regexp.MustCompile(`\bwikidumptest\.(?:Research|ResearchDumpDir)\(|\bResearchDirEnv\b`)
+
 // forbiddenInResearchTests are the ways a test could print a value; a test that reads the research crawl may
 // report only through Equal and NoError.
 var forbiddenInResearchTests = regexp.MustCompile(`"github\.com/stretchr/testify|\bt\.(Log|Logf|Error|Errorf|` +
@@ -32,7 +35,7 @@ func TestResearchTestsReportOnlyThroughEqual(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if !strings.Contains(string(src), "wikidumptest.Research(") {
+		if !readsResearch.Match(src) {
 			return nil
 		}
 		researchFiles++

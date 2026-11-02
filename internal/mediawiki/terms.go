@@ -1,9 +1,9 @@
 package mediawiki
 
 import (
+	"maps"
 	"regexp"
 	"slices"
-	"sort"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
@@ -423,11 +423,5 @@ func categoryDescription(wikitext string) string {
 }
 
 func sortedCategories(t Taxonomy) []string {
-	names := make([]string, 0, len(t.Nodes))
-	for name := range t.Nodes {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	return names
+	return slices.Sorted(maps.Keys(t.Nodes))
 }

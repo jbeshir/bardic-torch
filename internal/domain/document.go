@@ -235,7 +235,7 @@ type DocCredit struct {
 }
 
 // DocPreference is one dimension of a stated preference profile. Value's shape per dimension is defined, and
-// validated, in BE5; until then it is carried as raw JSON.
+// validated, with the preference profiles; until then it is carried as raw JSON.
 type DocPreference struct {
 	Dimension PreferenceDimension `json:"dimension"`
 	Value     json.RawMessage     `json:"value"`

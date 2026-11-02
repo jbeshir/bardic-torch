@@ -171,7 +171,7 @@ func redLinkUses(pieces []PieceRecord, bards []BardRecord) map[RedLinkClass]map[
 func pageLinkUses(uses map[RedLinkClass]map[string]bool, parsed ParsedPage, wikitext string) {
 	for _, sec := range parsed.Sections {
 		switch {
-		case sec.Key == SectionPerformancesRecordings || sec.Key == SectionKnownPerformances:
+		case sec.Key.IsPerformanceSection():
 			for _, item := range sec.Content.Items {
 				for _, l := range ParsePerformanceText(item.Raw, MinPerformanceYear).Performers {
 					uses[RedLinkPerformer][l.Target] = true

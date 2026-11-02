@@ -1,8 +1,8 @@
 //go:build integration
 
-// Package catalogtest seeds catalogue fixtures for integration tests with plain SQL, as BE3's importer and BE4's
-// revision engine will write them: an entity's editable content is its snapshot document (internal/domain), and
-// an approved entity has an approved revision holding that document as its current revision.
+// Package catalogtest seeds catalogue fixtures for integration tests with plain SQL, in the shape the importer
+// (internal/importer) writes: an entity's editable content is its snapshot document (internal/domain), and an
+// approved entity has an approved revision holding that document as its current revision.
 //
 // A test with its own data seeds a fresh database:
 //
@@ -74,9 +74,9 @@ type Term struct {
 	Unapproved bool
 }
 
+// Person is a person to seed. Doc.Kind defaults to community_bard, Doc.Status to active and
 // Doc.LicensingStatus to unknown; Slug defaults to domain.Slugify(Doc.Name), SortName to Doc.Name (persons sort
 // by their name as written) and SortLetter to domain.SortLetter(SortName), as the importer writes them.
-// the upper-cased first letter of SortName, or 0 if it does not start with an ASCII letter.
 type Person struct {
 	Doc        domain.PersonDocument
 	Slug       string

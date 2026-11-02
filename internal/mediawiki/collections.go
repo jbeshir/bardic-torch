@@ -262,7 +262,8 @@ var collectionPrefixKinds = map[domain.CollectionKind]bool{
 
 // sharedDocumentHosts are hosts serving many people's documents and videos, so a path on them never makes a link
 // part of a collection.
-var sharedDocumentHosts = []string{"youtube.com", "youtu.be", "docs.google.com", "scribd.com", "yumpu.com"}
+var sharedDocumentHosts = map[string]bool{"youtube.com": true, "youtu.be": true, "docs.google.com": true,
+	"scribd.com": true, "yumpu.com": true}
 
 // CollectionMatch is the collection a link belongs to: the collection's normalised URL, or empty. Tied are the
 // collections whose prefixes match equally well, when there are several; the link then belongs to none.
@@ -311,9 +312,9 @@ func NewCollectionMatcher(records []CollectionRecord) CollectionMatcher {
 }
 
 func isSharedDocumentHost(host string) bool {
-	return slices.ContainsFunc(sharedDocumentHosts, func(h string) bool {
-		return host == h || strings.HasSuffix(host, "."+h)
-	})
+	_, ok := hostOrParent(host, sharedDocumentHosts)
+
+	return ok
 }
 
 // Match returns the collection a link (by normalised URL) belongs to: the one with its exact URL, or else with its

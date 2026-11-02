@@ -2,6 +2,7 @@ package importer
 
 import (
 	"cmp"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -13,14 +14,10 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
-// BuildOptions are the inputs of Build besides the corpus: Now is the time of every imported revision.
-type BuildOptions struct {
-	Now time.Time
-}
-
 // Build maps a parsed wiki onto the catalogue: every term, collection, event, person and piece with its document,
 // system fields and one approved import revision (a neutral summary, the page's wiki contributors), the links
-// rows, and the review of everything the moderators should check. It is deterministic: IDs are assigned in a
+// rows, and the review of everything the moderators should check. now is the time of every imported revision.
+// It is deterministic: IDs are assigned in a
 // fixed order (affiliation terms, then the other terms, each in plan order; collections in page order; events as
 // first seen; bards by page ID, then stub persons by name; pieces by page ID, then stub pieces by title), and so
 // are slugs, collisions getting "-2", "-3"…
@@ -30,8 +27,8 @@ type BuildOptions struct {
 // collection, event, stub person or stub piece whose name (or a collection whose URL) holds a legal name is not
 // imported (a bard's hidden alias already finds the bard, mediawiki.PersonIndex), a piece or term alias holding one
 // is dropped, and a withheld uploader is left out; each is listed.
-func Build(c mediawiki.Corpus, o BuildOptions) (domain.CatalogueImport, Review) {
-	b := newBuilder(c, o)
+func Build(c mediawiki.Corpus, now time.Time) (domain.CatalogueImport, Review) {
+	b := newBuilder(c, now)
 	b.assignIDs()
 	b.buildTerms()
 	b.buildCollections()
@@ -77,7 +74,7 @@ type pageKey struct {
 	title string
 }
 
-func newBuilder(c mediawiki.Corpus, o BuildOptions) *builder {
+func newBuilder(c mediawiki.Corpus, now time.Time) *builder {
 	var hidden []string
 	for _, bard := range c.People.Bards {
 		for _, a := range bard.Aliases {
@@ -86,7 +83,7 @@ func newBuilder(c mediawiki.Corpus, o BuildOptions) *builder {
 			}
 		}
 	}
-	b := &builder{c: c, now: o.Now, w: newWithholder(c, hidden), activity: map[pageKey][]string{},
+	b := &builder{c: c, now: now, w: newWithholder(c, hidden), activity: map[pageKey][]string{},
 		pages: map[pageKey]mediawiki.Page{}, termIDs: map[string]int64{}, collectionIDs: map[string]int64{},
 		eventIDs: map[string]int64{}, personIDs: map[mediawiki.PersonRef]int64{}, pieceIDs: map[string]int64{},
 		links: map[string]domain.DocLink{}, withheldStubs: map[mediawiki.PersonRef]bool{}}
@@ -104,15 +101,9 @@ func newBuilder(c mediawiki.Corpus, o BuildOptions) *builder {
 
 // contributors are the users of a page's activity, by edit count descending and then by name.
 func contributors(users map[string]int) []string {
-	out := make([]string, 0, len(users))
-	for u := range users {
-		out = append(out, u)
-	}
-	slices.SortFunc(out, func(a, b string) int {
+	return slices.SortedFunc(maps.Keys(users), func(a, b string) int {
 		return cmp.Or(cmp.Compare(users[b], users[a]), strings.Compare(a, b))
 	})
-
-	return out
 }
 
 // assignIDs numbers every entity, so that documents can reference any of them. It leaves out, and lists, the
@@ -249,9 +240,25 @@ func legacy(p mediawiki.Page) *domain.LegacyPage {
 	return out
 }
 
-// clean is s in NFC, as every imported string is.
+// clean is s in NFC without control characters (domain.IsControlCharacter), as every imported string is.
 func clean(s string) string {
-	return norm.NFC.String(s)
+	return norm.NFC.String(domain.WithoutControlCharacters(s))
+}
+
+// cleanURL is clean for a URL: absolute (a "www." or "//" URL gets https, domain.WithScheme, so it is never a
+// relative link), and its control characters percent-encoded rather than dropped, so that it normalizes as the
+// URL it was read as.
+func cleanURL(u string) string {
+	return clean(domain.WithControlCharactersEscaped(domain.WithScheme(u)))
+}
+
+// listControlCharacters lists s if it holds control characters, which the caller drops.
+func (b *builder) listControlCharacters(page, entity, field, s string) {
+	if strings.ContainsFunc(s, domain.IsControlCharacter) {
+		b.review.Markup = append(b.review.Markup, item("text_characters", page,
+			"%s, %s has control characters (such as NUL, ESC or a bidirectional override); they are removed.",
+			entity, field))
+	}
 }
 
 // free is the text of a public free-text field of the entity named page (field names it in the review), with its
@@ -267,7 +274,8 @@ func (b *builder) free(page, entity, field, s string) *string {
 
 // freeText is free without the nil for empty text.
 func (b *builder) freeText(page, entity, field, s string) string {
-	out, found := b.w.text(strings.TrimSpace(s))
+	b.listControlCharacters(page, entity, field, s)
+	out, found := b.w.text(strings.TrimSpace(domain.WithoutControlCharacters(s)))
 	for _, f := range found {
 		if f.Email {
 			b.review.Contacts = append(b.review.Contacts, item("email", page,
@@ -286,7 +294,8 @@ func (b *builder) freeText(page, entity, field, s string) string {
 // nothing was withheld; each withheld span is listed, and so are characters an editor could not enter. A name
 // with a span withheld must not be imported (Validate rejects it).
 func (b *builder) name(page, entity, field, s string) (string, bool) {
-	out, found := b.w.name(strings.TrimSpace(s))
+	b.listControlCharacters(page, entity, field, s)
+	out, found := b.w.name(strings.TrimSpace(domain.WithoutControlCharacters(s)))
 	for _, f := range found {
 		b.review.HiddenNames = append(b.review.HiddenNames, item("name", page,
 			"%s, %s: %q holds a possible legal name. Context: %q.", entity, field, f.Text, f.Context))
@@ -321,8 +330,16 @@ func optional(s string) *string {
 	return &out
 }
 
+func optionalURL(u string) *string {
+	if u == "" {
+		return nil
+	}
+	out := cleanURL(u)
+
+	return &out
+}
+
 func (b *builder) buildTerms() {
-	parents := map[int64]*int64{}
 	for _, t := range b.terms() {
 		id := b.termIDs[t.Category]
 		entity := "term " + t.Category
@@ -349,14 +366,11 @@ func (b *builder) buildTerms() {
 			term.Revision = b.revision(nil, domain.ImportSummaryCategory)
 		}
 		b.out.Terms = append(b.out.Terms, term)
-		parents[id] = doc.ParentID
 	}
-	closure, err := domain.TermClosure(parents)
-	if err != nil {
+	if _, err := b.out.TermAncestors(); err != nil {
 		b.review.Taxonomy = append(b.review.Taxonomy, item("closure", "",
 			"The term tree has no valid closure (%v); the import does not validate.", err))
 	}
-	b.out.TermAncestors = closure
 }
 
 // termRef is the ID of the term planned from category, or nil.
@@ -378,7 +392,7 @@ func (b *builder) buildCollections() {
 		page := mediawiki.CollectionsPage
 		name, _ := b.name(page, "collection "+r.NormalizedURL, "name", r.Name())
 		doc := domain.CollectionDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
-			URL: optional(r.URL), Kind: r.Kind,
+			URL: optionalURL(r.URL), Kind: r.Kind,
 			DescriptionMD: b.free(page, "collection "+r.NormalizedURL, "description", r.Description),
 			RegionTermID:  b.termRef(r.RegionTerm), IsBardicResource: r.IsBardicResource,
 			Enumerable: domain.CollectionEnumerableUnknown}

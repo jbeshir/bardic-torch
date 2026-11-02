@@ -2,6 +2,7 @@ package importer
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 )
@@ -22,19 +23,14 @@ func RenderReview(r Review) []byte {
 	b.WriteString("# Import review\n\n")
 	b.WriteString(reviewIntro + "\n\n")
 	b.WriteString("## Counts\n\n| What | Count |\n|---|---|\n")
-	kinds := make([]string, 0, len(r.Counts.PiecesByKind))
-	for k := range r.Counts.PiecesByKind {
-		kinds = append(kinds, k)
-	}
-	slices.Sort(kinds)
-	for _, k := range kinds {
+	for _, k := range slices.Sorted(maps.Keys(r.Counts.PiecesByKind)) {
 		fmt.Fprintf(&b, "| Pieces: %s | %d |\n", k, r.Counts.PiecesByKind[k])
 	}
 	for _, row := range []struct {
 		what string
 		n    int
 	}{
-		{"Stub pieces", r.Counts.StubPieces}, {"Persons", r.Counts.Persons}, {"Bards (with a page)", r.Counts.Bards},
+		{"Stub pieces", r.Counts.StubPieces}, {"Persons", r.Counts.Persons()}, {"Bards (with a page)", r.Counts.Bards},
 		{"Stub persons", r.Counts.StubPersons}, {"Terms", r.Counts.Terms}, {"Collections", r.Counts.Collections},
 		{"Collections page entries", r.Counts.CollectionEntries},
 		{"Pieces that had inline lyrics", r.Counts.InlineLyricsPieces},

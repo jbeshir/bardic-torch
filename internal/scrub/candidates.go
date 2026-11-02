@@ -28,7 +28,7 @@ func collectPhrases(
 	for _, d := range decisions {
 		c := CandidateDecision{PrivacyDecision: d}
 		if d.Private {
-			c.Placeholder = fmt.Sprintf(legalNameFormat, numbers[mediawiki.FoldName(d.Text)])
+			c.Placeholder = fmt.Sprintf(mediawiki.LegalNameFormat, numbers[mediawiki.FoldName(d.Text)])
 		}
 		out = append(out, c)
 	}

@@ -1,6 +1,8 @@
 package scrub
 
 import (
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -16,7 +18,7 @@ func (s *scrubber) numberUsers(activity []mediawiki.PageActivity, pages []mediaw
 	}
 	var kept []mediawiki.PageActivity
 	for _, a := range activity {
-		if KeptNamespaces[a.NS] {
+		if mediawiki.IsContentNamespace(a.NS) {
 			kept = append(kept, a)
 		}
 	}
@@ -33,7 +35,7 @@ func (s *scrubber) numberUsers(activity []mediawiki.PageActivity, pages []mediaw
 		return kept[a].Title < kept[b].Title
 	})
 	for _, a := range kept {
-		for _, name := range sortedKeys(a.Users) {
+		for _, name := range slices.Sorted(maps.Keys(a.Users)) {
 			s.user(name)
 		}
 	}
@@ -45,7 +47,7 @@ func (s *scrubber) user(name string) string {
 		return name
 	}
 
-	return numbered(s.users, mediawiki.NormTitle(name), wikiUserFormat)
+	return numbered(s.users, mediawiki.NormTitle(name), mediawiki.WikiUserFormat)
 }
 
 // userTalkPrefix is the prefix of a user's talk page, a namespace links do not otherwise name.

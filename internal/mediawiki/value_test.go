@@ -1,6 +1,7 @@
 package mediawiki
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -11,19 +12,19 @@ func TestParseValue(t *testing.T) {
 	tests := []struct {
 		name string
 		raw  string
-		want Value
+		want referenceValue
 	}{
 		{
 			name: emptyWord,
 			raw:  "  <!-- nothing -->  ",
-			want: Value{},
+			want: referenceValue{},
 		},
 		{
 			name: "category link with a parenthetical qualifier",
 			raw:  "[[:Category:Patriotic|Patriotic]] [[:Category:Patriotic (Northshield)|(Northshield)]]",
-			want: Value{
+			want: referenceValue{
 				Raw: "[[:Category:Patriotic|Patriotic]] [[:Category:Patriotic (Northshield)|(Northshield)]]",
-				Items: []ValueItem{
+				Items: []referenceItem{
 					{Type: ValueCategoryLink, Target: patriotic, Display: patriotic, Label: patriotic},
 					{Type: ValueCategoryLink, Target: "Patriotic (Northshield)", Display: "(Northshield)",
 						Label: "(Northshield)"},
@@ -33,9 +34,9 @@ func TestParseValue(t *testing.T) {
 		{
 			name: "verses and chorus",
 			raw:  "[[Wren Placeholder]] (verses) / [[Ash Placeholder]] (chorus)",
-			want: Value{
+			want: referenceValue{
 				Raw: "[[Wren Placeholder]] (verses) / [[Ash Placeholder]] (chorus)",
-				Items: []ValueItem{
+				Items: []referenceItem{
 					{Type: ValuePageLink, Target: wren, Label: wren},
 					{Type: ValueText, Label: "verses", Qualifies: wren, Depth: 1},
 					{Type: ValuePageLink, Target: ash, Label: ash},
@@ -48,9 +49,9 @@ func TestParseValue(t *testing.T) {
 		{
 			name: "link and anonymous",
 			raw:  "[[Wren Placeholder]] & anonymous",
-			want: Value{
+			want: referenceValue{
 				Raw: "[[Wren Placeholder]] & anonymous",
-				Items: []ValueItem{
+				Items: []referenceItem{
 					{Type: ValuePageLink, Target: wren, Label: wren},
 					{Type: ValueText, Label: "anonymous"},
 				},
@@ -61,9 +62,9 @@ func TestParseValue(t *testing.T) {
 		{
 			name: "unknown, possibly",
 			raw:  "Unknown; possibly Wren Placeholder AND Ash With Placeholder",
-			want: Value{
+			want: referenceValue{
 				Raw: "Unknown; possibly Wren Placeholder AND Ash With Placeholder",
-				Items: []ValueItem{
+				Items: []referenceItem{
 					{Type: ValueText, Label: "Unknown"},
 					{Type: ValueText, Label: "possibly Wren Placeholder"},
 					{Type: ValueText, Label: ashFirst},
@@ -76,9 +77,9 @@ func TestParseValue(t *testing.T) {
 		{
 			name: "link, probably",
 			raw:  "[[Wren Placeholder|Wren]], probably",
-			want: Value{
+			want: referenceValue{
 				Raw: "[[Wren Placeholder|Wren]], probably",
-				Items: []ValueItem{
+				Items: []referenceItem{
 					{Type: ValuePageLink, Target: wren, Display: wrenFirst, Label: wrenFirst},
 					{Type: ValueText, Label: "probably"},
 				},
@@ -89,9 +90,9 @@ func TestParseValue(t *testing.T) {
 		{
 			name: "external link, disputed",
 			raw:  "[https://example.org/w Wren &amp; Co] (Disputed)",
-			want: Value{
+			want: referenceValue{
 				Raw: "[https://example.org/w Wren &amp; Co] (Disputed)",
-				Items: []ValueItem{
+				Items: []referenceItem{
 					{Type: ValueExternalLink, URL: "https://example.org/w", Label: "Wren & Co"},
 					{Type: ValueText, Label: "Disputed", Qualifies: "Wren & Co", Depth: 1},
 				},
@@ -101,9 +102,9 @@ func TestParseValue(t *testing.T) {
 		{
 			name: "quotes, punctuation, line breaks, and an entity split at its semicolon as in the reference",
 			raw:  "''Wren’s'' &amp; - <br />'''Ash'''",
-			want: Value{
+			want: referenceValue{
 				Raw: "''Wren’s'' &amp; - <br />'''Ash'''",
-				Items: []ValueItem{
+				Items: []referenceItem{
 					{Type: ValueText, Label: "Wren’s &amp"},
 					{Type: ValueText, Label: ashFirst},
 				},
@@ -114,10 +115,10 @@ func TestParseValue(t *testing.T) {
 		{
 			name: "placeholder, interwiki and tag",
 			raw:  "[[Category:TagGoesHere]] [[w:Thing]] [https://example.org/]",
-			want: Value{
+			want: referenceValue{
 				Raw:         "[[Category:TagGoesHere]] [[w:Thing]] [https://example.org/]",
 				Placeholder: true,
-				Items: []ValueItem{
+				Items: []referenceItem{
 					{Type: ValueCategoryTag, Target: "TagGoesHere", Label: "TagGoesHere"},
 					{Type: ValueInterwiki, Target: "w:Thing", Label: "w:Thing"},
 					{Type: ValueExternalLink, URL: "https://example.org/", Label: "https://example.org/"},
@@ -127,24 +128,93 @@ func TestParseValue(t *testing.T) {
 		{
 			name: "qualifier with no item before it",
 			raw:  "(only) x",
-			want: Value{
+			want: referenceValue{
 				Raw:      "(only) x",
-				Items:    []ValueItem{{Type: ValueText, Label: "only"}, {Type: ValueText, Label: "x"}},
+				Items:    []referenceItem{{Type: ValueText, Label: "only"}, {Type: ValueText, Label: "x"}},
 				FreeText: "only | x",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ParseValue(tt.raw)
-			assert.Equal(t, tt.want, got)
-			assert.Equal(t, tt.want.Raw == "", got.Empty())
+			assert.Equal(t, tt.want, referenceParse(tt.raw))
 		})
 	}
 }
 
 func TestParseValue_DepthIsCapped(t *testing.T) {
 	raw := "[[Wren Placeholder]] " + strings.Repeat("(", MaxNestingDepth+5) + "deep"
-	got := ParseValue(raw)
+	got := referenceParse(raw)
 	assert.Equal(t, MaxNestingDepth, got.Items[1].Depth)
+}
+
+// referenceValue is a value in the shape the reference's parseValue gives, which the oracle compares: ParseValue's
+// value with the separators between its items (", ; / & and with <br>", lower case), its text items joined with
+// " | " (FreeText), and whether it holds a template placeholder such as TagGoesHere.
+type referenceValue struct {
+	Raw         string
+	Items       []referenceItem
+	Separators  []string
+	FreeText    string
+	Placeholder bool
+}
+
+// referenceItem is a ValueItem with a link's Display and, for a qualifying item, its Depth: the number of open
+// parentheses, at most MaxNestingDepth.
+type referenceItem struct {
+	Type      ValueItemType
+	Target    string
+	Display   string
+	URL       string
+	Label     string
+	Qualifies string
+	Depth     int
+}
+
+var referencePlaceholder = regexp.MustCompile(`(?i)TagGoesHere|TagNameHere|BardNameHere`)
+
+// referenceParse is ParseValue(raw) as a referenceValue, reading what the reference adds from the value's tokens.
+func referenceParse(raw string) referenceValue {
+	v := ParseValue(raw)
+	out := referenceValue{Raw: v.Raw, Placeholder: referencePlaceholder.MatchString(v.Raw)}
+	depth, k, parent := 0, 0, false
+	var free []string
+	for _, tk := range tokenizeValue(v.Raw) {
+		switch tk.kind {
+		case tokenOpen:
+			depth++
+
+			continue
+		case tokenClose:
+			depth = max(0, depth-1)
+
+			continue
+		case tokenSeparator:
+			out.Separators = append(out.Separators, tk.text)
+
+			continue
+		case tokenText, tokenWikilink, tokenExternal:
+		}
+		if _, ok := valueItem(tk); !ok {
+			continue
+		}
+		it := v.Items[k]
+		k++
+		ref := referenceItem{Type: it.Type, Target: it.Target, URL: it.URL, Label: it.Label, Qualifies: it.Qualifies}
+		if tk.kind == tokenWikilink {
+			ref.Display = FindWikilinks(tk.text)[0].Display
+		}
+		if depth > 0 && parent {
+			ref.Depth = min(depth, MaxNestingDepth)
+		} else {
+			parent = true
+		}
+		if it.Type == ValueText {
+			free = append(free, it.Label)
+		}
+		out.Items = append(out.Items, ref)
+	}
+	out.FreeText = strings.Join(free, " | ")
+
+	return out
 }

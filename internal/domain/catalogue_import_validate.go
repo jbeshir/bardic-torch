@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"slices"
+	"strings"
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
@@ -25,16 +25,17 @@ const (
 // Validate checks that the import can be written as it is: it mirrors every constraint of the catalogue schema
 // (migrations 003–009) and the document rules, so that a dry run that validates is an import that writes:
 //   - IDs are positive and unique per table (revisions across all entities), slugs are slugs and unique per table,
-//     legacy page IDs are unique per table, and sort keys and letters are set;
-//   - every string is valid UTF-8 in NFC and fits its column; every document has the current schema version and
-//     encodes and decodes (DecodeDocument, so every vocabulary value is known);
+//     legacy page IDs are unique per table, sort keys are set and each letter is its key's (SortLetter);
+//   - every string is valid UTF-8 in NFC, holds no control character (IsControlCharacter) and fits its column;
+//     every document has the current schema version and encodes and decodes (DecodeDocument, so every vocabulary
+//     value is known);
 //   - every reference resolves, and the parents (and related affiliations) of terms and the parents of collections
 //     come before them, so the writer can insert in list order;
 //   - the UNIQUE indexes and primary keys of the child tables hold, names compared as the collation compares them
 //     (CollationKey), and the CHECKs hold: a credit names a person iff its attribution is named, a period starts
 //     before it ends, a licence needs a known licensing status, nothing relates to itself;
 //   - each document link's URL normalises to a Links row whose fields it carries, roles aside;
-//   - TermAncestors is the closure of the terms' parents (TermClosure), and every summary is an import summary;
+//   - the terms' parents have a closure (TermAncestors), and every summary is an import summary;
 //   - no name, title, alias, slug, sort key or uploader holds a withheld-text placeholder (HoldsWithheldText): a
 //     name the import withholds is dropped with its entity, never published as a placeholder.
 //
@@ -190,11 +191,10 @@ func (v *importValidator) system(c *entityCheck, ids map[int64]bool, slugs map[s
 	}
 }
 
-// sortKey checks a sort key and its letter.
+// sortKey checks a sort key and its letter, which must be the key's (SortLetter).
 func (c *entityCheck) sortKey(key string, letter Letter, field string) {
 	c.name(key, field)
-	_, err := ParseLetter(string(letter))
-	c.require(err == nil, "sort_letter", "is not a letter")
+	c.require(letter == SortLetter(key), "sort_letter", "is not the letter of the sort key")
 }
 
 // document checks that doc has the current schema version and decodes as a document of its type.
@@ -214,7 +214,6 @@ func document[D Document](c *entityCheck, doc D, version int) {
 func (v *importValidator) checkTerms() error {
 	ids, slugs, legacy := map[int64]bool{}, map[string]bool{}, map[uint32]bool{}
 	names := map[string]bool{}
-	parents := map[int64]*int64{}
 	for _, t := range v.imp.Terms {
 		c := &entityCheck{entity: EntityTypeTerm, id: t.ID}
 		v.system(c, ids, slugs, &t.Slug, t.Legacy, legacy, t.Revision)
@@ -244,14 +243,9 @@ func (v *importValidator) checkTerms() error {
 		if c.err != nil {
 			return c.err
 		}
-		parents[t.ID] = d.ParentID
 	}
-	closure, err := TermClosure(parents)
-	if err != nil {
+	if _, err := v.imp.TermAncestors(); err != nil {
 		return fmt.Errorf("%w: terms: %w", ErrInvalidImport, err)
-	}
-	if !slices.Equal(closure, v.imp.TermAncestors) {
-		return fmt.Errorf("%w: term_ancestors: is not the closure of the terms' parents", ErrInvalidImport)
 	}
 
 	return nil
@@ -537,7 +531,8 @@ func (v *importValidator) checkLinks() error {
 	return nil
 }
 
-// checkStrings checks that every string of the import is valid UTF-8 in NFC.
+// checkStrings checks that every string of the import is valid UTF-8 in NFC and holds no control character
+// (IsControlCharacter).
 func (v *importValidator) checkStrings() error {
 	type entity struct {
 		entity EntityType
@@ -585,8 +580,12 @@ func normalizedStrings(entity EntityType, id int64, v reflect.Value, path string
 		return normalizedFieldStrings(entity, id, v, path)
 	}
 	if kind == reflect.String {
-		if s := v.String(); !utf8.ValidString(s) || !norm.NFC.IsNormalString(s) {
+		s := v.String()
+		if !utf8.ValidString(s) || !norm.NFC.IsNormalString(s) {
 			return invalid(entity, id, path, "is not valid UTF-8 in NFC")
+		}
+		if strings.ContainsFunc(s, IsControlCharacter) {
+			return invalid(entity, id, path, "holds a control character")
 		}
 	}
 

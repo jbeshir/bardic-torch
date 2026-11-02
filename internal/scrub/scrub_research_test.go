@@ -130,7 +130,7 @@ func countCorpus(d mediawiki.Dump) corpusCounts {
 		pagesByID: map[int64]pageCounts{}}
 	maxYear := mediawiki.LatestYear(d.Pages)
 	for _, p := range d.Pages {
-		if KeptNamespaces[p.NS] {
+		if mediawiki.IsContentNamespace(p.NS) {
 			c.addPage(p, countPage(p, maxYear))
 		}
 	}
@@ -140,13 +140,13 @@ func countCorpus(d mediawiki.Dump) corpusCounts {
 	for _, cat := range d.Categories {
 		c.Categories++
 		for _, m := range cat.Pages {
-			if KeptNamespaces[m.NS] {
+			if mediawiki.IsContentNamespace(m.NS) {
 				c.CategoryMembers++
 			}
 		}
 	}
 	for _, a := range d.Activity {
-		if KeptNamespaces[a.NS] {
+		if mediawiki.IsContentNamespace(a.NS) {
 			c.ActivityPages++
 		}
 	}

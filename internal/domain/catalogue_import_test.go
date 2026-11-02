@@ -45,7 +45,6 @@ func validImport() CatalogueImport {
 				DisplayName: "Patriotic (Calontir)", RelatedAffiliationID: ptr(int64(2)), Aliases: []string{}},
 				Legacy: &LegacyPage{PageID: ptr(uint32(30)), Title: "Category:Patriotic (Calontir)"}},
 		},
-		TermAncestors: []TermAncestor{{1, 1, 0}, {2, 2, 0}, {1, 2, 1}, {3, 3, 0}},
 		Collections: []ImportedCollection{{ID: 1, SortName: "Songbook", SortLetter: "S", Revision: importRevision(4),
 			Doc: CollectionDocument{SchemaVersion: DocumentSchemaVersion, Name: "Songbook",
 				URL: ptr("https://example.org/"), Kind: CollectionKindWebsite, RegionTermID: ptr(int64(2)),
@@ -116,6 +115,8 @@ func TestCatalogueImportValidate_IDsAndSlugs(t *testing.T) {
 		imp.Persons[1].Legacy = &LegacyPage{PageID: ptr(uint32(10)), Title: secretValue}
 	}, "person 2: legacy_wiki_pageid")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].SortLetter = "s" }, "piece 1: sort_letter")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].SortLetter = "T" }, "piece 1: sort_letter")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].SortLetter = LetterOther }, "person 1: sort_letter")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Collections[0].SortName = "" }, "collection 1: sort_name")
 }
 
@@ -257,8 +258,11 @@ func TestCatalogueImportValidate_Links(t *testing.T) {
 		"doc.links[0].url")
 }
 
-func TestCatalogueImportValidate_ClosureMatchesTerms(t *testing.T) {
-	requireInvalid(t, func(imp *CatalogueImport) { imp.TermAncestors = imp.TermAncestors[1:] }, "term_ancestors")
+func TestCatalogueImport_TermAncestors(t *testing.T) {
+	ancestors, err := validImport().TermAncestors()
+
+	require.NoError(t, err)
+	assert.Equal(t, []TermAncestor{{1, 1, 0}, {2, 2, 0}, {1, 2, 1}, {3, 3, 0}}, ancestors)
 }
 
 func TestCatalogueImportValidate_StringsAreNFC(t *testing.T) {
@@ -266,6 +270,25 @@ func TestCatalogueImportValidate_StringsAreNFC(t *testing.T) {
 		"piece 1: .Doc.Title")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Revision.Contributors = []string{"\xff"} },
 		"person 1: .Revision.Contributors[0]")
+}
+
+func TestCatalogueImportValidate_StringsHoldNoControlCharacters(t *testing.T) {
+	for _, c := range []string{"\x00", "\x1b[31m", "\u202e", "\u2066", "\u0085"} {
+		requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = "A" + c + secretValue },
+			"piece 1: .Doc.Title")
+	}
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Revision.Contributors = []string{"Wiki\x1bUser"} },
+		"person 1: .Revision.Contributors[0]")
+}
+
+func TestIsControlCharacter(t *testing.T) {
+	for _, r := range []rune{0, 0x1b, '\r', 0x7f, 0x85, 0x9f, 0x202a, 0x202e, 0x2066, 0x2069} {
+		assert.True(t, IsControlCharacter(r), "%U", r)
+	}
+	for _, r := range []rune{'\t', '\n', ' ', 'a', 0xa0, 0x200d, 0x2029, 0x2070} {
+		assert.False(t, IsControlCharacter(r), "%U", r)
+	}
+	assert.Equal(t, "Ash\tand\nRowan", WithoutControlCharacters("A\x00sh\tand\u202e\nRow\x1ban"))
 }
 
 func TestIsImportSummary(t *testing.T) {

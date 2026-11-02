@@ -243,16 +243,6 @@ func (p Persons) Resolve(n PersonName) (PersonRef, bool) {
 	return ref, ok
 }
 
-// Stub returns the stub person named ref.
-func (p Persons) Stub(ref PersonRef) (StubPerson, bool) {
-	k := slices.IndexFunc(p.Stubs, func(s StubPerson) bool { return PersonRef(s.Name) == ref })
-	if k < 0 {
-		return StubPerson{}, false
-	}
-
-	return p.Stubs[k], true
-}
-
 var groupName = regexp.MustCompile(`(?i)\b(?:band|ensemble|consort|choir|chorus|quartet|trio|duo|players|waits|` +
 	`company|brothers|sisters)\b|&|\band\b`)
 

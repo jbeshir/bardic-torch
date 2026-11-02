@@ -2,6 +2,7 @@ package mediawiki
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -171,8 +172,9 @@ func commentBlocks(wikitext string, sections []Section) []LyricsBlock {
 	return out
 }
 
-// mergeBlocks sorts blocks and merges overlapping ones into the first, keeping its kind and section.
+// mergeBlocks returns blocks sorted, with overlapping ones merged into the first, keeping its kind and section.
 func mergeBlocks(blocks []LyricsBlock) []LyricsBlock {
+	blocks = slices.Clone(blocks)
 	sortBlocks(blocks)
 	var out []LyricsBlock
 	for _, b := range blocks {

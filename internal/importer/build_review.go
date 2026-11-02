@@ -2,18 +2,14 @@ package importer
 
 import (
 	"fmt"
-	"regexp"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 	"unicode"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
-
-// possessiveLabel is a collection label that starts with what may be a person's name in the possessive
-// ("First Last's Songbook").
-var possessiveLabel = regexp.MustCompile(`^\p{Lu}[\p{L}.'’-]*(?: \p{Lu}[\p{L}.'’-]*){1,3}['’]s\b`)
 
 // reviewCorpus adds the review items that come from the corpus rather than from building one entity.
 func (b *builder) reviewCorpus() {
@@ -352,7 +348,7 @@ func (b *builder) reviewCollections() {
 			b.review.Collections = append(b.review.Collections, item("regions", page, "%s names several kingdoms "+
 				"(%s): no region is set.", r.NormalizedURL, strings.Join(r.RegionCandidates, ", ")))
 		}
-		if possessiveLabel.MatchString(r.Label) {
+		if mediawiki.PossessiveName.MatchString(r.Label) {
 			b.review.Collections = append(b.review.Collections, item("possessive_label", page, "The label of %s "+
 				"may name a person (%q): check it may be public.", r.NormalizedURL, r.Label))
 		}
@@ -374,11 +370,7 @@ func (b *builder) reviewContributors() {
 			edits[u] += n
 		}
 	}
-	users := make([]string, 0, len(edits))
-	for u := range edits {
-		users = append(users, u)
-	}
-	sort.Strings(users)
+	users := slices.Sorted(maps.Keys(edits))
 	hidden := map[string]bool{}
 	for _, n := range b.w.legal {
 		hidden[mediawiki.FoldName(n.Text)] = true
@@ -417,7 +409,7 @@ func personNameShaped(u string) bool {
 
 func (b *builder) counts() Counts {
 	c := Counts{PiecesByKind: map[string]int{}, Terms: len(b.out.Terms), Collections: len(b.out.Collections),
-		Events: len(b.out.Events), Links: len(b.out.Links), Persons: len(b.out.Persons),
+		Events: len(b.out.Events), Links: len(b.out.Links),
 		CollectionEntries: b.c.Links.Collections.Entries()}
 	for _, p := range b.out.Pieces {
 		if p.LegacyHadInlineLyrics {

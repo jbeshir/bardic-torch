@@ -2,7 +2,6 @@ package importer
 
 import (
 	"net/url"
-	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -15,11 +14,6 @@ import (
 
 // contextRunes is how much text on each side of a withheld span the review shows.
 const contextRunes = 40
-
-// placeholderNumber is the number ending a scrubbed copy's placeholder ("Legal Name 001", "Wiki User 01"), which
-// the matcher does not take as part of the name. It is withheld with the placeholder, so that public text never
-// shows a withheld name's number.
-var placeholderNumber = regexp.MustCompile(`^[ _-]?[0-9]{2,3}\b`)
 
 // withholder withholds private names and email addresses from public fields. It knows two kinds of private name:
 //   - legal names: every alias the import hides, the corpus's legal names (mediawiki.PrivateName.Legal) and the
@@ -166,8 +160,9 @@ func withheldSpans(s string, m mediawiki.PrivateNameMatcher) []span {
 	links := mediawiki.FindWikilinks(s)
 	for _, f := range m.Find(s) {
 		sp := span{start: f.Start, end: f.End}
+		// The number ending a placeholder is withheld with it, so public text never shows a withheld name's number.
 		if mediawiki.IsPlaceholderName(s[sp.start:sp.end]) {
-			sp.end += len(placeholderNumber.FindString(s[sp.end:]))
+			sp.end += len(mediawiki.PlaceholderNumber.FindString(s[sp.end:]))
 		}
 		for _, l := range links {
 			if l.Start <= sp.start && sp.end <= l.End {

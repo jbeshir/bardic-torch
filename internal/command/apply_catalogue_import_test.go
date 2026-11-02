@@ -19,7 +19,6 @@ func oneTermImport() domain.CatalogueImport {
 			Summary: domain.ImportSummaryCategory, Contributors: []string{}, CreatedAt: fixedNow},
 			Doc: domain.TermDocument{SchemaVersion: domain.DocumentSchemaVersion, Facet: domain.FacetAffiliation,
 				Name: "SCA", DisplayName: "SCA", Aliases: []string{}}}},
-		TermAncestors: []domain.TermAncestor{{AncestorID: 1, DescendantID: 1, Depth: 0}},
 	}
 }
 
@@ -39,7 +38,7 @@ func TestApplyCatalogueImport_ValidatesBeforeWriting(t *testing.T) {
 	t.Parallel()
 
 	imp := oneTermImport()
-	imp.TermAncestors = nil
+	imp.Terms[0].Slug = ""
 	// The mock fails the test if it is called.
 	importer := mocks.NewCatalogueImporter(t)
 

@@ -7,7 +7,7 @@ import (
 
 // Snapshot views are what the public API shows of a stored snapshot document. A document is never served as
 // stored: it references other entities by internal ID and may hold what a public read must not show. A view
-// holds the document's editor-owned fields, except preference profiles (which nothing exposes until BE5), with:
+// holds the document's editor-owned fields, except preference profiles (which nothing exposes yet), with:
 //   - each reference resolved to the entity's summary as it is now, or left out if the entity is not public now;
 //   - each link shown by URL, and only if its normalized URL (NormalizeURL) is that of a link that is not hidden
 //     now, and of no hidden link: a link since hidden, deleted, or given a URL that normalizes otherwise is left

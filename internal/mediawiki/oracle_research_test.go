@@ -22,7 +22,7 @@ var oracleDeviations = map[string]string{
 	"lyrics.prose_lines": "a Lyrics/Text section's prose lines are every line that is not blank, a hint or " +
 		"carrying a link, whatever its first character; the reference skips lines starting with * # : { | } !",
 	"pages.test_type": "the template test page Roses of the East is typed test; the reference types it other",
-	"links.dedupe": "an external URL repeated on a page is one link with several roles (chunk 6); the reference " +
+	"links.dedupe": "an external URL repeated on a page is one link with several roles (PLAN §7); the reference " +
 		"lists each occurrence",
 	"links.repaired_markup": "external links are read after RepairMarkup, so a double-bracket URL ([[https://… text]]) " +
 		"is a bracketed link with its text; pages with one are skipped in the occurrence comparison",
@@ -217,7 +217,7 @@ func compareSection(t *testing.T, pageID int64, k int, want oracleSection, got P
 	wikidumptest.Equal(t, at("level"), want.Level, got.Level)
 	wikidumptest.Equal(t, at("heading"), deref(want.Heading), got.Heading)
 	wikidumptest.Equal(t, at("key"), want.Key, got.Key)
-	wikidumptest.Equal(t, at("status"), want.Status == emptyWord, got.Content.Empty())
+	wikidumptest.Equal(t, at("status"), want.Status == emptyWord, got.Content.MeaningfulLines == 0)
 	gotItems := make([]oracleItem, 0, len(got.Content.Items))
 	for _, it := range got.Content.Items {
 		gotItems = append(gotItems, oracleItem(it))
@@ -262,12 +262,13 @@ func TestResearchOracle_Infoboxes(t *testing.T) {
 			want := piece.Infobox[name]
 			got, _ := box.Param(name)
 			wikidumptest.Equal(t, at("raw", k), want.Raw, got.Raw)
-			wikidumptest.Equal(t, at("value.raw", k), want.Parsed.Raw, got.Value.Raw)
-			wikidumptest.Equal(t, at("value.placeholder", k), want.Parsed.Placeholder, got.Value.Placeholder)
-			wikidumptest.Equal(t, at("value.free_text", k), deref(want.Parsed.FreeText), got.Value.FreeText)
-			wikidumptest.Equal(t, at("value.separators", k), nonNil(want.Parsed.Separators), nonNil(got.Value.Separators))
-			gotItems := make([]oracleValueItem, 0, len(got.Value.Items))
-			for _, it := range got.Value.Items {
+			value := referenceParse(got.Raw)
+			wikidumptest.Equal(t, at("value.raw", k), want.Parsed.Raw, value.Raw)
+			wikidumptest.Equal(t, at("value.placeholder", k), want.Parsed.Placeholder, value.Placeholder)
+			wikidumptest.Equal(t, at("value.free_text", k), deref(want.Parsed.FreeText), value.FreeText)
+			wikidumptest.Equal(t, at("value.separators", k), nonNil(want.Parsed.Separators), nonNil(value.Separators))
+			gotItems := make([]oracleValueItem, 0, len(value.Items))
+			for _, it := range value.Items {
 				gotItems = append(gotItems, oracleValueItem(it))
 			}
 			wikidumptest.Equal(t, at("value.items", k), want.Parsed.Items, gotItems)

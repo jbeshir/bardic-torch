@@ -199,8 +199,8 @@ events.legacy_title                    ! imported from the legacy wiki; never ed
 
 // nonDocumentTables lists the tables no document owns, one per line with the reason.
 const nonDocumentTables = `
-users                  ! accounts (BE1)
-api_tokens             ! accounts (BE1)
+users                  ! accounts
+api_tokens             ! accounts
 revisions              ! the revision workflow that stores the documents
 revision_contributors  ! the revision workflow that stores the documents
 term_ancestors         ! derived from terms.parent_id by the importer and when a term revision is approved

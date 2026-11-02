@@ -9,7 +9,7 @@ import (
 )
 
 // historicalBefore is the century origin a piece must start before for its stub credits to be guessed historical
-// persons (N-2): a pre-1900 name with no SCA name form is a historical writer, not a community bard.
+// persons: a pre-1900 name with no SCA name form is a historical writer, not a community bard.
 const historicalBefore = 1900
 
 // traditionalCategory is the origin category of traditional and folk pieces, whose named writers are historical
@@ -138,7 +138,7 @@ func (b *builder) status(doc *domain.PersonDocument, bard mediawiki.BardRecord) 
 	if bard.StatusSourceURL != "" && !b.w.hidesURL(bard.StatusSourceURL) {
 		source, from = bard.StatusSourceURL, "the link its date is read from"
 	}
-	doc.StatusSourceURL = optional(source)
+	doc.StatusSourceURL = optionalURL(source)
 	b.review.Persons = append(b.review.Persons, item("status", bard.Title,
 		"Status %s (date: %s) from the In Memoriam category, sourced to %s: %s.", bard.Status,
 		dateText(bard.StatusDate), from, source))

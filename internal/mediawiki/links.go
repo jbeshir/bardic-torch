@@ -103,19 +103,30 @@ var platformHosts = map[string]string{
 	"gutenberg.org": PlatformGutenberg,
 }
 
-// linkPlatform is the platform of a link, by normalised URL: a named platform by host, pdf for a PDF file, or else
-// the host.
-func linkPlatform(normalized *url.URL) string {
-	host := normalized.Hostname()
+// hostOrParent is the value in hosts of host or of its nearest parent domain ("youtube.com" for
+// "m.youtube.com").
+func hostOrParent[T any](host string, hosts map[string]T) (T, bool) {
 	for h := host; h != ""; {
-		if p, ok := platformHosts[h]; ok {
-			return p
+		if v, ok := hosts[h]; ok {
+			return v, true
 		}
 		_, parent, ok := strings.Cut(h, ".")
 		if !ok {
 			break
 		}
 		h = parent
+	}
+	var none T
+
+	return none, false
+}
+
+// linkPlatform is the platform of a link, by normalised URL: a named platform by host, pdf for a PDF file, or else
+// the host.
+func linkPlatform(normalized *url.URL) string {
+	host := normalized.Hostname()
+	if p, ok := hostOrParent(host, platformHosts); ok {
+		return p
 	}
 	if strings.EqualFold(path.Ext(normalized.Path), ".pdf") {
 		return PlatformPDF
@@ -361,13 +372,6 @@ func placeType(l LinkRecord, ctx linkContext) domain.LinkPlaceType {
 }
 
 // trackingParameter is a query parameter that only tracks, as the reference's quality report finds them.
-var trackingParameter = regexp.MustCompile(`[?&](si|feature|utm_[a-z]+|authuser|list|start_radio|pp)=`)
-
-// HasTrackingParameter reports whether a URL, as entered, has a tracking parameter.
-func HasTrackingParameter(rawURL string) bool {
-	return trackingParameter.MatchString(rawURL)
-}
-
 // RepeatedURLs are the URLs, as entered, that a page's occurrences hold more than once, in first-seen order.
 func (p PageLinks) RepeatedURLs() []string {
 	count := map[string]int{}

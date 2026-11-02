@@ -362,7 +362,7 @@ the DDL is in `migrations/003`–`009`.
 
 ## 7. Importer (`cmd/import-mediawiki`)
 
-**Input:** the research dump format (`pages.jsonl`, `categories.json`, `redirects.json` and `activity.json`). Reading a live crawl of the wiki directly is deferred (a backlog item): the research `scripts/crawl.mjs` produces a dump, which is the input. The research `scripts/` define the expected behaviour and are ported to Go. A **scrubbed** copy of the dump is committed under `testdata/wiki-dump/` (regenerated with `cmd/scrub-dump`), so tests are deterministic and need no network: legal and mundane names (the aliases the importer classifies as legal, every other possible person name it cannot classify confidently as public, and their honorific forms; the candidates are H1 and "Name (Name)" parentheticals, the legal/mundane/real-name and "aka" markers, uploaders, and in prose and link titles the names after "by", "from", "credited to", "attributed to" or "copyright", either side of "/", "and" or "&", before a possessive such as "'s YouTube" or "'s blog" or a verb such as "singing", in an "also known as" list, and a link label its website's host spells; a name paired by "/" with a person's public name is a legal name), emails, phones and wiki user names are replaced with numbered placeholders, the same number everywhere a name occurs (wikitext, titles, categories, redirects, activity); inline lyrics with placeholder lines (keeping the ≥4-line classification); and only the namespaces, files and fields the importer reads are kept. Every count the tests assert is preserved. No name is hashed into the repository: `testdata/wiki-dump/denylist.txt` holds only salted hashes of the dropped lyrics' 8-word n-grams, and a unit test fails if any appears anywhere in the repository. The names, emails and phones are checked in clear, against the whole repository, by tests that run only when `BARDIC_RESEARCH_DIR` points at the research output, which is never committed; so do the tests against the real dump and the research oracle (`analysis/*.json`).
+**Input:** the research dump format (`pages.jsonl`, `categories.json`, `redirects.json` and `activity.json`). Reading a live crawl of the wiki directly is deferred to a later milestone: the research `scripts/crawl.mjs` produces a dump, which is the input. The research `scripts/` define the expected behaviour and are ported to Go. A **scrubbed** copy of the dump is committed under `testdata/wiki-dump/` (regenerated with `cmd/scrub-dump`), so tests are deterministic and need no network: legal and mundane names (the aliases the importer classifies as legal, every other possible person name it cannot classify confidently as public, and their honorific forms; the candidates are H1 and "Name (Name)" parentheticals, the legal/mundane/real-name and "aka" markers, uploaders, and in prose and link titles the names after "by", "from", "credited to", "attributed to" or "copyright", either side of "/", "and" or "&", before a possessive such as "'s YouTube" or "'s blog" or a verb such as "singing", in an "also known as" list, and a link label its website's host spells; a name paired by "/" with a person's public name is a legal name), emails, phones and wiki user names are replaced with numbered placeholders, the same number everywhere a name occurs (wikitext, titles, categories, redirects, activity); inline lyrics with placeholder lines (keeping the ≥4-line classification); and only the namespaces, files and fields the importer reads are kept. Every count the tests assert is preserved. No name is hashed into the repository: `testdata/wiki-dump/denylist.txt` holds only salted hashes of the dropped lyrics' 8-word n-grams, and a unit test fails if any appears anywhere in the repository. The names, emails and phones are checked in clear, against the whole repository, by tests that run only when `BARDIC_RESEARCH_DIR` points at the research output, which is never committed; so do the tests against the real dump and the research oracle (`analysis/*.json`).
 
 **Steps** (report §8):
 1. Type the pages: Pieces / Bards, skipping meta pages, redirects and the test page.
@@ -387,8 +387,8 @@ the DDL is in `migrations/003`–`009`.
    but the title, description and locator are kept only when every document gives the same; otherwise the title is
    the link's collection's name, or none, and the description and locator none. A PDF that pages cite at different
    pages is first given each page's open parameter (`…pdf#page=14`), so each page is a link of its own with its own
-   locator. Every difference is listed with the page's own fields (per-attachment titles and locators are a
-   backlog item). Infobox credits naming a person by an external link attach it to the person
+   locator. Every difference is listed with the page's own fields (per-attachment titles and locators are
+   deferred). Infobox credits naming a person by an external link attach it to the person
    (external_profile). The Collections page's duplicate URL is merged into one collection and listed.
 7. Parse performance descriptions; the verbatim text is always kept (the import redacts hidden names in it).
    Performers ("of [[X]]") are matched as persons, or become stubs; events come from "at <event>", one per folded
@@ -407,7 +407,8 @@ the DDL is in `migrations/003`–`009`.
     and it never holds lyrics (only their page, section and line count).
 
 **Writing into the BE2 schema** (§4.1):
-- Write sort keys and `sort_letter`. Build the `term_ancestors` closure, including each term's row for itself.
+- Write sort keys and `sort_letter` (`Validate` checks each letter is its key's). Build the `term_ancestors`
+  closure from the terms' parents (`CatalogueImport.TermAncestors`), including each term's row for itself.
 - Source a non-active person status to the link its date is read from (an obituary on the "Deceased <date>" line),
   unless that link is imported hidden; otherwise to the legacy page URL. The conservation source is the piece's
   legacy page URL (the wiki gives no other).
@@ -437,12 +438,21 @@ the DDL is in `migrations/003`–`009`.
 - A link whose URL holds a legal name is imported hidden (`links.is_hidden`); a URL holding an unsure name or a
   home directory (`/~user`) is listed. URLs are never rewritten to withhold a name. Link URLs, and the URLs in
   performance descriptions, are stored without the tracking parameters `NormalizeURL` drops (`si` share tokens can
-  tie a link to its sharer; `domain.WithoutTrackingParameters`), so the stored URL still normalizes to its
+  tie a link to its sharer; `domain.WithoutTrackingParameters`) and absolute (a "www." or "//" URL gets https,
+  `domain.WithScheme`, so it is never a relative link), so the stored URL still normalizes to its
   `normalized_url`. Every withheld span, left-out entity, hidden link
   and listed URL is an item of `import-review.md`, so moderators can restore what may be public. Wiki user names
   credited as revision contributors are listed, flagged when one matches a private name or is shaped like a
   personal name ("Firstname Lastname"). No licence is inferred from prose ("public domain" is a review item).
-- Normalise every imported string to NFC; list names that `domain.CheckTextCharacters` rejects.
+- Normalise every imported string to NFC; list names that `domain.CheckTextCharacters` rejects. Drop control
+  characters (C0 and C1 controls but tab and line feed, such as NUL and ESC, and the bidirectional embeddings,
+  overrides and isolates U+202A–U+202E and U+2066–U+2069) from every imported string, and list each field that had
+  them; in a URL they are percent-encoded instead, so it normalizes as before. `Validate` rejects any left.
+- Convert wikitext to Markdown with no syntax but the converted one: text is escaped (a "!" before a converted
+  link too, so it never becomes an image, and no raw HTML), and links point only to absolute http(s) URLs (a
+  "www." or "//" URL gets https) without tracking parameters. The parsers are linear on hostile input (an
+  unclosed "[http://" before many tokens, one very long word): pages are capped at 2 MiB, and tests hold each
+  parser to a time budget at that size.
 - Check the whole import before writing (`CatalogueImport.Validate`): it mirrors every constraint of the schema
   (unique keys as the collation compares them, primary keys, column widths, CHECKs, references and insert order),
   with error messages that name the entity, ID and field, never a value.
@@ -456,7 +466,8 @@ the DDL is in `migrations/003`–`009`.
   first), events, persons and their child tables, pieces and their child tables, conservation history (one row
   per assessed piece, at its revision), links, link attachments, performances and performers. Each entity row
   carries its revision as `current_revision_id`. Any error rolls everything back, and a refused row is reported
-  by table and MySQL error number only, never with the server's message, which quotes values.
+  by step (the table, the lock, the commit) and MySQL error number only, never with the server's message, which
+  quotes values; a malformed `DATABASE_URL` is reported without the URL, which holds the password.
 - Write documents with editor-owned fields only. Write the link system state directly: `is_hidden` for a link whose
   URL holds a private name, and liveness left at the column default (`unknown`; the wiki records none).
 - Write revision `summary` text from a fixed set of neutral templates ("Imported from the wiki (page revision N).",
@@ -471,7 +482,9 @@ the DDL is in `migrations/003`–`009`.
 **Modes:** `import-mediawiki --dump DIR (--dry-run | --apply) --review PATH`. Both modes build and validate the
 import and write `import-review.md` to `PATH`, which is required, refused inside the repository and written with
 mode 0600, then print counts only. `--dry-run` stops there: it never reads `DATABASE_URL` or opens a database.
-`--apply` writes the review before it opens the transaction, then writes the import into the empty catalogue at
+The review path is checked with its symbolic links resolved (a link to a file in the repository is refused) and
+the file is opened without following a link. `--apply` writes the review before it opens the transaction, then
+writes the import into the empty catalogue at
 `DATABASE_URL`. The launch run is in DEPLOY.md ("Importing the legacy wiki"): a dry run, the moderators' review,
 then `--apply` once against the empty production database.
 

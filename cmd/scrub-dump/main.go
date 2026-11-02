@@ -13,9 +13,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
@@ -27,7 +28,7 @@ var (
 	// ErrUsage is returned for a command line without --in or --out.
 	ErrUsage = errors.New("usage: scrub-dump --in DIR --out DIR [--candidates FILE]")
 	// ErrInsideRepository is returned when --candidates names a file inside this repository, which is public.
-	ErrInsideRepository = errors.New("the candidates list names real people and must be written outside the repository")
+	ErrInsideRepository = fmt.Errorf("%w: the candidates list names real people", repopath.ErrInsideRepository)
 )
 
 func main() {
@@ -87,8 +88,8 @@ func run(args []string, stdout io.Writer) error {
 		return err
 	}
 	if o.candidates != "" {
-		if err := os.WriteFile(o.candidates, candidatesList(res.Candidates), 0o600); err != nil {
-			return err
+		if err := repopath.WritePrivate(o.candidates, candidatesList(res.Candidates)); err != nil {
+			return fmt.Errorf("writing the candidates list: %w", err)
 		}
 	}
 
@@ -99,23 +100,13 @@ func writeFiles(dir string, files map[string][]byte) error {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
-	for _, name := range sortedNames(files) {
+	for _, name := range slices.Sorted(maps.Keys(files)) {
 		if err := os.WriteFile(filepath.Join(dir, name), files[name], 0o600); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func sortedNames(files map[string][]byte) []string {
-	names := make([]string, 0, len(files))
-	for name := range files {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	return names
 }
 
 // printCounts prints what was scrubbed, as counts only.
@@ -136,12 +127,7 @@ func printCounts(w io.Writer, res scrub.Result) error {
 		fmt.Sprintf("lyrics blocks: poem %d, prose %d, comment %d; deny list digests %d", s.PoemBlocks, s.ProseBlocks,
 			s.CommentBlocks, res.Denylist.Len()),
 	}
-	keys := make([]string, 0, len(reasons))
-	for k := range reasons {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
+	for _, k := range slices.Sorted(maps.Keys(reasons)) {
 		lines = append(lines, fmt.Sprintf("candidates %s: %d", k, reasons[k]))
 	}
 	_, err := fmt.Fprintln(w, strings.Join(lines, "\n"))

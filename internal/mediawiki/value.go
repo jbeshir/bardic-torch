@@ -18,42 +18,26 @@ const (
 	ValueText         ValueItemType = "text"
 )
 
-// Value is an infobox parameter value split into items. Raw is the value without comments, trimmed. Separators
-// are the separators between items in order (", ; / & and with <br>", lower case). FreeText joins the text items
-// with " | ". Placeholder reports a template placeholder such as TagGoesHere.
+// Value is an infobox parameter value split into items. Raw is the value without comments, trimmed.
 type Value struct {
-	Raw         string
-	Items       []ValueItem
-	Separators  []string
-	FreeText    string
-	Placeholder bool
+	Raw   string
+	Items []ValueItem
 }
 
-// Empty reports whether the value has no content.
-func (v Value) Empty() bool {
-	return v.Raw == ""
-}
-
-// ValueItem is one item of a value. Links have a Target (a normalised title; an interwiki target as written) and
-// may have a Display; external links have a URL. Label is what the item shows. An item inside parentheses after
-// another item qualifies it: Qualifies is the qualified item's label and Depth the number of open parentheses,
-// at most MaxNestingDepth.
+// ValueItem is one item of a value. Links have a Target (a normalised title; an interwiki target as written);
+// external links have a URL. Label is what the item shows. An item inside parentheses after another item
+// qualifies it: Qualifies is the qualified item's label.
 type ValueItem struct {
 	Type      ValueItemType
 	Target    string
-	Display   string
 	URL       string
 	Label     string
 	Qualifies string
-	Depth     int
 }
 
 var (
-	valueToken = regexp.MustCompile(`(?i)\[\[[^\[\]]*\]\]|\[(?:https?:)?//[^\]]*\]|\(|\)|,|;|/|&|\band\b|\bwith\b|` +
-		`<br[` + jsSpaces + `]*/?>`)
-	valueEntity      = regexp.MustCompile(`^&\w+;`)
-	valuePlaceholder = regexp.MustCompile(`(?i)TagGoesHere|TagNameHere|BardNameHere`)
-	punctuationOnly  = regexp.MustCompile(`^[.\-–—:]+$`)
+	valueEntity     = regexp.MustCompile(`^&\w+;`)
+	punctuationOnly = regexp.MustCompile(`^[.\-–—:]+$`)
 )
 
 type valueTokenKind int
@@ -76,13 +60,9 @@ type valueTokenized struct {
 // marks the items inside parentheses as qualifying the item before them, as the reference's parseValue does.
 func ParseValue(raw string) Value {
 	v := trimSpace(StripComments(raw))
-	res := Value{Raw: v, Placeholder: valuePlaceholder.MatchString(v)}
-	if v == "" {
-		return res
-	}
+	res := Value{Raw: v}
 	depth := 0
 	var parent *ValueItem
-	var free []string
 	for _, tk := range tokenizeValue(v) {
 		switch tk.kind {
 		case tokenOpen:
@@ -94,8 +74,6 @@ func ParseValue(raw string) Value {
 
 			continue
 		case tokenSeparator:
-			res.Separators = append(res.Separators, tk.text)
-
 			continue
 		case tokenText, tokenWikilink, tokenExternal:
 		}
@@ -103,12 +81,8 @@ func ParseValue(raw string) Value {
 		if !ok {
 			continue
 		}
-		if item.Type == ValueText {
-			free = append(free, item.Label)
-		}
 		if depth > 0 && parent != nil {
 			item.Qualifies = parent.Label
-			item.Depth = min(depth, MaxNestingDepth)
 			res.Items = append(res.Items, item)
 
 			continue
@@ -116,7 +90,6 @@ func ParseValue(raw string) Value {
 		res.Items = append(res.Items, item)
 		parent = &item
 	}
-	res.FreeText = strings.Join(free, " | ")
 
 	return res
 }
@@ -129,7 +102,7 @@ func tokenizeValue(v string) []valueTokenized {
 		}
 	}
 	last := 0
-	for _, m := range valueToken.FindAllStringIndex(v, -1) {
+	for _, m := range valueTokens(v) {
 		s := v[m[0]:m[1]]
 		if s == "&" && valueEntity.MatchString(v[m[0]:]) {
 			continue
@@ -157,11 +130,52 @@ func tokenizeValue(v string) []valueTokenized {
 	return tokens
 }
 
+// valueTokens returns the offsets of the value's tokens, left to right without overlap: wikilinks, [//…] links up
+// to the first "]", parentheses and separators (, ; / & "and" "with" <br>).
+func valueTokens(v string) [][2]int {
+	var out [][2]int
+	sc := newTokenScanner(v)
+	for i := 0; i < len(v); {
+		end, ok := valueTokenAt(sc, i)
+		if !ok {
+			i++
+
+			continue
+		}
+		out = append(out, [2]int{i, end})
+		i = end
+	}
+
+	return out
+}
+
+func valueTokenAt(sc *tokenScanner, i int) (int, bool) {
+	switch sc.s[i] {
+	case '[':
+		if end, ok := sc.wikilinkAt(i); ok {
+			return end, true
+		}
+
+		return sc.valueLinkAt(i)
+	case '(', ')', ',', ';', '/', '&':
+		return i + 1, true
+	case '<':
+		return sc.lineBreakAt(i)
+	}
+	for _, word := range []string{"and", "with"} {
+		if end, ok := sc.wordAt(i, word); ok {
+			return end, true
+		}
+	}
+
+	return 0, false
+}
+
 func valueItem(tk valueTokenized) (ValueItem, bool) {
 	switch tk.kind {
 	case tokenWikilink:
 		l := FindWikilinks(tk.text)[0]
-		item := ValueItem{Type: ValuePageLink, Target: l.Target, Display: l.Display, Label: l.Label()}
+		item := ValueItem{Type: ValuePageLink, Target: l.Target, Label: l.Label()}
 		switch l.Kind {
 		case WikilinkCategoryLink:
 			item.Type = ValueCategoryLink

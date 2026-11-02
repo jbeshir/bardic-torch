@@ -193,6 +193,20 @@ func mustNormalize(t *testing.T, raw string) string {
 	return n
 }
 
+func TestWithControlCharactersEscaped(t *testing.T) {
+	raw := "https://en.wikipedia.org/wiki\x00\x1b[31m/Joan_\u202eof_Arc"
+	escaped := WithControlCharactersEscaped(raw)
+
+	assert.Equal(t, "https://en.wikipedia.org/wiki%00%1B[31m/Joan_%E2%80%AEof_Arc", escaped)
+	assert.False(t, strings.ContainsFunc(escaped, IsControlCharacter))
+	want, err := NormalizeURL(raw)
+	require.NoError(t, err)
+	got, err := NormalizeURL(escaped)
+	require.NoError(t, err)
+	assert.Equal(t, want, got, "both normalize the same")
+	assert.Equal(t, "https://example.org/a", WithControlCharactersEscaped("https://example.org/a"))
+}
+
 func TestNormalizeURL_KeepsMeaningfulParameters(t *testing.T) {
 	t.Parallel()
 	runURLCases(t, meaningfulParameterCases)

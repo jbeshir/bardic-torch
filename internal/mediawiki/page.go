@@ -193,11 +193,6 @@ type SectionContent struct {
 	PlainText       string
 }
 
-// Empty reports whether the section has no content.
-func (c SectionContent) Empty() bool {
-	return c.MeaningfulLines == 0
-}
-
 // ListItem is one "*" or "#" line: Depth is the number of leading list markers, Raw the wikitext after them and
 // Text its plain text.
 type ListItem struct {

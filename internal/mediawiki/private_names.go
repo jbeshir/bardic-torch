@@ -2,8 +2,8 @@ package mediawiki
 
 import (
 	"regexp"
+	"slices"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 )
 
@@ -301,7 +301,8 @@ func foldedWords(text string) []string {
 
 // withoutPossessive drops the "s" of a final "'s" from words, the folded words of name.
 func withoutPossessive(name string, words []string) []string {
-	if strings.HasSuffix(name, "'s") || strings.HasSuffix(name, "’s") {
+	stem, possessive := strings.CutSuffix(name, "s")
+	if r, _ := utf8.DecodeLastRuneInString(stem); possessive && isApostrophe(r) {
 		return words[:len(words)-1]
 	}
 
@@ -309,39 +310,8 @@ func withoutPossessive(name string, words []string) []string {
 }
 
 func hasCapitalisedWord(text string) bool {
-	for _, w := range strings.Fields(text) {
-		if r, _ := utf8.DecodeRuneInString(w); unicode.IsUpper(r) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(strings.Fields(text), isCapitalised)
 }
-
-// IsPlaceholderName reports whether text holds a placeholder the scrubber (internal/scrub) writes, in any of its
-// forms: "Legal Name 001", "legal-name-001", "LegalName001" or "Wiki User 01". A placeholder is never decided on
-// again, so scrubbing the scrubbed copy changes nothing.
-func IsPlaceholderName(text string) bool {
-	words := Words(text)
-	for k, w := range words {
-		if strings.HasPrefix(w.Folded, "legalname") {
-			return true
-		}
-		if k+1 < len(words) && (w.Folded == "legal" && words[k+1].Folded == "name" ||
-			w.Folded == "wiki" && words[k+1].Folded == "user") {
-			return true
-		}
-	}
-
-	return false
-}
-
-// Honorifics are the honorifics whose forms with a legal name's surname ("Mr. Surname") are private too.
-var Honorifics = []string{"Mr", "Mrs", "Ms", "Mx", "Dr", "Miss"}
-
-// HonorificName matches an honorific and the capitalised word after it ("Mr. Surname"): in prose, a person's
-// surname, which the scrubber replaces and the importer withholds whoever it names.
-var HonorificName = regexp.MustCompile(`\b(?:Mr|Mrs|Ms|Mx|Dr|Miss)\.?[ \t]+(\p{Lu}[\p{L}\p{M}'’-]*)`)
 
 // EmailAddress matches an email address.
 var EmailAddress = regexp.MustCompile(`[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+`)
@@ -400,7 +370,7 @@ func NewPrivateNameMatcher(names []PrivateName) PrivateNameMatcher {
 		if parts := strings.Split(surnames[0], "-"); len(parts) > 1 {
 			surnames = append(surnames, parts...)
 		}
-		for _, h := range Honorifics {
+		for _, h := range honorifics {
 			for _, surname := range surnames {
 				if len(Words(surname)) > 0 {
 					add(h+" "+surname, privateNameForm{name: k, multiword: true, honorific: true})

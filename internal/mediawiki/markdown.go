@@ -3,11 +3,11 @@ package mediawiki
 import (
 	"regexp"
 	"strings"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 var (
-	markdownInline = regexp.MustCompile(`(?i)\[\[[^\[\]]*\]\]|\[(?:(?:https?:)?//|www\.)[^\]` + jsSpaces + `]+(?:[` +
-		jsSpaces + `]+[^\]]*)?\]|'{2,5}|<br[` + jsSpaces + `]*/?>|</?[a-z][^<>]*>`)
 	markdownListPrefix = regexp.MustCompile(`^([*#:]+)[` + jsSpaces + `]*`)
 	markdownBlankRuns  = regexp.MustCompile(`\n{3,}`)
 	markdownLineStart  = regexp.MustCompile(`^(?:[-+]|\d+[.)])[` + jsSpaces + `]`)
@@ -21,8 +21,10 @@ var markdownEscapes = strings.NewReplacer(`\`, `\\`, "`", "\\`", `*`, `\*`, `_`,
 // WikitextToMarkdown converts the wikitext of a piece of prose to Markdown: bold and italic quotes become ** and
 // *, [url text] becomes [text](url) and a bare or textless URL <url>, a wikilink becomes its label, a category
 // tag (membership) is removed, "*" and "#" lists become "- " and "1. " lists, <br> becomes a line break and other
-// HTML tags, comments and template calls are removed. Markdown syntax in the text is escaped. The result is
-// trimmed and has no runs of more than one blank line.
+// HTML tags, comments and template calls are removed. Markdown syntax in the text is escaped, so the only links
+// are the converted ones (never images or raw HTML), and their URLs are absolute http(s) URLs (a "www." or "//"
+// URL gets https) without tracking parameters (domain.WithoutTrackingParameters). The result is trimmed and has no
+// runs of more than one blank line.
 func WikitextToMarkdown(s string) string {
 	s = nowikiTag.ReplaceAllString(StripComments(s), "")
 	s = withoutTemplates(s)
@@ -91,17 +93,73 @@ func escapeLineStart(s string) string {
 	return s
 }
 
+// markdownInlines converts the inline tokens and the text between them. A "!" of the text directly before a
+// converted link is escaped, since "![text](url)" would be an image.
 func markdownInlines(line string) string {
-	var b strings.Builder
+	var pieces []string
+	add := func(piece string) {
+		if piece == "" {
+			return
+		}
+		if n := len(pieces); n > 0 && strings.HasPrefix(piece, "[") && strings.HasSuffix(pieces[n-1], "!") {
+			pieces[n-1] = strings.TrimSuffix(pieces[n-1], "!") + `\!`
+		}
+		pieces = append(pieces, piece)
+	}
 	last := 0
-	for _, m := range markdownInline.FindAllStringIndex(line, -1) {
-		b.WriteString(markdownText(line[last:m[0]]))
-		b.WriteString(markdownToken(line[m[0]:m[1]]))
+	for _, m := range markdownInlineTokens(line) {
+		add(markdownText(line[last:m[0]]))
+		add(markdownToken(line[m[0]:m[1]]))
 		last = m[1]
 	}
-	b.WriteString(markdownText(line[last:]))
+	add(markdownText(line[last:]))
 
-	return b.String()
+	return strings.Join(pieces, "")
+}
+
+// markdownInlineTokens returns the offsets of the line's inline tokens, left to right without overlap: wikilinks,
+// bracketed external links, runs of two to five quotes, <br> and other HTML tags.
+func markdownInlineTokens(line string) [][2]int {
+	var out [][2]int
+	sc := newTokenScanner(line)
+	for i := 0; i < len(line); {
+		end, ok := markdownInlineAt(sc, i)
+		if !ok {
+			i++
+
+			continue
+		}
+		out = append(out, [2]int{i, end})
+		i = end
+	}
+
+	return out
+}
+
+func markdownInlineAt(sc *tokenScanner, i int) (int, bool) {
+	switch sc.s[i] {
+	case '[':
+		if end, ok := sc.wikilinkAt(i); ok {
+			return end, true
+		}
+
+		return sc.externalLinkAt(i)
+	case '\'':
+		n := 0
+		for i+n < len(sc.s) && sc.s[i+n] == '\'' && n < 5 {
+			n++
+		}
+
+		return i + n, n >= 2
+	case '<':
+		if end, ok := sc.lineBreakAt(i); ok {
+			return end, true
+		}
+
+		return sc.tagAt(i)
+	}
+
+	return 0, false
 }
 
 // markdownText converts plain text, which may hold bare URLs.
@@ -110,7 +168,7 @@ func markdownText(s string) string {
 	last := 0
 	for _, l := range FindExternalLinks(s) {
 		b.WriteString(markdownEscapes.Replace(DecodeEntities(s[last:l.Start])))
-		b.WriteString(markdownURL(l.URL))
+		b.WriteString(markdownURL(markdownLinkURL(l.URL)))
 		last = l.End
 	}
 	b.WriteString(markdownEscapes.Replace(DecodeEntities(s[last:])))
@@ -135,11 +193,12 @@ func markdownToken(tok string) string {
 		if len(links) == 0 {
 			return markdownEscapes.Replace(tok)
 		}
+		u := markdownLinkURL(links[0].URL)
 		if links[0].Text == "" {
-			return markdownURL(links[0].URL)
+			return markdownURL(u)
 		}
 
-		return "[" + markdownEscapes.Replace(DecodeEntities(links[0].Text)) + "](" + markdownDestination(links[0].URL) + ")"
+		return "[" + markdownEscapes.Replace(DecodeEntities(links[0].Text)) + "](" + markdownDestination(u) + ")"
 	case strings.HasPrefix(tok, "''"):
 		switch len(tok) {
 		case 2:
@@ -156,6 +215,11 @@ func markdownToken(tok string) string {
 	}
 
 	return ""
+}
+
+// markdownLinkURL is the URL a converted link points to: absolute, and without tracking parameters.
+func markdownLinkURL(u string) string {
+	return domain.WithoutTrackingParameters(domain.WithScheme(u))
 }
 
 // markdownURL is an autolink, or the URL as escaped text if it cannot be one.

@@ -8,27 +8,21 @@ package scrub
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
-// The placeholder forms. A name is "Legal Name 001" in prose and titles, and "Legal_Name_001", "legal-name-001" or
-// "legalname001" inside a URL, following how the name was written there.
+// The placeholder forms besides the names' (mediawiki.LegalNameFormat and the others).
 const (
-	legalNameFormat   = "Legal Name %03d"
-	wikiUserFormat    = "Wiki User %02d"
 	emailFormat       = "email-%03d@example.invalid"
 	phoneFormat       = "000-000-%04d"
 	placeholderDomain = "@example.invalid"
 )
-
-// KeptNamespaces are the namespaces whose pages the scrubbed copy keeps: the main namespace and categories. User,
-// template, module, file and MediaWiki pages are dropped.
-var KeptNamespaces = map[int]bool{mediawiki.NSMain: true, mediawiki.NSCategory: true}
 
 // Result is a scrubbed dump, the deny list of the lyrics it dropped, what was replaced, and the decision taken on
 // every possible person name, which only the private candidates list shows.
@@ -54,7 +48,7 @@ type Stats struct {
 }
 
 // Scrub returns the scrubbed copy of d:
-//   - only pages, category members and activity of KeptNamespaces are kept;
+//   - only pages, category members and activity of content namespaces (mediawiki.IsContentNamespace) are kept;
 //   - every inline lyrics block (mediawiki.InlineLyricsBlocks) is replaced with LyricPlaceholderLine lines, at most
 //     InlineLyricsMinLines of them, so the inline-lyrics classification of every section is kept;
 //   - every private name (CandidateDecision.Private) is replaced with its numbered placeholder everywhere it occurs, as
@@ -63,13 +57,7 @@ type Stats struct {
 //   - any other honorific followed by a capitalised word, emails, and phone numbers outside links are replaced;
 //   - wiki user names are replaced in activity and in links to user pages.
 func Scrub(d mediawiki.Dump) (Result, error) {
-	var pages []mediawiki.Page
-	for _, p := range d.Pages {
-		if KeptNamespaces[p.NS] {
-			pages = append(pages, p)
-		}
-	}
-	sort.SliceStable(pages, func(a, b int) bool { return pages[a].PageID < pages[b].PageID })
+	pages := mediawiki.ContentPages(d.Pages)
 
 	s := scrubber{emails: map[string]string{}, phones: map[string]string{}, honorifics: map[string]string{},
 		users: map[string]string{}}
@@ -83,7 +71,7 @@ func Scrub(d mediawiki.Dump) (Result, error) {
 		outside = append(outside, p.Title)
 	}
 	descriptions := map[string]string{}
-	for _, key := range sortedKeys(d.Categories) {
+	for _, key := range slices.Sorted(maps.Keys(d.Categories)) {
 		descriptions[key], bodies, outside = s.lyrics(d.Categories[key].DescriptionWikitext, bodies, outside)
 	}
 	denylist := BuildDenylist(bodies, outside)
@@ -96,7 +84,7 @@ func Scrub(d mediawiki.Dump) (Result, error) {
 	for _, p := range unlyriced {
 		out.Pages = append(out.Pages, s.page(p))
 	}
-	for _, key := range sortedKeys(d.Categories) {
+	for _, key := range slices.Sorted(maps.Keys(d.Categories)) {
 		c := d.Categories[key]
 		c.Name = s.title(c.Name)
 		c.Parents = s.titles(c.Parents)
@@ -106,12 +94,12 @@ func Scrub(d mediawiki.Dump) (Result, error) {
 		out.Categories[s.title(key)] = c
 	}
 	for _, r := range d.Redirects {
-		if KeptNamespaces[r.NS] {
+		if mediawiki.IsContentNamespace(r.NS) {
 			out.Redirects = append(out.Redirects, mediawiki.Redirect{From: s.title(r.From), NS: r.NS, To: s.title(r.To)})
 		}
 	}
 	for _, a := range d.Activity {
-		if KeptNamespaces[a.NS] {
+		if mediawiki.IsContentNamespace(a.NS) {
 			out.Activity = append(out.Activity, s.activity(a))
 		}
 	}
@@ -187,7 +175,7 @@ func (s *scrubber) members(ms []mediawiki.CategoryMember) []mediawiki.CategoryMe
 	}
 	out := []mediawiki.CategoryMember{}
 	for _, m := range ms {
-		if KeptNamespaces[m.NS] {
+		if mediawiki.IsContentNamespace(m.NS) {
 			out = append(out, mediawiki.CategoryMember{Title: s.title(m.Title), NS: m.NS})
 		}
 	}
@@ -319,14 +307,4 @@ func numbered(seen map[string]string, key, format string) string {
 	seen[key] = fmt.Sprintf(format, len(seen)+1)
 
 	return seen[key]
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	return keys
 }

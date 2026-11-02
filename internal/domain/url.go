@@ -52,7 +52,7 @@ const (
 //     sorted stably by key; an empty query has no "?".
 //   - A non-empty fragment is kept (it may be a locator, as in "#page=63").
 func NormalizeURL(raw string) (string, error) {
-	parts, err := splitURL(withScheme(raw))
+	parts, err := splitURL(WithScheme(raw))
 	if err != nil {
 		return "", err
 	}
@@ -86,8 +86,8 @@ func NormalizeURL(raw string) (string, error) {
 	return normalized, nil
 }
 
-// withScheme is a URL trimmed of ASCII space, with https for a scheme-relative URL and one starting "www.".
-func withScheme(raw string) string {
+// WithScheme is a URL trimmed of ASCII space, with https for a scheme-relative URL and one starting "www.".
+func WithScheme(raw string) string {
 	s := strings.Trim(raw, " \t\n\v\f\r")
 	switch {
 	case strings.HasPrefix(s, "//"):
@@ -99,6 +99,27 @@ func withScheme(raw string) string {
 	return s
 }
 
+// WithControlCharactersEscaped is a URL with its control characters (IsControlCharacter) percent-encoded, as
+// NormalizeURL encodes them, so that both normalize the same and the URL as stored holds none.
+func WithControlCharactersEscaped(raw string) string {
+	if !strings.ContainsFunc(raw, IsControlCharacter) {
+		return raw
+	}
+	var b strings.Builder
+	for _, r := range raw {
+		if !IsControlCharacter(r) {
+			b.WriteRune(r)
+
+			continue
+		}
+		for _, c := range []byte(string(r)) {
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+
+	return b.String()
+}
+
 // WithoutTrackingParameters is an http or https URL as entered without what NormalizeURL drops as tracking: its
 // tracking parameters (isTrackingParameter), or, for a YouTube video, every parameter but the video's (the URL is
 // then the video's normalized form). The rest keeps its spelling, so NormalizeURL gives the same for both. A URL
@@ -108,7 +129,7 @@ func WithoutTrackingParameters(raw string) string {
 	if err != nil {
 		return raw
 	}
-	parts, err := splitURL(withScheme(raw))
+	parts, err := splitURL(WithScheme(raw))
 	if err != nil {
 		return raw
 	}

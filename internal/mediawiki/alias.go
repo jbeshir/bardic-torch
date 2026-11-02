@@ -38,16 +38,6 @@ var (
 	aliasSeparator     = regexp.MustCompile(`,|/|;|\baka\b`)
 )
 
-// capitalisedName is one to four capitalised words or initials ("J."), which may have the lower-case particles
-// of names between them.
-const capitalisedName = capitalisedWord + `(?:[ \t]+(?:` + nameParticles + `[ \t]+)*` + capitalisedWord + `){0,3}`
-
-// capitalisedWord is an initial ("J.") or a capitalised word.
-const capitalisedWord = `(?:\p{Lu}\.|\p{Lu}[\p{L}\p{M}'’-]*)`
-
-const nameParticles = `(?:of|the|de|del|della|di|du|la|le|van|von|zu|ap|ab|verch|ferch|inghen|inghean|ingen|` +
-	`ní|ni|nic|mac|mc|ui|ua|ó|bint|ibn|na|an)`
-
 // nameMarker matches "legal name", "mundane name", "real name", "aka" and "a.k.a." followed by a capitalised name.
 var nameMarker = regexp.MustCompile(`(?:\b([Ll]egal|[Mm]undane|[Rr]eal)[ \t]+[Nn]ame|` +
 	`\b[Aa]\.[Kk]\.[Aa]\.|\b[Aa][Kk][Aa]\b)` +
@@ -155,21 +145,14 @@ func (c AliasClassification) Public() bool {
 	return c.Confident && c.Kind != domain.PersonAliasKindLegal
 }
 
-var (
-	patronymicMarkers = map[string]bool{"ap": true, "ab": true, "verch": true, "ferch": true, "inghen": true,
-		"ingen": true, "nic": true, "bint": true, "ibn": true}
-	sharedParticles = map[string]bool{"de": true, "del": true, "della": true, "di": true, "du": true, "la": true,
-		"le": true, "van": true, "von": true, "zu": true, "ni": true, "mac": true, "mc": true, "ui": true, "ua": true,
-		"o": true}
-	patronymicSuffixes = []string{"dottir", "datter"}
-)
+var patronymicSuffixes = []string{"dottir", "datter"}
 
 // ClassifyPersonAlias classifies a bard's alias, failing closed. The first rule that applies wins:
 //  1. a name after a "legal name" or "mundane name" marker is legal, confidently;
 //  2. a name with "of" or "the" before a capitalised word, a patronymic marker word or a word ending in -dottir
 //     or -datter is an SCA name, confidently;
-//  3. a name with one of the particles legal names share (de, del, della, di, du, la, le, van, von, zu, ní, mac,
-//     mc, ui, ua, ó) is an SCA name, but not confidently;
+//  3. a name with one of the particles legal names share (particleShared: de, la, van, mac…) is an SCA name,
+//     but not confidently;
 //  4. any other name is legal, not confidently.
 //
 // Only a confident non-legal classification is public (AliasClassification.Public).
@@ -182,7 +165,7 @@ func ClassifyPersonAlias(c AliasCandidate) AliasClassification {
 		return AliasClassification{Kind: domain.PersonAliasKindSCA, Confident: true, Rule: rule}
 	}
 	for _, w := range words {
-		if sharedParticles[strings.ToLower(domain.FoldLetters(w))] {
+		if particleKindOf(w) == particleShared {
 			return AliasClassification{Kind: domain.PersonAliasKindSCA, Rule: AliasRuleParticle}
 		}
 	}
@@ -192,13 +175,18 @@ func ClassifyPersonAlias(c AliasCandidate) AliasClassification {
 
 func confidentSCARule(words []string) (AliasRule, bool) {
 	for k, w := range words {
-		if (w == "of" || w == "the") && k+1 < len(words) && isCapitalised(words[k+1]) {
+		// A capitalised "Of", "The" or "Ap" is not taken for a particle: only the lower-case word is confident.
+		kind := particleKindOf(w)
+		if w != strings.ToLower(w) {
+			kind = particleNone
+		}
+		if kind == particleByname && k+1 < len(words) && isCapitalised(words[k+1]) {
 			return AliasRuleByname, true
 		}
-		if patronymicMarkers[w] {
+		if kind == particlePatronymic {
 			return AliasRulePatronymic, true
 		}
-		folded := strings.ToLower(domain.FoldLetters(w))
+		folded := domain.CollationKey(w)
 		for _, suffix := range patronymicSuffixes {
 			if len(folded) > len(suffix) && strings.HasSuffix(folded, suffix) {
 				return AliasRulePatronymicSuffix, true
@@ -209,11 +197,8 @@ func confidentSCARule(words []string) (AliasRule, bool) {
 	return "", false
 }
 
-// apostrophes are the apostrophe and quote variants FoldName removes.
-var apostrophes = strings.NewReplacer("’", "", "‘", "", "ʼ", "", "`", "", "'", "")
-
 // FoldName is the key person names are matched by (never displayed): letters folded (domain.FoldLetters),
 // apostrophes and their variants removed, lower case, white space collapsed.
 func FoldName(s string) string {
-	return collapseSpaces(strings.ToLower(apostrophes.Replace(domain.FoldLetters(s))))
+	return collapseSpaces(strings.ToLower(withoutApostrophes(domain.FoldLetters(s))))
 }

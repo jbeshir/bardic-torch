@@ -33,7 +33,7 @@ func loadScrubbed(t *testing.T) {
 		var d mediawiki.Dump
 		d, scrubbed.err = mediawiki.LoadDump(wikidumptest.Scrubbed(t))
 		scrubbed.corpus = mediawiki.ParseCorpus(d)
-		scrubbed.imp, scrubbed.review = Build(scrubbed.corpus, BuildOptions{Now: buildTime})
+		scrubbed.imp, scrubbed.review = Build(scrubbed.corpus, buildTime)
 	})
 	require.NoError(t, scrubbed.err)
 }
@@ -221,4 +221,16 @@ func (f *freeTexts) piece(d domain.PieceDocument) {
 			f.performance(p)
 		}
 	}
+}
+
+// ItemsAbout returns the items about the page titled page, in section order.
+func (r *Review) ItemsAbout(page string) []Item {
+	var out []Item
+	for _, it := range r.Items() {
+		if it.Page == page {
+			out = append(out, it)
+		}
+	}
+
+	return out
 }

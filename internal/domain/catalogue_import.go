@@ -18,13 +18,22 @@ import (
 // Conservation history follows from each piece's document: a piece whose status is not unassessed gets one
 // history row, with ImportConservationReason and the document's source, at its revision.
 type CatalogueImport struct {
-	Terms         []ImportedTerm       `json:"terms"`
-	TermAncestors []TermAncestor       `json:"term_ancestors"`
-	Collections   []ImportedCollection `json:"collections"`
-	Events        []ImportedEvent      `json:"events"`
-	Persons       []ImportedPerson     `json:"persons"`
-	Pieces        []ImportedPiece      `json:"pieces"`
-	Links         []ImportedLink       `json:"links"`
+	Terms       []ImportedTerm       `json:"terms"`
+	Collections []ImportedCollection `json:"collections"`
+	Events      []ImportedEvent      `json:"events"`
+	Persons     []ImportedPerson     `json:"persons"`
+	Pieces      []ImportedPiece      `json:"pieces"`
+	Links       []ImportedLink       `json:"links"`
+}
+
+// TermAncestors is the term_ancestors closure of the import's terms: TermClosure of their parents.
+func (imp CatalogueImport) TermAncestors() ([]TermAncestor, error) {
+	parents := make(map[int64]*int64, len(imp.Terms))
+	for _, t := range imp.Terms {
+		parents[t.ID] = t.Doc.ParentID
+	}
+
+	return TermClosure(parents)
 }
 
 // ErrInvalidImport is returned by CatalogueImport.Validate. Its messages name the entity type, ID and field, never

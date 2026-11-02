@@ -109,7 +109,7 @@ Optional. Decide **before** setting up the social connections, because their red
 
    The exact paths **must match the FE repository's routes**. The values above are the alignment-feed FE's
    pattern (the remix-auth Auth0 strategy's callback route `/auth/auth0/callback`, and the site root after
-   logout). Check them against the bardic-torch-fe auth routes (FE1) and change both lists if the FE differs.
+   logout). Check them against the bardic-torch-fe auth routes and change both lists if the FE differs.
    Only `https://` production URLs belong in this application.
 3. In **Settings → Advanced Settings → Grant Types**, keep **Authorization Code** and **Refresh Token** on.
 4. In **Settings → Refresh Token Rotation**, turn **Allow Refresh Token Rotation** on and keep the default
@@ -117,7 +117,7 @@ Optional. Decide **before** setting up the social connections, because their red
    example 30 days and 15 days. With rotation, a refresh token is replaced on every use, and a reused one revokes
    the whole family.
 5. Give the FE its **Domain** (`<AUTH0_DOMAIN>`), **Client ID** and **Client Secret** through its own
-   configuration (FE1). They are not API settings.
+   configuration. They are not API settings.
 
 ### Development application
 
@@ -168,7 +168,7 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
    - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/data-deletion`
    - Category and app icon.
 
-   **Flag for FE1:** the privacy policy and data-deletion pages are FE pages. They must exist at these URLs (or
+   **Flag for the FE:** the privacy policy and data-deletion pages are FE pages. They must exist at these URLs (or
    these settings must change to match) before the app can go Live. Google's consent screen links the same
    privacy policy.
 5. Switch **App Mode** from Development to **Live**. In Development mode only the app's own roles can log in.

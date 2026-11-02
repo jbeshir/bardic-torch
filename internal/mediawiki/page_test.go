@@ -103,7 +103,6 @@ func TestAnalyzeSection_Counts(t *testing.T) {
 	got := AnalyzeSection(content)
 
 	assert.Equal(t, 4, got.MeaningfulLines)
-	assert.False(t, got.Empty())
 	assert.Equal(t, []ListItem{
 		{Depth: 1, Raw: "[https://example.org/a A site] by [[Wren Placeholder]]", Text: "A site by Wren Placeholder"},
 		{Depth: 2, Raw: "nested [[Category:Songs]]", Text: "nested Category:Songs"},
@@ -120,7 +119,7 @@ func TestAnalyzeSection_Counts(t *testing.T) {
 	assert.Contains(t, got.PlainText, "A site by Wren Placeholder")
 	assert.NotContains(t, got.PlainText, "Hidden")
 
-	assert.True(t, AnalyzeSection("\n* Link\n----\n[[Category:Songs]]\n").Empty())
+	assert.Zero(t, AnalyzeSection("\n* Link\n----\n[[Category:Songs]]\n").MeaningfulLines)
 }
 
 func TestParsePage_InfoboxesAndSections(t *testing.T) {

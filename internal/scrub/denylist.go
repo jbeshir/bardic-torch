@@ -8,8 +8,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
@@ -72,14 +73,9 @@ func (d Denylist) Len() int {
 
 // Encode returns the deny list file: denylistHeader, then the hex digests sorted, one per line.
 func (d Denylist) Encode() []byte {
-	sorted := make([]string, 0, len(d.digests))
-	for k := range d.digests {
-		sorted = append(sorted, k)
-	}
-	sort.Strings(sorted)
 	var b bytes.Buffer
 	b.WriteString(denylistHeader)
-	for _, k := range sorted {
+	for _, k := range slices.Sorted(maps.Keys(d.digests)) {
 		b.WriteString(k + "\n")
 	}
 

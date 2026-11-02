@@ -16,7 +16,8 @@ import (
 // update rewrites the golden files: go test ./internal/importer -run Golden -update.
 var update = flag.Bool("update", false, "rewrite the golden files")
 
-// goldenPages are the tricky pages snapshotted from the scrubbed copy (PLAN §7 and critique C-20).
+// goldenPages are the tricky pages snapshotted from the scrubbed copy: the pages PLAN §7 names and the others
+// whose parse has a rule of its own.
 var goldenPages = []string{
 	"Three Words", "My Thing is My Own", "Fight for the Midrealm", "Band of Brothers", "Black Alman",
 	"The Burning of Tara", "Samantha Moore", "Lasair inghen ui h’Airt", "Auld Lang Syne", "Malkin Grey",

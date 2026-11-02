@@ -27,7 +27,6 @@ type Counts struct {
 	StubPieces         int
 	InlineLyricsPieces int
 	CollectionEntries  int
-	Persons            int
 	Bards              int
 	StubPersons        int
 	Terms              int
@@ -36,6 +35,11 @@ type Counts struct {
 	Links              int
 	HiddenLinks        int
 	Revisions          int
+}
+
+// Persons is the number of persons: the bards and the stub persons.
+func (c Counts) Persons() int {
+	return c.Bards + c.StubPersons
 }
 
 // Review is the import review: the counts and one list of items per section, in RenderReview's order.
@@ -131,18 +135,6 @@ func (r *Review) Items() []Item {
 	var out []Item
 	for _, s := range r.sections() {
 		out = append(out, *s.items...)
-	}
-
-	return out
-}
-
-// ItemsAbout returns the items about the page titled page, in section order.
-func (r *Review) ItemsAbout(page string) []Item {
-	var out []Item
-	for _, it := range r.Items() {
-		if it.Page == page {
-			out = append(out, it)
-		}
 	}
 
 	return out

@@ -39,16 +39,29 @@ const importLockName = "LEFT(CONCAT('bardic-torch-import:', DATABASE()), 64)"
 // above InnoDB's default lock wait timeout (50 s), which bounds the wait instead.
 const lockWaitMillis = 60000
 
-// ImportWriteError is returned, wrapped, when the database refuses a row of an import. It names the table and the
-// MySQL error number but not the server's message, which quotes the row's values ("Duplicate entry '…'") and
-// so may hold a private name.
-type ImportWriteError struct {
-	Table  string
+// ImportDatabaseError is returned, wrapped, for every MySQL error of an import (a refused row, a failed lock or
+// commit). It names the step and the MySQL error number but not the server's message, which can quote the
+// row's values ("Duplicate entry '…'") and so may hold a private name.
+type ImportDatabaseError struct {
+	Step   string
 	Number uint16
 }
 
-func (e *ImportWriteError) Error() string {
-	return fmt.Sprintf("writing %s: MySQL error %d", e.Table, e.Number)
+func (e *ImportDatabaseError) Error() string {
+	return fmt.Sprintf("%s: MySQL error %d", e.Step, e.Number)
+}
+
+// errImportLockFailed is returned when GET_LOCK fails (returns NULL) rather than finding the lock taken.
+var errImportLockFailed = errors.New("the import lock could not be requested")
+
+// withoutServerMessage is err for step, as an ImportDatabaseError if it is a MySQL error.
+func withoutServerMessage(step string, err error) error {
+	var mysqlErr *mysqldriver.MySQLError
+	if errors.As(err, &mysqlErr) {
+		return &ImportDatabaseError{Step: step, Number: mysqlErr.Number}
+	}
+
+	return fmt.Errorf("%s: %w", step, err)
 }
 
 // errImportOutOfRange is returned, wrapped, when an import's value does not fit its column's type, which
@@ -67,15 +80,18 @@ var errImportUnknownLink = errors.New("link has no links row in the import")
 func (r *Repository) ImportCatalogue(ctx context.Context, imp domain.CatalogueImport) error {
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
-		return fmt.Errorf("importing catalogue: %w", err)
+		return withoutServerMessage("connecting for the catalogue import", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	var locked sql.NullInt64
 	if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK("+importLockName+", 0)").Scan(&locked); err != nil {
-		return fmt.Errorf("taking the import lock: %w", err)
+		return withoutServerMessage("taking the import lock", err)
 	}
-	if locked.Int64 != 1 {
+	switch {
+	case !locked.Valid:
+		return errImportLockFailed
+	case locked.Int64 != 1:
 		return datasources.ErrImportInProgress
 	}
 	defer releaseImportLock(ctx, conn)
@@ -94,7 +110,7 @@ func releaseImportLock(ctx context.Context, conn *sql.Conn) {
 func (r *Repository) importInTransaction(ctx context.Context, conn *sql.Conn, imp domain.CatalogueImport) error {
 	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("importing catalogue: %w", err)
+		return withoutServerMessage("beginning the catalogue import", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -107,7 +123,7 @@ func (r *Repository) importInTransaction(ctx context.Context, conn *sql.Conn, im
 		return fmt.Errorf("importing catalogue: %w", w.err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("committing catalogue import: %w", err)
+		return withoutServerMessage("committing the catalogue import", err)
 	}
 
 	return nil
@@ -123,7 +139,7 @@ func requireEmptyCatalogue(ctx context.Context, tx *sql.Tx) error {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 		case err != nil:
-			return fmt.Errorf("locking %s: %w", table, err)
+			return withoutServerMessage("locking "+table, err)
 		default:
 			return fmt.Errorf("%w: %s has rows", datasources.ErrCatalogueNotEmpty, table)
 		}
@@ -161,18 +177,13 @@ func (w *importWriter) write(imp domain.CatalogueImport) {
 }
 
 // insert runs one insert into table, unless an earlier error stopped the writer. A MySQL error becomes an
-// ImportWriteError, without its message.
+// ImportDatabaseError, without its message.
 func (w *importWriter) insert(table string, run func() error) {
 	if w.err != nil {
 		return
 	}
-	err := run()
-	var mysqlErr *mysqldriver.MySQLError
-	switch {
-	case errors.As(err, &mysqlErr):
-		w.err = &ImportWriteError{Table: table, Number: mysqlErr.Number}
-	case err != nil:
-		w.err = fmt.Errorf("writing %s: %w", table, err)
+	if err := run(); err != nil {
+		w.err = withoutServerMessage("writing "+table, err)
 	}
 }
 
@@ -315,7 +326,13 @@ func (w *importWriter) terms(imp domain.CatalogueImport) {
 			w.insert("term_aliases", func() error { return w.q.InsertTermAlias(w.ctx, p) })
 		}
 	}
-	for _, a := range imp.TermAncestors {
+	ancestors, err := imp.TermAncestors()
+	if err != nil {
+		w.fail(fmt.Errorf("terms: %w", err))
+
+		return
+	}
+	for _, a := range ancestors {
 		if a.Depth < 0 || a.Depth > math.MaxUint8 {
 			w.fail(fmt.Errorf("term depth [%d]: %w", a.Depth, errImportOutOfRange))
 			return

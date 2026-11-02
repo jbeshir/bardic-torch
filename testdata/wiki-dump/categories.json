@@ -2622,22 +2622,9 @@
       "parents": [],
       "subcategories": []
     },
-    "Legal Name 102": {
+    "Legal Name 103": {
       "description_wikitext": "",
-      "name": "Legal Name 102",
-      "page_exists": false,
-      "pages": [
-        {
-          "ns": 0,
-          "title": "Where is the Light of the East"
-        }
-      ],
-      "parents": [],
-      "subcategories": []
-    },
-    "Legal Name 104": {
-      "description_wikitext": "",
-      "name": "Legal Name 104",
+      "name": "Legal Name 103",
       "page_exists": false,
       "pages": [
         {
@@ -2648,9 +2635,9 @@
       "parents": [],
       "subcategories": []
     },
-    "Legal Name 107": {
+    "Legal Name 106": {
       "description_wikitext": "",
-      "name": "Legal Name 107",
+      "name": "Legal Name 106",
       "page_exists": false,
       "pages": [
         {
@@ -2661,9 +2648,9 @@
       "parents": [],
       "subcategories": []
     },
-    "Legal Name 115": {
+    "Legal Name 114": {
       "description_wikitext": "",
-      "name": "Legal Name 115",
+      "name": "Legal Name 114",
       "page_exists": false,
       "pages": [
         {
@@ -2674,9 +2661,9 @@
       "parents": [],
       "subcategories": []
     },
-    "Legal Name 118": {
+    "Legal Name 117": {
       "description_wikitext": "",
-      "name": "Legal Name 118",
+      "name": "Legal Name 117",
       "page_exists": false,
       "pages": [
         {
@@ -2687,9 +2674,9 @@
       "parents": [],
       "subcategories": []
     },
-    "Legal Name 121": {
+    "Legal Name 120": {
       "description_wikitext": "",
-      "name": "Legal Name 121",
+      "name": "Legal Name 120",
       "page_exists": false,
       "pages": [
         {
@@ -5930,6 +5917,19 @@
         {
           "ns": 0,
           "title": "Wyndreth Berginsdottir"
+        }
+      ],
+      "parents": [],
+      "subcategories": []
+    },
+    "Siobhan inghean ui Dhonnabhain": {
+      "description_wikitext": "",
+      "name": "Siobhan inghean ui Dhonnabhain",
+      "page_exists": false,
+      "pages": [
+        {
+          "ns": 0,
+          "title": "Where is the Light of the East"
         }
       ],
       "parents": [],

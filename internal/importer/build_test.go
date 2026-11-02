@@ -66,7 +66,7 @@ func syntheticDump() mediawiki.Dump {
 func syntheticImport(t *testing.T) (domain.CatalogueImport, Review) {
 	t.Helper()
 
-	return Build(mediawiki.ParseCorpus(syntheticDump()), BuildOptions{Now: buildTime})
+	return Build(mediawiki.ParseCorpus(syntheticDump()), buildTime)
 }
 
 func pieceTitled(t *testing.T, imp domain.CatalogueImport, title string) domain.ImportedPiece {
@@ -134,7 +134,7 @@ func TestBuild_RedirectEqualToHiddenAliasHidden(t *testing.T) {
 	d.Redirects = []mediawiki.Redirect{{From: "Ash Hiddénname", NS: mediawiki.NSMain, To: wren},
 		{From: "Ash Hiddenname-Placeholder", NS: mediawiki.NSMain, To: wren}}
 
-	imp, _ := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+	imp, _ := Build(mediawiki.ParseCorpus(d), buildTime)
 
 	for _, a := range personNamed(t, imp, wren).Doc.Aliases {
 		assert.False(t, a.IsPublic, "%q: a redirect folding to, or holding, a hidden alias is hidden", a.Name)
@@ -252,7 +252,7 @@ func TestBuild_ReviewQuotesTheOriginal(t *testing.T) {
 	item := "[https://www.youtube.com/watch?v=video000009 " + hiddenAlias + " sings]"
 	d.Pages = append(d.Pages, page(21, "Song of Quoting", []string{mediawiki.CategoryPieces, mediawiki.CategorySongs},
 		"{{Infobox Song\n|lyrics_by=[["+wren+"]]\n}}\n== Performances & Recordings ==\n* "+item+"\n"))
-	imp, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+	imp, review := Build(mediawiki.ParseCorpus(d), buildTime)
 
 	perf := pieceTitled(t, imp, "Song of Quoting").Doc.Links[0].Performances[0]
 	assert.NotContains(t, perf.DescriptionVerbatim, hiddenAlias, "withheld in public")
@@ -281,7 +281,7 @@ func TestBuild_PersonStatusSource(t *testing.T) {
 			"== Notes ==\n* ["+obituary+" Deceased October 31, 2020]\n"),
 		page(13, "Oak Placeholder", []string{mediawiki.CategoryBards, "In Memoriam"}, "= Oak Placeholder =\n"+
 			"== Notes ==\n* [https://news.example.org/ash-hiddenname Deceased October 31, 2020]\n"))
-	imp, _ = Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+	imp, _ = Build(mediawiki.ParseCorpus(d), buildTime)
 
 	assert.Equal(t, obituary, *personNamed(t, imp, "Elm Placeholder").Doc.StatusSourceURL, "the obituary")
 	assert.Equal(t, "https://wiki.example.org/wiki/Oak_Placeholder",
@@ -328,8 +328,8 @@ func TestBuild_SummariesAreNeutral(t *testing.T) {
 
 func TestBuild_Deterministic(t *testing.T) {
 	c := scrubbedCorpus(t)
-	a, ra := Build(c, BuildOptions{Now: buildTime})
-	b, rb := Build(c, BuildOptions{Now: buildTime})
+	a, ra := Build(c, buildTime)
+	b, rb := Build(c, buildTime)
 
 	assert.Equal(t, a, b)
 	assert.Equal(t, RenderReview(ra), RenderReview(rb))
@@ -339,12 +339,34 @@ func TestBuild_StringsAreNFC(t *testing.T) {
 	d := syntheticDump()
 	d.Pages[3].Wikitext = "{{Infobox Song\n}}\nCafé notes.\n"
 
-	imp, _ := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+	imp, _ := Build(mediawiki.ParseCorpus(d), buildTime)
 
 	notes := pieceTitled(t, imp, collidingSong).Doc.NotesMD
 	require.NotNil(t, notes)
 	assert.Equal(t, "Café notes.", *notes)
 	require.NoError(t, imp.Validate())
+}
+
+// TestBuild_ControlCharactersRemovedAndListed plants NUL, ESC and a bidirectional override in a piece's notes, a
+// link's title and its URL: the text loses them, the URL has them percent-encoded (and a "www." URL is stored
+// with https), Validate (which rejects any control character in any string) passes, and the review lists them.
+func TestBuild_ControlCharactersRemovedAndListed(t *testing.T) {
+	d := syntheticDump()
+	d.Pages[3].Wikitext = "{{Infobox Song\n}}\nNotes\x1b[31m with an \u202eoverride.\x00\n" +
+		"== Key Links ==\n* [https://example.org/a\x1bb Link \u202etitle]\n* [www.example.org/c Site]\n"
+
+	imp, review := Build(mediawiki.ParseCorpus(d), buildTime)
+
+	require.NoError(t, imp.Validate())
+	doc := pieceTitled(t, imp, collidingSong).Doc
+	require.NotNil(t, doc.NotesMD)
+	assert.Equal(t, "Notes\\[31m with an override.", *doc.NotesMD)
+	require.Len(t, doc.Links, 2)
+	assert.Equal(t, "https://example.org/a%1Bb", doc.Links[0].URL)
+	assert.Equal(t, "https://www.example.org/c", doc.Links[1].URL, "a www. URL is stored absolute")
+	require.NotNil(t, doc.Links[0].Title)
+	assert.Equal(t, "Link title", *doc.Links[0].Title)
+	assert.True(t, containsKind(review.Markup, "text_characters"), "the removals are listed")
 }
 
 func TestBuild_PublicAliasHoldingHiddenAliasHidden(t *testing.T) {
@@ -355,7 +377,7 @@ func TestBuild_PublicAliasHoldingHiddenAliasHidden(t *testing.T) {
 	d := syntheticDump()
 	d.Pages[0].Wikitext = "= " + wren + " (" + hiddenAlias + ", " + sca + ") =\nWren sings.\n"
 
-	imp, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+	imp, review := Build(mediawiki.ParseCorpus(d), buildTime)
 
 	var got []domain.DocPersonAlias
 	for _, a := range personNamed(t, imp, wren).Doc.Aliases {
@@ -386,7 +408,7 @@ func TestBuild_StubPersonWithLegalNameNotCreated(t *testing.T) {
 	d.Pages = append(d.Pages, page(50, "Song of Hiding", []string{mediawiki.CategoryPieces, mediawiki.CategorySongs},
 		"{{Infobox Song\n|lyrics_by="+legal+"\n}}\nThe writer's legal name is "+legal+".\n"))
 
-	imp, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+	imp, review := Build(mediawiki.ParseCorpus(d), buildTime)
 
 	require.NoError(t, imp.Validate())
 	for _, p := range imp.Persons {

@@ -28,7 +28,7 @@ func researchImport(t *testing.T) (mediawiki.Corpus, mediawiki.Dump) {
 
 func TestBuild_ResearchCountsOnRealDump(t *testing.T) {
 	c, _ := researchImport(t)
-	imp, review := Build(c, BuildOptions{Now: buildTime})
+	imp, review := Build(c, buildTime)
 
 	wikidumptest.Equal(t, wikidumptest.Location{Field: "import counts", Offset: -1}, researchCounts,
 		importCounts(c, imp, review))
@@ -41,7 +41,7 @@ func TestBuild_ResearchCountsOnRealDump(t *testing.T) {
 // name an entity the wiki itself names (a credited person, a title, a collection, an event), which the review lists.
 func TestBuild_NoPrivateNameInPublicFieldsOnRealDump(t *testing.T) {
 	c, _ := researchImport(t)
-	imp, _ := Build(c, BuildOptions{Now: buildTime})
+	imp, _ := Build(c, buildTime)
 	var legal, all []mediawiki.PrivateName
 	for _, n := range c.PrivateNames {
 		all = append(all, n)
@@ -84,7 +84,7 @@ func TestBuild_NoPrivateNameInPublicFieldsOnRealDump(t *testing.T) {
 func TestBuild_NoRealLyricsAnywhere(t *testing.T) {
 	c, d := researchImport(t)
 	_, analysis := wikidumptest.Research(t)
-	imp, review := Build(c, BuildOptions{Now: buildTime})
+	imp, review := Build(c, buildTime)
 	encoded, err := json.Marshal(imp)
 	wikidumptest.NoError(t, "encoding the import", err)
 	var decoded any

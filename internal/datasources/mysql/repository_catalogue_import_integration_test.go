@@ -46,9 +46,12 @@ var imported = catalogtest.NewShared(func(c *catalogtest.Catalog) domain.Catalog
 })
 
 // importRowCounts are the rows imp writes, by table.
-func importRowCounts(imp domain.CatalogueImport) map[string]int {
+func importRowCounts(t *testing.T, imp domain.CatalogueImport) map[string]int {
+	t.Helper()
+	ancestors, err := imp.TermAncestors()
+	require.NoError(t, err)
 	n := map[string]int{
-		tableTerms: len(imp.Terms), "term_ancestors": len(imp.TermAncestors), tableCollections: len(imp.Collections),
+		tableTerms: len(imp.Terms), "term_ancestors": len(ancestors), tableCollections: len(imp.Collections),
 		tableEvents: len(imp.Events), tablePersons: len(imp.Persons), tablePieces: len(imp.Pieces), tableLinks: len(imp.Links),
 	}
 	revision := func(r domain.ImportedRevision) {
@@ -149,7 +152,7 @@ func TestRepository_ImportCatalogue_WritesEverything(t *testing.T) {
 	db, imp := imported.Get(t)
 
 	counts := tableRowCounts(t, db)
-	assert.Equal(t, emptyCounts(importRowCounts(imp)), counts)
+	assert.Equal(t, emptyCounts(importRowCounts(t, imp)), counts)
 	for _, table := range mysql.CatalogueTables {
 		// The wiki states no preferences.
 		if !strings.HasSuffix(table, "_preferences") {
@@ -380,9 +383,9 @@ func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 
 	err := mysql.New(db).ImportCatalogue(t.Context(), imp)
 
-	var writeErr *mysql.ImportWriteError
+	var writeErr *mysql.ImportDatabaseError
 	require.ErrorAs(t, err, &writeErr)
-	assert.Equal(t, mysql.ImportWriteError{Table: tablePerformers, Number: 1062}, *writeErr)
+	assert.Equal(t, mysql.ImportDatabaseError{Step: "writing " + tablePerformers, Number: 1062}, *writeErr)
 	assert.NotContains(t, err.Error(), "Duplicate", "the server's message, which quotes values, is not kept")
 	assert.Equal(t, emptyCounts(nil), tableRowCounts(t, db), "every table is rolled back")
 }
@@ -406,7 +409,7 @@ func TestRepository_ImportCatalogue_ConcurrentImports(t *testing.T) {
 	failed := errs[1-succeeded]
 	assert.True(t, errors.Is(failed, datasources.ErrImportInProgress) ||
 		errors.Is(failed, datasources.ErrCatalogueNotEmpty), "the other fails with a typed error: %v", failed)
-	assert.Equal(t, emptyCounts(importRowCounts(imp)), tableRowCounts(t, db), "the catalogue holds one import")
+	assert.Equal(t, emptyCounts(importRowCounts(t, imp)), tableRowCounts(t, db), "the catalogue holds one import")
 
 	// The lock was released: a third import gets past it to the emptiness check.
 	require.ErrorIs(t, mysql.New(db).ImportCatalogue(t.Context(), imp), datasources.ErrCatalogueNotEmpty)

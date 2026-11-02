@@ -54,7 +54,8 @@ func (b *builder) canonicalOwners() map[string]string {
 // shared link to the sharer, and its title and description withheld as free text.
 func (b *builder) docLink(page string, f mediawiki.LinkFields, roles []domain.LinkRole) domain.DocLink {
 	entity := "link " + f.URL
-	l := domain.DocLink{URL: clean(domain.WithoutTrackingParameters(f.URL)), Title: b.free(page, entity, "title", f.Title),
+	l := domain.DocLink{URL: cleanURL(domain.WithoutTrackingParameters(f.URL)),
+		Title:       b.free(page, entity, "title", f.Title),
 		Description: b.free(page, entity, "description", f.Description), Platform: optional(f.Platform),
 		Locator: optional(f.Locator), Roles: roles}
 	if f.PlaceType != "" {

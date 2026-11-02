@@ -16,9 +16,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -37,7 +37,7 @@ var (
 	// ErrUsage is returned for a command line without --dump or --review, or without exactly one mode.
 	ErrUsage = errors.New("usage: import-mediawiki --dump DIR (--dry-run | --apply) --review PATH")
 	// ErrInsideRepository is returned when --review names a file inside this repository, which is public.
-	ErrInsideRepository = errors.New("the review names hidden aliases and must be written outside the repository")
+	ErrInsideRepository = fmt.Errorf("%w: the review names hidden aliases", repopath.ErrInsideRepository)
 )
 
 func main() {
@@ -99,7 +99,7 @@ func run(ctx context.Context, args []string, databaseURL func() string, stdout i
 	if err != nil {
 		return err
 	}
-	imp, review := importer.Build(mediawiki.ParseCorpus(d), importer.BuildOptions{Now: time.Now().UTC()})
+	imp, review := importer.Build(mediawiki.ParseCorpus(d), time.Now().UTC())
 	if err := imp.Validate(); err != nil {
 		return err
 	}
@@ -130,32 +130,19 @@ func run(ctx context.Context, args []string, databaseURL func() string, stdout i
 	return err
 }
 
-// writeReview writes the review to path with mode 0600, also when the file exists with another mode.
+// writeReview writes the review to path, privately (repopath.WritePrivate).
 func writeReview(path string, review []byte) error {
-	f, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
-		return fmt.Errorf("writing the review: %w", err)
-	}
-	if err := f.Chmod(0o600); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("writing the review: %w", err)
-	}
-	if _, err := f.Write(review); err != nil {
-		_ = f.Close()
+	if err := repopath.WritePrivate(path, review); err != nil {
 		return fmt.Errorf("writing the review: %w", err)
 	}
 
-	return f.Close()
+	return nil
 }
 
 // printCounts prints what the import holds and how many review items there are, as counts only.
 func printCounts(w io.Writer, r importer.Review) error {
 	c := r.Counts
-	kinds := make([]string, 0, len(c.PiecesByKind))
-	for kind := range c.PiecesByKind {
-		kinds = append(kinds, kind)
-	}
-	slices.Sort(kinds)
+	kinds := slices.Sorted(maps.Keys(c.PiecesByKind))
 	pieces, byKind := 0, make([]string, 0, len(kinds))
 	for _, kind := range kinds {
 		pieces += c.PiecesByKind[kind]
@@ -164,7 +151,7 @@ func printCounts(w io.Writer, r importer.Review) error {
 	lines := []string{
 		fmt.Sprintf("pieces %d (%s); stub pieces %d; with inline lyrics %d", pieces, strings.Join(byKind, ", "),
 			c.StubPieces, c.InlineLyricsPieces),
-		fmt.Sprintf("persons %d (bards %d, stubs %d)", c.Persons, c.Bards, c.StubPersons),
+		fmt.Sprintf("persons %d (bards %d, stubs %d)", c.Persons(), c.Bards, c.StubPersons),
 		fmt.Sprintf("terms %d; collections %d (of %d entries); events %d", c.Terms, c.Collections,
 			c.CollectionEntries, c.Events),
 		fmt.Sprintf("links %d (hidden %d); revisions %d", c.Links, c.HiddenLinks, c.Revisions),

@@ -49,6 +49,10 @@ func writeDump(t *testing.T) string {
 func TestRun_WritesScrubbedFiles(t *testing.T) {
 	in, out := writeDump(t), filepath.Join(t.TempDir(), "wiki-dump")
 	candidates := filepath.Join(t.TempDir(), "candidates.md")
+	require.NoError(t, os.WriteFile(candidates, nil, 0o600))
+	info, err := os.Stat(candidates)
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(candidates, info.Mode()|0o044), "readable by everyone, as a file left there could be")
 	var stdout bytes.Buffer
 
 	require.NoError(t, run([]string{flagIn, in, flagOut, out, flagCandidates, candidates}, &stdout))
@@ -69,9 +73,9 @@ func TestRun_WritesScrubbedFiles(t *testing.T) {
 	list, err := os.ReadFile(filepath.Clean(candidates))
 	require.NoError(t, err)
 	assert.Contains(t, string(list), "| 1 | h1_parenthetical | "+legalAlias+" | legal | hidden_alias | Legal Name 001 |")
-	info, err := os.Stat(candidates)
+	info, err = os.Stat(candidates)
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "private, also over a 0644 file")
 }
 
 func TestRun_PrintsNoReplacedStrings(t *testing.T) {
@@ -99,6 +103,19 @@ func TestRun_RefusesCandidatesInsideRepository(t *testing.T) {
 	entries, err := os.ReadDir(out)
 	require.NoError(t, err)
 	assert.Empty(t, entries, "nothing is written")
+}
+
+// TestRun_RefusesCandidatesIntoRepositoryThroughSymlink covers a --candidates outside the repository that is a
+// symbolic link to a file in it, which does not exist yet.
+func TestRun_RefusesCandidatesIntoRepositoryThroughSymlink(t *testing.T) {
+	target := filepath.Join(wikidumptest.RepositoryRoot(t), "docs", "leaked-candidates.md")
+	link := filepath.Join(t.TempDir(), "candidates.md")
+	require.NoError(t, os.Symlink(target, link))
+
+	err := run([]string{flagIn, writeDump(t), flagOut, t.TempDir(), flagCandidates, link}, &bytes.Buffer{})
+
+	require.ErrorIs(t, err, ErrInsideRepository)
+	assert.NoFileExists(t, target)
 }
 
 func TestRun_Usage(t *testing.T) {

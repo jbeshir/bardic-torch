@@ -217,7 +217,7 @@
       "title": "Birthday Dirge"
     },
     "revision": {
-      "id": 426,
+      "id": 427,
       "summary": "Imported from the wiki (page revision 889).",
       "contributors": [
         "Wiki User 01"
@@ -227,19 +227,19 @@
   },
   "review": [
     {
-      "id": "NAME-087",
+      "id": "NAME-086",
       "kind": "free_text",
       "page": "Birthday Dirge",
       "text": "link https://cunnan.lochac.sca.org/index.php/The_SCA_Happy_Birthday_Song, title: \"Legal Name 073\" was withheld. Context: \"in Lochac) - version sourced from the '[name withheld]' songbook\"."
     },
     {
-      "id": "NAME-088",
+      "id": "NAME-087",
       "kind": "link_url_name",
       "page": "Birthday Dirge",
       "text": "The link https://www.eg.bucknell.edu/~lwittie/sca/song/filk/barbarian_birthday_dirge.html has a home directory (~user) in its path: check it names no one who should be hidden."
     },
     {
-      "id": "NAME-089",
+      "id": "NAME-088",
       "kind": "free_text",
       "page": "Birthday Dirge",
       "text": "link https://thereitis.org/the-birthday-dirge/, title: \"Legal Name 074\" was withheld. Context: \"Lyrics on [name withheld]'s blog\"."

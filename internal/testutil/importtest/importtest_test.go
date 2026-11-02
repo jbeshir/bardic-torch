@@ -14,7 +14,7 @@ import (
 func TestScrubbed_CopiesTheBuiltImport(t *testing.T) {
 	d, err := mediawiki.LoadDump(wikidumptest.Scrubbed(t))
 	require.NoError(t, err)
-	built, _ := importer.Build(mediawiki.ParseCorpus(d), importer.BuildOptions{Now: BuildTime})
+	built, _ := importer.Build(mediawiki.ParseCorpus(d), BuildTime)
 
 	first, _ := Scrubbed(t)
 	first.Pieces[0].Doc.Title = "Changed by the caller"

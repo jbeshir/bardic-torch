@@ -2,6 +2,7 @@ package scrub
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
@@ -23,7 +24,7 @@ func newNameReplacer(names []mediawiki.PrivateName) nameReplacer {
 func (r *nameReplacer) fresh() string {
 	r.last++
 
-	return fmt.Sprintf(legalNameFormat, r.last)
+	return fmt.Sprintf(mediawiki.LegalNameFormat, r.last)
 }
 
 // replace returns text with every form of every private name replaced, and how many were. A match starting inside
@@ -55,23 +56,23 @@ func placeholderFor(span string, m mediawiki.PrivateNameMatch, inURL bool) strin
 	oneWord := len(words) == 1
 	switch {
 	case inURL && strings.Contains(span, "_"):
-		return fmt.Sprintf("Legal_Name_%03d", number)
+		return fmt.Sprintf(mediawiki.LegalNameURLUnderscoresFormat, number)
 	case inURL && oneWord:
-		return fmt.Sprintf("legalname%03d", number)
+		return fmt.Sprintf(mediawiki.LegalNameURLWordFormat, number)
 	case inURL:
-		return fmt.Sprintf("legal-name-%03d", number)
+		return fmt.Sprintf(mediawiki.LegalNameURLHyphensFormat, number)
 	case oneWord && m.Multiword:
-		return fmt.Sprintf("LegalName%03d", number)
+		return fmt.Sprintf(mediawiki.LegalNameJoinedFormat, number)
 	case m.Honorific:
 		prefix := span[:words[0].End]
 		if strings.HasPrefix(span[words[0].End:], ".") {
 			prefix += "."
 		}
 
-		return prefix + " " + fmt.Sprintf(legalNameFormat, number)
+		return prefix + " " + fmt.Sprintf(mediawiki.LegalNameFormat, number)
 	}
 
-	return fmt.Sprintf(legalNameFormat, number)
+	return fmt.Sprintf(mediawiki.LegalNameFormat, number)
 }
 
 func inside(spans [][2]int, offset int) bool {
@@ -86,5 +87,5 @@ func inside(spans [][2]int, offset int) bool {
 
 // startsWithPlaceholder reports whether text starts with a prose placeholder.
 func startsWithPlaceholder(text string) bool {
-	return strings.HasPrefix(text, "Legal Name ") || strings.HasPrefix(text, "Wiki User ")
+	return slices.ContainsFunc(mediawiki.PlaceholderPrefixes, func(p string) bool { return strings.HasPrefix(text, p) })
 }

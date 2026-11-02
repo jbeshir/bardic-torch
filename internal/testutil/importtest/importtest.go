@@ -35,7 +35,7 @@ func Scrubbed(t testing.TB) (domain.CatalogueImport, importer.Review) {
 			return
 		}
 		var imp domain.CatalogueImport
-		imp, scrubbed.review = importer.Build(mediawiki.ParseCorpus(d), importer.BuildOptions{Now: BuildTime})
+		imp, scrubbed.review = importer.Build(mediawiki.ParseCorpus(d), BuildTime)
 		if scrubbed.err = imp.Validate(); scrubbed.err != nil {
 			return
 		}

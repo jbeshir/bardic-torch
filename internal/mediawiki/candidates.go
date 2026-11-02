@@ -54,13 +54,13 @@ type NameCandidate struct {
 }
 
 var (
-	parenPair = regexp.MustCompile(`(` + capitalisedName + `)[ \t]*\((` + capitalisedWord + `(?:[ \t]+(?:` +
-		nameParticles + `[ \t]+)*` + capitalisedWord + `){1,3})\)`)
+	parenPair = regexp.MustCompile(`(` + capitalisedName + `)[ \t]*\((` + multiwordName + `)\)`)
 	byFrom    = regexp.MustCompile(`\b(?:[Bb]y|[Ff]rom)[ \t]+(` + multiwordName + `)`)
 	slashPair = regexp.MustCompile(`(` + multiwordName + `)[ \t]*/[ \t]*(` + multiwordName + `)`)
 	credited  = regexp.MustCompile(`(?i:\b(?:credited|attributed)[ \t]+to|\bcopyright(?:ed)?(?:[ \t]+to)?|©)[ \t]*` +
 		`["'‘“]?(?:\d{4},?[ \t]+)?(` + multiwordName + `)`)
-	possessive = regexp.MustCompile(`(` + multiwordName + `)['’]s?[ \t]+(?i:youtube|blog|channel|page|site|website|` +
+	possessive = regexp.MustCompile(`(` + multiwordName + `)[` + apostrophes + `]s?[ \t]+` +
+		`(?i:youtube|blog|channel|page|site|website|` +
 		`homepage|songbook|collection|version|album|recording|book)\b`)
 	performer = regexp.MustCompile(`(` + multiwordName + `)[ \t]+(?:sings|singing|sang|performs|performing|` +
 		`performed|wrote|writes|composed|claims)\b`)
@@ -70,9 +70,6 @@ var (
 	siteLabel     = regexp.MustCompile(`\[https?://([^/\s\]]+)[^\s\]]*[ \t]+(` + capitalisedWord + `[ \t]+` +
 		capitalisedWord + `)\]`)
 )
-
-// multiwordName is two to four capitalised words or initials, which may have the particles of names between them.
-const multiwordName = capitalisedWord + `(?:[ \t]+(?:` + nameParticles + `[ \t]+)*` + capitalisedWord + `){1,3}`
 
 // PersonNameCandidates returns every string of a page that may be a person's name, failing closed: the scrubber
 // and the importer classify each (ClassifyPersonAlias) and treat any they cannot classify confidently as a legal

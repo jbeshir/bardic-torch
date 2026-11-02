@@ -47,7 +47,7 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 		Credits: b.credits(p.Title, b.c.People.Credits[p.PageID]), Links: b.pieceLinks(links),
 		Preferences: []domain.DocPreference{}}
 	if doc.Conservation.Status != domain.ConservationStatusUnassessed {
-		doc.Conservation.SourceURL = optional(p.URL)
+		doc.Conservation.SourceURL = optionalURL(p.URL)
 	}
 	sortTitle := domain.SortTitle(doc.Title)
 

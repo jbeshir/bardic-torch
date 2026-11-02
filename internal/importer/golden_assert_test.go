@@ -98,7 +98,7 @@ func TestGoldenAssert_AuldLangSyne(t *testing.T) {
 	assert.Contains(t, kinds(items), string("unbalanced_wikilinks"))
 	imp, _ := scrubbedImport(t)
 	lyricist := personNamed(t, imp, "Robert Burns")
-	assert.Equal(t, domain.PersonKindHistorical, lyricist.Doc.Kind, "a traditional piece's writer (N-2)")
+	assert.Equal(t, domain.PersonKindHistorical, lyricist.Doc.Kind, "a traditional piece's writer")
 }
 
 func TestGoldenAssert_LasairHasNoStub(t *testing.T) {
