@@ -122,7 +122,7 @@ func TestNewHTTPHandler_UnroutedRequests(t *testing.T) {
 			wantBody:      methodNotAllowedBody,
 		},
 		{
-			// Catalogue reads are routed outside the /v1 subrouter, whose unrouted handler still finds them.
+			// Catalogue reads are unauthenticated routes; the 405 probe still finds them, and still ignores credentials.
 			name:          "wrong_method_on_piece_with_credentials",
 			method:        http.MethodDelete,
 			path:          "/v1/pieces/the-copper-kettle",

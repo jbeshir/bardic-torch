@@ -134,9 +134,9 @@ through the helper, so the command's name rules are checked against the spec's `
   operation to its access and a request that succeeds when allowed. The list of operations comes from the spec,
   so a new operation without a row fails the test.
 
-  `public` operations (the health checks and every catalogue read) are registered on the root router, outside
-  the `/v1` auth middleware, so they answer any credentials, even invalid, unverifiable or a blocked user's, as
-  they would an anonymous request, and never look a user up.
+  `public` operations (the health checks and every catalogue read) are route-table entries without
+  `authenticated`, so the auth middleware never runs for them: they answer any credentials, even invalid,
+  unverifiable or a blocked user's, as they would an anonymous request, and never look a user up.
 - `TestHTTP_LeakMatrix` checks that no public read shows hidden data; see [Leak matrix](#leak-matrix).
 
 ### Integration tests (`//go:build integration`)
@@ -317,8 +317,8 @@ reads are public, so it sends no credentials, and every response goes through th
 3. **Auth matrix**: add a row to `authMatrix` with the operation's `access` and a successful request (path
    parameters, body, success status, mock expectations). `TestRouter_AuthMatrix` fails until you do. A new
    authorisation rule gets a new `access` table listing every principal.
-   A public catalogue read (`security: []`, registered on the root router like the existing ones, before the `/v1`
-   subrouter) also needs a **leak-matrix row** (see "Leak matrix"): requests that reach every list it shows, with
+   A public catalogue read (`security: []`, a route-table entry without `authenticated`, like the existing ones)
+   also needs a **leak-matrix row** (see "Leak matrix"): requests that reach every list it shows, with
    `reveals` for anything it may legitimately show. Any other operation goes in `leakExempt` with a reason. List
    endpoints also need their query-parameter cases (invalid, repeated, out-of-range) as `ServeResponseOnly` tests.
 4. **Per-status tests**: a contract-validated controller test case for every documented status the controller
