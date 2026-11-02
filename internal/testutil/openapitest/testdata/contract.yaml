@@ -1,0 +1,86 @@
+openapi: 3.1.0
+info:
+  title: Contract helper fixture
+  version: "1"
+servers:
+  - url: https://api.example.test
+paths:
+  /songs:
+    post:
+      operationId: createSong
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  maxLength: 10
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Song"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /songs/{song_id}:
+    parameters:
+      - name: song_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^[a-z]+$"
+    get:
+      operationId: getSong
+      responses:
+        "200":
+          description: The song
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Song"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteSong
+      responses:
+        "204":
+          description: Deleted
+components:
+  schemas:
+    Song:
+      type: object
+      additionalProperties: false
+      required: [id, title, composer]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        composer:
+          type: [string, "null"]
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [invalid_request, not_found]
+        message:
+          type: string

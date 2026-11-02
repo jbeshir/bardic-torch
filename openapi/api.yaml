@@ -1,0 +1,714 @@
+openapi: 3.1.0
+info:
+  title: Bardic Torch API
+  description: |
+    API behind bardictorch.org.
+
+    Conventions:
+    - Request and response bodies are JSON (`application/json`); property names are snake_case.
+    - Response objects are closed (`additionalProperties: false`): clients can rely on receiving exactly the
+      documented properties.
+    - Errors use the `Error` body, whose `code` is stable and machine-readable; `message` is for humans.
+    - A path no operation matches gets 404 `not_found`; a known path with an unsupported method gets 405
+      `method_not_allowed` with an `Allow` header listing the supported methods. Neither authenticates the
+      request.
+    - Request headers over 16 KiB get a plain-text 431 from the server, before any operation runs.
+    - A request whose path is not validly percent-encoded gets a plain-text 400 from the server, before any
+      operation runs.
+    - operationIds are camelCase.
+  version: 1.0.0
+  contact:
+    name: Bardic Torch
+    url: https://bardictorch.org
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: https://api.bardictorch.org
+    description: Production server
+
+security:
+  - auth0Bearer: []
+  - apiTokenBearer: []
+
+tags:
+  - name: Health
+    description: Liveness and readiness checks for the deployment platform
+  - name: Users
+    description: The caller's account
+  - name: Moderation
+    description: Actions reserved for moderators
+  - name: API tokens
+    description: Personal API tokens for programmatic access
+
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Liveness check
+      description: |
+        Reports that the process is serving requests. Always 200 while the server runs; it does not check
+        dependencies. Credentials are ignored.
+      operationId: getHealthz
+      security: []
+      responses:
+        "200":
+          description: The server is running.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /readyz:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: |
+        Reports whether the server can handle requests, by checking that the database answers within two
+        seconds. The deployment platform uses it as the startup health check. Credentials are ignored.
+      operationId: getReadyz
+      security: []
+      responses:
+        "200":
+          description: The server and its database are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: The database is unreachable; the error code is `unavailable`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+
+  /v1/me:
+    get:
+      tags:
+        - Users
+      summary: Get the caller
+      description: |
+        Returns the caller's user. A user is created as a contributor with a default display name on their first
+        authenticated request, so this succeeds for any valid credential that is not blocked.
+      operationId: getMe
+      responses:
+        "200":
+          description: The caller's user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+    patch:
+      tags:
+        - Users
+      summary: Update the caller
+      description: Sets the caller's display name and returns the updated user.
+      operationId: updateMe
+      requestBody:
+        description: The fields to update.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeRequest"
+      responses:
+        "200":
+          description: The caller's updated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: |
+            The request body is malformed, or the display name is invalid after normalisation; the error code is
+            `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid display name: must be at most 64 characters"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/users/{user_id}/blocked:
+    put:
+      tags:
+        - Moderation
+      summary: Block or unblock a user
+      description: |
+        Blocks or unblocks a contributor and returns them. A blocked user gets 403 `user_blocked` from every
+        authenticated endpoint. Blocking a blocked user, or unblocking one who is not blocked, succeeds again;
+        a re-block keeps the time the user was first blocked. Moderators cannot be blocked or unblocked,
+        including by themselves. Requires the moderator role.
+
+        Until users can be found through the API, moderators take user IDs from Auth0 or the database.
+      operationId: setUserBlocked
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: |
+            The user's `id`, percent-encoded: its `|` is sent as `%7C`, as in `google-oauth2%7C123`.
+          schema:
+            type: string
+            examples:
+              - google-oauth2|123
+      requestBody:
+        description: Whether the user should be blocked.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetUserBlockedRequest"
+            examples:
+              block:
+                summary: Block the user
+                value:
+                  blocked: true
+              unblock:
+                summary: Unblock the user
+                value:
+                  blocked: false
+      responses:
+        "200":
+          description: The user is now blocked or unblocked, as requested.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          description: There is no user with this ID; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: user not found
+        "409":
+          description: The user is a moderator, possibly the caller; the error code is `conflict`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: conflict
+                message: moderators cannot be blocked or unblocked
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/tokens:
+    post:
+      tags:
+        - API tokens
+      summary: Create an API token
+      description: |
+        Creates a personal API token for the caller and returns its secret, which is shown only in this response.
+        A user may have at most 10 active tokens; the limit is checked before the token is stored, so concurrent
+        requests can exceed it. Requires Auth0 authentication: API tokens cannot create tokens.
+      operationId: createAPIToken
+      security:
+        - auth0Bearer: []
+      requestBody:
+        description: The token to create. Send `{}` to create a token without a name.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAPITokenRequest"
+            examples:
+              named:
+                summary: A named token
+                value:
+                  name: CI runner
+              unnamed:
+                summary: A token without a name
+                value: {}
+      responses:
+        "201":
+          description: The token was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedAPIToken"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/APITokenForbidden"
+        "409":
+          description: The caller already has 10 active tokens; the error code is `token_limit_reached`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: token_limit_reached
+                message: user has reached the maximum number of active API tokens
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+    get:
+      tags:
+        - API tokens
+      summary: List API tokens
+      description: |
+        Lists the caller's active (not revoked) API tokens, newest first. Secrets are never included. Requires
+        Auth0 authentication: API tokens cannot list tokens.
+      operationId: listAPITokens
+      security:
+        - auth0Bearer: []
+      responses:
+        "200":
+          description: The caller's active tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APITokenList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/APITokenForbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/tokens/{token_id}:
+    delete:
+      tags:
+        - API tokens
+      summary: Revoke an API token
+      description: |
+        Revokes one of the caller's API tokens, which then no longer authenticates requests. Revoking a token that
+        is already revoked succeeds again. Requires Auth0 authentication: API tokens cannot revoke tokens.
+      operationId: revokeAPIToken
+      security:
+        - auth0Bearer: []
+      parameters:
+        - name: token_id
+          in: path
+          required: true
+          description: |
+            The token's `id`: a UUID in canonical form, lowercase and hyphenated. Any other value names no token.
+          schema:
+            type: string
+            examples:
+              - 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+      responses:
+        "204":
+          description: The token is revoked.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/APITokenForbidden"
+        "404":
+          description: |
+            The caller has no token with this ID, or the ID is not a canonical UUID; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: API token not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+components:
+  securitySchemes:
+    auth0Bearer:
+      type: http
+      scheme: bearer
+      description: |
+        An Auth0 access token for this API, prefixed with `auth0|`: `Authorization: Bearer auth0|<jwt>`.
+    apiTokenBearer:
+      type: http
+      scheme: bearer
+      description: |
+        A personal API token, prefixed with `user_api|`: `Authorization: Bearer user_api|<token>`.
+
+
+  responses:
+    InvalidRequest:
+      description: |
+        The request body is malformed or invalid; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: request body has an unknown field
+    Unauthenticated:
+      description: |
+        The request has no recognised credentials, or its credentials are invalid, expired or revoked; the error
+        code is `unauthenticated`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unauthenticated
+            message: invalid credentials
+    Forbidden:
+      description: The caller is blocked; the error code is `user_blocked`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: user_blocked
+            message: user is blocked
+    ModeratorForbidden:
+      description: |
+        The caller is blocked (`user_blocked`), or is not a moderator (`moderator_required`). Blocking takes
+        precedence.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            userBlocked:
+              summary: The caller is blocked
+              value:
+                code: user_blocked
+                message: user is blocked
+            moderatorRequired:
+              summary: The caller is not a moderator
+              value:
+                code: moderator_required
+                message: this endpoint requires the moderator role
+    APITokenForbidden:
+      description: |
+        The caller is blocked (`user_blocked`), or authenticated with an API token, which this endpoint does not
+        accept (`api_token_not_allowed`). Blocking takes precedence.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            userBlocked:
+              summary: The caller is blocked
+              value:
+                code: user_blocked
+                message: user is blocked
+            apiTokenNotAllowed:
+              summary: The caller used an API token
+              value:
+                code: api_token_not_allowed
+                message: this endpoint cannot be used with an API token
+    RequestTooLarge:
+      description: The request body is larger than 16 KiB; the error code is `request_too_large`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: request_too_large
+            message: request body is too large
+    UnsupportedMediaType:
+      description: The request body is not sent as `application/json`; the error code is `unsupported_media_type`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unsupported_media_type
+            message: request body must be sent as application/json
+    Internal:
+      description: The server failed to handle the request; the error code is `internal`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: internal
+            message: internal error
+
+  schemas:
+    Error:
+      type: object
+      description: The body of every error response.
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Stable, machine-readable error code.
+          enum:
+            - invalid_request
+            - unsupported_media_type
+            - request_too_large
+            - unauthenticated
+            - user_blocked
+            - api_token_not_allowed
+            - moderator_required
+            - not_found
+            - method_not_allowed
+            - conflict
+            - token_limit_reached
+            - internal
+            - unavailable
+          examples:
+            - unavailable
+        message:
+          type: string
+          description: Human-readable description of the error. Not intended for display to end users.
+          examples:
+            - database unavailable
+      examples:
+        - code: unavailable
+          message: database unavailable
+
+    HealthStatus:
+      type: object
+      description: The body of a successful health check.
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+          examples:
+            - ok
+      examples:
+        - status: ok
+
+    User:
+      type: object
+      description: A user.
+      additionalProperties: false
+      required:
+        - id
+        - display_name
+        - role
+      properties:
+        id:
+          type: string
+          description: |
+            The user's ID: the subject Auth0 authenticated them as, such as `google-oauth2|<id>`. It contains `|`,
+            which must be percent-encoded as `%7C` in a path.
+          examples:
+            - google-oauth2|123
+        display_name:
+          type: string
+          description: The name shown for the user.
+          minLength: 1
+          maxLength: 64
+          examples:
+            - Morwen
+        role:
+          type: string
+          description: |
+            What the user may do. Every user starts as a `contributor`; `moderator`s may also block and unblock
+            contributors.
+          enum:
+            - contributor
+            - moderator
+          examples:
+            - contributor
+      examples:
+        - id: google-oauth2|123
+          display_name: Morwen
+          role: contributor
+
+    UpdateMeRequest:
+      type: object
+      description: The body of a request to update the caller.
+      additionalProperties: false
+      required:
+        - display_name
+      properties:
+        display_name:
+          type: string
+          description: |
+            The new display name, at most 256 characters as sent. It is normalised to Unicode NFC and surrounding
+            whitespace is trimmed; the result must have 1 to 64 characters, each a letter, mark, number,
+            punctuation, symbol or space separator. So control and format characters (such as U+202E), line and
+            paragraph separators, and private-use and unassigned code points are rejected, as are more than 4
+            combining marks in a row.
+          maxLength: 256
+          examples:
+            - Morwen
+      examples:
+        - display_name: Morwen
+
+    SetUserBlockedRequest:
+      type: object
+      description: The body of a request to block or unblock a user.
+      additionalProperties: false
+      required:
+        - blocked
+      properties:
+        blocked:
+          type: boolean
+          description: True to block the user, false to unblock them.
+          examples:
+            - true
+      examples:
+        - blocked: true
+
+    CreateAPITokenRequest:
+      type: object
+      description: The body of a request to create an API token.
+      additionalProperties: false
+      properties:
+        name:
+          type:
+            - string
+            - "null"
+          description: |
+            A label to tell the token apart from others. Surrounding whitespace is trimmed, and at most 128
+            characters may remain; an empty, whitespace-only, null or missing name means the token has none. The
+            characters allowed are those allowed in a display name.
+          examples:
+            - CI runner
+      examples:
+        - name: CI runner
+
+    APIToken:
+      type: object
+      description: An API token. Its secret is never returned after creation.
+      additionalProperties: false
+      required:
+        - id
+        - prefix
+        - name
+        - created_at
+        - last_used_at
+      properties:
+        id:
+          type: string
+          description: The token's ID, used to revoke it.
+          examples:
+            - 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+        prefix:
+          type: string
+          description: The first eight characters of the secret after `user_api|`, to tell tokens apart.
+          pattern: "^[0-9a-f]{8}$"
+          examples:
+            - 0123abcd
+        name:
+          type:
+            - string
+            - "null"
+          description: The token's label, or null if it has none.
+          minLength: 1
+          maxLength: 128
+          examples:
+            - CI runner
+        created_at:
+          type: string
+          format: date-time
+          description: When the token was created.
+          examples:
+            - "2026-10-31T12:00:00Z"
+        last_used_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: |
+            When the token last authenticated a request, or null if it never has. Recorded to the nearest minute:
+            uses within a minute of the recorded one do not update it.
+          examples:
+            - "2026-10-31T12:30:00Z"
+      examples:
+        - id: 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+          prefix: 0123abcd
+          name: CI runner
+          created_at: "2026-10-31T12:00:00Z"
+          last_used_at: "2026-10-31T12:30:00Z"
+
+    CreatedAPIToken:
+      type: object
+      description: A newly created API token, with its secret.
+      additionalProperties: false
+      required:
+        - id
+        - prefix
+        - name
+        - created_at
+        - last_used_at
+        - token
+      properties:
+        id:
+          $ref: "#/components/schemas/APIToken/properties/id"
+        prefix:
+          $ref: "#/components/schemas/APIToken/properties/prefix"
+        name:
+          $ref: "#/components/schemas/APIToken/properties/name"
+        created_at:
+          $ref: "#/components/schemas/APIToken/properties/created_at"
+        last_used_at:
+          $ref: "#/components/schemas/APIToken/properties/last_used_at"
+        token:
+          type: string
+          description: |
+            The secret, shown only in this response. Send it as `Authorization: Bearer <token>`.
+          pattern: "^user_api\\|[0-9a-f]{64}$"
+          examples:
+            - "user_api|0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd"
+      examples:
+        - id: 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+          prefix: 0123abcd
+          name: CI runner
+          created_at: "2026-10-31T12:00:00Z"
+          last_used_at: null
+          token: "user_api|0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd"
+
+    APITokenList:
+      type: object
+      description: A list of API tokens.
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/APIToken"
+      examples:
+        - data:
+            - id: 6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55
+              prefix: 0123abcd
+              name: CI runner
+              created_at: "2026-10-31T12:00:00Z"
+              last_used_at: "2026-10-31T12:30:00Z"

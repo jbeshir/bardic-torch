@@ -1,0 +1,40 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # The pinned tools (go.mod tool directives) pull in most of the module graph; update them together.
+      tools:
+        patterns:
+          - github.com/daveshanley/vacuum
+          - github.com/golangci/golangci-lint/v2
+          - github.com/sqlc-dev/sqlc
+          - github.com/vektra/mockery/v3
+          - golang.org/x/vuln
+      # Minor and patch updates of everything else arrive as one pull request; major updates stay separate.
+      dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # The workflow pins each action to a commit SHA with its version tag in a trailing comment; dependabot updates
+  # both. The actions arrive as one pull request.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Both FROM lines of the Dockerfile. The mysql:8.4 tags in scripts/ and the CI workflow are floating LTS tags
+  # that track 8.4 patch releases themselves; DEPLOY.md's production pin is updated by hand.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
