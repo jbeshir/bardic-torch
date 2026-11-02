@@ -118,8 +118,9 @@ through the helper, so the command's name rules are checked against the spec's `
   every observable part of each answer: status, `Allow`, `Location`, CORS and security headers, `Content-Type`,
   body, whether authentication ran, the ID the controller received and the logged route. It covers every
   route × method (plus `HEAD` and `OPTIONS`), unrouted paths with invalid credentials (404/405, never 401),
-  path-cleaning redirects, trailing slashes, encoded literal segments and percent-encoded IDs. A routing change
-  that alters any of them must change the corpus.
+  public catalogue routes with invalid and valid credentials (never authenticating), path-cleaning redirects,
+  trailing slashes, encoded literal segments and percent-encoded IDs and slugs. A routing change that alters any
+  of them must change the corpus.
 - `TestRouter_AuthMatrix` (`internal/app/http_handler_auth_matrix_test.go`) builds the production handler with
   `app.NewHTTPHandler`, fake prefix validators (`Bearer auth0|<user id>`, `Bearer user_api|<user id>`) and mocks,
   and sends a request as every principal to every operation in the spec: anonymous, unrecognised credentials,
