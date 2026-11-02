@@ -45,7 +45,8 @@ with `go tool`, so nothing needs installing.
   `TestSections_Levels` with `== a = b ==` and `=x=`, and `TestFindExternalLinks_BareURLAfterEqualsOrQuote`;
   `TestFindTemplates_NestingCap` pins `MaxNestingDepth`); `ParseValue` (`value_test.go`); page typing, section keys,
   hints and section content (`page_test.go`); inline lyrics (`lyrics_test.go`: every `<poem>` form is dropped
-  whatever its length, the flag counts lines per section, the prose rule of Lyrics/Text sections, spans stay
+  whatever its length, the flag counts lines per section, the prose rule of Lyrics/Text sections, lines joined by
+  `<br>` counting as lines (`TestTextLines`, `TestInlineLyricsBlocks_LinesJoinedByBreaks`), spans stay
   offsets into the original text with a comment before the poem); the alias classifier, which fails closed
   (`TestClassifyPersonAlias`, `TestBardAliases_*`, `TestFoldName_*`); `NameMatcher` (`names_test.go`: case,
   accents, apostrophes, `_`/`-`/`.` and concatenated forms, first and last word, and phrases found only as their
@@ -68,7 +69,8 @@ with `go tool`, so nothing needs installing.
   (`TestPieceTitles_*`: infobox splits, H1 parentheticals as titles, other_titles and "Also known as" lines, other
   pages' titles and category words rejected, unparsed prose listed, redirects); content fields
   (`TestWikitextToMarkdown`, `TestPieceFields_*`: dropped lyrics absent from every field by reflection, version
-  notes kept, the prose of link sections in the notes unless as long as lyrics, licensing hints stripped, "public
+  notes kept, the prose of link sections in the notes unless as long as lyrics, `<br>`-joined lines included,
+  licensing hints stripped, "public
   domain" a review fact and never a licence, the period from century origins). On the scrubbed copy, `TestScrubbedPieces_ResearchCounts` asserts 142 pieces (135/4/2/1 by kind), 11
   with inline lyrics, 11 assessed and the drift of 13/24/4 pages, and `TestScrubbedPieces_NoLyricMarkerInAnyField`
   that no placeholder lyric reaches a record.
@@ -102,7 +104,10 @@ with `go tool`, so nothing needs installing.
   similar names listed), performers (`TestPerformers_ResolveToBardsAndStubs`), canonical links per normalised URL
   with conflicts (`TestParseLinks_CanonicalPerURL`; `TestParseLinks_PageSpecificFieldsNeverFromAnotherPage`: a
   PDF cited at different pages is a link per page with its own locator, and a title or description the pages
-  disagree on is never one page's) and profile links of infobox credits. On the scrubbed copy,
+  disagree on is never one page's; `TestParseLinks_DescriptionReadsTheLinkText`: a link after some text reads as
+  its text, or host, so a description has no hole; `TestParseLinks_DescriptionRunsAsLongAsLyricsDropped`: runs
+  of link lines whose text reads as 4 lines keep their links without descriptions and are recorded) and profile
+  links of infobox credits. On the scrubbed copy,
   `TestScrubbedLinks_ResearchCounts` asserts 62 collection entries (61 collections, the West Kingdom duplicate
   merged), 2 nested, 1 not bardic, the 12 kinds, 112 tracking-parameter URLs, 35 pages repeating a URL and 2 bare
   URLs, and `TestScrubbedLinks_*` the examples (the Green Dragon venue, Marian of Heatherdale matched to Heather
@@ -116,12 +121,16 @@ with `go tool`, so nothing needs installing.
   collisions, sort keys, the closure, status sources (`TestBuild_PersonStatusSource`: the link the date is read
   from unless it is hidden, else the wiki page) and conservation sources (the piece's own page), hidden, redirect and unsure
   aliases, every kind of free text withheld and every entity named by a legal name left out
-  (`TestBuild_FreeTextContainingHiddenAliasListed`, `TestBuild_StubPersonWithLegalNameNotCreated`), a public alias
+  (`TestBuild_FreeTextContainingHiddenAliasListed`, `TestBuild_StubPersonWithLegalNameNotCreated`,
+  `TestBuild_CollectionWithLegalNameInURLNotImported`), an unsure name published as a stub person kept in free
+  text and listed (`TestBuild_UnsureNamePublishedAsPersonKeptInText`), a public alias
   holding a hidden alias hidden (`TestBuild_PublicAliasHoldingHiddenAliasHidden`), emails, one link row per
   normalised URL, URLs without tracking parameters (`TestBuild_URLsWithoutTrackingParameters`), stub pieces
   crediting the listing bard pages' contributors, legacy columns, NFC, control characters removed and listed
-  (`TestBuild_ControlCharactersRemovedAndListed`) and determinism. `TestWithholder_*` pin the withholder: legal names in names,
-  unsure names in free text only, overlapping forms withheld once, whole wikilinks, URLs hidden only by a legal
+  (`TestBuild_ControlCharactersRemovedAndListed`, `TestBuild_ControlCharactersRemovedFromNamesAndContributors`:
+  aliases, legacy titles, contributors) and determinism. `TestCatalogueImportValidate_RejectsWithheldPlaceholders`
+  pins that no structured field holds a placeholder. `TestWithholder_*` pin the withholder: legal names in names,
+  unsure names in free text only (but those published as a person's name), overlapping spans withheld once, whole wikilinks, URLs hidden only by a legal
   name and listed for an unsure name or a home directory. On the scrubbed copy, `TestBuild_ResearchCounts` asserts
   142 pieces (135/4/2/1), 48 bards, 62 collection entries (61 collections, written or withheld) and 11 pieces with
   inline lyrics,
@@ -134,7 +143,8 @@ with `go tool`, so nothing needs installing.
   `TestReviewGolden` compare with `internal/importer/testdata/`; after a deliberate change, rewrite them with
   `go test ./internal/importer -run Golden -update` and review the diff (the repository privacy scans cover them).
   Gated: the same counts on the real crawl, no legal name (in clear, every form) or email in any public field of
-  the real import and no private name in its free text, and no 5-word window or whole line of the crawl's inline
+  the real import and no private name in its free text (but an unsure name in a published person's name, which
+  the review must list as kept), and no 5-word window or whole line of the crawl's inline
   lyrics in the real import or its review, the lyrics found without the detector under test
   (`wikidumptest.OracleLyrics` in the sections the research analysis lists).
   `internal/testutil/importtest` gives other packages the scrubbed import, built once per test binary
@@ -149,7 +159,9 @@ with `go tool`, so nothing needs installing.
   on stdout). `TestApplyCatalogueImport_*` (mocks): an invalid import never reaches the writer, and the writer's
   typed errors pass through. `internal/repopath` (`TestInside`, `TestWritePrivate_*`) pins the private-file
   writer both commands share: symbolic links to a file or a directory in the repository, dangling or not, are
-  refused, and the mode is 0600 over an existing file. `TestConfigFromURL_ErrorsNeverQuoteThePassword` covers a
+  refused, and so are a hard link into the repository and anything but a regular file; the mode is 0600 over an
+  existing file, no temporary file is left, and `TestCheckOpenedDirectory_*` refuse a directory swapped before or
+  after it is opened. `TestConfigFromURL_ErrorsNeverQuoteThePassword` covers a
   malformed `DATABASE_URL`.
 - **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
   `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; set it

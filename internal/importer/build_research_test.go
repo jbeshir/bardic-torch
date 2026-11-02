@@ -2,9 +2,11 @@ package importer
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 	"github.com/jbeshir/bardic-torch/internal/testutil/wikidumptest"
 )
@@ -37,11 +39,12 @@ func TestBuild_ResearchCountsOnRealDump(t *testing.T) {
 
 // TestBuild_NoPrivateNameInPublicFieldsOnRealDump scans the public fields of the real import, in clear: no legal
 // name of the crawl (the scrubber's legal names and every hidden alias, in every form) is in any of them, no other
-// private name (an unsure one) is in any free-text field, and no email address is anywhere. An unsure name may
-// name an entity the wiki itself names (a credited person, a title, a collection, an event), which the review lists.
+// private name (an unsure one) is in any free-text field unless the import publishes it in a person's name, which
+// the review then lists as kept, and no email address is anywhere. An unsure name may name an entity the wiki
+// itself names (a credited person, a title, a collection, an event), which the review lists.
 func TestBuild_NoPrivateNameInPublicFieldsOnRealDump(t *testing.T) {
 	c, _ := researchImport(t)
-	imp, _ := Build(c, buildTime)
+	imp, review := Build(c, buildTime)
 	var legal, all []mediawiki.PrivateName
 	for _, n := range c.PrivateNames {
 		all = append(all, n)
@@ -68,13 +71,68 @@ func TestBuild_NoPrivateNameInPublicFieldsOnRealDump(t *testing.T) {
 	for _, m := range mediawiki.EmailAddress.FindAllStringIndex(public, -1) {
 		wikidumptest.Equal(t, wikidumptest.Location{Field: "public import", Offset: m[0]}, "no email", "email")
 	}
+	checkFreeTextOnRealDump(t, imp, review, all, legal)
+}
+
+// checkFreeTextOnRealDump checks that the public free text of the real import holds no private name of all but
+// the unsure ones it publishes in a person's name, each listed in the review as kept, of which there is one at
+// least.
+func checkFreeTextOnRealDump(t *testing.T, imp domain.CatalogueImport, review Review,
+	all, legal []mediawiki.PrivateName,
+) {
+	t.Helper()
 	matcher := mediawiki.NewPrivateNameMatcher(all)
+	published := publishedPrivateNames(imp, all)
+	isLegal := map[string]bool{}
+	for _, n := range legal {
+		isLegal[mediawiki.FoldName(n.Text)] = true
+	}
+	kept := 0
 	for k, text := range publicFreeText(t, imp) {
-		if len(matcher.Find(text)) > 0 {
-			wikidumptest.Equal(t, wikidumptest.Location{Field: "public free text", Offset: k}, "no private name",
-				"private name")
+		for _, m := range matcher.Find(text) {
+			name := all[m.Name].Text
+			if isLegal[mediawiki.FoldName(name)] || !published[name] {
+				wikidumptest.Equal(t, wikidumptest.Location{Field: "public free text", Offset: k},
+					"no private name", "private name")
+
+				continue
+			}
+			kept++
+			wikidumptest.Equal(t, wikidumptest.Location{Field: "kept name listed", Offset: k}, true,
+				listsKept(review, text[m.Start:m.End]))
 		}
 	}
+	wikidumptest.Equal(t, wikidumptest.Location{Field: "kept names found", Offset: -1}, true, kept > 0)
+}
+
+// publishedPrivateNames are the unsure names of names found in the name of a person the import publishes.
+func publishedPrivateNames(imp domain.CatalogueImport, names []mediawiki.PrivateName) map[string]bool {
+	var unsure []mediawiki.PrivateName
+	for _, n := range names {
+		if !n.Legal {
+			unsure = append(unsure, n)
+		}
+	}
+	m := mediawiki.NewPrivateNameMatcher(unsure)
+	out := map[string]bool{}
+	for _, p := range imp.Persons {
+		for _, f := range m.Find(p.Doc.Name) {
+			out[unsure[f.Name].Text] = true
+		}
+	}
+
+	return out
+}
+
+// listsKept reports whether the review lists text as a possible private name kept in free text.
+func listsKept(review Review, text string) bool {
+	for _, it := range review.HiddenNames {
+		if it.Kind == "free_text_published" && strings.Contains(it.Text, strconv.Quote(text)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // TestBuild_NoRealLyricsAnywhere checks that no 5-word window and no whole line (of at least minLyricLine words)

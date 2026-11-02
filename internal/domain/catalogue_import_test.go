@@ -265,6 +265,35 @@ func TestCatalogueImport_TermAncestors(t *testing.T) {
 	assert.Equal(t, []TermAncestor{{1, 1, 0}, {2, 2, 0}, {1, 2, 1}, {3, 3, 0}}, ancestors)
 }
 
+// TestCatalogueImportValidate_RejectsWithheldPlaceholders: no name, title, alias, sort key, slug or uploader may
+// hold a withheld-text placeholder; only free text may.
+func TestCatalogueImportValidate_RejectsWithheldPlaceholders(t *testing.T) {
+	for _, withheld := range []string{WithheldName, WithheldEmail} {
+		in := "Song for " + withheld
+		for field, mutate := range map[string]func(*CatalogueImport){
+			"term 1: doc.name":              func(imp *CatalogueImport) { imp.Terms[0].Doc.Name = in },
+			"term 1: doc.display_name":      func(imp *CatalogueImport) { imp.Terms[0].Doc.DisplayName = in },
+			"term 1: doc.aliases[0]":        func(imp *CatalogueImport) { imp.Terms[0].Doc.Aliases[0] = in },
+			"collection 1: doc.name":        func(imp *CatalogueImport) { imp.Collections[0].Doc.Name = in },
+			"collection 1: sort_name":       func(imp *CatalogueImport) { imp.Collections[0].SortName = in },
+			"event 1: doc.name":             func(imp *CatalogueImport) { imp.Events[0].Doc.Name = in },
+			"person 2: doc.name":            func(imp *CatalogueImport) { imp.Persons[1].Doc.Name = in },
+			"person 1: doc.aliases[0].name": func(imp *CatalogueImport) { imp.Persons[0].Doc.Aliases[0].Name = in },
+			"piece 1: doc.title":            func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = in },
+			"piece 1: doc.aliases[0].text":  func(imp *CatalogueImport) { imp.Pieces[0].Doc.Aliases[0].Text = in },
+			"performances[0].uploader": func(imp *CatalogueImport) {
+				imp.Persons[0].Doc.Links[0].Performances[0].Uploader = ptr(in)
+			},
+			"event 1: slug": func(imp *CatalogueImport) { imp.Events[0].Slug = "green-" + Slugify(withheld) },
+		} {
+			requireInvalid(t, mutate, field)
+		}
+	}
+	notes := validImport()
+	notes.Pieces[0].Doc.NotesMD = ptr("Written for " + WithheldName + ".")
+	require.NoError(t, notes.Validate(), "free text may hold a placeholder")
+}
+
 func TestCatalogueImportValidate_StringsAreNFC(t *testing.T) {
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = "Café " + secretValue },
 		"piece 1: .Doc.Title")

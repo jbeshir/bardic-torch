@@ -245,18 +245,20 @@ func (c *PieceContent) linkSection(sec PageSection, body string) string {
 var ruleLine = regexp.MustCompile(`^(?:-{4,}|[*#:]+)$`)
 
 // linkSectionProse is the prose of a link section's body (proseOf), as wikitext, and its number of lines: the lines
-// that carry no external link and are not rules or empty.
+// that carry no external link and are not rules or empty, each counted as the lines it reads as (TextLines).
 func linkSectionProse(body string) (string, int) {
 	var kept []string
+	n := 0
 	for _, line := range strings.Split(body, "\n") {
 		t := trimSpace(line)
 		if t == "" || ruleLine.MatchString(t) || len(FindExternalLinks(MaskNowiki(t))) > 0 {
 			continue
 		}
 		kept = append(kept, line)
+		n += TextLines(t)
 	}
 
-	return strings.Join(kept, "\n"), len(kept)
+	return strings.Join(kept, "\n"), n
 }
 
 // proseOf is a section's body without its infobox call and the lines that are not prose: hints, category tags

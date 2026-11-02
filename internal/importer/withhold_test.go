@@ -127,3 +127,51 @@ func TestAround_KeepsRuneBoundaries(t *testing.T) {
 
 	assert.Equal(t, s, around(s, len("ééééé"), len("ééééé")+len(domain.WithheldName)))
 }
+
+// TestWithholder_OverlappingSpansMerged: spans that overlap are withheld as one placeholder and one finding. The
+// honorific name ("Dr. Rowan", its surname "Rowan") and the unsure name "Rowan Unsure" start together; the email
+// address holds the legal name joined by dots.
+func TestWithholder_OverlappingSpansMerged(t *testing.T) {
+	w := testWithholder([]string{hiddenAlias}, []string{rowanUnsure})
+
+	for _, tt := range []struct {
+		text, want string
+		email      bool
+	}{
+		{"Sung by Dr. " + rowanUnsure + " at the revel.", "Sung by Dr. " + domain.WithheldName + " at the revel.", false},
+		{"Sung by Mr. " + hiddenAlias + " at the revel.", "Sung by Mr. " + domain.WithheldName + " at the revel.", false},
+		{"Mail ash.hiddenname@example.org now.", "Mail " + domain.WithheldEmail + " now.", true},
+	} {
+		out, found := w.text(tt.text)
+		assert.Equal(t, tt.want, out, tt.text)
+		if assert.Len(t, found, 1, tt.text) {
+			assert.Equal(t, tt.email, found[0].Email, tt.text)
+		}
+	}
+}
+
+// TestWithholder_PublishedUnsureNamesKeptInText: an unsure name found in a name the import publishes as a person's
+// is kept in free text and found by published; other unsure names, legal names and honorific names are still
+// withheld, also when a published name holds a legal name.
+func TestWithholder_PublishedUnsureNamesKeptInText(t *testing.T) {
+	sage := "Sage Unsure"
+	w := testWithholder([]string{hiddenAlias}, []string{sage, rowanUnsure}).publishing([]string{wren,
+		"Lady " + sage, hiddenAlias})
+
+	out, found := w.text("By " + sage + " and " + rowanUnsure + " for " + hiddenAlias + " and Mr. Otherperson.")
+
+	assert.Equal(t, "By "+sage+" and "+domain.WithheldName+" for "+domain.WithheldName+" and Mr. "+
+		domain.WithheldName+".", out)
+	assert.Len(t, found, 3)
+	published := w.published(out)
+	if assert.Len(t, published, 1) {
+		assert.Equal(t, sage, published[0].Text)
+		assert.Contains(t, published[0].Context, "By "+sage+" and")
+	}
+	assert.True(t, w.holdsName(sage), "the name is still private where holdsName decides (public aliases)")
+
+	unpublished := testWithholder([]string{hiddenAlias}, []string{sage})
+	out, _ = unpublished.text("By " + sage + ".")
+	assert.Equal(t, "By "+domain.WithheldName+".", out, "without publishing, an unsure name is withheld")
+	assert.Empty(t, unpublished.published("By "+sage+"."))
+}

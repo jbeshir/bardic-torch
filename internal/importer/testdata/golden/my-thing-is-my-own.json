@@ -68,7 +68,7 @@
         {
           "url": "https://en.wikipedia.org/wiki/Wit_and_Mirth,_or_Pills_to_Purge_Melancholy",
           "title": "Wit and Mirth: Or Pills to Purge Melancholy",
-          "description": "The song is from , a collection of songs by Thomas d'Urfey published between 1698 and 1720",
+          "description": "The song is from Wit and Mirth: Or Pills to Purge Melancholy, a collection of songs by Thomas d'Urfey published between 1698 and 1720",
           "platform": "wikipedia",
           "place_type": null,
           "collection_id": null,
@@ -136,7 +136,7 @@
   },
   "review": [
     {
-      "id": "NAME-125",
+      "id": "NAME-126",
       "kind": "free_text",
       "page": "My Thing is My Own",
       "text": "link https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own, title: \"Legal Name 073\" was withheld. Context: \"n Cunnan, a Lochac wiki, taken from the [name withheld] Songbook\"."

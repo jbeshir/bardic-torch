@@ -64,8 +64,9 @@ var (
 //   - every <poem> element, whatever its length, attributes or case, in every section; an unclosed one runs to the
 //     end of its section, and a tag left open runs to the end of the text;
 //   - every HTML comment holding a <poem> tag;
-//   - in a Lyrics or Text section, the lines that are neither blank, a hint nor carrying a link: with at least
-//     InlineLyricsMinLines of them they are lyrics (blocks), with fewer they are version commentary.
+//   - in a Lyrics or Text section, the lines that are neither blank, a hint nor carrying a link: when they read as
+//     at least InlineLyricsMinLines lines (TextLines: a <br> breaks a line) they are lyrics (blocks), with fewer
+//     they are version commentary.
 //
 // Spans are offsets into wikitext.
 func InlineLyricsBlocks(wikitext string) InlineLyrics {
@@ -86,7 +87,7 @@ func InlineLyricsBlocks(wikitext string) InlineLyrics {
 			continue
 		}
 		prose := proseLines(masked, s, tagged)
-		if len(prose) < InlineLyricsMinLines {
+		if spanLines(masked, prose) < InlineLyricsMinLines {
 			for _, l := range prose {
 				res.Commentary = append(res.Commentary, CommentaryLine{Section: k, Start: l.start, End: l.end})
 			}
@@ -196,12 +197,47 @@ func mergeBlocks(blocks []LyricsBlock) []LyricsBlock {
 	return out
 }
 
+// countLines is the number of lines text reads as: its lines, each counted as its TextLines.
 func countLines(s string) int {
 	n := 0
 	for _, l := range strings.Split(s, "\n") {
-		if trimSpace(l) != "" {
-			n++
+		n += TextLines(l)
+	}
+
+	return n
+}
+
+// TextLines is the number of lines one line of wikitext reads as: its segments between <br> tags (any case and
+// form) that are not blank, so five lines joined by <br> on one line are five lines.
+func TextLines(line string) int {
+	sc := newTokenScanner(line)
+	n, start := 0, 0
+	for i := strings.IndexByte(line, '<'); i >= 0; {
+		next := i + 1
+		if end, ok := sc.lineBreakAt(i); ok {
+			if trimSpace(line[start:i]) != "" {
+				n++
+			}
+			start, next = end, end
 		}
+		k := strings.IndexByte(line[next:], '<')
+		if k < 0 {
+			break
+		}
+		i = next + k
+	}
+	if trimSpace(line[start:]) != "" {
+		n++
+	}
+
+	return n
+}
+
+// spanLines is the number of lines prose lines read as (TextLines).
+func spanLines(masked string, lines []lineSpan) int {
+	n := 0
+	for _, l := range lines {
+		n += TextLines(masked[l.start:l.end])
 	}
 
 	return n
@@ -248,13 +284,13 @@ func proseBlocks(masked string, section int, lines []lineSpan) []LyricsBlock {
 	for _, l := range lines {
 		if n := len(out); n > 0 && trimSpace(masked[out[n-1].End:l.start]) == "" {
 			out[n-1].End, out[n-1].BodyEnd = l.end, l.end
-			out[n-1].Lines++
+			out[n-1].Lines += TextLines(masked[l.start:l.end])
 
 			continue
 		}
 		out = append(out, LyricsBlock{
 			Kind: LyricsProse, Section: section, Start: l.start, End: l.end, BodyStart: l.start, BodyEnd: l.end,
-			Lines: 1,
+			Lines: TextLines(masked[l.start:l.end]),
 		})
 	}
 

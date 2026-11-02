@@ -423,3 +423,76 @@ func TestBuild_StubPersonWithLegalNameNotCreated(t *testing.T) {
 	assert.Equal(t, domain.WithheldName, *credits[0].Note)
 	assert.True(t, containsKind(review.HiddenNames, "stub_withheld"))
 }
+
+// TestBuild_UnsureNamePublishedAsPersonKeptInText: an unsure private name that the import publishes as a stub
+// person's name is not withheld from free text, and each occurrence is listed; an unsure name it does not publish,
+// and the legal name, still are.
+func TestBuild_UnsureNamePublishedAsPersonKeptInText(t *testing.T) {
+	sage := "Sage Unsure"
+	d := syntheticDump()
+	d.Pages = append(d.Pages, page(50, "Song of Sharing", []string{mediawiki.CategoryPieces, mediawiki.CategorySongs},
+		"{{Infobox Song\n|lyrics_by="+sage+"\n}}\nWritten by "+sage+" for Rowan Unsure and "+hiddenAlias+".\n"))
+	c := mediawiki.ParseCorpus(d)
+	c.PrivateNames = append(c.PrivateNames, mediawiki.PrivateName{Text: sage}, mediawiki.PrivateName{Text: rowanUnsure})
+
+	imp, review := Build(c, buildTime)
+
+	require.NoError(t, imp.Validate())
+	personNamed(t, imp, sage)
+	doc := pieceTitled(t, imp, "Song of Sharing").Doc
+	require.NotNil(t, doc.NotesMD)
+	assert.Equal(t, "Written by "+sage+" for "+domain.WithheldName+" and "+domain.WithheldName+".", *doc.NotesMD)
+	var published []string
+	for _, it := range review.HiddenNames {
+		if it.Kind == "free_text_published" {
+			published = append(published, it.Text)
+		}
+	}
+	require.Len(t, published, 1, "the kept occurrence is listed")
+	assert.Contains(t, published[0], `"`+sage+`"`)
+	assert.NotContains(t, strings.ToLower(publicJSON(t, imp)), strings.ToLower(hiddenSurname))
+}
+
+// TestBuild_CollectionWithLegalNameInURLNotImported: a collection whose name holds no private name but whose URL
+// holds the hidden alias is not imported, and is listed.
+func TestBuild_CollectionWithLegalNameInURLNotImported(t *testing.T) {
+	d := syntheticDump()
+	d.Pages[4].Wikitext = "== S ==\n* [https://songs.example.org/ash-hiddenname/book.pdf Placeholder Songbook]\n" +
+		"* [https://songs.example.org/other/book.pdf Other Songbook]\n"
+
+	imp, review := Build(mediawiki.ParseCorpus(d), buildTime)
+
+	require.NoError(t, imp.Validate())
+	var names []string
+	for _, c := range imp.Collections {
+		names = append(names, c.Doc.Name)
+	}
+	assert.Equal(t, []string{"Other Songbook"}, names, "only the collection whose URL names no one is imported")
+	assert.True(t, containsKind(review.HiddenNames, "collection_withheld"), "the collection is listed")
+	assert.NotContains(t, strings.ToLower(publicJSON(t, imp)), strings.ToLower(hiddenSurname))
+}
+
+// TestBuild_ControlCharactersRemovedFromNamesAndContributors plants ESC and a bidirectional override in a bard's
+// public H1 alias, a page title (the piece's legacy title) and a wiki user name (a revision contributor): each is
+// imported without them, and the import validates (Validate rejects any control character).
+func TestBuild_ControlCharactersRemovedFromNamesAndContributors(t *testing.T) {
+	d := syntheticDump()
+	d.Pages[1].Wikitext = "= " + rowan + " (Rowan of the\x1b Glen, " + unsureAlias + ") =\nDeceased October 31, " +
+		"2020.\n"
+	d.Pages[3].Title = "Song of\u202e Testing!"
+	d.Activity = append(d.Activity, mediawiki.PageActivity{Title: d.Pages[3].Title, NS: mediawiki.NSMain,
+		Revisions: 1, Users: map[string]int{"Wiki\x1b User\u202e 04": 1}})
+
+	imp, _ := Build(mediawiki.ParseCorpus(d), buildTime)
+
+	require.NoError(t, imp.Validate())
+	var aliases []string
+	for _, a := range personNamed(t, imp, rowan).Doc.Aliases {
+		aliases = append(aliases, a.Name)
+	}
+	assert.Contains(t, aliases, publicAlias)
+	piece := pieceTitled(t, imp, collidingSong)
+	require.NotNil(t, piece.Legacy)
+	assert.Equal(t, collidingSong, piece.Legacy.Title)
+	assert.Equal(t, []string{"Wiki User 04"}, piece.Revision.Contributors)
+}

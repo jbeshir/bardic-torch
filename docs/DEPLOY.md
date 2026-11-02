@@ -359,11 +359,13 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
    review and prints the counts (pieces by kind and with inline lyrics, persons, terms, collections of the
    Collections page's entries, events, links, revisions and review items).
 2. **Review.** The moderators work through the review (`import-review.md`): every alias classification, every
-   name withheld from public text, every collection, event, stub, alias or uploader left out because its name
+   name withheld from public text (and every possible private name kept in it because the import publishes it as
+   a person's name), every collection, event, stub, alias or uploader left out because its name
    holds a possible legal name, every URL that may name a person, the wiki users shaped like personal names
    (credited publicly as written), the ambiguous records, the stubs, the links whose pages disagree on their
    title, description or locator (one links row serves every page; each page's own fields are in the item), the
-   link-section prose moved into notes, and the rest. Where the importer guessed
+   link-section prose moved into notes, the runs of link lines imported without descriptions because their text
+   could be lyrics, and the rest. Where the importer guessed
    wrong, note the item ID: it is corrected in the catalogue after the import (an entity left out is created by
    hand once its name is cleared). Run the dry run again whenever the crawl changes.
 3. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
@@ -387,7 +389,8 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
 
 **The review is private.** It names hidden aliases and other possible legal names in clear so that the
 moderators can check them (it never holds lyrics). Never publish it, commit it or attach it to an issue; the
-command writes it with mode 0600 and refuses a path inside this repository, which is public. Share it with the
+command writes it with mode 0600 and refuses a path inside this repository, which is public (also through a
+symbolic or hard link); it replaces an existing file instead of writing through it. Share it with the
 moderators privately, and delete the copies when the review is done.
 
 After the import, every imported entity has one approved revision of source `import`, crediting the wiki users who

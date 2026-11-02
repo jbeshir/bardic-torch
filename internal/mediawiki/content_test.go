@@ -201,3 +201,20 @@ func TestScrubbedPieces_NoLyricMarkerInAnyField(t *testing.T) {
 		assertNoLyricMarker(t, reflect.ValueOf(p), p.Title)
 	}
 }
+
+// TestPieceFields_LinkSectionProseJoinedByBreaksNotKept: lines joined by <br> on one line count as lines, so one
+// line of a link section holding as many as inline lyrics is not kept.
+func TestPieceFields_LinkSectionProseJoinedByBreaksNotKept(t *testing.T) {
+	joined := "First placeholder line<br>second placeholder line<br/>third placeholder line<br />" +
+		"fourth placeholder line<BR>fifth placeholder line"
+	text := pieceWikitext(aSong, nil, keyLinksHeading, "* [https://example.invalid/a A link]\n"+joined)
+	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
+
+	assert.Empty(t, p.Content.NotesMD)
+	assert.Equal(t, []LinkSectionProse{{Heading: keyLinksHeading, Lines: 5, Kept: false}}, p.Content.LinkSectionProse)
+
+	short := parseFixturePiece(standardWiki(), Page{Title: aSong, Categories: pieceCategories(),
+		Wikitext: pieceWikitext(aSong, nil, keyLinksHeading, "* [https://example.invalid/a A link]\nOne.<br>Two.")})
+	assert.Equal(t, []LinkSectionProse{{Heading: keyLinksHeading, Lines: 2, Kept: true}},
+		short.Content.LinkSectionProse)
+}

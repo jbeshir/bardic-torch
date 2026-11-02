@@ -175,3 +175,39 @@ func TestWithoutInlineLyrics_RemovesSpansOnly(t *testing.T) {
 	assert.Equal(t, "<po em>", WithoutInlineLyrics("<po<poem>x</poem>em>", InlineLyricsBlocks("<po<poem>x</poem>em>").Blocks),
 		"removing a block cannot form a tag")
 }
+
+func TestTextLines(t *testing.T) {
+	for _, tt := range []struct {
+		line string
+		want int
+	}{
+		{"", 0},
+		{"  ", 0},
+		{"one line", 1},
+		{"a b<br>c d<br/>e f<br />g h<BR>i j", 5},
+		{"<br>a<br><br>  <br>b<br>", 2},
+		{"a <brx> b <b>c</b>", 1},
+		{"a<br", 1},
+	} {
+		assert.Equal(t, tt.want, TextLines(tt.line), tt.line)
+	}
+}
+
+// TestInlineLyricsBlocks_LinesJoinedByBreaks: lines joined by <br> on one line count as lines, so one line holding
+// a verse is lyrics.
+func TestInlineLyricsBlocks_LinesJoinedByBreaks(t *testing.T) {
+	joined := strings.ReplaceAll(lyricLines(5), "\n", "<br>")
+	text := "== " + lyricsHeading + " ==\n" + joined + "\n"
+
+	got := InlineLyricsBlocks(text)
+	assert.True(t, got.HadInlineLyrics)
+	require.Len(t, got.Blocks, 1)
+	assert.Equal(t, LyricsProse, got.Blocks[0].Kind)
+	assert.Equal(t, 5, got.Blocks[0].Lines)
+	assert.Empty(t, got.Commentary)
+	assert.NotContains(t, WithoutInlineLyrics(text, got.Blocks), "placeholder")
+
+	short := InlineLyricsBlocks("== " + lyricsHeading + " ==\nThis version<br>adds a verse.\n")
+	assert.False(t, short.HadInlineLyrics, "two lines are version commentary")
+	assert.Len(t, short.Commentary, 1)
+}

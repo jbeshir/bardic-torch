@@ -260,11 +260,21 @@ func ownerName(o mediawiki.LinkOwner, l mediawiki.Links) string {
 	return fmt.Sprint(o.PieceID)
 }
 
+// reviewProseRuns lists the runs of link lines whose descriptions are not imported, as they could be lyrics.
+func (b *builder) reviewProseRuns(page string, runs []mediawiki.LinkProseRun) {
+	for _, r := range runs {
+		b.review.Links = append(b.review.Links, item("description_prose_dropped", page, "Section %s: link lines "+
+			"whose text around the links reads as %d line(s): as long as inline lyrics, the text could be lyrics, so "+
+			"those links are imported without a description.", r.Section, r.Lines))
+	}
+}
+
 func (b *builder) reviewPageLinks(page string, pl mediawiki.PageLinks) {
 	for _, d := range pl.Dropped {
 		b.review.Links = append(b.review.Links, item("dropped", page, "%q (section %s) does not normalise: "+
 			"not imported.", d.URL, d.Section))
 	}
+	b.reviewProseRuns(page, pl.ProseRuns)
 	changed := 0
 	for _, o := range pl.Occurrences {
 		if u, err := domain.NormalizeURL(o.URL); err == nil && u != o.URL {

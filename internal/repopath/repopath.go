@@ -3,6 +3,7 @@
 package repopath
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"os"
@@ -22,6 +23,12 @@ var (
 	ErrInsideRepository = errors.New("a private file must be written outside the repository")
 	// ErrTooManyLinks is returned for a path through more than maxLinks symbolic links in a row.
 	ErrTooManyLinks = errors.New("too many symbolic links")
+	// ErrNotPrivateFile is returned by WritePrivate for an existing file it must not replace: one that is not a
+	// regular file, or has other hard links (one could be inside this repository).
+	ErrNotPrivateFile = errors.New("a private file must replace only a regular file with no other hard links")
+	// ErrDirectoryChanged is returned by WritePrivate when the directory it opened is no longer the one its path
+	// resolved to (a component was swapped meanwhile).
+	ErrDirectoryChanged = errors.New("the directory changed while the private file was written")
 )
 
 // Inside reports whether path, with its symbolic links resolved (Resolve), is under a directory whose go.mod
@@ -84,8 +91,11 @@ func Resolve(path string) (string, error) {
 }
 
 // WritePrivate writes content to path with mode 0600, also over an existing file with another mode. It refuses a
-// path inside this repository (ErrInsideRepository) after resolving its symbolic links, and writes to the resolved
-// path without following a symbolic link put there since.
+// path inside this repository (ErrInsideRepository) after resolving its symbolic links, and an existing file that
+// is not regular or has other hard links (ErrNotPrivateFile). It opens the resolved directory once and checks that
+// it is still the resolved, outside directory (ErrDirectoryChanged); every later step is relative to that open
+// directory, so a component swapped since cannot redirect the write. The content goes to a new temporary file in
+// the directory, which then replaces path: an existing file is never written through.
 func WritePrivate(path string, content []byte) error {
 	resolved, err := Resolve(path)
 	if err != nil {
@@ -94,7 +104,90 @@ func WritePrivate(path string, content []byte) error {
 	if insideResolved(resolved) {
 		return ErrInsideRepository
 	}
-	f, err := os.OpenFile(filepath.Clean(resolved), os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
+	dir, name := filepath.Split(resolved)
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	if err := checkOpenedDirectory(root, resolved); err != nil {
+		return err
+	}
+	if err := checkReplaceable(root, name); err != nil {
+		return err
+	}
+	temp := "." + name + "." + rand.Text() + ".tmp"
+	if err := writeNew(root, temp, content); err != nil {
+		_ = root.Remove(temp)
+
+		return err
+	}
+	if err := root.Rename(temp, name); err != nil {
+		_ = root.Remove(temp)
+
+		return err
+	}
+
+	return nil
+}
+
+// checkOpenedDirectory checks that the opened root is the directory of resolved (a path Resolve returned), that
+// the directory still resolves to itself and that resolved is still outside this repository.
+func checkOpenedDirectory(root *os.Root, resolved string) error {
+	dir := filepath.Dir(resolved)
+	opened, err := root.Stat(".")
+	if err != nil {
+		return err
+	}
+	again, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return err
+	}
+	if again != dir || insideResolved(resolved) {
+		return ErrDirectoryChanged
+	}
+	current, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !os.SameFile(opened, current) {
+		return ErrDirectoryChanged
+	}
+
+	return nil
+}
+
+// checkReplaceable checks that name in root, if it exists, is a regular file with no other hard link. It is
+// opened without following a symbolic link and without blocking on a FIFO.
+func checkReplaceable(root *os.Root, name string) error {
+	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if errors.Is(err, syscall.ELOOP) {
+		return ErrNotPrivateFile
+	}
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return ErrNotPrivateFile
+	}
+	if st, ok := info.Sys().(*syscall.Stat_t); ok && st.Nlink > 1 {
+		return ErrNotPrivateFile
+	}
+
+	return nil
+}
+
+// writeNew writes content to a file name in root that must not exist yet, with mode 0600.
+func writeNew(root *os.Root, name string, content []byte) error {
+	f, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {
 		return err
 	}
@@ -104,6 +197,11 @@ func WritePrivate(path string, content []byte) error {
 		return err
 	}
 	if _, err := f.Write(content); err != nil {
+		_ = f.Close()
+
+		return err
+	}
+	if err := f.Sync(); err != nil {
 		_ = f.Close()
 
 		return err

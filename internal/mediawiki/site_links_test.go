@@ -269,7 +269,8 @@ func TestParseLinks_PageSpecificFieldsNeverFromAnotherPage(t *testing.T) {
 	assert.Equal(t, songbookPDF+"#page=14", fourteen.URL)
 	assert.Equal(t, "p. 14", fourteen.Locator)
 	assert.Equal(t, songbookPDF, fourteen.CollectionURL, "still in the collection")
-	assert.Equal(t, "Lyrics are on page 14 of", fourteen.Description, "the line's text around the link")
+	assert.Equal(t, "Lyrics are on page 14 of the songbook", fourteen.Description,
+		"the line's text around the link, which reads as its text")
 	third := pieceLinksOf(t, l, "Third Song").Links[0]
 	assert.Equal(t, songbookPDF, third.URL, "a link with no page keeps the PDF's URL")
 	assert.Empty(t, third.Locator)
@@ -325,4 +326,59 @@ func TestParseLinks_CollectionsAndWebsites(t *testing.T) {
 	assert.Equal(t, domain.LinkPlaceTypeCommunityArchive, links[1].PlaceType)
 	assert.Equal(t, "p. 4", links[1].Locator)
 	assert.Len(t, l.Collections.Records, 1)
+}
+
+// TestParseLinks_DescriptionRunsAsLongAsLyricsDropped: consecutive link lines (blank lines aside) whose text around
+// the links reads as InlineLyricsMinLines lines could be lyrics; the links are kept, without a description, and
+// the run is recorded. Fewer lines, or lines that a line without a link breaks, keep their descriptions.
+func TestParseLinks_DescriptionRunsAsLongAsLyricsDropped(t *testing.T) {
+	run := "* [https://example.invalid/1 One] first placeholder line\n" +
+		"* second placeholder line [https://example.invalid/2 Two]\n\n" +
+		"* [https://example.invalid/3 Three] - third placeholder line\n" +
+		"* [https://example.invalid/4 Four] fourth placeholder line\n"
+	joined := "* [https://example.invalid/5 Five] a<br>b<br>c<br>d\n"
+	short := "* [https://example.invalid/6 Six] kept one\n* [https://example.invalid/7 Seven] kept two\n" +
+		"A line without a link.\n* [https://example.invalid/8 Eight] kept three\n" +
+		"* [https://example.invalid/9 Nine]\n* [https://example.invalid/10 Ten] kept four\n"
+	w := standardWiki()
+	w.page(Page{Title: aSong, Categories: pieceCategories(),
+		Wikitext: pieceWikitext(aSong, nil, keyLinksHeading, run, sheetMusicHeading, joined, lyricsHeading, short)})
+
+	l, _ := linksWiki(w)
+
+	pl := pieceLinksOf(t, l, aSong)
+	require.Len(t, pl.Links, 10)
+	for _, rec := range pl.Links[:5] {
+		assert.Empty(t, rec.Description, rec.URL)
+		assert.NotEmpty(t, rec.Title, "the link is kept")
+	}
+	var kept []string
+	for _, rec := range pl.Links[5:] {
+		kept = append(kept, rec.Description)
+	}
+	assert.Equal(t, []string{"kept one", "kept two", "kept three", "", "kept four"}, kept)
+	assert.Equal(t, []LinkProseRun{{Section: SectionKeyLinks, Lines: 4}, {Section: SectionSheetMusic, Lines: 4}},
+		pl.ProseRuns)
+}
+
+// TestParseLinks_DescriptionReadsTheLinkText: a link after some text reads as its text in the description, so the
+// description has no hole where it was (a link without text reads as its host); a link starting the line is left
+// out.
+func TestParseLinks_DescriptionReadsTheLinkText(t *testing.T) {
+	w := standardWiki()
+	w.page(Page{Title: aSong, Categories: pieceCategories(), Wikitext: pieceWikitext(aSong, nil, keyLinksHeading,
+		"* The song is from [https://example.invalid/b Placeholder Book], a collection of songs\n"+
+			"* According to [https://example.invalid/s the site]: sung slowly\n"+
+			"A line without a link, so that the four lines are not a run.\n"+
+			"* [https://example.invalid/r A recording] - by the author\n"+
+			"* Also at https://example.invalid/bare, a bare URL\n")})
+
+	l, _ := linksWiki(w)
+
+	var got []string
+	for _, rec := range pieceLinksOf(t, l, aSong).Links {
+		got = append(got, rec.Description)
+	}
+	assert.Equal(t, []string{"The song is from Placeholder Book, a collection of songs",
+		"According to the site: sung slowly", "by the author", "Also at example.invalid, a bare URL"}, got)
 }

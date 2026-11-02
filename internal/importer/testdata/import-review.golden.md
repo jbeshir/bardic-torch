@@ -143,7 +143,7 @@ Every place a hidden alias or another possible legal name was found in public te
 - **NAME-066** [Born on the Listfield] link https://www.youtube.com/watch?v=rq-5grAShxI, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
 - **NAME-067** [Worms of the Earth] link https://www.youtube.com/watch?v=QrARHJE9Las, title: "Legal Name 061" was withheld. Context: "Recording on YouTube by '[name withheld]'".
 - **NAME-068** [Lifeblood] link https://www.youtube.com/watch?v=7gjrMXdYdNs&list=RD7gjrMXdYdNs, title: "Legal Name 024" was withheld. Context: "h Berginsdottir, recorded on YouTube by [name withheld]".
-- **NAME-069** [Warrior's Wyrd] link https://en.wikipedia.org/wiki/Sing_Hallelujah_to_the_Lord, description: "Legal Name 064" was withheld. Context: "Warrior's Wyrd is a contrafactum of by [name withheld], written in 1974".
+- **NAME-069** [Warrior's Wyrd] link https://en.wikipedia.org/wiki/Sing_Hallelujah_to_the_Lord, description: "Legal Name 064" was withheld. Context: "actum of Sing Hallelujah to the Lord by [name withheld], written in 1974".
 - **NAME-070** [Warrior's Wyrd] link https://www.youtube.com/watch?v=Y-DSvojaL3g, title: "Legal Name 061" was withheld. Context: "Warrior's Wyrd on YouTube by '[name withheld]'".
 - **NAME-071** [Warrior's Wyrd] link https://www.youtube.com/watch?v=GkFyoVrTEok, title: "Legal Name 065" was withheld. Context: "Warrior's Wyrd on YouTube by [name withheld]".
 - **NAME-072** [Warrior's Wyrd] link https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU, title: "Legal Name 024" was withheld. Context: "Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce".
@@ -182,360 +182,361 @@ Every place a hidden alias or another possible legal name was found in public te
 - **NAME-105** [Bow to the Crown] link https://www.youtube.com/watch?v=6cjWFPOHRps, title: "Legal Name 024" was withheld. Context: "Heather Dale, recorded by [name withheld] on YouTube, singing during SCA 50 Year".
 - **NAME-106** [Call the Names] link https://youtu.be/V8B-034i8bc?si=EUQKsH-6R2-1Oz_0, title: "Legal Name 024" was withheld. Context: "Call the Names, recorded on YouTube by [name withheld]".
 - **NAME-107** [Circles] link https://www.youtube.com/watch?v=MVkPQJTTESg, title: "Legal Name 084" was withheld. Context: "Windmills by [name withheld]".
-- **NAME-108** [Causes of Rebellion] link http://www.calonsong.org/CalontirSongs/retreatalongthewabash.htm, description: "Legal Name 085" was withheld. Context: "The song is a contrafactum (filk) of by [name withheld] and [name withheld]".
-- **NAME-109** [Causes of Rebellion] link http://www.calonsong.org/CalontirSongs/retreatalongthewabash.htm, description: "Legal Name 086" was withheld. Context: "factum (filk) of by [name withheld] and [name withheld]".
-- **NAME-110** [Song of the Waves] link https://www.youtube.com/watch?v=-DhgTp5MAWY, title: "Legal Name 087" was withheld. Context: "Song of the Waves by [name withheld] (Gideon ap Stephen) on YouTube".
-- **NAME-111** [Were-Llama] link https://youtu.be/7sSsIzandoY, title: "Legal Name 024" was withheld. Context: "Were-Llama on [name withheld]'s YouTube".
-- **NAME-112** [The Man Who Wouldn't Die] link http://unclej.ca/NotDie.asp, title: "Legal Name 034" was withheld. Context: "The Man Who Wouldn't Die, hosted by [name withheld]".
-- **NAME-113** [The Trial of Lancelot] link https://youtu.be/vEXPgY1Tbdo?si=JEwWrXlij40R_OF0, title: "Legal Name 088" was withheld. Context: "Trial of Lancelot, from [name withheld] channel".
-- **NAME-114** [What Price Honor] link https://morganwolfsinger.bandcamp.com/track/what-price-honor, title: "Legal Name 089" was withheld. Context: "What Price Honor in [name withheld]'s album Heartrose on BandCamp".
-- **NAME-115** [Pastime with Good Company] link https://www.youtube.com/watch?v=faMvRGSKbnY, title: "Legal Name 091" was withheld. Context: "Recording on YouTube by [name withheld]".
-- **NAME-116** [Mirie it is While Sumer Ilast] link https://www.youtube.com/watch?v=2HXT4hLeatM, title: "Legal Name 092" was withheld. Context: "Mirie it is while sumer ilast by [name withheld] on YouTube".
-- **NAME-117** [Moose] The link https://www.eg.bucknell.edu/~lwittie/sca/song/filk/moose.html has a home directory (~user) in its path: check it names no one who should be hidden.
-- **NAME-118** [Moose] link https://stursula.lochac.sca.org/songs/the-moose-song/, title: "Legal Name 095" was withheld. Context: "at College of St Ursula, attributed to '[name withheld] et al'".
-- **NAME-119** [Moose] link https://cunnan.lochac.sca.org/index.php/The_Moose_Song, description: "Legal Name 073" was withheld. Context: "from the [name withheld] Songbook, unattributed".
-- **NAME-120** [Moose] link http://unclej.ca/Campfire.6.8.asp, title: "Legal Name 034" was withheld. Context: "The Moose Song in [name withheld]' songbook".
-- **NAME-121** [A&S Fight Song] link https://youtu.be/-MvEq69vdQc?si=K8B_UWapfqLmNiPT, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of the song performed by the".
-- **NAME-122** [Mordred's Lullaby] link https://youtu.be/6W0E9QnzpOE?si=HNFKbLh_3CVEXDDI, title: "Legal Name 097" was withheld. Context: "Recording by [name withheld] on YouTube".
-- **NAME-123** [Black Alman] link https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1, title: "Legal Name 099" was withheld. Context: "Black Alman on [name withheld]'s YouTube, as taught at Christmas Tourn".
-- **NAME-124** [The Salmon of Wisdom] link https://youtu.be/BecourfhUUQ?si=Cx8XbB5JATcDPC_7, title: "Legal Name 118" was withheld. Context: "ionn and the Salmon of Knowledge on the [name withheld] podcast".
-- **NAME-125** [My Thing is My Own] link https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own, title: "Legal Name 073" was withheld. Context: "n Cunnan, a Lochac wiki, taken from the [name withheld] Songbook".
-- **NAME-126** [To the West] link https://youtu.be/el6QhNROjok?si=_MoxYb9ovrZS9u4q, title: "Legal Name 101" was withheld. Context: "YouTube recording by [name withheld] of To The West performed by the West Ki".
-- **NAME-127** [To the West] link https://www.youtube.com/watch?v=BcGIwgh-kqM, title: "Legal Name 024" was withheld. Context: "YouTube recording by [name withheld] of To The West".
-- **NAME-128** [Light of the East] link https://www.youtube.com/watch?v=LXGqIu06-zU, title: "Legal Name 024" was withheld. Context: "Recording on [name withheld]'s YouTube channel of a recording by [na".
-- **NAME-129** [Light of the East] link https://www.youtube.com/watch?v=LXGqIu06-zU, title: "Legal Name 102" was withheld. Context: "ld]'s YouTube channel of a recording by [name withheld]".
-- **NAME-130** [Proud Southern Warrior] link https://youtu.be/Jm6N30VIzCs, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
-- **NAME-131** [Song for a Young Squire] link https://youtu.be/C6JMXf9AQ5A, title: "Legal Name 103" was withheld. Context: "Lyric video by [name withheld] on her own YouTube channel".
-- **NAME-132** [Raven Banner] link https://www.youtube.com/watch?v=UQVZ_74dEC4, title: "Legal Name 024" was withheld. Context: "[name withheld] recording on YouTube".
-- **NAME-133** [Raven Banner] link https://youtu.be/Ph4To4YVuDE, title: "Legal Name 053" was withheld. Context: "Recording by [name withheld] on YouTube".
-- **NAME-134** [Reign for All Time] link https://youtu.be/RjW7mFxj1EU, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
-- **NAME-135** [InDUCKtion] link https://youtu.be/iRAPnoX3EFc, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
-- **NAME-136** [A Sailor's Love Song] link https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf#page=51, title: "Legal Name 106" was withheld. Context: "A Sailor's Love Song, credited to [name withheld] / [name withheld] 1997, has lyrics on p".
-- **NAME-137** [A Sailor's Love Song] link https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf#page=51, title: "Legal Name 107" was withheld. Context: "ove Song, credited to [name withheld] / [name withheld] 1997, has lyrics on page 51 of the 2015".
-- **NAME-138** [Twa Corbies] link https://youtu.be/GfVAxJPVhrg, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of the song".
-- **NAME-139** [Loki's Song] link https://youtu.be/y6ANCM3cG-c, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of Loki's Song".
-- **NAME-140** [Short Road] link https://sites.google.com/site/bardicmadnessmid/midrealm-song-sheet-project/Lyrics-Online#h.vkrrhgok3yo7, title: "Legal Name 109" was withheld. Context: "Short Road [name withheld] lyrics on Bardic Madness Midrealm songs".
-- **NAME-141** [Fight for the Midrealm] link https://youtu.be/XmgUpSreHi4, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s".
-- **NAME-142** [I'm a Duke and You're Not] link https://youtu.be/sGtMqtthqog, title: "Legal Name 110" was withheld. Context: "I'm A Duke and You're Not on YouTube by [name withheld]".
-- **NAME-143** [I'm a Duke and You're Not] link https://youtu.be/2lNdAUZLzaY, title: "Legal Name 024" was withheld. Context: "I'm A Duke And You're Not, recorded by [name withheld] on YouTube,".
-- **NAME-144** [Squires] link https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf#page=29, description: "Legal Name 111" was withheld. Context: "credited to Llewen the Unruly / [name withheld], 1990".
-- **NAME-145** [Squires] link https://youtu.be/bEpXQLy_CLY, title: "Legal Name 112" was withheld. Context: "Squires, recorded by [name withheld] on YouTube".
-- **NAME-146** [The Torture Song] link https://youtu.be/J1l5DqXVNDI, title: "Legal Name 112" was withheld. Context: "he Torture Song, uploaded to YouTube by [name withheld]".
-- **NAME-147** [Rosin the Bow] link https://youtu.be/suvyiAWkdpo, title: "Legal Name 116" was withheld. Context: "Róisín the Bow, recorded on YouTube by [name withheld]".
-- **NAME-148** [A Light Above The Door] link https://youtu.be/CTbuUwQNsCk, title: "Legal Name 117" was withheld. Context: "Recording by [name withheld] on YouTube".
-- **NAME-149** [A Light Above The Door] link https://youtu.be/jP0SEnT3kpY, title: "Legal Name 117" was withheld. Context: "ecording by Cerian Cantwr on YouTube of [name withheld] performing at Pennsic 2025".
-- **NAME-150** [Marshall] The link https://www.pbm.com/~lindahl/cariadoc/misc_poetry.html has a home directory (~user) in its path: check it names no one who should be hidden.
-- **NAME-151** [The Ride of El Cid] link https://www.ravenboymusic.com/The-Ride-of-El-Cid.pdf, title: "Legal Name 053" was withheld. Context: "Lyrics PDF from [name withheld]".
-- **NAME-152** [The Ride of El Cid] link https://youtu.be/CwtVYpFvHSI, title: "Legal Name 024" was withheld. Context: "[name withheld] recording on YouTube of The Ride of El".
-- **NAME-153** [The Burning of Tara] link https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB, title: "Legal Name 118" was withheld. Context: "Fionn and the Dragon on [name withheld] podcast".
-- **NAME-154** [The Burning of Tara] link https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o, title: "Legal Name 118" was withheld. Context: "elling from Deardubh's perspective from [name withheld]".
-- **NAME-155** [Death Doom and Gloom] link https://youtu.be/J4MSI7JvufM?si=dc9ISETHfMvTXvH7, title: "Legal Name 120" was withheld. Context: "YouTube, performed by Cerian Cantwr and [name withheld]".
-- **NAME-156** [The Joyful Knight] link https://www.youtube.com/watch?v=fnbXOxsci00, title: "Legal Name 024" was withheld. Context: "Heather Dale, recorded by [name withheld] on YouTube at the Green Dragon at Gulf".
-- **NAME-157** [True And Destined Prince] link https://www.youtube.com/watch?v=L9HHmWQrrGM, title: "Legal Name 123" was withheld. Context: "Heather Dale, recorded by [name withheld] at the SCA 50 Year Celebration".
-- **NAME-158** [Lisa Theriot] link https://www.ravenboymusic.com/9-2/lisa-theriot/, title: "Legal Name 053" was withheld. Context: "[name withheld] page".
-- **NAME-159** [Lisa Theriot] link https://www.ravenboymusic.com/period-filk/, title: "Legal Name 053" was withheld. Context: "According to an essay on [name withheld], Lisa Theriot's opinions on the ethics".
-- **NAME-160** [Lisa Theriot] The link https://caidwiki.org/index.php/Legal_Name_002 holds a possible legal name in its URL: it is imported hidden.
-- **NAME-161** [Samantha Moore] link https://www.ravenboymusic.com/9-2/samantha-moore/, title: "Legal Name 053" was withheld. Context: "[name withheld] page".
-- **NAME-162** [Efenwealt Wystle] link https://legal-name-026.com/efenwealt/, title: "Legal Name 026" was withheld. Context: "[name withheld]".
-- **NAME-163** [Efenwealt Wystle] The link https://legal-name-026.com/efenwealt/ holds a possible legal name in its URL: it is imported hidden.
-- **NAME-164** [Malkin Grey] link https://fancyclopedia.org/wiki/Legal_Name_009, title: "Legal Name 009" was withheld. Context: "[name withheld] at Fancyclopedia".
-- **NAME-165** [Malkin Grey] The link https://fancyclopedia.org/wiki/Legal_Name_009 holds a possible legal name in its URL: it is imported hidden.
-- **NAME-166** [Anubh de Mona] The link https://sites.google.com/view/legal-name-045/home?authuser=0 holds a possible legal name in its URL: it is imported hidden.
-- **NAME-167** [Anubh de Mona] The link https://sites.google.com/view/legal-name-045/teachingperformance/bardic-arts?authuser=0 holds a possible legal name in its URL: it is imported hidden.
-- **NAME-168** [Drake Oranwood] link https://drakethebard.com/bardic/, description: "Legal Name 013" was withheld. Context: "All song copyrights are retained by [name withheld] ( : \"Note: Even when not listed on the".
-- **NAME-169** [Ken Theriot] link https://www.ravenboymusic.com/9-2/ken-theriot/, title: "Legal Name 053" was withheld. Context: "[name withheld] – Ken Theriot page".
-- **NAME-170** [Ken Theriot] link https://www.ravenboymusic.com/band-of-brothers-a-song-for-st-crispins-day/, title: "Legal Name 053" was withheld. Context: "hers – Spotify and Apple Music links on [name withheld] site".
-- **NAME-171** [Mikal the Ram] link http://www.calonsong.org/CalontirSongs/mikal.htm, title: "Legal Name 019" was withheld. Context: "[name withheld]'s works on CalonSong".
-- **NAME-172** [Rohais de Ravenscroft] link https://legal-name-124.net/Bardic, title: "Legal Name 124" was withheld. Context: "[name withheld]".
-- **NAME-173** [Rohais de Ravenscroft] The link https://legal-name-124.net/Bardic holds a possible legal name in its URL: it is imported hidden.
-- **NAME-174** [Rohais de Ravenscroft] The link https://legal-name-124.net/Bardic/Music/OriginalMusic/FairyRing/Fairy%20Ring%20-%20Lyrics%20and%20Chords.pdf holds a possible legal name in its URL: it is imported hidden.
-- **NAME-175** [Legal Name 042] link https://en.wikipedia.org/wiki/Legal_Name_042, title: "Legal Name 042" was withheld. Context: "[name withheld]".
-- **NAME-176** [Legal Name 042] The link https://en.wikipedia.org/wiki/Legal_Name_042 holds a possible legal name in its URL: it is imported hidden.
-- **NAME-177** [Legal Name 076] link https://en.wikipedia.org/wiki/Legal_Name_076, title: "Legal Name 076" was withheld. Context: "[name withheld]".
-- **NAME-178** [Legal Name 076] The link https://en.wikipedia.org/wiki/Legal_Name_076 holds a possible legal name in its URL: it is imported hidden.
-- **NAME-179** [Lisa Theriot] person Lisa Theriot, licensing notes: "Legal Name 053" was withheld. Context: "nformation. - [According to an essay on [name withheld], Lisa Theriot's opinions on the ethics".
-- **NAME-180** [Efenwealt Wystle] person Efenwealt Wystle, notes: "Legal Name 026" was withheld. Context: "### Efenwealt Wystle - [[name withheld]](https://[name withheld].com/efenwealt/".
-- **NAME-181** [Efenwealt Wystle] person Efenwealt Wystle, notes: "legal-name-026" was withheld. Context: "alt Wystle - [[name withheld]](https://[name withheld].com/efenwealt/)".
-- **NAME-182** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 024" was withheld. Context: "According to [[name withheld] on YouTube, in the description of One f".
-- **NAME-183** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
-- **NAME-184** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with Mr. [name withheld], please contact him at [email withheld]".
-- **NAME-185** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
-- **NAME-186** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with Mr. [name withheld], please contact him at [email withheld]".
-- **NAME-187** [Heather Dale] person Heather Dale, licensing notes: "Legal Name 039" was withheld. Context: "(likely Heather Dale, or Heather Dale & [name withheld]) Check her FAQ for more details.".
-- **NAME-188** [Drake Oranwood] person Drake Oranwood, licensing notes: "Legal Name 013" was withheld. Context: "All song copyrights are retained by [name withheld] ([per his Bardic Work page](https://dra".
-- **NAME-189** [Aneleda Falconbridge] person Aneleda Falconbridge, licensing notes: "Legal Name 015" was withheld. Context: "on this website are copyright 2006-2019 [name withheld] (known in the Society as Aneleda Falcon".
-- **NAME-190** [Ken Theriot] performance item, description: "Legal Name 053" was withheld. Context: "hers – Spotify and Apple Music links on [name withheld] site]".
-- **NAME-191** [Eliane Halevy] person Eliane Halevy, licensing notes: "Legal Name 021" was withheld. Context: "tions of existing lyrics, are copyright [name withheld] and may not be reproduced in print or i".
-- **NAME-192** [Rohais de Ravenscroft] person Rohais de Ravenscroft, licensing notes: "Legal Name 124" was withheld. Context: "ission. Rohais can be reached at rohais@[name withheld].net [An example of Rohais' attribution".
-- **NAME-193** [Rohais de Ravenscroft] person Rohais de Ravenscroft, licensing notes: "legal-name-124" was withheld. Context: "example of Rohais' attribution](https://[name withheld].net/Bardic/Music/OriginalMusic/FairyRin".
-- **NAME-194** [Valkyrie's Lullaby] performance item, description: "Legal Name 024" was withheld. Context: "tch?v=-hRDt5LMkYg Lasair performing for [name withheld] on YouTube]".
-- **NAME-195** [Valkyrie's Lullaby] performance item, description: "Ambra Michelli" was withheld. Context: "https://youtube.com/watch?v=q2oUW8MfVeI [name withheld] performing for [name withheld] on YouTu".
-- **NAME-196** [Valkyrie's Lullaby] performance item, description: "Legal Name 024" was withheld. Context: "UW8MfVeI [name withheld] performing for [name withheld] on YouTube at the Green Dragon]".
-- **NAME-197** [Band of Brothers] piece Band of Brothers, version notes: "Legal Name 022" was withheld. Context: "The words of this song are adapted from [name withheld], a play about events in the 1400s (15th".
-- **NAME-198** [Undefeated] piece Undefeated, licensing notes: "Legal Name 001" was withheld. Context: "paying venues, attaching the copyright \"[name withheld] 2003\", is granted according to MidBards".
-- **NAME-199** [Undefeated] piece Undefeated, alias: "Legal Name 023" holds a possible legal name. Context: "[name withheld]".
-- **NAME-200** [Undefeated] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-201** [Undefeated] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=Jof9TROND0s Recording by [name withheld] on YouTube] of [[Lucia Elena Braganza]]".
-- **NAME-202** [Undefeated] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-203** [Belt and Chain] piece Belt and Chain, licensing notes: "Legal Name 003" was withheld. Context: "t for the song belongs to Morric Haast ([name withheld]). The date is \"1996 or before\" accordin".
-- **NAME-204** [Belt and Chain] performance item, uploader: "Legal Name 027" was withheld. Context: "[name withheld]".
-- **NAME-205** [Belt and Chain] performance item, description: "Legal Name 027" was withheld. Context: "v=-sObDNjrJ0s Performance on YouTube by [name withheld]]".
-- **NAME-206** [Belt and Chain] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-207** [Belt and Chain] performance item, uploader: "Legal Name 028" was withheld. Context: "[name withheld]".
-- **NAME-208** [Belt and Chain] performance item, description: "Legal Name 028" was withheld. Context: "v=mcy0bGQ_NyI Performance on YouTube by [name withheld] for the Kingdom of Trimaris channel]".
-- **NAME-209** [Belt and Chain] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-210** [Come and Be Welcome] piece Come and Be Welcome, licensing notes: "Legal Name 004" was withheld. Context: "The song belongs to Emer nic Aidan ([name withheld]).".
-- **NAME-211** [Come and Be Welcome] performance item, description: "Legal Name 029" was withheld. Context: ".com/watch?v=ImSc9JE7jdc Performance by [name withheld], recorded by Cerian Cantwr on YouTube]".
-- **NAME-212** [Azure and Argent and Rose] piece Azure and Argent and Rose, licensing notes: "Legal Name 005" was withheld. Context: "song is by Bird the Bard, also known as [name withheld] or [name withheld].".
-- **NAME-213** [Azure and Argent and Rose] piece Azure and Argent and Rose, licensing notes: "Legal Name 006" was withheld. Context: "Bard, also known as [name withheld] or [name withheld].".
-- **NAME-214** [When a Knight Won His Spurs] performance item, description: "Legal Name 030" was withheld. Context: "https://youtube.com/watch?v=HCXuriEV-0Y [name withheld] performs When A Knight Won His Spurs, A".
-- **NAME-215** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 024" was withheld. Context: "ten by Garraed Galbraith. According to [[name withheld] on YouTube:](https://youtube.com/watch?".
-- **NAME-216** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
-- **NAME-217** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with Mr. [name withheld], please contact him at [email withheld]".
-- **NAME-218** [One for the Leaving] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-219** [One for the Leaving] performance item, description: "Legal Name 024" was withheld. Context: "Dragon in 2010, recorded for YouTube by [name withheld]]".
-- **NAME-220** [One for the Leaving] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-221** [The Veil] piece The Veil, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
-- **NAME-222** [The Veil] piece The Veil, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with Mr. [name withheld], please contact him at [email withheld]".
-- **NAME-223** [The Veil] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-224** [The Veil] performance item, description: "Legal Name 024" was withheld. Context: "sung by Garraed Galbraith, recorded by [name withheld] at the Green Dragon for YouTube]".
-- **NAME-225** [The Veil] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-226** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name 009" was withheld. Context: "The song is by Malkin Grey ([name withheld]) and [name withheld] ([name withheld]),".
-- **NAME-227** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name 031" was withheld. Context: "is by Malkin Grey ([name withheld]) and [name withheld] ([name withheld]), copyright 1979.".
-- **NAME-228** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name 018" was withheld. Context: "([name withheld]) and [name withheld] ([name withheld]), copyright 1979.".
-- **NAME-229** [Song of the Shieldwall] performance item, uploader: "Legal Name 032" was withheld. Context: "[name withheld]".
-- **NAME-230** [Song of the Shieldwall] performance item, description: "Legal Name 032" was withheld. Context: "outube.com/watch?v=DCFr6QvzPm0 Cover by [name withheld] on YouTube]".
-- **NAME-231** [Song of the Shieldwall] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-232** [Song of Roland] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-233** [Song of Roland] performance item, description: "Legal Name 024" was withheld. Context: "g Rosalind Jehanne singing, recorded by [name withheld] on YouTube]".
-- **NAME-234** [Song of Roland] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-235** [Song of Roland] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-236** [Song of Roland] performance item, description: "Legal Name 024" was withheld. Context: "rforms at the Green Dragon, recorded by [name withheld] for YouTube]".
-- **NAME-237** [Song of Roland] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-238** [The Peasant Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-239** [The Peasant Knight] performance item, description: "Legal Name 024" was withheld. Context: "osalind Jehanne on YouTube, recorded by [name withheld]]".
-- **NAME-240** [The Peasant Knight] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-241** [The Peasant Knight] performance item, description: "Legal Name 038" was withheld. Context: "https://youtube.com/watch?v=uyrykI7EbGE [name withheld] singing, recorded by Cerian Cantwr on Y".
-- **NAME-242** [The Peasant Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-243** [The Peasant Knight] performance item, description: "Legal Name 024" was withheld. Context: "Peasant Knight, recorded on YouTube by [name withheld]], sung by [[Kári Gáranhirsson]] at the".
-- **NAME-244** [The Peasant Knight] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-245** [Savage Daughter] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-246** [Savage Daughter] performance item, description: "Legal Name 024" was withheld. Context: "ir singing Savage Daughter, recorded by [name withheld] on YouTube]".
-- **NAME-247** [Savage Daughter] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-248** [Savage Daughter] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-249** [Savage Daughter] performance item, description: "Legal Name 024" was withheld. Context: "by Wyndreth Berginsdottir, recorded by [name withheld] on YouTube]".
-- **NAME-250** [Savage Daughter] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-251** [Savage Daughter] performance item, uploader: "Legal Name 040" was withheld. Context: "[name withheld]".
-- **NAME-252** [Savage Daughter] performance item, description: "Legal Name 040" was withheld. Context: "Savage Daughter, recorded on YouTube by [name withheld]] sung by [[Sadb ingen Donnchadha]] in 2".
-- **NAME-253** [Savage Daughter] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-254** [Life of the Bard] piece Life of the Bard, licensing notes: "Legal Name 008" was withheld. Context: "Song by Rosalind Jehanne ([name withheld])".
-- **NAME-255** [Wild Rover] performance item, description: "[[Legal Name 029]]" was withheld. Context: "wr on YouTube] of the song performed by [name withheld]".
-- **NAME-256** [Wild Mountain Thyme] piece Wild Mountain Thyme, licensing notes: "Legal Name 041" was withheld. Context: "uted. Some claim that it was written by [name withheld]; however, it is strongly based on the s".
-- **NAME-257** [Wild Mountain Thyme] piece Wild Mountain Thyme, licensing notes: "Legal Name 042" was withheld. Context: "the song \"The Braes of Balquhither\" by [name withheld] and [name withheld], likely based on a".
-- **NAME-258** [Wild Mountain Thyme] piece Wild Mountain Thyme, licensing notes: "Legal Name 043" was withheld. Context: "of Balquhither\" by [name withheld] and [name withheld], likely based on a traditional air.".
-- **NAME-259** [Sumer is icumen in] performance item, uploader: "Legal Name 047" was withheld. Context: "[name withheld]".
-- **NAME-260** [Sumer is icumen in] performance item, description: "Legal Name 047" was withheld. Context: "h?v=bQLaLdRIF10 Recording on YouTube by [name withheld]]".
-- **NAME-261** [Sumer is icumen in] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-262** [Second Cross] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-263** [Second Cross] performance item, description: "Legal Name 024" was withheld. Context: "Q7w Second Cross recorded on YouTube by [name withheld]] performed by [[Beatriu De Schattentor]".
-- **NAME-264** [Second Cross] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-265** [Second Cross] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-266** [Second Cross] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=4Yp8UTniHdM Recording by [name withheld] on YouTube] of Second Cross sung by [[A".
-- **NAME-267** [Second Cross] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-268** [Welcome to the Current Middle Ages] piece Welcome to the Current Middle Ages, licensing notes: "Legal Name 016" was withheld. Context: "Erebor. The song is copyright 1979 by [name withheld], All Rights Reserved".
-- **NAME-269** [I Add My Shield to the Wall] performance item, description: "Ambra Michelli" was withheld. Context: "https://youtube.com/watch?v=FyW6aYOq50k [name withheld] sings I Add My Shield to the Wall on Yo".
-- **NAME-270** [Vivat the Dream] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-271** [Vivat the Dream] performance item, description: "Legal Name 024" was withheld. Context: "amyg5uO1x8 Vivat the Dream, recorded by [name withheld] on YouTube] as sung by [[Beatrice Domen".
-- **NAME-272** [Vivat the Dream] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-273** [Ban the Fencers] performance item, uploader: "Legal Name 053" was withheld. Context: "[name withheld]".
-- **NAME-274** [Ban the Fencers] performance item, description: "Legal Name 053" was withheld. Context: "z_EAk2ahE Ban the Fencers on YouTube by [name withheld]] performed by [[Ken Theriot]] and [[Lis".
-- **NAME-275** [Ban the Fencers] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-276** [A Grazing Mace] piece A Grazing Mace, licensing notes: "Legal Name 059" was withheld. Context: "and Jenna of Southwind wrote the rest, [name withheld] claims to have written his own version,".
-- **NAME-277** [Auld Lang Syne] performance item, description: "Legal Name 060" was withheld. Context: "ch?v=i_eoiRvdp-A Auld Lang Syne sung by [name withheld]]".
-- **NAME-278** [Born on the Listfield] performance item, uploader: "Legal Name 061" was withheld. Context: "[name withheld]".
-- **NAME-279** [Born on the Listfield] performance item, description: "Legal Name 061" was withheld. Context: "aZ5g Born on a Listfield on YouTube by '[name withheld]']".
-- **NAME-280** [Born on the Listfield] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-281** [Born on the Listfield] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-282** [Born on the Listfield] performance item, description: "Legal Name 024" was withheld. Context: "n the Listfield, recorded on YouTube by [name withheld]] sung by [[Terafan Greydragon]]".
-- **NAME-283** [Born on the Listfield] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-284** [Born on the Listfield] performance item, uploader: "Legal Name 062" was withheld. Context: "[name withheld]".
-- **NAME-285** [Born on the Listfield] performance item, description: "Legal Name 062" was withheld. Context: "?v=0s1BlXT7lxo Recording on YouTube by '[name withheld]'] of a performance from the Rising Wind".
-- **NAME-286** [Born on the Listfield] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-287** [Born on the Listfield] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-288** [Born on the Listfield] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=rq-5grAShxI Recording by [name withheld] on YouTube] of [[Dolan Madoc]] singing".
-- **NAME-289** [Born on the Listfield] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-290** [Worms of the Earth] performance item, uploader: "Legal Name 061" was withheld. Context: "[name withheld]".
-- **NAME-291** [Worms of the Earth] performance item, description: "Legal Name 061" was withheld. Context: "?v=QrARHJE9Las Recording on YouTube by '[name withheld]']".
-- **NAME-292** [Worms of the Earth] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-293** [Lifeblood] piece Lifeblood, alias: "Legal Name 063" holds a possible legal name. Context: "[name withheld]".
-- **NAME-294** [Lifeblood] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-295** [Lifeblood] performance item, description: "Legal Name 024" was withheld. Context: "h Berginsdottir, recorded on YouTube by [name withheld]]".
-- **NAME-296** [Lifeblood] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-297** [Warrior's Wyrd] piece Warrior's Wyrd, licensing notes: "Legal Name 064" was withheld. Context: "It is likely that [name withheld] still holds the copyright to the tune;".
-- **NAME-298** [Warrior's Wyrd] performance item, uploader: "Legal Name 061" was withheld. Context: "[name withheld]".
-- **NAME-299** [Warrior's Wyrd] performance item, description: "Legal Name 061" was withheld. Context: "DSvojaL3g Warrior's Wyrd on YouTube by '[name withheld]']".
-- **NAME-300** [Warrior's Wyrd] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-301** [Warrior's Wyrd] performance item, uploader: "Legal Name 065" was withheld. Context: "[name withheld]".
-- **NAME-302** [Warrior's Wyrd] performance item, description: "Legal Name 065" was withheld. Context: "kFyoVrTEok Warrior's Wyrd on YouTube by [name withheld]]".
-- **NAME-303** [Warrior's Wyrd] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-304** [Warrior's Wyrd] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-305** [Warrior's Wyrd] performance item, description: "Legal Name 024" was withheld. Context: "Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce".
-- **NAME-306** [Warrior's Wyrd] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-307** [By the Weight of the Chain] performance item, description: "Legal Name 066" was withheld. Context: "SmF1Z_28Y By the Weight of the Chain by [name withheld] on YouTube]".
-- **NAME-308** [By the Weight of the Chain] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-309** [By the Weight of the Chain] performance item, description: "Legal Name 024" was withheld. Context: "By The Weight Of The Chain, recorded by [name withheld] on YouTube]".
-- **NAME-310** [By the Weight of the Chain] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-311** [By the Weight of the Chain] performance item, description: "Legal Name 067" was withheld. Context: "Weight of the Chain on YouTube, sung by [name withheld]]".
-- **NAME-312** [Why I Fight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-313** [Why I Fight] performance item, description: "Legal Name 024" was withheld. Context: "h?v=As77tjW12Nk Why I Fight recorded by [name withheld] on YouTube, at the SCA 50 Year Celebrat".
-- **NAME-314** [Why I Fight] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-315** [After Cambreadth] piece After Cambreadth, alias: "Legal Name 069" holds a possible legal name. Context: "[name withheld]".
-- **NAME-316** [Joan] performance item, description: "Legal Name 071" was withheld. Context: "utube.com/watch?v=GmPLgc4olFU Upload by [name withheld] of Joan] performed by [[Heather Dale]]".
-- **NAME-317** [Joan] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-318** [Joan] performance item, description: "Legal Name 024" was withheld. Context: "utube.com/watch?v=Ed91Vs3FfOo Upload by [name withheld] on YouTube] of [[Heather Dale]] perform".
-- **NAME-319** [Joan] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-320** [Hold Your Lines] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-321** [Hold Your Lines] performance item, description: "Legal Name 024" was withheld. Context: "hvinILH8iA Hold Your Lines, recorded by [name withheld] on YouTube] performed by [[Aibhilin ing".
-- **NAME-322** [Hold Your Lines] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-323** [Hold Your Lines] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-324** [Hold Your Lines] performance item, description: "Legal Name 024" was withheld. Context: "WPR4YZKE2Y Hold Your Lines, recorded by [name withheld] on YouTube], performed by [[Aibhilin in".
-- **NAME-325** [Hold Your Lines] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-326** [Rise] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-327** [Rise] performance item, description: "Legal Name 024" was withheld. Context: "m/watch?v=bIuCABe-XuI Rise, recorded by [name withheld] on YouTube], performed by [[Garraed Gal".
-- **NAME-328** [Rise] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-329** [Banners of Scarlet] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-330** [Banners of Scarlet] performance item, description: "Legal Name 024" was withheld. Context: "ners of Scarlet, uploaded to YouTube by [name withheld], sung in choir in the Barony of Windhav".
-- **NAME-331** [Banners of Scarlet] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-332** [God Rest Ye Frantic Autocrat] performance item, uploader: "Legal Name 072" was withheld. Context: "[name withheld]".
-- **NAME-333** [God Rest Ye Frantic Autocrat] performance item, description: "Legal Name 072" was withheld. Context: "d Rest Ye Frantic Autocrat, recorded by [name withheld] on YouTube for the Barony of Stonemarch".
-- **NAME-334** [God Rest Ye Frantic Autocrat] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-335** [The Herald's Complaint] piece The Herald's Complaint, licensing notes: "Legal Name 016" was withheld. Context: "The song is copyrighted to [name withheld], 1978.".
-- **NAME-336** [The Herald's Complaint] performance item, description: "Legal Name 075" was withheld. Context: "The Herald's Complaint on YouTube, from [name withheld] of SCA Bards Sampler]".
-- **NAME-337** [Flower of the Desert] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-338** [Flower of the Desert] performance item, description: "Legal Name 024" was withheld. Context: "YC5qU Flower of the Desert, recorded by [name withheld] on YouTube], performed by [[Lisa Therio".
-- **NAME-339** [Flower of the Desert] performance item, description: "Legal Name 002" was withheld. Context: "ouTube], performed by [[Lisa Theriot]] ([name withheld]).".
-- **NAME-340** [Flower of the Desert] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-341** [Agincourt] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-342** [Agincourt] performance item, description: "Legal Name 024" was withheld. Context: "ch?v=z6IoFIwn0uM Agincourt, recorded by [name withheld] on YouTube] performed by [[Roisin ingen".
-- **NAME-343** [Agincourt] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-344** [The Parting Glass] performance item, uploader: "Legal Name 062" was withheld. Context: "[name withheld]".
-- **NAME-345** [The Parting Glass] performance item, description: "Legal Name 062" was withheld. Context: "com/watch?v=m-vDNaE-3rM Performance by '[name withheld]' on YouTube] at an [[:Category:Amtgard|".
-- **NAME-346** [The Parting Glass] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-347** [The Parting Glass] performance item, description: "[[Legal Name 120]]" was withheld. Context: "cording by Cerian Cantwr on YouTube] of [name withheld] singing, 1994".
-- **NAME-348** [Quantas Sabedes Amar Amigo] piece Quantas Sabedes Amar Amigo, alias: "Legal Name 078" holds a possible legal name. Context: "Quantas Sabedes ([name withheld])".
-- **NAME-349** [Quantas Sabedes Amar Amigo] performance item, description: "Legal Name 080" was withheld. Context: "be.com/watch?v=L4iEtyXgc8E Recording by [name withheld] of the song sung by [name withheld]]".
-- **NAME-350** [Quantas Sabedes Amar Amigo] performance item, description: "Legal Name 081" was withheld. Context: "by [name withheld] of the song sung by [name withheld]]".
-- **NAME-351** [Journey's Just Begun] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-352** [Journey's Just Begun] performance item, description: "Legal Name 024" was withheld. Context: "oore performing on YouTube, recorded by [name withheld]] at the [[Green Dragon]], 2019".
-- **NAME-353** [Journey's Just Begun] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-354** [Stand Brother Stand] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-355** [Stand Brother Stand] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=cU46yoA6mzw Recording by [name withheld] on YouTube] of [[Aibhilin inghean Daibh".
-- **NAME-356** [Stand Brother Stand] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-357** [Stand Brother Stand] performance item, uploader: "Legal Name 082" was withheld. Context: "[name withheld]".
-- **NAME-358** [Stand Brother Stand] performance item, description: "Legal Name 082" was withheld. Context: "h?v=KjWxkaIWZGM Recording on YouTube by [name withheld]] of [[Sidi KuroSH al-Din]] performing i".
-- **NAME-359** [Stand Brother Stand] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-360** [Bow to the Crown] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-361** [Bow to the Crown] performance item, description: "Legal Name 024" was withheld. Context: "v=6cjWFPOHRps Heather Dale, recorded by [name withheld] on YouTube, singing during SCA 50 Year".
-- **NAME-362** [Bow to the Crown] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-363** [Oathkeeping] piece Oathkeeping, version notes: "Legal Name 052" was withheld. Context: "bardic\\_piece.php?bp\\_id=1159 Lyrics at [name withheld], apparently from \"A Book Of Songs 2.5 b".
-- **NAME-364** [Oathkeeping] piece Oathkeeping, version notes: "Legal Name 083" was withheld. Context: "apparently from \"A Book Of Songs 2.5 by [name withheld], AS 40\"".
-- **NAME-365** [Call the Names] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-366** [Call the Names] performance item, description: "Legal Name 024" was withheld. Context: "Call the Names, recorded on YouTube by [name withheld]], sung by Heather Dale and [name withhe".
-- **NAME-367** [Call the Names] performance item, description: "[[Legal Name 039]]" was withheld. Context: "me withheld]], sung by Heather Dale and [name withheld].".
-- **NAME-368** [Call the Names] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-369** [Song of the Waves] performance item, uploader: "Legal Name 087" was withheld. Context: "[name withheld]".
-- **NAME-370** [Song of the Waves] performance item, description: "Legal Name 087" was withheld. Context: "atch?v=-DhgTp5MAWY Song of the Waves by [name withheld] (Gideon ap Stephen) on YouTube]".
-- **NAME-371** [Song of the Waves] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-372** [Were-Llama] performance item, description: "Legal Name 024" was withheld. Context: "e.com/watch?v=7sSsIzandoY Were-Llama on [name withheld]'s YouTube] sung by [[Cerian Cantwr]] at".
-- **NAME-373** [What Price Honor] performance item, description: "Legal Name 089" was withheld. Context: "ck/what-price-honor What Price Honor on [name withheld]'s BandCamp]".
-- **NAME-374** [Pastime with Good Company] piece Pastime with Good Company, alias: "Legal Name 090" holds a possible legal name. Context: "[name withheld]".
-- **NAME-375** [Pastime with Good Company] performance item, uploader: "Legal Name 091" was withheld. Context: "[name withheld]".
-- **NAME-376** [Pastime with Good Company] performance item, description: "Legal Name 091" was withheld. Context: "h?v=faMvRGSKbnY Recording on YouTube by [name withheld]]".
-- **NAME-377** [Pastime with Good Company] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-378** [Mirie it is While Sumer Ilast] performance item, uploader: "Legal Name 092" was withheld. Context: "[name withheld]".
-- **NAME-379** [Mirie it is While Sumer Ilast] performance item, description: "Legal Name 092" was withheld. Context: "hLeatM Mirie it is while sumer ilast by [name withheld] on YouTube]".
-- **NAME-380** [Mirie it is While Sumer Ilast] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-381** [Conn's Song] piece Conn's Song, alias: "Legal Name 093" holds a possible legal name. Context: "[name withheld]".
-- **NAME-382** [Moose] performance item, description: "Legal Name 096" was withheld. Context: "he Sot on YouTube], attributed to \"2008 [name withheld]\"".
-- **NAME-383** [A&S Fight Song] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-384** [A&S Fight Song] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=-MvEq69vdQc Recording by [name withheld] on YouTube of the song performed by the".
-- **NAME-385** [A&S Fight Song] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-386** [Mordred's Lullaby] performance item, uploader: "Legal Name 097" was withheld. Context: "[name withheld]".
-- **NAME-387** [Mordred's Lullaby] performance item, description: "Legal Name 097" was withheld. Context: "be.com/watch?v=6W0E9QnzpOE Recording by [name withheld] on YouTube] of [[Heather Dale]] perform".
-- **NAME-388** [Mordred's Lullaby] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-389** [Black Alman] piece Black Alman, notes: "Legal Name 098" was withheld. Context: "ces found in Orchesographie, written by [name withheld] and published in 1588-1589.".
-- **NAME-390** [Black Alman] performance item, description: "Legal Name 099" was withheld. Context: ".com/watch?v=1me-NRRVCF0 Black Alman on [name withheld]'s YouTube, as taught at Christmas Tourn".
-- **NAME-391** [The Salmon of Wisdom] performance item, description: "Legal Name 118" was withheld. Context: "ionn and the Salmon of Knowledge on the [name withheld] podcast]".
-- **NAME-392** [To the West] piece To the West, licensing notes: "Legal Name 100" was withheld. Context: "The song is copyright to [name withheld], 1992.".
-- **NAME-393** [To the West] performance item, description: "Legal Name 101" was withheld. Context: "atch?v=el6QhNROjok YouTube recording by [name withheld] of To The West performed by the West Ki".
-- **NAME-394** [To the West] performance item, description: "Legal Name 024" was withheld. Context: "atch?v=BcGIwgh-kqM YouTube recording by [name withheld] of To The West] by [[Siobhán ní hEodhus".
-- **NAME-395** [Light of the East] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=LXGqIu06-zU Recording on [name withheld]'s YouTube channel of a recording by [na".
-- **NAME-396** [Light of the East] performance item, description: "Legal Name 102" was withheld. Context: "ld]'s YouTube channel of a recording by [name withheld]] of [[Fiana of Clare]] singing her song".
-- **NAME-397** [Proud Southern Warrior] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-398** [Proud Southern Warrior] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=Jm6N30VIzCs Recording by [name withheld] on YouTube] of the song performed by [[".
-- **NAME-399** [Proud Southern Warrior] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-400** [Raven Banner] performance item, description: "Legal Name 024" was withheld. Context: "https://youtube.com/watch?v=UQVZ_74dEC4 [name withheld] recording on YouTube] of a campfire sin".
-- **NAME-401** [Raven Banner] performance item, uploader: "Legal Name 053" was withheld. Context: "[name withheld]".
-- **NAME-402** [Raven Banner] performance item, description: "Legal Name 053" was withheld. Context: "be.com/watch?v=Ph4To4YVuDE Recording by [name withheld] on YouTube] of [name withheld] / [name".
-- **NAME-403** [Raven Banner] performance item, description: "Legal Name 104" was withheld. Context: "rding by [name withheld] on YouTube] of [name withheld] / [name withheld] performing Raven Bann".
-- **NAME-404** [Raven Banner] performance item, description: "Legal Name 105" was withheld. Context: "hheld] on YouTube] of [name withheld] / [name withheld] performing Raven Banner in 2011".
-- **NAME-405** [Raven Banner] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-406** [Reign for All Time] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-407** [Reign for All Time] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=RjW7mFxj1EU Recording by [name withheld] on YouTube] of [[Dolan Madoc]] singing".
-- **NAME-408** [Reign for All Time] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-409** [InDUCKtion] performance item, description: "[[Legal Name 120]]" was withheld. Context: "wr on YouTube] of the song performed by [name withheld], recorded at the Ivy Annex".
-- **NAME-410** [InDUCKtion] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-411** [InDUCKtion] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=iRAPnoX3EFc Recording by [name withheld] on YouTube] of the song performed by [n".
-- **NAME-412** [InDUCKtion] performance item, description: "[[Legal Name 120]]" was withheld. Context: "d] on YouTube] of the song performed by [name withheld] at Northshield Bardic Madness, 2017".
-- **NAME-413** [InDUCKtion] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-414** [Twa Corbies] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-415** [Twa Corbies] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=GfVAxJPVhrg Recording by [name withheld] on YouTube of the song] performed by [[".
-- **NAME-416** [Twa Corbies] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-417** [Loki's Song] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-418** [Loki's Song] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=y6ANCM3cG-c Recording by [name withheld] on YouTube of Loki's Song] performed by".
-- **NAME-419** [Loki's Song] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-420** [Short Road] piece Short Road, alias: "Legal Name 109" holds a possible legal name. Context: "[name withheld]".
-- **NAME-421** [Fight for the Midrealm] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-422** [Fight for the Midrealm] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s".
-- **NAME-423** [Fight for the Midrealm] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-424** [I'm a Duke and You're Not] performance item, uploader: "Legal Name 110" was withheld. Context: "[name withheld]".
-- **NAME-425** [I'm a Duke and You're Not] performance item, description: "Legal Name 110" was withheld. Context: "I'm A Duke and You're Not on YouTube by [name withheld]]".
-- **NAME-426** [I'm a Duke and You're Not] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-427** [I'm a Duke and You're Not] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-428** [I'm a Duke and You're Not] performance item, description: "Legal Name 024" was withheld. Context: "I'm A Duke And You're Not, recorded by [name withheld] on YouTube,] performed by [[Thomas Bord".
-- **NAME-429** [I'm a Duke and You're Not] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-430** [Squires] performance item, uploader: "Legal Name 112" was withheld. Context: "[name withheld]".
-- **NAME-431** [Squires] performance item, description: "Legal Name 112" was withheld. Context: "atch?v=bEpXQLy_CLY Squires, recorded by [name withheld] on YouTube] sung by [name withheld] of".
-- **NAME-432** [Squires] performance item, description: "Legal Name 113" was withheld. Context: "by [name withheld] on YouTube] sung by [name withheld] of Lochac. The song begins at around th".
-- **NAME-433** [Squires] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-434** [The Torture Song] piece The Torture Song, notes: "Legal Name 114" was withheld. Context: "[name withheld] wrote this song specifically for middle".
-- **NAME-435** [The Torture Song] performance item, uploader: "Legal Name 112" was withheld. Context: "[name withheld]".
-- **NAME-436** [The Torture Song] performance item, description: "Legal Name 112" was withheld. Context: "he Torture Song, uploaded to YouTube by [name withheld]], performed by [name withheld]".
-- **NAME-437** [The Torture Song] performance item, description: "[[Legal Name 114]]" was withheld. Context: "uTube by [name withheld]], performed by [name withheld]".
-- **NAME-438** [The Torture Song] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-439** [Rosin the Bow] performance item, uploader: "Legal Name 116" was withheld. Context: "[name withheld]".
-- **NAME-440** [Rosin the Bow] performance item, description: "Legal Name 116" was withheld. Context: "Róisín the Bow, recorded on YouTube by [name withheld]]".
-- **NAME-441** [Rosin the Bow] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-442** [A Light Above The Door] performance item, uploader: "Legal Name 117" was withheld. Context: "[name withheld]".
-- **NAME-443** [A Light Above The Door] performance item, description: "Legal Name 117" was withheld. Context: "be.com/watch?v=CTbuUwQNsCk Recording by [name withheld] on YouTube]".
-- **NAME-444** [A Light Above The Door] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-445** [A Light Above The Door] performance item, description: "Legal Name 117" was withheld. Context: "ecording by Cerian Cantwr on YouTube of [name withheld] performing at Pennsic 2025]".
-- **NAME-446** [The Ride of El Cid] performance item, description: "Legal Name 024" was withheld. Context: "https://youtube.com/watch?v=CwtVYpFvHSI [name withheld] recording on YouTube of The Ride of El".
-- **NAME-447** [The Burning of Tara] performance item, description: "Legal Name 118" was withheld. Context: "h?v=N1OwCGeOHlU Fionn and the Dragon on [name withheld] podcast]".
-- **NAME-448** [The Burning of Tara] performance item, description: "Legal Name 118" was withheld. Context: "elling from Deardubh's perspective from [name withheld]]".
-- **NAME-449** [Three Words] piece Three Words, notes: "Legal Name 021" was withheld. Context: "tune and lyrics Š4/7/02 Eliane Halevy ([name withheld])\"".
-- **NAME-450** [Three Words] piece Three Words, licensing notes: "Legal Name 021" was withheld. Context: "tions of existing lyrics, are copyright [name withheld] and may not be reproduced in print or i".
-- **NAME-451** [Three Words] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original".
-- **NAME-452** [Three Words] performance item, description: "Legal Name 029" was withheld. Context: "levy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kin".
-- **NAME-453** [Three Words] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, acc".
-- **NAME-454** [Death Doom and Gloom] piece Death Doom and Gloom, alias: "Legal Name 119" holds a possible legal name. Context: "[name withheld]".
-- **NAME-455** [Death Doom and Gloom] performance item, description: "Legal Name 120" was withheld. Context: "YouTube, performed by Cerian Cantwr and [name withheld]]".
-- **NAME-456** [The Joyful Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
-- **NAME-457** [The Joyful Knight] performance item, description: "Legal Name 024" was withheld. Context: "v=fnbXOxsci00 Heather Dale, recorded by [name withheld] on YouTube at the Green Dragon at Gulf".
-- **NAME-458** [The Joyful Knight] A performance item's uploader is withheld: the performance is imported without an uploader.
-- **NAME-459** [True And Destined Prince] performance item, uploader: "Legal Name 123" was withheld. Context: "[name withheld]".
-- **NAME-460** [True And Destined Prince] performance item, description: "Legal Name 123" was withheld. Context: "v=L9HHmWQrrGM Heather Dale, recorded by [name withheld] at the SCA 50 Year Celebration]".
-- **NAME-461** [True And Destined Prince] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-108** [Circles] link https://www.youtube.com/watch?v=MVkPQJTTESg, description: "Legal Name 084" was withheld. Context: "n filk, set to the tune of Windmills by [name withheld]".
+- **NAME-109** [Causes of Rebellion] link http://www.calonsong.org/CalontirSongs/retreatalongthewabash.htm, description: "Legal Name 085" was withheld. Context: "m (filk) of Retreat along the Wabash by [name withheld] and [name withheld]".
+- **NAME-110** [Causes of Rebellion] link http://www.calonsong.org/CalontirSongs/retreatalongthewabash.htm, description: "Legal Name 086" was withheld. Context: "along the Wabash by [name withheld] and [name withheld]".
+- **NAME-111** [Song of the Waves] link https://www.youtube.com/watch?v=-DhgTp5MAWY, title: "Legal Name 087" was withheld. Context: "Song of the Waves by [name withheld] (Gideon ap Stephen) on YouTube".
+- **NAME-112** [Were-Llama] link https://youtu.be/7sSsIzandoY, title: "Legal Name 024" was withheld. Context: "Were-Llama on [name withheld]'s YouTube".
+- **NAME-113** [The Man Who Wouldn't Die] link http://unclej.ca/NotDie.asp, title: "Legal Name 034" was withheld. Context: "The Man Who Wouldn't Die, hosted by [name withheld]".
+- **NAME-114** [The Trial of Lancelot] link https://youtu.be/vEXPgY1Tbdo?si=JEwWrXlij40R_OF0, title: "Legal Name 088" was withheld. Context: "Trial of Lancelot, from [name withheld] channel".
+- **NAME-115** [What Price Honor] link https://morganwolfsinger.bandcamp.com/track/what-price-honor, title: "Legal Name 089" was withheld. Context: "What Price Honor in [name withheld]'s album Heartrose on BandCamp".
+- **NAME-116** [Pastime with Good Company] link https://www.youtube.com/watch?v=faMvRGSKbnY, title: "Legal Name 091" was withheld. Context: "Recording on YouTube by [name withheld]".
+- **NAME-117** [Mirie it is While Sumer Ilast] link https://www.youtube.com/watch?v=2HXT4hLeatM, title: "Legal Name 092" was withheld. Context: "Mirie it is while sumer ilast by [name withheld] on YouTube".
+- **NAME-118** [Moose] The link https://www.eg.bucknell.edu/~lwittie/sca/song/filk/moose.html has a home directory (~user) in its path: check it names no one who should be hidden.
+- **NAME-119** [Moose] link https://stursula.lochac.sca.org/songs/the-moose-song/, title: "Legal Name 095" was withheld. Context: "at College of St Ursula, attributed to '[name withheld] et al'".
+- **NAME-120** [Moose] link https://cunnan.lochac.sca.org/index.php/The_Moose_Song, description: "Legal Name 073" was withheld. Context: "from the [name withheld] Songbook, unattributed".
+- **NAME-121** [Moose] link http://unclej.ca/Campfire.6.8.asp, title: "Legal Name 034" was withheld. Context: "The Moose Song in [name withheld]' songbook".
+- **NAME-122** [A&S Fight Song] link https://youtu.be/-MvEq69vdQc?si=K8B_UWapfqLmNiPT, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of the song performed by the".
+- **NAME-123** [Mordred's Lullaby] link https://youtu.be/6W0E9QnzpOE?si=HNFKbLh_3CVEXDDI, title: "Legal Name 097" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-124** [Black Alman] link https://youtu.be/1me-NRRVCF0?si=CLLtL7qb5TFDNrD1, title: "Legal Name 099" was withheld. Context: "Black Alman on [name withheld]'s YouTube, as taught at Christmas Tourn".
+- **NAME-125** [The Salmon of Wisdom] link https://youtu.be/BecourfhUUQ?si=Cx8XbB5JATcDPC_7, title: "Legal Name 118" was withheld. Context: "ionn and the Salmon of Knowledge on the [name withheld] podcast".
+- **NAME-126** [My Thing is My Own] link https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own, title: "Legal Name 073" was withheld. Context: "n Cunnan, a Lochac wiki, taken from the [name withheld] Songbook".
+- **NAME-127** [To the West] link https://youtu.be/el6QhNROjok?si=_MoxYb9ovrZS9u4q, title: "Legal Name 101" was withheld. Context: "YouTube recording by [name withheld] of To The West performed by the West Ki".
+- **NAME-128** [To the West] link https://www.youtube.com/watch?v=BcGIwgh-kqM, title: "Legal Name 024" was withheld. Context: "YouTube recording by [name withheld] of To The West".
+- **NAME-129** [Light of the East] link https://www.youtube.com/watch?v=LXGqIu06-zU, title: "Legal Name 024" was withheld. Context: "Recording on [name withheld]'s YouTube channel of a recording by [na".
+- **NAME-130** [Light of the East] link https://www.youtube.com/watch?v=LXGqIu06-zU, title: "Legal Name 102" was withheld. Context: "ld]'s YouTube channel of a recording by [name withheld]".
+- **NAME-131** [Proud Southern Warrior] link https://youtu.be/Jm6N30VIzCs, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-132** [Song for a Young Squire] link https://youtu.be/C6JMXf9AQ5A, title: "Legal Name 103" was withheld. Context: "Lyric video by [name withheld] on her own YouTube channel".
+- **NAME-133** [Raven Banner] link https://www.youtube.com/watch?v=UQVZ_74dEC4, title: "Legal Name 024" was withheld. Context: "[name withheld] recording on YouTube".
+- **NAME-134** [Raven Banner] link https://youtu.be/Ph4To4YVuDE, title: "Legal Name 053" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-135** [Reign for All Time] link https://youtu.be/RjW7mFxj1EU, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-136** [InDUCKtion] link https://youtu.be/iRAPnoX3EFc, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-137** [A Sailor's Love Song] link https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf#page=51, title: "Legal Name 106" was withheld. Context: "A Sailor's Love Song, credited to [name withheld] / [name withheld] 1997, has lyrics on p".
+- **NAME-138** [A Sailor's Love Song] link https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf#page=51, title: "Legal Name 107" was withheld. Context: "ove Song, credited to [name withheld] / [name withheld] 1997, has lyrics on page 51 of the 2015".
+- **NAME-139** [Twa Corbies] link https://youtu.be/GfVAxJPVhrg, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of the song".
+- **NAME-140** [Loki's Song] link https://youtu.be/y6ANCM3cG-c, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of Loki's Song".
+- **NAME-141** [Short Road] link https://sites.google.com/site/bardicmadnessmid/midrealm-song-sheet-project/Lyrics-Online#h.vkrrhgok3yo7, title: "Legal Name 109" was withheld. Context: "Short Road [name withheld] lyrics on Bardic Madness Midrealm songs".
+- **NAME-142** [Fight for the Midrealm] link https://youtu.be/XmgUpSreHi4, title: "Legal Name 024" was withheld. Context: "Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s".
+- **NAME-143** [I'm a Duke and You're Not] link https://youtu.be/sGtMqtthqog, title: "Legal Name 110" was withheld. Context: "I'm A Duke and You're Not on YouTube by [name withheld]".
+- **NAME-144** [I'm a Duke and You're Not] link https://youtu.be/2lNdAUZLzaY, title: "Legal Name 024" was withheld. Context: "I'm A Duke And You're Not, recorded by [name withheld] on YouTube,".
+- **NAME-145** [Squires] link https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf#page=29, description: "Legal Name 111" was withheld. Context: "credited to Llewen the Unruly / [name withheld], 1990".
+- **NAME-146** [Squires] link https://youtu.be/bEpXQLy_CLY, title: "Legal Name 112" was withheld. Context: "Squires, recorded by [name withheld] on YouTube".
+- **NAME-147** [The Torture Song] link https://youtu.be/J1l5DqXVNDI, title: "Legal Name 112" was withheld. Context: "he Torture Song, uploaded to YouTube by [name withheld]".
+- **NAME-148** [Rosin the Bow] link https://youtu.be/suvyiAWkdpo, title: "Legal Name 116" was withheld. Context: "Róisín the Bow, recorded on YouTube by [name withheld]".
+- **NAME-149** [A Light Above The Door] link https://youtu.be/CTbuUwQNsCk, title: "Legal Name 117" was withheld. Context: "Recording by [name withheld] on YouTube".
+- **NAME-150** [A Light Above The Door] link https://youtu.be/jP0SEnT3kpY, title: "Legal Name 117" was withheld. Context: "ecording by Cerian Cantwr on YouTube of [name withheld] performing at Pennsic 2025".
+- **NAME-151** [Marshall] The link https://www.pbm.com/~lindahl/cariadoc/misc_poetry.html has a home directory (~user) in its path: check it names no one who should be hidden.
+- **NAME-152** [The Ride of El Cid] link https://www.ravenboymusic.com/The-Ride-of-El-Cid.pdf, title: "Legal Name 053" was withheld. Context: "Lyrics PDF from [name withheld]".
+- **NAME-153** [The Ride of El Cid] link https://youtu.be/CwtVYpFvHSI, title: "Legal Name 024" was withheld. Context: "[name withheld] recording on YouTube of The Ride of El".
+- **NAME-154** [The Burning of Tara] link https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB, title: "Legal Name 118" was withheld. Context: "Fionn and the Dragon on [name withheld] podcast".
+- **NAME-155** [The Burning of Tara] link https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o, title: "Legal Name 118" was withheld. Context: "elling from Deardubh's perspective from [name withheld]".
+- **NAME-156** [Death Doom and Gloom] link https://youtu.be/J4MSI7JvufM?si=dc9ISETHfMvTXvH7, title: "Legal Name 120" was withheld. Context: "YouTube, performed by Cerian Cantwr and [name withheld]".
+- **NAME-157** [The Joyful Knight] link https://www.youtube.com/watch?v=fnbXOxsci00, title: "Legal Name 024" was withheld. Context: "Heather Dale, recorded by [name withheld] on YouTube at the Green Dragon at Gulf".
+- **NAME-158** [True And Destined Prince] link https://www.youtube.com/watch?v=L9HHmWQrrGM, title: "Legal Name 123" was withheld. Context: "Heather Dale, recorded by [name withheld] at the SCA 50 Year Celebration".
+- **NAME-159** [Lisa Theriot] link https://www.ravenboymusic.com/9-2/lisa-theriot/, title: "Legal Name 053" was withheld. Context: "[name withheld] page".
+- **NAME-160** [Lisa Theriot] link https://www.ravenboymusic.com/period-filk/, title: "Legal Name 053" was withheld. Context: "According to an essay on [name withheld], Lisa Theriot's opinions on the ethics".
+- **NAME-161** [Lisa Theriot] The link https://caidwiki.org/index.php/Legal_Name_002 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-162** [Samantha Moore] link https://www.ravenboymusic.com/9-2/samantha-moore/, title: "Legal Name 053" was withheld. Context: "[name withheld] page".
+- **NAME-163** [Efenwealt Wystle] link https://legal-name-026.com/efenwealt/, title: "Legal Name 026" was withheld. Context: "[name withheld]".
+- **NAME-164** [Efenwealt Wystle] The link https://legal-name-026.com/efenwealt/ holds a possible legal name in its URL: it is imported hidden.
+- **NAME-165** [Malkin Grey] link https://fancyclopedia.org/wiki/Legal_Name_009, title: "Legal Name 009" was withheld. Context: "[name withheld] at Fancyclopedia".
+- **NAME-166** [Malkin Grey] The link https://fancyclopedia.org/wiki/Legal_Name_009 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-167** [Anubh de Mona] The link https://sites.google.com/view/legal-name-045/home?authuser=0 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-168** [Anubh de Mona] The link https://sites.google.com/view/legal-name-045/teachingperformance/bardic-arts?authuser=0 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-169** [Drake Oranwood] link https://drakethebard.com/bardic/, description: "Legal Name 013" was withheld. Context: "All song copyrights are retained by [name withheld] ( per his Bardic Work page: \"Note: Even".
+- **NAME-170** [Ken Theriot] link https://www.ravenboymusic.com/9-2/ken-theriot/, title: "Legal Name 053" was withheld. Context: "[name withheld] – Ken Theriot page".
+- **NAME-171** [Ken Theriot] link https://www.ravenboymusic.com/band-of-brothers-a-song-for-st-crispins-day/, title: "Legal Name 053" was withheld. Context: "hers – Spotify and Apple Music links on [name withheld] site".
+- **NAME-172** [Mikal the Ram] link http://www.calonsong.org/CalontirSongs/mikal.htm, title: "Legal Name 019" was withheld. Context: "[name withheld]'s works on CalonSong".
+- **NAME-173** [Rohais de Ravenscroft] link https://legal-name-124.net/Bardic, title: "Legal Name 124" was withheld. Context: "[name withheld]".
+- **NAME-174** [Rohais de Ravenscroft] The link https://legal-name-124.net/Bardic holds a possible legal name in its URL: it is imported hidden.
+- **NAME-175** [Rohais de Ravenscroft] The link https://legal-name-124.net/Bardic/Music/OriginalMusic/FairyRing/Fairy%20Ring%20-%20Lyrics%20and%20Chords.pdf holds a possible legal name in its URL: it is imported hidden.
+- **NAME-176** [Legal Name 042] link https://en.wikipedia.org/wiki/Legal_Name_042, title: "Legal Name 042" was withheld. Context: "[name withheld]".
+- **NAME-177** [Legal Name 042] The link https://en.wikipedia.org/wiki/Legal_Name_042 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-178** [Legal Name 076] link https://en.wikipedia.org/wiki/Legal_Name_076, title: "Legal Name 076" was withheld. Context: "[name withheld]".
+- **NAME-179** [Legal Name 076] The link https://en.wikipedia.org/wiki/Legal_Name_076 holds a possible legal name in its URL: it is imported hidden.
+- **NAME-180** [Lisa Theriot] person Lisa Theriot, licensing notes: "Legal Name 053" was withheld. Context: "nformation. - [According to an essay on [name withheld], Lisa Theriot's opinions on the ethics".
+- **NAME-181** [Efenwealt Wystle] person Efenwealt Wystle, notes: "Legal Name 026" was withheld. Context: "### Efenwealt Wystle - [[name withheld]](https://[name withheld].com/efenwealt/".
+- **NAME-182** [Efenwealt Wystle] person Efenwealt Wystle, notes: "legal-name-026" was withheld. Context: "alt Wystle - [[name withheld]](https://[name withheld].com/efenwealt/)".
+- **NAME-183** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 024" was withheld. Context: "According to [[name withheld] on YouTube, in the description of One f".
+- **NAME-184** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
+- **NAME-185** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with Mr. [name withheld], please contact him at [email withheld]".
+- **NAME-186** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
+- **NAME-187** [Garraed Galbraith] person Garraed Galbraith, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with Mr. [name withheld], please contact him at [email withheld]".
+- **NAME-188** [Heather Dale] person Heather Dale, licensing notes: "Legal Name 039" was withheld. Context: "(likely Heather Dale, or Heather Dale & [name withheld]) Check her FAQ for more details.".
+- **NAME-189** [Drake Oranwood] person Drake Oranwood, licensing notes: "Legal Name 013" was withheld. Context: "All song copyrights are retained by [name withheld] ([per his Bardic Work page](https://dra".
+- **NAME-190** [Aneleda Falconbridge] person Aneleda Falconbridge, licensing notes: "Legal Name 015" was withheld. Context: "on this website are copyright 2006-2019 [name withheld] (known in the Society as Aneleda Falcon".
+- **NAME-191** [Ken Theriot] performance item, description: "Legal Name 053" was withheld. Context: "hers – Spotify and Apple Music links on [name withheld] site]".
+- **NAME-192** [Eliane Halevy] person Eliane Halevy, licensing notes: "Legal Name 021" was withheld. Context: "tions of existing lyrics, are copyright [name withheld] and may not be reproduced in print or i".
+- **NAME-193** [Rohais de Ravenscroft] person Rohais de Ravenscroft, licensing notes: "Legal Name 124" was withheld. Context: "ission. Rohais can be reached at rohais@[name withheld].net [An example of Rohais' attribution".
+- **NAME-194** [Rohais de Ravenscroft] person Rohais de Ravenscroft, licensing notes: "legal-name-124" was withheld. Context: "example of Rohais' attribution](https://[name withheld].net/Bardic/Music/OriginalMusic/FairyRin".
+- **NAME-195** [Valkyrie's Lullaby] performance item, description: "Legal Name 024" was withheld. Context: "tch?v=-hRDt5LMkYg Lasair performing for [name withheld] on YouTube]".
+- **NAME-196** [Valkyrie's Lullaby] performance item, description: "Ambra Michelli" was withheld. Context: "https://youtube.com/watch?v=q2oUW8MfVeI [name withheld] performing for [name withheld] on YouTu".
+- **NAME-197** [Valkyrie's Lullaby] performance item, description: "Legal Name 024" was withheld. Context: "UW8MfVeI [name withheld] performing for [name withheld] on YouTube at the Green Dragon]".
+- **NAME-198** [Band of Brothers] piece Band of Brothers, version notes: "Legal Name 022" was withheld. Context: "The words of this song are adapted from [name withheld], a play about events in the 1400s (15th".
+- **NAME-199** [Undefeated] piece Undefeated, licensing notes: "Legal Name 001" was withheld. Context: "paying venues, attaching the copyright \"[name withheld] 2003\", is granted according to MidBards".
+- **NAME-200** [Undefeated] piece Undefeated, alias: "Legal Name 023" holds a possible legal name. Context: "[name withheld]".
+- **NAME-201** [Undefeated] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-202** [Undefeated] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=Jof9TROND0s Recording by [name withheld] on YouTube] of [[Lucia Elena Braganza]]".
+- **NAME-203** [Undefeated] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-204** [Belt and Chain] piece Belt and Chain, licensing notes: "Legal Name 003" was withheld. Context: "t for the song belongs to Morric Haast ([name withheld]). The date is \"1996 or before\" accordin".
+- **NAME-205** [Belt and Chain] performance item, uploader: "Legal Name 027" was withheld. Context: "[name withheld]".
+- **NAME-206** [Belt and Chain] performance item, description: "Legal Name 027" was withheld. Context: "v=-sObDNjrJ0s Performance on YouTube by [name withheld]]".
+- **NAME-207** [Belt and Chain] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-208** [Belt and Chain] performance item, uploader: "Legal Name 028" was withheld. Context: "[name withheld]".
+- **NAME-209** [Belt and Chain] performance item, description: "Legal Name 028" was withheld. Context: "v=mcy0bGQ_NyI Performance on YouTube by [name withheld] for the Kingdom of Trimaris channel]".
+- **NAME-210** [Belt and Chain] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-211** [Come and Be Welcome] piece Come and Be Welcome, licensing notes: "Legal Name 004" was withheld. Context: "The song belongs to Emer nic Aidan ([name withheld]).".
+- **NAME-212** [Come and Be Welcome] performance item, description: "Legal Name 029" was withheld. Context: ".com/watch?v=ImSc9JE7jdc Performance by [name withheld], recorded by Cerian Cantwr on YouTube]".
+- **NAME-213** [Azure and Argent and Rose] piece Azure and Argent and Rose, licensing notes: "Legal Name 005" was withheld. Context: "song is by Bird the Bard, also known as [name withheld] or [name withheld].".
+- **NAME-214** [Azure and Argent and Rose] piece Azure and Argent and Rose, licensing notes: "Legal Name 006" was withheld. Context: "Bard, also known as [name withheld] or [name withheld].".
+- **NAME-215** [When a Knight Won His Spurs] performance item, description: "Legal Name 030" was withheld. Context: "https://youtube.com/watch?v=HCXuriEV-0Y [name withheld] performs When A Knight Won His Spurs, A".
+- **NAME-216** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 024" was withheld. Context: "ten by Garraed Galbraith. According to [[name withheld] on YouTube:](https://youtube.com/watch?".
+- **NAME-217** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
+- **NAME-218** [One for the Leaving] piece One for the Leaving, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with Mr. [name withheld], please contact him at [email withheld]".
+- **NAME-219** [One for the Leaving] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-220** [One for the Leaving] performance item, description: "Legal Name 024" was withheld. Context: "Dragon in 2010, recorded for YouTube by [name withheld]]".
+- **NAME-221** [One for the Leaving] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-222** [The Veil] piece The Veil, licensing notes: "Legal Name 007" was withheld. Context: "the music and lyrics belong entirely to [name withheld] under international copyright. He does".
+- **NAME-223** [The Veil] piece The Veil, licensing notes: "Legal Name 007" was withheld. Context: "to discuss any aspect of this with Mr. [name withheld], please contact him at [email withheld]".
+- **NAME-224** [The Veil] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-225** [The Veil] performance item, description: "Legal Name 024" was withheld. Context: "sung by Garraed Galbraith, recorded by [name withheld] at the Green Dragon for YouTube]".
+- **NAME-226** [The Veil] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-227** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name 009" was withheld. Context: "The song is by Malkin Grey ([name withheld]) and [name withheld] ([name withheld]),".
+- **NAME-228** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name 031" was withheld. Context: "is by Malkin Grey ([name withheld]) and [name withheld] ([name withheld]), copyright 1979.".
+- **NAME-229** [Song of the Shieldwall] piece Song of the Shieldwall, licensing notes: "Legal Name 018" was withheld. Context: "([name withheld]) and [name withheld] ([name withheld]), copyright 1979.".
+- **NAME-230** [Song of the Shieldwall] performance item, uploader: "Legal Name 032" was withheld. Context: "[name withheld]".
+- **NAME-231** [Song of the Shieldwall] performance item, description: "Legal Name 032" was withheld. Context: "outube.com/watch?v=DCFr6QvzPm0 Cover by [name withheld] on YouTube]".
+- **NAME-232** [Song of the Shieldwall] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-233** [Song of Roland] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-234** [Song of Roland] performance item, description: "Legal Name 024" was withheld. Context: "g Rosalind Jehanne singing, recorded by [name withheld] on YouTube]".
+- **NAME-235** [Song of Roland] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-236** [Song of Roland] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-237** [Song of Roland] performance item, description: "Legal Name 024" was withheld. Context: "rforms at the Green Dragon, recorded by [name withheld] for YouTube]".
+- **NAME-238** [Song of Roland] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-239** [The Peasant Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-240** [The Peasant Knight] performance item, description: "Legal Name 024" was withheld. Context: "osalind Jehanne on YouTube, recorded by [name withheld]]".
+- **NAME-241** [The Peasant Knight] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-242** [The Peasant Knight] performance item, description: "Legal Name 038" was withheld. Context: "https://youtube.com/watch?v=uyrykI7EbGE [name withheld] singing, recorded by Cerian Cantwr on Y".
+- **NAME-243** [The Peasant Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-244** [The Peasant Knight] performance item, description: "Legal Name 024" was withheld. Context: "Peasant Knight, recorded on YouTube by [name withheld]], sung by [[Kári Gáranhirsson]] at the".
+- **NAME-245** [The Peasant Knight] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-246** [Savage Daughter] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-247** [Savage Daughter] performance item, description: "Legal Name 024" was withheld. Context: "ir singing Savage Daughter, recorded by [name withheld] on YouTube]".
+- **NAME-248** [Savage Daughter] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-249** [Savage Daughter] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-250** [Savage Daughter] performance item, description: "Legal Name 024" was withheld. Context: "by Wyndreth Berginsdottir, recorded by [name withheld] on YouTube]".
+- **NAME-251** [Savage Daughter] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-252** [Savage Daughter] performance item, uploader: "Legal Name 040" was withheld. Context: "[name withheld]".
+- **NAME-253** [Savage Daughter] performance item, description: "Legal Name 040" was withheld. Context: "Savage Daughter, recorded on YouTube by [name withheld]] sung by [[Sadb ingen Donnchadha]] in 2".
+- **NAME-254** [Savage Daughter] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-255** [Life of the Bard] piece Life of the Bard, licensing notes: "Legal Name 008" was withheld. Context: "Song by Rosalind Jehanne ([name withheld])".
+- **NAME-256** [Wild Rover] performance item, description: "[[Legal Name 029]]" was withheld. Context: "wr on YouTube] of the song performed by [name withheld]".
+- **NAME-257** [Wild Mountain Thyme] piece Wild Mountain Thyme, licensing notes: "Legal Name 041" was withheld. Context: "uted. Some claim that it was written by [name withheld]; however, it is strongly based on the s".
+- **NAME-258** [Wild Mountain Thyme] piece Wild Mountain Thyme, licensing notes: "Legal Name 042" was withheld. Context: "the song \"The Braes of Balquhither\" by [name withheld] and [name withheld], likely based on a".
+- **NAME-259** [Wild Mountain Thyme] piece Wild Mountain Thyme, licensing notes: "Legal Name 043" was withheld. Context: "of Balquhither\" by [name withheld] and [name withheld], likely based on a traditional air.".
+- **NAME-260** [Sumer is icumen in] performance item, uploader: "Legal Name 047" was withheld. Context: "[name withheld]".
+- **NAME-261** [Sumer is icumen in] performance item, description: "Legal Name 047" was withheld. Context: "h?v=bQLaLdRIF10 Recording on YouTube by [name withheld]]".
+- **NAME-262** [Sumer is icumen in] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-263** [Second Cross] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-264** [Second Cross] performance item, description: "Legal Name 024" was withheld. Context: "Q7w Second Cross recorded on YouTube by [name withheld]] performed by [[Beatriu De Schattentor]".
+- **NAME-265** [Second Cross] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-266** [Second Cross] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-267** [Second Cross] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=4Yp8UTniHdM Recording by [name withheld] on YouTube] of Second Cross sung by [[A".
+- **NAME-268** [Second Cross] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-269** [Welcome to the Current Middle Ages] piece Welcome to the Current Middle Ages, licensing notes: "Legal Name 016" was withheld. Context: "Erebor. The song is copyright 1979 by [name withheld], All Rights Reserved".
+- **NAME-270** [I Add My Shield to the Wall] performance item, description: "Ambra Michelli" was withheld. Context: "https://youtube.com/watch?v=FyW6aYOq50k [name withheld] sings I Add My Shield to the Wall on Yo".
+- **NAME-271** [Vivat the Dream] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-272** [Vivat the Dream] performance item, description: "Legal Name 024" was withheld. Context: "amyg5uO1x8 Vivat the Dream, recorded by [name withheld] on YouTube] as sung by [[Beatrice Domen".
+- **NAME-273** [Vivat the Dream] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-274** [Ban the Fencers] performance item, uploader: "Legal Name 053" was withheld. Context: "[name withheld]".
+- **NAME-275** [Ban the Fencers] performance item, description: "Legal Name 053" was withheld. Context: "z_EAk2ahE Ban the Fencers on YouTube by [name withheld]] performed by [[Ken Theriot]] and [[Lis".
+- **NAME-276** [Ban the Fencers] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-277** [A Grazing Mace] piece A Grazing Mace, licensing notes: "Legal Name 059" was withheld. Context: "and Jenna of Southwind wrote the rest, [name withheld] claims to have written his own version,".
+- **NAME-278** [Auld Lang Syne] performance item, description: "Legal Name 060" was withheld. Context: "ch?v=i_eoiRvdp-A Auld Lang Syne sung by [name withheld]]".
+- **NAME-279** [Born on the Listfield] performance item, uploader: "Legal Name 061" was withheld. Context: "[name withheld]".
+- **NAME-280** [Born on the Listfield] performance item, description: "Legal Name 061" was withheld. Context: "aZ5g Born on a Listfield on YouTube by '[name withheld]']".
+- **NAME-281** [Born on the Listfield] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-282** [Born on the Listfield] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-283** [Born on the Listfield] performance item, description: "Legal Name 024" was withheld. Context: "n the Listfield, recorded on YouTube by [name withheld]] sung by [[Terafan Greydragon]]".
+- **NAME-284** [Born on the Listfield] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-285** [Born on the Listfield] performance item, uploader: "Legal Name 062" was withheld. Context: "[name withheld]".
+- **NAME-286** [Born on the Listfield] performance item, description: "Legal Name 062" was withheld. Context: "?v=0s1BlXT7lxo Recording on YouTube by '[name withheld]'] of a performance from the Rising Wind".
+- **NAME-287** [Born on the Listfield] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-288** [Born on the Listfield] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-289** [Born on the Listfield] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=rq-5grAShxI Recording by [name withheld] on YouTube] of [[Dolan Madoc]] singing".
+- **NAME-290** [Born on the Listfield] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-291** [Worms of the Earth] performance item, uploader: "Legal Name 061" was withheld. Context: "[name withheld]".
+- **NAME-292** [Worms of the Earth] performance item, description: "Legal Name 061" was withheld. Context: "?v=QrARHJE9Las Recording on YouTube by '[name withheld]']".
+- **NAME-293** [Worms of the Earth] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-294** [Lifeblood] piece Lifeblood, alias: "Legal Name 063" holds a possible legal name. Context: "[name withheld]".
+- **NAME-295** [Lifeblood] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-296** [Lifeblood] performance item, description: "Legal Name 024" was withheld. Context: "h Berginsdottir, recorded on YouTube by [name withheld]]".
+- **NAME-297** [Lifeblood] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-298** [Warrior's Wyrd] piece Warrior's Wyrd, licensing notes: "Legal Name 064" was withheld. Context: "It is likely that [name withheld] still holds the copyright to the tune;".
+- **NAME-299** [Warrior's Wyrd] performance item, uploader: "Legal Name 061" was withheld. Context: "[name withheld]".
+- **NAME-300** [Warrior's Wyrd] performance item, description: "Legal Name 061" was withheld. Context: "DSvojaL3g Warrior's Wyrd on YouTube by '[name withheld]']".
+- **NAME-301** [Warrior's Wyrd] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-302** [Warrior's Wyrd] performance item, uploader: "Legal Name 065" was withheld. Context: "[name withheld]".
+- **NAME-303** [Warrior's Wyrd] performance item, description: "Legal Name 065" was withheld. Context: "kFyoVrTEok Warrior's Wyrd on YouTube by [name withheld]]".
+- **NAME-304** [Warrior's Wyrd] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-305** [Warrior's Wyrd] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-306** [Warrior's Wyrd] performance item, description: "Legal Name 024" was withheld. Context: "Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce".
+- **NAME-307** [Warrior's Wyrd] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-308** [By the Weight of the Chain] performance item, description: "Legal Name 066" was withheld. Context: "SmF1Z_28Y By the Weight of the Chain by [name withheld] on YouTube]".
+- **NAME-309** [By the Weight of the Chain] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-310** [By the Weight of the Chain] performance item, description: "Legal Name 024" was withheld. Context: "By The Weight Of The Chain, recorded by [name withheld] on YouTube]".
+- **NAME-311** [By the Weight of the Chain] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-312** [By the Weight of the Chain] performance item, description: "Legal Name 067" was withheld. Context: "Weight of the Chain on YouTube, sung by [name withheld]]".
+- **NAME-313** [Why I Fight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-314** [Why I Fight] performance item, description: "Legal Name 024" was withheld. Context: "h?v=As77tjW12Nk Why I Fight recorded by [name withheld] on YouTube, at the SCA 50 Year Celebrat".
+- **NAME-315** [Why I Fight] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-316** [After Cambreadth] piece After Cambreadth, alias: "Legal Name 069" holds a possible legal name. Context: "[name withheld]".
+- **NAME-317** [Joan] performance item, description: "Legal Name 071" was withheld. Context: "utube.com/watch?v=GmPLgc4olFU Upload by [name withheld] of Joan] performed by [[Heather Dale]]".
+- **NAME-318** [Joan] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-319** [Joan] performance item, description: "Legal Name 024" was withheld. Context: "utube.com/watch?v=Ed91Vs3FfOo Upload by [name withheld] on YouTube] of [[Heather Dale]] perform".
+- **NAME-320** [Joan] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-321** [Hold Your Lines] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-322** [Hold Your Lines] performance item, description: "Legal Name 024" was withheld. Context: "hvinILH8iA Hold Your Lines, recorded by [name withheld] on YouTube] performed by [[Aibhilin ing".
+- **NAME-323** [Hold Your Lines] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-324** [Hold Your Lines] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-325** [Hold Your Lines] performance item, description: "Legal Name 024" was withheld. Context: "WPR4YZKE2Y Hold Your Lines, recorded by [name withheld] on YouTube], performed by [[Aibhilin in".
+- **NAME-326** [Hold Your Lines] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-327** [Rise] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-328** [Rise] performance item, description: "Legal Name 024" was withheld. Context: "m/watch?v=bIuCABe-XuI Rise, recorded by [name withheld] on YouTube], performed by [[Garraed Gal".
+- **NAME-329** [Rise] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-330** [Banners of Scarlet] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-331** [Banners of Scarlet] performance item, description: "Legal Name 024" was withheld. Context: "ners of Scarlet, uploaded to YouTube by [name withheld], sung in choir in the Barony of Windhav".
+- **NAME-332** [Banners of Scarlet] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-333** [God Rest Ye Frantic Autocrat] performance item, uploader: "Legal Name 072" was withheld. Context: "[name withheld]".
+- **NAME-334** [God Rest Ye Frantic Autocrat] performance item, description: "Legal Name 072" was withheld. Context: "d Rest Ye Frantic Autocrat, recorded by [name withheld] on YouTube for the Barony of Stonemarch".
+- **NAME-335** [God Rest Ye Frantic Autocrat] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-336** [The Herald's Complaint] piece The Herald's Complaint, licensing notes: "Legal Name 016" was withheld. Context: "The song is copyrighted to [name withheld], 1978.".
+- **NAME-337** [The Herald's Complaint] performance item, description: "Legal Name 075" was withheld. Context: "The Herald's Complaint on YouTube, from [name withheld] of SCA Bards Sampler]".
+- **NAME-338** [Flower of the Desert] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-339** [Flower of the Desert] performance item, description: "Legal Name 024" was withheld. Context: "YC5qU Flower of the Desert, recorded by [name withheld] on YouTube], performed by [[Lisa Therio".
+- **NAME-340** [Flower of the Desert] performance item, description: "Legal Name 002" was withheld. Context: "ouTube], performed by [[Lisa Theriot]] ([name withheld]).".
+- **NAME-341** [Flower of the Desert] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-342** [Agincourt] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-343** [Agincourt] performance item, description: "Legal Name 024" was withheld. Context: "ch?v=z6IoFIwn0uM Agincourt, recorded by [name withheld] on YouTube] performed by [[Roisin ingen".
+- **NAME-344** [Agincourt] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-345** [The Parting Glass] performance item, uploader: "Legal Name 062" was withheld. Context: "[name withheld]".
+- **NAME-346** [The Parting Glass] performance item, description: "Legal Name 062" was withheld. Context: "com/watch?v=m-vDNaE-3rM Performance by '[name withheld]' on YouTube] at an [[:Category:Amtgard|".
+- **NAME-347** [The Parting Glass] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-348** [The Parting Glass] performance item, description: "[[Legal Name 120]]" was withheld. Context: "cording by Cerian Cantwr on YouTube] of [name withheld] singing, 1994".
+- **NAME-349** [Quantas Sabedes Amar Amigo] piece Quantas Sabedes Amar Amigo, alias: "Legal Name 078" holds a possible legal name. Context: "Quantas Sabedes ([name withheld])".
+- **NAME-350** [Quantas Sabedes Amar Amigo] performance item, description: "Legal Name 080" was withheld. Context: "be.com/watch?v=L4iEtyXgc8E Recording by [name withheld] of the song sung by [name withheld]]".
+- **NAME-351** [Quantas Sabedes Amar Amigo] performance item, description: "Legal Name 081" was withheld. Context: "by [name withheld] of the song sung by [name withheld]]".
+- **NAME-352** [Journey's Just Begun] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-353** [Journey's Just Begun] performance item, description: "Legal Name 024" was withheld. Context: "oore performing on YouTube, recorded by [name withheld]] at the [[Green Dragon]], 2019".
+- **NAME-354** [Journey's Just Begun] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-355** [Stand Brother Stand] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-356** [Stand Brother Stand] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=cU46yoA6mzw Recording by [name withheld] on YouTube] of [[Aibhilin inghean Daibh".
+- **NAME-357** [Stand Brother Stand] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-358** [Stand Brother Stand] performance item, uploader: "Legal Name 082" was withheld. Context: "[name withheld]".
+- **NAME-359** [Stand Brother Stand] performance item, description: "Legal Name 082" was withheld. Context: "h?v=KjWxkaIWZGM Recording on YouTube by [name withheld]] of [[Sidi KuroSH al-Din]] performing i".
+- **NAME-360** [Stand Brother Stand] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-361** [Bow to the Crown] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-362** [Bow to the Crown] performance item, description: "Legal Name 024" was withheld. Context: "v=6cjWFPOHRps Heather Dale, recorded by [name withheld] on YouTube, singing during SCA 50 Year".
+- **NAME-363** [Bow to the Crown] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-364** [Oathkeeping] piece Oathkeeping, version notes: "Legal Name 052" was withheld. Context: "bardic\\_piece.php?bp\\_id=1159 Lyrics at [name withheld], apparently from \"A Book Of Songs 2.5 b".
+- **NAME-365** [Oathkeeping] piece Oathkeeping, version notes: "Legal Name 083" was withheld. Context: "apparently from \"A Book Of Songs 2.5 by [name withheld], AS 40\"".
+- **NAME-366** [Call the Names] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-367** [Call the Names] performance item, description: "Legal Name 024" was withheld. Context: "Call the Names, recorded on YouTube by [name withheld]], sung by Heather Dale and [name withhe".
+- **NAME-368** [Call the Names] performance item, description: "[[Legal Name 039]]" was withheld. Context: "me withheld]], sung by Heather Dale and [name withheld].".
+- **NAME-369** [Call the Names] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-370** [Song of the Waves] performance item, uploader: "Legal Name 087" was withheld. Context: "[name withheld]".
+- **NAME-371** [Song of the Waves] performance item, description: "Legal Name 087" was withheld. Context: "atch?v=-DhgTp5MAWY Song of the Waves by [name withheld] (Gideon ap Stephen) on YouTube]".
+- **NAME-372** [Song of the Waves] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-373** [Were-Llama] performance item, description: "Legal Name 024" was withheld. Context: "e.com/watch?v=7sSsIzandoY Were-Llama on [name withheld]'s YouTube] sung by [[Cerian Cantwr]] at".
+- **NAME-374** [What Price Honor] performance item, description: "Legal Name 089" was withheld. Context: "ck/what-price-honor What Price Honor on [name withheld]'s BandCamp]".
+- **NAME-375** [Pastime with Good Company] piece Pastime with Good Company, alias: "Legal Name 090" holds a possible legal name. Context: "[name withheld]".
+- **NAME-376** [Pastime with Good Company] performance item, uploader: "Legal Name 091" was withheld. Context: "[name withheld]".
+- **NAME-377** [Pastime with Good Company] performance item, description: "Legal Name 091" was withheld. Context: "h?v=faMvRGSKbnY Recording on YouTube by [name withheld]]".
+- **NAME-378** [Pastime with Good Company] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-379** [Mirie it is While Sumer Ilast] performance item, uploader: "Legal Name 092" was withheld. Context: "[name withheld]".
+- **NAME-380** [Mirie it is While Sumer Ilast] performance item, description: "Legal Name 092" was withheld. Context: "hLeatM Mirie it is while sumer ilast by [name withheld] on YouTube]".
+- **NAME-381** [Mirie it is While Sumer Ilast] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-382** [Conn's Song] piece Conn's Song, alias: "Legal Name 093" holds a possible legal name. Context: "[name withheld]".
+- **NAME-383** [Moose] performance item, description: "Legal Name 096" was withheld. Context: "he Sot on YouTube], attributed to \"2008 [name withheld]\"".
+- **NAME-384** [A&S Fight Song] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-385** [A&S Fight Song] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=-MvEq69vdQc Recording by [name withheld] on YouTube of the song performed by the".
+- **NAME-386** [A&S Fight Song] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-387** [Mordred's Lullaby] performance item, uploader: "Legal Name 097" was withheld. Context: "[name withheld]".
+- **NAME-388** [Mordred's Lullaby] performance item, description: "Legal Name 097" was withheld. Context: "be.com/watch?v=6W0E9QnzpOE Recording by [name withheld] on YouTube] of [[Heather Dale]] perform".
+- **NAME-389** [Mordred's Lullaby] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-390** [Black Alman] piece Black Alman, notes: "Legal Name 098" was withheld. Context: "ces found in Orchesographie, written by [name withheld] and published in 1588-1589.".
+- **NAME-391** [Black Alman] performance item, description: "Legal Name 099" was withheld. Context: ".com/watch?v=1me-NRRVCF0 Black Alman on [name withheld]'s YouTube, as taught at Christmas Tourn".
+- **NAME-392** [The Salmon of Wisdom] performance item, description: "Legal Name 118" was withheld. Context: "ionn and the Salmon of Knowledge on the [name withheld] podcast]".
+- **NAME-393** [To the West] piece To the West, licensing notes: "Legal Name 100" was withheld. Context: "The song is copyright to [name withheld], 1992.".
+- **NAME-394** [To the West] performance item, description: "Legal Name 101" was withheld. Context: "atch?v=el6QhNROjok YouTube recording by [name withheld] of To The West performed by the West Ki".
+- **NAME-395** [To the West] performance item, description: "Legal Name 024" was withheld. Context: "atch?v=BcGIwgh-kqM YouTube recording by [name withheld] of To The West] by [[Siobhán ní hEodhus".
+- **NAME-396** [Light of the East] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=LXGqIu06-zU Recording on [name withheld]'s YouTube channel of a recording by [na".
+- **NAME-397** [Light of the East] performance item, description: "Legal Name 102" was withheld. Context: "ld]'s YouTube channel of a recording by [name withheld]] of [[Fiana of Clare]] singing her song".
+- **NAME-398** [Proud Southern Warrior] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-399** [Proud Southern Warrior] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=Jm6N30VIzCs Recording by [name withheld] on YouTube] of the song performed by [[".
+- **NAME-400** [Proud Southern Warrior] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-401** [Raven Banner] performance item, description: "Legal Name 024" was withheld. Context: "https://youtube.com/watch?v=UQVZ_74dEC4 [name withheld] recording on YouTube] of a campfire sin".
+- **NAME-402** [Raven Banner] performance item, uploader: "Legal Name 053" was withheld. Context: "[name withheld]".
+- **NAME-403** [Raven Banner] performance item, description: "Legal Name 053" was withheld. Context: "be.com/watch?v=Ph4To4YVuDE Recording by [name withheld] on YouTube] of [name withheld] / [name".
+- **NAME-404** [Raven Banner] performance item, description: "Legal Name 104" was withheld. Context: "rding by [name withheld] on YouTube] of [name withheld] / [name withheld] performing Raven Bann".
+- **NAME-405** [Raven Banner] performance item, description: "Legal Name 105" was withheld. Context: "hheld] on YouTube] of [name withheld] / [name withheld] performing Raven Banner in 2011".
+- **NAME-406** [Raven Banner] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-407** [Reign for All Time] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-408** [Reign for All Time] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=RjW7mFxj1EU Recording by [name withheld] on YouTube] of [[Dolan Madoc]] singing".
+- **NAME-409** [Reign for All Time] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-410** [InDUCKtion] performance item, description: "[[Legal Name 120]]" was withheld. Context: "wr on YouTube] of the song performed by [name withheld], recorded at the Ivy Annex".
+- **NAME-411** [InDUCKtion] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-412** [InDUCKtion] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=iRAPnoX3EFc Recording by [name withheld] on YouTube] of the song performed by [n".
+- **NAME-413** [InDUCKtion] performance item, description: "[[Legal Name 120]]" was withheld. Context: "d] on YouTube] of the song performed by [name withheld] at Northshield Bardic Madness, 2017".
+- **NAME-414** [InDUCKtion] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-415** [Twa Corbies] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-416** [Twa Corbies] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=GfVAxJPVhrg Recording by [name withheld] on YouTube of the song] performed by [[".
+- **NAME-417** [Twa Corbies] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-418** [Loki's Song] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-419** [Loki's Song] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=y6ANCM3cG-c Recording by [name withheld] on YouTube of Loki's Song] performed by".
+- **NAME-420** [Loki's Song] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-421** [Short Road] piece Short Road, alias: "Legal Name 109" holds a possible legal name. Context: "[name withheld]".
+- **NAME-422** [Fight for the Midrealm] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-423** [Fight for the Midrealm] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s".
+- **NAME-424** [Fight for the Midrealm] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-425** [I'm a Duke and You're Not] performance item, uploader: "Legal Name 110" was withheld. Context: "[name withheld]".
+- **NAME-426** [I'm a Duke and You're Not] performance item, description: "Legal Name 110" was withheld. Context: "I'm A Duke and You're Not on YouTube by [name withheld]]".
+- **NAME-427** [I'm a Duke and You're Not] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-428** [I'm a Duke and You're Not] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-429** [I'm a Duke and You're Not] performance item, description: "Legal Name 024" was withheld. Context: "I'm A Duke And You're Not, recorded by [name withheld] on YouTube,] performed by [[Thomas Bord".
+- **NAME-430** [I'm a Duke and You're Not] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-431** [Squires] performance item, uploader: "Legal Name 112" was withheld. Context: "[name withheld]".
+- **NAME-432** [Squires] performance item, description: "Legal Name 112" was withheld. Context: "atch?v=bEpXQLy_CLY Squires, recorded by [name withheld] on YouTube] sung by [name withheld] of".
+- **NAME-433** [Squires] performance item, description: "Legal Name 113" was withheld. Context: "by [name withheld] on YouTube] sung by [name withheld] of Lochac. The song begins at around th".
+- **NAME-434** [Squires] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-435** [The Torture Song] piece The Torture Song, notes: "Legal Name 114" was withheld. Context: "[name withheld] wrote this song specifically for middle".
+- **NAME-436** [The Torture Song] performance item, uploader: "Legal Name 112" was withheld. Context: "[name withheld]".
+- **NAME-437** [The Torture Song] performance item, description: "Legal Name 112" was withheld. Context: "he Torture Song, uploaded to YouTube by [name withheld]], performed by [name withheld]".
+- **NAME-438** [The Torture Song] performance item, description: "[[Legal Name 114]]" was withheld. Context: "uTube by [name withheld]], performed by [name withheld]".
+- **NAME-439** [The Torture Song] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-440** [Rosin the Bow] performance item, uploader: "Legal Name 116" was withheld. Context: "[name withheld]".
+- **NAME-441** [Rosin the Bow] performance item, description: "Legal Name 116" was withheld. Context: "Róisín the Bow, recorded on YouTube by [name withheld]]".
+- **NAME-442** [Rosin the Bow] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-443** [A Light Above The Door] performance item, uploader: "Legal Name 117" was withheld. Context: "[name withheld]".
+- **NAME-444** [A Light Above The Door] performance item, description: "Legal Name 117" was withheld. Context: "be.com/watch?v=CTbuUwQNsCk Recording by [name withheld] on YouTube]".
+- **NAME-445** [A Light Above The Door] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-446** [A Light Above The Door] performance item, description: "Legal Name 117" was withheld. Context: "ecording by Cerian Cantwr on YouTube of [name withheld] performing at Pennsic 2025]".
+- **NAME-447** [The Ride of El Cid] performance item, description: "Legal Name 024" was withheld. Context: "https://youtube.com/watch?v=CwtVYpFvHSI [name withheld] recording on YouTube of The Ride of El".
+- **NAME-448** [The Burning of Tara] performance item, description: "Legal Name 118" was withheld. Context: "h?v=N1OwCGeOHlU Fionn and the Dragon on [name withheld] podcast]".
+- **NAME-449** [The Burning of Tara] performance item, description: "Legal Name 118" was withheld. Context: "elling from Deardubh's perspective from [name withheld]]".
+- **NAME-450** [Three Words] piece Three Words, notes: "Legal Name 021" was withheld. Context: "tune and lyrics Š4/7/02 Eliane Halevy ([name withheld])\"".
+- **NAME-451** [Three Words] piece Three Words, licensing notes: "Legal Name 021" was withheld. Context: "tions of existing lyrics, are copyright [name withheld] and may not be reproduced in print or i".
+- **NAME-452** [Three Words] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original".
+- **NAME-453** [Three Words] performance item, description: "Legal Name 029" was withheld. Context: "levy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kin".
+- **NAME-454** [Three Words] performance item, description: "Legal Name 024" was withheld. Context: "be.com/watch?v=WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, acc".
+- **NAME-455** [Death Doom and Gloom] piece Death Doom and Gloom, alias: "Legal Name 119" holds a possible legal name. Context: "[name withheld]".
+- **NAME-456** [Death Doom and Gloom] performance item, description: "Legal Name 120" was withheld. Context: "YouTube, performed by Cerian Cantwr and [name withheld]]".
+- **NAME-457** [The Joyful Knight] performance item, uploader: "Legal Name 024" was withheld. Context: "[name withheld]".
+- **NAME-458** [The Joyful Knight] performance item, description: "Legal Name 024" was withheld. Context: "v=fnbXOxsci00 Heather Dale, recorded by [name withheld] on YouTube at the Green Dragon at Gulf".
+- **NAME-459** [The Joyful Knight] A performance item's uploader is withheld: the performance is imported without an uploader.
+- **NAME-460** [True And Destined Prince] performance item, uploader: "Legal Name 123" was withheld. Context: "[name withheld]".
+- **NAME-461** [True And Destined Prince] performance item, description: "Legal Name 123" was withheld. Context: "v=L9HHmWQrrGM Heather Dale, recorded by [name withheld] at the SCA 50 Year Celebration]".
+- **NAME-462** [True And Destined Prince] A performance item's uploader is withheld: the performance is imported without an uploader.
 
 ## 4. Contact details withheld
 
@@ -1220,7 +1221,7 @@ Links dropped, merged, matched to collections, normalised or given another docum
 - **LINK-306** [Forannán Glórach] https://youtube.com/watch?v=T5HqShcpdyw: its url, title differ from those Not Yet Done gives. One link holds the fields for every page: Not Yet Done's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title "Not Yet Done on YouTube", the description "" and the locator "".
 - **LINK-307** [Forannán Glórach] https://youtube.com/watch?v=byeNq-MNpCA: its title differ from those When A Knight Won His Spurs (SCA Version) gives. One link holds the fields for every page: When A Knight Won His Spurs (SCA Version)'s, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title "When A Knight Won His Spurs on YouTube", the description "" and the locator "".
 - **LINK-308** [Forannán Glórach] https://youtube.com/watch?v=-3OL4Gc2gK8: its url, title differ from those Heirs of Atlantis gives. One link holds the fields for every page: Heirs of Atlantis's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title "Heirs of Atlantis on YouTube", the description "" and the locator "".
-- **LINK-309** [Garraed Galbraith] https://youtube.com/watch?v=EiYBQA869Gk: its title differ from those One for the Leaving gives. One link holds the fields for every page: One for the Leaving's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title "Legal Name 024 on YouTube, in the description of One for the Leaving:", the description "According to" and the locator "".
+- **LINK-309** [Garraed Galbraith] https://youtube.com/watch?v=EiYBQA869Gk: its title, description differ from those One for the Leaving gives. One link holds the fields for every page: One for the Leaving's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title "Legal Name 024 on YouTube, in the description of One for the Leaving:", the description "According to Legal Name 024 on YouTube, in the description of One for the Leavin…" and the locator "".
 - **LINK-310** [Garraed Galbraith] http://calonsong.org/CalontirSongs/songoftheveil.pdf: its title differ from those The Veil gives. One link holds the fields for every page: The Veil's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title "According to Calonsong's version of The Veil", the description "" and the locator "".
 - **LINK-311** [Sadb ingen Donnchadha] https://youtube.com/watch?v=W4WjmLT2RPk: its title differ from those Undefeated gives. One link holds the fields for every page: Undefeated's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title "Recording by Cerian Cantwr on YouTube of Sadb", the description "" and the locator "".
 - **LINK-312** [Sadb ingen Donnchadha] https://youtube.com/watch?v=K0kYsxBYh0w: its title differ from those Savage Daughter gives. One link holds the fields for every page: Savage Daughter's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title "Recording on YouTube by Cerian Cantwr", the description "" and the locator "".

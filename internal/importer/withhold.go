@@ -21,13 +21,21 @@ const contextRunes = 40
 //     field, names and titles included (name), and a URL holding one is hidden (hidesURL);
 //   - unsure names: the corpus's other private names, which the classifier could not show are not legal names.
 //     They are withheld from free text only (text): a name the wiki itself gives an entity (a credited person, a
-//     piece title or alias, a collection label, an event) is imported as written, and listed in the review.
+//     piece title or alias, a collection label, an event) is imported as written, and listed in the review. An
+//     unsure name the import publishes as a person's name (publishing) is not withheld from free text either, as
+//     withholding it there would protect nothing; each occurrence is listed (published).
 //
 // Honorific names ("Mr. Surname") and email addresses are withheld wherever legal names are.
 type withholder struct {
-	legal    []mediawiki.PrivateName
-	legalM   mediawiki.PrivateNameMatcher
+	legal  []mediawiki.PrivateName
+	unsure []mediawiki.PrivateName
+	legalM mediawiki.PrivateNameMatcher
+	// privateM finds every private name, legal or unsure.
 	privateM mediawiki.PrivateNameMatcher
+	// textM finds the private names withheld from free text: privateM's but the published unsure names, which
+	// publishedM finds.
+	textM      mediawiki.PrivateNameMatcher
+	publishedM mediawiki.PrivateNameMatcher
 	// unsureURL finds the unsure names in URLs, concatenated forms included.
 	unsureURL mediawiki.NameMatcher
 }
@@ -72,15 +80,53 @@ func newWithholder(c mediawiki.Corpus, hiddenAliases []string) withholder {
 		unsureTexts = append(unsureTexts, n.Text)
 	}
 
-	return withholder{legal: legal, legalM: mediawiki.NewPrivateNameMatcher(legal),
-		privateM:  mediawiki.NewPrivateNameMatcher(slices.Concat(legal, unsure)),
+	privateM := mediawiki.NewPrivateNameMatcher(slices.Concat(legal, unsure))
+
+	return withholder{legal: legal, unsure: unsure, legalM: mediawiki.NewPrivateNameMatcher(legal),
+		privateM: privateM, textM: privateM, publishedM: mediawiki.NewPrivateNameMatcher(nil),
 		unsureURL: mediawiki.NewNameMatcher(unsureTexts, nil)}
 }
 
-// text returns free text s in NFC with its email addresses, private names (legal and unsure) and honorific names
-// withheld, and what was withheld.
+// publishing returns the withholder for an import that publishes names as persons' names (display names): the
+// unsure names found in one of them are not withheld from free text, but found by published. Legal names always
+// are.
+func (w withholder) publishing(names []string) withholder {
+	unsureM := mediawiki.NewPrivateNameMatcher(w.unsure)
+	published := map[int]bool{}
+	for _, n := range names {
+		for _, f := range unsureM.Find(norm.NFC.String(n)) {
+			published[f.Name] = true
+		}
+	}
+	var withheldNames, publishedNames []mediawiki.PrivateName
+	for k, n := range w.unsure {
+		if published[k] {
+			publishedNames = append(publishedNames, n)
+		} else {
+			withheldNames = append(withheldNames, n)
+		}
+	}
+	w.textM = mediawiki.NewPrivateNameMatcher(slices.Concat(w.legal, withheldNames))
+	w.publishedM = mediawiki.NewPrivateNameMatcher(publishedNames)
+
+	return w
+}
+
+// text returns free text s in NFC with its email addresses, private names (legal and unsure, but the published
+// ones) and honorific names withheld, and what was withheld.
 func (w withholder) text(s string) (string, []withheld) {
-	return withhold(norm.NFC.String(s), w.privateM)
+	return withhold(norm.NFC.String(s), w.textM)
+}
+
+// published returns the occurrences in free text s (as text returned it) of the unsure names the import publishes
+// as persons' names, which text keeps, each with its context.
+func (w withholder) published(s string) []withheld {
+	var out []withheld
+	for _, f := range w.publishedM.Find(s) {
+		out = append(out, withheld{Text: s[f.Start:f.End], Context: around(s, f.Start, f.End)})
+	}
+
+	return out
 }
 
 // name returns a name or title s in NFC with its email addresses, legal names and honorific names withheld, and

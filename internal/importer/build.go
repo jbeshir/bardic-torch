@@ -22,11 +22,12 @@ import (
 // first seen; bards by page ID, then stub persons by name; pieces by page ID, then stub pieces by title), and so
 // are slugs, collisions getting "-2", "-3"…
 //
-// No public text holds a private name: every free-text field written is withheld (withholder), a link whose URL
-// holds a legal name is imported hidden, and each is listed in the review. No name or title holds a placeholder: a
-// collection, event, stub person or stub piece whose name (or a collection whose URL) holds a legal name is not
-// imported (a bard's hidden alias already finds the bard, mediawiki.PersonIndex), a piece or term alias holding one
-// is dropped, and a withheld uploader is left out; each is listed.
+// No public text holds a private name: every free-text field written is withheld (withholder; an unsure name the
+// import publishes as a person's name is kept, and listed), a link whose URL holds a legal name is imported
+// hidden, and each is listed in the review. No name or title holds a placeholder: a collection, event, stub person
+// or stub piece whose name (or a collection whose URL) holds a legal name is not imported (a bard's hidden alias
+// already finds the bard, mediawiki.PersonIndex), a piece or term alias holding one is dropped, and a withheld
+// uploader is left out; each is listed.
 func Build(c mediawiki.Corpus, now time.Time) (domain.CatalogueImport, Review) {
 	b := newBuilder(c, now)
 	b.assignIDs()
@@ -114,7 +115,22 @@ func (b *builder) assignIDs() {
 	}
 	b.assignCollectionAndEventIDs()
 	b.assignPersonIDs()
+	b.w = b.w.publishing(b.personNames())
 	b.assignPieceIDs()
+}
+
+// personNames are the names the import publishes as persons' names: the bards' page titles and the names of the
+// stub persons it creates.
+func (b *builder) personNames() []string {
+	names := make([]string, 0, len(b.c.People.Bards)+len(b.stubs))
+	for _, bard := range b.c.People.Bards {
+		names = append(names, bard.Title)
+	}
+	for _, s := range b.stubs {
+		names = append(names, s.Name)
+	}
+
+	return names
 }
 
 func (b *builder) assignCollectionAndEventIDs() {
@@ -285,6 +301,11 @@ func (b *builder) freeText(page, entity, field, s string) string {
 		}
 		b.review.HiddenNames = append(b.review.HiddenNames, item("free_text", page,
 			"%s, %s: %q was withheld. Context: %q.", entity, field, f.Text, f.Context))
+	}
+	for _, f := range b.w.published(out) {
+		b.review.HiddenNames = append(b.review.HiddenNames, item("free_text_published", page,
+			"%s, %s: %q, a possible private name, is kept as written: the import publishes it as a person's "+
+				"name. Context: %q.", entity, field, f.Text, f.Context))
 	}
 
 	return out

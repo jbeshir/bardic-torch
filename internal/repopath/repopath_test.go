@@ -3,6 +3,7 @@ package repopath
 import (
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -118,4 +119,102 @@ func TestWritePrivate_FollowsALinkOutsideTheRepository(t *testing.T) {
 func symlink(t *testing.T, target, link string) {
 	t.Helper()
 	require.NoError(t, os.Symlink(target, link))
+}
+
+func TestWritePrivate_LeavesNoTemporaryFile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, WritePrivate(filepath.Join(dir, "review.md"), []byte("private")))
+	require.NoError(t, WritePrivate(filepath.Join(dir, "review.md"), []byte("again")))
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, "review.md", entries[0].Name())
+}
+
+// TestWritePrivate_RefusesAHardLinkIntoTheRepository: a file outside the repository that is a hard link to a file
+// inside it is not written through.
+func TestWritePrivate_RefusesAHardLinkIntoTheRepository(t *testing.T) {
+	t.Parallel()
+
+	repo := fakeRepository(t)
+	tracked := filepath.Join(repo, "internal", "tracked.md")
+	require.NoError(t, os.WriteFile(tracked, []byte("public"), 0o600))
+	link := filepath.Join(t.TempDir(), "review.md")
+	if err := os.Link(tracked, link); err != nil {
+		t.Skipf("no hard links across these directories: %v", err)
+	}
+
+	require.ErrorIs(t, WritePrivate(link, []byte("private")), ErrNotPrivateFile)
+
+	content, err := os.ReadFile(filepath.Clean(tracked))
+	require.NoError(t, err)
+	assert.Equal(t, "public", string(content))
+}
+
+func TestWritePrivate_RefusesAnythingButARegularFile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	fifo := filepath.Join(dir, "fifo")
+	require.NoError(t, syscall.Mkfifo(fifo, 0o600))
+	sub := filepath.Join(dir, "sub")
+	require.NoError(t, os.Mkdir(sub, 0o700))
+
+	for _, path := range []string{fifo, sub} {
+		require.ErrorIs(t, WritePrivate(path, []byte("private")), ErrNotPrivateFile, path)
+	}
+}
+
+// TestCheckOpenedDirectory_DirectorySwapped: a directory opened for a write that is moved away and replaced, by
+// another directory or by a symbolic link into the repository, is no longer the one the path resolved to.
+func TestCheckOpenedDirectory_DirectorySwapped(t *testing.T) {
+	t.Parallel()
+
+	repo := fakeRepository(t)
+	for name, swap := range map[string]func(path string){
+		"directory": func(path string) { require.NoError(t, os.Mkdir(path, 0o700)) },
+		"symlink":   func(path string) { symlink(t, filepath.Join(repo, "internal"), path) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			parent := t.TempDir()
+			dir := filepath.Join(parent, "out")
+			require.NoError(t, os.Mkdir(dir, 0o700))
+			resolved, err := Resolve(filepath.Join(dir, "review.md"))
+			require.NoError(t, err)
+			root, err := os.OpenRoot(filepath.Dir(resolved))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = root.Close() })
+			require.NoError(t, checkOpenedDirectory(root, resolved), "not swapped yet")
+
+			require.NoError(t, os.Rename(dir, filepath.Join(parent, "moved")))
+			swap(dir)
+
+			require.ErrorIs(t, checkOpenedDirectory(root, resolved), ErrDirectoryChanged)
+		})
+	}
+}
+
+// TestCheckOpenedDirectory_SwappedBeforeOpen: a directory replaced by a symbolic link into the repository after
+// the path was resolved, but before the directory was opened, opens the repository's directory; the path no
+// longer resolves to itself.
+func TestCheckOpenedDirectory_SwappedBeforeOpen(t *testing.T) {
+	t.Parallel()
+
+	repo := fakeRepository(t)
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "out")
+	require.NoError(t, os.Mkdir(dir, 0o700))
+	resolved, err := Resolve(filepath.Join(dir, "review.md"))
+	require.NoError(t, err)
+
+	require.NoError(t, os.Rename(dir, filepath.Join(parent, "moved")))
+	symlink(t, filepath.Join(repo, "internal"), dir)
+	root, err := os.OpenRoot(filepath.Dir(resolved))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = root.Close() })
+
+	require.ErrorIs(t, checkOpenedDirectory(root, resolved), ErrDirectoryChanged)
 }

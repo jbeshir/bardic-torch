@@ -2,6 +2,7 @@ package mediawiki
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -122,7 +123,7 @@ var sectionKeys = []struct {
 	{regexp.MustCompile(`(?i)^sheet music$`), SectionSheetMusic},
 	{regexp.MustCompile(`(?i)^dancing instructions$`), SectionDancingInstructions},
 	{regexp.MustCompile(`(?i)^timeline of text sources$`), SectionTextSources},
-	{regexp.MustCompile(`(?i)^bard[’']s websites?$`), SectionWebsite},
+	{regexp.MustCompile(`(?i)^bard[` + apostrophes + `]s websites?$`), SectionWebsite},
 	{regexp.MustCompile(`(?i)^affiliations$`), SectionAffiliations},
 	{regexp.MustCompile(`(?i)^songs( (&|and) works)?$`), SectionWorks},
 	{regexp.MustCompile(`(?i)^music$`), SectionWorksMusic},
@@ -201,10 +202,12 @@ type ListItem struct {
 	Text  string
 }
 
-// SectionExternalLink is an external link with its text decoded and the trimmed line it is on.
+// SectionExternalLink is an external link with its text decoded, the trimmed line it is on and that line's index
+// among the section's non-blank lines (consecutive lines have consecutive indexes, blank lines between).
 type SectionExternalLink struct {
 	ExternalLink
-	Line string
+	Line      string
+	LineIndex int
 }
 
 var (
@@ -231,9 +234,12 @@ func AnalyzeSection(content string) SectionContent {
 		}
 	}
 	var external []SectionExternalLink
+	starts := nonBlankLineStarts(masked)
 	for _, e := range FindExternalLinks(masked) {
 		e.Text = DecodeEntities(e.Text)
-		external = append(external, SectionExternalLink{ExternalLink: e, Line: lineAt(masked, e.Start)})
+		index := sort.Search(len(starts), func(k int) bool { return starts[k] > e.Start }) - 1
+		external = append(external, SectionExternalLink{ExternalLink: e, Line: lineAt(masked, e.Start),
+			LineIndex: index})
 	}
 	var wikilinks []Wikilink
 	for _, l := range FindWikilinks(masked) {
@@ -254,6 +260,25 @@ func AnalyzeSection(content string) SectionContent {
 // isListMarkerOrSpace is the reference's [\s*#:].
 func isListMarkerOrSpace(r rune) bool {
 	return isSpace(r) || r == '*' || r == '#' || r == ':'
+}
+
+// nonBlankLineStarts are the offsets in s of the lines that are not blank.
+func nonBlankLineStarts(s string) []int {
+	var out []int
+	for start := 0; start <= len(s); {
+		end := strings.IndexByte(s[start:], '\n')
+		if end < 0 {
+			end = len(s)
+		} else {
+			end += start
+		}
+		if trimSpace(s[start:end]) != "" {
+			out = append(out, start)
+		}
+		start = end + 1
+	}
+
+	return out
 }
 
 func lineAt(s string, offset int) string {

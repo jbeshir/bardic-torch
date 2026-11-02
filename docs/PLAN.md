@@ -381,9 +381,13 @@ the DDL is in `migrations/003`–`009`.
    Collections page with its exact normalised URL (a fragment aside), else, for website, songbook website, wiki and
    blog collections not on YouTube, Google Docs, Scribd or Yumpu, the one whose path prefix (at least one segment) is
    longest; collections tying match none and are listed. A link's description is the text of its line around it
-   (not for a performance item, whose text is the performance's). Deduplicate by normalised URL, keeping multiple
-   roles. A `links` row holds one set of fields for every document attaching it (§4.1; roles are the attachment's),
-   so no page's own words reach another's: the fields are the first document's (pieces by page ID before persons),
+   (not for a performance item, whose text is the performance's), where a link after some text reads as its text
+   (or, without text, its host), so no hole is left where it was; a link starting the line is left out. Consecutive
+   link lines (blank lines aside) whose text around the links reads as at least 4 lines (a `<br>` breaks a line)
+   could be lyrics: their links are kept without a description, and the run is listed. Deduplicate by normalised
+   URL, keeping multiple roles. A `links` row holds one set of fields for every document attaching it (§4.1;
+   roles are the attachment's), so no page's own words reach another's: the fields are the first document's (pieces
+   by page ID before persons),
    but the title, description and locator are kept only when every document gives the same; otherwise the title is
    the link's collection's name, or none, and the description and locator none. A PDF that pages cite at different
    pages is first given each page's open parameter (`…pdf#page=14`), so each page is a link of its own with its own
@@ -399,7 +403,8 @@ the DDL is in `migrations/003`–`009`.
    link; the bard keeps the link with role performance. Otherwise the bard's performance names its piece when that
    is a stub piece.
 8. Turn redirects into aliases and red links into stubs.
-9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`.
+9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`. Lines
+   joined by `<br>` on one line count as that many lines.
 10. Write all imported data as approved revisions with `source = import`, crediting wiki contributors.
 11. Write `import-review.md` for the moderators (John and Fabian), listing every flagged ambiguity, alias
     classification, withheld name and email, drift item and fuzzy-matched person, each with a stable ID
@@ -413,8 +418,9 @@ the DDL is in `migrations/003`–`009`.
   unless that link is imported hidden; otherwise to the legacy page URL. The conservation source is the piece's
   legacy page URL (the wiki gives no other).
 - Keep the prose of the link sections (Key Links, Sheet Music, Dancing Instructions, Translations), but their links,
-  in the notes under the section's heading, and list it; a section with as many prose lines as inline lyrics (4)
-  could hold lyrics, so its prose is never kept, only listed.
+  in the notes under the section's heading, and list it; a section with as many prose lines as inline lyrics (4,
+  each `<br>`-separated segment of a line counting as a line) could hold lyrics, so its prose is never kept, only
+  listed.
 - Guess a stub person `historical` when it is credited on a piece of a traditional or pre-1900 origin, except for
   the words of a piece that is also of the SCA (SCA Pieces, Contrafacta): new words to an old tune are modern. List
   every guess, and flag the stubs credited by an external link (historical, or a group).
@@ -424,7 +430,9 @@ the DDL is in `migrations/003`–`009`.
   names ("Mr. Surname") and email addresses are withheld from every public field. **Unsure names** (the other
   private names: possible names the classifier cannot show are public) are withheld from free text only: notes,
   version, licensing and historical notes, credit notes, link titles and descriptions, performance descriptions
-  and uploaders, term, collection and event descriptions. Each occurrence (legal names in every
+  and uploaders, term, collection and event descriptions; except that an unsure name the import publishes as a
+  person's name (a bard's page title, or a stub person it creates) is kept in free text too, where withholding it
+  would protect nothing, and each occurrence is listed. Each withheld occurrence (legal names in every
   `PrivateNameMatcher` form: honorific, reversed, URL forms; a name inside a wikilink takes the whole link) becomes
   `[name withheld]`, each email address `[email withheld]`. This is the one exception to keeping a performance
   description as written (§2.14), because an approved import revision cannot be redacted later.
@@ -482,8 +490,10 @@ the DDL is in `migrations/003`–`009`.
 **Modes:** `import-mediawiki --dump DIR (--dry-run | --apply) --review PATH`. Both modes build and validate the
 import and write `import-review.md` to `PATH`, which is required, refused inside the repository and written with
 mode 0600, then print counts only. `--dry-run` stops there: it never reads `DATABASE_URL` or opens a database.
-The review path is checked with its symbolic links resolved (a link to a file in the repository is refused) and
-the file is opened without following a link. `--apply` writes the review before it opens the transaction, then
+The review path is checked with its symbolic links resolved (a link to a file in the repository is refused). The
+resolved directory is opened once and checked again (it must still resolve to itself, outside the repository); an
+existing file there that is not regular or has other hard links is refused, and the review is written to a new
+temporary file in that directory, which then replaces the path, so no existing file is ever written through. `--apply` writes the review before it opens the transaction, then
 writes the import into the empty catalogue at
 `DATABASE_URL`. The launch run is in DEPLOY.md ("Importing the legacy wiki"): a dry run, the moderators' review,
 then `--apply` once against the empty production database.
