@@ -36,7 +36,7 @@ func TestExtractLinks_RoleBySection(t *testing.T) {
 	headings := map[string]domain.LinkRole{
 		"Lyrics":                           domain.LinkRoleLyrics,
 		"text":                             domain.LinkRoleText,
-		"Sheet Music":                      domain.LinkRoleSheetMusic,
+		sheetMusicHeading:                  domain.LinkRoleSheetMusic,
 		"Dancing Instructions":             domain.LinkRoleDanceInstructions,
 		"Timeline of Text Sources":         domain.LinkRoleTextSource,
 		"Translations":                     domain.LinkRoleTranslation,
@@ -113,7 +113,7 @@ func TestExtractLinks_Platform(t *testing.T) {
 
 func TestExtractLinks_PlaceType(t *testing.T) {
 	collections := NewCollectionMatcher([]CollectionRecord{
-		{NormalizedURL: "https://songs.example.org/book.pdf", Kind: domain.CollectionKindSongbookPDF},
+		{NormalizedURL: songbookPDF, Kind: domain.CollectionKindSongbookPDF},
 		{NormalizedURL: "https://archive.example.org/songs/", Kind: domain.CollectionKindSongbookWebsite},
 	})
 	ctx := linkContext{collections: collections, bardSites: []string{"https://wren.example.org/"}}

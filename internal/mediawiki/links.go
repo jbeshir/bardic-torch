@@ -24,12 +24,14 @@ type LinkOccurrence struct {
 }
 
 // LinkFields are a link's editor-owned fields: its URL as first entered, its normalised URL (its identity), its
-// title (the link text), the platform and place type it is on, the collection it belongs to (by normalised URL)
-// and where in it the piece is (a locator such as "p. 63"). Empty means none.
+// title (the link text), its description (the text of its line around it), the platform and place type it is on,
+// the collection it belongs to (by normalised URL) and where in it the piece is (a locator such as "p. 63").
+// Empty means none.
 type LinkFields struct {
 	URL           string
 	NormalizedURL string
 	Title         string
+	Description   string
 	Platform      string
 	PlaceType     domain.LinkPlaceType
 	CollectionURL string
@@ -128,6 +130,9 @@ var bookCollectionKinds = map[domain.CollectionKind]bool{
 	domain.CollectionKindHostedDocument: true, domain.CollectionKindArchivedSongbook: true,
 }
 
+// locatorPrefix starts a page locator ("p. 63").
+const locatorPrefix = "p. "
+
 var (
 	locatorText     = regexp.MustCompile(`(?i)\b(?:p|pg|page)\.?[ \t]*(\d{1,5})\b`)
 	locatorFragment = regexp.MustCompile(`(?i)(?:^|&)page=(\d{1,5})\b`)
@@ -141,7 +146,7 @@ func Locator(text, fragment, line string) string {
 		locatorText.FindStringSubmatch(line),
 	} {
 		if m != nil {
-			return "p. " + m[1]
+			return locatorPrefix + m[1]
 		}
 	}
 
@@ -238,14 +243,39 @@ func linkOf(o LinkOccurrence, line string, ctx linkContext) (LinkRecord, bool) {
 	}
 	match := ctx.collections.Match(normalized)
 	rec := LinkRecord{
-		LinkFields: LinkFields{URL: o.URL, NormalizedURL: normalized, Title: Plain(o.Text), Platform: linkPlatform(u),
-			CollectionURL: match.URL, Locator: Locator(o.Text, u.Fragment, line)},
+		LinkFields: LinkFields{URL: o.URL, NormalizedURL: normalized, Title: Plain(o.Text),
+			Description: linkDescription(o, line), Platform: linkPlatform(u), CollectionURL: match.URL,
+			Locator: Locator(o.Text, u.Fragment, line)},
 		Roles:          []domain.LinkRole{sectionRole(o.Section, normalized, ctx)},
 		Sections:       []SectionKey{o.Section},
 		CollectionTied: match.Tied,
 	}
 
 	return rec, true
+}
+
+// descriptionSeparators are what a link's description is trimmed of, with spaces: list markers and the separators
+// between a link and its text.
+const descriptionSeparators = "*#:-–—,;.|()"
+
+// linkDescription is the text of a link's line around it, as plain text: given only when the line has no other
+// link (line is not empty), and never for a performance item, whose description is the performance's.
+func linkDescription(o LinkOccurrence, line string) string {
+	if line == "" || o.Section.IsPerformanceSection() {
+		return ""
+	}
+	var rest strings.Builder
+	last := 0
+	for _, e := range FindExternalLinks(line) {
+		rest.WriteString(line[last:e.Start])
+		rest.WriteByte(' ')
+		last = e.End
+	}
+	rest.WriteString(line[last:])
+
+	return strings.TrimFunc(collapseSpaces(Plain(rest.String())), func(r rune) bool {
+		return isSpace(r) || strings.ContainsRune(descriptionSeparators, r)
+	})
 }
 
 // sectionRole is the role of a link in a section. A key link is official when it is on the website of a person
@@ -279,8 +309,8 @@ func withoutScheme(u string) string {
 	return rest
 }
 
-// mergeLink merges a later occurrence of a link into it: the first text and locator win, and roles and sections
-// are added in first-seen order.
+// mergeLink merges a later occurrence of a link into it: the first text, description and locator win, and roles
+// and sections are added in first-seen order.
 func mergeLink(l, later LinkRecord) LinkRecord {
 	out := l
 	if out.Title == "" {
@@ -288,6 +318,9 @@ func mergeLink(l, later LinkRecord) LinkRecord {
 	}
 	if out.Locator == "" {
 		out.Locator = later.Locator
+	}
+	if out.Description == "" {
+		out.Description = later.Description
 	}
 	out.Roles = appendNew(l.Roles, later.Roles...)
 	out.Sections = appendNew(l.Sections, later.Sections...)

@@ -3,6 +3,7 @@ package importer
 import (
 	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
@@ -84,17 +85,28 @@ func (b *builder) pieceTerms(p mediawiki.PieceRecord) []domain.DocPieceTerm {
 	return out
 }
 
-// pieceRelations relate a piece whose title is another piece's with a parenthetical form to that piece: an
-// "(SCA Version)" is a contrafactum of it if the piece is a contrafactum, else a variant, and a "(Poem)" or
-// "(Song)" is the same text in another form. Each is listed for review.
+// pieceRelations relate a piece whose title is another piece's with a parenthetical form to that piece, the two
+// titles compared as the collation does ("When A Knight …" is "When a Knight …"): an "(SCA Version)" is a
+// contrafactum of it if the piece is a contrafactum, else a variant, and a "(Poem)" or "(Song)" is the same text in
+// another form. With no piece of the bare title, a "(Poem)" and a "(Song)" of the same title are the same text in
+// another form, related once, from the later page. Each is listed for review, with the alternate titles they
+// share.
 func (b *builder) pieceRelations(p mediawiki.PieceRecord) []domain.DocPieceRelation {
 	out := []domain.DocPieceRelation{}
 	m := formSuffix.FindStringSubmatch(p.Title)
 	if m == nil {
 		return out
 	}
-	to, ok := b.pieceIDs[m[1]]
-	if !ok || to == b.pieceIDs[p.Title] {
+	id := b.pieceIDs[p.Title]
+	base, ok := b.pieceByKey(domain.CollationKey(m[1]))
+	if !ok && m[2] != "SCA Version" {
+		base, ok = b.otherForm(m[1], m[2])
+		if ok && b.pieceIDs[base.Title] > id {
+			return out
+		}
+	}
+	to := b.pieceIDs[base.Title]
+	if !ok || to == id {
 		return out
 	}
 	t := domain.PieceRelationTypeSameTextOtherForm
@@ -105,9 +117,51 @@ func (b *builder) pieceRelations(p mediawiki.PieceRecord) []domain.DocPieceRelat
 		}
 	}
 	b.review.Titles = append(b.review.Titles, item("relation", p.Title, "Related to %q as %s, from the titles.",
-		m[1], t))
+		base.Title, t))
+	if shared := sharedAlternates(p, base); len(shared) > 0 {
+		b.review.Titles = append(b.review.Titles, item("shared_alias", p.Title, "%q has the same alternate "+
+			"title(s) as %q: %s.", p.Title, base.Title, strings.Join(shared, ", ")))
+	}
 
 	return append(out, domain.DocPieceRelation{ToPieceID: to, Type: t})
+}
+
+// pieceByKey is the first piece page, in page order, whose title has a collation key.
+func (b *builder) pieceByKey(key string) (mediawiki.PieceRecord, bool) {
+	for _, p := range b.c.Pieces {
+		if domain.CollationKey(p.Title) == key {
+			return p, true
+		}
+	}
+
+	return mediawiki.PieceRecord{}, false
+}
+
+// otherForm is the piece page of a "(Poem)" or "(Song)" title's other form: "X (Song)" for "X (Poem)".
+func (b *builder) otherForm(base, form string) (mediawiki.PieceRecord, bool) {
+	other := "Song"
+	if form == other {
+		other = "Poem"
+	}
+
+	return b.pieceByKey(domain.CollationKey(base + " (" + other + ")"))
+}
+
+// sharedAlternates are the alternate titles two pieces both have, compared as the collation does, as the first
+// piece writes them.
+func sharedAlternates(p, other mediawiki.PieceRecord) []string {
+	keys := map[string]bool{}
+	for _, a := range other.Titles.Alternates {
+		keys[domain.CollationKey(a.Text)] = true
+	}
+	var out []string
+	for _, a := range p.Titles.Alternates {
+		if keys[domain.CollationKey(a.Text)] && !slices.Contains(out, a.Text) {
+			out = append(out, a.Text)
+		}
+	}
+
+	return out
 }
 
 // credits are a piece's credits. A named credit whose person was not resolved, which the schema cannot hold, is
@@ -156,5 +210,20 @@ func (b *builder) stubPiece(sp mediawiki.StubPiece) domain.ImportedPiece {
 
 	return domain.ImportedPiece{ID: id, Slug: b.slugs.Allocate(title, domain.SlugEntityTypePiece, id),
 		SortTitle: sortTitle, SortLetter: domain.SortLetter(sortTitle), Doc: doc,
-		Legacy: &domain.LegacyPage{Title: clean(sp.Title)}, Revision: b.revision(nil, domain.ImportSummaryStub)}
+		Legacy: &domain.LegacyPage{Title: clean(sp.Title)}, Revision: b.stubPieceRevision(sp)}
+}
+
+// stubPieceRevision is a stub piece's revision, crediting the contributors of the bard pages that list it, from
+// which its title and credits come.
+func (b *builder) stubPieceRevision(sp mediawiki.StubPiece) domain.ImportedRevision {
+	r := b.revision(nil, domain.ImportSummaryStub)
+	for _, c := range sp.Credits {
+		for _, u := range b.activity[pageKey{mediawiki.NSMain, string(c.Person)}] {
+			if u = clean(u); !slices.Contains(r.Contributors, u) {
+				r.Contributors = append(r.Contributors, u)
+			}
+		}
+	}
+
+	return r
 }

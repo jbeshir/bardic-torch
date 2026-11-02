@@ -1,6 +1,7 @@
 package mediawiki
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -130,6 +131,38 @@ func TestPlacePerformance_RepeatedAndUnlinkedListed(t *testing.T) {
 	assert.Equal(t, "Sung at Pennsic, no recording", l.Unlinked[0].DescriptionVerbatim)
 }
 
+// TestPlacePerformance_DedupedByURLAcrossPages: a bard page's item on a link a piece page records a performance
+// on is that performance, whether or not its wording names the piece: it is not recorded again.
+func TestPlacePerformance_DedupedByURLAcrossPages(t *testing.T) {
+	w := performanceWiki()
+	addBard(w, rowan, knownPerformances, "* ["+videoOne+" Video] of [["+rowan+"]] at the Spring Revel")
+
+	l, _ := linksWiki(w)
+
+	assert.Len(t, linkOfURL(t, pieceLinksOf(t, l, aSong).Links, videoOne).Performances, 1, "the piece page's only")
+	assert.Empty(t, linkOfURL(t, personLinksOf(t, l, rowan).Links, videoOne).Performances)
+	k := slices.IndexFunc(l.RepeatedPerformances, func(p Performance) bool { return p.Page == rowan })
+	require.GreaterOrEqual(t, k, 0)
+	assert.Equal(t, aSong, l.RepeatedPerformances[k].Piece, "listed with the piece page recording it")
+}
+
+// TestPlacePerformance_WorkIsNeverAPerformer: on a bard page, a link to a work of its works list, after a comma, is
+// the performance's piece, not a performer, so no stub person has the work's title.
+func TestPlacePerformance_WorkIsNeverAPerformer(t *testing.T) {
+	w := standardWiki()
+	addBard(w, rowan, songsSection, "* [["+unwritten+"]]", knownPerformances,
+		"* ["+videoThree+" Video] performing his original piece, [["+unwritten+"]]")
+
+	l, people := linksWiki(w)
+
+	perf := linkOfURL(t, personLinksOf(t, l, rowan).Links, videoThree).Performances
+	require.Len(t, perf, 1)
+	assert.Equal(t, unwritten, perf[0].Piece)
+	assert.Empty(t, perf[0].PerformerRefs)
+	_, ok := people.Persons.Stub(unwritten)
+	assert.False(t, ok, "a work is no person")
+}
+
 func TestEvents_DedupeByFold(t *testing.T) {
 	l, _ := linksWiki(performanceWiki())
 
@@ -186,7 +219,7 @@ func TestParseLinks_CanonicalPerURL(t *testing.T) {
 	w := standardWiki()
 	w.page(Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil, lyricsHeading,
 		"* [https://songs.example.org/book.pdf Songbook, p. 3]"), Categories: pieceCategories()})
-	w.page(Page{Title: anotherSong, Wikitext: pieceWikitext(anotherSong, nil, "Sheet Music",
+	w.page(Page{Title: anotherSong, Wikitext: pieceWikitext(anotherSong, nil, sheetMusicHeading,
 		"* [http://songs.example.org/book.pdf Score]"), Categories: pieceCategories()})
 
 	l, _ := linksWiki(w)
@@ -197,17 +230,61 @@ func TestParseLinks_CanonicalPerURL(t *testing.T) {
 	assert.Equal(t, "Score", other.Title)
 	assert.Len(t, l.Canonical, 2, "two normalised URLs (no scheme upgrade)")
 
-	w.page(Page{Title: "Third Song", Wikitext: pieceWikitext("Third Song", nil, "Sheet Music",
+	w.page(Page{Title: "Third Song", Wikitext: pieceWikitext("Third Song", nil, sheetMusicHeading,
 		"* [https://www.songs.example.org/book.pdf Score]"), Categories: pieceCategories()})
 	l, _ = linksWiki(w)
 
 	third := pieceLinksOf(t, l, "Third Song").Links[0]
-	assert.Equal(t, "https://songs.example.org/book.pdf", third.URL, "the canonical URL as first entered")
-	assert.Equal(t, "Songbook, p. 3", third.Title)
-	assert.Equal(t, "p. 3", third.Locator)
-	assert.Equal(t, []LinkConflict{{NormalizedURL: "https://songs.example.org/book.pdf",
+	assert.Equal(t, songbookPDF, third.URL, "the canonical URL as first entered")
+	assert.Empty(t, third.Title, "pages disagree on the title, and the link is in no collection")
+	assert.Empty(t, third.Locator, "nor is another page's locator given")
+	assert.Equal(t, third.LinkFields, pieceLinksOf(t, l, aSong).Links[0].LinkFields,
+		"every document carries the same fields")
+	assert.Equal(t, []LinkConflict{{NormalizedURL: songbookPDF,
 		Owner:          LinkOwner{PieceID: pieceLinksOf(t, l, "Third Song").PageID},
-		CanonicalOwner: LinkOwner{PieceID: first.PageID}, Fields: []string{"url", "title", "locator"}}}, l.Conflicts)
+		CanonicalOwner: LinkOwner{PieceID: first.PageID}, Fields: []string{"url", "title", "locator"},
+		Own: LinkFields{URL: "https://www.songs.example.org/book.pdf",
+			NormalizedURL: songbookPDF,
+			Title:         "Score", Platform: PlatformPDF}}}, l.Conflicts)
+}
+
+// TestParseLinks_PageSpecificFieldsNeverFromAnotherPage: pages citing a PDF at different pages get a link each,
+// with its own locator; a title the pages disagree on is the collection's name; a description is only kept when
+// every page gives it.
+func TestParseLinks_PageSpecificFieldsNeverFromAnotherPage(t *testing.T) {
+	w := standardWiki()
+	w.page(Page{Title: CollectionsPage, Wikitext: "== S ==\n* [" + songbookPDF + " Placeholder Songbook]\n"})
+	w.page(Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil, lyricsHeading,
+		"* Lyrics are on page 2 of ["+songbookPDF+" the songbook]"), Categories: pieceCategories()})
+	w.page(Page{Title: anotherSong, Wikitext: pieceWikitext(anotherSong, nil, lyricsHeading,
+		"* Lyrics are on page 14 of ["+songbookPDF+" the songbook]"), Categories: pieceCategories()})
+	w.page(Page{Title: "Third Song", Wikitext: pieceWikitext("Third Song", nil, lyricsHeading,
+		"* ["+songbookPDF+" Third Song in the songbook]"), Categories: pieceCategories()})
+
+	l, _ := linksWiki(w)
+
+	two, fourteen := pieceLinksOf(t, l, aSong).Links[0], pieceLinksOf(t, l, anotherSong).Links[0]
+	assert.Equal(t, songbookPDF+"#page=2", two.URL)
+	assert.Equal(t, "p. 2", two.Locator)
+	assert.Equal(t, songbookPDF+"#page=14", fourteen.URL)
+	assert.Equal(t, "p. 14", fourteen.Locator)
+	assert.Equal(t, songbookPDF, fourteen.CollectionURL, "still in the collection")
+	assert.Equal(t, "Lyrics are on page 14 of", fourteen.Description, "the line's text around the link")
+	third := pieceLinksOf(t, l, "Third Song").Links[0]
+	assert.Equal(t, songbookPDF, third.URL, "a link with no page keeps the PDF's URL")
+	assert.Empty(t, third.Locator)
+	assert.Empty(t, l.Conflicts, "each page's link is its own")
+
+	w.page(Page{Title: "Fourth Song", Wikitext: pieceWikitext("Fourth Song", nil, lyricsHeading,
+		"* Also here: ["+songbookPDF+" Fourth Song in the songbook]"), Categories: pieceCategories()})
+	l, _ = linksWiki(w)
+
+	third = pieceLinksOf(t, l, "Third Song").Links[0]
+	assert.Equal(t, "Placeholder Songbook", third.Title, "the pages disagree: the collection's name")
+	assert.Empty(t, third.Description, "only one page gives a description")
+	require.Len(t, l.Conflicts, 1)
+	assert.Equal(t, []string{"title", "description"}, l.Conflicts[0].Fields)
+	assert.Equal(t, "Fourth Song in the songbook", l.Conflicts[0].Own.Title)
 }
 
 func TestParseLinks_ProfileLinksOfInfoboxCredits(t *testing.T) {

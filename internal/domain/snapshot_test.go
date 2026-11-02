@@ -55,14 +55,14 @@ var (
 // person, the subject person's current public alias, and two visible links: hiddenURL is a hidden link's.
 func testVisibility() SnapshotVisibility {
 	return SnapshotVisibility{
-		Pieces:          map[int64]PieceSummary{publicPieceID: brassKettle},
-		Persons:         map[int64]PersonSummary{publicPersonID: hollis},
-		NoPagePersons:   map[int64]PersonSummary{noPagePersonID: quietPerson},
-		PublicAliases:   map[int64]map[string]bool{subjectPersonID: {stageName: true}},
-		Terms:           map[int64]TermSummary{publicTermID: war},
-		Collections:     map[int64]CollectionSummary{publicCollectionID: songbook},
-		Events:          map[int64]EventSummary{publicEventID: revel},
-		VisibleLinkURLs: map[string]bool{visibleURL: true, otherURL: true},
+		Pieces:        map[int64]PieceSummary{publicPieceID: brassKettle},
+		Persons:       map[int64]PersonSummary{publicPersonID: hollis},
+		NoPagePersons: map[int64]PersonSummary{noPagePersonID: quietPerson},
+		PublicAliases: map[int64]map[string]bool{subjectPersonID: {stageName: true}},
+		Terms:         map[int64]TermSummary{publicTermID: war},
+		Collections:   map[int64]CollectionSummary{publicCollectionID: songbook},
+		Events:        map[int64]EventSummary{publicEventID: revel},
+		VisibleLinks:  map[string]string{visibleURL: visibleURL, otherURL: otherURL},
 	}
 }
 
@@ -408,20 +408,35 @@ func TestNewEventSnapshot(t *testing.T) {
 			Kind: EventKindVenue, DescriptionMD: new("A hall.")}))
 }
 
-// TestNewPieceSnapshot_LinkMatchedByNormalizedURL checks that a document's link is shown, under its URL as
-// entered, when its normalized form is a visible link's, even though the URL as entered is no link's.
+// TestNewPieceSnapshot_LinkMatchedByNormalizedURL checks that a document's link is shown, under the visible link's
+// URL, when its normalized form is a visible link's, even though the URL as entered is no link's.
 func TestNewPieceSnapshot_LinkMatchedByNormalizedURL(t *testing.T) {
 	t.Parallel()
 
-	entered := "https://Example.org:443/visible?utm_source=share"
 	doc := PieceDocument{Links: []DocPieceLink{
-		{DocLink: DocLink{URL: entered}},
+		{DocLink: DocLink{URL: "https://Example.org:443/visible?utm_source=share"}},
 		{DocLink: DocLink{URL: "https://example.org/Visible?utm_source=share"}},
 	}}
 
 	snapshot := NewPieceSnapshot(doc, testVisibility())
 
-	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: entered}}}, snapshot.Links)
+	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, snapshot.Links)
+}
+
+// TestNewPieceSnapshot_LinkShownUnderVisibleLinkURL checks that a document's link is shown under the visible
+// link's URL, not the document's spelling, when the two differ only in a tracking parameter normalizing drops: a
+// moderator can take down only the visible link, so the view shows nothing it does not hold.
+func TestNewPieceSnapshot_LinkShownUnderVisibleLinkURL(t *testing.T) {
+	t.Parallel()
+
+	const linkURL = visibleURL + "?utm_source=share"
+	vis := testVisibility()
+	vis.VisibleLinks = map[string]string{visibleURL: linkURL}
+	doc := PieceDocument{Links: []DocPieceLink{{DocLink: DocLink{URL: linkURL + "&utm_content=wren"}}}}
+
+	snapshot := NewPieceSnapshot(doc, vis)
+
+	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: linkURL}}}, snapshot.Links)
 }
 
 // TestNewPieceSnapshot_UnnormalizableLinkDropped checks that a document's link whose URL does not normalize is
@@ -431,10 +446,54 @@ func TestNewPieceSnapshot_UnnormalizableLinkDropped(t *testing.T) {
 
 	const unnormalizable = "mailto:wren@example.invalid"
 	vis := testVisibility()
-	vis.VisibleLinkURLs = map[string]bool{unnormalizable: true, visibleURL: true}
+	vis.VisibleLinks = map[string]string{unnormalizable: unnormalizable, visibleURL: visibleURL}
 	doc := PieceDocument{Links: []DocPieceLink{{DocLink: DocLink{URL: unnormalizable}}, {DocLink: DocLink{URL: visibleURL}}}}
 
 	snapshot := NewPieceSnapshot(doc, vis)
 
 	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, snapshot.Links)
+}
+
+// personLinks returns the links of the view of a person document that holds only links, with the subject person
+// public.
+func personLinks(t *testing.T, links []DocPersonLink, vis SnapshotVisibility) []SnapshotPersonLink {
+	t.Helper()
+
+	vis.Persons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName, Kind: PersonKindCommunityBard}
+	doc := PersonDocument{SchemaVersion: DocumentSchemaVersion, Name: wrenName, Kind: PersonKindCommunityBard,
+		Status: PersonStatusActive, Links: links}
+	snapshot, err := NewPersonSnapshot(subjectPersonID, doc, vis)
+	require.NoError(t, err)
+	require.NotNil(t, snapshot.Profile)
+
+	return snapshot.Profile.Links
+}
+
+// TestNewPersonSnapshot_LinkMatchedByNormalizedURL checks that a person document's link is shown, under the
+// visible link's URL, when its normalized form is a visible link's, even though the URL as entered is no link's.
+func TestNewPersonSnapshot_LinkMatchedByNormalizedURL(t *testing.T) {
+	t.Parallel()
+
+	const linkURL = visibleURL + "?utm_source=share"
+	vis := testVisibility()
+	vis.VisibleLinks = map[string]string{visibleURL: linkURL}
+	links := []DocPersonLink{
+		{DocLink: DocLink{URL: "https://Example.org:443/visible?utm_source=share&utm_content=wren"}},
+		{DocLink: DocLink{URL: "https://example.org/Visible?utm_source=share"}},
+	}
+
+	assert.Equal(t, []SnapshotPersonLink{{SnapshotLink: SnapshotLink{URL: linkURL}}}, personLinks(t, links, vis))
+}
+
+// TestNewPersonSnapshot_UnnormalizableLinkDropped checks that a person document's link whose URL does not
+// normalize is never shown, even if the visible set holds it as entered.
+func TestNewPersonSnapshot_UnnormalizableLinkDropped(t *testing.T) {
+	t.Parallel()
+
+	const unnormalizable = "mailto:wren@example.invalid"
+	vis := testVisibility()
+	vis.VisibleLinks = map[string]string{unnormalizable: unnormalizable, visibleURL: visibleURL}
+	links := []DocPersonLink{{DocLink: DocLink{URL: unnormalizable}}, {DocLink: DocLink{URL: visibleURL}}}
+
+	assert.Equal(t, []SnapshotPersonLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, personLinks(t, links, vis))
 }

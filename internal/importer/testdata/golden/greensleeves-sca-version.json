@@ -77,7 +77,7 @@
       "links": [
         {
           "url": "https://www.beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf",
-          "title": "The Veil lyrics in the Beadmakers' Songbook",
+          "title": "Beadmaker's Songbook",
           "description": null,
           "platform": "pdf",
           "place_type": "book",
@@ -97,7 +97,7 @@
       "title": "Greensleeves (SCA Version)"
     },
     "revision": {
-      "id": 471,
+      "id": 469,
       "summary": "Imported from the wiki (page revision 699).",
       "contributors": [
         "Wiki User 01"
@@ -113,13 +113,13 @@
       "text": "The infobox_title gives the title \"Greensleeves\", which is another page's. Guess: the page title \"Greensleeves (SCA Version)\"; the alternative: \"Greensleeves\"."
     },
     {
-      "id": "TITLE-001",
+      "id": "TITLE-004",
       "kind": "relation",
       "page": "Greensleeves (SCA Version)",
       "text": "Related to \"Greensleeves\" as contrafactum_of, from the titles."
     },
     {
-      "id": "TITLE-026",
+      "id": "TITLE-029",
       "kind": "rejected",
       "page": "Greensleeves (SCA Version)",
       "text": "Not imported: \"Greensleeves\" (from the infobox_title): other_page."
@@ -131,16 +131,16 @@
       "text": "in_infobox_not_tagged: \"Traditional \u0026 Folk\" (read as \"Traditional \u0026 Folk\")."
     },
     {
-      "id": "LINK-158",
+      "id": "LINK-168",
       "kind": "normalised",
       "page": "Greensleeves (SCA Version)",
       "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "LINK-292",
+      "id": "LINK-298",
       "kind": "conflict",
       "page": "Greensleeves (SCA Version)",
-      "text": "https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's."
+      "text": "https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives. One link holds the fields for every page: The Veil's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title \"Lyrics in the Beadmakers' Songbook, listed under \\\"Greensleeves II\\\"\", the description \"\" and the locator \"\"."
     }
   ]
 }

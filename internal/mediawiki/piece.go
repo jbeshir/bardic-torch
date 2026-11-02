@@ -54,10 +54,11 @@ var conservationStatuses = []conservationCategory{
 	{"Restricted", domain.ConservationStatusRestricted},
 }
 
-// partQualifiers are the qualifiers that scope a term or credit to a part of a piece.
+// partQualifiers are the qualifiers that scope a term or credit to a part of a piece. "(chorus tune)" is the
+// chorus's tune, so it scopes to the chorus: a tune credit or an origin so qualified is the chorus's.
 var partQualifiers = map[string]domain.PiecePart{
 	"words": domain.PiecePartWords, "lyrics": domain.PiecePartWords, "tune": domain.PiecePartTune,
-	"chorus tune": domain.PiecePartTune, "music": domain.PiecePartTune, "verses": domain.PiecePartVerses,
+	"chorus tune": domain.PiecePartChorus, "music": domain.PiecePartTune, "verses": domain.PiecePartVerses,
 	"verse": domain.PiecePartVerses, "chorus": domain.PiecePartChorus,
 }
 

@@ -10,7 +10,7 @@
       "kind": "community_bard",
       "status": "deceased",
       "status_date": "2020-10-31",
-      "status_source_url": "https://bardictorch.miraheze.org/wiki/Malkin_Grey",
+      "status_source_url": "http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/",
       "pronouns": null,
       "notes_md": "- [Deceased October 31, 2020](http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/)",
       "licensing_status": "unknown",
@@ -82,13 +82,13 @@
       "text": "\"Legal Name 009\": kind legal, hidden (source h1_parenthetical, rule default, unsure)."
     },
     {
-      "id": "NAME-167",
+      "id": "NAME-165",
       "kind": "free_text",
       "page": "Malkin Grey",
       "text": "link https://fancyclopedia.org/wiki/Legal_Name_009, title: \"Legal Name 009\" was withheld. Context: \"[name withheld] at Fancyclopedia\"."
     },
     {
-      "id": "NAME-168",
+      "id": "NAME-166",
       "kind": "link_url",
       "page": "Malkin Grey",
       "text": "The link https://fancyclopedia.org/wiki/Legal_Name_009 holds a possible legal name in its URL: it is imported hidden."
@@ -97,7 +97,7 @@
       "id": "PERSON-023",
       "kind": "status",
       "page": "Malkin Grey",
-      "text": "Status deceased (date: 2020-10-31) from the In Memoriam category, sourced to the wiki page."
+      "text": "Status deceased (date: 2020-10-31) from the In Memoriam category, sourced to the link its date is read from: http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/."
     },
     {
       "id": "PERSON-024",

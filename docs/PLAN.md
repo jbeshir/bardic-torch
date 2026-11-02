@@ -160,8 +160,8 @@ the DDL is in `migrations/003`–`009`.
   count and member list, every credit (the credit is omitted), performer list, relation list (both directions),
   collection citation and needs-work.
 - **Hidden links** (`links.is_hidden`) are excluded from every read, including snapshots and needs-work. In a
-  snapshot, a link is shown, under its URL as entered in the document, only if its normalized URL
-  (`domain.NormalizeURL`) is now the `normalized_url` of a link that is not hidden. Every link's `normalized_url`
+  snapshot, a link is shown only if its normalized URL (`domain.NormalizeURL`) is now the `normalized_url` of a
+  link that is not hidden, and then under that link's `url`, not the document's spelling of it. Every link's `normalized_url`
   is `NormalizeURL(url)` (DEPLOY.md, "The normalized URL invariant"), so a link edited since to another spelling
   of the same URL (case of the host, a default port, tracking parameters) is still the same link: shown if it is
   visible, dropped if it was hidden. A link deleted since, or given a URL that normalizes otherwise, is dropped,
@@ -372,20 +372,32 @@ the DDL is in `migrations/003`–`009`.
 5. Union the three bard signals: infobox credit, bard-name category, works list. A category or works list naming
    a person the infobox does not credit adds a `lyrics` credit of certainty `possible`, listed in the review, unless
    the person is related (heir_of, same_as) to a credited person; listed works without a page become stub pieces
-   credited to the bard. Plain-text names are matched to persons by folded name (apostrophes, case, accents), then
+   credited to the bard (certainty `probable`: it is the bard's own list), whose revision credits the listing bard
+   pages' contributors. A part qualifier scopes a credit or a term to a part; "(chorus tune)" is the chorus's.
+   Plain-text names are matched to persons by folded name (apostrophes, case, accents), then
    fuzzily (one edit, or a unique first word), and listed.
 6. Extract links, with role taken from the section (official for a key link on a credited person's website), platform
    from the host, and the locator ("p. 63", "page 63", "#page=63"). A link belongs to a collection of the
    Collections page with its exact normalised URL (a fragment aside), else, for website, songbook website, wiki and
    blog collections not on YouTube, Google Docs, Scribd or Yumpu, the one whose path prefix (at least one segment) is
-   longest; collections tying match none and are listed. Deduplicate by normalised URL, keeping multiple roles; one
-   set of link fields per normalised URL (the first document's, pieces by page ID before persons), with the
-   differences listed. Infobox credits naming a person by an external link attach it to the person
+   longest; collections tying match none and are listed. A link's description is the text of its line around it
+   (not for a performance item, whose text is the performance's). Deduplicate by normalised URL, keeping multiple
+   roles. A `links` row holds one set of fields for every document attaching it (§4.1; roles are the attachment's),
+   so no page's own words reach another's: the fields are the first document's (pieces by page ID before persons),
+   but the title, description and locator are kept only when every document gives the same; otherwise the title is
+   the link's collection's name, or none, and the description and locator none. A PDF that pages cite at different
+   pages is first given each page's open parameter (`…pdf#page=14`), so each page is a link of its own with its own
+   locator. Every difference is listed with the page's own fields (per-attachment titles and locators are a
+   backlog item). Infobox credits naming a person by an external link attach it to the person
    (external_profile). The Collections page's duplicate URL is merged into one collection and listed.
 7. Parse performance descriptions; the verbatim text is always kept (the import redacts hidden names in it).
    Performers ("of [[X]]") are matched as persons, or become stubs; events come from "at <event>", one per folded
-   name, the venue pages included, with similar names listed, never merged. A performance on a bard page whose piece
-   has a page is recorded once, on the piece's link, and the bard keeps the link with role performance.
+   name, the venue pages included, with similar names listed, never merged. A page link to a work (a piece page or a
+   works-list red link) is never a performer: it is the performance's piece when the wording names none ("her song
+   [[W]]"). Performances are deduplicated by URL across pages (report §8.4): a bard-page item on a link a piece page
+   records a performance on is not imported again, and one whose piece has a page is recorded once, on the piece's
+   link; the bard keeps the link with role performance. Otherwise the bard's performance names its piece when that
+   is a stub piece.
 8. Turn redirects into aliases and red links into stubs.
 9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`.
 10. Write all imported data as approved revisions with `source = import`, crediting wiki contributors.
@@ -396,8 +408,15 @@ the DDL is in `migrations/003`–`009`.
 
 **Writing into the BE2 schema** (§4.1):
 - Write sort keys and `sort_letter`. Build the `term_ancestors` closure, including each term's row for itself.
-- Use the legacy page URL as the source of a non-active person status, and as the conservation source where the
-  wiki gives none.
+- Source a non-active person status to the link its date is read from (an obituary on the "Deceased <date>" line),
+  unless that link is imported hidden; otherwise to the legacy page URL. The conservation source is the piece's
+  legacy page URL (the wiki gives no other).
+- Keep the prose of the link sections (Key Links, Sheet Music, Dancing Instructions, Translations), but their links,
+  in the notes under the section's heading, and list it; a section with as many prose lines as inline lyrics (4)
+  could hold lyrics, so its prose is never kept, only listed.
+- Guess a stub person `historical` when it is credited on a piece of a traditional or pre-1900 origin, except for
+  the words of a piece that is also of the SCA (SCA Pieces, Contrafacta): new words to an old tune are modern. List
+  every guess, and flag the stubs credited by an external link (historical, or a group).
 - Hide legal aliases, any `redirect` alias equal to a hidden alias, and any public alias holding a hidden alias.
 - Withhold private names by confidence. **Legal names** (hidden aliases, `mediawiki.PrivateNames` marked legal:
   names after a marker or paired by "/" with a public name; and every placeholder of the scrubbed copy), honorific
@@ -416,7 +435,10 @@ the DDL is in `migrations/003`–`009`.
   collection (its links are imported without it; also when its URL holds a legal name), an event (its
   performances are imported without it) or a piece or term alias; a withheld uploader is left out.
 - A link whose URL holds a legal name is imported hidden (`links.is_hidden`); a URL holding an unsure name or a
-  home directory (`/~user`) is listed. URLs are never rewritten. Every withheld span, left-out entity, hidden link
+  home directory (`/~user`) is listed. URLs are never rewritten to withhold a name. Link URLs, and the URLs in
+  performance descriptions, are stored without the tracking parameters `NormalizeURL` drops (`si` share tokens can
+  tie a link to its sharer; `domain.WithoutTrackingParameters`), so the stored URL still normalizes to its
+  `normalized_url`. Every withheld span, left-out entity, hidden link
   and listed URL is an item of `import-review.md`, so moderators can restore what may be public. Wiki user names
   credited as revision contributors are listed, flagged when one matches a private name or is shaped like a
   personal name ("Firstname Lastname"). No licence is inferred from prose ("public domain" is a review item).

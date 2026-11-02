@@ -99,10 +99,12 @@ func TestParseBard_DeceasedWithDate(t *testing.T) {
 	assert.Equal(t, domain.PersonStatusDeceased, b.Status)
 	require.NotNil(t, b.StatusDate)
 	assert.Equal(t, time.Date(2020, 10, 31, 0, 0, 0, 0, time.UTC), b.StatusDate.Time)
+	assert.Equal(t, "https://example.org/in-memoriam", b.StatusSourceURL, "the link the date is read from")
 
 	undated := parseFixtureBard(standardWiki(), ash, bardWikitext(ash), CategoryInMemoriam)
 	assert.Equal(t, domain.PersonStatusDeceased, undated.Status)
 	assert.Nil(t, undated.StatusDate)
+	assert.Empty(t, undated.StatusSourceURL)
 }
 
 func TestParseBard_LicensingUnknownSentence(t *testing.T) {

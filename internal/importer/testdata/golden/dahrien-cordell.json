@@ -28,7 +28,7 @@
       "relations": [],
       "links": [
         {
-          "url": "https://www.youtube.com/watch?v=oDRTvZHFl9o",
+          "url": "https://youtube.com/watch?v=oDRTvZHFl9o",
           "title": "Recording by Cerian Cantwr on YouTube",
           "description": null,
           "platform": "youtube",
@@ -41,7 +41,7 @@
           "performances": []
         },
         {
-          "url": "https://www.youtube.com/watch?v=bgd32gAG9jE",
+          "url": "https://youtube.com/watch?v=bgd32gAG9jE",
           "title": "Dahrien Cordell \u0026 Company sing One More Log, recorded by Cerian Cantwr on YouTube, at Pennsic 52",
           "description": null,
           "platform": "youtube",
@@ -51,19 +51,10 @@
           "roles": [
             "performance"
           ],
-          "performances": [
-            {
-              "piece_id": null,
-              "event_id": 9,
-              "year": null,
-              "uploader": "Cerian Cantwr",
-              "description_verbatim": "[https://www.youtube.com/watch?v=bgd32gAG9jE Dahrien Cordell \u0026 Company sing One More Log, recorded by Cerian Cantwr on YouTube, at Pennsic 52]",
-              "performer_ids": []
-            }
-          ]
+          "performances": []
         },
         {
-          "url": "https://youtu.be/Z09yAAZGuhY?si=LH6bAvqARxikmJWx",
+          "url": "https://youtube.com/watch?v=Z09yAAZGuhY",
           "title": "Dahrien Cordell sings One More Log at the Midlands Bardic Circle, Pennsic 2025, recorded by Cerian Cantwr on YouTube",
           "description": null,
           "platform": "youtube",
@@ -73,16 +64,7 @@
           "roles": [
             "performance"
           ],
-          "performances": [
-            {
-              "piece_id": null,
-              "event_id": 10,
-              "year": 2025,
-              "uploader": "Cerian Cantwr",
-              "description_verbatim": "[https://youtu.be/Z09yAAZGuhY?si=LH6bAvqARxikmJWx Dahrien Cordell sings One More Log at the Midlands Bardic Circle, Pennsic 2025, recorded by Cerian Cantwr on YouTube]",
-              "performer_ids": []
-            }
-          ]
+          "performances": []
         }
       ],
       "preferences": []
@@ -102,13 +84,13 @@
   },
   "review": [
     {
-      "id": "STUB-176",
+      "id": "STUB-174",
       "kind": "malformed_url",
       "page": "Dahrien Cordell",
       "text": "Red link \"Https://youtu.be/oDRTvZHFl9o?si=Dk9IWBG3h9W0RmAy Recording by Cerian Cantwr on YouTube\" (namespace 0, malformed_url), from Dahrien Cordell: not imported."
     },
     {
-      "id": "LINK-249",
+      "id": "LINK-259",
       "kind": "normalised",
       "page": "Dahrien Cordell",
       "text": "3 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
@@ -117,25 +99,25 @@
       "id": "LINK-326",
       "kind": "conflict",
       "page": "Dahrien Cordell",
-      "text": "https://youtube.com/watch?v=oDRTvZHFl9o: its url differ from those Rite of Passage gives; the import uses Rite of Passage's."
+      "text": "https://youtube.com/watch?v=oDRTvZHFl9o: its url differ from those Rite of Passage gives. One link holds the fields for every page: Rite of Passage's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title \"Recording by Cerian Cantwr on YouTube\", the description \"\" and the locator \"\"."
     },
     {
-      "id": "PERF-033",
-      "kind": "incomplete",
-      "page": "Dahrien Cordell",
-      "text": "A performance item has no performer or year the importer could read: \"[https://www.youtube.com/watch?v=bgd32gAG9jE Dahrien Cordell \u0026 Company sing One …\"."
-    },
-    {
-      "id": "PERF-034",
-      "kind": "incomplete",
-      "page": "Dahrien Cordell",
-      "text": "A performance item has no performer the importer could read: \"[https://youtu.be/Z09yAAZGuhY?si=LH6bAvqARxikmJWx Dahrien Cordell sings One More…\"."
-    },
-    {
-      "id": "PERF-280",
+      "id": "PERF-272",
       "kind": "repeated",
       "page": "Dahrien Cordell",
       "text": "A performance item the piece page \"Rite of Passage\" already records on the same link: imported once, from the piece page."
+    },
+    {
+      "id": "PERF-273",
+      "kind": "repeated",
+      "page": "Dahrien Cordell",
+      "text": "A performance item the piece page \"One More Log\" already records on the same link: imported once, from the piece page."
+    },
+    {
+      "id": "PERF-274",
+      "kind": "repeated",
+      "page": "Dahrien Cordell",
+      "text": "A performance item the piece page \"One More Log\" already records on the same link: imported once, from the piece page."
     },
     {
       "id": "PERSON-060",

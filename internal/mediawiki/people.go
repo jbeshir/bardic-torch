@@ -126,12 +126,12 @@ func personMentions(s Site, pieces []PieceRecord, bards []BardRecord, redLinks [
 
 	out = append(out, personRedLinkMentions(redLinks)...)
 
-	return append(out, performerMentions(s, pieces, bards)...)
+	return append(out, performerMentions(s, pieces, bards, newWorkTitles(s, pieces, bards))...)
 }
 
 // performerMentions are the performers the performance items of the pieces and bards link to: bard pages and
-// pages that do not exist (a link "of [[X]]" to a piece names no performer).
-func performerMentions(s Site, pieces []PieceRecord, bards []BardRecord) []PersonMention {
+// pages that do not exist and are no work (a link "of [[X]]" to a piece names no performer).
+func performerMentions(s Site, pieces []PieceRecord, bards []BardRecord, works workTitles) []PersonMention {
 	isBard := map[string]bool{}
 	for _, b := range bards {
 		isBard[b.Title] = true
@@ -139,7 +139,7 @@ func performerMentions(s Site, pieces []PieceRecord, bards []BardRecord) []Perso
 	var out []PersonMention
 	add := func(page string, parsed ParsedPage) {
 		for _, it := range performanceItems(parsed) {
-			for _, target := range ParsePerformance(it.ListItem, s.Year).Performers {
+			for _, target := range ParsePerformance(it.ListItem, s.Year, works.has).Performers {
 				if name := performerName(s, target); isBard[name.Name] || !s.HasPage(name.Name) {
 					out = append(out, PersonMention{Name: name, Page: page})
 				}
@@ -374,7 +374,8 @@ func (u creditUnion) lists(bard PersonRef, piece string) bool {
 }
 
 // stubPieces are the works the bard pages list that have no page, by title, each credited to the bards listing
-// it.
+// it. A bard's own works list is the bard's claim, so the credit is probable (on a piece with a page, where the
+// infobox credits others, a works list only makes it possible).
 func (u creditUnion) stubPieces() []StubPiece {
 	var out []StubPiece
 	for _, b := range u.bards {
@@ -391,7 +392,9 @@ func (u creditUnion) stubPieces() []StubPiece {
 			}
 			name := PersonName{Name: b.Title, Form: NamePageLink}
 			if !slices.ContainsFunc(out[k].Credits, func(c PieceCredit) bool { return c.Person == PersonRef(b.Title) }) {
-				out[k].Credits = append(out[k].Credits, signalCredit(PersonRef(b.Title), name, SignalWorksList))
+				c := signalCredit(PersonRef(b.Title), name, SignalWorksList)
+				c.Certainty = domain.CertaintyProbable
+				out[k].Credits = append(out[k].Credits, c)
 			}
 		}
 	}

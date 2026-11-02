@@ -36,6 +36,8 @@ func RenderReview(r Review) []byte {
 	}{
 		{"Stub pieces", r.Counts.StubPieces}, {"Persons", r.Counts.Persons}, {"Bards (with a page)", r.Counts.Bards},
 		{"Stub persons", r.Counts.StubPersons}, {"Terms", r.Counts.Terms}, {"Collections", r.Counts.Collections},
+		{"Collections page entries", r.Counts.CollectionEntries},
+		{"Pieces that had inline lyrics", r.Counts.InlineLyricsPieces},
 		{"Events", r.Counts.Events}, {"Links", r.Counts.Links}, {"Links imported hidden", r.Counts.HiddenLinks},
 		{"Revisions", r.Counts.Revisions},
 	} {

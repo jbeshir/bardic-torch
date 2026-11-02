@@ -176,6 +176,17 @@ func (b *builder) reviewPiece(p mediawiki.PieceRecord) {
 			"dropped; licensing note kept: %s.", valueOr(s.Heading, "lead"), s.Lines,
 			yesNo(p.Content.LicensingNotesMD != "")))
 	}
+	for _, s := range p.Content.LinkSectionProse {
+		if s.Kept {
+			b.review.Links = append(b.review.Links, item("section_prose", p.Title, "Section %q: %d line(s) of "+
+				"prose that are not links are imported into the notes, under the section's heading.", s.Heading,
+				s.Lines))
+		} else {
+			b.review.Links = append(b.review.Links, item("section_prose_dropped", p.Title, "Section %q: %d "+
+				"line(s) of prose that are not links are not imported: as long as inline lyrics, they could be "+
+				"lyrics.", s.Heading, s.Lines))
+		}
+	}
 	if p.Content.SaysPublicDomain {
 		b.review.Licensing = append(b.review.Licensing, item("says_public_domain", p.Title, "The licensing text "+
 			"says \"public domain\"; no licence is set without a source."))
@@ -230,10 +241,13 @@ func (b *builder) reviewLinks() {
 		b.reviewPageLinks(string(pl.Person), pl.PageLinks)
 	}
 	for _, c := range b.c.Links.Conflicts {
-		owner := ownerName(c.Owner, b.c.Links)
-		b.review.Links = append(b.review.Links, item("conflict", owner, "%s: its %s differ from those %s gives; "+
-			"the import uses %s's.", c.NormalizedURL, strings.Join(c.Fields, ", "),
-			ownerName(c.CanonicalOwner, b.c.Links), ownerName(c.CanonicalOwner, b.c.Links)))
+		owner, canonical := ownerName(c.Owner, b.c.Links), ownerName(c.CanonicalOwner, b.c.Links)
+		b.review.Links = append(b.review.Links, item("conflict", owner, "%s: its %s differ from those %s gives. "+
+			"One link holds the fields for every page: %s's, but for the title, description and locator, kept only "+
+			"if every page gives the same (otherwise the title is the collection's name, or none). This page gives "+
+			"the title %q, the description %q and the locator %q.", c.NormalizedURL, strings.Join(c.Fields, ", "),
+			canonical, canonical, truncate(c.Own.Title, 2*contextRunes), truncate(c.Own.Description, 2*contextRunes),
+			c.Own.Locator))
 	}
 }
 
@@ -300,7 +314,7 @@ func (b *builder) reviewPerformances() {
 	}
 	for _, s := range b.c.Links.SimilarEvents {
 		b.review.Performances = append(b.review.Performances, item("similar_events", "", "Events %q and %q have "+
-			"similar names; they are not merged.", b.w.mask(s.A), b.w.mask(s.B)))
+			"similar names; they are not merged.", s.A, s.B))
 	}
 }
 
@@ -340,7 +354,7 @@ func (b *builder) reviewCollections() {
 		}
 		if possessiveLabel.MatchString(r.Label) {
 			b.review.Collections = append(b.review.Collections, item("possessive_label", page, "The label of %s "+
-				"may name a person (%q): check it may be public.", r.NormalizedURL, b.w.mask(r.Label)))
+				"may name a person (%q): check it may be public.", r.NormalizedURL, r.Label))
 		}
 	}
 	for _, r := range b.c.Links.Collections.Duplicates {
@@ -403,8 +417,12 @@ func personNameShaped(u string) bool {
 
 func (b *builder) counts() Counts {
 	c := Counts{PiecesByKind: map[string]int{}, Terms: len(b.out.Terms), Collections: len(b.out.Collections),
-		Events: len(b.out.Events), Links: len(b.out.Links), Persons: len(b.out.Persons)}
+		Events: len(b.out.Events), Links: len(b.out.Links), Persons: len(b.out.Persons),
+		CollectionEntries: b.c.Links.Collections.Entries()}
 	for _, p := range b.out.Pieces {
+		if p.LegacyHadInlineLyrics {
+			c.InlineLyricsPieces++
+		}
 		if p.Doc.IsStub {
 			c.StubPieces++
 		} else {
@@ -426,11 +444,4 @@ func (b *builder) counts() Counts {
 	c.Revisions = int(b.rev)
 
 	return c
-}
-
-// mask is s with its private names and emails withheld, for review text quoting public data.
-func (w withholder) mask(s string) string {
-	out, _ := w.text(s)
-
-	return out
 }

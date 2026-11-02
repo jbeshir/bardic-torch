@@ -54,9 +54,10 @@ type SnapshotVisibility struct {
 	Collections map[int64]CollectionSummary
 	// Events are the public events and venues.
 	Events map[int64]EventSummary
-	// VisibleLinkURLs are the normalized URLs of referenced links that are the normalized URL of a link that is
-	// not hidden, and of no hidden link: the only links a view shows.
-	VisibleLinkURLs map[string]bool
+	// VisibleLinks maps the normalized URL of each referenced link that is the normalized URL of a link that is
+	// not hidden, and of no hidden link, to that link's URL: the only links a view shows, each under the link's
+	// URL rather than the document's spelling of it.
+	VisibleLinks map[string]string
 }
 
 // PieceSnapshot is the public view of a PieceDocument.
@@ -301,10 +302,11 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		}
 	}
 	for _, link := range d.Links {
-		if !vis.linkVisible(link.URL) {
+		url, ok := vis.visibleLinkURL(link.URL)
+		if !ok {
 			continue
 		}
-		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink)}
+		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink, url)}
 		for _, performance := range link.Performances {
 			pieceLink.Performances = append(pieceLink.Performances, vis.performance(performance))
 		}
@@ -335,9 +337,10 @@ func (v SnapshotVisibility) credit(c DocCredit) (PieceCredit, bool) {
 	return credit, true
 }
 
-func (v SnapshotVisibility) link(l DocLink) SnapshotLink {
+// link returns the view of l, shown under url: the URL of the visible link l's URL normalizes to.
+func (v SnapshotVisibility) link(l DocLink, url string) SnapshotLink {
 	link := SnapshotLink{
-		URL:         l.URL,
+		URL:         url,
 		Title:       l.Title,
 		Description: l.Description,
 		Platform:    l.Platform,
@@ -433,10 +436,11 @@ func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisi
 		}
 	}
 	for _, link := range d.Links {
-		if !vis.linkVisible(link.URL) {
+		url, ok := vis.visibleLinkURL(link.URL)
+		if !ok {
 			continue
 		}
-		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink)}
+		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink, url)}
 		for _, performance := range link.Performances {
 			if p, ok := vis.personPerformance(performance); ok {
 				personLink.Performances = append(personLink.Performances, p)
@@ -509,9 +513,14 @@ func lookup[T any](entities map[int64]T, id *int64) *T {
 	return &entity
 }
 
-// linkVisible reports whether a view shows a link with url: whether url normalizes to one of VisibleLinkURLs. A
-// URL that does not normalize fails closed.
-func (v SnapshotVisibility) linkVisible(url string) bool {
+// visibleLinkURL returns the URL of the visible link a document's url normalizes to, or false if a view does not
+// show it: url normalizes to none of VisibleLinks. A URL that does not normalize fails closed.
+func (v SnapshotVisibility) visibleLinkURL(url string) (string, bool) {
 	normalized, err := NormalizeURL(url)
-	return err == nil && v.VisibleLinkURLs[normalized]
+	if err != nil {
+		return "", false
+	}
+	visible, ok := v.VisibleLinks[normalized]
+
+	return visible, ok
 }

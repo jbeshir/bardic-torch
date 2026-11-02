@@ -79,7 +79,7 @@
           "performances": []
         },
         {
-          "url": "https://youtu.be/xNVPw5ReQHE",
+          "url": "https://youtube.com/watch?v=xNVPw5ReQHE",
           "title": "a recording of this Russian song on YouTube",
           "description": null,
           "platform": "youtube",
@@ -171,7 +171,7 @@
         },
         {
           "url": "http://redwulf.info/book.pdf",
-          "title": "A more gender-neutral version found in the Redwulf Songbook",
+          "title": "Redwulf Songbook (Mooneschadowe, Ansteorra",
           "description": null,
           "platform": "pdf",
           "place_type": "book",
@@ -196,13 +196,13 @@
           "performances": []
         },
         {
-          "url": "https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf",
-          "title": "Lyrics are found on page 53 of the 2015 edition of The Known Words",
+          "url": "https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf#page=21",
+          "title": "The 'Vulgar Birthday Song' on page 21 of The Known Words (2015 edition)",
           "description": null,
           "platform": "pdf",
           "place_type": null,
           "collection_id": null,
-          "locator": "p. 53",
+          "locator": "p. 21",
           "roles": [
             "lyrics"
           ],
@@ -217,7 +217,7 @@
       "title": "Birthday Dirge"
     },
     "revision": {
-      "id": 428,
+      "id": 426,
       "summary": "Imported from the wiki (page revision 889).",
       "contributors": [
         "Wiki User 01"
@@ -227,31 +227,31 @@
   },
   "review": [
     {
-      "id": "NAME-091",
+      "id": "NAME-087",
       "kind": "free_text",
       "page": "Birthday Dirge",
       "text": "link https://cunnan.lochac.sca.org/index.php/The_SCA_Happy_Birthday_Song, title: \"Legal Name 073\" was withheld. Context: \"in Lochac) - version sourced from the '[name withheld]' songbook\"."
     },
     {
-      "id": "NAME-092",
+      "id": "NAME-088",
       "kind": "link_url_name",
       "page": "Birthday Dirge",
       "text": "The link https://www.eg.bucknell.edu/~lwittie/sca/song/filk/barbarian_birthday_dirge.html has a home directory (~user) in its path: check it names no one who should be hidden."
     },
     {
-      "id": "NAME-093",
+      "id": "NAME-089",
       "kind": "free_text",
       "page": "Birthday Dirge",
       "text": "link https://thereitis.org/the-birthday-dirge/, title: \"Legal Name 074\" was withheld. Context: \"Lyrics on [name withheld]'s blog\"."
     },
     {
-      "id": "TITLE-017",
+      "id": "TITLE-020",
       "kind": "alternate",
       "page": "Birthday Dirge",
       "text": "Alias \"The Birthday Dirge\" (alt_title, from the h1)."
     },
     {
-      "id": "TITLE-018",
+      "id": "TITLE-021",
       "kind": "rejected",
       "page": "Birthday Dirge",
       "text": "Not imported: \"Miscellaneous\" (from the infobox_title): category_word."
@@ -263,22 +263,16 @@
       "text": "in_infobox_not_tagged: \"Traditional \u0026 Folk\" (read as \"Traditional \u0026 Folk\")."
     },
     {
-      "id": "LINK-100",
+      "id": "LINK-110",
       "kind": "normalised",
       "page": "Birthday Dirge",
       "text": "3 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "LINK-274",
+      "id": "LINK-284",
       "kind": "conflict",
       "page": "Birthday Dirge",
-      "text": "http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives; the import uses Belt and Chain's."
-    },
-    {
-      "id": "LINK-275",
-      "kind": "conflict",
-      "page": "Birthday Dirge",
-      "text": "https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf: its title, locator differ from those Song of the Shieldwall gives; the import uses Song of the Shieldwall's."
+      "text": "http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives. One link holds the fields for every page: Belt and Chain's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title \"Lyrics in RedWulf's Songbook\", the description \"\" and the locator \"\"."
     },
     {
       "id": "LICENCE-009",

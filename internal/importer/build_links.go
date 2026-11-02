@@ -3,6 +3,7 @@ package importer
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
@@ -49,10 +50,13 @@ func (b *builder) canonicalOwners() map[string]string {
 	return out
 }
 
-// docLink is the document form of link fields, with roles; the title is withheld as free text.
+// docLink is the document form of link fields, with roles: its URL without tracking parameters, which can tie a
+// shared link to the sharer, and its title and description withheld as free text.
 func (b *builder) docLink(page string, f mediawiki.LinkFields, roles []domain.LinkRole) domain.DocLink {
-	l := domain.DocLink{URL: clean(f.URL), Title: b.free(page, "link "+f.URL, "title", f.Title),
-		Platform: optional(f.Platform), Locator: optional(f.Locator), Roles: roles}
+	entity := "link " + f.URL
+	l := domain.DocLink{URL: clean(domain.WithoutTrackingParameters(f.URL)), Title: b.free(page, entity, "title", f.Title),
+		Description: b.free(page, entity, "description", f.Description), Platform: optional(f.Platform),
+		Locator: optional(f.Locator), Roles: roles}
 	if f.PlaceType != "" {
 		pt := f.PlaceType
 		l.PlaceType = &pt
@@ -94,7 +98,11 @@ func (b *builder) personLinks(links []mediawiki.LinkRecord) []domain.DocPersonLi
 	for _, l := range links {
 		dl := domain.DocPersonLink{DocLink: b.attachment(l), Performances: []domain.DocPersonPerformance{}}
 		for _, p := range l.Performances {
-			dl.Performances = append(dl.Performances, domain.DocPersonPerformance{DocPerformance: b.performance(p)})
+			dp := domain.DocPersonPerformance{DocPerformance: b.performance(p)}
+			if id, ok := b.pieceIDs[b.c.Site.ResolveRedirect(p.Piece)]; ok && p.Piece != "" {
+				dp.PieceID = &id
+			}
+			dl.Performances = append(dl.Performances, dp)
 		}
 		out = append(out, dl)
 	}
@@ -103,12 +111,13 @@ func (b *builder) personLinks(links []mediawiki.LinkRecord) []domain.DocPersonLi
 }
 
 // performance is a performance's document form. Its description is kept as written, but for the names and
-// addresses withheld from it; an uploader with anything withheld is left out, and listed.
+// addresses withheld from it and its URLs' tracking parameters; an uploader with anything withheld is left out, and
+// listed.
 func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 	entity := "performance item"
 	out := domain.DocPerformance{
 		Uploader:            b.free(p.Page, entity, "uploader", p.Uploader),
-		DescriptionVerbatim: b.freeText(p.Page, entity, "description", p.DescriptionVerbatim),
+		DescriptionVerbatim: b.freeText(p.Page, entity, "description", withoutTracking(p.DescriptionVerbatim)),
 		PerformerIDs:        []int64{},
 	}
 	if out.Uploader != nil && domain.HoldsWithheldText(*out.Uploader) {
@@ -131,10 +140,25 @@ func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 	if missing := missingFields(out); len(missing) > 0 {
 		b.review.Performances = append(b.review.Performances, item("incomplete", p.Page,
 			"A performance item has no %s the importer could read: %s.", joinWords(missing),
-			fmt.Sprintf("%q", truncate(out.DescriptionVerbatim, 2*contextRunes))))
+			fmt.Sprintf("%q", truncate(p.DescriptionVerbatim, 2*contextRunes))))
 	}
 
 	return out
+}
+
+// withoutTracking is a wikitext with its external links' URLs without tracking parameters.
+func withoutTracking(text string) string {
+	var out strings.Builder
+	last := 0
+	for _, e := range mediawiki.FindExternalLinks(text) {
+		at := e.Start + strings.Index(text[e.Start:e.End], e.URL)
+		out.WriteString(text[last:at])
+		out.WriteString(domain.WithoutTrackingParameters(e.URL))
+		last = at + len(e.URL)
+	}
+	out.WriteString(text[last:])
+
+	return out.String()
 }
 
 // missingFields names what a performance lacks of its performers, event and year.

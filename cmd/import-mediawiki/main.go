@@ -162,9 +162,11 @@ func printCounts(w io.Writer, r importer.Review) error {
 		byKind = append(byKind, fmt.Sprintf("%s %d", kind, c.PiecesByKind[kind]))
 	}
 	lines := []string{
-		fmt.Sprintf("pieces %d (%s); stub pieces %d", pieces, strings.Join(byKind, ", "), c.StubPieces),
+		fmt.Sprintf("pieces %d (%s); stub pieces %d; with inline lyrics %d", pieces, strings.Join(byKind, ", "),
+			c.StubPieces, c.InlineLyricsPieces),
 		fmt.Sprintf("persons %d (bards %d, stubs %d)", c.Persons, c.Bards, c.StubPersons),
-		fmt.Sprintf("terms %d; collections %d; events %d", c.Terms, c.Collections, c.Events),
+		fmt.Sprintf("terms %d; collections %d (of %d entries); events %d", c.Terms, c.Collections,
+			c.CollectionEntries, c.Events),
 		fmt.Sprintf("links %d (hidden %d); revisions %d", c.Links, c.HiddenLinks, c.Revisions),
 		fmt.Sprintf("review items %d", len(r.Items())),
 	}

@@ -14,7 +14,7 @@
         "source_url": null
       },
       "is_stub": false,
-      "notes_md": null,
+      "notes_md": "### Key Links\n\n- According to Eliane's Bardic Book: \"Written for Her Stellar Highness Elashava's Bardic Challenge, on the occasion of Northshield Coronet Tourney and Investiture in Korsvag, May 4, AS XXXVII. Chorus tune: Anon. Sephardic song, 'Porque Llorax'. Remainder of tune and lyrics Š4/7/02 Eliane Halevy ([name withheld])\"",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": "According to Eliane's Bardic Book: Use of her work \"is limited to non-profit, non-recorded performances by individuals. All lyrics and tunes written by me, or translations of existing lyrics, are copyright [name withheld] and may not be reproduced in print or in electronic format without my express (written) permission.\"\n\nThe tune for the chorus is in the public domain.",
@@ -37,17 +37,17 @@
         {
           "term_id": 103,
           "is_primary": true,
-          "part": "tune"
+          "part": "chorus"
         },
         {
           "term_id": 102,
           "is_primary": false,
-          "part": "tune"
+          "part": "chorus"
         },
         {
           "term_id": 100,
           "is_primary": false,
-          "part": "tune"
+          "part": "chorus"
         },
         {
           "term_id": 120,
@@ -103,8 +103,8 @@
           "performances": []
         },
         {
-          "url": "https://youtu.be/dhqH0Sra8aU",
-          "title": "Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kingdom 50 Year Anniversary",
+          "url": "https://youtube.com/watch?v=dhqH0Sra8aU",
+          "title": null,
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -118,14 +118,14 @@
               "event_id": 22,
               "year": null,
               "uploader": null,
-              "description_verbatim": "[https://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kingdom 50 Year Anniversary]",
+              "description_verbatim": "[https://youtube.com/watch?v=dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kingdom 50 Year Anniversary]",
               "performer_ids": []
             }
           ]
         },
         {
-          "url": "https://youtu.be/WdPLbQkX2ig",
-          "title": "Recording by [name withheld]: Eliane Halevy singing Three Words, accompanied by Heather Dale on the bohdrun, in 2009",
+          "url": "https://youtube.com/watch?v=WdPLbQkX2ig",
+          "title": null,
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -139,7 +139,7 @@
               "event_id": null,
               "year": 2009,
               "uploader": null,
-              "description_verbatim": "[https://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, accompanied by Heather Dale on the bohdrun, in 2009]",
+              "description_verbatim": "[https://youtube.com/watch?v=WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, accompanied by Heather Dale on the bohdrun, in 2009]",
               "performer_ids": []
             }
           ]
@@ -153,7 +153,7 @@
       "title": "Three Words"
     },
     "revision": {
-      "id": 508,
+      "id": 506,
       "summary": "Imported from the wiki (page revision 934).",
       "contributors": [
         "Wiki User 01"
@@ -163,46 +163,34 @@
   },
   "review": [
     {
-      "id": "NAME-155",
+      "id": "NAME-451",
       "kind": "free_text",
       "page": "Three Words",
-      "text": "link https://youtu.be/dhqH0Sra8aU, title: \"Legal Name 024\" was withheld. Context: \"Recording by [name withheld]: Eliane Halevy performing her original\"."
+      "text": "piece Three Words, notes: \"Legal Name 021\" was withheld. Context: \"tune and lyrics Š4/7/02 Eliane Halevy ([name withheld])\\\"\"."
     },
     {
-      "id": "NAME-156",
-      "kind": "free_text",
-      "page": "Three Words",
-      "text": "link https://youtu.be/dhqH0Sra8aU, title: \"Legal Name 029\" was withheld. Context: \"levy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kin\"."
-    },
-    {
-      "id": "NAME-157",
-      "kind": "free_text",
-      "page": "Three Words",
-      "text": "link https://youtu.be/WdPLbQkX2ig, title: \"Legal Name 024\" was withheld. Context: \"Recording by [name withheld]: Eliane Halevy singing Three Words, acc\"."
-    },
-    {
-      "id": "NAME-468",
+      "id": "NAME-452",
       "kind": "free_text",
       "page": "Three Words",
       "text": "piece Three Words, licensing notes: \"Legal Name 021\" was withheld. Context: \"tions of existing lyrics, are copyright [name withheld] and may not be reproduced in print or i\"."
     },
     {
-      "id": "NAME-469",
+      "id": "NAME-453",
       "kind": "free_text",
       "page": "Three Words",
-      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"tps://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original\"."
+      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"be.com/watch?v=dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy performing her original\"."
     },
     {
-      "id": "NAME-470",
+      "id": "NAME-454",
       "kind": "free_text",
       "page": "Three Words",
       "text": "performance item, description: \"Legal Name 029\" was withheld. Context: \"levy performing her original piece with [name withheld] on the drum in the Tavern at Middle Kin\"."
     },
     {
-      "id": "NAME-471",
+      "id": "NAME-455",
       "kind": "free_text",
       "page": "Three Words",
-      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"tps://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, acc\"."
+      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"be.com/watch?v=WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singing Three Words, acc\"."
     },
     {
       "id": "CREDIT-052",
@@ -217,34 +205,40 @@
       "text": "The tune credit of \"anonymous\" is scoped to the chorus, inferred from the piece's origins."
     },
     {
-      "id": "LINK-205",
+      "id": "LINK-010",
+      "kind": "section_prose",
+      "page": "Three Words",
+      "text": "Section \"Key Links\": 1 line(s) of prose that are not links are imported into the notes, under the section's heading."
+    },
+    {
+      "id": "LINK-215",
       "kind": "normalised",
       "page": "Three Words",
       "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "LINK-206",
+      "id": "LINK-216",
       "kind": "repeated",
       "page": "Three Words",
       "text": "URLs written more than once, imported once each: https://www.gflower.org/threewords.htm."
     },
     {
-      "id": "LINK-207",
+      "id": "LINK-217",
       "kind": "roles",
       "page": "Three Words",
       "text": "https://www.gflower.org/threewords.htm has several roles: other, lyrics."
     },
     {
-      "id": "PERF-263",
+      "id": "PERF-239",
       "kind": "incomplete",
       "page": "Three Words",
-      "text": "A performance item has no performer or year the importer could read: \"[https://youtu.be/dhqH0Sra8aU Recording by [name withheld]: Eliane Halevy perfor…\"."
+      "text": "A performance item has no performer or year the importer could read: \"[https://youtu.be/dhqH0Sra8aU Recording by Legal Name 024: Eliane Halevy perform…\"."
     },
     {
-      "id": "PERF-264",
+      "id": "PERF-240",
       "kind": "incomplete",
       "page": "Three Words",
-      "text": "A performance item has no performer or event the importer could read: \"[https://youtu.be/WdPLbQkX2ig Recording by [name withheld]: Eliane Halevy singin…\"."
+      "text": "A performance item has no performer or event the importer could read: \"[https://youtu.be/WdPLbQkX2ig Recording by Legal Name 024: Eliane Halevy singing…\"."
     },
     {
       "id": "LICENCE-025",

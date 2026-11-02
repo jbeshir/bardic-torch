@@ -144,7 +144,7 @@ func TestUnion_WorksListMissingPageBecomesStub(t *testing.T) {
 	for k, bard := range []PersonRef{ash, rowan} {
 		assert.Equal(t, bard, sp.Credits[k].Person)
 		assert.Equal(t, domain.CreditRoleLyrics, sp.Credits[k].Role)
-		assert.Equal(t, domain.CertaintyPossible, sp.Credits[k].Certainty)
+		assert.Equal(t, domain.CertaintyProbable, sp.Credits[k].Certainty, "the bard's own list")
 		assert.Equal(t, []CreditSignal{SignalWorksList}, sp.Credits[k].Signals)
 	}
 }

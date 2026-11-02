@@ -389,7 +389,7 @@ func (b *builder) buildCollections() {
 		}
 		if note := b.w.urlNote(r.URL); note != "" {
 			b.review.HiddenNames = append(b.review.HiddenNames, item("collection_url_name", page,
-				"Collection %q: its URL %s %s: check it names no one who should be hidden.", name, r.URL, note))
+				"Collection %q: its URL %s %s: check it names no one who should be hidden.", r.Name(), r.URL, note))
 		}
 		sortName := domain.SortTitle(name)
 		col := domain.ImportedCollection{ID: id, SortName: sortName, SortLetter: domain.SortLetter(sortName), Doc: doc}

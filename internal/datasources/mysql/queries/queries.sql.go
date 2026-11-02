@@ -1372,13 +1372,14 @@ func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64)
 
 const listLinksByNormalizedURL = `-- name: ListLinksByNormalizedURL :many
 
-SELECT normalized_url, is_hidden
+SELECT normalized_url, url, is_hidden
 FROM links
 WHERE normalized_url IN (/*SLICE:normalized_urls*/?)
 `
 
 type ListLinksByNormalizedURLRow struct {
 	NormalizedUrl string
+	Url           string
 	IsHidden      bool
 }
 
@@ -1406,7 +1407,7 @@ func (q *Queries) ListLinksByNormalizedURL(ctx context.Context, normalizedUrls [
 	var items []ListLinksByNormalizedURLRow
 	for rows.Next() {
 		var i ListLinksByNormalizedURLRow
-		if err := rows.Scan(&i.NormalizedUrl, &i.IsHidden); err != nil {
+		if err := rows.Scan(&i.NormalizedUrl, &i.Url, &i.IsHidden); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

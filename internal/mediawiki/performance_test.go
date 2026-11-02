@@ -37,7 +37,7 @@ func TestParsePerformanceText_FullGrammar(t *testing.T) {
 		"[https://example.org/v/2014/1 Recording by Wren Placeholder on YouTube] of [[Ash Placeholder]] singing " +
 			"[[A Song]] at Pennsic War, 2019": {
 			Uploader: wren, Platform: youTube, Performers: []string{ash},
-			Event: "Pennsic War", Year: 2019, Piece: aSong,
+			Event: pennsicWar, Year: 2019, Piece: aSong,
 		},
 		"[https://example.org/v A Song, recorded by WrenSings on YouTube] performed by [[Ash Placeholder]] and " +
 			"[[Rowan Placeholder]] at the [[" + greenDragon + "]], 2010": {
@@ -116,12 +116,12 @@ func TestParsePerformanceText_EventCapitalisedAndCut(t *testing.T) {
 func TestParsePerformance_FullGrammar(t *testing.T) {
 	rec := ParsePerformance(ListItem{Depth: 1, Raw: "[https://example.org/v Recording by Wren Placeholder on " +
 		"YouTube] of [[Ash Placeholder]] and [[Rowan Placeholder]] singing [[A Song]] at Pennsic War, 2019"},
-		testMaxYear)
+		testMaxYear, noWorks)
 
 	assert.Equal(t, PerformanceRecord{
 		DescriptionVerbatim: "[https://example.org/v Recording by Wren Placeholder on YouTube] of [[Ash Placeholder]] " +
 			"and [[Rowan Placeholder]] singing [[A Song]] at Pennsic War, 2019",
-		Uploader: wren, EventText: "Pennsic War", Year: 2019, Performers: []string{ash, rowan}, Piece: aSong,
+		Uploader: wren, EventText: pennsicWar, Year: 2019, Performers: []string{ash, rowan}, Piece: aSong,
 	}, rec)
 }
 
@@ -129,24 +129,48 @@ func TestParsePerformance_VerbatimUnchanged(t *testing.T) {
 	item := "[https://example.org/v ''A Song'']  sung   &amp; ''played'' by [[Ash Placeholder|Ash]] — 1999 "
 	parsed := ParsePage("== Performances & Recordings ==\n** " + item + "\n")
 
-	rec := ParsePerformance(parsed.Sections[1].Content.Items[0], testMaxYear)
+	rec := ParsePerformance(parsed.Sections[1].Content.Items[0], testMaxYear, noWorks)
 
 	assert.Equal(t, item[:len(item)-1], rec.DescriptionVerbatim, "only the list markers and trailing space go")
 	assert.Equal(t, 1999, rec.Year)
 }
 
 func TestParsePerformance_YearBounds(t *testing.T) {
-	assert.Zero(t, ParsePerformance(ListItem{Raw: "[https://example.org/v A] in 1965"}, testMaxYear).Year)
-	assert.Zero(t, ParsePerformance(ListItem{Raw: "[https://example.org/v A] in 2027"}, testMaxYear).Year)
-	assert.Equal(t, 2026, ParsePerformance(ListItem{Raw: "[https://example.org/v A] in 2026"}, testMaxYear).Year)
+	year := func(raw string) int { return ParsePerformance(ListItem{Raw: raw}, testMaxYear, noWorks).Year }
+
+	assert.Zero(t, year("[https://example.org/v A] in 1965"))
+	assert.Zero(t, year("[https://example.org/v A] in 2027"))
+	assert.Equal(t, 2026, year("[https://example.org/v A] in 2026"))
 }
 
 func TestParsePerformance_NoEvent(t *testing.T) {
-	rec := ParsePerformance(ListItem{Raw: "[https://example.org/v A Song] of [[Ash Placeholder]]"}, testMaxYear)
+	rec := ParsePerformance(ListItem{Raw: "[https://example.org/v A Song] of [[Ash Placeholder]]"}, testMaxYear,
+		noWorks)
 
 	assert.Empty(t, rec.EventText)
 	assert.Empty(t, rec.Uploader)
 	assert.Equal(t, []string{ash}, rec.Performers)
+}
+
+// noWorks is the isWork of a wiki without works.
+func noWorks(string) bool { return false }
+
+// TestParsePerformance_WorkLinkIsThePieceNotAPerformer: a link to a work is never a performer, after a comma or
+// "of" included; with no "singing [[P]]", the first link to a work is the piece.
+func TestParsePerformance_WorkLinkIsThePieceNotAPerformer(t *testing.T) {
+	isWork := func(target string) bool { return target == aSong || target == twoSongs }
+	for raw, want := range map[string]PerformanceRecord{
+		"[https://example.org/v Video] performing his original piece, [[A Song]]":    {Piece: aSong},
+		"[https://example.org/v Video] of his original poem, [[Two Songs]]":          {Piece: twoSongs},
+		"[https://example.org/v Video] performing [[A Song]] by [[Ash Placeholder]]": {Piece: aSong, Performers: []string{ash}},
+		"[https://example.org/v Video] of [[Ash Placeholder]] singing [[Two Songs]], [[A Song]]": {Piece: twoSongs,
+			Performers: []string{ash}},
+		"[https://example.org/v Video] her song [[A Song]] at Pennsic War": {Piece: aSong, EventText: pennsicWar},
+	} {
+		rec := ParsePerformance(ListItem{Raw: raw}, testMaxYear, isWork)
+		want.DescriptionVerbatim = raw
+		assert.Equal(t, want, rec, raw)
+	}
 }
 
 func TestLatestYear(t *testing.T) {

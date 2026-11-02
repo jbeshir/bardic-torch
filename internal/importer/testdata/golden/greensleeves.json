@@ -66,7 +66,7 @@
           "note": null
         },
         {
-          "person_id": 121,
+          "person_id": 120,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "possible",
@@ -98,7 +98,7 @@
         },
         {
           "url": "https://www.beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf",
-          "title": "The Veil lyrics in the Beadmakers' Songbook",
+          "title": "Beadmaker's Songbook",
           "description": null,
           "platform": "pdf",
           "place_type": "book",
@@ -111,7 +111,7 @@
         },
         {
           "url": "http://sca.claypool.me/songs.html",
-          "title": "Lyrics on Claypool's SCA Songs",
+          "title": "Claypool's SCA Songs",
           "description": null,
           "platform": "sca.claypool.me",
           "place_type": "community_archive",
@@ -136,7 +136,7 @@
           "performances": []
         },
         {
-          "url": "https://youtu.be/19X5WNh4y9w",
+          "url": "https://youtube.com/watch?v=19X5WNh4y9w",
           "title": "Recording by Cerian Cantwr on YouTube",
           "description": null,
           "platform": "youtube",
@@ -151,17 +151,17 @@
               "event_id": null,
               "year": null,
               "uploader": "Cerian Cantwr",
-              "description_verbatim": "[https://youtu.be/19X5WNh4y9w Recording by Cerian Cantwr on YouTube] of Greensleeves sung by [[Heregyth Ketilsdottir]], [[Heinrich von Stuttgart]], and [[Jonathan Ospry]]",
+              "description_verbatim": "[https://youtube.com/watch?v=19X5WNh4y9w Recording by Cerian Cantwr on YouTube] of Greensleeves sung by [[Heregyth Ketilsdottir]], [[Heinrich von Stuttgart]], and [[Jonathan Ospry]]",
               "performer_ids": [
-                94,
-                92,
-                103
+                93,
+                91,
+                102
               ]
             }
           ]
         },
         {
-          "url": "https://www.youtube.com/watch?v=IAHnmqSQdDw",
+          "url": "https://youtube.com/watch?v=IAHnmqSQdDw",
           "title": null,
           "description": null,
           "platform": "youtube",
@@ -176,11 +176,11 @@
               "event_id": null,
               "year": null,
               "uploader": null,
-              "description_verbatim": "https://www.youtube.com/watch?v=IAHnmqSQdDw Music video on YouTube demonstrating all the clothing articles mentioned in the song. Musical performance by [[Richard de Winter]], [[Robin Jeffre]], [[Sam Brown]], and [[Allison Kinder]].",
+              "description_verbatim": "https://youtube.com/watch?v=IAHnmqSQdDw Music video on YouTube demonstrating all the clothing articles mentioned in the song. Musical performance by [[Richard de Winter]], [[Robin Jeffre]], [[Sam Brown]], and [[Allison Kinder]].",
               "performer_ids": [
-                122,
-                124,
-                126,
+                121,
+                123,
+                125,
                 51
               ]
             }
@@ -195,7 +195,7 @@
       "title": "Greensleeves"
     },
     "revision": {
-      "id": 470,
+      "id": 468,
       "summary": "Imported from the wiki (page revision 946).",
       "contributors": [
         "Wiki User 01",
@@ -212,73 +212,73 @@
       "text": "Stub person \"Allison Kinder\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-119",
+      "id": "STUB-118",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Heinrich von Stuttgart\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-121",
+      "id": "STUB-120",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Heregyth Ketilsdottir\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-130",
+      "id": "STUB-129",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Jonathan Ospry\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-148",
+      "id": "STUB-147",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Richard Jones\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-149",
+      "id": "STUB-148",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Richard de Winter\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-151",
+      "id": "STUB-150",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Robin Jeffre\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "STUB-153",
+      "id": "STUB-152",
       "kind": "stub_person",
       "page": "Greensleeves",
       "text": "Stub person \"Sam Brown\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "LINK-157",
+      "id": "LINK-167",
       "kind": "normalised",
       "page": "Greensleeves",
       "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "LINK-290",
+      "id": "LINK-296",
       "kind": "conflict",
       "page": "Greensleeves",
-      "text": "https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives; the import uses The Veil's."
+      "text": "https://beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf: its title differ from those The Veil gives. One link holds the fields for every page: The Veil's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title \"Greensleeves in the Beadmakers' Songbook\", the description \"\" and the locator \"\"."
     },
     {
-      "id": "LINK-291",
+      "id": "LINK-297",
       "kind": "conflict",
       "page": "Greensleeves",
-      "text": "http://sca.claypool.me/songs.html: its title differ from those March of Cambreadth gives; the import uses March of Cambreadth's."
+      "text": "http://sca.claypool.me/songs.html: its title differ from those March of Cambreadth gives. One link holds the fields for every page: March of Cambreadth's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title \"Greensleeves in Claypool's SCA Songs\", the description \"\" and the locator \"\"."
     },
     {
-      "id": "PERF-218",
+      "id": "PERF-194",
       "kind": "incomplete",
       "page": "Greensleeves",
       "text": "A performance item has no event or year the importer could read: \"[https://youtu.be/19X5WNh4y9w Recording by Cerian Cantwr on YouTube] of Greensle…\"."
     },
     {
-      "id": "PERF-219",
+      "id": "PERF-195",
       "kind": "incomplete",
       "page": "Greensleeves",
       "text": "A performance item has no event or year the importer could read: \"https://www.youtube.com/watch?v=IAHnmqSQdDw Music video on YouTube demonstrating…\"."
@@ -290,43 +290,43 @@
       "text": "Stub person \"Allison Kinder\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-135",
+      "id": "PERSON-134",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Heinrich von Stuttgart\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-137",
+      "id": "PERSON-136",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Heregyth Ketilsdottir\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-146",
+      "id": "PERSON-145",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Jonathan Ospry\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-164",
+      "id": "PERSON-163",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Richard Jones\" (named on 1 page(s)) is guessed to be historical."
     },
     {
-      "id": "PERSON-165",
+      "id": "PERSON-164",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Richard de Winter\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-167",
+      "id": "PERSON-166",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Robin Jeffre\" (named on 1 page(s)) is guessed to be community_bard."
     },
     {
-      "id": "PERSON-169",
+      "id": "PERSON-168",
       "kind": "stub_kind",
       "page": "Greensleeves",
       "text": "Stub person \"Sam Brown\" (named on 1 page(s)) is guessed to be community_bard."

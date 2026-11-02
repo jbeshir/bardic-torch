@@ -128,11 +128,13 @@ func TestRun_DryRunScrubbedCounts(t *testing.T) {
 		&stdout)
 
 	require.NoError(t, err)
-	// The research counts (PLAN §7, "Tests assert"): 142 pieces by kind, 48 bards and 61 collections, of which the
-	// scrubbed copy's 4 named by a placeholder (each counts as a legal name) are withheld and listed.
+	// The research counts (PLAN §7, "Tests assert"): 142 pieces by kind, 11 of them with inline lyrics, 48 bards,
+	// and 61 collections of the 62 entries, of which the scrubbed copy's 4 named by a placeholder (each counts as a
+	// legal name) are withheld and listed.
 	assert.Contains(t, stdout.String(), "pieces 142 (dance_music 1, poem 4, song 135, story 2)")
+	assert.Contains(t, stdout.String(), "with inline lyrics 11")
 	assert.Contains(t, stdout.String(), "bards 48")
-	assert.Contains(t, stdout.String(), "collections 57")
+	assert.Contains(t, stdout.String(), "collections 57 (of 62 entries)")
 	content, err := os.ReadFile(filepath.Clean(review))
 	require.NoError(t, err)
 	assert.Equal(t, 4, strings.Count(string(content), "is not imported: its name or URL holds"))

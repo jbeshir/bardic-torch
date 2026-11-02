@@ -362,14 +362,14 @@ func baseDocument[D domain.Document](ctx context.Context, c *catalogueReader, id
 // there is.
 func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotReferences) domain.SnapshotVisibility {
 	vis := domain.SnapshotVisibility{
-		Pieces:          make(map[int64]domain.PieceSummary),
-		Persons:         make(map[int64]domain.PersonSummary),
-		NoPagePersons:   make(map[int64]domain.PersonSummary),
-		PublicAliases:   make(map[int64]map[string]bool),
-		Terms:           make(map[int64]domain.TermSummary),
-		Collections:     make(map[int64]domain.CollectionSummary),
-		Events:          make(map[int64]domain.EventSummary),
-		VisibleLinkURLs: make(map[string]bool),
+		Pieces:        make(map[int64]domain.PieceSummary),
+		Persons:       make(map[int64]domain.PersonSummary),
+		NoPagePersons: make(map[int64]domain.PersonSummary),
+		PublicAliases: make(map[int64]map[string]bool),
+		Terms:         make(map[int64]domain.TermSummary),
+		Collections:   make(map[int64]domain.CollectionSummary),
+		Events:        make(map[int64]domain.EventSummary),
+		VisibleLinks:  make(map[string]string),
 	}
 
 	if ids := unsignedIDs(refs.PieceIDs); len(ids) > 0 {
@@ -433,10 +433,10 @@ func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis
 	}
 }
 
-// linkVisibility loads which of the referenced URLs' normalized forms are visible links': the normalized URL of a
-// link that is not hidden, and of no hidden link. A URL that does not normalize is never visible. Only the
-// normalized URLs the rows hold are trusted, so one MySQL matched otherwise, or one no link has now, is not
-// visible. Normalized URLs are ASCII, so none is refused by the ASCII column (MySQL error 3988).
+// linkVisibility loads which of the referenced URLs' normalized forms are visible links', with each visible link's
+// URL: the normalized URL of a link that is not hidden, and of no hidden link. A URL that does not normalize is
+// never visible. Only the normalized URLs the rows hold are trusted, so one MySQL matched otherwise, or one no
+// link has now, is not visible. Normalized URLs are ASCII, so none is refused by the ASCII column (MySQL error 3988).
 func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis *domain.SnapshotVisibility) {
 	normalized := make([]string, 0, len(urls))
 	for _, url := range urls {
@@ -453,11 +453,11 @@ func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis
 		if row.IsHidden {
 			hidden[row.NormalizedUrl] = true
 		} else {
-			vis.VisibleLinkURLs[row.NormalizedUrl] = true
+			vis.VisibleLinks[row.NormalizedUrl] = row.Url
 		}
 	}
 	for url := range hidden {
-		delete(vis.VisibleLinkURLs, url)
+		delete(vis.VisibleLinks, url)
 	}
 }
 

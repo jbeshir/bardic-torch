@@ -2,6 +2,9 @@ package importer
 
 import (
 	"encoding/json"
+	"maps"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -9,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
 // lyricMarker is the word every placeholder line of the scrubbed copy's dropped lyrics has.
@@ -62,8 +66,12 @@ func TestBuild_SortKeys(t *testing.T) {
 	assert.Equal(t, domain.Letter("T"), threeWords.SortLetter)
 }
 
-func TestBuild_ConservationSourceDefaultsToLegacyURL(t *testing.T) {
+func TestBuild_ConservationSourceIsThePiecesWikiPage(t *testing.T) {
 	imp, _ := scrubbedImport(t)
+	pageURLs := map[string]string{}
+	for _, p := range scrubbedCorpus(t).Pieces {
+		pageURLs[p.Title] = p.URL
+	}
 
 	assessed := 0
 	for _, p := range imp.Pieces {
@@ -75,7 +83,9 @@ func TestBuild_ConservationSourceDefaultsToLegacyURL(t *testing.T) {
 		}
 		assessed++
 		require.NotNil(t, c.SourceURL, p.Doc.Title)
-		assert.Contains(t, *c.SourceURL, "/wiki/", "%s: the source is the wiki page", p.Doc.Title)
+		require.NotNil(t, p.Legacy, p.Doc.Title)
+		assert.Equal(t, pageURLs[p.Legacy.Title], *c.SourceURL, "%s: the source is the piece's own wiki page",
+			p.Doc.Title)
 	}
 	assert.Equal(t, 11, assessed)
 }
@@ -103,17 +113,70 @@ func TestBuild_NoPlaceholderInPublicFields(t *testing.T) {
 		"the hidden aliases still hold their placeholders")
 }
 
+// TestBuild_ContributorsAreCreditedPerPage: a piece page's revision credits its contributors, and a stub piece's
+// those of the bard pages listing it, from which it comes.
+// shareTracking is a query parameter that can tie a shared link to its sharer.
+var shareTracking = regexp.MustCompile("[?&](?:si|utm_[a-z]+|fbclid|igshid|ab_channel|feature|pp)=")
+
+// TestBuild_URLsWithoutTrackingParameters: no imported link URL, nor any URL of a performance description, keeps a
+// tracking parameter, though the wiki writes many.
+func TestBuild_URLsWithoutTrackingParameters(t *testing.T) {
+	imp, _ := scrubbedImport(t)
+	written := 0
+	for _, pl := range scrubbedCorpus(t).Links.Pieces {
+		for _, o := range pl.Occurrences {
+			if shareTracking.MatchString(o.URL) {
+				written++
+			}
+		}
+	}
+	require.Positive(t, written)
+
+	for _, l := range imp.Links {
+		assert.NotRegexp(t, shareTracking, l.Link.URL)
+	}
+	for _, p := range imp.Pieces {
+		for _, l := range p.Doc.Links {
+			assert.NotRegexp(t, shareTracking, l.URL)
+			for _, perf := range l.Performances {
+				for _, e := range mediawiki.FindExternalLinks(perf.DescriptionVerbatim) {
+					assert.NotRegexp(t, shareTracking, e.URL, p.Doc.Title)
+				}
+			}
+		}
+	}
+}
+
 func TestBuild_ContributorsAreCreditedPerPage(t *testing.T) {
 	imp, review := scrubbedImport(t)
+	c := scrubbedCorpus(t)
+	activity := map[string][]string{}
+	for _, a := range c.Dump.Activity {
+		if a.NS == mediawiki.NSMain {
+			activity[a.Title] = slices.Collect(maps.Keys(a.Users))
+		}
+	}
+	listers := map[string][]string{}
+	for _, sp := range c.People.StubPieces {
+		for _, cr := range sp.Credits {
+			listers[sp.Title] = append(listers[sp.Title], activity[string(cr.Person)]...)
+		}
+	}
 
 	credited := 0
 	for _, p := range imp.Pieces {
-		if p.Doc.IsStub {
-			assert.Empty(t, p.Revision.Contributors, "a stub has no page to credit")
-			assert.Equal(t, domain.ImportSummaryStub, p.Revision.Summary)
-		} else if len(p.Revision.Contributors) > 0 {
-			credited++
+		if !p.Doc.IsStub {
+			if len(p.Revision.Contributors) > 0 {
+				credited++
+			}
+
+			continue
 		}
+		assert.Equal(t, domain.ImportSummaryStub, p.Revision.Summary)
+		require.NotNil(t, p.Legacy)
+		want := slices.Compact(slices.Sorted(slices.Values(listers[p.Legacy.Title])))
+		assert.NotEmpty(t, want, p.Doc.Title)
+		assert.ElementsMatch(t, want, p.Revision.Contributors, "%s: the listing bard pages' contributors", p.Doc.Title)
 	}
 	assert.Equal(t, 142, credited, "every piece page has contributors")
 	assert.NotEmpty(t, review.Contributors)

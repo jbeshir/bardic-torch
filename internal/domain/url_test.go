@@ -161,6 +161,38 @@ func TestNormalizeURL_StripsTrackingParameters(t *testing.T) {
 	runURLCases(t, trackingParameterCases)
 }
 
+// TestWithoutTrackingParameters: what NormalizeURL drops as tracking is dropped, the rest keeps its spelling, and
+// the result normalizes as the URL does.
+func TestWithoutTrackingParameters(t *testing.T) {
+	t.Parallel()
+	for raw, want := range map[string]string{
+		"https://Example.org/a?utm_source=x&b=1&fbclid=y#Top":         "https://Example.org/a?b=1#Top",
+		"https://example.org/a?utm_source=x":                          exampleA,
+		"https://example.org/a?si=keep":                               "https://example.org/a?si=keep",
+		"https://open.spotify.com/track/1?si=share1":                  "https://open.spotify.com/track/1",
+		"https://youtu.be/abcdefghijk?si=share1&t=10":                 "https://youtube.com/watch?t=10&v=abcdefghijk",
+		"https://www.youtube.com/watch?v=abcdefghijk&ab_channel=Name": "https://youtube.com/watch?v=abcdefghijk",
+		"https://www.youtube.com/@channel?si=share1":                  "https://www.youtube.com/@channel",
+		"www.example.org/a?b=1&&pp=x":                                 "www.example.org/a?b=1",
+		exampleA:                                                      exampleA,
+		"mailto:a@example.invalid":                                    "mailto:a@example.invalid",
+	} {
+		got := WithoutTrackingParameters(raw)
+		assert.Equal(t, want, got, raw)
+		if n, err := NormalizeURL(raw); err == nil {
+			assert.Equal(t, n, mustNormalize(t, got), raw)
+		}
+	}
+}
+
+func mustNormalize(t *testing.T, raw string) string {
+	t.Helper()
+	n, err := NormalizeURL(raw)
+	require.NoError(t, err)
+
+	return n
+}
+
 func TestNormalizeURL_KeepsMeaningfulParameters(t *testing.T) {
 	t.Parallel()
 	runURLCases(t, meaningfulParameterCases)

@@ -534,7 +534,7 @@ WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 -- URLs these rows hold.
 
 -- name: ListLinksByNormalizedURL :many
-SELECT normalized_url, is_hidden
+SELECT normalized_url, url, is_hidden
 FROM links
 WHERE normalized_url IN (sqlc.slice('normalized_urls'));
 

@@ -20,19 +20,22 @@ type Item struct {
 	Text string `json:"text"`
 }
 
-// Counts are what the import holds, for the review's introduction.
+// Counts are what the import holds, for the review's introduction, with two counts of what it was read from: the
+// entries of the Collections page and the pieces that had inline lyrics.
 type Counts struct {
-	PiecesByKind map[string]int
-	StubPieces   int
-	Persons      int
-	Bards        int
-	StubPersons  int
-	Terms        int
-	Collections  int
-	Events       int
-	Links        int
-	HiddenLinks  int
-	Revisions    int
+	PiecesByKind       map[string]int
+	StubPieces         int
+	InlineLyricsPieces int
+	CollectionEntries  int
+	Persons            int
+	Bards              int
+	StubPersons        int
+	Terms              int
+	Collections        int
+	Events             int
+	Links              int
+	HiddenLinks        int
+	Revisions          int
 }
 
 // Review is the import review: the counts and one list of items per section, in RenderReview's order.

@@ -163,7 +163,7 @@ func normalized(t *testing.T, url string) string {
 // TestRepository_GetPublicRevision_LinksVisibleNow checks that a revision shows a link only if its normalized URL
 // is a link's that is not hidden now: not one deleted since, one given another URL and then hidden, or one whose
 // path differs in case from a hidden or visible link's. A URL that differs from a visible link's only in the
-// case of its host is the same link, and shows.
+// case of its host is the same link, and shows under the link's URL.
 func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
 	t.Parallel()
 
@@ -189,7 +189,7 @@ func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
 	later := laterPieceRevision(c, piece, title, visiblePath, visibleHost)
 
 	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
-	assert.Equal(t, []string{visibleHost}, snapshot)
+	assert.Equal(t, []string{visible}, snapshot)
 	assert.Equal(t, []string{visible}, base)
 }
 
@@ -219,8 +219,8 @@ func TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted(t *testin
 }
 
 // TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown checks that a link edited to another spelling of
-// its URL, with the same normalized URL, is still shown, as entered, in a revision holding the spelling it had
-// before.
+// its URL, with the same normalized URL, is still shown, under its URL now, in a revision holding the spelling it
+// had before: a revision never shows a spelling, such as its tracking parameters, that the link no longer holds.
 func TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown(t *testing.T) {
 	t.Parallel()
 
@@ -238,14 +238,14 @@ func TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown(t *testing.
 
 	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
 	assert.Equal(t, []string{respelt}, snapshot)
-	assert.Equal(t, []string{entered}, base)
+	assert.Equal(t, []string{respelt}, base)
 }
 
 // TestRepository_GetPublicRevision_NonASCIILinkURL checks that a revision whose links hold non-ASCII URLs reads
 // and keeps its redaction. A non-ASCII URL is matched by its normalized form, which percent-encodes it, so it is
 // never compared with the ASCII normalized_url column as it is (which MySQL refuses, error 3988): it is shown if
-// a visible link has its normalized URL, however that link's URL was entered, and dropped if a hidden link has it
-// or no link does.
+// a visible link has its normalized URL, under that link's URL however the revision spelt it, and dropped if a
+// hidden link has it or no link does.
 func TestRepository_GetPublicRevision_NonASCIILinkURL(t *testing.T) {
 	t.Parallel()
 
@@ -265,6 +265,6 @@ func TestRepository_GetPublicRevision_NonASCIILinkURL(t *testing.T) {
 	later := laterPieceRevision(c, piece, title, shownRaw, hiddenRaw, unknownRaw, shownEncoded, hiddenEncoded)
 
 	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
-	assert.Equal(t, []string{shownRaw, shownEncoded}, snapshot)
+	assert.Equal(t, []string{shownRaw, shownRaw}, snapshot)
 	assert.Equal(t, []string{shownRaw}, base)
 }

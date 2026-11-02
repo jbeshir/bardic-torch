@@ -38,7 +38,7 @@ func TestSectionKey_Variants(t *testing.T) {
 		"Licencing and Etiquette":          SectionLicensingEtiquette,
 		"Performances & Recordings":        SectionPerformancesRecordings,
 		"Performance and Recordings":       SectionPerformancesRecordings,
-		"Sheet Music":                      SectionSheetMusic,
+		sheetMusicHeading:                  SectionSheetMusic,
 		"Dancing Instructions":             SectionDancingInstructions,
 		"Timeline of Text Sources":         SectionTextSources,
 		"Bard's Website":                   SectionWebsite,

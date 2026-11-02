@@ -20,7 +20,8 @@ type TextSpan struct {
 }
 
 // PerformanceText is what the wording of one performance item says, as written: who uploaded the recording and
-// where, the linked performers, the event, the year and the piece sung. Offsets are offsets into the item.
+// where, the linked performers, the event, the year, the piece sung and every page link, in order. Offsets are
+// offsets into the item.
 type PerformanceText struct {
 	Uploader   TextSpan
 	Platform   string
@@ -28,6 +29,7 @@ type PerformanceText struct {
 	Event      TextSpan
 	Year       int
 	Piece      string
+	PageLinks  []Wikilink
 }
 
 // platformName is a platform's name, which is capitalised: "YouTube", "BandCamp".
@@ -83,6 +85,7 @@ func ParsePerformanceText(item string, maxYear int) PerformanceText {
 		if l.Kind != WikilinkPage {
 			continue
 		}
+		res.PageLinks = append(res.PageLinks, l)
 		switch {
 		case pieceSung.MatchString(before):
 			res.Piece = l.Target
@@ -211,17 +214,57 @@ type PerformanceRecord struct {
 	Piece               string
 }
 
-// ParsePerformance reads one item of a performances section.
-func ParsePerformance(item ListItem, maxYear int) PerformanceRecord {
+// ParsePerformance reads one item of a performances section. A page link to a work (isWork) never names a
+// performer, whatever comes before it ("his original piece, [[W]]"); if the wording names no piece sung, the first
+// link to a work is the piece ("her song [[W]]", "performing [[W]] by …").
+func ParsePerformance(item ListItem, maxYear int, isWork func(target string) bool) PerformanceRecord {
 	verbatim := strings.TrimRightFunc(item.Raw, isSpace)
 	text := ParsePerformanceText(verbatim, maxYear)
 	rec := PerformanceRecord{DescriptionVerbatim: verbatim, Uploader: text.Uploader.Text, EventText: text.Event.Text,
 		Year: text.Year, Piece: text.Piece}
 	for _, l := range text.Performers {
-		rec.Performers = append(rec.Performers, l.Target)
+		if !isWork(l.Target) {
+			rec.Performers = append(rec.Performers, l.Target)
+		}
+	}
+	if rec.Piece == "" {
+		for _, l := range text.PageLinks {
+			if isWork(l.Target) {
+				rec.Piece = l.Target
+
+				break
+			}
+		}
 	}
 
 	return rec
+}
+
+// workTitles are the titles of the wiki's works: its piece pages and the red links of the bards' works lists.
+type workTitles struct {
+	site   Site
+	titles map[string]bool
+}
+
+func newWorkTitles(s Site, pieces []PieceRecord, bards []BardRecord) workTitles {
+	w := workTitles{site: s, titles: map[string]bool{}}
+	for _, p := range pieces {
+		w.titles[p.Title] = true
+	}
+	for _, b := range bards {
+		for _, e := range b.Works {
+			if !e.Exists {
+				w.titles[e.Target] = true
+			}
+		}
+	}
+
+	return w
+}
+
+// has reports whether a page link's target, read through redirects, is a work.
+func (w workTitles) has(target string) bool {
+	return w.titles[w.site.ResolveRedirect(target)]
 }
 
 // performanceItems are the items of a parsed page's performances sections, with the key of their section.

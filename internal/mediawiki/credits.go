@@ -69,14 +69,6 @@ type CreditRecord struct {
 	UnusedQualifiers []string
 }
 
-// creditPartQualifiers are the qualifiers that scope a credit to a part of a piece. A tune credit "(chorus tune)"
-// is the chorus's tune, so it is for the chorus.
-var creditPartQualifiers = map[string]domain.PiecePart{
-	"words": domain.PiecePartWords, "lyrics": domain.PiecePartWords, "tune": domain.PiecePartTune,
-	"music": domain.PiecePartTune, "verses": domain.PiecePartVerses, "verse": domain.PiecePartVerses,
-	"chorus": domain.PiecePartChorus, "chorus tune": domain.PiecePartChorus,
-}
-
 // certaintyWords are the words that qualify a credit's certainty, alone, before a name or in parentheses.
 var certaintyWords = map[string]domain.Certainty{
 	"possibly": domain.CertaintyPossible, "possible": domain.CertaintyPossible, "perhaps": domain.CertaintyPossible,
@@ -204,7 +196,7 @@ func qualify(c CreditRecord, qualifiers []ValueItem) CreditRecord {
 
 			continue
 		}
-		if part, ok := creditPartQualifiers[lower]; ok && q.Type == ValueText {
+		if part, ok := partQualifiers[lower]; ok && q.Type == ValueText {
 			c.Part = &part
 
 			continue

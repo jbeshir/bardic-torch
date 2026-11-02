@@ -74,7 +74,7 @@
           "performances": []
         },
         {
-          "url": "https://youtu.be/XmgUpSreHi4",
+          "url": "https://youtube.com/watch?v=XmgUpSreHi4",
           "title": "Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt singing her song at Midrealm Bardic Madness in 2012",
           "description": null,
           "platform": "youtube",
@@ -89,7 +89,7 @@
               "event_id": 30,
               "year": 2012,
               "uploader": null,
-              "description_verbatim": "[https://youtu.be/XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt singing her song at Midrealm Bardic Madness in 2012]",
+              "description_verbatim": "[https://youtube.com/watch?v=XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt singing her song at Midrealm Bardic Madness in 2012]",
               "performer_ids": []
             }
           ]
@@ -103,7 +103,7 @@
       "title": "Fight for the Midrealm"
     },
     "revision": {
-      "id": 498,
+      "id": 496,
       "summary": "Imported from the wiki (page revision 881).",
       "contributors": [
         "Wiki User 01"
@@ -125,19 +125,19 @@
       "text": "link https://youtu.be/XmgUpSreHi4, title: \"Legal Name 024\" was withheld. Context: \"Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s\"."
     },
     {
-      "id": "NAME-440",
+      "id": "NAME-423",
       "kind": "free_text",
       "page": "Fight for the Midrealm",
       "text": "performance item, uploader: \"Legal Name 024\" was withheld. Context: \"[name withheld]\"."
     },
     {
-      "id": "NAME-441",
+      "id": "NAME-424",
       "kind": "free_text",
       "page": "Fight for the Midrealm",
-      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"tps://youtu.be/XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s\"."
+      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"be.com/watch?v=XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair inghen ui h'Airt s\"."
     },
     {
-      "id": "NAME-442",
+      "id": "NAME-425",
       "kind": "uploader",
       "page": "Fight for the Midrealm",
       "text": "A performance item's uploader is withheld: the performance is imported without an uploader."
@@ -149,22 +149,22 @@
       "text": "credited_not_listed: \"Lasair inghen ui h'Airt\" (person Lasair inghen ui h’Airt)."
     },
     {
-      "id": "TITLE-034",
+      "id": "TITLE-037",
       "kind": "rejected",
       "page": "Fight for the Midrealm",
       "text": "Not imported: \"Voice of the Dragon\" (from the infobox_title): other_page."
     },
     {
-      "id": "LINK-195",
+      "id": "LINK-205",
       "kind": "normalised",
       "page": "Fight for the Midrealm",
       "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "PERF-249",
+      "id": "PERF-225",
       "kind": "incomplete",
       "page": "Fight for the Midrealm",
-      "text": "A performance item has no performer the importer could read: \"[https://youtu.be/XmgUpSreHi4 Recording by [name withheld] on YouTube of Lasair …\"."
+      "text": "A performance item has no performer the importer could read: \"[https://youtu.be/XmgUpSreHi4 Recording by Legal Name 024 on YouTube of Lasair i…\"."
     }
   ]
 }

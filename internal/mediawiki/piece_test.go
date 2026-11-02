@@ -70,6 +70,7 @@ func TestParsePiece_TermsFromCategories(t *testing.T) {
 	assert.Equal(t, []string{wren}, p.BardNameCategories)
 }
 
+// TestParsePiece_PartQualifiers: "(chorus tune)" scopes an origin to the chorus, as it does a credit.
 func TestParsePiece_PartQualifiers(t *testing.T) {
 	text := pieceWikitext(aSong, [][2]string{
 		{"culture", categoryLink(catWelsh) + " (" + categoryLink(catPatrioticWales) + ") (chorus tune)"},
@@ -80,8 +81,8 @@ func TestParsePiece_PartQualifiers(t *testing.T) {
 
 	part := func(p domain.PiecePart) *domain.PiecePart { return &p }
 	assert.Equal(t, []PieceTerm{
-		{Category: catWelsh, IsPrimary: true, Part: part(domain.PiecePartTune)},
-		{Category: catPatrioticWales, IsPrimary: true, Part: part(domain.PiecePartTune)},
+		{Category: catWelsh, IsPrimary: true, Part: part(domain.PiecePartChorus)},
+		{Category: catPatrioticWales, IsPrimary: true, Part: part(domain.PiecePartChorus)},
 		{Category: catSCAPieces, IsPrimary: true, Part: part(domain.PiecePartVerses)},
 		{Category: catContrafacta, Part: part(domain.PiecePartChorus)},
 	}, p.Terms)
@@ -204,7 +205,8 @@ func TestScrubbedPieces_Examples(t *testing.T) {
 	assert.Contains(t, three.Terms, PieceTerm{Category: catSCAPieces, IsPrimary: true,
 		Part: part(domain.PiecePartVerses)})
 	assert.Contains(t, three.Terms, PieceTerm{Category: catContrafacta, Part: part(domain.PiecePartChorus)})
-	assert.Contains(t, three.Terms, PieceTerm{Category: catSephardic, IsPrimary: true, Part: part(domain.PiecePartTune)})
+	assert.Contains(t, three.Terms, PieceTerm{Category: catSephardic, IsPrimary: true,
+		Part: part(domain.PiecePartChorus)}, "(chorus tune): the chorus")
 
 	assert.Equal(t, []domain.PieceKind{domain.PieceKindInstrumental}, pieces["Burden of the Crown"].SecondaryKinds)
 	assert.Equal(t, domain.ConservationStatusCriticallyEndangered, pieces["Oathkeeping"].Conservation())

@@ -129,6 +129,20 @@ func TestPieceFields_NotesFromLeadNotesAndOtherSections(t *testing.T) {
 	assert.Equal(t, "- 1590: [A source](https://example.invalid/s)", p.Content.HistoricalSourceMD)
 }
 
+// TestPieceFields_LinkSectionProseInNotes: the prose of a link section, but its links, is in the notes under the
+// section's heading; as many lines as inline lyrics are never kept, only counted.
+func TestPieceFields_LinkSectionProseInNotes(t *testing.T) {
+	text := pieceWikitext(aSong, nil,
+		"Key Links", "* [https://example.invalid/a A link] adapted by [[Ash Placeholder]]\n"+
+			"The tune was published in 1588.\n----\n*",
+		sheetMusicHeading, "One.\nTwo.\nThree.\nFour.\n* [https://example.invalid/s Score]")
+	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
+
+	assert.Equal(t, "### Key Links\n\nThe tune was published in 1588.", p.Content.NotesMD)
+	assert.Equal(t, []LinkSectionProse{{Heading: "Key Links", Lines: 1, Kept: true},
+		{Heading: sheetMusicHeading, Lines: 4, Kept: false}}, p.Content.LinkSectionProse)
+}
+
 func TestPieceFields_LicensingHintsStripped(t *testing.T) {
 	text := pieceWikitext(aSong, nil, "Licensing & Etiquette",
 		"Information about licensing, permissions, and performance etiquette should always be sourced from the "+

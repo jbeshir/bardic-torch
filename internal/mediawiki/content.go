@@ -10,7 +10,7 @@ import (
 
 // PieceContent is a piece's prose, as Markdown, taken from its wikitext after the inline lyrics are dropped:
 //   - NotesMD: the lead (without the H1, infobox and "Also known as" lines), Notes and unrecognised sections, each
-//     of the latter under its heading;
+//     of the latter under its heading, and the prose of the link sections (LinkSectionProse) under theirs;
 //   - VersionNotesMD: the version commentary of the Lyrics and Text sections (their prose when it is under
 //     InlineLyricsMinLines lines);
 //   - LicensingNotesMD: Licensing & Etiquette without its hints and the "cannot find" sentence;
@@ -22,6 +22,7 @@ import (
 // Sections nested under a Lyrics or Text section go nowhere.
 type PieceContent struct {
 	NotesMD            string
+	LinkSectionProse   []LinkSectionProse
 	VersionNotesMD     string
 	LicensingNotesMD   string
 	HistoricalSourceMD string
@@ -30,6 +31,21 @@ type PieceContent struct {
 	PeriodStart        *int16
 	PeriodEnd          *int16
 	PeriodCategories   []string
+}
+
+// LinkSectionProse is the prose of a link section (Key Links, Sheet Music, Dancing Instructions, Translations), for
+// the import review: its heading, its number of lines and whether they are in the notes. Prose of
+// InlineLyricsMinLines lines or more could be lyrics, so it is never kept.
+type LinkSectionProse struct {
+	Heading string
+	Lines   int
+	Kept    bool
+}
+
+// linkSections are the sections of a piece's links whose prose goes to the notes. A line with an external link
+// is a link, and its text the link's description; performance items are performances.
+var linkSections = map[SectionKey]bool{
+	SectionKeyLinks: true, SectionSheetMusic: true, SectionDancingInstructions: true, SectionTranslations: true,
 }
 
 // DroppedLyrics is what InlineLyricsBlocks dropped from a piece, by section, for the import review: never the
@@ -140,9 +156,9 @@ func pieceContent(r PieceRecord, s Site, versionWikitext string) PieceContent {
 		case sec.Key == SectionLead || sec.Key == SectionTitle || sec.Key == SectionNotes:
 			notes = appendNonEmpty(notes, WikitextToMarkdown(body))
 		case sec.Key.IsOther():
-			if md := WikitextToMarkdown(body); md != "" {
-				notes = append(notes, notesSectionMD+markdownEscapes.Replace(Plain(sec.Heading))+"\n\n"+md)
-			}
+			notes = appendSection(notes, sec, body)
+		case linkSections[sec.Key]:
+			notes = appendSection(notes, sec, c.linkSection(sec, body))
 		case sec.Key == SectionLicensingEtiquette:
 			c.licensing(sec, body)
 		case sec.Key == SectionTextSources:
@@ -206,6 +222,41 @@ func (c *PieceContent) period(terms []PieceTerm, plan TermPlan) {
 		}
 		c.PeriodCategories = append(c.PeriodCategories, t.Category)
 	}
+}
+
+// linkSection is the prose of a link section to keep in the notes, as wikitext (linkSectionProse), recorded in
+// LinkSectionProse: none if it is as long as inline lyrics.
+func (c *PieceContent) linkSection(sec PageSection, body string) string {
+	prose, lines := linkSectionProse(body)
+	if WikitextToMarkdown(prose) == "" {
+		return ""
+	}
+	kept := lines < InlineLyricsMinLines
+	c.LinkSectionProse = append(c.LinkSectionProse, LinkSectionProse{Heading: Plain(sec.Heading), Lines: lines,
+		Kept: kept})
+	if !kept {
+		return ""
+	}
+
+	return prose
+}
+
+// ruleLine is a horizontal rule, or a list marker with nothing after it.
+var ruleLine = regexp.MustCompile(`^(?:-{4,}|[*#:]+)$`)
+
+// linkSectionProse is the prose of a link section's body (proseOf), as wikitext, and its number of lines: the lines
+// that carry no external link and are not rules or empty.
+func linkSectionProse(body string) (string, int) {
+	var kept []string
+	for _, line := range strings.Split(body, "\n") {
+		t := trimSpace(line)
+		if t == "" || ruleLine.MatchString(t) || len(FindExternalLinks(MaskNowiki(t))) > 0 {
+			continue
+		}
+		kept = append(kept, line)
+	}
+
+	return strings.Join(kept, "\n"), len(kept)
 }
 
 // proseOf is a section's body without its infobox call and the lines that are not prose: hints, category tags

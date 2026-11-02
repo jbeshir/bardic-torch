@@ -33,7 +33,8 @@ with `go tool`, so nothing needs installing.
 - **Importer domain rules** (`internal/domain`): `NormalizeURL` (`url_test.go`: one table per rule, each row also
   checked for idempotence, `TestNormalizeURL_Rejects` with `errors.Is(err, ErrInvalidURL)`, and `FuzzNormalizeURL`,
   seeded with the table rows and every URL of the scrubbed wiki dump, for ASCII, `url.Parse`-able, at most 2048-byte and idempotent output; `go test -fuzz
-  FuzzNormalizeURL ./internal/domain/` explores further); `FoldLetters`, `Slugify` and `SlugAllocator`
+  FuzzNormalizeURL ./internal/domain/` explores further), `TestWithoutTrackingParameters` (only what normalising
+  drops as tracking goes, and the result normalizes alike); `FoldLetters`, `Slugify` and `SlugAllocator`
   (`slug_test.go`), `SortTitle` and `SortLetter` (`sort_key_test.go`, including every transliteration and that each
   letter parses with `ParseLetter`); and `TermClosure` (`term_closure_test.go`: self rows, cycles, depth over 3).
 - **Wiki dump and wikitext** (`internal/mediawiki`, synthetic `fstest.MapFS` and strings only, with placeholder
@@ -63,8 +64,8 @@ with `go tool`, so nothing needs installing.
   (`TestPieceTitles_*`: infobox splits, H1 parentheticals as titles, other_titles and "Also known as" lines, other
   pages' titles and category words rejected, unparsed prose listed, redirects); content fields
   (`TestWikitextToMarkdown`, `TestPieceFields_*`: dropped lyrics absent from every field by reflection, version
-  notes kept, licensing hints stripped, "public domain" a review fact and never a licence, the period from century
-  origins). On the scrubbed copy, `TestScrubbedPieces_ResearchCounts` asserts 142 pieces (135/4/2/1 by kind), 11
+  notes kept, the prose of link sections in the notes unless as long as lyrics, licensing hints stripped, "public
+  domain" a review fact and never a licence, the period from century origins). On the scrubbed copy, `TestScrubbedPieces_ResearchCounts` asserts 142 pieces (135/4/2/1 by kind), 11
   with inline lyrics, 11 assessed and the drift of 13/24/4 pages, and `TestScrubbedPieces_NoLyricMarkerInAnyField`
   that no placeholder lyric reaches a record.
 - **Credits, persons and red links** (`internal/mediawiki`, synthetic wikis and the scrubbed copy): credits
@@ -78,7 +79,7 @@ with `go tool`, so nothing needs installing.
   ambiguity as a stub with candidates, hidden aliases that match but never name a person, names with digits never
   fuzzy, stubs by folded name with their kind guess); the signal union (`TestUnion_*`: category-only and
   works-list-only credits as lyrics/possible, no credit for a related person, the reference's disagreements, stub
-  pieces and case variants) and red links (`TestRedLinks_Keys`, `TestClassifyRedLink_*`). On the scrubbed copy,
+  pieces credited probable to the listing bards, and case variants) and red links (`TestRedLinks_Keys`, `TestClassifyRedLink_*`). On the scrubbed copy,
   `TestScrubbedPeople_ResearchCounts` asserts 48 bards, red links 180/22/1 classified 78 works, 40 credits, 2 prose
   persons, 58 performers, 22 categories, 1 malformed URL and 2 not imported, 78 stub pieces and the 15/4
   disagreement pages, and `TestScrubbedPeople_*` the examples (Lasair's two spellings, Dunstan, Samantha Moore,
@@ -92,9 +93,12 @@ with `go tool`, so nothing needs installing.
   exact URL first, a fragment aside, the longest prefix only for website-like kinds off shared document hosts,
   ties matching none); performances (`TestParsePerformance_*`, `TestParsePerformanceText_EventCapitalisedAndCut`,
   `TestPlacePerformance_*`: on the piece page's link, a bard page's performance of a known piece recorded once on
-  the piece, repeated and unlinked items listed), events (`TestEvents_*`: one per folded name, venue pages,
+  the piece, repeated and unlinked items listed; `TestParsePerformance_WorkLinkIsThePieceNotAPerformer`: a link to
+  a work, after a comma included, is the piece and never a performer), events (`TestEvents_*`: one per folded name, venue pages,
   similar names listed), performers (`TestPerformers_ResolveToBardsAndStubs`), canonical links per normalised URL
-  with conflicts (`TestParseLinks_CanonicalPerURL`) and profile links of infobox credits. On the scrubbed copy,
+  with conflicts (`TestParseLinks_CanonicalPerURL`; `TestParseLinks_PageSpecificFieldsNeverFromAnotherPage`: a
+  PDF cited at different pages is a link per page with its own locator, and a title or description the pages
+  disagree on is never one page's) and profile links of infobox credits. On the scrubbed copy,
   `TestScrubbedLinks_ResearchCounts` asserts 62 collection entries (61 collections, the West Kingdom duplicate
   merged), 2 nested, 1 not bardic, the 12 kinds, 112 tracking-parameter URLs, 35 pages repeating a URL and 2 bare
   URLs, and `TestScrubbedLinks_*` the examples (the Green Dragon venue, Marian of Heatherdale matched to Heather
@@ -105,11 +109,13 @@ with `go tool`, so nothing needs installing.
   decoding, column widths, collation-folded uniques, child primary keys, CHECKs, references, the insert order of
   term parents and related affiliations, link rows, the closure, NFC), each failing with `ErrInvalidImport` and
   never showing the value. `TestBuild_*` cover revisions and contributors, neutral summaries, stable slug
-  collisions, sort keys, the closure, legacy URLs as status and conservation sources, hidden, redirect and unsure
+  collisions, sort keys, the closure, status sources (`TestBuild_PersonStatusSource`: the link the date is read
+  from unless it is hidden, else the wiki page) and conservation sources (the piece's own page), hidden, redirect and unsure
   aliases, every kind of free text withheld and every entity named by a legal name left out
   (`TestBuild_FreeTextContainingHiddenAliasListed`, `TestBuild_StubPersonWithLegalNameNotCreated`), a public alias
   holding a hidden alias hidden (`TestBuild_PublicAliasHoldingHiddenAliasHidden`), emails, one link row per
-  normalised URL, legacy columns, NFC and determinism. `TestWithholder_*` pin the withholder: legal names in names,
+  normalised URL, URLs without tracking parameters (`TestBuild_URLsWithoutTrackingParameters`), stub pieces
+  crediting the listing bard pages' contributors, legacy columns, NFC and determinism. `TestWithholder_*` pin the withholder: legal names in names,
   unsure names in free text only, overlapping forms withheld once, whole wikilinks, URLs hidden only by a legal
   name and listed for an unsure name or a home directory. On the scrubbed copy, `TestBuild_ResearchCounts` asserts
   142 pieces (135/4/2/1), 48 bards, 62 collection entries (61 collections, written or withheld) and 11 pieces with

@@ -43,7 +43,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 81,
+          "person_id": 80,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -51,7 +51,7 @@
           "note": null
         },
         {
-          "person_id": 81,
+          "person_id": 80,
           "role": "tune",
           "attribution": "named",
           "certainty": "certain",
@@ -74,7 +74,7 @@
           "performances": []
         },
         {
-          "url": "https://youtu.be/7lyp8SRDzbg?si=eYFirpi3AdLPUd-y",
+          "url": "https://youtube.com/watch?v=7lyp8SRDzbg",
           "title": "Recording by Cerian Cantwr on YouTube",
           "description": null,
           "platform": "youtube",
@@ -89,7 +89,7 @@
               "event_id": null,
               "year": 2023,
               "uploader": "Cerian Cantwr",
-              "description_verbatim": "[https://youtu.be/7lyp8SRDzbg?si=eYFirpi3AdLPUd-y Recording by Cerian Cantwr on YouTube] of [[Sadb ingen Donnchadha]] singing Voice of the Dragon in 2023",
+              "description_verbatim": "[https://youtube.com/watch?v=7lyp8SRDzbg Recording by Cerian Cantwr on YouTube] of [[Sadb ingen Donnchadha]] singing Voice of the Dragon in 2023",
               "performer_ids": [
                 18
               ]
@@ -105,7 +105,7 @@
       "title": "Voice of the Dragon"
     },
     "revision": {
-      "id": 497,
+      "id": 495,
       "summary": "Imported from the wiki (page revision 880).",
       "contributors": [
         "Wiki User 01"
@@ -115,25 +115,25 @@
   },
   "review": [
     {
-      "id": "STUB-108",
+      "id": "STUB-107",
       "kind": "stub_person",
       "page": "Voice of the Dragon",
       "text": "Stub person \"Emil Allzuwissender\" (community_bard), named on 3 page(s)."
     },
     {
-      "id": "LINK-194",
+      "id": "LINK-204",
       "kind": "normalised",
       "page": "Voice of the Dragon",
       "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "PERF-248",
+      "id": "PERF-224",
       "kind": "incomplete",
       "page": "Voice of the Dragon",
       "text": "A performance item has no event the importer could read: \"[https://youtu.be/7lyp8SRDzbg?si=eYFirpi3AdLPUd-y Recording by Cerian Cantwr on …\"."
     },
     {
-      "id": "PERSON-124",
+      "id": "PERSON-123",
       "kind": "stub_kind",
       "page": "Voice of the Dragon",
       "text": "Stub person \"Emil Allzuwissender\" (named on 3 page(s)) is guessed to be community_bard."

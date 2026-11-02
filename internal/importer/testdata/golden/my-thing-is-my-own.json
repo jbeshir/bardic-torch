@@ -48,7 +48,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 140,
+          "person_id": 139,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -68,7 +68,7 @@
         {
           "url": "https://en.wikipedia.org/wiki/Wit_and_Mirth,_or_Pills_to_Purge_Melancholy",
           "title": "Wit and Mirth: Or Pills to Purge Melancholy",
-          "description": null,
+          "description": "The song is from , a collection of songs by Thomas d'Urfey published between 1698 and 1720",
           "platform": "wikipedia",
           "place_type": null,
           "collection_id": null,
@@ -126,7 +126,7 @@
       "title": "My Thing is My Own"
     },
     "revision": {
-      "id": 483,
+      "id": 481,
       "summary": "Imported from the wiki (page revision 814).",
       "contributors": [
         "Wiki User 01"
@@ -136,7 +136,7 @@
   },
   "review": [
     {
-      "id": "NAME-128",
+      "id": "NAME-126",
       "kind": "free_text",
       "page": "My Thing is My Own",
       "text": "link https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own, title: \"Legal Name 073\" was withheld. Context: \"n Cunnan, a Lochac wiki, taken from the [name withheld] Songbook\"."
@@ -148,19 +148,19 @@
       "text": "missing_bard_category: \"Thomas d'Urfey\" (person Thomas d'Urfey)."
     },
     {
-      "id": "STUB-167",
+      "id": "STUB-166",
       "kind": "stub_person",
       "page": "My Thing is My Own",
       "text": "Stub person \"Thomas d'Urfey\" (community_bard), named on 1 page(s)."
     },
     {
-      "id": "LINK-171",
+      "id": "LINK-181",
       "kind": "normalised",
       "page": "My Thing is My Own",
       "text": "2 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "PERSON-183",
+      "id": "PERSON-182",
       "kind": "stub_kind",
       "page": "My Thing is My Own",
       "text": "Stub person \"Thomas d'Urfey\" (named on 1 page(s)) is guessed to be historical."

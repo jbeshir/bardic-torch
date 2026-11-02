@@ -14,7 +14,7 @@
         "source_url": null
       },
       "is_stub": false,
-      "notes_md": null,
+      "notes_md": "### Key Links\n\n- Note: Auld Lang Syne is sung in Scots. This wiki uses \\[\\[:Category:Gaelic|Gaelic\\] as an overarching category for Scottish/Irish work.",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": "Auld Lang Syne is in the public domain.",
@@ -53,7 +53,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 123,
+          "person_id": 122,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -98,7 +98,7 @@
           "performances": []
         },
         {
-          "url": "https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA",
+          "url": "https://youtube.com/watch?v=i_eoiRvdp-A",
           "title": "Auld Lang Syne sung by [name withheld]",
           "description": null,
           "platform": "youtube",
@@ -113,7 +113,7 @@
               "event_id": null,
               "year": null,
               "uploader": null,
-              "description_verbatim": "[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld]]",
+              "description_verbatim": "[https://youtube.com/watch?v=i_eoiRvdp-A Auld Lang Syne sung by [name withheld]]",
               "performer_ids": []
             }
           ]
@@ -127,7 +127,7 @@
       "title": "Auld Lang Syne"
     },
     "revision": {
-      "id": 409,
+      "id": 407,
       "summary": "Imported from the wiki (page revision 891).",
       "contributors": [
         "Wiki User 01"
@@ -137,49 +137,55 @@
   },
   "review": [
     {
-      "id": "NAME-066",
+      "id": "NAME-063",
       "kind": "free_text",
       "page": "Auld Lang Syne",
       "text": "link https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA, title: \"Legal Name 060\" was withheld. Context: \"Auld Lang Syne sung by [name withheld]\"."
     },
     {
-      "id": "NAME-296",
+      "id": "NAME-278",
       "kind": "free_text",
       "page": "Auld Lang Syne",
-      "text": "performance item, description: \"Legal Name 060\" was withheld. Context: \"7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name withheld]]\"."
+      "text": "performance item, description: \"Legal Name 060\" was withheld. Context: \"ch?v=i_eoiRvdp-A Auld Lang Syne sung by [name withheld]]\"."
     },
     {
-      "id": "STUB-150",
+      "id": "STUB-149",
       "kind": "stub_person",
       "page": "Auld Lang Syne",
       "text": "Stub person \"Robert Burns\" (community_bard), named on 2 page(s)."
     },
     {
-      "id": "LINK-077",
+      "id": "LINK-001",
+      "kind": "section_prose",
+      "page": "Auld Lang Syne",
+      "text": "Section \"Key Links\": 1 line(s) of prose that are not links are imported into the notes, under the section's heading."
+    },
+    {
+      "id": "LINK-087",
       "kind": "normalised",
       "page": "Auld Lang Syne",
       "text": "2 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
     },
     {
-      "id": "LINK-078",
+      "id": "LINK-088",
       "kind": "repeated",
       "page": "Auld Lang Syne",
       "text": "URLs written more than once, imported once each: https://en.wikipedia.org/wiki/Auld_Lang_Syne."
     },
     {
-      "id": "LINK-079",
+      "id": "LINK-089",
       "kind": "roles",
       "page": "Auld Lang Syne",
       "text": "https://en.wikipedia.org/wiki/Auld_Lang_Syne has several roles: other, lyrics."
     },
     {
-      "id": "PERF-127",
+      "id": "PERF-103",
       "kind": "incomplete",
       "page": "Auld Lang Syne",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by [name w…\"."
+      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by Legal N…\"."
     },
     {
-      "id": "PERSON-166",
+      "id": "PERSON-165",
       "kind": "stub_kind",
       "page": "Auld Lang Syne",
       "text": "Stub person \"Robert Burns\" (named on 2 page(s)) is guessed to be historical."

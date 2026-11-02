@@ -44,7 +44,8 @@ type PersonRelation struct {
 //   - Roles: from the performer-type categories;
 //   - Affiliations: the categories that are affiliation terms (TermPlan); DroppedCategories are the categories
 //     that give the bard nothing (the Kingdom Name placeholder), for review;
-//   - Status: deceased for In Memoriam, with StatusDate from a "Deceased <date>" line;
+//   - Status: deceased for In Memoriam, with StatusDate from a "Deceased <date>" line and StatusSourceURL the URL
+//     of the external link on that line (an obituary), if it has one;
 //   - LicensingStatus and LicensingNotesMD: as for pieces; the "cannot find" sentence means unknown;
 //   - NotesMD: the lead, Notes, unrecognised sections (StrayHeadings are those whose heading is the page title,
 //     listed for review) and the Affiliations section's prose, as Markdown;
@@ -63,6 +64,7 @@ type BardRecord struct {
 	DroppedCategories []string
 	Status            domain.PersonStatus
 	StatusDate        *domain.Date
+	StatusSourceURL   string
 	LicensingStatus   domain.LicensingStatus
 	LicensingNotesMD  string
 	NotesMD           string
@@ -113,6 +115,7 @@ func ParseBard(p Page, s Site) BardRecord {
 	if p.HasCategory(CategoryInMemoriam) {
 		b.Status = domain.PersonStatusDeceased
 		b.StatusDate = statusDate(Plain(repaired))
+		b.StatusSourceURL = statusSource(repaired)
 	}
 	var notes []string
 	for _, sec := range parsed.Sections {
@@ -199,6 +202,17 @@ func statusDate(text string) *domain.Date {
 	}
 
 	return nil
+}
+
+// statusSource is the URL of the first external link on a "Deceased <date>" line of a wikitext, or empty.
+func statusSource(wikitext string) string {
+	for _, line := range strings.Split(wikitext, "\n") {
+		if links := FindExternalLinks(line); len(links) > 0 && deceasedDate.MatchString(Plain(line)) {
+			return links[0].URL
+		}
+	}
+
+	return ""
 }
 
 // appendSection appends a section's prose to notes under its heading, if it has any.

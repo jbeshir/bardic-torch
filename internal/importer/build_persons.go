@@ -16,6 +16,9 @@ const historicalBefore = 1900
 // persons too.
 const traditionalCategory = "Traditional & Folk"
 
+// scaPiecesCategory is the origin category of pieces written in the SCA.
+const scaPiecesCategory = "SCA Pieces"
+
 func (b *builder) buildPersons() {
 	links := map[mediawiki.PersonRef][]mediawiki.LinkRecord{}
 	for _, pl := range b.c.Links.Persons {
@@ -44,10 +47,7 @@ func (b *builder) bard(bard mediawiki.BardRecord, links []mediawiki.LinkRecord) 
 		Aliases:          b.personAliases(bard), Roles: uniqueOf(bard.Roles), AffiliationIDs: []int64{},
 		Relations: []domain.DocPersonRelation{}, Links: b.personLinks(links), Preferences: []domain.DocPreference{}}
 	if bard.Status != domain.PersonStatusActive {
-		doc.StatusSourceURL = optional(bard.URL)
-		b.review.Persons = append(b.review.Persons, item("status", bard.Title,
-			"Status %s (date: %s) from the In Memoriam category, sourced to the wiki page.", bard.Status,
-			dateText(bard.StatusDate)))
+		b.status(&doc, bard)
 	}
 	for _, cat := range bard.Affiliations {
 		if tid, ok := b.termIDs[cat]; ok && !slices.Contains(doc.AffiliationIDs, tid) {
@@ -131,6 +131,19 @@ func (b *builder) personAliases(bard mediawiki.BardRecord) []domain.DocPersonAli
 	return out
 }
 
+// status sources a bard's status to the link its date was read from (StatusSourceURL), or else to the wiki page.
+// A link that holds a legal name in its URL, which is imported hidden, is never a source.
+func (b *builder) status(doc *domain.PersonDocument, bard mediawiki.BardRecord) {
+	source, from := bard.URL, "the wiki page"
+	if bard.StatusSourceURL != "" && !b.w.hidesURL(bard.StatusSourceURL) {
+		source, from = bard.StatusSourceURL, "the link its date is read from"
+	}
+	doc.StatusSourceURL = optional(source)
+	b.review.Persons = append(b.review.Persons, item("status", bard.Title,
+		"Status %s (date: %s) from the In Memoriam category, sourced to %s: %s.", bard.Status,
+		dateText(bard.StatusDate), from, source))
+}
+
 // aliasItems are the alias review items of one person.
 type aliasItems struct {
 	unsure []Item
@@ -146,25 +159,28 @@ func confidence(confident bool) string {
 }
 
 // historicalCredits are the persons credited on a piece of a traditional origin (traditionalCategory) or of a
-// century origin before historicalBefore.
+// century origin before historicalBefore. On a piece that is also of the SCA (scaPiecesCategory or
+// contrafactaCategory), such as new words to a traditional tune, only the tune's credits are: its words are modern.
 func (b *builder) historicalCredits() map[mediawiki.PersonRef]bool {
 	out := map[mediawiki.PersonRef]bool{}
 	for _, p := range b.c.Pieces {
 		period := p.Content.PeriodStart != nil && int(*p.Content.PeriodStart) < historicalBefore
-		traditional := slices.ContainsFunc(p.Terms, func(t mediawiki.PieceTerm) bool {
-			return t.Category == traditionalCategory
-		})
-		if !period && !traditional {
+		if !period && !hasTerm(p, traditionalCategory) {
 			continue
 		}
+		modern := hasTerm(p, scaPiecesCategory) || hasTerm(p, contrafactaCategory)
 		for _, c := range b.c.People.Credits[p.PageID] {
-			if c.Person != "" {
+			if c.Person != "" && (!modern || c.Role == domain.CreditRoleTune) {
 				out[c.Person] = true
 			}
 		}
 	}
 
 	return out
+}
+
+func hasTerm(p mediawiki.PieceRecord, category string) bool {
+	return slices.ContainsFunc(p.Terms, func(t mediawiki.PieceTerm) bool { return t.Category == category })
 }
 
 func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecord,
@@ -184,8 +200,14 @@ func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecor
 		Status: domain.PersonStatusActive, LicensingStatus: domain.LicensingStatusUnknown, IsStub: true,
 		Aliases: []domain.DocPersonAlias{}, Roles: []domain.PersonRole{}, AffiliationIDs: []int64{},
 		Relations: []domain.DocPersonRelation{}, Links: b.personLinks(links), Preferences: []domain.DocPreference{}}
+	check := ""
+	if slices.ContainsFunc(s.Mentions, func(m mediawiki.PersonMention) bool {
+		return m.Name.Form == mediawiki.NameExternalLink
+	}) {
+		check = " Credited by an external link: check whether historical or a group."
+	}
 	b.review.Persons = append(b.review.Persons, item("stub_kind", page,
-		"Stub person %q (named on %d page(s)) is guessed to be %s.", name, len(s.Mentions), kind))
+		"Stub person %q (named on %d page(s)) is guessed to be %s.%s", s.Name, len(s.Mentions), kind, check))
 	person := domain.ImportedPerson{ID: id, Slug: b.slugs.Allocate(name, domain.SlugEntityTypePerson, id),
 		SortName: name, SortLetter: domain.SortLetter(name), Doc: doc, Revision: b.revision(nil,
 			domain.ImportSummaryStub)}

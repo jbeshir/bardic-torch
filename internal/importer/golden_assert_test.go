@@ -149,7 +149,8 @@ func TestGoldenAssert_MalkinGrey(t *testing.T) {
 	require.NotNil(t, person.Doc.StatusDate)
 	assert.Equal(t, "2020-10-31", person.Doc.StatusDate.Format("2006-01-02"))
 	require.NotNil(t, person.Doc.StatusSourceURL)
-	assert.Equal(t, "https://bardictorch.miraheze.org/wiki/Malkin_Grey", *person.Doc.StatusSourceURL)
+	assert.Equal(t, "http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/",
+		*person.Doc.StatusSourceURL, "the obituary the date is read from")
 	assert.Contains(t, kinds(items), "link_url", "the profile link naming the legal name is hidden")
 }
 
@@ -191,9 +192,37 @@ func TestGoldenAssert_DahrienCordell(t *testing.T) {
 func TestGoldenAssert_TitlesListed(t *testing.T) {
 	_, dirge := goldenPiece(t, "Birthday Dirge")
 	_, wyrd := goldenPiece(t, "Warrior's Wyrd")
-	_, voice := goldenPiece(t, "Voice of the Dragon")
+	voice, _ := goldenPiece(t, "Voice of the Dragon")
 
 	assert.Contains(t, kinds(dirge), "rejected", "the category word title")
 	assert.Contains(t, kinds(wyrd), "unparsed", "the prose naming other titles")
-	assert.NotEmpty(t, voice)
+	assert.Equal(t, "Voice of the Dragon", voice.Doc.Title)
+	fight, items := goldenPiece(t, "Fight for the Midrealm")
+	other := keep(items, func(it Item) bool { return it.Kind == "other_page_title" })
+	require.Len(t, other, 1)
+	assert.Contains(t, other[0].Text, `"Voice of the Dragon"`, "the alternate is another page's title")
+	for _, a := range fight.Doc.Aliases {
+		assert.NotEqual(t, domain.CollationKey(voice.Doc.Title), domain.CollationKey(a.Text), "never an alias")
+	}
+}
+
+// TestGoldenAssert_RelationsFromTitles: the report §8.1 pairs. "(SCA Version)" relates to its base whatever the
+// case of the base's title, and with no bare page the "(Poem)" and the "(Song)" relate to each other, once.
+func TestGoldenAssert_RelationsFromTitles(t *testing.T) {
+	imp, review := scrubbedImport(t)
+	knight, base := pieceTitled(t, imp, "When A Knight Won His Spurs (SCA Version)"),
+		pieceTitled(t, imp, "When a Knight Won His Spurs")
+	poem, song := pieceTitled(t, imp, "Ode to Commius (Poem)"), pieceTitled(t, imp, "Ode to Commius (Song)")
+
+	require.Len(t, knight.Doc.Relations, 1)
+	assert.Equal(t, base.ID, knight.Doc.Relations[0].ToPieceID)
+	later, earlier := poem, song
+	if song.ID > poem.ID {
+		later, earlier = song, poem
+	}
+	assert.Empty(t, earlier.Doc.Relations, "related once, from the later page")
+	assert.Equal(t, []domain.DocPieceRelation{{ToPieceID: earlier.ID, Type: domain.PieceRelationTypeSameTextOtherForm}},
+		later.Doc.Relations)
+	shared := keep(review.Titles, func(it Item) bool { return it.Kind == "shared_alias" && it.Page == later.Doc.Title })
+	assert.Len(t, shared, 1, "the alias both forms have is listed")
 }

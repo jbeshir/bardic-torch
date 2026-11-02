@@ -245,14 +245,47 @@ func TestBuild_LinkStatesOnePerNormalizedURL(t *testing.T) {
 	assert.Equal(t, 1, video, "two spellings of one URL are one link with both roles")
 }
 
-func TestBuild_PersonStatusSourceIsLegacyURL(t *testing.T) {
+// TestBuild_ReviewQuotesTheOriginal: the review is private, so it quotes what it lists as the wiki writes it,
+// though the public field withholds a name.
+func TestBuild_ReviewQuotesTheOriginal(t *testing.T) {
+	d := syntheticDump()
+	item := "[https://www.youtube.com/watch?v=video000009 " + hiddenAlias + " sings]"
+	d.Pages = append(d.Pages, page(21, "Song of Quoting", []string{mediawiki.CategoryPieces, mediawiki.CategorySongs},
+		"{{Infobox Song\n|lyrics_by=[["+wren+"]]\n}}\n== Performances & Recordings ==\n* "+item+"\n"))
+	imp, review := Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+
+	perf := pieceTitled(t, imp, "Song of Quoting").Doc.Links[0].Performances[0]
+	assert.NotContains(t, perf.DescriptionVerbatim, hiddenAlias, "withheld in public")
+	incomplete := keep(review.Performances, func(it Item) bool {
+		return it.Kind == "incomplete" && it.Page == "Song of Quoting"
+	})
+	require.Len(t, incomplete, 1)
+	assert.Contains(t, incomplete[0].Text, hiddenAlias, "named in the private review")
+}
+
+// TestBuild_PersonStatusSource: a status is sourced to the link its date is read from, unless that link is hidden
+// for a legal name in its URL; with no such link, to the wiki page.
+func TestBuild_PersonStatusSource(t *testing.T) {
 	imp, _ := syntheticImport(t)
 
 	doc := personNamed(t, imp, rowan).Doc
 	assert.Equal(t, domain.PersonStatusDeceased, doc.Status)
 	require.NotNil(t, doc.StatusSourceURL)
-	assert.Equal(t, "https://wiki.example.org/wiki/Rowan_Placeholder", *doc.StatusSourceURL)
+	assert.Equal(t, "https://wiki.example.org/wiki/Rowan_Placeholder", *doc.StatusSourceURL, "no link: the page")
 	assert.Nil(t, personNamed(t, imp, wren).Doc.StatusSourceURL, "an active person needs no source")
+
+	d := syntheticDump()
+	obituary := "https://news.example.org/obituary-placeholder"
+	d.Pages = append(d.Pages,
+		page(12, "Elm Placeholder", []string{mediawiki.CategoryBards, "In Memoriam"}, "= Elm Placeholder =\n"+
+			"== Notes ==\n* ["+obituary+" Deceased October 31, 2020]\n"),
+		page(13, "Oak Placeholder", []string{mediawiki.CategoryBards, "In Memoriam"}, "= Oak Placeholder =\n"+
+			"== Notes ==\n* [https://news.example.org/ash-hiddenname Deceased October 31, 2020]\n"))
+	imp, _ = Build(mediawiki.ParseCorpus(d), BuildOptions{Now: buildTime})
+
+	assert.Equal(t, obituary, *personNamed(t, imp, "Elm Placeholder").Doc.StatusSourceURL, "the obituary")
+	assert.Equal(t, "https://wiki.example.org/wiki/Oak_Placeholder",
+		*personNamed(t, imp, "Oak Placeholder").Doc.StatusSourceURL, "a hidden link is never the source")
 }
 
 func TestBuild_LegacyColumns(t *testing.T) {
