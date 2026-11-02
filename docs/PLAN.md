@@ -18,7 +18,7 @@ Fixed decisions:
 - **No lyrics or text are hosted**, ever. Pieces carry only links, metadata and sourced notes.
 - **Moderators are John and Fabian.** Everyone else's edits wait for moderator approval: the last approved revision is the live one.
 - **Login:** Auth0 social login (Google, Facebook).
-- **Hosting:** the Go API runs on John's dokku instance (MySQL through the dokku mysql plugin). The Remix FE runs on Cloudflare Pages, following the alignment-feed pattern.
+- **Hosting:** the Go API runs on John's dokku instance (MySQL through the dokku mysql plugin). The React Router 8 FE runs on Cloudflare Workers (static assets), deployed by Workers Builds.
 - **Domain:** the site is bardictorch.org, with the API at api.bardictorch.org.
 - **No redirects** from old wiki URLs. The old wiki is imported once, at launch.
 - **Look:** the site should feel like a wiki (so editing feels allowed), with full dark mode support and a mobile-first faceted browse (R-3).
@@ -80,10 +80,10 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
     - `cmd/check-links`: link liveness checks, run by dokku cron
   - `cmd/mcp` (an MCP server) comes later.
   - The OpenAPI spec (`openapi/api.yaml`) is **the contract** with the FE.
-- **`bardic-torch-fe`** (Remix on Cloudflare Pages)
-  - Reuses the feed's auth (remix-auth cookie session with refresh) and its server-side proxy routes (`/api/*`).
+- **`bardic-torch-fe`** (React Router 8 framework mode on Cloudflare Workers)
+  - Auth: openid-client against Auth0, with a React Router cookie session and token refresh. It keeps the feed's server-side proxy routes (`/api/*`).
   - Types are generated from the BE's OpenAPI spec (openapi-typescript) and validated at runtime with zod.
-  - Tailwind design tokens support light and dark themes.
+  - Tailwind 4 design tokens (a CSS-first `@theme` generated from the token module) support light and dark themes.
 
 **Removed from the feed skeleton:** Pinecone, VoyageAI, recommendations and clustering, RSS, chat, D1 and MiniMax.
 
@@ -542,6 +542,7 @@ then `--apply` once against the empty production database.
 - static help pages adapted from the wiki's meta pages: contributing guide, FAQ for Bards, the Bard Preference Checklist explainer, the conservation guide, and a licence page
 
 **Standards:**
+- pages are server-rendered by a Worker, and the browser never calls the API directly
 - WCAG 2.2 AA, fully keyboard operable
 - every style works in light and dark themes
 - works at 360px width
@@ -565,7 +566,8 @@ then `--apply` once against the empty production database.
 - **Playwright e2e** in demesne's `browser` image (offline) against the built app and the fixture server. It covers every user journey: browse by facets on desktop and mobile, search, read a piece and a bard, log in (stubbed), edit and preview, the duplicate warning, submit, the pending banner, moderator approve, reject and three-way rebase, term suggestion, repertoire, report a link, the contact form, history and revert.
 - Each journey is checked with **axe-core** in both light and dark themes, and takes screenshots at 360, 768 and 1280px in both themes. Those screenshots feed the UX review step.
 - A contract test generates FE types from the BE's `openapi/api.yaml` and fails if the fixtures don't match the spec.
-- `npm run validate` covers format, lint, typecheck, vitest and the Playwright suite.
+- `npm run validate` covers format, lint (ESLint 10), typecheck, generated-file checks, knip, vitest and the build checks. The Playwright suite is the separate required `e2e` CI job.
+- `npm run audit` (no advisory of any severity in production dependencies, none high or critical anywhere) and `npm audit signatures` run as their own CI job on every push and pull request, like `make vulncheck`.
 
 **Full stack (host, at the end):**
 - podman MySQL, BE, FE dev server and Playwright run against the **real imported data**, followed by John and Fabian clicking through it themselves.
@@ -599,7 +601,7 @@ Each pipeline has the same internal shape:
 
 | # | Pipeline | Repo | Depends on | Contents |
 |---|---|---|---|---|
-| H0 | host setup | — | decisions in §2 | Create both GitHub repos and copy this plan into `bardic-torch/docs/`. Set up the dokku app, MySQL, letsencrypt and the api.bardictorch.org domain. Create the Cloudflare Pages project with bardictorch.org and www. Create the Auth0 application with Google and Facebook connections, plus a Turnstile site key. *The Auth0, Cloudflare and DNS dashboard steps are John's.* |
+| H0 | host setup | — | decisions in §2 | Create both GitHub repos and copy this plan into `bardic-torch/docs/`. Set up the dokku app, MySQL, letsencrypt and the api.bardictorch.org domain. Create the Cloudflare zone and two Workers connected through Workers Builds: `bardic-torch-fe` on bardictorch.org (with a www → apex redirect rule) and `bardic-torch-fe-preview` on preview.bardictorch.org. Create the Auth0 application with Google and Facebook connections, plus a Turnstile site key. *The Auth0, Cloudflare and DNS dashboard steps are John's.* |
 | BE1 | foundation | BE | H0 | Copy and strip the feed skeleton. Add the users table, roles and the moderator bootstrap, the auth carried over from the feed, the test harness (with the **in-sandbox MySQL spike**), the OpenAPI skeleton, CI, and the dokku files (Dockerfile, `app.json` predeploy migrate step). The cron entry lands with `cmd/check-links` in BE5. |
 | FE1 | foundation | FE | H0 (runs alongside BE1) | Copy and strip the feed FE. Add the wiki-style design system and layout, dark mode, auth, the type-generation pipeline, the fixture server, and the Playwright, axe and screenshot harness. Add the static help pages. |
 | BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search, A–Z and needs-work. The revisions table exists but only stores import data. Decisions refined in BE2 are in §4.1. |
