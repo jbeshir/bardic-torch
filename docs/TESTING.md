@@ -58,11 +58,12 @@ with `go tool`, so nothing needs installing.
   up to 1 MB, and `TestHostileInput_QuadraticShapes` the shapes that once made a parser quadratic (an unclosed
   "[http://" before every token, for `ParseValue` and `WikitextToMarkdown`; one long word for `Words`; 2000 names'
   concatenated forms searched in one long word) up to 2 MiB. Neither has a wall-clock budget: `linearGrowth` runs
-  each parser at six sizes, each 4x the one before, and fails as soon as a size takes over 10x the size before or
-  6x the first size of at least 20 ms scaled linearly (never under 1 s), so linear code passes on any machine and
-  under `-race`, and quadratic code fails in seconds. `TestLinearGrowth_FailsQuadratic` pins that on a synthetic
-  quadratic. The race detector does not slow the assembly of `strings.Index` and its kin, so a rescan done only by
-  it is caught only without `-race` (`make validate`).
+  each parser at six sizes, each 4x the one before, and fails as soon as a size takes over 10x the CPU time of the
+  size before or 6x that of the first size of at least 20 ms scaled linearly (never under 1 s), so linear code
+  passes on any machine, on a busy one and under `-race`, while quadratic code fails as soon as it runs over.
+  `TestLinearGrowth_FailsQuadratic` pins that on synthetic linear and quadratic code. The race detector does not
+  slow the assembly of `strings.Index` and its kin, so a rescan done only by it is caught only without `-race`
+  (`make validate`).
 - **Pieces and taxonomy** (`internal/mediawiki`, synthetic wikis built by `site_fixtures_test.go`, and the
   scrubbed copy): category classes (`TestClassifyCategories_*`); the term plan (`TestTermPlan_*`: facets and
   parents, each PLAN §2.10 parent, display names without the facet suffix, Patriotic topics related to their

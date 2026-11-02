@@ -2,7 +2,6 @@ package mediawiki
 
 import (
 	"fmt"
-	"math"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -173,18 +172,26 @@ func TestHostileInput_QuadraticShapes(t *testing.T) {
 		names[k] = fmt.Sprintf("Name%04d Placeholder", k)
 	}
 	matcher := NewNameMatcher(names, nil)
-	shapes := []struct {
-		name  string
-		parse func(size int)
-	}{
+	requireLinearGrowth(t, MaxPageRecordBytes, []sizedParse{
 		{"ParseValue", func(size int) { ParseValue(strings.Repeat("[http://a ", size/10)) }},
 		{"WikitextToMarkdown", func(size int) { WikitextToMarkdown(strings.Repeat("[http://a x ''", size/14)) }},
 		{"Words", func(size int) { Words(strings.Repeat("h", size)) }},
 		{"NameMatcher.Find", func(size int) { matcher.Find(strings.Repeat("http", size/4)) }},
-	}
-	for _, s := range shapes {
-		t.Run(s.name, func(t *testing.T) {
-			if err := linearGrowth(t, MaxPageRecordBytes, s.parse); err != nil {
+	})
+}
+
+// sizedParse is a parser over a generated input of the given size, named for its subtest.
+type sizedParse struct {
+	name  string
+	parse func(size int)
+}
+
+// requireLinearGrowth runs each parser through linearGrowth up to maxSize, each in its own subtest.
+func requireLinearGrowth(t *testing.T, maxSize int, parsers []sizedParse) {
+	t.Helper()
+	for _, p := range parsers {
+		t.Run(p.name, func(t *testing.T) {
+			if err := linearGrowth(t, maxSize, p.parse); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -193,7 +200,7 @@ func TestHostileInput_QuadraticShapes(t *testing.T) {
 
 // The growth budget of linearGrowth. Sizes grow by growthStep from 1/1024 of the largest, and each size has two
 // budgets relative to CPU times measured in the same run (cpuWithin), of which it must meet the tighter (but
-// never one under growthFloor):
+// never one under growthFloor, which is also the smallest size's budget):
 //
 //   - growthStepAllowance times the size before. A step of linear code takes about growthStep times as long as
 //     the size before (at most 5.2x seen, above growthFloor/growthStepAllowance) and one of quadratic code
@@ -220,47 +227,54 @@ const (
 	growthFloor           = time.Second
 )
 
+// abandoned counts the runs cpuWithin stopped waiting for that have not returned yet. Their CPU time would count
+// in every later measurement, so linearGrowth measures nothing while one is running.
+var abandoned atomic.Int64
+
 // linearGrowth runs parse at maxSize/growthStep^growthSteps, then at each size growthStep times larger up to
-// maxSize, logging each time, and returns an error as soon as a size runs over its budget (see growthStep).
-// The smallest size has no budget; at 1/1024 of the page cap, even the quadratic code above finished in
-// milliseconds. A run over budget is left running in the background.
+// maxSize, logging each time, and returns an error as soon as a size runs over its budget (see growthStep). A
+// run cut off over budget is left running in the background (see abandoned).
 func linearGrowth(t *testing.T, maxSize int, parse func(size int)) error {
 	t.Helper()
+	if n := abandoned.Load(); n > 0 {
+		return fmt.Errorf("not measured: %d run(s) over budget in an earlier test are still using CPU", n)
+	}
 	size := maxSize
 	for range growthSteps {
 		size /= growthStep
 	}
-	runtime.GC()
-	elapsed, _ := cpuWithin(t, time.Duration(math.MaxInt64), func() { parse(size) })
-	var anchor time.Duration
+	budget := growthFloor
+	var previous, anchor time.Duration
 	anchorSize := 0
-	for size < maxSize {
+	for {
+		runtime.GC()
+		n := size
+		elapsed, within := cpuWithin(t, budget, func() { parse(n) })
+		if !within {
+			return fmt.Errorf("%d bytes took %s of CPU, over the %s budget (%s at the size before, anchor %s at %d bytes)",
+				size, elapsed, budget, previous, anchor, anchorSize)
+		}
+		t.Logf("%d bytes: %s (budget %s)", size, elapsed, budget)
+		if size >= maxSize {
+			return nil
+		}
 		if anchorSize == 0 && elapsed >= growthAnchor {
 			anchor, anchorSize = elapsed, size
 		}
-		previous := elapsed
+		previous = elapsed
 		size *= growthStep
-		budget := growthStepAllowance * previous
+		budget = growthStepAllowance * previous
 		if anchorSize > 0 {
 			budget = min(budget, growthAnchorAllowance*anchor*time.Duration(size/anchorSize))
 		}
 		budget = max(budget, growthFloor)
-		runtime.GC()
-		var within bool
-		if elapsed, within = cpuWithin(t, budget, func() { parse(size) }); !within {
-			return fmt.Errorf("%d bytes ran over the %s budget (%s at %d bytes, anchor %s at %d bytes)", size,
-				budget, previous, size/growthStep, anchor, anchorSize)
-		}
-		t.Logf("%d bytes: %s (budget %s)", size, elapsed, budget)
 	}
-
-	return nil
 }
 
 // cpuWithin runs fn and returns the CPU time the process spent until it returned, or reports false as soon as
-// that has gone over budget, leaving fn running. CPU time rather than wall time, so that other processes on a
-// busy machine (CI runs every package at once, and MySQL) do not count; no other test in this package runs in
-// parallel, so the process's time is fn's and the garbage collector's.
+// that has gone over budget, leaving fn running (and counted in abandoned until it returns). CPU time rather than
+// wall time, so that other processes on a busy machine (CI runs every package at once, and MySQL) do not count;
+// no other test in this package runs in parallel, so the process's time is fn's and the garbage collector's.
 func cpuWithin(t *testing.T, budget time.Duration, fn func()) (time.Duration, bool) {
 	t.Helper()
 	start := processCPUTime(t)
@@ -279,6 +293,12 @@ func cpuWithin(t *testing.T, budget time.Duration, fn func()) (time.Duration, bo
 			return elapsed, elapsed <= budget
 		case <-poll.C:
 			if elapsed := processCPUTime(t) - start; elapsed > budget {
+				abandoned.Add(1)
+				go func() {
+					<-done
+					abandoned.Add(-1)
+				}()
+
 				return elapsed, false
 			}
 		}
@@ -296,15 +316,16 @@ func processCPUTime(t *testing.T) time.Duration {
 	return time.Duration(usage.Utime.Nano() + usage.Stime.Nano())
 }
 
-// TestLinearGrowth_FailsQuadratic pins that linearGrowth passes linear code and fails quadratic code in whatever
-// mode the tests run (CI runs them with -race). The quadratic function stops once linearGrowth has returned, so
-// it leaves nothing running.
+// TestLinearGrowth_FailsQuadratic pins that linearGrowth passes linear code, heavy enough that its larger sizes
+// have budgets over the floor, and fails quadratic code, in whatever mode the tests run (CI runs them with -race).
+// The quadratic function stops once linearGrowth has returned, and the test waits until it has, so it leaves
+// nothing running.
 func TestLinearGrowth_FailsQuadratic(t *testing.T) {
 	const maxSize = 1 << 20
 	text := strings.Repeat("a", maxSize)
 	var count atomic.Int64
 	linear := func(size int) {
-		for range 1000 {
+		for range 40000 {
 			count.Add(int64(strings.Count(text[:size], "b")))
 		}
 	}
@@ -319,6 +340,9 @@ func TestLinearGrowth_FailsQuadratic(t *testing.T) {
 	}
 	err := linearGrowth(t, maxSize, quadratic)
 	stop.Store(true)
+	for abandoned.Load() > 0 {
+		time.Sleep(time.Millisecond)
+	}
 	if err == nil {
 		t.Fatal("quadratic: linearGrowth returned no error")
 	}
@@ -343,10 +367,7 @@ func TestHostileInput_TimeBudget(t *testing.T) {
 
 		return Page{PageID: 1, Wikitext: "= T (" + h + ") =\n== Lyrics ==\n" + h + "\n<poem>" + h}
 	}
-	parsers := []struct {
-		name  string
-		parse func(size int)
-	}{
+	requireLinearGrowth(t, 1<<20, []sizedParse{
 		{"FindTemplates", func(size int) { FindTemplates(hostile(size)) }},
 		{"FindWikilinks", func(size int) { FindWikilinks(hostile(size)) }},
 		{"FindExternalLinks", func(size int) { FindExternalLinks(hostile(size)) }},
@@ -360,12 +381,5 @@ func TestHostileInput_TimeBudget(t *testing.T) {
 		{"NameMatcher.Find", func(size int) { NewNameMatcher([]string{wren}, []string{wren}).Find(hostile(size)) }},
 		{"RepairMarkup", func(size int) { RepairMarkup(hostile(size)) }},
 		{"FindMarkupIssues", func(size int) { FindMarkupIssues(hostile(size)) }},
-	}
-	for _, p := range parsers {
-		t.Run(p.name, func(t *testing.T) {
-			if err := linearGrowth(t, 1<<20, p.parse); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
+	})
 }
