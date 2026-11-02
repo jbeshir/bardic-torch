@@ -2,7 +2,11 @@ package mediawiki
 
 import (
 	"fmt"
+	"math"
+	"runtime"
 	"strings"
+	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -161,41 +165,162 @@ func FuzzInlineLyricsBlocks(f *testing.F) {
 
 // TestHostileInput_QuadraticShapes runs the shapes that once made a parser quadratic (an unclosed "[http://"
 // before each later token; a token folded by string concatenation; every concatenated name searched in every
-// word) at 256 KiB and at the 2 MiB page cap. Each must finish within its budget; the quadratic code took 89 s,
-// 15 s, 5 s and 8 s at 128–256 KiB, and hours at 2 MiB.
+// word) up to the 2 MiB page cap, failing as soon as a size takes super-linearly longer than the size before it
+// (linearGrowth). The quadratic code took 89 s, 15 s, 5 s and 8 s at 128–256 KiB, and hours at 2 MiB.
 func TestHostileInput_QuadraticShapes(t *testing.T) {
 	names := make([]string, 2000)
 	for k := range names {
 		names[k] = fmt.Sprintf("Name%04d Placeholder", k)
 	}
 	matcher := NewNameMatcher(names, nil)
-	shapes := map[string]func(size int){
-		"ParseValue":         func(size int) { ParseValue(strings.Repeat("[http://a ", size/10)) },
-		"WikitextToMarkdown": func(size int) { WikitextToMarkdown(strings.Repeat("[http://a x ''", size/14)) },
-		"Words":              func(size int) { Words(strings.Repeat("h", size)) },
-		"NameMatcher.Find":   func(size int) { matcher.Find(strings.Repeat("http", size/4)) },
+	shapes := []struct {
+		name  string
+		parse func(size int)
+	}{
+		{"ParseValue", func(size int) { ParseValue(strings.Repeat("[http://a ", size/10)) }},
+		{"WikitextToMarkdown", func(size int) { WikitextToMarkdown(strings.Repeat("[http://a x ''", size/14)) }},
+		{"Words", func(size int) { Words(strings.Repeat("h", size)) }},
+		{"NameMatcher.Find", func(size int) { matcher.Find(strings.Repeat("http", size/4)) }},
 	}
-	for name, parse := range shapes {
-		for _, size := range []int{256 << 10, MaxPageRecordBytes} {
-			t.Run(fmt.Sprintf("%s/%d", name, size), func(t *testing.T) {
-				withinBudget(t, 3*time.Second, func() { parse(size) })
-			})
-		}
+	for _, s := range shapes {
+		t.Run(s.name, func(t *testing.T) {
+			if err := linearGrowth(t, MaxPageRecordBytes, s.parse); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
-// withinBudget runs fn and fails the test as soon as it has run longer than budget.
-func withinBudget(t *testing.T, budget time.Duration, fn func()) {
+// The growth budget of linearGrowth. Sizes grow by growthStep from 1/1024 of the largest, and each size has two
+// budgets relative to CPU times measured in the same run (cpuWithin), of which it must meet the tighter (but
+// never one under growthFloor):
+//
+//   - growthStepAllowance times the size before. A step of linear code takes about growthStep times as long as
+//     the size before (at most 5.2x seen, above growthFloor/growthStepAllowance) and one of quadratic code
+//     growthStep² times, so this catches quadratic work already present at small sizes.
+//   - growthAnchorAllowance times the anchor's time, scaled linearly to the size; the anchor is the first size
+//     that took at least growthAnchor. Linear code stays within 2.2x of that scaling (the race detector and cache
+//     sizes slow large inputs more per byte than small ones), while quadratic code exceeds it by the size ratio
+//     to the anchor, so this catches quadratic work that only shows at large sizes. Noise can only lengthen the
+//     anchor, which loosens budgets rather than failing linear code.
+//
+// Being relative, the budgets hold on any machine and under the race detector, which makes the regexp-heavy
+// parsers 15–25x slower. Below the floor, times grow unevenly (with scheduling, garbage collection, cache sizes
+// and the regexp package backtracking short inputs instead of running its automaton).
+//
+// The race detector slows Go code but not the assembly of strings.Index and its kin. Repeated work done only by
+// such assembly (a rescan through strings.IndexByte, say) hides under the slowed linear work up to the page cap,
+// so only a run without -race catches it; make validate runs these tests without it.
+const (
+	growthStep            = 4
+	growthSteps           = 5
+	growthStepAllowance   = 10
+	growthAnchorAllowance = 6
+	growthAnchor          = 20 * time.Millisecond
+	growthFloor           = time.Second
+)
+
+// linearGrowth runs parse at maxSize/growthStep^growthSteps, then at each size growthStep times larger up to
+// maxSize, logging each time, and returns an error as soon as a size runs over its budget (see growthStep).
+// The smallest size has no budget; at 1/1024 of the page cap, even the quadratic code above finished in
+// milliseconds. A run over budget is left running in the background.
+func linearGrowth(t *testing.T, maxSize int, parse func(size int)) error {
 	t.Helper()
+	size := maxSize
+	for range growthSteps {
+		size /= growthStep
+	}
+	runtime.GC()
+	elapsed, _ := cpuWithin(t, time.Duration(math.MaxInt64), func() { parse(size) })
+	var anchor time.Duration
+	anchorSize := 0
+	for size < maxSize {
+		if anchorSize == 0 && elapsed >= growthAnchor {
+			anchor, anchorSize = elapsed, size
+		}
+		previous := elapsed
+		size *= growthStep
+		budget := growthStepAllowance * previous
+		if anchorSize > 0 {
+			budget = min(budget, growthAnchorAllowance*anchor*time.Duration(size/anchorSize))
+		}
+		budget = max(budget, growthFloor)
+		runtime.GC()
+		var within bool
+		if elapsed, within = cpuWithin(t, budget, func() { parse(size) }); !within {
+			return fmt.Errorf("%d bytes ran over the %s budget (%s at %d bytes, anchor %s at %d bytes)", size,
+				budget, previous, size/growthStep, anchor, anchorSize)
+		}
+		t.Logf("%d bytes: %s (budget %s)", size, elapsed, budget)
+	}
+
+	return nil
+}
+
+// cpuWithin runs fn and returns the CPU time the process spent until it returned, or reports false as soon as
+// that has gone over budget, leaving fn running. CPU time rather than wall time, so that other processes on a
+// busy machine (CI runs every package at once, and MySQL) do not count; no other test in this package runs in
+// parallel, so the process's time is fn's and the garbage collector's.
+func cpuWithin(t *testing.T, budget time.Duration, fn func()) (time.Duration, bool) {
+	t.Helper()
+	start := processCPUTime(t)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		fn()
 	}()
-	select {
-	case <-done:
-	case <-time.After(budget):
-		t.Fatalf("took over the %s budget", budget)
+	poll := time.NewTicker(10 * time.Millisecond)
+	defer poll.Stop()
+	for {
+		select {
+		case <-done:
+			elapsed := processCPUTime(t) - start
+
+			return elapsed, elapsed <= budget
+		case <-poll.C:
+			if elapsed := processCPUTime(t) - start; elapsed > budget {
+				return elapsed, false
+			}
+		}
+	}
+}
+
+// processCPUTime is the user and system CPU time the test process has used.
+func processCPUTime(t *testing.T) time.Duration {
+	t.Helper()
+	var usage syscall.Rusage
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &usage); err != nil {
+		t.Fatalf("getrusage: %v", err)
+	}
+
+	return time.Duration(usage.Utime.Nano() + usage.Stime.Nano())
+}
+
+// TestLinearGrowth_FailsQuadratic pins that linearGrowth passes linear code and fails quadratic code in whatever
+// mode the tests run (CI runs them with -race). The quadratic function stops once linearGrowth has returned, so
+// it leaves nothing running.
+func TestLinearGrowth_FailsQuadratic(t *testing.T) {
+	const maxSize = 1 << 20
+	text := strings.Repeat("a", maxSize)
+	var count atomic.Int64
+	linear := func(size int) {
+		for range 1000 {
+			count.Add(int64(strings.Count(text[:size], "b")))
+		}
+	}
+	if err := linearGrowth(t, maxSize, linear); err != nil {
+		t.Fatalf("linear: %v", err)
+	}
+	var stop atomic.Bool
+	quadratic := func(size int) {
+		for i := 0; i < size && !stop.Load(); i++ {
+			count.Add(int64(strings.Count(text[i:size], "b")))
+		}
+	}
+	err := linearGrowth(t, maxSize, quadratic)
+	stop.Store(true)
+	if err == nil {
+		t.Fatal("quadratic: linearGrowth returned no error")
 	}
 }
 
@@ -208,28 +333,39 @@ func checkBlock(t *testing.T, b LyricsBlock, previousEnd, length int) {
 	}
 }
 
-// TestHostileInput_TimeBudget runs every parser over 1 MB of unclosed {{[[( nesting, which a parser that
-// backtracks or rescans would take far longer than the budget over.
+// TestHostileInput_TimeBudget runs every parser over unclosed {{[[( nesting up to 1 MB, failing as soon as a
+// parser takes super-linearly longer at a size than at the size before it (linearGrowth), as one that
+// backtracks or rescans would.
 func TestHostileInput_TimeBudget(t *testing.T) {
-	hostile := strings.Repeat("{{[[(", 1<<20/5)
-	page := Page{PageID: 1, Wikitext: "= T (" + hostile + ") =\n== Lyrics ==\n" + hostile + "\n<poem>" + hostile}
-	start := time.Now()
+	hostile := func(size int) string { return strings.Repeat("{{[[(", size/5) }
+	page := func(size int) Page {
+		h := hostile(size)
 
-	FindTemplates(hostile)
-	FindWikilinks(hostile)
-	FindExternalLinks(hostile)
-	Sections(hostile)
-	ParseValue(hostile)
-	ParsePage(page.Wikitext)
-	InlineLyricsBlocks(page.Wikitext)
-	BardAliases(page)
-	PersonNameCandidates(page, testMaxYear)
-	ParsePerformanceText(hostile, testMaxYear)
-	NewNameMatcher([]string{wren}, []string{wren}).Find(hostile)
-	RepairMarkup(hostile)
-	FindMarkupIssues(hostile)
-
-	if elapsed := time.Since(start); elapsed > 20*time.Second {
-		t.Fatalf("parsing 1 MB of hostile input took %s, over the 20s budget", elapsed)
+		return Page{PageID: 1, Wikitext: "= T (" + h + ") =\n== Lyrics ==\n" + h + "\n<poem>" + h}
+	}
+	parsers := []struct {
+		name  string
+		parse func(size int)
+	}{
+		{"FindTemplates", func(size int) { FindTemplates(hostile(size)) }},
+		{"FindWikilinks", func(size int) { FindWikilinks(hostile(size)) }},
+		{"FindExternalLinks", func(size int) { FindExternalLinks(hostile(size)) }},
+		{"Sections", func(size int) { Sections(hostile(size)) }},
+		{"ParseValue", func(size int) { ParseValue(hostile(size)) }},
+		{"ParsePage", func(size int) { ParsePage(page(size).Wikitext) }},
+		{"InlineLyricsBlocks", func(size int) { InlineLyricsBlocks(page(size).Wikitext) }},
+		{"BardAliases", func(size int) { BardAliases(page(size)) }},
+		{"PersonNameCandidates", func(size int) { PersonNameCandidates(page(size), testMaxYear) }},
+		{"ParsePerformanceText", func(size int) { ParsePerformanceText(hostile(size), testMaxYear) }},
+		{"NameMatcher.Find", func(size int) { NewNameMatcher([]string{wren}, []string{wren}).Find(hostile(size)) }},
+		{"RepairMarkup", func(size int) { RepairMarkup(hostile(size)) }},
+		{"FindMarkupIssues", func(size int) { FindMarkupIssues(hostile(size)) }},
+	}
+	for _, p := range parsers {
+		t.Run(p.name, func(t *testing.T) {
+			if err := linearGrowth(t, 1<<20, p.parse); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

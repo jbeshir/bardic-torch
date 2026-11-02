@@ -54,11 +54,15 @@ with `go tool`, so nothing needs installing.
   `PersonNameCandidates` and `RepairMarkup`/`FindMarkupIssues`. `FuzzFindTemplates`, `FuzzParseValue`,
   `FuzzSections` and `FuzzInlineLyricsBlocks` check that nothing panics, spans are in bounds and in order, and no
   `<poem` tag survives `WithoutInlineLyrics`; `FuzzWikitextToMarkdown` that the Markdown holds no image, raw HTML
-  or link but to an absolute http(s) URL. `TestHostileInput_TimeBudget` runs every parser over 1 MB of unclosed
-  `{{[[(` within 20 seconds, and `TestHostileInput_QuadraticShapes` the shapes that once made a parser quadratic
-  (an unclosed "[http://" before every token, for `ParseValue` and `WikitextToMarkdown`; one long word for
-  `Words`; 2000 names' concatenated forms searched in one long word) at 256 KiB and 2 MiB within 3 seconds each,
-  failing as soon as one runs over.
+  or link but to an absolute http(s) URL. `TestHostileInput_TimeBudget` runs every parser over unclosed `{{[[(`
+  up to 1 MB, and `TestHostileInput_QuadraticShapes` the shapes that once made a parser quadratic (an unclosed
+  "[http://" before every token, for `ParseValue` and `WikitextToMarkdown`; one long word for `Words`; 2000 names'
+  concatenated forms searched in one long word) up to 2 MiB. Neither has a wall-clock budget: `linearGrowth` runs
+  each parser at six sizes, each 4x the one before, and fails as soon as a size takes over 10x the size before or
+  6x the first size of at least 20 ms scaled linearly (never under 1 s), so linear code passes on any machine and
+  under `-race`, and quadratic code fails in seconds. `TestLinearGrowth_FailsQuadratic` pins that on a synthetic
+  quadratic. The race detector does not slow the assembly of `strings.Index` and its kin, so a rescan done only by
+  it is caught only without `-race` (`make validate`).
 - **Pieces and taxonomy** (`internal/mediawiki`, synthetic wikis built by `site_fixtures_test.go`, and the
   scrubbed copy): category classes (`TestClassifyCategories_*`); the term plan (`TestTermPlan_*`: facets and
   parents, each PLAN §2.10 parent, display names without the facet suffix, Patriotic topics related to their
