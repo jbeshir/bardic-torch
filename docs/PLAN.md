@@ -92,7 +92,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 - the null-driver pattern
 - the API token endpoints
 
-## 4. Data model (MySQL 9.7 LTS)
+## 4. Data model (MySQL 8)
 
 **Editable entities** (each has a `current_revision_id`, plus `legacy_wiki_pageid` and `legacy_title` columns used for import):
 - **`pieces`**:
@@ -253,7 +253,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 
 **BE:**
 - Unit tests for domain and commands, using mockery mocks. The revision engine gets table-driven tests for every state transition, stale/rebase case and sourced-field rule.
-- Repository tests against **real MySQL 9.7**. BE1's spike succeeded, so they run in the sandbox (`make test-integration-local`, a conda-forge mysqld), on the host (`make test-integration`, podman) and in CI (`make test-integration-external` against a `mysql:9.7` service, under `-race`).
+- Repository tests against **real MySQL 8.4**. BE1's spike succeeded, so they run in the sandbox (`make test-integration-local`, a conda-forge mysqld), on the host (`make test-integration`, podman) and in CI (`make test-integration-external` against a `mysql:8.4` service, under `-race`).
 - HTTP tests for every route, checking authentication, authorisation by role (anonymous, contributor, moderator, API token) and status codes, against the OpenAPI spec using kin-openapi response validation.
 - Importer golden tests (§7).
 - `make validate` covers the format check, lint (golangci pinned via `go tool`), vacuum OpenAPI lint, unit tests, build and the generated-code check (sqlc and mockery output up to date). docs/TESTING.md describes every target.

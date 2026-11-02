@@ -32,8 +32,8 @@ updates:
         patterns:
           - "*"
 
-  # Both FROM lines of the Dockerfile. The mysql:9.7 tags in scripts/ and the CI workflow are floating LTS tags
-  # that track 9.7 patch releases themselves; DEPLOY.md's production pin is updated by hand.
+  # Both FROM lines of the Dockerfile. The mysql:8.4 tags in scripts/ and the CI workflow are floating LTS tags
+  # that track 8.4 patch releases themselves; DEPLOY.md's production pin is updated by hand.
   - package-ecosystem: docker
     directory: /
     schedule:

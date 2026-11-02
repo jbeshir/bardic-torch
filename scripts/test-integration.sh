@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Runs the integration test suite against MySQL 9.7.
+# Runs the integration test suite against MySQL 8.4.
 #
 # Usage: scripts/test-integration.sh podman|local|external
-#   podman    starts a throwaway docker.io/library/mysql:9.7 container.
-#   local     starts a throwaway mysqld from the mysql-server 9.7 prefix in MYSQL_PREFIX (see
+#   podman    starts a throwaway docker.io/library/mysql:8.4 container.
+#   local     starts a throwaway mysqld from the mysql-server 8.4 prefix in MYSQL_PREFIX (see
 #             make mysql-local-install); needs no container engine.
 #   external  uses the running server at TEST_MYSQL_ADMIN_URL (mysql://user:password@host:port, no
 #             database), which must already have a bardic_torch database, as in CI.
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 readonly database=bardic_torch
-readonly mysql_image=docker.io/library/mysql:9.7
+readonly mysql_image=docker.io/library/mysql:8.4
 readonly ready_timeout_seconds=120
 
 mode=${1:-}
@@ -98,7 +98,7 @@ wait_podman() {
 
 start_local() {
   local prefix port
-  prefix=$(cd "${MYSQL_PREFIX:?MYSQL_PREFIX must point at a mysql-server 9.7 prefix}" && pwd)
+  prefix=$(cd "${MYSQL_PREFIX:?MYSQL_PREFIX must point at a mysql-server 8.4 prefix}" && pwd)
   port=$(free_port)
   mkdir "$workdir/data"
   echo "CREATE DATABASE IF NOT EXISTS $database;" >"$workdir/init.sql"

@@ -1,7 +1,7 @@
 # Deploying the API
 
 The API runs on dokku as the app `bardic-torch-api` at https://api.bardictorch.org. It uses a dokku-managed
-MySQL 9.7 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
+MySQL 8.4 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
 moderators, migrations and rollback.
 
 ## Placeholders
@@ -20,8 +20,8 @@ Replace these in the commands below:
 
 ## Requirements
 
-- **dokku 0.31.0 or newer**: app.json `healthchecks`, the `ports:*` commands, and reading `app.json` and
-  `Procfile` from the repository root all need it. Check with `dokku version`. On modern dokku, `app.json` and
+- **dokku 0.35.0 or newer**: dokku-mysql 2.6.0 needs 0.35.0. The app.json `healthchecks`, the `ports:*`
+  commands, and reading `app.json` and `Procfile` from the repository root need 0.31.0. Check with `dokku version`. On modern dokku, `app.json` and
   `Procfile` are read from the root of the pushed repository. The Dockerfile also copies both into `/app`, the
   image's working directory, so versions that read them from the image find the same files.
 - **Docker builds with BuildKit**: the Dockerfile uses `RUN --mount=type=cache` and starts with
@@ -39,9 +39,11 @@ Replace these in the commands below:
 - The dokku plugins [dokku-mysql](https://github.com/dokku/dokku-mysql) and
   [dokku-letsencrypt](https://github.com/dokku/dokku-letsencrypt). On the server:
   ```
-  sudo dokku plugin:install https://github.com/dokku/dokku-mysql.git mysql
-  sudo dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
+  sudo dokku plugin:install https://github.com/dokku/dokku-mysql.git --committish 2.6.0 --name mysql
+  sudo dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git --committish 0.25.2 --name letsencrypt
   ```
+  `--committish` pins each plugin to a release (the latest when this was written). Upgrade later with
+  `sudo dokku plugin:update <name> <release>`.
 - A DNS `A` (and `AAAA` if the server has IPv6) record for `api.bardictorch.org` pointing at the server. If DNS is
   on Cloudflare, make it **DNS only** (grey cloud), so Let's Encrypt's HTTP challenge reaches dokku.
 - The Auth0 setup below, done first: production needs `AUTH0_DOMAIN`, and the moderators' user IDs come from Auth0.
@@ -206,22 +208,27 @@ dokku builder:set bardic-torch-api selected dockerfile
 dokku git:set bardic-torch-api deploy-branch main
 ```
 
-Create a MySQL 9.7 service and link it to the app:
+Create a MySQL 8.4 service and link it to the app:
 
 ```
-dokku mysql:create bardic-torch-db --image mysql --image-version 9.7.4
+dokku mysql:create bardic-torch-db --image mysql --image-version 8.4.13
 dokku mysql:link bardic-torch-db bardic-torch-api
 ```
 
-- MySQL 9.7, the current LTS release, is the version everywhere. Development (`make db-up`), the podman
-  integration tests and CI use the `mysql:9.7` tag, which tracks the newest 9.7 patch release, and the sandbox
-  recipe in TESTING.md uses 9.7.4. Always pass `--image-version`: dokku-mysql's default image is an Innovation
-  release, not an LTS. Production pins a patch release so that the server only changes when you upgrade it. Use
-  the newest `9.7.x` tag on Docker Hub at the time (9.7.4 when this was written). Upgrade later with
-  `dokku mysql:upgrade bardic-torch-db --image-version 9.7.<x>`. Moving to a later LTS series (MySQL upgrades
-  the data directory in place, and the old server cannot read it afterwards) is one-way: take
-  `dokku mysql:export bardic-torch-db > bardic-torch-db.sql` first. To roll back, create a service on the old
-  version and `dokku mysql:import` the export into it.
+- MySQL 8.4 LTS is the version everywhere. Development (`make db-up`), the podman integration tests and CI use
+  the `mysql:8.4` tag, which tracks the newest 8.4 patch release, and the sandbox recipe in TESTING.md uses 8.4.2.
+  Production pins a patch release so that the server only changes when you upgrade it. Use the newest `8.4.x`
+  tag on Docker Hub at the time (8.4.13 when this was written). Upgrade later with
+  `dokku mysql:upgrade bardic-torch-db --image-version 8.4.<x>`.
+- Always pass `--image-version`. dokku-mysql's default image is an Innovation release, not an LTS.
+- Stay on 8.4 even though 9.7 is a newer LTS. From 9.6, MySQL checks foreign keys in the SQL layer rather than
+  InnoDB, and 9.7.4 does not enforce a foreign key whose index has a further column that is NULL in the new row
+  (MySQL bug #121438, open). `api_tokens.fk_api_tokens_user` uses such an index, and
+  `TestRepository_APITokens_CreateRequiresExistingUser` fails on 9.7.4. Move to 9.7 only once a 9.7 release
+  fixes that bug and the integration tests pass on it.
+- Moving to a later series is one-way: MySQL upgrades the data directory in place, and the old server cannot
+  read it afterwards. Take `dokku mysql:export bardic-torch-db > bardic-torch-db.sql` first. To roll back, create
+  a service on the old version and `dokku mysql:import` the export into it.
 - `mysql:link` sets `DATABASE_URL` on the app, in the form
   `mysql://mysql:<password>@dokku-mysql-bardic-torch-db:3306/bardic_torch_db`. The database name is the service
   name with hyphens replaced by underscores. The API reads exactly this form; do not pass `mysql:link` a query

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Starts or removes the development MySQL 9.7 server that .env.dist's DATABASE_URL points at.
+# Starts or removes the development MySQL 8.4 server that .env.dist's DATABASE_URL points at.
 #
 # Usage: scripts/dev-db.sh up|down
-#   up    starts docker.io/library/mysql:9.7 as the container bardic-torch-mysql, published on
+#   up    starts docker.io/library/mysql:8.4 as the container bardic-torch-mysql, published on
 #         127.0.0.1:3306 with database bardic_torch, user bardic_torch and password pass, and waits until it
 #         accepts TCP connections. Does nothing more if it is already running.
 #   down  removes the container and its data.
@@ -12,7 +12,7 @@ set -euo pipefail
 
 readonly engine=${CONTAINER_ENGINE:-podman}
 readonly container=bardic-torch-mysql
-readonly mysql_image=docker.io/library/mysql:9.7
+readonly mysql_image=docker.io/library/mysql:8.4
 readonly ready_timeout_seconds=120
 
 # These must match DATABASE_URL in .env.dist.

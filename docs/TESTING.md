@@ -3,7 +3,7 @@
 | Command | What it runs | Needs |
 |---|---|---|
 | `make validate` | `fmt-check`, `lint` (golangci-lint, including `integration`-tagged files), `lint-openapi` (vacuum), `go test -short ./...`, `go build ./...` + `go build tool`, `check-generated` | Go only |
-| `make test-integration` | the integration suite against a throwaway `mysql:9.7` podman container | podman |
+| `make test-integration` | the integration suite against a throwaway `mysql:8.4` podman container | podman |
 | `make test-integration-local` | the integration suite against a throwaway `mysqld` from a local mysql-server prefix | `MYSQL_PREFIX` (see below) |
 | `make test-integration-external` | the integration suite against an already-running MySQL | `TEST_MYSQL_ADMIN_URL` |
 | `make vulncheck` | `go tool govulncheck ./...`: known vulnerabilities in the Go standard library and modules that the code can reach | network access to vuln.go.dev |
@@ -116,7 +116,7 @@ through the helper, so the command's name rules are checked against the spec's `
 
 ### Integration tests (`//go:build integration`)
 
-Run against real MySQL 9.7 by the `test-integration*` targets:
+Run against real MySQL 8.4 by the `test-integration*` targets:
 
 - **Repository** (`internal/datasources/mysql/*_integration_test.go`): every query in `queries.sql`, migrations up
   → down → up (`TestMigrations_UpDownUp`), column collations (`TestMigrations_ColumnCollations`), case-sensitive
@@ -177,13 +177,13 @@ cgo, which CI has but the sandbox Go image may not, so only CI sets it. Throwawa
 free `127.0.0.1` port and keep their files in a private temporary directory removed on exit, so concurrent runs
 do not collide.
 
-- **podman** — `make test-integration`. Starts `docker.io/library/mysql:9.7` with a random root password,
+- **podman** — `make test-integration`. Starts `docker.io/library/mysql:8.4` with a random root password,
   published on `127.0.0.1:<port>`, waits for `mysqladmin ping --protocol=tcp` inside the container, and removes the
   container on exit.
 - **local** — `make test-integration-local [MYSQL_PREFIX=<prefix>]`. Starts `mysqld` from a conda-forge
-  mysql-server 9.7 prefix; no container engine needed. `MYSQL_PREFIX` defaults to `.mysql-local` (gitignored);
+  mysql-server 8.4 prefix; no container engine needed. `MYSQL_PREFIX` defaults to `.mysql-local` (gitignored);
   create it once with `make mysql-local-install` (needs conda), which runs
-  `conda create -y -p .mysql-local -c conda-forge --override-channels mysql-server=9.7.4`.
+  `conda create -y -p .mysql-local -c conda-forge --override-channels mysql-server=8.4.2`.
 - **external** — `TEST_MYSQL_ADMIN_URL=mysql://root:<password>@127.0.0.1:3306 make test-integration-external`.
   Uses a running server; the URL names an account that may create and drop databases and has **no** database
   path, and the server must already have a `bardic_torch` database (CI creates it with `MYSQL_DATABASE`).
@@ -202,10 +202,10 @@ a plain Debian Go image with no network access.
 
 - Provision once, somewhere with conda and package-manager access:
   ```
-  conda create -y -p <prefix> -c conda-forge --override-channels mysql-server=9.7.4
+  conda create -y -p <prefix> -c conda-forge --override-channels 'mysql-server>=8,<9'
   ```
-  This installs `mysql-server 9.7.4` (+ `mysql-common 9.7.4`), about 255 MB. Pin the version, as
-  `make mysql-local-install` does, because conda-forge also carries Innovation releases, which are not LTS. The package has
+  This resolves to `mysql-server 8.4.2` (+ `mysql-common 8.4.2`), about 202 MB. conda-forge's newest builds are
+  9.x, so the version constraint (or `=8.4.2`, as `make mysql-local-install` uses) is required. The package has
   `mysqld` but no `mysql` or `mysqladmin` client.
 - The local mode then runs, with a private temporary directory for the data directory, socket and pid file:
   ```
@@ -230,7 +230,7 @@ GitHub Actions (`.github/workflows/ci.yml`, on every push and pull request) runs
 - **validate**: `make validate`, with the Go version from `go.mod`.
 - **vulncheck**: `make vulncheck`, with the Go version from `go.mod`, so a newly published advisory for the
   standard library or a module the code reaches fails CI.
-- **integration**: a `mysql:9.7` service container with `MYSQL_DATABASE=bardic_torch` and a TCP health check
+- **integration**: a `mysql:8.4` service container with `MYSQL_DATABASE=bardic_torch` and a TCP health check
   (`mysqladmin ping -h 127.0.0.1 --protocol=tcp`), then `make test-integration-external` with
   `TEST_MYSQL_ADMIN_URL=mysql://root:root@127.0.0.1:3306` and `GOTESTFLAGS=-race`, so the integration suite
   runs under the race detector.
