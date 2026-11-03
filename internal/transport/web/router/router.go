@@ -47,6 +47,16 @@ type Dependencies struct {
 	RevertTo                      command.Command[command.RevertRequest, command.SubmittedRevision]
 	ListMyRevisions               command.Command[command.ListMyRevisionsRequest, domain.MyRevisionList]
 	GetMyRevision                 command.Command[command.RevisionRequest, domain.MyRevision]
+	ReportLink                    command.Command[command.ReportLinkRequest, command.ReportedLink]
+	ListModerationQueue           command.Command[command.ModerationQueueRequest, domain.ModerationQueue]
+	GetModerationRevision         command.Command[command.RevisionRequest, domain.ModerationRevision]
+	ApproveRevision               command.Command[command.ApproveRevisionRequest, domain.ModerationRevision]
+	RejectRevision                command.Command[command.RejectRevisionRequest, domain.ModerationRevision]
+	RebaseRevision                command.Command[command.RebaseRevisionRequest, domain.ModerationRevision]
+	ListLinkReports               command.Command[command.LinkReportListRequest, domain.LinkReportList]
+	ResolveLinkReport             command.Command[command.ResolveLinkReportRequest, domain.LinkReport]
+	GetModerationLink             command.Command[command.ModerationLinkRequest, domain.ModerationLink]
+	SetLinkHidden                 command.Command[command.SetLinkHiddenRequest, domain.ModerationLink]
 	Now                           func() time.Time
 }
 
@@ -114,9 +124,29 @@ func routes(deps Dependencies) []route {
 			Command: deps.UpdateDisplayName,
 		})},
 
-		// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
+		// Moderation, for interactive moderators only (D25). User IDs contain "|", which clients send percent-encoded
+		// as %7C. The approve, reject and rebase routes coexist with the public GET /v1/revisions/{revision_id},
+		// which has another method and path depth.
 		{method: http.MethodPut, path: "/v1/users/{user_id}/blocked", authenticated: true,
-			handler: requireModerator(controller.UserBlockedSet{Command: deps.SetUserBlocked})},
+			handler: requireInteractiveModerator(controller.UserBlockedSet{Command: deps.SetUserBlocked})},
+		{method: http.MethodGet, path: "/v1/moderation/queue", authenticated: true,
+			handler: requireInteractiveModerator(controller.ModerationQueueList{Command: deps.ListModerationQueue})},
+		{method: http.MethodGet, path: "/v1/moderation/revisions/{revision_id}", authenticated: true,
+			handler: requireInteractiveModerator(controller.ModerationRevisionGet{Command: deps.GetModerationRevision})},
+		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/approve", authenticated: true,
+			handler: requireInteractiveModerator(controller.RevisionApprove{Command: deps.ApproveRevision})},
+		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/reject", authenticated: true,
+			handler: requireInteractiveModerator(controller.RevisionReject{Command: deps.RejectRevision})},
+		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/rebase", authenticated: true,
+			handler: requireInteractiveModerator(controller.RevisionRebase{Command: deps.RebaseRevision})},
+		{method: http.MethodGet, path: "/v1/moderation/link-reports", authenticated: true,
+			handler: requireInteractiveModerator(controller.LinkReportsList{Command: deps.ListLinkReports})},
+		{method: http.MethodPost, path: "/v1/moderation/link-reports/{report_id}", authenticated: true,
+			handler: requireInteractiveModerator(controller.LinkReportResolve{Command: deps.ResolveLinkReport})},
+		{method: http.MethodGet, path: "/v1/moderation/links", authenticated: true,
+			handler: requireInteractiveModerator(controller.ModerationLinkGet{Command: deps.GetModerationLink})},
+		{method: http.MethodPut, path: "/v1/links/{link_id}/hidden", authenticated: true,
+			handler: requireInteractiveModerator(controller.LinkHiddenSet{Command: deps.SetLinkHidden})},
 
 		// API tokens cannot manage API tokens, so a leaked token cannot be used to mint or revoke others.
 		{method: http.MethodPost, path: "/v1/tokens", authenticated: true,
@@ -158,6 +188,9 @@ func routes(deps Dependencies) []route {
 			handler: requireAuth(controller.MyRevisionsList{Command: deps.ListMyRevisions})},
 		{method: http.MethodGet, path: "/v1/me/revisions/{revision_id}", authenticated: true,
 			handler: requireAuth(controller.MyRevisionGet{Command: deps.GetMyRevision})},
+		// Link reports address a link by the URL a public page shows: link IDs are not public.
+		{method: http.MethodPost, path: "/v1/link-reports", authenticated: true,
+			handler: requireAuth(controller.LinkReportCreate{Command: deps.ReportLink})},
 	}
 }
 

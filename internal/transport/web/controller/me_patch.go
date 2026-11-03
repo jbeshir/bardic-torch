@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
+	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
@@ -40,6 +41,12 @@ func (c MePatch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidDisplayName):
 		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest, err.Error())
+	case errors.Is(err, domain.ErrDisplayNameReserved):
+		httpjson.WriteError(ctx, w, http.StatusUnprocessableEntity, httpjson.CodeDisplayNameReserved,
+			"this display name is reserved")
+	case errors.Is(err, datasources.ErrDisplayNameTaken):
+		httpjson.WriteError(ctx, w, http.StatusConflict, httpjson.CodeDisplayNameTaken,
+			"another user has this display name, or one that differs only in case, spaces or punctuation")
 	case err != nil:
 		writeInternalError(w, r, "unable to update display name", err)
 	default:

@@ -95,6 +95,12 @@ var revisionErrorAnswers = []struct {
 		"the revision conflicts with hidden data"}},
 	{domain.ErrDuplicateBlocked, revisionErrorAnswer{http.StatusUnprocessableEntity, httpjson.CodeDuplicateBlocked,
 		duplicateBlockedMessage}},
+	{datasources.ErrStale, revisionErrorAnswer{http.StatusConflict, httpjson.CodeStale,
+		"the entity's current revision has changed: resolve against the new current revision"}},
+	{command.ErrDuplicateName, revisionErrorAnswer{http.StatusConflict, httpjson.CodeDuplicateName,
+		"another term of the facet has this name"}},
+	{domain.ErrModeratorRequired, revisionErrorAnswer{http.StatusForbidden, httpjson.CodeModeratorRequired,
+		"this endpoint requires the moderator role"}},
 	{datasources.ErrUnavailable, revisionErrorAnswer{http.StatusServiceUnavailable, httpjson.CodeUnavailable,
 		unavailableMessage}},
 }

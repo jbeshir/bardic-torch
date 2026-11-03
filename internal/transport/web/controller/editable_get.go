@@ -71,9 +71,7 @@ func (c EditableGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		EntityType: c.EntityType, Entity: editorEntityRefFromDomain(editable.Entity),
 		BaseRevisionID: editable.BaseRevisionID, StartingPoint: editable.StartingPoint, Document: doc,
 		References: mapSlice(editable.References, editorReferenceFromDomain),
-		LinkStates: mapSlice(editable.LinkStates, func(s domain.LinkState) LinkState {
-			return LinkState{URL: s.URL, LinkID: s.LinkID, IsHidden: s.IsHidden, Liveness: s.Liveness}
-		}),
+		LinkStates: mapSlice(editable.LinkStates, linkStateFromDomain),
 		Draft: optional(editable.Draft, func(d domain.DraftRef) DraftRef {
 			return DraftRef{ID: d.ID, UpdatedAt: d.UpdatedAt}
 		}),

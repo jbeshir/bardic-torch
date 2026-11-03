@@ -19,7 +19,25 @@ ON DUPLICATE KEY UPDATE role = 'moderator', blocked_at = NULL;
 
 -- name: UpdateDisplayName :execrows
 UPDATE users
-SET display_name = ?
+SET display_name = ?, display_name_key = ?
+WHERE id = ?;
+
+-- A new user's display name key (D20), set after the insert so that a key another user holds, which the UNIQUE
+-- index refuses, leaves it NULL without refusing the user. Only a user still named name with no key matches.
+
+-- name: SetMissingDisplayNameKey :exec
+UPDATE users
+SET display_name_key = sqlc.arg(display_name_key)
+WHERE id = sqlc.arg(id) AND display_name = sqlc.arg(display_name) AND display_name_key IS NULL;
+
+-- name: ListDisplayNameKeys :many
+SELECT id, display_name, display_name_key
+FROM users
+ORDER BY created_at, id;
+
+-- name: SetDisplayNameKey :execrows
+UPDATE users
+SET display_name_key = ?
 WHERE id = ?;
 
 -- name: BlockUser :execrows
@@ -1216,7 +1234,7 @@ SELECT l.id, l.url, l.title, l.description, l.platform, l.place_type, l.collecti
     (SELECT COUNT(*) FROM link_reports lr WHERE lr.link_id = l.id AND lr.status = 'open') AS open_report_count
 FROM links l
 LEFT JOIN collections c ON c.id = l.collection_id
-WHERE l.normalized_url = ?;
+WHERE l.id = ?;
 
 -- A link's attachments, pieces first, then persons, each by ID, and each entity's roles in attachment order.
 
@@ -1229,3 +1247,94 @@ LEFT JOIN pieces pc ON pc.id = a.piece_id
 LEFT JOIN persons ps ON ps.id = a.person_id
 WHERE a.link_id = ?
 ORDER BY a.piece_id IS NULL, a.piece_id, a.person_id, a.id;
+
+-- name: GetLinkIDByNormalizedURL :one
+SELECT id
+FROM links
+WHERE normalized_url = ?;
+
+-- ============================================
+-- Link reports (D21)
+--
+-- Writes lock in the D15 order: the reporter's users row, then the link row, then report rows.
+-- ============================================
+
+-- A visible link: not hidden, with a public attachment, so that it is shown on a public page. The link row is
+-- share-locked, so that it cannot be hidden before the report commits.
+
+-- name: LockVisibleLink :one
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ l.id
+FROM links l
+WHERE l.normalized_url = ? AND NOT l.is_hidden
+    AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = l.id)
+FOR SHARE;
+
+-- name: GetOpenLinkReportOfReporter :one
+SELECT id, status, created_at
+FROM link_reports
+WHERE reporter_user_id = ? AND link_id = ? AND status = 'open'
+ORDER BY id
+LIMIT 1;
+
+-- name: CountOpenLinkReportsOfReporter :one
+SELECT COUNT(*)
+FROM link_reports
+WHERE reporter_user_id = ? AND status = 'open';
+
+-- name: InsertLinkReport :execlastid
+INSERT INTO link_reports (link_id, reporter_user_id, reason, message, created_at)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: ListLinkReports :many
+SELECT lr.id
+FROM link_reports lr
+WHERE (sqlc.narg(status) IS NULL OR lr.status = sqlc.narg(status))
+ORDER BY lr.created_at, lr.id
+LIMIT ? OFFSET ?;
+
+-- name: CountLinkReports :one
+SELECT COUNT(*)
+FROM link_reports lr
+WHERE (sqlc.narg(status) IS NULL OR lr.status = sqlc.narg(status));
+
+-- name: GetLinkReport :one
+SELECT lr.id, lr.link_id, lr.reason, lr.message, lr.status, lr.created_at, lr.resolved_at, lr.resolution_note,
+    lr.reporter_user_id, r.display_name AS reporter_display_name, r.role AS reporter_role,
+    r.blocked_at AS reporter_blocked_at, lr.resolved_by_user_id, v.display_name AS resolver_display_name,
+    v.role AS resolver_role, v.blocked_at AS resolver_blocked_at
+FROM link_reports lr
+JOIN users r ON r.id = lr.reporter_user_id
+LEFT JOIN users v ON v.id = lr.resolved_by_user_id
+WHERE lr.id = ?;
+
+-- name: GetLinkReportLinkID :one
+SELECT link_id
+FROM link_reports
+WHERE id = ?;
+
+-- name: LockLink :one
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ id
+FROM links
+WHERE id = ?
+FOR UPDATE;
+
+-- name: LockLinkReport :one
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ status
+FROM link_reports
+WHERE id = ?
+FOR UPDATE;
+
+-- name: ResolveLinkReport :execrows
+UPDATE link_reports
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ? AND status = 'open';
+
+-- name: SetLinkHidden :execrows
+UPDATE links
+SET is_hidden = ?
+WHERE id = ?;
+
+-- name: ResolveOpenLinkReportsOfLink :exec
+UPDATE link_reports
+SET status = 'resolved', resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE link_id = ? AND status = 'open';

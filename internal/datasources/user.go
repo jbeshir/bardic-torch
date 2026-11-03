@@ -2,6 +2,7 @@ package datasources
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -20,7 +21,8 @@ type UserGetter interface {
 }
 
 // UserEnsurer creates a contributor from user unless a user with its ID already exists, and returns the
-// stored user. An existing user is returned unchanged.
+// stored user. A new user's display name key is stored too, unless another user has it (D20). An existing user is
+// returned unchanged.
 type UserEnsurer interface {
 	EnsureUser(ctx context.Context, user NewUser) (domain.User, error)
 }
@@ -31,7 +33,8 @@ type ModeratorPromoter interface {
 	PromoteToModerator(ctx context.Context, user NewUser) error
 }
 
-// DisplayNameUpdater sets a user's display name, returning ErrNotFound if there is no such user.
+// DisplayNameUpdater sets a user's display name and its key (domain.DisplayNameKey), returning ErrNotFound if
+// there is no such user and ErrDisplayNameTaken if another user's display name has the same key.
 type DisplayNameUpdater interface {
 	UpdateDisplayName(ctx context.Context, userID, displayName string) error
 }
@@ -45,4 +48,25 @@ type UserBlocker interface {
 // UserUnblocker unblocks a contributor, returning ErrNotFound if there is no contributor with the ID.
 type UserUnblocker interface {
 	UnblockUser(ctx context.Context, userID string) error
+}
+
+// ErrDisplayNameTaken is returned, wrapped, when another user's display name has the same domain.DisplayNameKey.
+var ErrDisplayNameTaken = errors.New("display name taken")
+
+// UserDisplayNameKey is a user's display name with the key stored for it: nil when none is stored.
+type UserDisplayNameKey struct {
+	UserID      string
+	DisplayName string
+	Key         *string
+}
+
+// DisplayNameKeyLister lists every user's display name and stored key, oldest user first, then by ID.
+type DisplayNameKeyLister interface {
+	ListDisplayNameKeys(ctx context.Context) ([]UserDisplayNameKey, error)
+}
+
+// DisplayNameKeySetter stores key as a user's display name key, nil for none, returning ErrNotFound if there is no
+// such user and ErrDisplayNameTaken if another user has the key.
+type DisplayNameKeySetter interface {
+	SetDisplayNameKey(ctx context.Context, userID string, key *string) error
 }

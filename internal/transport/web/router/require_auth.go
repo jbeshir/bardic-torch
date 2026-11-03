@@ -48,7 +48,7 @@ func requireNonAPIToken(next http.Handler) http.Handler {
 }
 
 // requireModerator is requireAuth that also rejects users who are not moderators, with 403 moderator_required.
-// Moderators may use either credential.
+// Moderators may use either credential; requireInteractiveModerator also rejects API tokens.
 func requireModerator(next http.Handler) http.Handler {
 	return requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -62,4 +62,11 @@ func requireModerator(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	}))
+}
+
+// requireInteractiveModerator lets only moderators who are not using an API token through (D25): contributors get
+// 403 moderator_required, whichever credential they use, and a moderator's API token 403 api_token_not_allowed.
+// Every moderator operation uses it, because a leaked API token must not moderate or read moderator views.
+func requireInteractiveModerator(next http.Handler) http.Handler {
+	return requireModerator(requireNonAPIToken(next))
 }

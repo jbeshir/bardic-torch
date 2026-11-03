@@ -24,10 +24,16 @@ type UpdateDisplayName struct {
 }
 
 // Execute normalises req.DisplayName, stores it, and returns the updated user. A name that cannot be normalised
-// returns an error wrapping domain.ErrInvalidDisplayName, and nothing is stored.
+// returns an error wrapping domain.ErrInvalidDisplayName, a name the user may not choose
+// domain.ErrDisplayNameReserved (D20), and one another user's name has the key of datasources.ErrDisplayNameTaken;
+// then nothing is stored.
 func (c *UpdateDisplayName) Execute(ctx context.Context, req UpdateDisplayNameRequest) (domain.User, error) {
 	name, err := domain.NormalizeDisplayName(req.DisplayName)
 	if err != nil {
+		return domain.User{}, err
+	}
+
+	if err := domain.CheckDisplayNameReserved(req.UserID, name); err != nil {
 		return domain.User{}, err
 	}
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
+	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mocks"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
@@ -103,6 +104,21 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			wantBody: `{"code":"invalid_request",` +
 				`"message":"invalid display name: must contain only letters, marks, numbers, punctuation, symbols and spaces, ` +
 				`not U+202E"}`,
+		},
+		{
+			name:       "taken",
+			body:       displayNameBody("Mor-wen"),
+			stored:     "Mor-wen",
+			storeErr:   datasources.ErrDisplayNameTaken,
+			wantStatus: http.StatusConflict,
+			wantBody: `{"code":"display_name_taken","message":"another user has this display name, or one that ` +
+				`differs only in case, spaces or punctuation"}`,
+		},
+		{
+			name:       "reserved",
+			body:       displayNameBody("Moderator"),
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   `{"code":"display_name_reserved","message":"this display name is reserved"}`,
 		},
 		{
 			name:       "store_failure",

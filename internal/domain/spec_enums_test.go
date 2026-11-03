@@ -56,6 +56,9 @@ func specEnums() map[string][]string {
 		"EntityType":           strs(entityTypeValues),
 		"RevisionStatus":       strs(revisionStatusValues),
 		"FlagCode":             strs(flagCodeValues),
+		"LinkReportReason":     strs(linkReportReasonValues),
+		"LinkReportStatus":     strs(linkReportStatusValues),
+		"RebaseStatus":         strs([]RebaseStatus{RebaseStatusNotNeeded, RebaseStatusClean, RebaseStatusConflicts}),
 		"DuplicateField": strs([]DuplicateField{
 			DuplicateFieldTitle, DuplicateFieldAlias, DuplicateFieldName, DuplicateFieldURL,
 		}),

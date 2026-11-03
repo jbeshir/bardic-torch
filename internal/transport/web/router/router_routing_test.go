@@ -89,6 +89,8 @@ const (
 	routingWithdrawTmpl      = "/v1/revisions/{revision_id}/withdraw"
 	routingWithdrawPath      = routingRevisionPath + "/withdraw"
 	routingMyRevisions       = "/v1/me/revisions"
+	// routingModerationRevisionTmpl is the template of a revision as moderators see it.
+	routingModerationRevisionTmpl = "/v1/moderation/revisions/{revision_id}"
 	// routingPlaceholder is the placeholder slug of a pending new piece.
 	routingPlaceholder = "pending-piece-12"
 )
@@ -401,6 +403,15 @@ func (c routingRevision) Execute(_ context.Context, req command.RevisionRequest)
 	return domain.MyRevision{}, datasources.ErrNotFound
 }
 
+type routingModerationRevision struct{ f *routingFixture }
+
+func (c routingModerationRevision) Execute(
+	_ context.Context, req command.RevisionRequest,
+) (domain.ModerationRevision, error) {
+	c.f.recordPathValue(strconv.FormatInt(req.ID, 10))
+	return domain.ModerationRevision{}, datasources.ErrNotFound
+}
+
 type routingDraft struct{ f *routingFixture }
 
 func (c routingDraft) Execute(_ context.Context, req command.RevisionRequest) (command.DraftResult, error) {
@@ -435,6 +446,7 @@ func (f *routingFixture) dependencies() Dependencies {
 		GetPendingVersion:             routingPending{f},
 		WithdrawRevision:              routingRevision{f},
 		GetDraft:                      routingDraft{f},
+		GetModerationRevision:         routingModerationRevision{f},
 		Now:                           func() time.Time { return testNow },
 	}
 }
@@ -555,6 +567,36 @@ var routeRows = []routeRow{
 	}},
 	{path: routingMyRevisions + "/" + routingCatalogueID, allow: http.MethodGet, routed: map[string]routingCase{
 		http.MethodGet: anonymousAuthRequired("/v1/me/revisions/{revision_id}"),
+	}},
+	{path: "/v1/link-reports", allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired("/v1/link-reports"),
+	}},
+	{path: "/v1/moderation/queue", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/moderation/queue"),
+	}},
+	{path: "/v1/moderation/revisions/" + routingCatalogueID, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired(routingModerationRevisionTmpl),
+	}},
+	{path: routingRevisionPath + "/approve", allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired("/v1/revisions/{revision_id}/approve"),
+	}},
+	{path: routingRevisionPath + "/reject", allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired("/v1/revisions/{revision_id}/reject"),
+	}},
+	{path: routingRevisionPath + "/rebase", allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired("/v1/revisions/{revision_id}/rebase"),
+	}},
+	{path: "/v1/moderation/link-reports", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/moderation/link-reports"),
+	}},
+	{path: "/v1/moderation/link-reports/" + routingCatalogueID, allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired("/v1/moderation/link-reports/{report_id}"),
+	}},
+	{path: "/v1/moderation/links", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/moderation/links"),
+	}},
+	{path: "/v1/links/" + routingCatalogueID + "/hidden", allow: http.MethodPut, routed: map[string]routingCase{
+		http.MethodPut: anonymousAuthRequired("/v1/links/{link_id}/hidden"),
 	}},
 }
 
@@ -731,6 +773,9 @@ func encodedIDCases() []routingCase {
 		notFound(http.MethodGet, "/v1/pieces/%2F/editable", routingModerator),
 		notFound(http.MethodDelete, routingDrafts+"/%2F", routingModerator),
 		notFound(http.MethodPost, "/v1/revisions/%2F/withdraw", ""),
+		asModerator(http.MethodGet, "/v1/moderation/revisions/4%32", routingModerationRevisionTmpl,
+			`{"code":"not_found","message":"revision not found"}`, routingCatalogueID),
+		notFound(http.MethodGet, "/v1/moderation/revisions/%2F", routingModerator),
 		{
 			method: http.MethodDelete, target: routingTokenPath, authorization: routingModerator,
 			status: http.StatusNotFound, contentType: jsonContentType, respBody: tokenNotFoundBody, authRan: true,

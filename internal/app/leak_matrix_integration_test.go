@@ -64,6 +64,9 @@ type leakRevisions struct {
 	// renamedFormer and renamedNoPageFormer show the renamed persons' former names; renamedEdit and
 	// renamedNoPageEdit are based on them.
 	renamedFormer, renamedEdit, renamedNoPageFormer, renamedNoPageEdit int64
+	// rejectedLantern is a rejected revision of the Lantern Song, and rebasedLantern a pending one that a
+	// moderator rebased, whose original submission alone is marked.
+	rejectedLantern, rebasedLantern int64
 }
 
 // turnedName is the name of a person who chose not to have a page after their revisions were written.
@@ -71,6 +74,17 @@ const turnedName = "Leakmark Turned Nopage"
 
 // leakAuthorID is the user ID of the author of revisions: no response may show it.
 const leakAuthorID = "google-oauth2|leakmark-author"
+
+// leakModeratorID is the user ID of the moderator who rejected and rebased revisions: no response may show it.
+const leakModeratorID = "google-oauth2|leakmark-moderator"
+
+// Marked text that only moderators may read: a rejected revision's notes, the original submission of a pending
+// revision a moderator rebased, and a link report's message, which the revision leak matrix reuses.
+const (
+	rejectedNotes   = "leakmark-rejected-notes"
+	rebasedOriginal = "leakmark-rebased-original"
+	reportMessage   = "leakmark-report-message"
+)
 
 // namedCredit is a certain, named credit of personID, with its defaults written out.
 func namedCredit(personID int64, role domain.CreditRole, note *string) domain.DocCredit {
@@ -416,6 +430,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	revisions.renamedFormer, revisions.renamedEdit = formerly(renamed, renamedDoc, renamedFormerName)
 	revisions.renamedNoPageFormer, revisions.renamedNoPageEdit = formerly(renamedNoPage, renamedNoPageDoc,
 		renamedNoPageFormerName)
+	revisions.rejectedLantern, revisions.rebasedLantern = seedModeratedLantern(c, piece, lanternDoc)
 
 	// System fields no document holds and no read exposes.
 	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'contributor', ?)",
@@ -435,6 +450,41 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		turned: turned, renamed: renamed, renamedNoPage: renamedNoPage, ember: ember, revisions: revisions,
 	}
 })
+
+// seedModeratedLantern seeds what a moderator did with A's revisions of piece, whose current document is doc: a
+// rejected revision with marked notes; a pending revision the moderator rebased, whose original submission holds
+// marked notes that the rebased document does not; and an open report, with a marked message, of one of piece's
+// visible links. It returns the IDs of the rejected and the rebased revisions.
+func seedModeratedLantern(c *catalogtest.Catalog, piece catalogtest.Ref, doc domain.PieceDocument) (int64, int64) {
+	reviewedAt := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'moderator', ?)",
+		leakModeratorID, "Wren Moderator", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+
+	rejected := doc
+	rejected.NotesMD = new(rejectedNotes)
+	rejectedID := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
+		Snapshot: rejected, BaseRevisionID: piece.RevisionID, Status: domain.RevisionStatusRejected,
+		Source: domain.RevisionSourceUser, AuthorUserID: leakAuthorID})
+	c.Exec("UPDATE revisions SET reviewer_user_id = ?, reviewed_at = ? WHERE id = ?", leakModeratorID, reviewedAt,
+		rejectedID)
+
+	// Written as submitted, then rebased: the submission is kept beside the rebased document, as a rebase does.
+	submitted := doc
+	submitted.NotesMD = new(rebasedOriginal)
+	rebasedID := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
+		Snapshot: submitted, BaseRevisionID: piece.RevisionID, Status: domain.RevisionStatusPending,
+		Source: domain.RevisionSourceUser, AuthorUserID: leakAuthorID})
+	c.Exec("UPDATE revisions SET submitted_snapshot_json = snapshot_json, "+
+		"snapshot_json = JSON_SET(snapshot_json, '$.notes_md', 'Notes as the moderator rebased them.'), "+
+		"submitted_base_revision_id = base_revision_id, flags_json = JSON_ARRAY(), submitted_at = created_at, "+
+		"rebased_by_user_id = ?, rebased_at = ? WHERE id = ?", leakModeratorID, reviewedAt, rebasedID)
+
+	c.Exec("INSERT INTO link_reports (link_id, reporter_user_id, reason, message, created_at) "+
+		"SELECT id, ?, 'other', ?, ? FROM links WHERE url = ?", leakAuthorID, reportMessage, reviewedAt,
+		"https://example.org/lantern")
+
+	return rejectedID, rebasedID
+}
 
 // leakRequest is a request the leak matrix sends, and its expected status.
 type leakRequest struct {
@@ -629,6 +679,9 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			revision(fx.moot.RevisionID, http.StatusOK),
 			revision(fx.underUnapproved.RevisionID, http.StatusNotFound),
 			revision(fx.revisions.pendingLantern, http.StatusNotFound),
+			// A rejected revision, and a rebased pending one whose original submission is marked.
+			revision(fx.revisions.rejectedLantern, http.StatusNotFound),
+			revision(fx.revisions.rebasedLantern, http.StatusNotFound),
 			revision(fx.revisions.unapprovedPieceApproved, http.StatusNotFound),
 		}
 	},
@@ -655,6 +708,7 @@ const (
 	exemptAccount      = "the caller's own account"
 	exemptAPIAuth      = "the caller's API tokens"
 	exemptOwnRevisions = "the caller's own drafts and revisions; covered by TestHTTP_RevisionLeakMatrix"
+	exemptModeration   = "moderation: full data for moderators; covered by TestHTTP_RevisionLeakMatrix"
 )
 
 // leakExempt are the operations that read no catalogue data, and why. A public /v1 GET cannot be exempt.
@@ -686,6 +740,16 @@ var leakExempt = map[openapitest.Operation]string{
 	{Method: http.MethodGet, Path: "/v1/terms/{slug}/pending"}:                 exemptOwnRevisions,
 	{Method: http.MethodGet, Path: "/v1/events/{slug}/pending"}:                exemptOwnRevisions,
 	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/pending"}:  exemptOwnRevisions,
+	{Method: http.MethodPost, Path: reportLinkPath}:                            "writes a link report; returns only its receipt",
+	{Method: http.MethodGet, Path: moderationQueuePath}:                        exemptModeration,
+	{Method: http.MethodGet, Path: moderationRevisionRoute}:                    exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/approve"}:     exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/reject"}:      exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/rebase"}:      exemptModeration,
+	{Method: http.MethodGet, Path: moderationReportsPath}:                      exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/moderation/link-reports/{report_id}"}: exemptModeration,
+	{Method: http.MethodGet, Path: moderationLinksPath}:                        exemptModeration,
+	{Method: http.MethodPut, Path: "/v1/links/{link_id}/hidden"}:               exemptModeration,
 }
 
 // TestHTTP_LeakMatrix sends every leakMatrix request to the production handler over a real repository holding
@@ -814,6 +878,15 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 		"SELECT COUNT(*) FROM revisions r JOIN links l ON l.is_hidden AND l.url = '" + respelledLinkURLNow + "' " +
 			"AND l.normalized_url = 'https://example.org/leakmark-respelled-link' WHERE r.status = 'approved' " +
 			"AND JSON_SEARCH(r.snapshot_json, 'one', '" + respelledLinkURL + "', NULL, '$.links[*].url') IS NOT NULL",
+		// A rejected revision with marked notes; a pending revision a moderator rebased, whose original submission
+		// alone holds its marker; a marked message of an open report of a visible link.
+		"SELECT COUNT(*) FROM revisions WHERE status = 'rejected' AND snapshot_json->>'$.notes_md' = '" +
+			rejectedNotes + "'",
+		"SELECT COUNT(*) FROM revisions WHERE status = 'pending' AND rebased_by_user_id IS NOT NULL " +
+			"AND submitted_snapshot_json->>'$.notes_md' = '" + rebasedOriginal + "' " +
+			"AND snapshot_json->>'$.notes_md' <> '" + rebasedOriginal + "'",
+		"SELECT COUNT(*) FROM link_reports r JOIN links l ON l.id = r.link_id " +
+			"WHERE r.status = 'open' AND NOT l.is_hidden AND r.message = '" + reportMessage + "'",
 	} {
 		var count int
 		require.NoError(t, db.QueryRowContext(t.Context(), query).Scan(&count), query)

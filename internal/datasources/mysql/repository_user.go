@@ -13,12 +13,14 @@ import (
 )
 
 var (
-	_ datasources.UserGetter         = (*Repository)(nil)
-	_ datasources.UserEnsurer        = (*Repository)(nil)
-	_ datasources.ModeratorPromoter  = (*Repository)(nil)
-	_ datasources.DisplayNameUpdater = (*Repository)(nil)
-	_ datasources.UserBlocker        = (*Repository)(nil)
-	_ datasources.UserUnblocker      = (*Repository)(nil)
+	_ datasources.UserGetter           = (*Repository)(nil)
+	_ datasources.UserEnsurer          = (*Repository)(nil)
+	_ datasources.ModeratorPromoter    = (*Repository)(nil)
+	_ datasources.DisplayNameUpdater   = (*Repository)(nil)
+	_ datasources.UserBlocker          = (*Repository)(nil)
+	_ datasources.UserUnblocker        = (*Repository)(nil)
+	_ datasources.DisplayNameKeyLister = (*Repository)(nil)
+	_ datasources.DisplayNameKeySetter = (*Repository)(nil)
 )
 
 // GetUser retrieves a user by ID, returning datasources.ErrNotFound if there is none.
@@ -35,7 +37,8 @@ func (r *Repository) GetUser(ctx context.Context, userID string) (domain.User, e
 }
 
 // EnsureUser creates a contributor from user unless a user with its ID already exists, and returns the
-// stored user. Concurrent calls for the same ID create one user.
+// stored user. Concurrent calls for the same ID create one user. A new user's display name key is set after the
+// insert, and left NULL if another user has it (D20).
 func (r *Repository) EnsureUser(ctx context.Context, user datasources.NewUser) (domain.User, error) {
 	err := r.queries.InsertUserIfMissing(ctx, queries.InsertUserIfMissingParams{
 		ID:          user.ID,
@@ -44,6 +47,14 @@ func (r *Repository) EnsureUser(ctx context.Context, user datasources.NewUser) (
 	})
 	if err != nil {
 		return domain.User{}, fmt.Errorf("inserting user [%s]: %w", user.ID, err)
+	}
+	if key := displayNameKey(user.DisplayName); key.Valid {
+		err = r.queries.SetMissingDisplayNameKey(ctx, queries.SetMissingDisplayNameKeyParams{
+			DisplayNameKey: key, ID: user.ID, DisplayName: user.DisplayName,
+		})
+		if err != nil && mysqlErrorNumber(err) != erDuplicateEntry {
+			return domain.User{}, fmt.Errorf("setting display name key of user [%s]: %w", user.ID, err)
+		}
 	}
 
 	return r.GetUser(ctx, user.ID)
@@ -63,17 +74,64 @@ func (r *Repository) PromoteToModerator(ctx context.Context, user datasources.Ne
 	return nil
 }
 
-// UpdateDisplayName sets a user's display name, returning datasources.ErrNotFound if there is no such user.
+// UpdateDisplayName sets a user's display name and its key, returning datasources.ErrNotFound if there is no such
+// user and datasources.ErrDisplayNameTaken if another user has the key.
 func (r *Repository) UpdateDisplayName(ctx context.Context, userID, displayName string) error {
 	err := requireMatched(r.queries.UpdateDisplayName(ctx, queries.UpdateDisplayNameParams{
-		DisplayName: displayName,
-		ID:          userID,
+		DisplayName:    displayName,
+		DisplayNameKey: displayNameKey(displayName),
+		ID:             userID,
 	}))
 	if err != nil {
-		return fmt.Errorf("updating display name of user [%s]: %w", userID, err)
+		return fmt.Errorf("updating display name of user [%s]: %w", userID, displayNameKeyError(err))
 	}
 
 	return nil
+}
+
+// ListDisplayNameKeys lists every user's display name and stored key, oldest user first, then by ID.
+func (r *Repository) ListDisplayNameKeys(ctx context.Context) ([]datasources.UserDisplayNameKey, error) {
+	rows, err := r.queries.ListDisplayNameKeys(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing display name keys: %w", err)
+	}
+	keys := make([]datasources.UserDisplayNameKey, 0, len(rows))
+	for _, row := range rows {
+		keys = append(keys, datasources.UserDisplayNameKey{
+			UserID: row.ID, DisplayName: row.DisplayName, Key: stringPtr(row.DisplayNameKey),
+		})
+	}
+
+	return keys, nil
+}
+
+// SetDisplayNameKey stores a user's display name key, nil for none, returning datasources.ErrNotFound if there is
+// no such user and datasources.ErrDisplayNameTaken if another user has the key.
+func (r *Repository) SetDisplayNameKey(ctx context.Context, userID string, key *string) error {
+	err := requireMatched(r.queries.SetDisplayNameKey(ctx, queries.SetDisplayNameKeyParams{
+		DisplayNameKey: nullString(key), ID: userID,
+	}))
+	if err != nil {
+		return fmt.Errorf("setting display name key of user [%s]: %w", userID, displayNameKeyError(err))
+	}
+
+	return nil
+}
+
+// displayNameKey is the key column's value for a display name: its domain.DisplayNameKey, NULL for a name with no
+// letter or digit, which no other name is then kept from.
+func displayNameKey(displayName string) sql.NullString {
+	return optionalText(domain.DisplayNameKey(displayName))
+}
+
+// displayNameKeyError is datasources.ErrDisplayNameTaken for a duplicate key, the only UNIQUE index a users
+// update can break, and err otherwise.
+func displayNameKeyError(err error) error {
+	if mysqlErrorNumber(err) == erDuplicateEntry {
+		return datasources.ErrDisplayNameTaken
+	}
+
+	return err
 }
 
 // BlockUser blocks a contributor, keeping the original time if it is already blocked. It returns

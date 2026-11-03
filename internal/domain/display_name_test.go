@@ -117,3 +117,37 @@ func TestNormalizeDisplayName(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckDisplayNameReserved(t *testing.T) {
+	t.Parallel()
+
+	const userID = "google-oauth2|123"
+	cases := []struct {
+		name string
+		want error
+	}{
+		{name: "Morwen of the Hills"},
+		{name: "Moderator", want: ErrDisplayNameReserved},
+		{name: "MOD", want: ErrDisplayNameReserved},
+		{name: "Ad.min", want: ErrDisplayNameReserved},
+		{name: "Bardic Torch", want: ErrDisplayNameReserved},
+		{name: "Traditional", want: ErrDisplayNameReserved},
+		{name: "Moderator Wren"},
+		// The caller's own default name may be restored, in any spelling with its key.
+		{name: DefaultDisplayName(userID)},
+		{name: "bard-47B988F0"},
+		// Another user's default name, or any name of that shape, may not be taken.
+		{name: DefaultDisplayName("auth0|b"), want: ErrDisplayNameReserved},
+		{name: "Bard 0123abcd", want: ErrDisplayNameReserved},
+		{name: "Bard 0123abcde"},
+		{name: "Bard 0123abcg"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.ErrorIs(t, CheckDisplayNameReserved(userID, tc.name), tc.want)
+		})
+	}
+}

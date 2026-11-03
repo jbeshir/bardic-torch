@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
+	"github.com/jbeshir/bardic-torch/internal/transport/web/controller"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,6 +87,8 @@ type revisionLeakFixture struct {
 	pendingTermSlug string
 	// pieceDraft is A's draft of a new piece.
 	pieceDraft int64
+	// renameToAlias is A's (withdrawn) rename of wren to a hidden alias, flagged hidden_data_conflict.
+	renameToAlias int64
 	// own are A's revisions, drafts included, with the marked strings of A's own each shows A.
 	own []ownRevision
 }
@@ -100,6 +104,8 @@ type revisionLeakRequest struct {
 	viewer revisionViewer
 	path   string
 	status int
+	// code is the error code of a response that is not 200; not_found if empty.
+	code httpjson.ErrorCode
 	// reveals are marked strings the response may show, each of which it must show.
 	reveals []string
 	// full skips the scan for a moderator's complete view; check then asserts the hidden data is there.
@@ -265,7 +271,12 @@ func (w revisionLeakWorld) seedAuthorRevisions(t *testing.T, fx revisionLeakFixt
 		newPieceDocument(draftTitle), "A new piece.")), "id")
 
 	renameToAlias, renameToFresh := w.validationOracle(t, fx)
+	fx.renameToAlias = renameToAlias
 	provenance := w.provenance(t, fx)
+
+	// A reports a visible link of the piece, with a message for the moderators' inbox.
+	sendOK[jsonObject](t, w.e, http.MethodPost, reportLinkPath, a,
+		reportLinkRequest(t, "https://example.org/lantern", reportMessage), http.StatusCreated)
 
 	fx.own = []ownRevision{
 		{id: piece, reveals: []string{pendingNotes, pendingSummary}},
@@ -466,6 +477,8 @@ func (w revisionLeakWorld) assertRow(t *testing.T, req revisionLeakRequest) {
 	case req.full:
 	case req.status == http.StatusOK:
 		assertNoLeakIn(t, body, req.reveals)
+	case req.code != "":
+		requireErrorBodyOnly(t, body, req.code)
 	default:
 		requireErrorBodyOnly(t, body, httpjson.CodeNotFound)
 	}
@@ -599,6 +612,106 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 		}
 		return rows
 	},
+	{Method: http.MethodGet, Path: moderationQueuePath}: func(revisionLeakFixture) []revisionLeakRequest {
+		return moderatorOnly(moderationQueuePath, func(t *testing.T, body string) {
+			t.Helper()
+			assert.Contains(t, body, `"`+pendingSummary+`"`, "the queue does not list A's pending revision")
+		})
+	},
+	{Method: http.MethodGet, Path: moderationRevisionRoute}: func(
+		fx revisionLeakFixture,
+	) []revisionLeakRequest {
+		// The validation oracle's rename to a hidden alias: A never sees hidden_data_conflict, the moderator does.
+		return moderatorOnly(moderationPath(fx.renameToAlias), func(t *testing.T, body string) {
+			t.Helper()
+			assert.Contains(t, flagCodesOf(t, body), "hidden_data_conflict")
+		})
+	},
+	{Method: http.MethodGet, Path: moderationReportsPath}: func(revisionLeakFixture) []revisionLeakRequest {
+		return moderatorOnly(moderationReportsPath, func(t *testing.T, body string) {
+			t.Helper()
+			assert.Contains(t, body, `"`+reportMessage+`"`, "the inbox does not show A's report message")
+		})
+	},
+	{Method: http.MethodGet, Path: moderationLinksPath}: func(revisionLeakFixture) []revisionLeakRequest {
+		// The hidden link, in full, as the moderator sees it.
+		return moderatorOnly(moderationLinksPath+"?url="+url.QueryEscape(hiddenLinkURL), func(t *testing.T, body string) {
+			t.Helper()
+			var link struct {
+				URL      string `json:"url"`
+				IsHidden bool   `json:"is_hidden"`
+			}
+			require.NoError(t, json.Unmarshal([]byte(body), &link))
+			assert.Equal(t, hiddenLinkURL, link.URL)
+			assert.True(t, link.IsHidden)
+		})
+	},
+}
+
+// moderatorOnly are the rows of a moderator view at path: contributors A and B get 403 moderator_required, the
+// moderator's API token 403 api_token_not_allowed, each with the Error body only, and the moderator in an Auth0
+// session the full view, which check asserts on.
+func moderatorOnly(path string, check func(t *testing.T, body string)) []revisionLeakRequest {
+	return []revisionLeakRequest{
+		{viewer: viewerAuthor, path: path, status: http.StatusForbidden, code: httpjson.CodeModeratorRequired},
+		{viewer: viewerOther, path: path, status: http.StatusForbidden, code: httpjson.CodeModeratorRequired},
+		{viewer: viewerModeratorToken, path: path, status: http.StatusForbidden, code: httpjson.CodeAPIAuthNotAllowed},
+		{viewer: viewerModerator, path: path, status: http.StatusOK, full: true, check: check},
+	}
+}
+
+// flagCodesOf returns the codes of the flags of a moderation revision view, in order.
+func flagCodesOf(t *testing.T, body string) []string {
+	t.Helper()
+
+	var revision struct {
+		Flags []struct {
+			Code string `json:"code"`
+		} `json:"flags"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &revision))
+	codes := make([]string, 0, len(revision.Flags))
+	for _, flag := range revision.Flags {
+		codes = append(codes, flag.Code)
+	}
+	return codes
+}
+
+// The paths of link reports and of moderator views without a constant elsewhere.
+const (
+	reportLinkPath          = "/v1/link-reports"
+	moderationRevisionRoute = "/v1/moderation/revisions/{revision_id}"
+	moderationLinksPath     = "/v1/moderation/links"
+)
+
+// reportLinkRequest is the body of a report of the link at linkURL with message.
+func reportLinkRequest(t *testing.T, linkURL, message string) string {
+	t.Helper()
+
+	return encodeJSON(t, controller.LinkReportCreateRequest{URL: linkURL, Reason: domain.LinkReportReasonOther,
+		Message: &message})
+}
+
+// assertHiddenLinkReportIsUnknown checks that A's report of the hidden link gets the same 404, byte for byte, as a
+// report of a URL no link has, so that a report cannot tell a hidden link from no link; and that the blocked user
+// cannot report links.
+func (w revisionLeakWorld) assertHiddenLinkReportIsUnknown(t *testing.T) {
+	t.Helper()
+	a := w.viewers[viewerAuthor]
+
+	hidden := w.e.send(t, http.MethodPost, reportLinkPath, a, reportLinkRequest(t, hiddenLinkURL, "Broken."))
+	require.Equal(t, http.StatusNotFound, hidden.Code, hidden.Body.String())
+	requireErrorBodyOnly(t, hidden.Body.String(), httpjson.CodeNotFound)
+	unknown := w.e.send(t, http.MethodPost, reportLinkPath, a,
+		reportLinkRequest(t, "https://example.org/no-such-link", "Broken."))
+	require.Equal(t, http.StatusNotFound, unknown.Code, unknown.Body.String())
+	assert.Equal(t, unknown.Body.String(), hidden.Body.String(), "a hidden link's report is told apart from no link's")
+
+	for _, blocked := range w.blocked {
+		sendRejected(t, w.e, http.MethodPost, reportLinkPath, blocked,
+			reportLinkRequest(t, "https://example.org/lantern", "Broken."), http.StatusForbidden,
+			httpjson.CodeUserBlocked)
+	}
 }
 
 // authorOnly are the rows of a read of A's own revision at path: A sees reveals, B gets 404.
@@ -692,6 +805,7 @@ func TestHTTP_RevisionLeakMatrix(t *testing.T) {
 		sendRejected(t, w.e, http.MethodPost, revisionsPath, blocked, submitBody(fx.pieceDraft),
 			http.StatusForbidden, httpjson.CodeUserBlocked)
 	}
+	w.assertHiddenLinkReportIsUnknown(t)
 
 	w.logs.requireNoMarkedLogs(t)
 }

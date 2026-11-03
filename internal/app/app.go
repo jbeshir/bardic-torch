@@ -22,8 +22,8 @@ type Component interface {
 	Run(ctx context.Context) error
 }
 
-// Setup connects to the database, promotes the moderators named in BOOTSTRAP_MODERATOR_USER_IDS, and returns
-// the components to run, configured from the environment.
+// Setup connects to the database, promotes the moderators named in BOOTSTRAP_MODERATOR_USER_IDS, stores missing
+// or stale display name keys, and returns the components to run, configured from the environment.
 func Setup(ctx context.Context) ([]Component, error) {
 	dbConfig, err := mysql.ConfigFromURL(MustGetEnvAsString(ctx, "DATABASE_URL"))
 	if err != nil {
@@ -40,6 +40,12 @@ func Setup(ctx context.Context) ([]Component, error) {
 	if _, err := bootstrap.Execute(ctx, MustGetEnvAsStrings(ctx, bootstrapModeratorsEnv)); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("bootstrapping moderators: %w", err)
+	}
+
+	backfill := &command.BackfillDisplayNameKeys{Lister: repository, Setter: repository}
+	if _, err := backfill.Execute(ctx, command.Empty{}); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("backfilling display name keys: %w", err)
 	}
 
 	authValidators, err := authValidatorsFromEnv(ctx, repository, now)
@@ -105,6 +111,16 @@ func repositoryHTTPDependencies(repository *mysql.Repository, authValidators []r
 		MyRevisionLister:              repository,
 		MyRevisionGetter:              repository,
 		PendingVersionGetter:          repository,
+		ModerationQueueLister:         repository,
+		ModerationRevisionGetter:      repository,
+		ModerationLinkGetter:          repository,
+		RevisionApprover:              repository,
+		RevisionRejecter:              repository,
+		RevisionRebaser:               repository,
+		LinkReporter:                  repository,
+		LinkReportLister:              repository,
+		LinkReportResolver:            repository,
+		LinkHiddenSetter:              repository,
 		Now:                           now,
 	}
 }

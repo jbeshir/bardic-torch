@@ -331,8 +331,11 @@ through the helper, so the command's name rules are checked against the spec's `
   authentication.
 
   The expected outcomes live in that one file: one `access` table per authorisation middleware (`public`,
-  `authenticatedUser`, `interactiveUser`, `moderator`), listing every principal, and `authMatrix`, mapping each
-  operation to its access and a request that succeeds when allowed. The list of operations comes from the spec,
+  `authenticatedUser`, `interactiveUser`, `interactiveModerator`), listing every principal, and `authMatrix`,
+  mapping each operation to its access and a request that succeeds when allowed (the revision and moderation rows
+  are in `http_handler_auth_matrix_revisions_test.go` and `http_handler_auth_matrix_moderation_test.go`). Every
+  moderator operation is `interactiveModerator`: a contributor gets 403 `moderator_required` with either
+  credential, and a moderator's API token 403 `api_token_not_allowed`. The list of operations comes from the spec,
   so a new operation without a row fails the test.
 
   `public` operations (the health checks and every catalogue read) are route-table entries without

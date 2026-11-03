@@ -38,7 +38,9 @@ tags:
   - name: Users
     description: The caller's account
   - name: Moderation
-    description: Actions reserved for moderators
+    description: |
+      Actions and views reserved for moderators, in an interactive (Auth0) session: a moderator's API token gets
+      403 `api_token_not_allowed`, because a leaked long-lived token must not moderate or read moderator views.
   - name: API tokens
     description: Personal API tokens for programmatic access
   - name: Revisions
@@ -151,10 +153,32 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "409":
+          description: |
+            Another user's display name has the same key: it differs only in case, accents, spaces or
+            punctuation. The error code is `display_name_taken`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: display_name_taken
+                message: another user has this display name, or one that differs only in case, spaces or punctuation
         "413":
           $ref: "#/components/responses/RequestTooLarge"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          description: |
+            The display name is reserved: it names a role or the site (such as `Moderator`), or has the shape of a
+            default display name other than the caller's own. The error code is `display_name_reserved`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: display_name_reserved
+                message: this display name is reserved
         "500":
           $ref: "#/components/responses/Internal"
 
@@ -167,7 +191,8 @@ paths:
         Blocks or unblocks a contributor and returns them. A blocked user gets 403 `user_blocked` from every
         authenticated endpoint. Blocking a blocked user, or unblocking one who is not blocked, succeeds again;
         a re-block keeps the time the user was first blocked. Moderators cannot be blocked or unblocked,
-        including by themselves. Requires the moderator role.
+        including by themselves. Requires an interactive moderator session: an API token gets 403
+        `api_token_not_allowed`.
 
         Until users can be found through the API, moderators take user IDs from Auth0 or the database.
       operationId: setUserBlocked
@@ -209,7 +234,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/ModeratorForbidden"
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
         "404":
           description: There is no user with this ID; the error code is `not_found`.
           content:
@@ -234,6 +259,557 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/Internal"
+
+  /v1/moderation/queue:
+    get:
+      tags:
+        - Moderation
+      summary: List the moderation queue
+      description: |
+        Lists one page of the pending revisions, oldest first by when they were submitted, then by `id`, with how
+        many match in all. Pending revisions of blocked authors are left out unless `include_blocked` is true.
+        Ages are measured from submission, in whole hours, and both bounds are inclusive. Requires an interactive
+        moderator session: API tokens get 403 `api_token_not_allowed`.
+      operationId: listModerationQueue
+      parameters:
+        - name: entity_type
+          in: query
+          required: false
+          description: Only list revisions of entities of this type.
+          schema:
+            $ref: "#/components/schemas/EntityType"
+        - name: author
+          in: query
+          required: false
+          description: Only list revisions by the user with this `id`.
+          schema:
+            type: string
+            examples:
+              - google-oauth2|123
+        - name: min_age_hours
+          in: query
+          required: false
+          description: Only list revisions submitted at least this many hours ago.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 8760
+            examples:
+              - 24
+        - name: max_age_hours
+          in: query
+          required: false
+          description: Only list revisions submitted at most this many hours ago.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 8760
+            examples:
+              - 168
+        - name: include_blocked
+          in: query
+          required: false
+          description: Also list the pending revisions of blocked authors.
+          schema:
+            type: boolean
+            default: false
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: One page of the queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationQueue"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/moderation/revisions/{revision_id}:
+    get:
+      tags:
+        - Moderation
+      summary: Get a revision as a moderator
+      description: |
+        Returns a revision of any status but draft with every document in full, hidden aliases and hidden links
+        included, and what approving it involves: whether it is stale and how it would be rebased, the pending
+        new terms and persons approved alongside it, its flags and possible duplicates. Drafts are private to
+        their author. Requires an interactive moderator session.
+      operationId: getModerationRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      responses:
+        "200":
+          description: The revision as moderators see it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationRevision"
+        "400":
+          $ref: "#/components/responses/InvalidRevisionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/ModerationRevisionNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/revisions/{revision_id}/approve:
+    post:
+      tags:
+        - Moderation
+      summary: Approve a pending revision
+      description: |
+        Approves a pending revision and publishes it. A stale revision whose changes merge cleanly with the
+        entity's current version is rebased automatically; one that conflicts must be rebased first. The pending
+        new terms and persons it references are approved alongside it unless one carries a flag of its own.
+        Every flag but `references_pending` must be acknowledged, and a summary holding a hidden name needs a
+        replacement `summary`. Requires an interactive moderator session.
+      operationId: approveRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      requestBody:
+        description: The acknowledged flags, and an optional review note and replacement summary.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveRequest"
+      responses:
+        "200":
+          description: The approved revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationRevision"
+        "400":
+          $ref: "#/components/responses/InvalidModerationRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/ModerationRevisionNotFound"
+        "409":
+          description: |
+            The approval is refused: the revision is not pending (`not_pending`); it is stale and its changes
+            conflict with the current version (`rebase_required`); its entity, or an entity it references, no
+            longer exists (`entity_gone`); it carries hidden data a contributor could not see
+            (`hidden_data_conflict`); a pending new term or person it references carries flags
+            (`pending_reference_flagged`, with that revision's flags); its flags are not acknowledged
+            (`unacknowledged_flags`, with the flags); or another term of its facet has taken the term's name
+            (`duplicate_name`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Error"
+                  - $ref: "#/components/schemas/FlagsError"
+              examples:
+                rebaseRequired:
+                  summary: The revision conflicts with the current version
+                  value:
+                    code: rebase_required
+                    message: "the entity changed since the base, and the changes conflict: edit the current version"
+                unacknowledgedFlags:
+                  summary: A flag is not acknowledged
+                  value:
+                    code: unacknowledged_flags
+                    message: the revision has flags that are not acknowledged
+                    flags:
+                      - code: possible_duplicate
+                        path: null
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          description: |
+            The document approval would publish is invalid (`invalid_document`, with its problems), or the new
+            person matches a person who has asked not to have a page (`duplicate_blocked`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/DocumentError"
+                  - $ref: "#/components/schemas/Error"
+              examples:
+                invalidDocument:
+                  summary: The document is invalid
+                  value:
+                    code: invalid_document
+                    message: the document is invalid
+                    problems:
+                      - path: /summary
+                        problem: too_long
+                duplicateBlocked:
+                  summary: The new person matches a person who has asked not to have a page
+                  value:
+                    code: duplicate_blocked
+                    message: a person with this name has asked not to have a page
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/revisions/{revision_id}/reject:
+    post:
+      tags:
+        - Moderation
+      summary: Reject a pending revision
+      description: |
+        Rejects a pending revision; a pending new entity no other pending revision has is deleted. The review
+        note reaches the author, so a note holding a hidden name must acknowledge `hidden_alias_in_review_note`.
+        Requires an interactive moderator session.
+      operationId: rejectRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      requestBody:
+        description: The acknowledged flags, and an optional review note.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectRequest"
+      responses:
+        "200":
+          description: The rejected revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationRevision"
+        "400":
+          $ref: "#/components/responses/InvalidModerationRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/ModerationRevisionNotFound"
+        "409":
+          description: |
+            The revision is not pending (`not_pending`), or the review note holds a hidden name that is not
+            acknowledged (`unacknowledged_flags`, with the flag).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Error"
+                  - $ref: "#/components/schemas/FlagsError"
+              examples:
+                notPending:
+                  summary: The revision is not pending
+                  value:
+                    code: not_pending
+                    message: the revision is not pending
+                unacknowledgedFlags:
+                  summary: The review note holds a hidden name
+                  value:
+                    code: unacknowledged_flags
+                    message: the revision has flags that are not acknowledged
+                    flags:
+                      - code: hidden_alias_in_review_note
+                        path: /review_note
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/revisions/{revision_id}/rebase:
+    post:
+      tags:
+        - Moderation
+      summary: Rebase a pending revision
+      description: |
+        Replaces a pending revision's document with one the moderator resolved against the entity's current
+        revision, which becomes its base. The revision stays pending; what its author submitted, and the base
+        they edited from, are kept. The document is validated against the current version with its author's
+        rules. Requires an interactive moderator session.
+      operationId: rebaseRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      requestBody:
+        description: The resolved document, the current revision it was resolved against, and an optional summary.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RebaseRequest"
+      responses:
+        "200":
+          description: The rebased revision, still pending.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationRevision"
+        "400":
+          description: |
+            The `revision_id` is not a positive integer, the request body is malformed, or its document is not a
+            document of its `entity_type` or of the revision's; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: field document has an unknown field
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/ModerationRevisionNotFound"
+        "409":
+          description: |
+            The revision is not pending (`not_pending`); `current_revision_id` is no longer the entity's current
+            revision (`stale`); or the entity, or an entity the document references, no longer exists
+            (`entity_gone`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: stale
+                message: "the entity's current revision has changed: resolve against the new current revision"
+        "413":
+          $ref: "#/components/responses/DocumentTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/InvalidDocument"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/moderation/link-reports:
+    get:
+      tags:
+        - Moderation
+      summary: List link reports
+      description: |
+        Lists one page of the link reports, oldest first, then by `id`, each with its link as it is now and who
+        reported it, with how many match in all. Requires an interactive moderator session.
+      operationId: listLinkReports
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Only list reports with this status.
+          schema:
+            $ref: "#/components/schemas/LinkReportStatus"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: One page of link reports.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkReportList"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/moderation/link-reports/{report_id}:
+    post:
+      tags:
+        - Moderation
+      summary: Resolve a link report
+      description: |
+        Resolves or dismisses an open link report, optionally hiding its link in the same write; hiding resolves
+        the link's other open reports too. Requires an interactive moderator session.
+      operationId: resolveLinkReport
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          description: The report's `id`.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            examples:
+              - 3
+      requestBody:
+        description: The resolution.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveLinkReportRequest"
+      responses:
+        "200":
+          description: The resolved report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkReport"
+        "400":
+          description: |
+            The `report_id` is not a positive integer, or the request body is malformed or invalid; the error code
+            is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid status: must be resolved or dismissed"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "404":
+          description: There is no report with this `id`; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: link report not found
+        "409":
+          description: The report is already resolved or dismissed; the error code is `conflict`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: conflict
+                message: the link report is not open
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/moderation/links:
+    get:
+      tags:
+        - Moderation
+      summary: Find a link by URL
+      description: |
+        Returns the link whose normalized URL is `url`'s, hidden or not, with its `link_id`, every entity it is
+        attached to and how many of its reports are open. Requires an interactive moderator session.
+      operationId: getModerationLink
+      parameters:
+        - name: url
+          in: query
+          required: true
+          description: The link's URL, in any spelling that normalizes to the same URL.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 2048
+            examples:
+              - https://example.org/the-copper-kettle
+      responses:
+        "200":
+          description: The link.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationLink"
+        "400":
+          description: |
+            `url` is missing, empty, longer than 2048 characters or given more than once, or the query string is
+            not validly percent-encoded; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: query parameter url is required
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/LinkNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/links/{link_id}/hidden:
+    put:
+      tags:
+        - Moderation
+      summary: Hide or show a link
+      description: |
+        Hides a link from every public view (a takedown), or shows it again. Hiding resolves the link's open
+        reports with the note "Link hidden.". Requires an interactive moderator session.
+      operationId: setLinkHidden
+      parameters:
+        - name: link_id
+          in: path
+          required: true
+          description: The link's `id`, from a moderator view.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            examples:
+              - 7
+      requestBody:
+        description: Whether the link should be hidden.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetLinkHiddenRequest"
+      responses:
+        "200":
+          description: The link, now hidden or shown as requested.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationLink"
+        "400":
+          description: |
+            The `link_id` is not a positive integer, or the request body is malformed or invalid; the error code
+            is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: hidden is required
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/LinkNotFound"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
 
   /v1/tokens:
     post:
@@ -1951,6 +2527,62 @@ paths:
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
+  /v1/link-reports:
+    post:
+      tags:
+        - Revisions
+      summary: Report a link
+      description: |
+        Reports a link a public page shows, by its URL, to the moderators. A repeat report of a link the caller
+        has an open report of returns that report (200). A URL no visible link has, whether hidden or unknown, is
+        not found. A user may have at most 20 open reports.
+      operationId: reportLink
+      requestBody:
+        description: The link's URL, why it is reported, and an optional message.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportLinkRequest"
+      responses:
+        "200":
+          description: The caller's open report of the link, as it is.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkReportReceipt"
+        "201":
+          description: The new report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkReportReceipt"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/LinkNotFound"
+        "409":
+          description: The caller has 20 open link reports; the error code is `report_limit_reached`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: report_limit_reached
+                message: a user may have at most 20 open link reports
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
   /v1/revisions/{revision_id}/withdraw:
     post:
       tags:
@@ -2347,25 +2979,6 @@ components:
           example:
             code: user_blocked
             message: user is blocked
-    ModeratorForbidden:
-      description: |
-        The caller is blocked (`user_blocked`), or is not a moderator (`moderator_required`). Blocking takes
-        precedence.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            userBlocked:
-              summary: The caller is blocked
-              value:
-                code: user_blocked
-                message: user is blocked
-            moderatorRequired:
-              summary: The caller is not a moderator
-              value:
-                code: moderator_required
-                message: this endpoint requires the moderator role
     APITokenForbidden:
       description: |
         The caller is blocked (`user_blocked`), or authenticated with an API token, which this endpoint does not
@@ -2385,6 +2998,73 @@ components:
               value:
                 code: api_token_not_allowed
                 message: this endpoint cannot be used with an API token
+    InteractiveModeratorForbidden:
+      description: |
+        The caller is blocked (`user_blocked`), is not a moderator (`moderator_required`), or is a moderator
+        authenticated with an API token, which moderator endpoints do not accept (`api_token_not_allowed`).
+        Blocking takes precedence, then the role.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            userBlocked:
+              summary: The caller is blocked
+              value:
+                code: user_blocked
+                message: user is blocked
+            moderatorRequired:
+              summary: The caller is not a moderator
+              value:
+                code: moderator_required
+                message: this endpoint requires the moderator role
+            apiTokenNotAllowed:
+              summary: The caller is a moderator using an API token
+              value:
+                code: api_token_not_allowed
+                message: this endpoint cannot be used with an API token
+    InvalidListRequest:
+      description: |
+        A filter is not one of its values or out of range, `limit` or `offset` is out of range, a parameter is
+        given more than once, or the query string is not validly percent-encoded; the error code is
+        `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid limit: must be an integer from 1 to 100"
+    InvalidModerationRequest:
+      description: |
+        The `revision_id` is not a positive integer, or the request body is malformed or invalid: for example
+        `acknowledged_flags` is missing or holds an unknown flag, or `review_note` is longer than 2000 characters.
+        The error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: acknowledged_flags is required
+    ModerationRevisionNotFound:
+      description: No revision but a draft has this `id`; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: revision not found
+    LinkNotFound:
+      description: No link with this URL or `id` exists, or it is hidden; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: link not found
     RequestTooLarge:
       description: The request body is larger than 16 KiB; the error code is `request_too_large`.
       content:
@@ -2576,6 +3256,11 @@ components:
             - draft_limit_reached
             - duplicate_blocked
             - hidden_data_conflict
+            - duplicate_name
+            - stale
+            - display_name_taken
+            - display_name_reserved
+            - report_limit_reached
           examples:
             - unavailable
         message:
@@ -7079,6 +7764,781 @@ components:
       examples:
         - data: []
           total: 0
+
+    RebaseStatus:
+      type: string
+      description: |
+        What approving a pending revision would do with its document: take it as it is (`not_needed`: it is not
+        stale, or cannot be merged), rebase it automatically (`clean`), or refuse until a moderator rebases it
+        (`conflicts`).
+      enum: [not_needed, clean, conflicts]
+      examples:
+        - clean
+
+    LinkReportReason:
+      type: string
+      description: Why a link is reported.
+      enum: [broken, wrong_link, privacy, copyright, lyrics, other]
+      examples:
+        - broken
+
+    LinkReportStatus:
+      type: string
+      description: Where a link report is in moderation.
+      enum: [open, resolved, dismissed]
+      examples:
+        - open
+
+    ModerationAuthor:
+      type: object
+      description: A user as moderator views show them, with their `id`, so that a moderator can block them.
+      additionalProperties: false
+      required: [id, display_name, role, blocked]
+      properties:
+        id:
+          $ref: "#/components/schemas/User/properties/id"
+        display_name:
+          $ref: "#/components/schemas/User/properties/display_name"
+        role:
+          $ref: "#/components/schemas/User/properties/role"
+        blocked:
+          type: boolean
+      examples:
+        - id: google-oauth2|123
+          display_name: Morwen
+          role: contributor
+          blocked: false
+
+    QueueItem:
+      type: object
+      description: |
+        A pending revision in the moderation queue. `entity` is null once a new entity's placeholder is gone;
+        `is_new` is true when the revision creates its entity; `flags` are the codes of the flags stored on it.
+      additionalProperties: false
+      required: [id, entity_type, entity, title, summary, author, submitted_at, stale, is_new, flags]
+      properties:
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        entity:
+          oneOf:
+            - $ref: "#/components/schemas/EditorEntityRef"
+            - type: "null"
+        title:
+          type: string
+          examples:
+            - Midwinter Revel
+        summary:
+          $ref: "#/components/schemas/RevisionSummaryText"
+        author:
+          $ref: "#/components/schemas/ModerationAuthor"
+        submitted_at:
+          type: string
+          format: date-time
+          examples:
+            - "2026-10-01T09:10:00Z"
+        stale:
+          type: boolean
+        is_new:
+          type: boolean
+        flags:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/FlagCode"
+      examples:
+        - id: 51
+          entity_type: event
+          entity:
+            slug: midwinter-revel
+            collection_id: null
+            is_new: false
+          title: Midwinter Revel
+          summary: Describe the revel.
+          author:
+            id: google-oauth2|123
+            display_name: Morwen
+            role: contributor
+            blocked: false
+          submitted_at: "2026-10-01T09:10:00Z"
+          stale: false
+          is_new: false
+          flags: []
+
+    ModerationQueue:
+      type: object
+      description: One page of the pending revisions, oldest first, with how many match in all.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueItem"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          examples:
+            - 1
+      examples:
+        - data: []
+          total: 0
+
+    RebaseConflict:
+      type: object
+      description: |
+        A field, element or order that a stale revision and the current document both changed, differently,
+        since their common base. Each value is the JSON of what the base, the revision and the current document
+        hold at `path`, encoded as a string, or null where that side has no such element. Values are in the
+        stored document format, which references entities by internal ID. `path` is a field's name (`title`), a
+        group's (`licensing`), a keyed list element (`links[https://example.org/a]`) or a list's order
+        (`links#order`).
+      additionalProperties: false
+      required: [path, base_json, revision_json, current_json]
+      properties:
+        path:
+          type: string
+          examples:
+            - title
+        base_json:
+          type: [string, "null"]
+          examples:
+            - '"The Copper Kettle"'
+        revision_json:
+          type: [string, "null"]
+          examples:
+            - '"The Copper Kettle (Air)"'
+        current_json:
+          type: [string, "null"]
+          examples:
+            - '"Copper Kettle"'
+      examples:
+        - path: title
+          base_json: '"The Copper Kettle"'
+          revision_json: '"The Copper Kettle (Air)"'
+          current_json: '"Copper Kettle"'
+
+    RebasePreview:
+      type: object
+      description: |
+        What approving the revision would do with its document: for a clean rebase, the merged document it would
+        publish; for conflicts, the conflicts a moderator must resolve by rebasing.
+      additionalProperties: false
+      required: [status, merged_document, conflicts]
+      properties:
+        status:
+          $ref: "#/components/schemas/RebaseStatus"
+        merged_document:
+          oneOf:
+            - $ref: "#/components/schemas/EditorDocument"
+            - type: "null"
+        conflicts:
+          type: array
+          items:
+            $ref: "#/components/schemas/RebaseConflict"
+      examples:
+        - status: not_needed
+          merged_document: null
+          conflicts: []
+
+    ModerationPendingReference:
+      type: object
+      description: |
+        A pending new term or person of the revision's author that its document references. Approving the
+        revision approves it alongside, unless it carries a flag of its own.
+      additionalProperties: false
+      required: [revision_id, entity_type, entity, document, flags]
+      properties:
+        revision_id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity_type:
+          type: string
+          enum: [term, person]
+          examples:
+            - term
+        entity:
+          $ref: "#/components/schemas/EditorEntityRef"
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+        flags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Flag"
+      examples:
+        - revision_id: 50
+          entity_type: term
+          entity:
+            slug: pending-term-12
+            collection_id: null
+            is_new: true
+          document:
+            facet: topic
+            name: Drinking songs
+            display_name: Drinking songs
+            parent: null
+            related_affiliation: null
+            description_md: null
+            position: 0
+            aliases: []
+          flags: []
+
+    ModerationRevision:
+      type: object
+      description: |
+        A revision as a moderator sees it: every document in full, hidden aliases and hidden links included,
+        in the editor format with references by slug. `author` is null for an imported revision, whose wiki
+        contributors are `contributors`. `document` is the revision's document now, and `submitted_document`
+        what its author submitted (null for an imported revision), on `submitted_base_revision_id`;
+        `base_document` and `current_document` are the documents of its base and of the entity's current
+        revision (null for none). `stale`, `rebase`, `pending_references` and `duplicates` describe approving a
+        pending revision; `flags` are the flags approving it gates on, or for another status the flags stored on
+        it. `changed_paths` are what `document` changes from `base_document`, or from an empty document for a new
+        entity, named as a `RebaseConflict`'s `path` is. `link_states` are the states of `document`'s links by URL.
+      additionalProperties: false
+      required:
+        - id
+        - status
+        - entity_type
+        - entity
+        - source
+        - author
+        - contributors
+        - reviewer
+        - summary
+        - review_note
+        - created_at
+        - submitted_at
+        - reviewed_at
+        - rebased_at
+        - base_revision_id
+        - submitted_base_revision_id
+        - current_revision_id
+        - stale
+        - document
+        - submitted_document
+        - base_document
+        - current_document
+        - references
+        - link_states
+        - rebase
+        - pending_references
+        - flags
+        - duplicates
+        - changed_paths
+      properties:
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        status:
+          $ref: "#/components/schemas/RevisionStatus"
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        entity:
+          oneOf:
+            - $ref: "#/components/schemas/EditorEntityRef"
+            - type: "null"
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        author:
+          oneOf:
+            - $ref: "#/components/schemas/ModerationAuthor"
+            - type: "null"
+        contributors:
+          type: array
+          items:
+            type: string
+            examples:
+              - Morwen
+        reviewer:
+          oneOf:
+            - $ref: "#/components/schemas/ModerationAuthor"
+            - type: "null"
+        summary:
+          $ref: "#/components/schemas/RevisionSummaryText"
+        review_note:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/review_note"
+        created_at:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/created_at"
+        submitted_at:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/submitted_at"
+        reviewed_at:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/reviewed_at"
+        rebased_at:
+          type: [string, "null"]
+          format: date-time
+          examples:
+            - null
+        base_revision_id:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/base_revision_id"
+        submitted_base_revision_id:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/submitted_base_revision_id"
+        current_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - 46
+        stale:
+          type: boolean
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+        submitted_document:
+          oneOf:
+            - $ref: "#/components/schemas/EditorDocument"
+            - type: "null"
+        base_document:
+          oneOf:
+            - $ref: "#/components/schemas/EditorDocument"
+            - type: "null"
+        current_document:
+          oneOf:
+            - $ref: "#/components/schemas/EditorDocument"
+            - type: "null"
+        references:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditorReference"
+        link_states:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkState"
+        rebase:
+          $ref: "#/components/schemas/RebasePreview"
+        pending_references:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModerationPendingReference"
+        flags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Flag"
+        duplicates:
+          type: array
+          items:
+            $ref: "#/components/schemas/DuplicateMatch"
+        changed_paths:
+          type: array
+          items:
+            type: string
+            examples:
+              - description_md
+      examples:
+        - id: 51
+          status: pending
+          entity_type: event
+          entity:
+            slug: midwinter-revel
+            collection_id: null
+            is_new: false
+          source: user
+          author:
+            id: google-oauth2|123
+            display_name: Morwen
+            role: contributor
+            blocked: false
+          contributors: []
+          reviewer: null
+          summary: Describe the revel.
+          review_note: null
+          created_at: "2026-10-01T09:00:00Z"
+          submitted_at: "2026-10-01T09:10:00Z"
+          reviewed_at: null
+          rebased_at: null
+          base_revision_id: 46
+          submitted_base_revision_id: 46
+          current_revision_id: 46
+          stale: false
+          document:
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+          submitted_document:
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+          base_document:
+            name: Midwinter Revel
+            kind: event
+            description_md: null
+          current_document:
+            name: Midwinter Revel
+            kind: event
+            description_md: null
+          references: []
+          link_states: []
+          rebase:
+            status: not_needed
+            merged_document: null
+            conflicts: []
+          pending_references: []
+          flags: []
+          duplicates: []
+          changed_paths: [description_md]
+
+    ApproveRequest:
+      type: object
+      description: |
+        The body of an approval. `acknowledged_flags` is required, possibly empty, so that a moderator always
+        states what they acknowledge. `summary` replaces the revision's summary when it is published, and is
+        needed when that summary holds a hidden name. `review_note` reaches the author.
+      additionalProperties: false
+      required: [acknowledged_flags]
+      properties:
+        review_note:
+          type: [string, "null"]
+          maxLength: 2000
+          examples:
+            - "Thanks: approved."
+        summary:
+          type: [string, "null"]
+          maxLength: 500
+          examples:
+            - null
+        acknowledged_flags:
+          $ref: "#/components/schemas/AcknowledgedFlags"
+      examples:
+        - review_note: null
+          summary: null
+          acknowledged_flags: []
+
+    RejectRequest:
+      type: object
+      description: |
+        The body of a rejection. `acknowledged_flags` is required, possibly empty; a `review_note` holding a
+        hidden name needs `hidden_alias_in_review_note` in it.
+      additionalProperties: false
+      required: [acknowledged_flags]
+      properties:
+        review_note:
+          type: [string, "null"]
+          maxLength: 2000
+          examples:
+            - This piece is already in the catalogue.
+        acknowledged_flags:
+          $ref: "#/components/schemas/AcknowledgedFlags"
+      examples:
+        - review_note: This piece is already in the catalogue.
+          acknowledged_flags: []
+
+    RebaseRequest:
+      type: object
+      description: |
+        The body of a rebase: the moderator's resolved document of `entity_type` (the revision's), and the
+        entity's current revision they resolved it against, null for a new entity. `summary`, if set, replaces
+        the revision's summary.
+      additionalProperties: false
+      required: [entity_type, current_revision_id, document]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        current_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - 47
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+        summary:
+          type: [string, "null"]
+          maxLength: 500
+          examples:
+            - null
+      examples:
+        - entity_type: event
+          current_revision_id: 47
+          document:
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+          summary: null
+
+    ModerationLinkAttachment:
+      type: object
+      description: |
+        An entity a link is attached to, with the link's roles on it; `public` is false for an entity that is
+        not public.
+      additionalProperties: false
+      required: [entity_type, slug, title, public, roles]
+      properties:
+        entity_type:
+          type: string
+          enum: [piece, person]
+          examples:
+            - piece
+        slug:
+          type: string
+          examples:
+            - the-copper-kettle
+        title:
+          type: string
+          description: The piece's title or the person's name.
+          examples:
+            - The Copper Kettle
+        public:
+          type: boolean
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkRole"
+      examples:
+        - entity_type: piece
+          slug: the-copper-kettle
+          title: The Copper Kettle
+          public: true
+          roles: [lyrics]
+
+    ModerationLink:
+      type: object
+      description: A link as moderators see it, hidden or not, with every entity it is attached to.
+      additionalProperties: false
+      required:
+        - link_id
+        - url
+        - title
+        - description
+        - platform
+        - place_type
+        - collection
+        - locator
+        - liveness
+        - is_hidden
+        - attachments
+        - open_report_count
+      properties:
+        link_id:
+          type: integer
+          format: int64
+          minimum: 1
+          examples:
+            - 7
+        url:
+          type: string
+          examples:
+            - https://example.org/the-copper-kettle
+        title:
+          type: [string, "null"]
+          examples:
+            - The Copper Kettle, sung
+        description:
+          type: [string, "null"]
+          examples:
+            - null
+        platform:
+          type: [string, "null"]
+          examples:
+            - null
+        place_type:
+          oneOf:
+            - $ref: "#/components/schemas/LinkPlaceType"
+            - type: "null"
+        collection:
+          oneOf:
+            - $ref: "#/components/schemas/CollectionRef"
+            - type: "null"
+        locator:
+          type: [string, "null"]
+          examples:
+            - null
+        liveness:
+          $ref: "#/components/schemas/Liveness"
+        is_hidden:
+          type: boolean
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModerationLinkAttachment"
+        open_report_count:
+          type: integer
+          format: int64
+          minimum: 0
+          examples:
+            - 1
+      examples:
+        - link_id: 7
+          url: https://example.org/the-copper-kettle
+          title: The Copper Kettle, sung
+          description: null
+          platform: null
+          place_type: null
+          collection: null
+          locator: null
+          liveness: ok
+          is_hidden: false
+          attachments: []
+          open_report_count: 0
+
+    SetLinkHiddenRequest:
+      type: object
+      description: The body of a request to hide or show a link.
+      additionalProperties: false
+      required: [hidden]
+      properties:
+        hidden:
+          type: boolean
+          description: True to hide the link, false to show it again.
+          examples:
+            - true
+      examples:
+        - hidden: true
+
+    ReportLinkRequest:
+      type: object
+      description: The body of a link report.
+      additionalProperties: false
+      required: [url, reason]
+      properties:
+        url:
+          type: string
+          description: The link's URL as a public page shows it, or any spelling that normalizes to it.
+          minLength: 1
+          maxLength: 2048
+          examples:
+            - https://example.org/the-copper-kettle
+        reason:
+          $ref: "#/components/schemas/LinkReportReason"
+        message:
+          type: [string, "null"]
+          maxLength: 2000
+          examples:
+            - The video has been taken down.
+      examples:
+        - url: https://example.org/the-copper-kettle
+          reason: broken
+          message: The video has been taken down.
+
+    LinkReportReceipt:
+      type: object
+      description: What the reporter of a link learns of their report.
+      additionalProperties: false
+      required: [id, status, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          examples:
+            - 3
+        status:
+          $ref: "#/components/schemas/LinkReportStatus"
+        created_at:
+          type: string
+          format: date-time
+          examples:
+            - "2026-10-01T09:00:00Z"
+      examples:
+        - id: 3
+          status: open
+          created_at: "2026-10-01T09:00:00Z"
+
+    LinkReport:
+      type: object
+      description: A link report as moderators see it, with its link as it is now.
+      additionalProperties: false
+      required: [id, link, reason, message, reporter, status, created_at, resolved_at, resolved_by, note]
+      properties:
+        id:
+          $ref: "#/components/schemas/LinkReportReceipt/properties/id"
+        link:
+          $ref: "#/components/schemas/ModerationLink"
+        reason:
+          $ref: "#/components/schemas/LinkReportReason"
+        message:
+          type: [string, "null"]
+          examples:
+            - The video has been taken down.
+        reporter:
+          $ref: "#/components/schemas/ModerationAuthor"
+        status:
+          $ref: "#/components/schemas/LinkReportStatus"
+        created_at:
+          $ref: "#/components/schemas/LinkReportReceipt/properties/created_at"
+        resolved_at:
+          type: [string, "null"]
+          format: date-time
+          examples:
+            - null
+        resolved_by:
+          oneOf:
+            - $ref: "#/components/schemas/ModerationAuthor"
+            - type: "null"
+        note:
+          type: [string, "null"]
+          description: The moderator's resolution note.
+          examples:
+            - null
+      examples:
+        - id: 3
+          link:
+            link_id: 7
+            url: https://example.org/the-copper-kettle
+            title: null
+            description: null
+            platform: null
+            place_type: null
+            collection: null
+            locator: null
+            liveness: ok
+            is_hidden: false
+            attachments: []
+            open_report_count: 1
+          reason: broken
+          message: null
+          reporter:
+            id: google-oauth2|123
+            display_name: Morwen
+            role: contributor
+            blocked: false
+          status: open
+          created_at: "2026-10-01T09:00:00Z"
+          resolved_at: null
+          resolved_by: null
+          note: null
+
+    LinkReportList:
+      type: object
+      description: One page of link reports, oldest first, with how many match in all.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkReport"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          examples:
+            - 1
+      examples:
+        - data: []
+          total: 0
+
+    ResolveLinkReportRequest:
+      type: object
+      description: The body of a link report's resolution; `hide_link` also hides the report's link.
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [resolved, dismissed]
+          examples:
+            - resolved
+        note:
+          type: [string, "null"]
+          maxLength: 2000
+          examples:
+            - null
+        hide_link:
+          type: boolean
+          default: false
+      examples:
+        - status: resolved
+          note: null
+          hide_link: true
 
     DocumentError:
       type: object

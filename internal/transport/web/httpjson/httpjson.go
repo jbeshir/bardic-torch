@@ -61,6 +61,12 @@ const (
 	CodeHiddenDataConflict      ErrorCode = "hidden_data_conflict"
 	CodePendingReferenceFlagged ErrorCode = "pending_reference_flagged"
 	CodeUnacknowledgedFlags     ErrorCode = "unacknowledged_flags"
+	CodeDuplicateName           ErrorCode = "duplicate_name"
+	CodeStale                   ErrorCode = "stale"
+	// The codes of PATCH /v1/me (D20) and of link reports (D21).
+	CodeDisplayNameTaken    ErrorCode = "display_name_taken"
+	CodeDisplayNameReserved ErrorCode = "display_name_reserved"
+	CodeReportLimitReached  ErrorCode = "report_limit_reached"
 )
 
 type errorBody struct {

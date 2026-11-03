@@ -437,27 +437,38 @@ func (r *Repository) GetModerationLink(ctx context.Context, url string) (domain.
 	}
 	var link domain.ModerationLink
 	err = r.readOnly(ctx, func(c *catalogueReader) error {
-		row, err := c.q.GetModerationLink(ctx, normalized)
+		id, err := c.q.GetLinkIDByNormalizedURL(ctx, normalized)
 		if err != nil {
 			return lookupError("link", err)
 		}
-		link = domain.ModerationLink{
-			LinkID: c.signedID(row.ID), URL: row.Url, Title: stringPtr(row.Title),
-			Description: stringPtr(row.Description), Platform: stringPtr(row.Platform),
-			PlaceType: nullEnumOf[domain.LinkPlaceType](c, row.PlaceType.LinksPlaceType, row.PlaceType.Valid),
-			Locator:   stringPtr(row.Locator), Liveness: enumOf[domain.Liveness](c, row.Liveness),
-			IsHidden: row.IsHidden, Attachments: c.linkAttachments(ctx, row.ID), OpenReportCount: row.OpenReportCount,
-		}
-		if row.CollectionID.Valid {
-			link.Collection = &domain.CollectionRef{ID: row.CollectionID.Int64, Name: row.CollectionName.String}
-		}
-		return c.err
+		link, err = c.moderationLink(ctx, id)
+		return err
 	})
 	if err != nil {
 		return domain.ModerationLink{}, fmt.Errorf("getting moderation link: %w", err)
 	}
 
 	return link, nil
+}
+
+// moderationLink returns the link id as a moderator sees it.
+func (c *catalogueReader) moderationLink(ctx context.Context, id uint64) (domain.ModerationLink, error) {
+	row, err := c.q.GetModerationLink(ctx, id)
+	if err != nil {
+		return domain.ModerationLink{}, lookupError("link", err)
+	}
+	link := domain.ModerationLink{
+		LinkID: c.signedID(row.ID), URL: row.Url, Title: stringPtr(row.Title),
+		Description: stringPtr(row.Description), Platform: stringPtr(row.Platform),
+		PlaceType: nullEnumOf[domain.LinkPlaceType](c, row.PlaceType.LinksPlaceType, row.PlaceType.Valid),
+		Locator:   stringPtr(row.Locator), Liveness: enumOf[domain.Liveness](c, row.Liveness),
+		IsHidden: row.IsHidden, Attachments: c.linkAttachments(ctx, row.ID), OpenReportCount: row.OpenReportCount,
+	}
+	if row.CollectionID.Valid {
+		link.Collection = &domain.CollectionRef{ID: row.CollectionID.Int64, Name: row.CollectionName.String}
+	}
+
+	return link, c.err
 }
 
 // linkAttachments returns the entities the link id is attached to, pieces first, then persons, each by ID, with

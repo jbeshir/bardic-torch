@@ -86,6 +86,16 @@ type handlerMocks struct {
 	myRevisionLister  *mocks.MyRevisionLister
 	myRevisions       *mocks.MyRevisionGetter
 	pending           *mocks.PendingVersionGetter
+	queue             *mocks.ModerationQueueLister
+	moderation        *mocks.ModerationRevisionGetter
+	moderationLinks   *mocks.ModerationLinkGetter
+	approver          *mocks.RevisionApprover
+	rejecter          *mocks.RevisionRejecter
+	rebaser           *mocks.RevisionRebaser
+	reporter          *mocks.LinkReporter
+	reportLister      *mocks.LinkReportLister
+	reportResolver    *mocks.LinkReportResolver
+	linkHider         *mocks.LinkHiddenSetter
 	handler           http.Handler
 	validate          *openapitest.Validator
 }
@@ -128,6 +138,16 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		myRevisionLister:  mocks.NewMyRevisionLister(t),
 		myRevisions:       mocks.NewMyRevisionGetter(t),
 		pending:           mocks.NewPendingVersionGetter(t),
+		queue:             mocks.NewModerationQueueLister(t),
+		moderation:        mocks.NewModerationRevisionGetter(t),
+		moderationLinks:   mocks.NewModerationLinkGetter(t),
+		approver:          mocks.NewRevisionApprover(t),
+		rejecter:          mocks.NewRevisionRejecter(t),
+		rebaser:           mocks.NewRevisionRebaser(t),
+		reporter:          mocks.NewLinkReporter(t),
+		reportLister:      mocks.NewLinkReportLister(t),
+		reportResolver:    mocks.NewLinkReportResolver(t),
+		linkHider:         mocks.NewLinkHiddenSetter(t),
 		validate:          openapitest.New(t),
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
@@ -172,6 +192,16 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		MyRevisionLister:              m.myRevisionLister,
 		MyRevisionGetter:              m.myRevisions,
 		PendingVersionGetter:          m.pending,
+		ModerationQueueLister:         m.queue,
+		ModerationRevisionGetter:      m.moderation,
+		ModerationLinkGetter:          m.moderationLinks,
+		RevisionApprover:              m.approver,
+		RevisionRejecter:              m.rejecter,
+		RevisionRebaser:               m.rebaser,
+		LinkReporter:                  m.reporter,
+		LinkReportLister:              m.reportLister,
+		LinkReportResolver:            m.reportResolver,
+		LinkHiddenSetter:              m.linkHider,
 		Now: func() time.Time {
 			return handlerNow
 		},

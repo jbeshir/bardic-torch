@@ -100,6 +100,23 @@ func (q *Queries) CountDrafts(ctx context.Context, authorUserID sql.NullString) 
 	return count, err
 }
 
+const countLinkReports = `-- name: CountLinkReports :one
+SELECT COUNT(*)
+FROM link_reports lr
+WHERE (? IS NULL OR lr.status = ?)
+`
+
+type CountLinkReportsParams struct {
+	Status NullLinkReportsStatus
+}
+
+func (q *Queries) CountLinkReports(ctx context.Context, arg CountLinkReportsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countLinkReports, arg.Status, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countModerationQueue = `-- name: CountModerationQueue :one
 SELECT COUNT(*)
 FROM revisions r
@@ -159,6 +176,19 @@ func (q *Queries) CountMyRevisions(ctx context.Context, arg CountMyRevisionsPara
 		arg.EntityType,
 		arg.EntityType,
 	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countOpenLinkReportsOfReporter = `-- name: CountOpenLinkReportsOfReporter :one
+SELECT COUNT(*)
+FROM link_reports
+WHERE reporter_user_id = ? AND status = 'open'
+`
+
+func (q *Queries) CountOpenLinkReportsOfReporter(ctx context.Context, reporterUserID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOpenLinkReportsOfReporter, reporterUserID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -697,13 +727,93 @@ func (q *Queries) GetLinkFields(ctx context.Context, id uint64) (GetLinkFieldsRo
 	return i, err
 }
 
+const getLinkIDByNormalizedURL = `-- name: GetLinkIDByNormalizedURL :one
+SELECT id
+FROM links
+WHERE normalized_url = ?
+`
+
+func (q *Queries) GetLinkIDByNormalizedURL(ctx context.Context, normalizedUrl string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getLinkIDByNormalizedURL, normalizedUrl)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getLinkReport = `-- name: GetLinkReport :one
+SELECT lr.id, lr.link_id, lr.reason, lr.message, lr.status, lr.created_at, lr.resolved_at, lr.resolution_note,
+    lr.reporter_user_id, r.display_name AS reporter_display_name, r.role AS reporter_role,
+    r.blocked_at AS reporter_blocked_at, lr.resolved_by_user_id, v.display_name AS resolver_display_name,
+    v.role AS resolver_role, v.blocked_at AS resolver_blocked_at
+FROM link_reports lr
+JOIN users r ON r.id = lr.reporter_user_id
+LEFT JOIN users v ON v.id = lr.resolved_by_user_id
+WHERE lr.id = ?
+`
+
+type GetLinkReportRow struct {
+	ID                  uint64
+	LinkID              uint64
+	Reason              LinkReportsReason
+	Message             sql.NullString
+	Status              LinkReportsStatus
+	CreatedAt           time.Time
+	ResolvedAt          sql.NullTime
+	ResolutionNote      sql.NullString
+	ReporterUserID      string
+	ReporterDisplayName string
+	ReporterRole        UsersRole
+	ReporterBlockedAt   sql.NullTime
+	ResolvedByUserID    sql.NullString
+	ResolverDisplayName sql.NullString
+	ResolverRole        NullUsersRole
+	ResolverBlockedAt   sql.NullTime
+}
+
+func (q *Queries) GetLinkReport(ctx context.Context, id uint64) (GetLinkReportRow, error) {
+	row := q.db.QueryRowContext(ctx, getLinkReport, id)
+	var i GetLinkReportRow
+	err := row.Scan(
+		&i.ID,
+		&i.LinkID,
+		&i.Reason,
+		&i.Message,
+		&i.Status,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+		&i.ResolutionNote,
+		&i.ReporterUserID,
+		&i.ReporterDisplayName,
+		&i.ReporterRole,
+		&i.ReporterBlockedAt,
+		&i.ResolvedByUserID,
+		&i.ResolverDisplayName,
+		&i.ResolverRole,
+		&i.ResolverBlockedAt,
+	)
+	return i, err
+}
+
+const getLinkReportLinkID = `-- name: GetLinkReportLinkID :one
+SELECT link_id
+FROM link_reports
+WHERE id = ?
+`
+
+func (q *Queries) GetLinkReportLinkID(ctx context.Context, id uint64) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getLinkReportLinkID, id)
+	var link_id uint64
+	err := row.Scan(&link_id)
+	return link_id, err
+}
+
 const getModerationLink = `-- name: GetModerationLink :one
 SELECT l.id, l.url, l.title, l.description, l.platform, l.place_type, l.collection_id,
     c.name AS collection_name, l.locator, l.liveness, l.is_hidden,
     (SELECT COUNT(*) FROM link_reports lr WHERE lr.link_id = l.id AND lr.status = 'open') AS open_report_count
 FROM links l
 LEFT JOIN collections c ON c.id = l.collection_id
-WHERE l.normalized_url = ?
+WHERE l.id = ?
 `
 
 type GetModerationLinkRow struct {
@@ -721,8 +831,8 @@ type GetModerationLinkRow struct {
 	OpenReportCount int64
 }
 
-func (q *Queries) GetModerationLink(ctx context.Context, normalizedUrl string) (GetModerationLinkRow, error) {
-	row := q.db.QueryRowContext(ctx, getModerationLink, normalizedUrl)
+func (q *Queries) GetModerationLink(ctx context.Context, id uint64) (GetModerationLinkRow, error) {
+	row := q.db.QueryRowContext(ctx, getModerationLink, id)
 	var i GetModerationLinkRow
 	err := row.Scan(
 		&i.ID,
@@ -809,6 +919,32 @@ func (q *Queries) GetModerationRevision(ctx context.Context, id uint64) (GetMode
 		&i.ReviewerRole,
 		&i.ReviewerBlockedAt,
 	)
+	return i, err
+}
+
+const getOpenLinkReportOfReporter = `-- name: GetOpenLinkReportOfReporter :one
+SELECT id, status, created_at
+FROM link_reports
+WHERE reporter_user_id = ? AND link_id = ? AND status = 'open'
+ORDER BY id
+LIMIT 1
+`
+
+type GetOpenLinkReportOfReporterParams struct {
+	ReporterUserID string
+	LinkID         uint64
+}
+
+type GetOpenLinkReportOfReporterRow struct {
+	ID        uint64
+	Status    LinkReportsStatus
+	CreatedAt time.Time
+}
+
+func (q *Queries) GetOpenLinkReportOfReporter(ctx context.Context, arg GetOpenLinkReportOfReporterParams) (GetOpenLinkReportOfReporterRow, error) {
+	row := q.db.QueryRowContext(ctx, getOpenLinkReportOfReporter, arg.ReporterUserID, arg.LinkID)
+	var i GetOpenLinkReportOfReporterRow
+	err := row.Scan(&i.ID, &i.Status, &i.CreatedAt)
 	return i, err
 }
 
@@ -1641,6 +1777,33 @@ func (q *Queries) InsertLinkAttachment(ctx context.Context, arg InsertLinkAttach
 	return err
 }
 
+const insertLinkReport = `-- name: InsertLinkReport :execlastid
+INSERT INTO link_reports (link_id, reporter_user_id, reason, message, created_at)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertLinkReportParams struct {
+	LinkID         uint64
+	ReporterUserID string
+	Reason         LinkReportsReason
+	Message        sql.NullString
+	CreatedAt      time.Time
+}
+
+func (q *Queries) InsertLinkReport(ctx context.Context, arg InsertLinkReportParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertLinkReport,
+		arg.LinkID,
+		arg.ReporterUserID,
+		arg.Reason,
+		arg.Message,
+		arg.CreatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
 const insertPerformance = `-- name: InsertPerformance :execlastid
 INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim, owner_piece_id,
                           owner_person_id)
@@ -2242,6 +2405,41 @@ func (q *Queries) ListConservationHistory(ctx context.Context, pieceID uint64) (
 			&i.SourceUrl,
 			&i.At,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDisplayNameKeys = `-- name: ListDisplayNameKeys :many
+SELECT id, display_name, display_name_key
+FROM users
+ORDER BY created_at, id
+`
+
+type ListDisplayNameKeysRow struct {
+	ID             string
+	DisplayName    string
+	DisplayNameKey sql.NullString
+}
+
+func (q *Queries) ListDisplayNameKeys(ctx context.Context) ([]ListDisplayNameKeysRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDisplayNameKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDisplayNameKeysRow
+	for rows.Next() {
+		var i ListDisplayNameKeysRow
+		if err := rows.Scan(&i.ID, &i.DisplayName, &i.DisplayNameKey); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2972,6 +3170,48 @@ func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64)
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinkReports = `-- name: ListLinkReports :many
+SELECT lr.id
+FROM link_reports lr
+WHERE (? IS NULL OR lr.status = ?)
+ORDER BY lr.created_at, lr.id
+LIMIT ? OFFSET ?
+`
+
+type ListLinkReportsParams struct {
+	Status NullLinkReportsStatus
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListLinkReports(ctx context.Context, arg ListLinkReportsParams) ([]uint64, error) {
+	rows, err := q.db.QueryContext(ctx, listLinkReports,
+		arg.Status,
+		arg.Status,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uint64
+	for rows.Next() {
+		var id uint64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -5544,6 +5784,34 @@ func (q *Queries) ListUserActiveAPITokens(ctx context.Context, userID string) ([
 	return items, nil
 }
 
+const lockLink = `-- name: LockLink :one
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ id
+FROM links
+WHERE id = ?
+FOR UPDATE
+`
+
+func (q *Queries) LockLink(ctx context.Context, id uint64) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, lockLink, id)
+	var id_2 uint64
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
+const lockLinkReport = `-- name: LockLinkReport :one
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ status
+FROM link_reports
+WHERE id = ?
+FOR UPDATE
+`
+
+func (q *Queries) LockLinkReport(ctx context.Context, id uint64) (LinkReportsStatus, error) {
+	row := q.db.QueryRowContext(ctx, lockLinkReport, id)
+	var status LinkReportsStatus
+	err := row.Scan(&status)
+	return status, err
+}
+
 const lockRevisions = `-- name: LockRevisions :many
 SELECT /*+ MAX_EXECUTION_TIME(4000) */ id, status, author_user_id, entity_type, entity_id
 FROM revisions
@@ -5660,6 +5928,30 @@ func (q *Queries) LockUser(ctx context.Context, id string) (string, error) {
 	return id_2, err
 }
 
+const lockVisibleLink = `-- name: LockVisibleLink :one
+
+
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ l.id
+FROM links l
+WHERE l.normalized_url = ? AND NOT l.is_hidden
+    AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = l.id)
+FOR SHARE
+`
+
+// ============================================
+// Link reports (D21)
+//
+// Writes lock in the D15 order: the reporter's users row, then the link row, then report rows.
+// ============================================
+// A visible link: not hidden, with a public attachment, so that it is shown on a public page. The link row is
+// share-locked, so that it cannot be hidden before the report commits.
+func (q *Queries) LockVisibleLink(ctx context.Context, normalizedUrl string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, lockVisibleLink, normalizedUrl)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const promoteToModerator = `-- name: PromoteToModerator :exec
 INSERT INTO users (id, display_name, role, created_at)
 VALUES (?, ?, 'moderator', ?)
@@ -5731,6 +6023,57 @@ func (q *Queries) RejectRevisionRow(ctx context.Context, arg RejectRevisionRowPa
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const resolveLinkReport = `-- name: ResolveLinkReport :execrows
+UPDATE link_reports
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ? AND status = 'open'
+`
+
+type ResolveLinkReportParams struct {
+	Status           LinkReportsStatus
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+	ID               uint64
+}
+
+func (q *Queries) ResolveLinkReport(ctx context.Context, arg ResolveLinkReportParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, resolveLinkReport,
+		arg.Status,
+		arg.ResolvedByUserID,
+		arg.ResolvedAt,
+		arg.ResolutionNote,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const resolveOpenLinkReportsOfLink = `-- name: ResolveOpenLinkReportsOfLink :exec
+UPDATE link_reports
+SET status = 'resolved', resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE link_id = ? AND status = 'open'
+`
+
+type ResolveOpenLinkReportsOfLinkParams struct {
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+	LinkID           uint64
+}
+
+func (q *Queries) ResolveOpenLinkReportsOfLink(ctx context.Context, arg ResolveOpenLinkReportsOfLinkParams) error {
+	_, err := q.db.ExecContext(ctx, resolveOpenLinkReportsOfLink,
+		arg.ResolvedByUserID,
+		arg.ResolvedAt,
+		arg.ResolutionNote,
+		arg.LinkID,
+	)
+	return err
 }
 
 const revokeAPIToken = `-- name: RevokeAPIToken :execrows
@@ -5836,6 +6179,64 @@ func (q *Queries) SetCurrentRevisionTerm(ctx context.Context, arg SetCurrentRevi
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const setDisplayNameKey = `-- name: SetDisplayNameKey :execrows
+UPDATE users
+SET display_name_key = ?
+WHERE id = ?
+`
+
+type SetDisplayNameKeyParams struct {
+	DisplayNameKey sql.NullString
+	ID             string
+}
+
+func (q *Queries) SetDisplayNameKey(ctx context.Context, arg SetDisplayNameKeyParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setDisplayNameKey, arg.DisplayNameKey, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setLinkHidden = `-- name: SetLinkHidden :execrows
+UPDATE links
+SET is_hidden = ?
+WHERE id = ?
+`
+
+type SetLinkHiddenParams struct {
+	IsHidden bool
+	ID       uint64
+}
+
+func (q *Queries) SetLinkHidden(ctx context.Context, arg SetLinkHiddenParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setLinkHidden, arg.IsHidden, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setMissingDisplayNameKey = `-- name: SetMissingDisplayNameKey :exec
+
+UPDATE users
+SET display_name_key = ?
+WHERE id = ? AND display_name = ? AND display_name_key IS NULL
+`
+
+type SetMissingDisplayNameKeyParams struct {
+	DisplayNameKey sql.NullString
+	ID             string
+	DisplayName    string
+}
+
+// A new user's display name key (D20), set after the insert so that a key another user holds, which the UNIQUE
+// index refuses, leaves it NULL without refusing the user. Only a user still named name with no key matches.
+func (q *Queries) SetMissingDisplayNameKey(ctx context.Context, arg SetMissingDisplayNameKeyParams) error {
+	_, err := q.db.ExecContext(ctx, setMissingDisplayNameKey, arg.DisplayNameKey, arg.ID, arg.DisplayName)
+	return err
 }
 
 const submitDraft = `-- name: SubmitDraft :execrows
@@ -6007,17 +6408,18 @@ func (q *Queries) UpdateCollectionFromDocument(ctx context.Context, arg UpdateCo
 
 const updateDisplayName = `-- name: UpdateDisplayName :execrows
 UPDATE users
-SET display_name = ?
+SET display_name = ?, display_name_key = ?
 WHERE id = ?
 `
 
 type UpdateDisplayNameParams struct {
-	DisplayName string
-	ID          string
+	DisplayName    string
+	DisplayNameKey sql.NullString
+	ID             string
 }
 
 func (q *Queries) UpdateDisplayName(ctx context.Context, arg UpdateDisplayNameParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateDisplayName, arg.DisplayName, arg.ID)
+	result, err := q.db.ExecContext(ctx, updateDisplayName, arg.DisplayName, arg.DisplayNameKey, arg.ID)
 	if err != nil {
 		return 0, err
 	}

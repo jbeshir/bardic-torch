@@ -50,6 +50,16 @@ type HTTPDependencies struct {
 	MyRevisionLister              datasources.MyRevisionLister
 	MyRevisionGetter              datasources.MyRevisionGetter
 	PendingVersionGetter          datasources.PendingVersionGetter
+	ModerationQueueLister         datasources.ModerationQueueLister
+	ModerationRevisionGetter      datasources.ModerationRevisionGetter
+	ModerationLinkGetter          datasources.ModerationLinkGetter
+	RevisionApprover              datasources.RevisionApprover
+	RevisionRejecter              datasources.RevisionRejecter
+	RevisionRebaser               datasources.RevisionRebaser
+	LinkReporter                  datasources.LinkReporter
+	LinkReportLister              datasources.LinkReportLister
+	LinkReportResolver            datasources.LinkReportResolver
+	LinkHiddenSetter              datasources.LinkHiddenSetter
 	Now                           func() time.Time
 }
 
@@ -113,9 +123,28 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		WithdrawRevision: &command.WithdrawRevision{
 			Withdrawer: deps.RevisionWithdrawer, Revisions: deps.MyRevisionGetter,
 		},
-		RevertTo:        &command.RevertTo{Reverter: deps.RevisionReverter, Revisions: deps.MyRevisionGetter, Now: deps.Now},
-		ListMyRevisions: &command.ListMyRevisions{Lister: deps.MyRevisionLister},
-		GetMyRevision:   &command.GetMyRevision{Getter: deps.MyRevisionGetter},
-		Now:             deps.Now,
+		RevertTo: &command.RevertTo{
+			Reverter: deps.RevisionReverter, Revisions: deps.MyRevisionGetter, Now: deps.Now,
+		},
+		ListMyRevisions:       &command.ListMyRevisions{Lister: deps.MyRevisionLister},
+		GetMyRevision:         &command.GetMyRevision{Getter: deps.MyRevisionGetter},
+		ReportLink:            &command.ReportLink{Reporter: deps.LinkReporter, Now: deps.Now},
+		ListModerationQueue:   &command.ListModerationQueue{Lister: deps.ModerationQueueLister, Now: deps.Now},
+		GetModerationRevision: &command.GetModerationRevision{Getter: deps.ModerationRevisionGetter},
+		ApproveRevision: &command.ApproveRevision{
+			Revisions: deps.ModerationRevisionGetter, Approver: deps.RevisionApprover, Now: deps.Now,
+		},
+		RejectRevision: &command.RejectRevision{
+			Revisions: deps.ModerationRevisionGetter, Rejecter: deps.RevisionRejecter, Now: deps.Now,
+		},
+		RebaseRevision: &command.RebaseRevision{
+			Resolver: deps.EditorRefResolver, Revisions: deps.ModerationRevisionGetter, Rebaser: deps.RevisionRebaser,
+			Now: deps.Now,
+		},
+		ListLinkReports:   &command.ListLinkReports{Lister: deps.LinkReportLister},
+		ResolveLinkReport: &command.ResolveLinkReport{Resolver: deps.LinkReportResolver, Now: deps.Now},
+		GetModerationLink: &command.GetModerationLink{Getter: deps.ModerationLinkGetter},
+		SetLinkHidden:     &command.SetLinkHidden{Setter: deps.LinkHiddenSetter, Now: deps.Now},
+		Now:               deps.Now,
 	})
 }

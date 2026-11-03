@@ -2,8 +2,10 @@ package command
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mocks"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -69,4 +71,44 @@ func TestUpdateDisplayName_DatasourceErrors(t *testing.T) {
 
 		require.ErrorIs(t, err, dbErr)
 	})
+}
+
+// TestUpdateDisplayName_Reserved checks that a reserved name, or one shaped like another user's default name, is
+// refused without being stored, and that a user may restore their own default name in any spelling of its key.
+func TestUpdateDisplayName_Reserved(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"Moderator", "ad-min", "Bard 0123abcd", domain.DefaultDisplayName("auth0|other")} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// The mocks fail the test if they are called.
+			cmd := &UpdateDisplayName{Updater: mocks.NewDisplayNameUpdater(t), Getter: mocks.NewUserGetter(t)}
+			_, err := cmd.Execute(t.Context(), UpdateDisplayNameRequest{UserID: resolvedUserID, DisplayName: name})
+			require.ErrorIs(t, err, domain.ErrDisplayNameReserved)
+		})
+	}
+
+	own := domain.DefaultDisplayName(resolvedUserID)
+	for _, name := range []string{own, strings.ToUpper(own)} {
+		updater := mocks.NewDisplayNameUpdater(t)
+		updater.EXPECT().UpdateDisplayName(mock.Anything, resolvedUserID, name).Return(nil)
+		getter := mocks.NewUserGetter(t)
+		getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(domain.User{ID: resolvedUserID}, nil)
+		_, err := (&UpdateDisplayName{Updater: updater, Getter: getter}).Execute(t.Context(),
+			UpdateDisplayNameRequest{UserID: resolvedUserID, DisplayName: name})
+		require.NoError(t, err, name)
+	}
+}
+
+func TestUpdateDisplayName_Taken(t *testing.T) {
+	t.Parallel()
+
+	updater := mocks.NewDisplayNameUpdater(t)
+	updater.EXPECT().UpdateDisplayName(mock.Anything, resolvedUserID, testDisplayName).
+		Return(datasources.ErrDisplayNameTaken)
+	cmd := &UpdateDisplayName{Updater: updater, Getter: mocks.NewUserGetter(t)}
+	_, err := cmd.Execute(t.Context(), UpdateDisplayNameRequest{UserID: resolvedUserID, DisplayName: testDisplayName})
+
+	require.ErrorIs(t, err, datasources.ErrDisplayNameTaken)
 }

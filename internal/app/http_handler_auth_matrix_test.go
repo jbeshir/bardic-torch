@@ -146,8 +146,9 @@ var (
 		blockedAPIAuthContributor: userBlocked,
 		unresolvable:              internalError,
 	}}
-	// moderator operations are behind requireModerator.
-	moderator = access{authenticated: true, outcomes: map[principal]outcome{
+	// interactiveModerator operations are behind requireInteractiveModerator: moderators only, and not with an API
+	// token (D25).
+	interactiveModerator = access{authenticated: true, outcomes: map[principal]outcome{
 		anonymous:                 unauthenticated,
 		unrecognisedCredentials:   unauthenticated,
 		invalidCredentials:        unauthenticated,
@@ -155,7 +156,7 @@ var (
 		auth0Contributor:          moderatorRequired,
 		auth0Moderator:            allowed,
 		apiAuthContributor:        moderatorRequired,
-		apiAuthModerator:          allowed,
+		apiAuthModerator:          apiAuthNotAllowed,
 		blockedAuth0Contributor:   userBlocked,
 		blockedAPIAuthContributor: userBlocked,
 		unresolvable:              internalError,
@@ -166,7 +167,9 @@ var (
 type matrixRow struct {
 	access access
 	// pathParams are the path parameter values, percent-encoded into the path.
-	pathParams    map[string]string
+	pathParams map[string]string
+	// query is the query string, with its "?", of a request that succeeds.
+	query         string
 	body          string
 	successStatus int
 	// expectSuccess sets up the datasources for a successful request by userID.
@@ -232,7 +235,7 @@ var matrixPage = domain.Page{Limit: domain.DefaultPageLimit}
 
 // authMatrix is the access every operation in the OpenAPI spec requires. TestRouter_AuthMatrix fails for an
 // operation without a row, so each new endpoint adds one here.
-var authMatrix = withRows(revisionMatrix(), map[openapitest.Operation]matrixRow{
+var authMatrix = withRows(revisionMatrix(), moderationMatrix(), map[openapitest.Operation]matrixRow{
 	{Method: http.MethodGet, Path: healthzPath}: {
 		access:        public,
 		successStatus: http.StatusOK,
@@ -260,7 +263,7 @@ var authMatrix = withRows(revisionMatrix(), map[openapitest.Operation]matrixRow{
 		},
 	},
 	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: {
-		access:        moderator,
+		access:        interactiveModerator,
 		pathParams:    map[string]string{"user_id": blockTargetID},
 		body:          blockBody,
 		successStatus: http.StatusOK,
@@ -442,7 +445,7 @@ func TestRouter_AuthMatrix(t *testing.T) {
 		t.Run(op.Method+" "+op.Path, func(t *testing.T) {
 			t.Parallel()
 
-			path := expandPath(op.Path, row.pathParams)
+			path := expandPath(op.Path, row.pathParams) + row.query
 			for _, p := range principals {
 				want, ok := row.access.outcomes[p]
 				if !assert.True(t, ok, "access has no outcome for %s", p.name) {
