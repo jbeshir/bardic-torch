@@ -109,106 +109,162 @@ func TestRepository_GetPublicRevision_FormerName(t *testing.T) {
 	}
 }
 
-// TestRepository_GetPublicRevision_LinksVisibleNow checks that a revision shows a link only if a link that is
-// not hidden now has exactly its URL, as entered or normalized: not one deleted since, one given another URL
-// and then hidden, or one a hidden link has in another case.
+// lyricsLinks returns links with the lyrics role and the given URLs, in order.
+func lyricsLinks(urls ...string) []domain.DocPieceLink {
+	out := []domain.DocPieceLink{}
+	for _, url := range urls {
+		out = append(out, domain.DocPieceLink{DocLink: domain.DocLink{URL: url,
+			Roles: []domain.LinkRole{domain.LinkRoleLyrics}}})
+	}
+	return out
+}
+
+// laterPieceRevision seeds a revision of the piece holding links with the given URLs, based on its current
+// revision.
+func laterPieceRevision(c *catalogtest.Catalog, piece catalogtest.Ref, title string, urls ...string) int64 {
+	return c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
+		Snapshot: domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: title,
+			Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+			LicensingStatus: domain.LicensingStatusUnknown, Links: lyricsLinks(urls...)},
+		BaseRevisionID: piece.RevisionID})
+}
+
+// pieceRevisionLinkURLs reads a piece revision and returns the URLs of the links its snapshot and its base's
+// snapshot show.
+func pieceRevisionLinkURLs(t *testing.T, repo *mysql.Repository, id int64) (snapshot, base []string) {
+	t.Helper()
+
+	revision, err := repo.GetPublicRevision(t.Context(), id)
+	require.NoError(t, err)
+	pieceRevision, ok := revision.(domain.PieceRevision)
+	require.True(t, ok, "%T", revision)
+	for _, link := range pieceRevision.Snapshot.Links {
+		snapshot = append(snapshot, link.URL)
+	}
+	if pieceRevision.Base != nil {
+		for _, link := range pieceRevision.Base.Snapshot.Links {
+			base = append(base, link.URL)
+		}
+	}
+
+	return snapshot, base
+}
+
+// normalized returns domain.NormalizeURL(url), failing the test if url does not normalize.
+func normalized(t *testing.T, url string) string {
+	t.Helper()
+
+	n, err := domain.NormalizeURL(url)
+	require.NoError(t, err)
+
+	return n
+}
+
+// TestRepository_GetPublicRevision_LinksVisibleNow checks that a revision shows a link only if its normalized URL
+// is a link's that is not hidden now: not one deleted since, one given another URL and then hidden, or one whose
+// path differs in case from a hidden or visible link's. A URL that differs from a visible link's only in the
+// case of its host is the same link, and shows under the link's URL.
 func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
 	t.Parallel()
 
 	db := mysqltest.NewDatabase(t)
 	c := catalogtest.New(t, db)
 	const (
-		visible    = "https://example.org/visible"
-		normalized = "https://example.org/Normalized"
-		deleted    = "https://example.org/deleted"
-		moved      = "https://example.org/moved"
-		recased    = "https://example.org/Recased"
-		visibleCI  = "https://example.org/Visible"
+		title       = "The Lark's Rest"
+		visible     = "https://example.org/visible"
+		deleted     = "https://example.org/deleted"
+		moved       = "https://example.org/moved"
+		recased     = "https://example.org/Recased"
+		visiblePath = "https://example.org/Visible"
+		visibleHost = "https://EXAMPLE.org/visible"
 	)
-	links := []domain.DocPieceLink{}
-	for _, url := range []string{visible, normalized, deleted, moved, recased} {
-		links = append(links, domain.DocPieceLink{DocLink: domain.DocLink{URL: url,
-			Roles: []domain.LinkRole{domain.LinkRoleLyrics}}})
-	}
-	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Lark's Rest", Links: links}})
-	c.Exec("UPDATE links SET url = ?, normalized_url = ? WHERE url = ?", "https://example.org/entered",
-		normalized, normalized)
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: title,
+		Links: lyricsLinks(visible, deleted, moved, recased)}})
 	c.Exec("DELETE FROM links WHERE url = ?", deleted)
-	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", moved+"-elsewhere", moved)
-	c.Exec("UPDATE links SET url = LOWER(url), is_hidden = TRUE WHERE url = ?", recased)
+	c.Exec("UPDATE links SET url = ?, normalized_url = ?, is_hidden = TRUE WHERE url = ?", moved+"-elsewhere",
+		normalized(t, moved+"-elsewhere"), moved)
+	c.Exec("UPDATE links SET url = LOWER(url), normalized_url = LOWER(normalized_url), is_hidden = TRUE "+
+		"WHERE url = ?", recased)
 
-	// A later revision holds a URL that differs from a visible link's in case only.
-	later := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
-		Snapshot: domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: "The Lark's Rest",
-			Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
-			LicensingStatus: domain.LicensingStatusUnknown,
-			Links: []domain.DocPieceLink{{DocLink: domain.DocLink{URL: visibleCI,
-				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}}}},
-		BaseRevisionID: piece.RevisionID})
+	later := laterPieceRevision(c, piece, title, visiblePath, visibleHost)
 
-	revision, err := mysql.New(db).GetPublicRevision(t.Context(), later)
-	require.NoError(t, err)
-	pieceRevision, ok := revision.(domain.PieceRevision)
-	require.True(t, ok, "%T", revision)
-	assert.Empty(t, pieceRevision.Snapshot.Links)
-	require.NotNil(t, pieceRevision.Base)
-	var urls []string
-	for _, link := range pieceRevision.Base.Snapshot.Links {
-		urls = append(urls, link.URL)
-	}
-	assert.Equal(t, []string{visible, normalized}, urls)
+	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
+	assert.Equal(t, []string{visible}, snapshot)
+	assert.Equal(t, []string{visible}, base)
+}
+
+// TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted checks that a link edited to another
+// spelling of its URL, with the same normalized URL, and then hidden is redacted from a revision holding the
+// spelling it had before.
+func TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	c := catalogtest.New(t, db)
+	const (
+		title    = "The Hollow Oak"
+		entered  = "https://Example.org:443/x?utm_source=1"
+		respelt  = "https://example.org/x"
+		elsewise = "https://example.org/y"
+	)
+	require.Equal(t, normalized(t, entered), normalized(t, respelt))
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: title, Links: lyricsLinks(entered, elsewise)}})
+	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", respelt, entered)
+
+	later := laterPieceRevision(c, piece, title, respelt, elsewise)
+
+	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
+	assert.Equal(t, []string{elsewise}, snapshot)
+	assert.Equal(t, []string{elsewise}, base)
+}
+
+// TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown checks that a link edited to another spelling of
+// its URL, with the same normalized URL, is still shown, under its URL now, in a revision holding the spelling it
+// had before: a revision never shows a spelling, such as its tracking parameters, that the link no longer holds.
+func TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	c := catalogtest.New(t, db)
+	const (
+		title   = "The Hollow Oak"
+		entered = "https://Example.org:443/x?utm_source=1"
+		respelt = "https://example.org/x"
+	)
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: title, Links: lyricsLinks(entered)}})
+	c.Exec("UPDATE links SET url = ? WHERE url = ?", respelt, entered)
+
+	later := laterPieceRevision(c, piece, title, respelt)
+
+	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
+	assert.Equal(t, []string{respelt}, snapshot)
+	assert.Equal(t, []string{respelt}, base)
 }
 
 // TestRepository_GetPublicRevision_NonASCIILinkURL checks that a revision whose links hold non-ASCII URLs reads
-// and keeps its redaction. Normalized URLs are ASCII, and MySQL refuses to compare an ASCII column with a
-// non-ASCII parameter, so such a URL must match only the URLs as entered: shown if a visible link was entered
-// with it, dropped if a hidden link was or no link has it.
+// and keeps its redaction. A non-ASCII URL is matched by its normalized form, which percent-encodes it, so it is
+// never compared with the ASCII normalized_url column as it is (which MySQL refuses, error 3988): it is shown if
+// a visible link has its normalized URL, under that link's URL however the revision spelt it, and dropped if a
+// hidden link has it or no link does.
 func TestRepository_GetPublicRevision_NonASCIILinkURL(t *testing.T) {
 	t.Parallel()
 
 	db := mysqltest.NewDatabase(t)
 	c := catalogtest.New(t, db)
 	const (
+		title         = "The Willow Glen"
 		shownEncoded  = "https://example.org/caf%C3%A9"
 		shownRaw      = "https://example.org/café"
 		hiddenEncoded = "https://example.org/cr%C3%A8me"
 		hiddenRaw     = "https://example.org/crème"
 		unknownRaw    = "https://example.org/naïve"
 	)
-	links := func(urls ...string) []domain.DocPieceLink {
-		out := []domain.DocPieceLink{}
-		for _, url := range urls {
-			out = append(out, domain.DocPieceLink{DocLink: domain.DocLink{URL: url,
-				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}})
-		}
-		return out
-	}
-	// catalogtest stores each URL as its own normalized URL, which the ASCII column needs, so the links are
-	// seeded encoded and then given the URL as entered.
-	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Willow Glen",
-		Links: links(shownEncoded, hiddenEncoded)}})
-	c.Exec("UPDATE links SET url = ? WHERE url = ?", shownRaw, shownEncoded)
-	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", hiddenRaw, hiddenEncoded)
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: title, Links: lyricsLinks(shownRaw, hiddenRaw)}})
+	c.SetLinkState(hiddenRaw, catalogtest.LinkState{IsHidden: true})
 
-	later := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
-		Snapshot: domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: "The Willow Glen",
-			Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
-			LicensingStatus: domain.LicensingStatusUnknown,
-			Links:           links(shownRaw, hiddenRaw, unknownRaw, shownEncoded, hiddenEncoded)},
-		BaseRevisionID: piece.RevisionID})
+	later := laterPieceRevision(c, piece, title, shownRaw, hiddenRaw, unknownRaw, shownEncoded, hiddenEncoded)
 
-	revision, err := mysql.New(db).GetPublicRevision(t.Context(), later)
-	require.NoError(t, err)
-	pieceRevision, ok := revision.(domain.PieceRevision)
-	require.True(t, ok, "%T", revision)
-	urls := func(got []domain.SnapshotPieceLink) []string {
-		var out []string
-		for _, link := range got {
-			out = append(out, link.URL)
-		}
-		return out
-	}
-	assert.Equal(t, []string{shownRaw, shownEncoded}, urls(pieceRevision.Snapshot.Links))
-	require.NotNil(t, pieceRevision.Base)
-	assert.Equal(t, []string{shownEncoded}, urls(pieceRevision.Base.Snapshot.Links))
+	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
+	assert.Equal(t, []string{shownRaw, shownRaw}, snapshot)
+	assert.Equal(t, []string{shownRaw}, base)
 }

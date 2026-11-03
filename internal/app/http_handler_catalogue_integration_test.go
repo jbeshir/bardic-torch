@@ -216,13 +216,10 @@ func TestHTTP_RevisionWithNonASCIILinkURL(t *testing.T) {
 		}
 		return out
 	}
-	// The links are seeded with ASCII URLs, which catalogtest also stores as their normalized URLs, and then
-	// given the URLs as entered.
+	// catalogtest stores each link's normalized URL, which percent-encodes it, as the importer does.
 	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Songs of the Inn",
-		Links: links("https://example.org/caf%C3%A9-songs", "https://example.org/fj%C3%B6rd-songs")}})
-	c.Exec("UPDATE links SET url = ? WHERE url = ?", visibleRaw, "https://example.org/caf%C3%A9-songs")
-	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", hiddenRaw,
-		"https://example.org/fj%C3%B6rd-songs")
+		Links: links(visibleRaw, hiddenRaw)}})
+	c.SetLinkState(hiddenRaw, catalogtest.LinkState{IsHidden: true})
 	later := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
 		Snapshot: domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: "Songs of the Inn",
 			Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},

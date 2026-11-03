@@ -90,11 +90,21 @@ const noPageBuskerName = "Leakmark Nopage Busker"
 const hiddenLinkURL = "https://example.org/leakmark-hidden-link"
 
 // The URLs of links a revision holds that are no visible link's now: one deleted, one given another URL and
-// hidden, and one hidden under the lower-cased URL.
+// hidden, one hidden under the lower-cased URL, and one respelled (to respelledLinkURLNow, with the same
+// normalized URL) and hidden. Each is in normalized form but respelledLinkURL.
 const (
-	deletedLinkURL = "https://example.org/leakmark-deleted-link"
-	movedLinkURL   = "https://example.org/leakmark-moved-link"
-	recasedLinkURL = "https://example.org/Leakmark-Recased-Link"
+	deletedLinkURL      = "https://example.org/leakmark-deleted-link"
+	movedLinkURL        = "https://example.org/leakmark-moved-link"
+	recasedLinkURL      = "https://example.org/Leakmark-Recased-Link"
+	respelledLinkURL    = "https://Example.org/leakmark-respelled-link?utm_source=leakmark"
+	respelledLinkURLNow = "https://EXAMPLE.org:443/leakmark-respelled-link?fbclid=1"
+)
+
+// enteredLinkURL is a visible link's URL as entered, which ember shows; its normalized URL,
+// normalizedLinkURL, is a system field no read exposes.
+const (
+	enteredLinkURL    = "https://example.org/leakmark-normalized?utm_source=x"
+	normalizedLinkURL = "https://example.org/leakmark-normalized"
 )
 
 // The former names of renamed persons, now hidden legal aliases of theirs.
@@ -324,7 +334,9 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	}
 
 	// A public piece whose first revision's links have since been deleted, given another URL and hidden, and
-	// hidden under a URL that differs from the revision's in case only: none may show in that revision.
+	// hidden under a URL that differs from the revision's in case only, and respelled and hidden: none may show
+	// in that revision. It also has a visible link entered with tracking parameters, whose normalized URL no
+	// read may show.
 	ember := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{
 		SchemaVersion:   domain.DocumentSchemaVersion,
 		Title:           "The Ember Song",
@@ -338,12 +350,20 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}},
 			{DocLink: domain.DocLink{URL: recasedLinkURL, Title: new("Leakmark Recased Link"),
 				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}},
+			{DocLink: domain.DocLink{URL: respelledLinkURL, Title: new("Leakmark Respelled Link"),
+				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}},
 			{DocLink: domain.DocLink{URL: "https://example.org/ember", Roles: []domain.LinkRole{domain.LinkRoleText}}},
+			{DocLink: domain.DocLink{URL: enteredLinkURL, Roles: []domain.LinkRole{domain.LinkRoleText}}},
 		},
 	}})
+	// Each link edit keeps normalized_url = NormalizeURL(url), as every writer must; these URLs are in normalized
+	// form.
 	c.Exec("DELETE FROM links WHERE url = ?", deletedLinkURL)
-	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", movedLinkURL+"-moved", movedLinkURL)
-	c.Exec("UPDATE links SET url = LOWER(url), is_hidden = TRUE WHERE url = ?", recasedLinkURL)
+	c.Exec("UPDATE links SET url = ?, normalized_url = ?, is_hidden = TRUE WHERE url = ?", movedLinkURL+"-moved",
+		movedLinkURL+"-moved", movedLinkURL)
+	c.Exec("UPDATE links SET url = LOWER(url), normalized_url = LOWER(url), is_hidden = TRUE WHERE url = ?",
+		recasedLinkURL)
+	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", respelledLinkURLNow, respelledLinkURL)
 
 	// Revisions whose snapshots show what is hidden now, but was not when they were written: the hidden alias as
 	// public, credits to a person who has since chosen not to have a page, and the hidden link (in every
@@ -405,7 +425,6 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	c.Exec("UPDATE pieces SET legacy_title = ?, legacy_wiki_pageid = id", "Leakmark Legacy Piece")
 	c.Exec("UPDATE terms SET legacy_title = ?", "Leakmark Legacy Term")
 	c.Exec("UPDATE events SET legacy_title = ?", "Leakmark Legacy Event")
-	c.Exec("UPDATE links SET normalized_url = CONCAT('leakmark-normalized-', id)")
 
 	return leakFixture{
 		piece: piece, group: group, person: person, noPage: noPage, noPageAdmirer: noPageAdmirer, noPageBusker: noPageBusker,
@@ -435,8 +454,9 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
 			{path: "/v1/pieces/" + fx.piece.Slug, status: http.StatusOK},
-			// The links of its first revision that are no visible link's now.
-			{path: "/v1/pieces/" + fx.ember.Slug, status: http.StatusOK},
+			// The links of its first revision that are no visible link's now, and a link entered with tracking
+			// parameters, shown as entered.
+			{path: "/v1/pieces/" + fx.ember.Slug, status: http.StatusOK, reveals: []string{enteredLinkURL}},
 			{path: "/v1/pieces/" + fx.unapprovedPiece.Slug, status: http.StatusNotFound},
 			{path: "/v1/pieces/" + fx.unapprovedEcho.Slug, status: http.StatusNotFound},
 		}
@@ -599,8 +619,9 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			revision(fx.revisions.renamedEdit, http.StatusOK),
 			revision(fx.revisions.renamedNoPageFormer, http.StatusOK),
 			revision(fx.revisions.renamedNoPageEdit, http.StatusOK),
-			// Links deleted, moved and hidden, and hidden under another case, since the snapshot.
-			revision(fx.ember.RevisionID, http.StatusOK),
+			// Links deleted, moved and hidden, hidden under another case, and respelled and hidden, since the
+			// snapshot; a link entered with tracking parameters, shown as entered.
+			revision(fx.ember.RevisionID, http.StatusOK, enteredLinkURL),
 			// An unapproved child and related affiliation; an unapproved parent and region.
 			revision(fx.lanterns.RevisionID, http.StatusOK),
 			revision(fx.westmarch.RevisionID, http.StatusOK),
@@ -725,7 +746,8 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 		"SELECT COUNT(*) FROM persons WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM terms WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM persons WHERE claimed_by_user_id LIKE '%leakmark%'",
-		"SELECT COUNT(*) FROM links WHERE normalized_url LIKE 'leakmark%'",
+		"SELECT COUNT(*) FROM links WHERE url = '" + enteredLinkURL + "' " +
+			"AND normalized_url = '" + normalizedLinkURL + "'",
 		"SELECT COUNT(*) FROM collections WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM events WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
 		// Marked performances at a public event, and marked links in a public collection.
@@ -768,6 +790,10 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 		"SELECT COUNT(*) FROM links WHERE is_hidden AND url = '" + movedLinkURL + "-moved'",
 		"SELECT COUNT(*) FROM links WHERE is_hidden AND CAST(url AS BINARY) = LOWER('" + recasedLinkURL + "') " +
 			"AND CAST(url AS BINARY) <> '" + recasedLinkURL + "'",
+		// A link the revision holds under another spelling, with the same normalized URL, that is hidden now.
+		"SELECT COUNT(*) FROM revisions r JOIN links l ON l.is_hidden AND l.url = '" + respelledLinkURLNow + "' " +
+			"AND l.normalized_url = 'https://example.org/leakmark-respelled-link' WHERE r.status = 'approved' " +
+			"AND JSON_SEARCH(r.snapshot_json, 'one', '" + respelledLinkURL + "', NULL, '$.links[*].url') IS NOT NULL",
 	} {
 		var count int
 		require.NoError(t, db.QueryRowContext(t.Context(), query).Scan(&count), query)

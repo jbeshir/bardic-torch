@@ -1,8 +1,8 @@
 //go:build integration
 
-// Package catalogtest seeds catalogue fixtures for integration tests with plain SQL, as BE3's importer and BE4's
-// revision engine will write them: an entity's editable content is its snapshot document (internal/domain), and
-// an approved entity has an approved revision holding that document as its current revision.
+// Package catalogtest seeds catalogue fixtures for integration tests with plain SQL, in the shape the importer
+// (internal/importer) writes: an entity's editable content is its snapshot document (internal/domain), and an
+// approved entity has an approved revision holding that document as its current revision.
 //
 // A test with its own data seeds a fresh database:
 //
@@ -33,10 +33,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
@@ -65,8 +65,9 @@ func New(t testing.TB, db *sql.DB) *Catalog {
 // is one second newer, so creation order is history order.
 var revisionBaseTime = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
-// Term is a term to seed. Doc.Facet defaults to topic, Doc.DisplayName to Doc.Name and Slug to a slug of
-// Doc.Name. The term_ancestors closure rows of the term, including its own depth-0 row, are written with it.
+// Term is a term to seed. Doc.Facet defaults to topic, Doc.DisplayName to Doc.Name and Slug to
+// domain.Slugify(Doc.Name). The term_ancestors closure rows of the term, including its own depth-0 row, are
+// written with it.
 type Term struct {
 	Doc        domain.TermDocument
 	Slug       string
@@ -74,8 +75,8 @@ type Term struct {
 }
 
 // Person is a person to seed. Doc.Kind defaults to community_bard, Doc.Status to active and
-// Doc.LicensingStatus to unknown; Slug defaults to a slug of Doc.Name, SortName to Doc.Name and SortLetter to
-// the upper-cased first letter of SortName, or 0 if it does not start with an ASCII letter.
+// Doc.LicensingStatus to unknown; Slug defaults to domain.Slugify(Doc.Name), SortName to Doc.Name (persons sort
+// by their name as written) and SortLetter to domain.SortLetter(SortName), as the importer writes them.
 type Person struct {
 	Doc        domain.PersonDocument
 	Slug       string
@@ -85,8 +86,9 @@ type Person struct {
 }
 
 // Piece is a piece to seed. Doc.Kind defaults to song, Doc.Conservation.Status to unassessed and
-// Doc.LicensingStatus to unknown; Slug defaults to a slug of Doc.Title, SortTitle to Doc.Title and SortLetter
-// as for Person. Credits default to certainty certain and attribution named.
+// Doc.LicensingStatus to unknown; Slug defaults to domain.Slugify(Doc.Title), SortTitle to
+// domain.SortTitle(Doc.Title) and SortLetter to domain.SortLetter(SortTitle). Credits default to certainty
+// certain and attribution named.
 type Piece struct {
 	Doc                 domain.PieceDocument
 	Slug                string
@@ -104,8 +106,9 @@ type ConservationEntry struct {
 	At        time.Time
 }
 
-// Collection is a collection to seed. Doc.Kind defaults to other and Doc.Enumerable to unknown; SortName
-// defaults to Doc.Name and SortLetter as for Person. Doc.IsBardicResource is written as given.
+// Collection is a collection to seed. Doc.Kind defaults to other and Doc.Enumerable to unknown, SortName to
+// domain.SortTitle(Doc.Name) and SortLetter to domain.SortLetter(SortName). Doc.IsBardicResource is written as
+// given.
 type Collection struct {
 	Doc        domain.CollectionDocument
 	SortName   string
@@ -113,7 +116,7 @@ type Collection struct {
 	Unapproved bool
 }
 
-// Event is an event or venue to seed. Doc.Kind defaults to event and Slug to a slug of Doc.Name.
+// Event is an event or venue to seed. Doc.Kind defaults to event and Slug to domain.Slugify(Doc.Name).
 type Event struct {
 	Doc        domain.EventDocument
 	Slug       string
@@ -151,7 +154,7 @@ func (c *Catalog) Term(f Term) Ref {
 	doc.SchemaVersion = domain.DocumentSchemaVersion
 	doc.Facet = orDefault(doc.Facet, domain.FacetTopic)
 	doc.DisplayName = orDefault(doc.DisplayName, doc.Name)
-	ref := Ref{Slug: orDefault(f.Slug, slugOf(doc.Name))}
+	ref := Ref{Slug: orDefault(f.Slug, domain.Slugify(doc.Name))}
 
 	c.write(func(w writer) {
 		ref.ID = w.exec("INSERT INTO terms (facet, name, display_name, slug, parent_id, related_affiliation_id, "+
@@ -180,9 +183,9 @@ func (c *Catalog) Person(f Person) Ref {
 	doc.Kind = orDefault(doc.Kind, domain.PersonKindCommunityBard)
 	doc.Status = orDefault(doc.Status, domain.PersonStatusActive)
 	doc.LicensingStatus = orDefault(doc.LicensingStatus, domain.LicensingStatusUnknown)
-	ref := Ref{Slug: orDefault(f.Slug, slugOf(doc.Name))}
+	ref := Ref{Slug: orDefault(f.Slug, domain.Slugify(doc.Name))}
 	sortName := orDefault(f.SortName, doc.Name)
-	sortLetter := orDefault(f.SortLetter, letterOf(sortName))
+	sortLetter := orDefault(f.SortLetter, string(domain.SortLetter(sortName)))
 
 	c.write(func(w writer) {
 		ref.ID = w.exec("INSERT INTO persons (slug, name, sort_name, sort_letter, kind, status, status_date, "+
@@ -236,9 +239,9 @@ func (c *Catalog) Piece(f Piece) Ref {
 		doc.Credits[i].Attribution = orDefault(doc.Credits[i].Attribution, domain.AttributionNamed)
 		doc.Credits[i].Certainty = orDefault(doc.Credits[i].Certainty, domain.CertaintyCertain)
 	}
-	ref := Ref{Slug: orDefault(f.Slug, slugOf(doc.Title))}
-	sortTitle := orDefault(f.SortTitle, doc.Title)
-	sortLetter := orDefault(f.SortLetter, letterOf(sortTitle))
+	ref := Ref{Slug: orDefault(f.Slug, domain.Slugify(doc.Title))}
+	sortTitle := orDefault(f.SortTitle, domain.SortTitle(doc.Title))
+	sortLetter := orDefault(f.SortLetter, string(domain.SortLetter(sortTitle)))
 
 	c.write(func(w writer) {
 		ref.ID = w.exec("INSERT INTO pieces (slug, title, sort_title, sort_letter, kind, conservation_status, "+
@@ -297,8 +300,8 @@ func (c *Catalog) Collection(f Collection) Ref {
 	doc.SchemaVersion = domain.DocumentSchemaVersion
 	doc.Kind = orDefault(doc.Kind, domain.CollectionKindOther)
 	doc.Enumerable = orDefault(doc.Enumerable, domain.CollectionEnumerableUnknown)
-	sortName := orDefault(f.SortName, doc.Name)
-	sortLetter := orDefault(f.SortLetter, letterOf(sortName))
+	sortName := orDefault(f.SortName, domain.SortTitle(doc.Name))
+	sortLetter := orDefault(f.SortLetter, string(domain.SortLetter(sortName)))
 
 	var ref Ref
 	c.write(func(w writer) {
@@ -317,7 +320,7 @@ func (c *Catalog) Event(f Event) Ref {
 	doc := f.Doc
 	doc.SchemaVersion = domain.DocumentSchemaVersion
 	doc.Kind = orDefault(doc.Kind, domain.EventKindEvent)
-	ref := Ref{Slug: orDefault(f.Slug, slugOf(doc.Name))}
+	ref := Ref{Slug: orDefault(f.Slug, domain.Slugify(doc.Name))}
 
 	c.write(func(w writer) {
 		ref.ID = w.exec("INSERT INTO events (slug, name, kind, description_md) VALUES (?, ?, ?, ?)",
@@ -336,12 +339,15 @@ func (c *Catalog) Revision(r Revision) int64 {
 	return id
 }
 
-// SetLinkState sets the system state of the link with url, which a piece or person seeded before.
+// SetLinkState sets the system state of the link whose normalized URL is url's, which a piece or person seeded
+// before.
 func (c *Catalog) SetLinkState(url string, s LinkState) {
+	c.t.Helper()
+	normalized := c.normalizeURL(url)
 	c.write(func(w writer) {
 		result, err := w.tx.ExecContext(w.ctx(), "UPDATE links SET liveness = ?, last_checked_at = ?, "+
 			"archived_url = ?, is_hidden = ? WHERE normalized_url = ?",
-			orDefault(s.Liveness, domain.LivenessUnknown), s.LastCheckedAt, s.ArchivedURL, s.IsHidden, url)
+			orDefault(s.Liveness, domain.LivenessUnknown), s.LastCheckedAt, s.ArchivedURL, s.IsHidden, normalized)
 		if err != nil {
 			c.t.Fatalf("catalogtest: setting link state of %s: %v", url, err)
 		}
@@ -349,6 +355,17 @@ func (c *Catalog) SetLinkState(url string, s LinkState) {
 			c.t.Fatalf("catalogtest: setting link state of %s: no such link (%d rows, %v)", url, n, err)
 		}
 	})
+}
+
+// normalizeURL returns domain.NormalizeURL(url), failing the test if url does not normalize.
+func (c *Catalog) normalizeURL(url string) string {
+	c.t.Helper()
+	normalized, err := domain.NormalizeURL(url)
+	if err != nil {
+		c.t.Fatalf("catalogtest: link URL %s: %v", url, err)
+	}
+
+	return normalized
 }
 
 // Exec runs one statement and commits it, for the system-owned columns no document holds, such as legacy_title
@@ -398,12 +415,13 @@ func (w writer) exec(query string, args ...any) int64 {
 	return id
 }
 
-// link inserts the link with url, or finds the one a document seeded before, whose editor-owned fields win,
-// and returns its ID. Its normalized URL is the URL as given.
+// link inserts the link with url, or finds the one with the same normalized URL seeded before, whose URL as
+// entered and editor-owned fields win, and returns its ID. Its normalized URL is domain.NormalizeURL(url), as the
+// importer writes it (the invariant in docs/DEPLOY.md); a URL that does not normalize fails the test.
 func (w writer) link(l domain.DocLink) int64 {
 	return w.exec("INSERT INTO links (url, normalized_url, title, description, platform, place_type, "+
 		"collection_id, locator) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
-		l.URL, l.URL, l.Title, l.Description, l.Platform, l.PlaceType, l.CollectionID, l.Locator)
+		l.URL, w.c.normalizeURL(l.URL), l.Title, l.Description, l.Platform, l.PlaceType, l.CollectionID, l.Locator)
 }
 
 // performance inserts a performance recorded by the link linkID, of the piece pieceID if not nil, with its
@@ -475,42 +493,6 @@ func orDefault[T comparable](v, def T) T {
 	return v
 }
 
-// slugOf returns a fixture slug for name: its ASCII letters and digits, lower-cased, with each run of anything
-// else turned into one hyphen. It is not the importer's Slugify; give Slug explicitly for other names.
-func slugOf(name string) string {
-	var b strings.Builder
-	hyphen := false
-	for _, r := range strings.ToLower(name) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			if hyphen && b.Len() > 0 {
-				b.WriteByte('-')
-			}
-			b.WriteRune(r)
-			hyphen = false
-		} else {
-			hyphen = true
-		}
-	}
-
-	return b.String()
-}
-
-// letterOf returns a fixture sort letter for key: its first character upper-cased if that is an ASCII letter,
-// otherwise 0. It is not the writer's sort-letter rule; give SortLetter explicitly for other keys.
-func letterOf(key string) string {
-	if key == "" {
-		return "0"
-	}
-	switch first := key[0]; {
-	case first >= 'A' && first <= 'Z':
-		return string(rune(first))
-	case first >= 'a' && first <= 'z':
-		return string(rune(first - 'a' + 'A'))
-	default:
-		return "0"
-	}
-}
-
 // dateValue returns d as a DATE column's value: its time, or NULL for nil.
 func dateValue(d *domain.Date) any {
 	if d == nil {
@@ -518,4 +500,18 @@ func dateValue(d *domain.Date) any {
 	}
 
 	return d.Time
+}
+
+// Import writes a whole catalogue import, as the importer's --apply does (mysql.Repository.ImportCatalogue), into
+// the database, which must be empty.
+func (c *Catalog) Import(imp domain.CatalogueImport) {
+	c.t.Helper()
+	if err := mysql.New(c.db).ImportCatalogue(c.t.Context(), imp); err != nil {
+		c.t.Fatalf("catalogtest: importing: %v", err)
+	}
+}
+
+// T returns the test the Catalog fails, for a Shared seed that needs it.
+func (c *Catalog) T() testing.TB {
+	return c.t
 }

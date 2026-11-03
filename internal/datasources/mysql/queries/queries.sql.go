@@ -563,6 +563,644 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 	return i, err
 }
 
+const insertConservationHistory = `-- name: InsertConservationHistory :exec
+INSERT INTO conservation_history (piece_id, status, reason, source_url, revision_id, at)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type InsertConservationHistoryParams struct {
+	PieceID    uint64
+	Status     ConservationHistoryStatus
+	Reason     string
+	SourceUrl  sql.NullString
+	RevisionID sql.NullInt64
+	At         time.Time
+}
+
+func (q *Queries) InsertConservationHistory(ctx context.Context, arg InsertConservationHistoryParams) error {
+	_, err := q.db.ExecContext(ctx, insertConservationHistory,
+		arg.PieceID,
+		arg.Status,
+		arg.Reason,
+		arg.SourceUrl,
+		arg.RevisionID,
+		arg.At,
+	)
+	return err
+}
+
+const insertImportedCollection = `-- name: InsertImportedCollection :exec
+INSERT INTO collections (id, name, sort_name, sort_letter, url, kind, description_md, region_term_id, parent_id,
+    is_bardic_resource, enumerable, current_revision_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertImportedCollectionParams struct {
+	ID                uint64
+	Name              string
+	SortName          string
+	SortLetter        string
+	Url               sql.NullString
+	Kind              CollectionsKind
+	DescriptionMd     sql.NullString
+	RegionTermID      sql.NullInt64
+	ParentID          sql.NullInt64
+	IsBardicResource  bool
+	Enumerable        CollectionsEnumerable
+	CurrentRevisionID sql.NullInt64
+}
+
+func (q *Queries) InsertImportedCollection(ctx context.Context, arg InsertImportedCollectionParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedCollection,
+		arg.ID,
+		arg.Name,
+		arg.SortName,
+		arg.SortLetter,
+		arg.Url,
+		arg.Kind,
+		arg.DescriptionMd,
+		arg.RegionTermID,
+		arg.ParentID,
+		arg.IsBardicResource,
+		arg.Enumerable,
+		arg.CurrentRevisionID,
+	)
+	return err
+}
+
+const insertImportedEvent = `-- name: InsertImportedEvent :exec
+INSERT INTO events (id, slug, name, kind, description_md, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertImportedEventParams struct {
+	ID                uint64
+	Slug              string
+	Name              string
+	Kind              EventsKind
+	DescriptionMd     sql.NullString
+	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
+	LegacyTitle       sql.NullString
+}
+
+func (q *Queries) InsertImportedEvent(ctx context.Context, arg InsertImportedEventParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedEvent,
+		arg.ID,
+		arg.Slug,
+		arg.Name,
+		arg.Kind,
+		arg.DescriptionMd,
+		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
+		arg.LegacyTitle,
+	)
+	return err
+}
+
+const insertImportedLink = `-- name: InsertImportedLink :exec
+INSERT INTO links (id, url, normalized_url, title, description, platform, place_type, collection_id, locator,
+    is_hidden)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertImportedLinkParams struct {
+	ID            uint64
+	Url           string
+	NormalizedUrl string
+	Title         sql.NullString
+	Description   sql.NullString
+	Platform      sql.NullString
+	PlaceType     NullLinksPlaceType
+	CollectionID  sql.NullInt64
+	Locator       sql.NullString
+	IsHidden      bool
+}
+
+func (q *Queries) InsertImportedLink(ctx context.Context, arg InsertImportedLinkParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedLink,
+		arg.ID,
+		arg.Url,
+		arg.NormalizedUrl,
+		arg.Title,
+		arg.Description,
+		arg.Platform,
+		arg.PlaceType,
+		arg.CollectionID,
+		arg.Locator,
+		arg.IsHidden,
+	)
+	return err
+}
+
+const insertImportedPerson = `-- name: InsertImportedPerson :exec
+INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, status_date, status_source_url, pronouns,
+    notes_md, licensing_notes_md, licensing_status, is_stub, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertImportedPersonParams struct {
+	ID                uint64
+	Slug              string
+	Name              string
+	SortName          string
+	SortLetter        string
+	Kind              PersonsKind
+	Status            PersonsStatus
+	StatusDate        sql.NullTime
+	StatusSourceUrl   sql.NullString
+	Pronouns          sql.NullString
+	NotesMd           sql.NullString
+	LicensingNotesMd  sql.NullString
+	LicensingStatus   PersonsLicensingStatus
+	IsStub            bool
+	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
+	LegacyTitle       sql.NullString
+}
+
+func (q *Queries) InsertImportedPerson(ctx context.Context, arg InsertImportedPersonParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedPerson,
+		arg.ID,
+		arg.Slug,
+		arg.Name,
+		arg.SortName,
+		arg.SortLetter,
+		arg.Kind,
+		arg.Status,
+		arg.StatusDate,
+		arg.StatusSourceUrl,
+		arg.Pronouns,
+		arg.NotesMd,
+		arg.LicensingNotesMd,
+		arg.LicensingStatus,
+		arg.IsStub,
+		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
+		arg.LegacyTitle,
+	)
+	return err
+}
+
+const insertImportedPiece = `-- name: InsertImportedPiece :exec
+INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
+    version_notes_md, licensing_notes_md, licensing_status, licence, historical_source_md, period_start, period_end,
+    legacy_had_inline_lyrics, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertImportedPieceParams struct {
+	ID                    uint64
+	Slug                  string
+	Title                 string
+	SortTitle             string
+	SortLetter            string
+	Kind                  PiecesKind
+	ConservationStatus    PiecesConservationStatus
+	IsStub                bool
+	NotesMd               sql.NullString
+	VersionNotesMd        sql.NullString
+	LicensingNotesMd      sql.NullString
+	LicensingStatus       PiecesLicensingStatus
+	Licence               NullPiecesLicence
+	HistoricalSourceMd    sql.NullString
+	PeriodStart           sql.NullInt16
+	PeriodEnd             sql.NullInt16
+	LegacyHadInlineLyrics bool
+	CurrentRevisionID     sql.NullInt64
+	LegacyWikiPageid      sql.NullInt32
+	LegacyTitle           sql.NullString
+}
+
+func (q *Queries) InsertImportedPiece(ctx context.Context, arg InsertImportedPieceParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedPiece,
+		arg.ID,
+		arg.Slug,
+		arg.Title,
+		arg.SortTitle,
+		arg.SortLetter,
+		arg.Kind,
+		arg.ConservationStatus,
+		arg.IsStub,
+		arg.NotesMd,
+		arg.VersionNotesMd,
+		arg.LicensingNotesMd,
+		arg.LicensingStatus,
+		arg.Licence,
+		arg.HistoricalSourceMd,
+		arg.PeriodStart,
+		arg.PeriodEnd,
+		arg.LegacyHadInlineLyrics,
+		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
+		arg.LegacyTitle,
+	)
+	return err
+}
+
+const insertImportedRevision = `-- name: InsertImportedRevision :exec
+
+INSERT INTO revisions (id, entity_type, entity_id, source, status, snapshot_json, summary, created_at)
+VALUES (?, ?, ?, 'import', 'approved', ?, ?, ?)
+`
+
+type InsertImportedRevisionParams struct {
+	ID           uint64
+	EntityType   RevisionsEntityType
+	EntityID     uint64
+	SnapshotJson json.RawMessage
+	Summary      string
+	CreatedAt    time.Time
+}
+
+// ============================================
+// Catalogue import
+//
+// The importer writes a whole catalogue into an empty database in one transaction, with the IDs the import
+// assigned, every row of a table before the rows of tables referring to it. Each entity row carries its approved
+// import revision as its current revision directly. A links row's normalized_url is domain.NormalizeURL(url)
+// (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
+// ============================================
+func (q *Queries) InsertImportedRevision(ctx context.Context, arg InsertImportedRevisionParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedRevision,
+		arg.ID,
+		arg.EntityType,
+		arg.EntityID,
+		arg.SnapshotJson,
+		arg.Summary,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertImportedTerm = `-- name: InsertImportedTerm :exec
+INSERT INTO terms (id, facet, name, display_name, slug, parent_id, related_affiliation_id, description_md, position,
+    current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertImportedTermParams struct {
+	ID                   uint64
+	Facet                TermsFacet
+	Name                 string
+	DisplayName          string
+	Slug                 string
+	ParentID             sql.NullInt64
+	RelatedAffiliationID sql.NullInt64
+	DescriptionMd        sql.NullString
+	Position             int32
+	CurrentRevisionID    sql.NullInt64
+	LegacyWikiPageid     sql.NullInt32
+	LegacyTitle          sql.NullString
+}
+
+func (q *Queries) InsertImportedTerm(ctx context.Context, arg InsertImportedTermParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedTerm,
+		arg.ID,
+		arg.Facet,
+		arg.Name,
+		arg.DisplayName,
+		arg.Slug,
+		arg.ParentID,
+		arg.RelatedAffiliationID,
+		arg.DescriptionMd,
+		arg.Position,
+		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
+		arg.LegacyTitle,
+	)
+	return err
+}
+
+const insertLinkAttachment = `-- name: InsertLinkAttachment :exec
+INSERT INTO link_attachments (link_id, piece_id, person_id, role, position)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertLinkAttachmentParams struct {
+	LinkID   uint64
+	PieceID  sql.NullInt64
+	PersonID sql.NullInt64
+	Role     LinkAttachmentsRole
+	Position uint16
+}
+
+func (q *Queries) InsertLinkAttachment(ctx context.Context, arg InsertLinkAttachmentParams) error {
+	_, err := q.db.ExecContext(ctx, insertLinkAttachment,
+		arg.LinkID,
+		arg.PieceID,
+		arg.PersonID,
+		arg.Role,
+		arg.Position,
+	)
+	return err
+}
+
+const insertPerformance = `-- name: InsertPerformance :execlastid
+INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type InsertPerformanceParams struct {
+	LinkID              uint64
+	PieceID             sql.NullInt64
+	EventID             sql.NullInt64
+	Year                sql.NullInt16
+	Uploader            sql.NullString
+	DescriptionVerbatim string
+}
+
+func (q *Queries) InsertPerformance(ctx context.Context, arg InsertPerformanceParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertPerformance,
+		arg.LinkID,
+		arg.PieceID,
+		arg.EventID,
+		arg.Year,
+		arg.Uploader,
+		arg.DescriptionVerbatim,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+const insertPerformancePerformer = `-- name: InsertPerformancePerformer :exec
+INSERT INTO performance_performers (performance_id, person_id, position)
+VALUES (?, ?, ?)
+`
+
+type InsertPerformancePerformerParams struct {
+	PerformanceID uint64
+	PersonID      uint64
+	Position      uint16
+}
+
+func (q *Queries) InsertPerformancePerformer(ctx context.Context, arg InsertPerformancePerformerParams) error {
+	_, err := q.db.ExecContext(ctx, insertPerformancePerformer, arg.PerformanceID, arg.PersonID, arg.Position)
+	return err
+}
+
+const insertPersonAffiliation = `-- name: InsertPersonAffiliation :exec
+INSERT INTO person_affiliations (person_id, term_id)
+VALUES (?, ?)
+`
+
+type InsertPersonAffiliationParams struct {
+	PersonID uint64
+	TermID   uint64
+}
+
+func (q *Queries) InsertPersonAffiliation(ctx context.Context, arg InsertPersonAffiliationParams) error {
+	_, err := q.db.ExecContext(ctx, insertPersonAffiliation, arg.PersonID, arg.TermID)
+	return err
+}
+
+const insertPersonAlias = `-- name: InsertPersonAlias :exec
+INSERT INTO person_aliases (person_id, name, kind, is_public)
+VALUES (?, ?, ?, ?)
+`
+
+type InsertPersonAliasParams struct {
+	PersonID uint64
+	Name     string
+	Kind     PersonAliasesKind
+	IsPublic bool
+}
+
+func (q *Queries) InsertPersonAlias(ctx context.Context, arg InsertPersonAliasParams) error {
+	_, err := q.db.ExecContext(ctx, insertPersonAlias,
+		arg.PersonID,
+		arg.Name,
+		arg.Kind,
+		arg.IsPublic,
+	)
+	return err
+}
+
+const insertPersonPreference = `-- name: InsertPersonPreference :exec
+INSERT INTO person_preferences (person_id, dimension, value_json, source_url)
+VALUES (?, ?, ?, ?)
+`
+
+type InsertPersonPreferenceParams struct {
+	PersonID  uint64
+	Dimension PersonPreferencesDimension
+	ValueJson json.RawMessage
+	SourceUrl string
+}
+
+func (q *Queries) InsertPersonPreference(ctx context.Context, arg InsertPersonPreferenceParams) error {
+	_, err := q.db.ExecContext(ctx, insertPersonPreference,
+		arg.PersonID,
+		arg.Dimension,
+		arg.ValueJson,
+		arg.SourceUrl,
+	)
+	return err
+}
+
+const insertPersonRelation = `-- name: InsertPersonRelation :exec
+INSERT INTO person_relations (from_person_id, to_person_id, type)
+VALUES (?, ?, ?)
+`
+
+type InsertPersonRelationParams struct {
+	FromPersonID uint64
+	ToPersonID   uint64
+	Type         PersonRelationsType
+}
+
+func (q *Queries) InsertPersonRelation(ctx context.Context, arg InsertPersonRelationParams) error {
+	_, err := q.db.ExecContext(ctx, insertPersonRelation, arg.FromPersonID, arg.ToPersonID, arg.Type)
+	return err
+}
+
+const insertPersonRole = `-- name: InsertPersonRole :exec
+INSERT INTO person_roles (person_id, role)
+VALUES (?, ?)
+`
+
+type InsertPersonRoleParams struct {
+	PersonID uint64
+	Role     PersonRolesRole
+}
+
+func (q *Queries) InsertPersonRole(ctx context.Context, arg InsertPersonRoleParams) error {
+	_, err := q.db.ExecContext(ctx, insertPersonRole, arg.PersonID, arg.Role)
+	return err
+}
+
+const insertPieceAlias = `-- name: InsertPieceAlias :exec
+INSERT INTO piece_aliases (piece_id, text, kind)
+VALUES (?, ?, ?)
+`
+
+type InsertPieceAliasParams struct {
+	PieceID uint64
+	Text    string
+	Kind    PieceAliasesKind
+}
+
+func (q *Queries) InsertPieceAlias(ctx context.Context, arg InsertPieceAliasParams) error {
+	_, err := q.db.ExecContext(ctx, insertPieceAlias, arg.PieceID, arg.Text, arg.Kind)
+	return err
+}
+
+const insertPieceCredit = `-- name: InsertPieceCredit :exec
+INSERT INTO piece_credits (piece_id, person_id, role, attribution, certainty, part, note, position)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertPieceCreditParams struct {
+	PieceID     uint64
+	PersonID    sql.NullInt64
+	Role        PieceCreditsRole
+	Attribution PieceCreditsAttribution
+	Certainty   PieceCreditsCertainty
+	Part        NullPieceCreditsPart
+	Note        sql.NullString
+	Position    uint16
+}
+
+func (q *Queries) InsertPieceCredit(ctx context.Context, arg InsertPieceCreditParams) error {
+	_, err := q.db.ExecContext(ctx, insertPieceCredit,
+		arg.PieceID,
+		arg.PersonID,
+		arg.Role,
+		arg.Attribution,
+		arg.Certainty,
+		arg.Part,
+		arg.Note,
+		arg.Position,
+	)
+	return err
+}
+
+const insertPiecePreference = `-- name: InsertPiecePreference :exec
+INSERT INTO piece_preferences (piece_id, dimension, value_json, source_url)
+VALUES (?, ?, ?, ?)
+`
+
+type InsertPiecePreferenceParams struct {
+	PieceID   uint64
+	Dimension PiecePreferencesDimension
+	ValueJson json.RawMessage
+	SourceUrl string
+}
+
+func (q *Queries) InsertPiecePreference(ctx context.Context, arg InsertPiecePreferenceParams) error {
+	_, err := q.db.ExecContext(ctx, insertPiecePreference,
+		arg.PieceID,
+		arg.Dimension,
+		arg.ValueJson,
+		arg.SourceUrl,
+	)
+	return err
+}
+
+const insertPieceRelation = `-- name: InsertPieceRelation :exec
+INSERT INTO piece_relations (from_piece_id, to_piece_id, type)
+VALUES (?, ?, ?)
+`
+
+type InsertPieceRelationParams struct {
+	FromPieceID uint64
+	ToPieceID   uint64
+	Type        PieceRelationsType
+}
+
+func (q *Queries) InsertPieceRelation(ctx context.Context, arg InsertPieceRelationParams) error {
+	_, err := q.db.ExecContext(ctx, insertPieceRelation, arg.FromPieceID, arg.ToPieceID, arg.Type)
+	return err
+}
+
+const insertPieceSecondaryKind = `-- name: InsertPieceSecondaryKind :exec
+INSERT INTO piece_secondary_kinds (piece_id, kind)
+VALUES (?, ?)
+`
+
+type InsertPieceSecondaryKindParams struct {
+	PieceID uint64
+	Kind    PieceSecondaryKindsKind
+}
+
+func (q *Queries) InsertPieceSecondaryKind(ctx context.Context, arg InsertPieceSecondaryKindParams) error {
+	_, err := q.db.ExecContext(ctx, insertPieceSecondaryKind, arg.PieceID, arg.Kind)
+	return err
+}
+
+const insertPieceTerm = `-- name: InsertPieceTerm :exec
+INSERT INTO piece_terms (piece_id, term_id, is_primary, part, position)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertPieceTermParams struct {
+	PieceID   uint64
+	TermID    uint64
+	IsPrimary bool
+	Part      NullPieceTermsPart
+	Position  uint16
+}
+
+func (q *Queries) InsertPieceTerm(ctx context.Context, arg InsertPieceTermParams) error {
+	_, err := q.db.ExecContext(ctx, insertPieceTerm,
+		arg.PieceID,
+		arg.TermID,
+		arg.IsPrimary,
+		arg.Part,
+		arg.Position,
+	)
+	return err
+}
+
+const insertRevisionContributor = `-- name: InsertRevisionContributor :exec
+INSERT INTO revision_contributors (revision_id, position, name)
+VALUES (?, ?, ?)
+`
+
+type InsertRevisionContributorParams struct {
+	RevisionID uint64
+	Position   uint16
+	Name       string
+}
+
+func (q *Queries) InsertRevisionContributor(ctx context.Context, arg InsertRevisionContributorParams) error {
+	_, err := q.db.ExecContext(ctx, insertRevisionContributor, arg.RevisionID, arg.Position, arg.Name)
+	return err
+}
+
+const insertTermAlias = `-- name: InsertTermAlias :exec
+INSERT INTO term_aliases (term_id, name)
+VALUES (?, ?)
+`
+
+type InsertTermAliasParams struct {
+	TermID uint64
+	Name   string
+}
+
+func (q *Queries) InsertTermAlias(ctx context.Context, arg InsertTermAliasParams) error {
+	_, err := q.db.ExecContext(ctx, insertTermAlias, arg.TermID, arg.Name)
+	return err
+}
+
+const insertTermAncestor = `-- name: InsertTermAncestor :exec
+INSERT INTO term_ancestors (ancestor_id, descendant_id, depth)
+VALUES (?, ?, ?)
+`
+
+type InsertTermAncestorParams struct {
+	AncestorID   uint64
+	DescendantID uint64
+	Depth        uint8
+}
+
+func (q *Queries) InsertTermAncestor(ctx context.Context, arg InsertTermAncestorParams) error {
+	_, err := q.db.ExecContext(ctx, insertTermAncestor, arg.AncestorID, arg.DescendantID, arg.Depth)
+	return err
+}
+
 const insertUserIfMissing = `-- name: InsertUserIfMissing :exec
 INSERT INTO users (id, display_name, role, created_at)
 VALUES (?, ?, 'contributor', ?)
@@ -732,43 +1370,32 @@ func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64)
 	return items, nil
 }
 
-const listLinksByURL = `-- name: ListLinksByURL :many
+const listLinksByNormalizedURL = `-- name: ListLinksByNormalizedURL :many
 
-SELECT url, normalized_url, is_hidden
+SELECT normalized_url, url, is_hidden
 FROM links
-WHERE url IN (/*SLICE:urls*/?) OR normalized_url IN (/*SLICE:normalized_urls*/?)
+WHERE normalized_url IN (/*SLICE:normalized_urls*/?)
 `
 
-type ListLinksByURLParams struct {
-	Urls           []string
-	NormalizedUrls []string
-}
-
-type ListLinksByURLRow struct {
-	Url           string
+type ListLinksByNormalizedURLRow struct {
 	NormalizedUrl string
+	Url           string
 	IsHidden      bool
 }
 
-// A snapshot's link is shown only if a link that is not hidden has exactly its URL, as entered or normalized, and
-// no hidden link does. Both columns are binary, and the caller compares the URLs these rows hold exactly too, so a
-// URL that differs in any way, or a link since deleted, fails closed.
-func (q *Queries) ListLinksByURL(ctx context.Context, arg ListLinksByURLParams) ([]ListLinksByURLRow, error) {
-	query := listLinksByURL
+// A snapshot's link is shown only if its normalized URL is that of a link that is not hidden. Every link's
+// normalized_url is domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies
+// to the snapshot's URLs too, so a link edited to another spelling of the same URL is still matched, and a link
+// since deleted or given another URL fails closed. The column is binary, and the caller trusts only the normalized
+// URLs these rows hold.
+func (q *Queries) ListLinksByNormalizedURL(ctx context.Context, normalizedUrls []string) ([]ListLinksByNormalizedURLRow, error) {
+	query := listLinksByNormalizedURL
 	var queryParams []interface{}
-	if len(arg.Urls) > 0 {
-		for _, v := range arg.Urls {
+	if len(normalizedUrls) > 0 {
+		for _, v := range normalizedUrls {
 			queryParams = append(queryParams, v)
 		}
-		query = strings.Replace(query, "/*SLICE:urls*/?", strings.Repeat(",?", len(arg.Urls))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:urls*/?", "NULL", 1)
-	}
-	if len(arg.NormalizedUrls) > 0 {
-		for _, v := range arg.NormalizedUrls {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", strings.Repeat(",?", len(arg.NormalizedUrls))[1:], 1)
+		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", strings.Repeat(",?", len(normalizedUrls))[1:], 1)
 	} else {
 		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", "NULL", 1)
 	}
@@ -777,10 +1404,10 @@ func (q *Queries) ListLinksByURL(ctx context.Context, arg ListLinksByURLParams) 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListLinksByURLRow
+	var items []ListLinksByNormalizedURLRow
 	for rows.Next() {
-		var i ListLinksByURLRow
-		if err := rows.Scan(&i.Url, &i.NormalizedUrl, &i.IsHidden); err != nil {
+		var i ListLinksByNormalizedURLRow
+		if err := rows.Scan(&i.NormalizedUrl, &i.Url, &i.IsHidden); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

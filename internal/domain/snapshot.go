@@ -7,10 +7,11 @@ import (
 
 // Snapshot views are what the public API shows of a stored snapshot document. A document is never served as
 // stored: it references other entities by internal ID and may hold what a public read must not show. A view
-// holds the document's editor-owned fields, except preference profiles (which nothing exposes until BE5), with:
+// holds the document's editor-owned fields, except preference profiles (which nothing exposes yet), with:
 //   - each reference resolved to the entity's summary as it is now, or left out if the entity is not public now;
-//   - each link shown by URL, and only if a link that is not hidden now has exactly that URL, as entered or
-//     normalized: a link since hidden, deleted, or given another URL is left out;
+//   - each link shown by URL, and only if its normalized URL (NormalizeURL) is that of a link that is not hidden
+//     now, and of no hidden link: a link since hidden, deleted, or given a URL that normalizes otherwise is left
+//     out, and so is a URL that does not normalize;
 //   - a person's alias shown only if it is public in the document and is now a public alias of the person;
 //   - a person's name shown only if it is their name now or one of their public alias names now, and their
 //     current name otherwise, so that a former name that is now a hidden alias never shows;
@@ -53,9 +54,10 @@ type SnapshotVisibility struct {
 	Collections map[int64]CollectionSummary
 	// Events are the public events and venues.
 	Events map[int64]EventSummary
-	// VisibleLinkURLs are the referenced URLs that are exactly the URL or the normalized URL of a link that is not
-	// hidden, and of no hidden link: the only links a view shows.
-	VisibleLinkURLs map[string]bool
+	// VisibleLinks maps the normalized URL of each referenced link that is the normalized URL of a link that is
+	// not hidden, and of no hidden link, to that link's URL: the only links a view shows, each under the link's
+	// URL rather than the document's spelling of it.
+	VisibleLinks map[string]string
 }
 
 // PieceSnapshot is the public view of a PieceDocument.
@@ -300,10 +302,11 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		}
 	}
 	for _, link := range d.Links {
-		if !vis.VisibleLinkURLs[link.URL] {
+		url, ok := vis.visibleLinkURL(link.URL)
+		if !ok {
 			continue
 		}
-		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink)}
+		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink, url)}
 		for _, performance := range link.Performances {
 			pieceLink.Performances = append(pieceLink.Performances, vis.performance(performance))
 		}
@@ -334,9 +337,10 @@ func (v SnapshotVisibility) credit(c DocCredit) (PieceCredit, bool) {
 	return credit, true
 }
 
-func (v SnapshotVisibility) link(l DocLink) SnapshotLink {
+// link returns the view of l, shown under url: the URL of the visible link l's URL normalizes to.
+func (v SnapshotVisibility) link(l DocLink, url string) SnapshotLink {
 	link := SnapshotLink{
-		URL:         l.URL,
+		URL:         url,
 		Title:       l.Title,
 		Description: l.Description,
 		Platform:    l.Platform,
@@ -432,10 +436,11 @@ func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisi
 		}
 	}
 	for _, link := range d.Links {
-		if !vis.VisibleLinkURLs[link.URL] {
+		url, ok := vis.visibleLinkURL(link.URL)
+		if !ok {
 			continue
 		}
-		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink)}
+		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink, url)}
 		for _, performance := range link.Performances {
 			if p, ok := vis.personPerformance(performance); ok {
 				personLink.Performances = append(personLink.Performances, p)
@@ -506,4 +511,16 @@ func lookup[T any](entities map[int64]T, id *int64) *T {
 	}
 
 	return &entity
+}
+
+// visibleLinkURL returns the URL of the visible link a document's url normalizes to, or false if a view does not
+// show it: url normalizes to none of VisibleLinks. A URL that does not normalize fails closed.
+func (v SnapshotVisibility) visibleLinkURL(url string) (string, bool) {
+	normalized, err := NormalizeURL(url)
+	if err != nil {
+		return "", false
+	}
+	visible, ok := v.VisibleLinks[normalized]
+
+	return visible, ok
 }

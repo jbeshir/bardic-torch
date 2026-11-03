@@ -1,0 +1,206 @@
+{
+  "piece": {
+    "id": 38,
+    "slug": "auld-lang-syne",
+    "sort_title": "Auld Lang Syne",
+    "sort_letter": "A",
+    "doc": {
+      "schema_version": 1,
+      "title": "Auld Lang Syne",
+      "kind": "song",
+      "secondary_kinds": [],
+      "conservation": {
+        "status": "unassessed",
+        "source_url": null
+      },
+      "is_stub": false,
+      "notes_md": "### Key Links\n\n- Note: Auld Lang Syne is sung in Scots. This wiki uses \\[\\[:Category:Gaelic|Gaelic\\] as an overarching category for Scottish/Irish work.",
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": "Auld Lang Syne is in the public domain.",
+      "licence": null,
+      "historical_source_md": null,
+      "period_start": null,
+      "period_end": null,
+      "aliases": [],
+      "terms": [
+        {
+          "term_id": 29,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 38,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 98,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 123,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 24,
+          "is_primary": false,
+          "part": null
+        }
+      ],
+      "relations": [],
+      "credits": [
+        {
+          "person_id": 122,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "traditional",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        }
+      ],
+      "links": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Auld_Lang_Syne",
+          "title": "Auld Lang Syne on Wikipedia",
+          "description": null,
+          "platform": "wikipedia",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other",
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.thebards.net/music/lyrics/Auld_Lang_Syne.shtml",
+          "title": "Lyrics on the Bard's Celtic Lyrics Directory",
+          "description": null,
+          "platform": "thebards.net",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=i_eoiRvdp-A",
+          "title": "Auld Lang Syne sung by [name withheld]",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "[https://youtube.com/watch?v=i_eoiRvdp-A Auld Lang Syne sung by [name withheld]]",
+              "performer_ids": []
+            }
+          ]
+        }
+      ],
+      "preferences": []
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 140,
+      "title": "Auld Lang Syne"
+    },
+    "revision": {
+      "id": 408,
+      "summary": "Imported from the wiki (page revision 891).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "NAME-062",
+      "kind": "free_text",
+      "page": "Auld Lang Syne",
+      "text": "link https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA, title: \"Legal Name 060\" was withheld. Context: \"Auld Lang Syne sung by [name withheld]\"."
+    },
+    {
+      "id": "NAME-278",
+      "kind": "free_text",
+      "page": "Auld Lang Syne",
+      "text": "performance item, description: \"Legal Name 060\" was withheld. Context: \"ch?v=i_eoiRvdp-A Auld Lang Syne sung by [name withheld]]\"."
+    },
+    {
+      "id": "STUB-149",
+      "kind": "stub_person",
+      "page": "Auld Lang Syne",
+      "text": "Stub person \"Robert Burns\" (community_bard), named on 2 page(s)."
+    },
+    {
+      "id": "LINK-001",
+      "kind": "section_prose",
+      "page": "Auld Lang Syne",
+      "text": "Section \"Key Links\": 1 line(s) of prose that are not links are imported into the notes, under the section's heading."
+    },
+    {
+      "id": "LINK-087",
+      "kind": "normalised",
+      "page": "Auld Lang Syne",
+      "text": "2 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "LINK-088",
+      "kind": "repeated",
+      "page": "Auld Lang Syne",
+      "text": "URLs written more than once, imported once each: https://en.wikipedia.org/wiki/Auld_Lang_Syne."
+    },
+    {
+      "id": "LINK-089",
+      "kind": "roles",
+      "page": "Auld Lang Syne",
+      "text": "https://en.wikipedia.org/wiki/Auld_Lang_Syne has several roles: other, lyrics."
+    },
+    {
+      "id": "PERF-103",
+      "kind": "incomplete",
+      "page": "Auld Lang Syne",
+      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by Legal N…\"."
+    },
+    {
+      "id": "PERSON-165",
+      "kind": "stub_kind",
+      "page": "Auld Lang Syne",
+      "text": "Stub person \"Robert Burns\" (named on 2 page(s)) is guessed to be historical."
+    },
+    {
+      "id": "LICENCE-007",
+      "kind": "says_public_domain",
+      "page": "Auld Lang Syne",
+      "text": "The licensing text says \"public domain\"; no licence is set without a source."
+    },
+    {
+      "id": "MARKUP-002",
+      "kind": "unbalanced_wikilinks",
+      "page": "Auld Lang Syne",
+      "text": "unbalanced_wikilinks at byte 486."
+    }
+  ]
+}

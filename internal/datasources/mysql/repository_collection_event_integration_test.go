@@ -117,7 +117,7 @@ var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
 	c.SetLinkState("https://example.org/revel/hidden", catalogtest.LinkState{IsHidden: true})
 	// The book's kettle entry is also attached to Wren: one more citation, with its own roles.
 	c.Exec("INSERT INTO link_attachments (link_id, person_id, role, position) "+
-		"SELECT id, ?, 'external_profile', 1 FROM links WHERE normalized_url = ?", wren.ID, kettleBookURL)
+		"SELECT id, ?, 'external_profile', 1 FROM links WHERE url = ?", wren.ID, kettleBookURL)
 	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: aleTitle,
 		Links: []domain.DocPieceLink{{DocLink: cited("https://example.org/eastmarch#ale", domain.LinkRoleText)}}},
 		SortTitle: "Ale Song"})

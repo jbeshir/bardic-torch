@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-# Production image for dokku: the API server and the migrate command, which app.json's predeploy step runs.
+# Production image for dokku: the API server, the migrate command, which app.json's predeploy step runs, and
+# the one-off import-mediawiki command (docs/DEPLOY.md, "Importing the legacy wiki").
 FROM golang:1.27.3-alpine AS builder
 
 # Build with the image's Go, which is the version go.mod requires, rather than downloading a toolchain.
@@ -8,13 +9,14 @@ ENV GOTOOLCHAIN=local CGO_ENABLED=0
 WORKDIR /src
 
 COPY . .
-# go build downloads only the modules the two commands import, not the tools go.mod also requires; the cache
+# go build downloads only the modules the commands import, not the tools go.mod also requires; the cache
 # mounts keep those modules and the build cache across builds. -trimpath drops local paths from the binaries.
 # Without cgo they are static, so they run on plain alpine.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -trimpath -o /out/bardic-torch ./cmd/app && \
-    go build -trimpath -o /out/migrate ./cmd/migrate
+    go build -trimpath -o /out/migrate ./cmd/migrate && \
+    go build -trimpath -o /out/import-mediawiki ./cmd/import-mediawiki
 
 FROM alpine:3.24
 
@@ -24,7 +26,7 @@ RUN apk add --no-cache ca-certificates tzdata && \
     adduser -S -D -H -u 10001 -G bardic bardic
 
 WORKDIR /app
-COPY --from=builder /out/bardic-torch /out/migrate /app/
+COPY --from=builder /out/bardic-torch /out/migrate /out/import-mediawiki /app/
 # dokku reads Procfile and app.json from the repository; older versions read them from WORKDIR in the image.
 COPY Procfile app.json /app/
 

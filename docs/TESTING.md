@@ -30,6 +30,192 @@ with `go tool`, so nothing needs installing.
   `openapi/api.yaml` and requires every named enum schema to list exactly the values, in order, of the domain
   vocabulary it describes (`specEnums` in `spec_enums_test.go` maps each schema to its list; a new enum schema
   fails until it is added). Inline enums (error codes, changed-field names, entity-type tags) are not compared.
+- **Importer domain rules** (`internal/domain`): `NormalizeURL` (`url_test.go`: one table per rule, each row also
+  checked for idempotence, `TestNormalizeURL_Rejects` with `errors.Is(err, ErrInvalidURL)`, and `FuzzNormalizeURL`,
+  seeded with the table rows and every URL of the scrubbed wiki dump, for ASCII, `url.Parse`-able, at most 2048-byte and idempotent output; `go test -fuzz
+  FuzzNormalizeURL ./internal/domain/` explores further), `TestWithoutTrackingParameters` (only what normalising
+  drops as tracking goes, and the result normalizes alike); `FoldLetters`, `Slugify` and `SlugAllocator`
+  (`slug_test.go`), `SortTitle` and `SortLetter` (`sort_key_test.go`, including every transliteration and that each
+  letter parses with `ParseLetter`); and `TermClosure` (`term_closure_test.go`: self rows, cycles, depth over 3).
+- **Wiki dump and wikitext** (`internal/mediawiki`, synthetic `fstest.MapFS` and strings only, with placeholder
+  names such as "Wren Placeholder"): `LoadDump` (`TestLoadDump_*`: a missing or malformed file, a line that is not
+  one JSON value and a page record over `MaxPageRecordBytes` are `ErrMalformedDump`, with messages naming the file
+  and line but no content); the lexer ported from the research's `wikitext.mjs` (`wikitext_test.go`; RE2 has no
+  backreference or lookbehind, so `Sections` and the bare-URL rule are hand-coded and pinned by
+  `TestSections_Levels` with `== a = b ==` and `=x=`, and `TestFindExternalLinks_BareURLAfterEqualsOrQuote`;
+  `TestFindTemplates_NestingCap` pins `MaxNestingDepth`); `ParseValue` (`value_test.go`); page typing, section keys,
+  hints and section content (`page_test.go`); inline lyrics (`lyrics_test.go`: every `<poem>` form is dropped
+  whatever its length, the flag counts lines per section, the prose rule of Lyrics/Text sections, lines joined by
+  `<br>` counting as lines (`TestTextLines`, `TestInlineLyricsBlocks_LinesJoinedByBreaks`), spans stay
+  offsets into the original text with a comment before the poem); the alias classifier, which fails closed
+  (`TestClassifyPersonAlias`, `TestBardAliases_*`, `TestFoldName_*`); `NameMatcher` (`names_test.go`: case,
+  accents, apostrophes, `_`/`-`/`.` and concatenated forms, first and last word, and phrases found only as their
+  words in order); `ParsePerformanceText`,
+  `PersonNameCandidates` and `RepairMarkup`/`FindMarkupIssues`. `FuzzFindTemplates`, `FuzzParseValue`,
+  `FuzzSections` and `FuzzInlineLyricsBlocks` check that nothing panics, spans are in bounds and in order, and no
+  `<poem` tag survives `WithoutInlineLyrics`; `FuzzWikitextToMarkdown` that the Markdown holds no image, raw HTML
+  or link but to an absolute http(s) URL. `TestHostileInput_TimeBudget` runs every parser over unclosed `{{[[(`
+  up to 1 MB, and `TestHostileInput_QuadraticShapes` the shapes that once made a parser quadratic (an unclosed
+  "[http://" before every token, for `ParseValue` and `WikitextToMarkdown`; one long word for `Words`; 2000 names'
+  concatenated forms searched in one long word) up to 2 MiB. Neither has a wall-clock budget: `linearGrowth` runs
+  each parser at six sizes, each 4x the one before, and fails as soon as a size takes over 10x the CPU time of the
+  size before or 6x that of the first size of at least 20 ms scaled linearly (never under 1 s), so linear code
+  passes on any machine, on a busy one and under `-race`, while quadratic code fails as soon as it runs over.
+  `TestLinearGrowth_FailsQuadratic` pins that on synthetic linear and quadratic code. The race detector does not
+  slow the assembly of `strings.Index` and its kin, so a rescan done only by it is caught only without `-race`
+  (`make validate`).
+- **Pieces and taxonomy** (`internal/mediawiki`, synthetic wikis built by `site_fixtures_test.go`, and the
+  scrubbed copy): category classes (`TestClassifyCategories_*`); the term plan (`TestTermPlan_*`: facets and
+  parents, each PLAN §2.10 parent, display names without the facet suffix, Patriotic topics related to their
+  kingdom, local groups under their bards' kingdom, redirect categories as aliases, dropped placeholders,
+  descriptions as Markdown without lyrics, and a tree `domain.TermClosure` accepts); pieces (`TestParsePiece_*`:
+  kind and secondary kinds, terms from the categories ordered by the infobox with parts from qualifiers, drift both
+  ways, redirect categories, the most severe conservation status, markup repaired before parsing); alternate titles
+  (`TestPieceTitles_*`: infobox splits, H1 parentheticals as titles, other_titles and "Also known as" lines, other
+  pages' titles and category words rejected, unparsed prose listed, redirects); content fields
+  (`TestWikitextToMarkdown`, `TestPieceFields_*`: dropped lyrics absent from every field by reflection, version
+  notes kept, the prose of link sections in the notes unless as long as lyrics, `<br>`-joined lines included,
+  licensing hints stripped, "public
+  domain" a review fact and never a licence, the period from century origins). On the scrubbed copy, `TestScrubbedPieces_ResearchCounts` asserts 142 pieces (135/4/2/1 by kind), 11
+  with inline lyrics, 11 assessed and the drift of 13/24/4 pages, and `TestScrubbedPieces_NoLyricMarkerInAnyField`
+  that no placeholder lyric reaches a record.
+- **Credits, persons and red links** (`internal/mediawiki`, synthetic wikis and the scrubbed copy): credits
+  (`TestParseCredits_*`: splitting never inside a link, page links read through redirects, the traditional forms
+  including the repaired single-bracket category, unknown/anonymous/various, possibly/probably/disputed, part
+  qualifiers, notes that never hold a capitalised word, and parts inferred from origins scoped to verses and
+  chorus); bard pages (`TestParseBard_*`: aliases with redirects hidden when equal to a hidden alias, the H1 lead
+  as an ambiguous alias, roles, affiliations and the dropped Kingdom Name placeholder, deceased with a date, the
+  "cannot find" licensing sentence, heir_of, the stray heading, works, dropped lyrics); person matching
+  (`TestPersonIndex_*`, `TestResolvePersons_*`: apostrophe folding, one edit to an alias, a unique first word,
+  ambiguity as a stub with candidates, hidden aliases that match but never name a person, names with digits never
+  fuzzy, stubs by folded name with their kind guess); the signal union (`TestUnion_*`: category-only and
+  works-list-only credits as lyrics/possible, no credit for a related person, the reference's disagreements, stub
+  pieces credited probable to the listing bards, and case variants) and red links (`TestRedLinks_Keys`, `TestClassifyRedLink_*`). On the scrubbed copy,
+  `TestScrubbedPeople_ResearchCounts` asserts 48 bards, red links 180/22/1 classified 78 works, 40 credits, 2 prose
+  persons, 58 performers, 22 categories, 1 malformed URL and 2 not imported, 78 stub pieces and the 15/4
+  disagreement pages, and `TestScrubbedPeople_*` the examples (Lasair's two spellings, Dunstan, Samantha Moore,
+  My Thing Is My Own, March of Cambreadth, Malkin Grey).
+- **Links, collections, performances and events** (`internal/mediawiki`, synthetic wikis and the scrubbed copy):
+  links (`TestExtractLinks_*`: the role of each section, official key links on a credited person's website, one
+  link per normalised URL keeping the first URL, text and locator and every role, platforms and place types,
+  repaired double-bracket and bare URLs, URLs that do not normalise dropped, infobox links only as occurrences;
+  `TestLocator`, `TestHasTrackingParameter`); the Collections page (`TestParseCollections_*`: entries and
+  nesting, every kind, the not-bardic note, the duplicate URL merged, the region kingdom; `TestMatchCollection_*`:
+  exact URL first, a fragment aside, the longest prefix only for website-like kinds off shared document hosts,
+  ties matching none); performances (`TestParsePerformance_*`, `TestParsePerformanceText_EventCapitalisedAndCut`,
+  `TestPlacePerformance_*`: on the piece page's link, a bard page's performance of a known piece recorded once on
+  the piece, repeated and unlinked items listed; `TestParsePerformance_WorkLinkIsThePieceNotAPerformer`: a link to
+  a work, after a comma included, is the piece and never a performer), events (`TestEvents_*`: one per folded name, venue pages,
+  similar names listed), performers (`TestPerformers_ResolveToBardsAndStubs`), canonical links per normalised URL
+  with conflicts (`TestParseLinks_CanonicalPerURL`; `TestParseLinks_PageSpecificFieldsNeverFromAnotherPage`: a
+  PDF cited at different pages is a link per page with its own locator, and a title or description the pages
+  disagree on is never one page's; `TestParseLinks_DescriptionReadsTheLinkText`: a link after some text reads as
+  its text, or host, so a description has no hole; `TestParseLinks_DescriptionRunsAsLongAsLyricsDropped`: runs
+  of link lines whose text reads as 4 lines keep their links without descriptions and are recorded) and profile
+  links of infobox credits. On the scrubbed copy,
+  `TestScrubbedLinks_ResearchCounts` asserts 62 collection entries (61 collections, the West Kingdom duplicate
+  merged), 2 nested, 1 not bardic, the 12 kinds, 112 tracking-parameter URLs, 35 pages repeating a URL and 2 bare
+  URLs, and `TestScrubbedLinks_*` the examples (the Green Dragon venue, Marian of Heatherdale matched to Heather
+  Dale, Dahrien Cordell's repaired performance link on Rite of Passage, one set of fields per URL, YouTube links
+  never in a collection by prefix, ties).
+- **Building the import** (`internal/importer`, `domain.CatalogueImport`, synthetic wikis and the scrubbed copy):
+  `TestCatalogueImportValidate_*` mirror each schema constraint (IDs, slugs, legacy page IDs, summaries, documents
+  decoding, column widths, collation-folded uniques, child primary keys, CHECKs, references, the insert order of
+  term parents and related affiliations, link rows, the closure, sort letters, NFC, control characters), each failing with `ErrInvalidImport` and
+  never showing the value. `TestBuild_*` cover revisions and contributors, neutral summaries, stable slug
+  collisions, sort keys, the closure, status sources (`TestBuild_PersonStatusSource`: the link the date is read
+  from unless it is hidden, else the wiki page) and conservation sources (the piece's own page), hidden, redirect and unsure
+  aliases, every kind of free text withheld and every entity named by a legal name left out
+  (`TestBuild_FreeTextContainingHiddenAliasListed`, `TestBuild_StubPersonWithLegalNameNotCreated`,
+  `TestBuild_CollectionWithLegalNameInURLNotImported`), an unsure name published as a stub person kept in free
+  text and listed (`TestBuild_UnsureNamePublishedAsPersonKeptInText`), a public alias
+  holding a hidden alias hidden (`TestBuild_PublicAliasHoldingHiddenAliasHidden`), emails, one link row per
+  normalised URL, URLs without tracking parameters (`TestBuild_URLsWithoutTrackingParameters`), stub pieces
+  crediting the listing bard pages' contributors, legacy columns, NFC, control characters removed and listed
+  (`TestBuild_ControlCharactersRemovedAndListed`, `TestBuild_ControlCharactersRemovedFromNamesAndContributors`:
+  aliases, legacy titles, contributors) and determinism. `TestCatalogueImportValidate_RejectsWithheldPlaceholders`
+  pins that no structured field holds a placeholder. `TestWithholder_*` pin the withholder: legal names in names,
+  unsure names in free text only (but those published as a person's name), overlapping spans withheld once, whole wikilinks, URLs hidden only by a legal
+  name and listed for an unsure name or a home directory. On the scrubbed copy, `TestBuild_ResearchCounts` asserts
+  142 pieces (135/4/2/1), 48 bards, 62 collection entries (61 collections, written or withheld) and 11 pieces with
+  inline lyrics,
+  `TestBuild_NoLyricMarkerAnywhere` that no lyric placeholder line is in any field or the review, and
+  `TestBuild_NoPlaceholderInPublicFields` that no name placeholder is in a public field (hidden aliases, legacy
+  columns and hidden links aside); `TestCorpus_ResearchCounts` asserts the research counts (`Stats`, in
+  `stats_test.go` with the other lookups only tests need). `TestRenderReview_*` and
+  `TestReview_*` check the review: every section in order, determinism, the PLAN §2.9 ambiguities, every alias
+  listed. `TestGoldenPages` (16 tricky pages, with semantic checks in `golden_assert_test.go`) and
+  `TestReviewGolden` compare with `internal/importer/testdata/`; after a deliberate change, rewrite them with
+  `go test ./internal/importer -run Golden -update` and review the diff (the repository privacy scans cover them).
+  Gated: the same counts on the real crawl, no legal name (in clear, every form) or email in any public field of
+  the real import and no private name in its free text (but an unsure name in a published person's name, which
+  the review must list as kept), and no 5-word window or whole line of the crawl's inline
+  lyrics in the real import or its review, the lyrics found without the detector under test
+  (`wikidumptest.OracleLyrics` in the sections the research analysis lists).
+  `internal/testutil/importtest` gives other packages the scrubbed import, built once per test binary
+  (`importtest.Scrubbed`).
+- **Import command** (`cmd/import-mediawiki`, `internal/command`, `internal/repopath`): `TestParseOptions` (exactly one
+  mode, `--dump` and `--review` required in both), `TestRun_RefusesReviewInsideRepository` and
+  `_RefusesReviewIntoRepositoryThroughSymlinks`, `TestRun_DryRunNeedsNoDatabase` (the run never asks for
+  `DATABASE_URL`, and the review is written with mode 0600 over a 0644 file), `TestRun_DryRunScrubbedCounts` (the
+  research counts on stdout), the integration test `TestRun_ApplyThenApplyAgainRefuses` (a refused `--apply` still
+  writes its review, 0600, so the review precedes the transaction) and, gated, `TestRun_RealDumpDryRun`
+  (`main_research_test.go`: no deny-listed lyric n-gram in the real review or stdout, and no private name or email
+  on stdout). `TestApplyCatalogueImport_*` (mocks): an invalid import never reaches the writer, and the writer's
+  typed errors pass through. `internal/repopath` (`TestInside`, `TestWritePrivate_*`) pins the private-file
+  writer both commands share: symbolic links to a file or a directory in the repository, dangling or not, are
+  refused, and so are a hard link into the repository and anything but a regular file; the mode is 0600 over an
+  existing file, no temporary file is left, and `TestCheckOpenedDirectory_*` refuse a directory swapped before or
+  after it is opened. `TestConfigFromURL_ErrorsNeverQuoteThePassword` covers a
+  malformed `DATABASE_URL`.
+- **Research-gated tests** (`*_research_test.go`): they read the private research crawl through
+  `wikidumptest.Research`, which skips unless `BARDIC_RESEARCH_DIR` is set and not empty (CI never sets it; set it
+  to the research output to run them). The crawl holds legal names and lyrics, so these tests report
+  only through `wikidumptest.Equal` (page ID, field and offset, with digests in place of values) and
+  `wikidumptest.NoError` (the error's type only); `TestResearchTestsReportOnlyThroughEqual` fails any test file that
+  reads the crawl and also imports testify, logs or prints. `oracle_research_test.go` compares the Go port with the
+  research analysis (`analysis/*.json`): page types, sections and their content, infobox values, the inline-lyrics
+  flag (11 pieces) and bard aliases; `oracle_pieces_research_test.go` the taxonomy (every category's class, facets,
+  ancestors and redirect), pieces (kind, section keys, H1, bard-name categories, both drift lists, conservation and
+  alternate titles) and the quality lists (drift, redirect-category links, inline-lyrics pages, assessed pieces);
+  `oracle_privacy_research_test.go` checks the privacy classifier independently of its candidate rules: every run of
+  two or more capitalised words of the crawl's prose and link titles (its own simple rules: URLs, link targets,
+  `<poem>` bodies and lyric lines blanked, runs split at generic non-name words) must be words of an entity the
+  parse names (page titles, categories, alternate titles, stub pieces and persons, events, collections), of a
+  link label that is its wiki article's title, of a reviewed non-name phrase (`oracleNonNamePhrases`, no personal
+  name), or lie in a name the classifier decided on; a run that is none of these is a name form no rule sees.
+  `oracle_people_research_test.go` the infobox person items, bard pages (redirects, works, roles, kingdom and group
+  categories, In Memoriam, licensing), the red-link map, the credit-signal quality lists, and that the scrubbed copy
+  keeps every people count; `oracle_links_research_test.go` every external link occurrence (URL, text, brackets and
+  section key), the links deduplicated by normalised URL, the Collections page (letter, label, URL, host, note,
+  depth, parent, kind, description) and the link quality lists (bare URLs, tracking parameters, repeated URLs). Each deliberate difference is an entry of `oracleDeviations` with its reason;
+  any other is a failure.
+- **Privacy scrubber** (`internal/scrub`, `cmd/scrub-dump`): the committed scrubbed copy of the crawl,
+  `testdata/wiki-dump/`, is what every other wiki test reads (`wikidumptest.Scrubbed`). Unit tests on synthetic
+  dumps (`scrub_test.go`) pin each rule: a legal alias replaced everywhere with one number (wikitext, URL forms,
+  titles, categories, redirects, activity), its last word before its first and its honorific forms, a fresh
+  placeholder for any other honorific name in prose, fail-closed candidate decisions
+  (`TestScrub_CandidatesFailClosed`), poem and prose lyrics replaced by at most four placeholder lines keeping the
+  inline-lyrics flag, emails, phones in prose only, user names only in activity and user links, dropped namespaces,
+  determinism, idempotence and preserved structure. `TestPublicNamesArePublishedInPlan` keeps `PublicNames` to
+  names this plan already publishes. `TestRun_*` cover the command: it prints counts only, and refuses to write
+  the private candidates list inside the repository. Always on, against the committed copy:
+  - `TestRepositoryHasNoDenylistedText` scans every text file of the repository (skipping `.git`, binary files
+    and what `.gitignore` ignores) for the 8-word n-grams of the dropped lyrics, whose salted hashes are
+    `testdata/wiki-dump/denylist.txt` (no name is ever hashed);
+  - `TestScrubbedDumpStructuralPrivacy`: lyric blocks (by the detector, and every run of four or more prose lines of
+    a Lyrics or Text section found without it) are only placeholder lines, no email outside
+    `example.invalid`, no phone number in prose, every honorific followed by a placeholder, every hidden H1 alias a
+    placeholder, no possible person name left that would be a deny phrase, and only placeholder wiki users;
+  - `TestScrubbedDumpIsAFixedPoint`: scrubbing the copy again changes nothing.
+
+  Research-gated (`scrub_research_test.go`): `TestRepositoryHasNoResearchPrivateText` scans the whole repository
+  in clear for every deny phrase of the crawl in every form `NameMatcher` finds, and for its emails and phones;
+  `TestScrubbedDumpIsUpToDate` regenerates the copy and requires it byte for byte; `TestScrubbedCopyHasNoResearchLyrics`
+  finds the crawl's inline lyrics without the detector (`wikidumptest.OracleLyrics`) and requires no 5-word window
+  of them in the copy; `TestScrubPreservesResearchCounts`
+  compares page types, bards, inline-lyrics pieces, redirects, categories and members, sections, links, templates,
+  infoboxes, Collections page URLs and performance items with performers, per page and in total.
 - **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list
   statements (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are
   built in Go, so a fake `statementRunner` records each statement. The tests pin the round trips (at most three for a
@@ -85,6 +271,20 @@ with `go tool`, so nothing needs installing.
   the environment variables it reads. `TestAppJSON`, `TestProcfile` and `TestDockerfile_MatchesDokkuConfiguration`
   pin the dokku configuration: the predeploy migration, the `/readyz` startup check, the web command, and a
   Dockerfile with no `ENTRYPOINT` or `EXPOSE`.
+
+### Regenerating the scrubbed wiki dump
+
+After a change to the scrubber, or to anything in `internal/mediawiki` it uses, regenerate the copy from the
+research output and review the decisions before committing it:
+
+```
+go run ./cmd/scrub-dump --in "$BARDIC_RESEARCH_DIR/dump" --out testdata/wiki-dump --candidates /private/scrub-candidates.md
+BARDIC_RESEARCH_DIR=/path/to/research go test ./internal/scrub/
+```
+
+The command prints counts only. `--candidates` writes every possible person name of the crawl with the rule that
+found it and the decision (legal or kept, and why) for the privacy review; it names real people, so it is written
+with mode 0600 and refused inside the repository. Never commit it, paste from it, or copy it under `/out`.
 
 ### Contract tests
 
@@ -203,6 +403,23 @@ seeded database (see catalogtest), and new private-database tests should be kept
   `max_execution_time` 2000, the server stops a `SELECT SLEEP(5)` after 2 s, and an `INSERT … SELECT SLEEP(3)`
   runs to the end. `TestMigratorConfig` (unit) checks that the migrator clears the limit, and
   `TestFetch_QueryTimeout` that a sqlc read the server stops is `datasources.ErrQueryTimeout`.
+- **Catalogue import writer** (`repository_catalogue_import_integration_test.go`, the scrubbed import on a shared
+  fixture and on private databases): `TestRepository_ImportCatalogue_WritesEverything` (the row count of every
+  catalogue table, closure self rows, approved import revisions with no author, each entity's own current
+  revision, contributors in order, liveness left `unknown`), `_SystemFields` (hidden links, legacy columns, the 11
+  inline-lyrics flags), `_NormalizedURLInvariant`, `_SnapshotsDecode`, `_ReadAPI` (golden pieces, and no hidden
+  alias on a person's page), `_RefusesNonEmpty` (a revision, or rows of later tables only, give
+  `ErrCatalogueNotEmpty` and nothing is written), `_RollsBackOnError` (a duplicate planted in
+  `performance_performers`, the last table written, leaves every table empty, and the error names the table and
+  MySQL error number but not the server's message), `_ConcurrentImports` (of two imports at once exactly one
+  succeeds, the other gets `ErrImportInProgress` or `ErrCatalogueNotEmpty`, and the lock is released) and
+  `_CatalogueTablesAreEveryCatalogueTable`. `TestCatalogueImportValidate_MirrorsSchema` plants one violation of each
+  constraint class `Validate` mirrors (a collation-folded UNIQUE, a child primary key, a VARCHAR width, a CHECK) and
+  checks that `Validate` rejects it and MySQL, given it unvalidated, refuses it with that class's error number. Every
+  MySQL error of the import (a refused row, the lock, the commit) is an `ImportDatabaseError` without the server's
+  message. `catalogtest`'s `c.Import(imp)` writes an import through the writer.
+  `TestRun_ApplyThenApplyAgainRefuses` (`cmd/import-mediawiki`) applies through the command line and refuses a
+  second run.
 - **Document coverage** (`TestDocumentCoverage`, `TestDocumentFieldPaths`): classifies every column of the
   tables each snapshot document owns as a document field or system-owned, with a reason, and every document field
   as stored by exactly one column. A new column, document field or table fails it until it is classified.
@@ -211,7 +428,8 @@ seeded database (see catalogtest), and new private-database tests should be kept
   `c.Collection`, `c.Event`, `c.Revision`, `c.SetLinkState` and `c.Exec` (for system columns no document holds).
   Approved entities (the zero value) get an approved `import` revision as their current revision; `Unapproved:
   true` leaves it NULL. Term closure rows come from a recursive CTE, so parents are seeded first. Slugs, sort keys
-  and letters are naive defaults (tests about them pass literals). Every call commits before it returns, because
+  and letters default to what the importer writes (`domain.Slugify`, `domain.SortTitle` for titles, the name as
+  written for persons, and `domain.SortLetter`); tests about them pass literals. Every call commits before it returns, because
   FULLTEXT sees committed rows only. The package's own tests are `catalogtest_test.go`.
   - **Shared read-only fixture**: tests that only read share one seeded database per fixture through
     `fx := catalogtest.NewShared(seed)` and `db, refs := fx.Get(t)`. The first `Get` creates and seeds it; the
@@ -234,11 +452,16 @@ seeded database (see catalogtest), and new private-database tests should be kept
 - **Snapshot views** (the pure functions are unit-tested, see above): `repository_revision_integration_test.go`
   checks them against current database state (an alias, links and a person hidden after the revision was written,
   corrupt snapshots, bases). `repository_redaction_integration_test.go` covers the fail-closed rules: a former
-  name that is now a hidden alias, with and without a page; links deleted, moved and hidden, or hidden under
-  another case, since the revision; links whose URLs hold non-ASCII characters, which must read (never compared
-  with the ASCII `normalized_url`, MySQL error 3988) and still be shown or dropped exactly
-  (`TestRepository_GetPublicRevision_NonASCIILinkURL`, and `TestHTTP_RevisionWithNonASCIILinkURL` for the 200);
-  and a person's performances on links with no public attachment.
+  name that is now a hidden alias, with and without a page; links matched by normalized URL
+  (`TestRepository_GetPublicRevision_LinksVisibleNow`: deleted, moved and hidden, or hidden under another path case
+  since the revision are dropped, while another host case shows); a link respelled to the same normalized URL
+  since, which stays redacted once hidden (`_RespelledHiddenLinkStaysRedacted`) and is still shown otherwise
+  (`_RespelledVisibleLinkStillShown`); links whose URLs hold non-ASCII characters, which must read (they reach the
+  ASCII `normalized_url` only percent-encoded, never as MySQL error 3988) and match the link whose normalized URL
+  is their percent-encoding (`TestRepository_GetPublicRevision_NonASCIILinkURL`, and
+  `TestHTTP_RevisionWithNonASCIILinkURL` for the 200); and a person's performances on links with no public
+  attachment. catalogtest writes every link's `normalized_url` as `domain.NormalizeURL(url)`, and fixtures that
+  edit a link's URL in SQL keep that invariant (docs/DEPLOY.md).
   `TestRepository_GetPublicRevision_Undecodable` checks that a stored revision of another schema version, or with
   an unknown vocabulary value, is an error other than not-found, and one with an extra field is served. `needs_work_integration_test.go` covers the
   needs-work reasons.
@@ -249,8 +472,8 @@ seeded database (see catalogtest), and new private-database tests should be kept
   value is an error, not a 404).
 - **FULLTEXT sees committed rows only.** InnoDB's FULLTEXT index is updated at commit, so a search never sees
   rows in an open transaction, and a fixture that searches inside the transaction that inserted would find nothing.
-  catalogtest commits on every call. Production code must follow the same rule: BE4 searches only after its
-  approval transaction commits.
+  catalogtest commits on every call. Production code must follow the same rule: a write that searches does so only
+  after its transaction commits.
 
 ### Leak matrix
 
@@ -260,8 +483,12 @@ alias, a `prefers_no_page` person with notes, aliases, roles, an affiliation, re
 a link, a hidden link, unapproved pieces, persons, terms, collections and events referred to by public ones,
 performances of a public person on links attached only to no-page or unapproved persons, persons renamed since
 their first revision whose former name is now a hidden alias (with and without a page), a piece whose first
-revision holds links since deleted, moved and hidden, or hidden under another case, and never-exposed system
-fields (legacy titles, claims, normalized URLs). Every marked string contains `leakmark`, and
+revision holds links since deleted, moved and hidden, hidden under another case, or respelled to the same
+normalized URL and hidden, and never-exposed system fields (legacy titles, claims, normalized URLs). Since every
+`normalized_url` must be `NormalizeURL(url)`, the normalized-URL marker is a link entered with a tracking
+parameter (`https://example.org/leakmark-normalized?utm_source=x`): the URL as entered is a reveal on the rows
+that show the link, and a body holding the bare normalized form fails the scan. Every marked string contains
+`leakmark`, and
 each raw response body must not contain it (case-insensitively), except for the strings a request lists in
 `reveals` (for example the no-page person's identity on their own page or in a person list). A reveal is exact: it
 removes only a whole JSON string value equal to it, quotes included and case-sensitive (`leakedMarker` in
@@ -305,6 +532,15 @@ handler like `TestHTTP_EndToEnd`, seeds a small invented catalogue (a term tree,
 pieces including a stub and an unapproved draft, and a second approved revision) with catalogtest, and walks list →
 facet filter (counts) → search → piece, term and person detail → history → revision detail → needs-work. The
 reads are public, so it sends no credentials, and every response goes through the contract helper.
+
+`TestHTTP_ImportedCatalogue` (`internal/app/imported_catalogue_integration_test.go`) applies the scrubbed import to
+a shared database and reads all of it through the production handler and the contract helper: every page of every
+list, every piece, person, term (every page of its members), collection and event, every history and every
+revision. Every response is 200 and valid by the spec, and no body holds a lyric placeholder line
+(`scrubbedlyric`), a legal-name placeholder in any form (`Legal Name 001`, `legal-name-001`, `Legal_Name_001`,
+`LegalName001`), a withheld marker followed by a placeholder number (`[name withheld] 001`), or a hidden alias as
+whole words. `TestHTTP_ImportedCatalogue_PlantedLeakFails` is its self-test: with one hidden alias made public, the
+person's page shows it and the scan reports it, as it reports each planted placeholder form.
 
 ## Adding an endpoint
 

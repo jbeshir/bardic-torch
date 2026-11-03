@@ -199,12 +199,12 @@ events.legacy_title                    ! imported from the legacy wiki; never ed
 
 // nonDocumentTables lists the tables no document owns, one per line with the reason.
 const nonDocumentTables = `
-users                  ! accounts (BE1)
-api_tokens             ! accounts (BE1)
+users                  ! accounts
+api_tokens             ! accounts
 revisions              ! the revision workflow that stores the documents
 revision_contributors  ! the revision workflow that stores the documents
-term_ancestors         ! derived from terms.parent_id when a term revision is approved
-conservation_history   ! appended when a revision changing a piece's conservation status is approved
+term_ancestors         ! derived from terms.parent_id by the importer and when a term revision is approved
+conservation_history   ! written by the importer, and appended when a revision changing a piece's status is approved
 `
 
 // schemaVersionField is the field every document has and no column stores: it describes the stored snapshot.

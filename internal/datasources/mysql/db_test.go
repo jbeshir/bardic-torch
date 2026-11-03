@@ -93,6 +93,23 @@ func TestConfigFromURL(t *testing.T) {
 	}
 }
 
+func TestConfigFromURL_ErrorsNeverQuoteThePassword(t *testing.T) {
+	t.Parallel()
+
+	const password = "S3cretPlaceholder"
+	for _, raw := range []string{
+		"mysql://admin:" + password + "@db host/" + testDBName,
+		"mysql://admin:" + password + "@localhost:port/" + testDBName,
+		"mysql://admin:" + password + "%zz@localhost/" + testDBName,
+		"mysql://admin:ab/" + password + "@localhost/" + testDBName,
+		"mysql://admin:" + password + "/x@localhost/" + testDBName,
+	} {
+		_, err := ConfigFromURL(raw)
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), password[:6], "the error quotes no part of the URL")
+	}
+}
+
 func TestConnect_UnreachableDatabase(t *testing.T) {
 	t.Parallel()
 

@@ -1,0 +1,266 @@
+{
+  "piece": {
+    "id": 2,
+    "slug": "band-of-brothers",
+    "sort_title": "Band of Brothers",
+    "sort_letter": "B",
+    "doc": {
+      "schema_version": 1,
+      "title": "Band of Brothers",
+      "kind": "song",
+      "secondary_kinds": [],
+      "conservation": {
+        "status": "unassessed",
+        "source_url": null
+      },
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": "The words of this song are adapted from [name withheld], a play about events in the 1400s (15th Century).",
+      "licensing_status": "known",
+      "licensing_notes_md": "- [Ken Theriot encourages performers to perform his work at Pennsic, without requiring permission](https://www.ravenboymusic.com/bards-or-budding-bards-get-rbm-sheet-music-before-pennsic/)",
+      "licence": null,
+      "historical_source_md": null,
+      "period_start": null,
+      "period_end": null,
+      "aliases": [],
+      "terms": [
+        {
+          "term_id": 33,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 88,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 40,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 96,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 121,
+          "is_primary": true,
+          "part": null
+        },
+        {
+          "term_id": 43,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 115,
+          "is_primary": false,
+          "part": null
+        },
+        {
+          "term_id": 120,
+          "is_primary": false,
+          "part": null
+        }
+      ],
+      "relations": [],
+      "credits": [
+        {
+          "person_id": 145,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        },
+        {
+          "person_id": 24,
+          "role": "tune",
+          "attribution": "named",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        },
+        {
+          "person_id": 3,
+          "role": "tune",
+          "attribution": "named",
+          "certainty": "certain",
+          "part": null,
+          "note": null
+        }
+      ],
+      "links": [
+        {
+          "url": "https://www.ravenboymusic.com/band-of-brothers-song/",
+          "title": "Song page at [name withheld]",
+          "description": null,
+          "platform": "ravenboymusic.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.ravenboymusic.com/sheet-music/",
+          "title": "Download sheet music or song sheets at [name withheld]",
+          "description": null,
+          "platform": "ravenboymusic.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://www.calonsong.org/CalontirSongs/bandofbrothers.htm",
+          "title": "Lyrics at Calonsong",
+          "description": null,
+          "platform": "calonsong.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.ravenboymusic.com/bards-or-budding-bards-get-rbm-sheet-music-before-pennsic/",
+          "title": "Ken Theriot encourages performers to perform his work at Pennsic, without requiring permission",
+          "description": null,
+          "platform": "ravenboymusic.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "licensing_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=1Ct5749N4RM",
+          "title": "Official Recording by Ken Theriot on YouTube",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": "Ken Theriot",
+              "description_verbatim": "[https://youtube.com/watch?v=1Ct5749N4RM Official Recording by Ken Theriot on YouTube]",
+              "performer_ids": []
+            }
+          ]
+        }
+      ],
+      "preferences": []
+    },
+    "legacy_had_inline_lyrics": true,
+    "legacy": {
+      "page_id": 12,
+      "title": "Band of Brothers"
+    },
+    "revision": {
+      "id": 372,
+      "summary": "Imported from the wiki (page revision 458).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "NAME-030",
+      "kind": "free_text",
+      "page": "Band of Brothers",
+      "text": "link https://www.ravenboymusic.com/band-of-brothers-song/, title: \"Legal Name 053\" was withheld. Context: \"Song page at [name withheld]\"."
+    },
+    {
+      "id": "NAME-031",
+      "kind": "free_text",
+      "page": "Band of Brothers",
+      "text": "link https://www.ravenboymusic.com/sheet-music/, title: \"Legal Name 053\" was withheld. Context: \"Download sheet music or song sheets at [name withheld]\"."
+    },
+    {
+      "id": "NAME-198",
+      "kind": "free_text",
+      "page": "Band of Brothers",
+      "text": "piece Band of Brothers, version notes: \"Legal Name 022\" was withheld. Context: \"The words of this song are adapted from [name withheld], a play about events in the 1400s (15th\"."
+    },
+    {
+      "id": "CREDIT-002",
+      "kind": "missing_bard_category",
+      "page": "Band of Brothers",
+      "text": "missing_bard_category: \"Ken Theriot\" (person Ken Theriot)."
+    },
+    {
+      "id": "CREDIT-003",
+      "kind": "missing_bard_category",
+      "page": "Band of Brothers",
+      "text": "missing_bard_category: \"Lisa Theriot\" (person Lisa Theriot)."
+    },
+    {
+      "id": "CREDIT-004",
+      "kind": "credited_not_listed",
+      "page": "Band of Brothers",
+      "text": "credited_not_listed: \"Lisa Theriot\" (person Lisa Theriot)."
+    },
+    {
+      "id": "STUB-172",
+      "kind": "stub_person",
+      "page": "Band of Brothers",
+      "text": "Stub person \"William Shakespeare\" (historical), named on 1 page(s)."
+    },
+    {
+      "id": "DRIFT-001",
+      "kind": "tagged_not_in_infobox",
+      "page": "Band of Brothers",
+      "text": "tagged_not_in_infobox: \"Pre-1600 Sources\" (read as \"Pre-1600 Sources\")."
+    },
+    {
+      "id": "DRIFT-002",
+      "kind": "tagged_not_in_infobox",
+      "page": "Band of Brothers",
+      "text": "tagged_not_in_infobox: \"SCA Pieces\" (read as \"SCA Pieces\")."
+    },
+    {
+      "id": "LYRICS-001",
+      "kind": "dropped",
+      "page": "Band of Brothers",
+      "text": "Section \"Lyrics\": 4 line(s) of lyrics dropped; licensing note kept: yes."
+    },
+    {
+      "id": "LINK-012",
+      "kind": "normalised",
+      "page": "Band of Brothers",
+      "text": "5 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
+    },
+    {
+      "id": "PERF-024",
+      "kind": "incomplete",
+      "page": "Band of Brothers",
+      "text": "A performance item has no performer, event or year the importer could read: \"[https://www.youtube.com/watch?v=1Ct5749N4RM\u0026list=RD1Ct5749N4RM\u0026start_radio=1 Of…\"."
+    },
+    {
+      "id": "PERSON-188",
+      "kind": "stub_kind",
+      "page": "Band of Brothers",
+      "text": "Stub person \"William Shakespeare\" (named on 1 page(s)) is guessed to be historical. Credited by an external link: check whether historical or a group."
+    }
+  ]
+}

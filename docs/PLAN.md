@@ -18,7 +18,7 @@ Fixed decisions:
 - **No lyrics or text are hosted**, ever. Pieces carry only links, metadata and sourced notes.
 - **Moderators are John and Fabian.** Everyone else's edits wait for moderator approval: the last approved revision is the live one.
 - **Login:** Auth0 social login (Google, Facebook).
-- **Hosting:** the Go API runs on John's dokku instance (MySQL through the dokku mysql plugin). The Remix FE runs on Cloudflare Pages, following the alignment-feed pattern.
+- **Hosting:** the Go API runs on John's dokku instance (MySQL through the dokku mysql plugin). The React Router 8 FE runs on Cloudflare Workers (static assets), deployed by Workers Builds.
 - **Domain:** the site is bardictorch.org, with the API at api.bardictorch.org.
 - **No redirects** from old wiki URLs. The old wiki is imported once, at launch.
 - **Look:** the site should feel like a wiki (so editing feels allowed), with full dark mode support and a mobile-first faceted browse (R-3).
@@ -80,10 +80,10 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
     - `cmd/check-links`: link liveness checks, run by dokku cron
   - `cmd/mcp` (an MCP server) comes later.
   - The OpenAPI spec (`openapi/api.yaml`) is **the contract** with the FE.
-- **`bardic-torch-fe`** (Remix on Cloudflare Pages)
-  - Reuses the feed's auth (remix-auth cookie session with refresh) and its server-side proxy routes (`/api/*`).
+- **`bardic-torch-fe`** (React Router 8 framework mode on Cloudflare Workers)
+  - Auth: openid-client against Auth0, with a React Router cookie session and token refresh. It keeps the feed's server-side proxy routes (`/api/*`).
   - Types are generated from the BE's OpenAPI spec (openapi-typescript) and validated at runtime with zod.
-  - Tailwind design tokens support light and dark themes.
+  - Tailwind 4 design tokens (a CSS-first `@theme` generated from the token module) support light and dark themes.
 
 **Removed from the feed skeleton:** Pinecone, VoyageAI, recommendations and clustering, RSS, chat, D1 and MiniMax.
 
@@ -152,22 +152,28 @@ the DDL is in `migrations/003`–`009`.
   FULLTEXT index's statistics include hidden aliases. A snapshot's person `name` is shown only if it is the
   person's current name or one of their current public alias names (compared exactly), and is their current name
   otherwise, so a former name kept as a hidden alias never shows. BE2 cannot scrub free text, so the
-  importer (BE3) hides `redirect` aliases equal to a hidden alias and lists free text containing a hidden alias
-  in `import-review.md`.
+  importer (BE3) hides `redirect` aliases equal to a hidden alias, withholds every hidden alias and other private
+  name from the free text it writes (`[name withheld]`, §7), imports a link whose URL holds a legal name hidden,
+  never writes a placeholder into a name or title, and lists each in `import-review.md`.
 - **`prefers_no_page` persons** show only their identity (name, kind, status, date and source; `profile: null`).
   They are listed as stubs and found only by name. They are excluded from role/affiliation filters, every person
   count and member list, every credit (the credit is omitted), performer list, relation list (both directions),
   collection citation and needs-work.
 - **Hidden links** (`links.is_hidden`) are excluded from every read, including snapshots and needs-work. In a
-  snapshot, a link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL as
-  entered or normalized: a link deleted since, or whose URL changed before it was hidden, is dropped too.
-  `links.url` is binary (`utf8mb4_0900_bin`), so the SQL and Go comparisons are both exact. `normalized_url` is
-  ASCII, and MySQL refuses to compare an ASCII column with a non-ASCII parameter, so a snapshot URL with any other
-  character is compared only with the URLs as entered (it cannot be a normalized URL).
+  snapshot, a link is shown only if its normalized URL (`domain.NormalizeURL`) is now the `normalized_url` of a
+  link that is not hidden, and then under that link's `url`, not the document's spelling of it. Every link's `normalized_url`
+  is `NormalizeURL(url)` (DEPLOY.md, "The normalized URL invariant"), so a link edited since to another spelling
+  of the same URL (case of the host, a default port, tracking parameters) is still the same link: shown if it is
+  visible, dropped if it was hidden. A link deleted since, or given a URL that normalizes otherwise, is dropped,
+  and so is a document URL that does not normalize (fail closed). Normalized URLs are ASCII, so a non-ASCII
+  document URL is compared by its percent-encoding and never reaches the ASCII column as it is (which MySQL
+  refuses, error 3988); the column is binary (`ascii_bin`), so the comparison is exact.
 - **Slugs** are ASCII `[a-z0-9]+(-[a-z0-9]+)*`, at most 191 characters and unique per table. Term slugs keep the
   wiki's disambiguation suffix (`12th-century` in origin, `12th-century-topic` in topic), while `display_name`
-  drops it. The importer's `Slugify` uses NFKD, strips marks, lowercases and turns non-alphanumeric runs into `-`.
-  An empty result becomes `<entity type>-<id>`, and collisions get `-2`, `-3`… Collections are addressed by ID.
+  drops it. The importer's `domain.Slugify` uses NFKD, strips marks, transliterates the letters NFKD leaves whole
+  (`domain.FoldLetters`: ł→l, ø→o, đ/ð→d, æ→ae, œ→oe, ß→ss, þ→th, so `Astrið` is `astrid`; the same table gives
+  `sort_letter`), lowercases and turns non-alphanumeric runs into `-`, cutting at 191 characters on a hyphen. An
+  empty result becomes `<entity type>-<id>`, and collisions get `-2`, `-3`… Collections are addressed by ID.
 - **Sort keys and letters are stored and written by the writer** (`sort_title`/`sort_name`, `sort_letter`), never
   derived in SQL.
   - The sort key skips leading punctuation and one leading "The", "A" or "An". R-24's "songbook/book" words are not
@@ -216,8 +222,8 @@ the DDL is in `migrations/003`–`009`.
   - A revision is public if it is approved and its entity is public now; anything else is the same 404. History
     lists approved revisions newest first (`created_at`, then ID).
   - Views hold the document's editor-owned fields except preference profiles; links have no liveness or other
-    system state. A link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL
-    as entered or normalized.
+    system state. A link is shown only if its normalized URL is now that of a link that is not hidden ("Hidden
+    links" above).
   - An alias is shown only if public in the document and now a public alias of the person, by name. A person's
     name is shown only if it is their current name or a current public alias name, and is their current name
     otherwise. Credits,
@@ -356,41 +362,149 @@ the DDL is in `migrations/003`–`009`.
 
 ## 7. Importer (`cmd/import-mediawiki`)
 
-**Input:** the research dump format (`pages.jsonl` and `categories.json`), or a live crawl. The research `scripts/` define the expected behaviour and are ported to Go. A frozen copy of the dump is committed under `testdata/`, so tests are deterministic and need no network.
+**Input:** the research dump format (`pages.jsonl`, `categories.json`, `redirects.json` and `activity.json`). Reading a live crawl of the wiki directly is deferred to a later milestone: the research `scripts/crawl.mjs` produces a dump, which is the input. The research `scripts/` define the expected behaviour and are ported to Go. A **scrubbed** copy of the dump is committed under `testdata/wiki-dump/` (regenerated with `cmd/scrub-dump`), so tests are deterministic and need no network: legal and mundane names (the aliases the importer classifies as legal, every other possible person name it cannot classify confidently as public, and their honorific forms; the candidates are H1 and "Name (Name)" parentheticals, the legal/mundane/real-name and "aka" markers, uploaders, and in prose and link titles the names after "by", "from", "credited to", "attributed to" or "copyright", either side of "/", "and" or "&", before a possessive such as "'s YouTube" or "'s blog" or a verb such as "singing", in an "also known as" list, and a link label its website's host spells; a name paired by "/" with a person's public name is a legal name), emails, phones and wiki user names are replaced with numbered placeholders, the same number everywhere a name occurs (wikitext, titles, categories, redirects, activity); inline lyrics with placeholder lines (keeping the ≥4-line classification); and only the namespaces, files and fields the importer reads are kept. Every count the tests assert is preserved. No name is hashed into the repository: `testdata/wiki-dump/denylist.txt` holds only salted hashes of the dropped lyrics' 8-word n-grams, and a unit test fails if any appears anywhere in the repository. The names, emails and phones are checked in clear, against the whole repository, by tests that run only when `BARDIC_RESEARCH_DIR` points at the research output, which is never committed; so do the tests against the real dump and the research oracle (`analysis/*.json`).
 
 **Steps** (report §8):
 1. Type the pages: Pieces / Bards, skipping meta pages, redirects and the test page.
 2. Parse sections with a heading normaliser, and drop boilerplate hints.
 3. Take facets from the real categories, classified by `taxonomy.json` rules, and report infobox drift in both directions.
 4. Parse credits, including attribution and certainty, and split on `&`, `,`, `;`, `/` and "and", but not inside links.
-5. Union the three bard signals: infobox credit, bard-name category, works list.
-6. Extract links, with role taken from the section, platform from the host, collection match by host plus path prefix, and the locator. Deduplicate by normalised URL, keeping multiple roles.
-7. Parse performance descriptions; the verbatim text is always kept.
+5. Union the three bard signals: infobox credit, bard-name category, works list. A category or works list naming
+   a person the infobox does not credit adds a `lyrics` credit of certainty `possible`, listed in the review, unless
+   the person is related (heir_of, same_as) to a credited person; listed works without a page become stub pieces
+   credited to the bard (certainty `probable`: it is the bard's own list), whose revision credits the listing bard
+   pages' contributors. A part qualifier scopes a credit or a term to a part; "(chorus tune)" is the chorus's.
+   Plain-text names are matched to persons by folded name (apostrophes, case, accents), then
+   fuzzily (one edit, or a unique first word), and listed.
+6. Extract links, with role taken from the section (official for a key link on a credited person's website), platform
+   from the host, and the locator ("p. 63", "page 63", "#page=63"). A link belongs to a collection of the
+   Collections page with its exact normalised URL (a fragment aside), else, for website, songbook website, wiki and
+   blog collections not on YouTube, Google Docs, Scribd or Yumpu, the one whose path prefix (at least one segment) is
+   longest; collections tying match none and are listed. A link's description is the text of its line around it
+   (not for a performance item, whose text is the performance's), where a link after some text reads as its text
+   (or, without text, its host), so no hole is left where it was; a link starting the line is left out. Consecutive
+   link lines (blank lines aside) whose text around the links reads as at least 4 lines (a `<br>` breaks a line)
+   could be lyrics: their links are kept without a description, and the run is listed. Deduplicate by normalised
+   URL, keeping multiple roles. A `links` row holds one set of fields for every document attaching it (§4.1;
+   roles are the attachment's), so no page's own words reach another's: the fields are the first document's (pieces
+   by page ID before persons),
+   but the title, description and locator are kept only when every document gives the same; otherwise the title is
+   the link's collection's name, or none, and the description and locator none. A PDF that pages cite at different
+   pages is first given each page's open parameter (`…pdf#page=14`), so each page is a link of its own with its own
+   locator. Every difference is listed with the page's own fields (per-attachment titles and locators are
+   deferred). Infobox credits naming a person by an external link attach it to the person
+   (external_profile). The Collections page's duplicate URL is merged into one collection and listed.
+7. Parse performance descriptions; the verbatim text is always kept (the import redacts hidden names in it).
+   Performers ("of [[X]]") are matched as persons, or become stubs; events come from "at <event>", one per folded
+   name, the venue pages included, with similar names listed, never merged. A page link to a work (a piece page or a
+   works-list red link) is never a performer: it is the performance's piece when the wording names none ("her song
+   [[W]]"). Performances are deduplicated by URL across pages (report §8.4): a bard-page item on a link a piece page
+   records a performance on is not imported again, and one whose piece has a page is recorded once, on the piece's
+   link; the bard keeps the link with role performance. Otherwise the bard's performance names its piece when that
+   is a stub piece.
 8. Turn redirects into aliases and red links into stubs.
-9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`.
+9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`. Lines
+   joined by `<br>` on one line count as that many lines.
 10. Write all imported data as approved revisions with `source = import`, crediting wiki contributors.
-11. Write `import-review.md` for the moderators, listing every flagged ambiguity, drift item and fuzzy-matched person.
+11. Write `import-review.md` for the moderators (John and Fabian), listing every flagged ambiguity, alias
+    classification, withheld name and email, drift item and fuzzy-matched person, each with a stable ID
+    (`ALIAS-007`). It is private: it names hidden aliases in clear, so it is written outside the repository only,
+    and it never holds lyrics (only their page, section and line count).
 
 **Writing into the BE2 schema** (§4.1):
-- Write sort keys and `sort_letter`. Build the `term_ancestors` closure, including each term's row for itself.
-- Use the legacy page URL as the source of a non-active person status, and as the conservation source where the
-  wiki gives none.
-- Hide legal aliases, and any `redirect` alias equal to a hidden alias. List free text containing a hidden alias in
-  `import-review.md`.
-- Write documents with editor-owned fields only. Write the link system state (liveness) to `links` directly.
-- Write revision `summary` text that is neutral: it is free text shown on every approved revision, including those of
-  persons without a page, and nothing checks it against hidden aliases. BE4 should flag editor summaries that
-  contain a hidden alias.
-- Hidden-link redaction compares a document's URL exactly with the link's current `url` or `normalized_url`. When
-  the URL normaliser lands (BE3), normalise document URLs before the lookup, and key the visible-URL set by
-  normalised URL, so that a link later edited to another spelling of the same URL stays redacted in older snapshots.
+- Write sort keys and `sort_letter` (`Validate` checks each letter is its key's). Build the `term_ancestors`
+  closure from the terms' parents (`CatalogueImport.TermAncestors`), including each term's row for itself.
+- Source a non-active person status to the link its date is read from (an obituary on the "Deceased <date>" line),
+  unless that link is imported hidden; otherwise to the legacy page URL. The conservation source is the piece's
+  legacy page URL (the wiki gives no other).
+- Keep the prose of the link sections (Key Links, Sheet Music, Dancing Instructions, Translations), but their links,
+  in the notes under the section's heading, and list it; a section with as many prose lines as inline lyrics (4,
+  each `<br>`-separated segment of a line counting as a line) could hold lyrics, so its prose is never kept, only
+  listed.
+- Guess a stub person `historical` when it is credited on a piece of a traditional or pre-1900 origin, except for
+  the words of a piece that is also of the SCA (SCA Pieces, Contrafacta): new words to an old tune are modern. List
+  every guess, and flag the stubs credited by an external link (historical, or a group).
+- Hide legal aliases, any `redirect` alias equal to a hidden alias, and any public alias holding a hidden alias.
+- Withhold private names by confidence. **Legal names** (hidden aliases, `mediawiki.PrivateNames` marked legal:
+  names after a marker or paired by "/" with a public name; and every placeholder of the scrubbed copy), honorific
+  names ("Mr. Surname") and email addresses are withheld from every public field. **Unsure names** (the other
+  private names: possible names the classifier cannot show are public) are withheld from free text only: notes,
+  version, licensing and historical notes, credit notes, link titles and descriptions, performance descriptions
+  and uploaders, term, collection and event descriptions; except that an unsure name the import publishes as a
+  person's name (a bard's page title, or a stub person it creates) is kept in free text too, where withholding it
+  would protect nothing, and each occurrence is listed. Each withheld occurrence (legal names in every
+  `PrivateNameMatcher` form: honorific, reversed, URL forms; a name inside a wikilink takes the whole link) becomes
+  `[name withheld]`, each email address `[email withheld]`. This is the one exception to keeping a performance
+  description as written (§2.14), because an approved import revision cannot be redacted later.
+- Names and titles never hold a placeholder (`Validate` rejects one in any name, title, alias, slug, sort key or
+  uploader). A name the wiki itself gives an entity (a credited person, a piece title, alias or subtitle, a
+  collection label, an event) is imported as written when it holds only an unsure name, and listed. When it holds a
+  legal name, the entity is left out and listed: a stub person is not created (its credits are imported as unknown
+  with the note `[name withheld]`; a bard's hidden alias already finds the bard), nor is a stub piece, a
+  collection (its links are imported without it; also when its URL holds a legal name), an event (its
+  performances are imported without it) or a piece or term alias; a withheld uploader is left out.
+- A link whose URL holds a legal name is imported hidden (`links.is_hidden`); a URL holding an unsure name or a
+  home directory (`/~user`) is listed. URLs are never rewritten to withhold a name. Link URLs, and the URLs in
+  performance descriptions, are stored without the tracking parameters `NormalizeURL` drops (`si` share tokens can
+  tie a link to its sharer; `domain.WithoutTrackingParameters`) and absolute (a "www." or "//" URL gets https,
+  `domain.WithScheme`, so it is never a relative link), so the stored URL still normalizes to its
+  `normalized_url`. Every withheld span, left-out entity, hidden link
+  and listed URL is an item of `import-review.md`, so moderators can restore what may be public. Wiki user names
+  credited as revision contributors are listed, flagged when one matches a private name or is shaped like a
+  personal name ("Firstname Lastname"). No licence is inferred from prose ("public domain" is a review item).
+- Normalise every imported string to NFC; list names that `domain.CheckTextCharacters` rejects. Drop control
+  characters (C0 and C1 controls but tab and line feed, such as NUL and ESC, and the bidirectional embeddings,
+  overrides and isolates U+202A–U+202E and U+2066–U+2069) from every imported string, and list each field that had
+  them; in a URL they are percent-encoded instead, so it normalizes as before. `Validate` rejects any left.
+- Convert wikitext to Markdown with no syntax but the converted one: text is escaped (a "!" before a converted
+  link too, so it never becomes an image, and no raw HTML), and links point only to absolute http(s) URLs (a
+  "www." or "//" URL gets https) without tracking parameters. The parsers are linear on hostile input (an
+  unclosed "[http://" before many tokens, one very long word): pages are capped at 2 MiB, and tests hold each
+  parser to a time budget at that size.
+- Check the whole import before writing (`CatalogueImport.Validate`): it mirrors every constraint of the schema
+  (unique keys as the collation compares them, primary keys, column widths, CHECKs, references and insert order),
+  with error messages that name the entity, ID and field, never a value.
+- Assign every ID in the import (1..N per table, revisions 1..M), so that documents reference final IDs and the
+  dry run shows exactly what is written. This is safe only because `--apply` writes into an empty catalogue.
+- Write in one transaction: first take the advisory lock `GET_LOCK('bardic-torch-import:<database>', 0)` (another
+  import holding it fails with `ErrImportInProgress`), then, in the transaction, a locking read
+  (`SELECT 1 … LIMIT 1 FOR UPDATE`) of every catalogue table (any row fails with `ErrCatalogueNotEmpty`), then every
+  row in foreign-key order, all rows of a table before any table referring to it: revisions and their
+  contributors, terms (parents and related affiliations first), aliases and closure, collections (parents
+  first), events, persons and their child tables, pieces and their child tables, conservation history (one row
+  per assessed piece, at its revision), links, link attachments, performances and performers. Each entity row
+  carries its revision as `current_revision_id`. Any error rolls everything back, and a refused row is reported
+  by step (the table, the lock, the commit) and MySQL error number only, never with the server's message, which
+  quotes values; a malformed `DATABASE_URL` is reported without the URL, which holds the password.
+- Write documents with editor-owned fields only. Write the link system state directly: `is_hidden` for a link whose
+  URL holds a private name, and liveness left at the column default (`unknown`; the wiki records none).
+- Write revision `summary` text from a fixed set of neutral templates ("Imported from the wiki (page revision N).",
+  "… as a stub.", "… Collections page.", "… categories.", "… performance listings."): a summary is free text shown on
+  every approved revision, including those of persons without a page, and nothing checks it against hidden
+  aliases. BE4 should flag editor summaries that contain a hidden alias.
+- Write every link's `normalized_url` as `domain.NormalizeURL(url)`, and drop (listing it in `import-review.md`) a
+  URL that does not normalize. Hidden-link redaction relies on this invariant (§4.1 "Hidden links"; DEPLOY.md
+  "The normalized URL invariant"): it normalises each document URL and looks it up by `normalized_url` only, so
+  a link later edited to another spelling of the same URL stays redacted, or shown, in older snapshots.
 
-**Modes:** `--dry-run` (report only), and `--apply`, which only runs against an empty catalogue.
+**Modes:** `import-mediawiki --dump DIR (--dry-run | --apply) --review PATH`. Both modes build and validate the
+import and write `import-review.md` to `PATH`, which is required, refused inside the repository and written with
+mode 0600, then print counts only. `--dry-run` stops there: it never reads `DATABASE_URL` or opens a database.
+The review path is checked with its symbolic links resolved (a link to a file in the repository is refused). The
+resolved directory is opened once and checked again (it must still resolve to itself, outside the repository); an
+existing file there that is not regular or has other hard links is refused, and the review is written to a new
+temporary file in that directory, which then replaces the path, so no existing file is ever written through. `--apply` writes the review before it opens the transaction, then
+writes the import into the empty catalogue at
+`DATABASE_URL`. The launch run is in DEPLOY.md ("Importing the legacy wiki"): a dry run, the moderators' review,
+then `--apply` once against the empty production database.
 
 **Tests assert:**
-- the research counts: 142 pieces (135/4/2/1 by kind), 48 bards, 62 collection entries, 11 inline-lyrics pages flagged
+- the research counts: 142 pieces (135/4/2/1 by kind), 48 bards, 62 collection entries (61 collections, written or withheld: the scrubbed copy's placeholders count as legal names, so 4 of its collections are withheld), 11 inline-lyrics pages flagged
+- on the scrubbed copy (always): unit tests, the lyric n-gram scan and the structural privacy checks; against the research output (only with `BARDIC_RESEARCH_DIR`): the oracle, that the copy is up to date and keeps the research counts, the in-clear scan for names, emails and phones, an independent name oracle (every run of two or more capitalised words of the crawl's prose and link titles is a title, a reviewed non-name phrase, or a name the classifier decided on), that no legal name reaches any public field of the real import and no private name its free text, an independent lyrics oracle (every `<poem>` element and every run of four or more prose lines of the sections the research analysis lists) absent from the real import and the scrubbed copy, and a real dry run
 - the dropped inline lyrics are absent from every public field
-- golden snapshots for a hand-picked set of 15 or more tricky pages (Three Words, My Thing is My Own, Fight for the Midrealm, Band of Brothers, Black Alman, The Burning of Tara, Samantha Moore, Lasair inghen ui h’Airt, Auld Lang Syne…)
+- golden snapshots of 16 tricky pages: Three Words, My Thing is My Own, Fight for the Midrealm, Band of Brothers, Black Alman, The Burning of Tara, Samantha Moore, Lasair inghen ui h’Airt, Auld Lang Syne, Malkin Grey, Dahrien Cordell, Greensleeves, Greensleeves (SCA Version), Voice of the Dragon, Birthday Dirge and Warrior's Wyrd, and of the review
+- the writer (integration): every row written, every table empty after a failure planted in the last table, a catalogue that is not empty refused, exactly one of two concurrent imports succeeding, the normalised URL invariant and decodable snapshots
+- the imported catalogue end to end (`TestHTTP_ImportedCatalogue`): every page of every list, every entity, history and revision read through the API is valid by the spec and shows no lyric placeholder, no legal-name, email or phone placeholder in any form and no hidden alias
 
 ## 8. Frontend
 
@@ -428,6 +542,7 @@ the DDL is in `migrations/003`–`009`.
 - static help pages adapted from the wiki's meta pages: contributing guide, FAQ for Bards, the Bard Preference Checklist explainer, the conservation guide, and a licence page
 
 **Standards:**
+- pages are server-rendered by a Worker, and the browser never calls the API directly
 - WCAG 2.2 AA, fully keyboard operable
 - every style works in light and dark themes
 - works at 360px width
@@ -451,7 +566,8 @@ the DDL is in `migrations/003`–`009`.
 - **Playwright e2e** in demesne's `browser` image (offline) against the built app and the fixture server. It covers every user journey: browse by facets on desktop and mobile, search, read a piece and a bard, log in (stubbed), edit and preview, the duplicate warning, submit, the pending banner, moderator approve, reject and three-way rebase, term suggestion, repertoire, report a link, the contact form, history and revert.
 - Each journey is checked with **axe-core** in both light and dark themes, and takes screenshots at 360, 768 and 1280px in both themes. Those screenshots feed the UX review step.
 - A contract test generates FE types from the BE's `openapi/api.yaml` and fails if the fixtures don't match the spec.
-- `npm run validate` covers format, lint, typecheck, vitest and the Playwright suite.
+- `npm run validate` covers format, lint (ESLint 10), typecheck, generated-file checks, knip, vitest and the build checks. The Playwright suite is the separate required `e2e` CI job.
+- `npm run audit` (no advisory of any severity in production dependencies, none high or critical anywhere) and `npm audit signatures` run as their own CI job on every push and pull request, like `make vulncheck`.
 
 **Full stack (host, at the end):**
 - podman MySQL, BE, FE dev server and Playwright run against the **real imported data**, followed by John and Fabian clicking through it themselves.
@@ -485,11 +601,11 @@ Each pipeline has the same internal shape:
 
 | # | Pipeline | Repo | Depends on | Contents |
 |---|---|---|---|---|
-| H0 | host setup | — | decisions in §2 | Create both GitHub repos and copy this plan into `bardic-torch/docs/`. Set up the dokku app, MySQL, letsencrypt and the api.bardictorch.org domain. Create the Cloudflare Pages project with bardictorch.org and www. Create the Auth0 application with Google and Facebook connections, plus a Turnstile site key. *The Auth0, Cloudflare and DNS dashboard steps are John's.* |
+| H0 | host setup | — | decisions in §2 | Create both GitHub repos and copy this plan into `bardic-torch/docs/`. Set up the dokku app, MySQL, letsencrypt and the api.bardictorch.org domain. Create the Cloudflare zone and two Workers connected through Workers Builds: `bardic-torch-fe` on bardictorch.org (with a www → apex redirect rule) and `bardic-torch-fe-preview` on preview.bardictorch.org. Create the Auth0 application with Google and Facebook connections, plus a Turnstile site key. *The Auth0, Cloudflare and DNS dashboard steps are John's.* |
 | BE1 | foundation | BE | H0 | Copy and strip the feed skeleton. Add the users table, roles and the moderator bootstrap, the auth carried over from the feed, the test harness (with the **in-sandbox MySQL spike**), the OpenAPI skeleton, CI, and the dokku files (Dockerfile, `app.json` predeploy migrate step). The cron entry lands with `cmd/check-links` in BE5. |
 | FE1 | foundation | FE | H0 (runs alongside BE1) | Copy and strip the feed FE. Add the wiki-style design system and layout, dark mode, auth, the type-generation pipeline, the fixture server, and the Playwright, axe and screenshot harness. Add the static help pages. |
 | BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search, A–Z and needs-work. The revisions table exists but only stores import data. Decisions refined in BE2 are in §4.1. |
-| BE3 | importer | BE | BE2 | Everything in §7. A dry-run report is produced for John and Fabian to read. |
+| BE3 | importer | BE | BE2 | Everything in §7 (reading a live crawl directly is deferred). A dry-run report is produced for John and Fabian to read. |
 | FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8 (including the read-only history and diff pages), the licensing card (licensing status and sourced notes) and conservation badge, the mobile facet drawer, and SEO. |
 | BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report and contact (Turnstile) endpoints. (needs-work, a public read, moved to BE2.) |
 | FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, revert, and the pending-version diff. (The read-only history and diff pages are FE2's.) |

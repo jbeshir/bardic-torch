@@ -15,6 +15,9 @@ import (
 
 const defaultPort = "3306"
 
+// ErrMalformedDatabaseURL is returned by ConfigFromURL for a database URL that does not parse.
+var ErrMalformedDatabaseURL = errors.New("database URL is malformed (the URL is not shown, as it holds the password)")
+
 // maxExecutionTimeParam is the session variable limiting how long a SELECT may run, in milliseconds, and
 // maxExecutionTimeMillis the limit every connection ConfigFromURL describes sets. Anonymous catalogue reads are
 // the server's costliest statements, and a slow one holds a pooled connection that /readyz and authentication
@@ -34,10 +37,13 @@ const (
 // The limit applies to every SELECT, locking reads and GET_LOCK waits included, but not to INSERT, UPDATE, DELETE
 // or DDL statements, nor to a SELECT within them: a connection that must wait longer sets max_execution_time
 // itself, as the migrator does.
+//
+// Errors never quote the URL or a part of it, which may be the password: url.Parse's errors do ("invalid port"
+// quotes what follows the last colon of a password holding "/"), so they are replaced by ErrMalformedDatabaseURL.
 func ConfigFromURL(rawURL string) (*mysqldriver.Config, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("parsing database URL: %w", err)
+		return nil, ErrMalformedDatabaseURL
 	}
 	if u.Scheme != "mysql" {
 		return nil, fmt.Errorf("database URL scheme must be mysql, got [%s]", u.Scheme)

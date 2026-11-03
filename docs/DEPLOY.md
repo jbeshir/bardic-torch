@@ -2,7 +2,7 @@
 
 The API runs on dokku as the app `bardic-torch-api` at https://api.bardictorch.org. It uses a dokku-managed
 MySQL 8.4 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
-moderators, migrations and rollback.
+moderators, migrations, rollback and the one-off import of the legacy wiki.
 
 ## Placeholders
 
@@ -17,6 +17,8 @@ Replace these in the commands below:
 | `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
+| `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
+| `<PRIVATE_DIR>` | A private directory outside this repository for the import review | `~/private/import` |
 
 ## Requirements
 
@@ -107,7 +109,7 @@ Optional. Decide **before** setting up the social connections, because their red
 
    The exact paths **must match the FE repository's routes**. The values above are the alignment-feed FE's
    pattern (the remix-auth Auth0 strategy's callback route `/auth/auth0/callback`, and the site root after
-   logout). Check them against the bardic-torch-fe auth routes (FE1) and change both lists if the FE differs.
+   logout). Check them against the bardic-torch-fe auth routes and change both lists if the FE differs.
    Only `https://` production URLs belong in this application.
 3. In **Settings → Advanced Settings → Grant Types**, keep **Authorization Code** and **Refresh Token** on.
 4. In **Settings → Refresh Token Rotation**, turn **Allow Refresh Token Rotation** on and keep the default
@@ -115,7 +117,7 @@ Optional. Decide **before** setting up the social connections, because their red
    example 30 days and 15 days. With rotation, a refresh token is replaced on every use, and a reused one revokes
    the whole family.
 5. Give the FE its **Domain** (`<AUTH0_DOMAIN>`), **Client ID** and **Client Secret** through its own
-   configuration (FE1). They are not API settings.
+   configuration. They are not API settings.
 
 ### Development application
 
@@ -166,7 +168,7 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
    - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/data-deletion`
    - Category and app icon.
 
-   **Flag for FE1:** the privacy policy and data-deletion pages are FE pages. They must exist at these URLs (or
+   **Flag for the FE:** the privacy policy and data-deletion pages are FE pages. They must exist at these URLs (or
    these settings must change to match) before the app can go Live. Google's consent screen links the same
    privacy policy.
 5. Switch **App Mode** from Development to **Live**. In Development mode only the app's own roles can log in.
@@ -241,7 +243,8 @@ Every connection the API opens sets the session variable `max_execution_time` to
 that `/readyz` and authentication need. The limit applies to every `SELECT`, including locking reads
 (`FOR UPDATE`) and `GET_LOCK` waits, but not to `INSERT`, `UPDATE`, `DELETE` or DDL statements, nor to a `SELECT`
 inside them. `migrate` clears it on its own connections, as golang-migrate waits up to 10 seconds for its lock with
-`GET_LOCK`. Nothing needs configuring on the server.
+`GET_LOCK`. `import-mediawiki --apply` raises it to 60 seconds for its locking reads of the empty tables, which may
+wait for a running write. Nothing needs configuring on the server.
 
 Make the database default `utf8mb4` / `utf8mb4_0900_ai_ci`, as in development, the integration tests and CI.
 dokku-mysql configures its server with `utf8mb4_unicode_ci`, so without this a table or column whose migration
@@ -341,6 +344,58 @@ dokku logs bardic-torch-api --num 100
 
 With the FE live, log in as a moderator: the FE's `GET /v1/me` returns `"role":"moderator"`.
 
+### Importing the legacy wiki
+
+The catalogue starts as an import of the legacy MediaWiki site (PLAN §7), run **once**, at launch, against the
+empty production database: `import-mediawiki --apply` refuses a catalogue that holds any row, including a
+revision. Its input is the research crawl's dump directory (`pages.jsonl`, `categories.json`, `redirects.json`,
+`activity.json`); producing the crawl is not part of this repository.
+
+1. **Dry run.** On a workstation, from a clone of this repository, with the crawl outside it:
+   ```
+   go run ./cmd/import-mediawiki --dry-run --dump <CRAWL_DIR> --review <PRIVATE_DIR>/import-review.md
+   ```
+   It needs no database and never reads `DATABASE_URL`. It builds and validates the whole import, writes the
+   review and prints the counts (pieces by kind and with inline lyrics, persons, terms, collections of the
+   Collections page's entries, events, links, revisions and review items).
+2. **Review.** The moderators work through the review (`import-review.md`): every alias classification, every
+   name withheld from public text (and every possible private name kept in it because the import publishes it as
+   a person's name), every collection, event, stub, alias or uploader left out because its name
+   holds a possible legal name, every URL that may name a person, the wiki users shaped like personal names
+   (credited publicly as written), the ambiguous records, the stubs, the links whose pages disagree on their
+   title, description or locator (one links row serves every page; each page's own fields are in the item), the
+   link-section prose moved into notes, the runs of link lines imported without descriptions because their text
+   could be lyrics, and the rest. Where the importer guessed
+   wrong, note the item ID: it is corrected in the catalogue after the import (an entity left out is created by
+   hand once its name is cleared). Run the dry run again whenever the crawl changes.
+3. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
+   one-off container a private directory holding the crawl, which the image's user (10001) can write the review
+   to:
+   ```
+   sudo mkdir -p /var/lib/bardic-torch-import
+   sudo cp -r <CRAWL_DIR> /var/lib/bardic-torch-import/dump
+   sudo chown -R 10001:10001 /var/lib/bardic-torch-import
+   sudo chmod -R go= /var/lib/bardic-torch-import
+   dokku docker-options:add bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
+   dokku run bardic-torch-api /app/import-mediawiki --apply --dump /import/dump --review /import/import-review.md
+   dokku docker-options:remove bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
+   ```
+   It builds the same import, writes the review before it touches the database, and then writes every row in
+   one transaction: on any error nothing is written. It prints the counts and `applied: the catalogue holds the
+   import`. If another import is running it fails with `another catalogue import is in progress`, and on a
+   catalogue that is not empty with `catalogue is not empty`; neither writes anything. Its errors never quote a
+   value of the import, so the logs hold no name.
+4. **Delete the copies** once the import is applied and reviewed: `sudo rm -r /var/lib/bardic-torch-import`.
+
+**The review is private.** It names hidden aliases and other possible legal names in clear so that the
+moderators can check them (it never holds lyrics). Never publish it, commit it or attach it to an issue; the
+command writes it with mode 0600 and refuses a path inside this repository, which is public (also through a
+symbolic or hard link); it replaces an existing file instead of writing through it. Share it with the
+moderators privately, and delete the copies when the review is done.
+
+After the import, every imported entity has one approved revision of source `import`, crediting the wiki users who
+wrote its page; liveness of every link is `unknown` until a link checker runs.
+
 ## Deploys
 
 ```
@@ -386,6 +441,29 @@ before it:
   the view is then invalid and every read using it fails (error 1356), so every public read would answer 500
   once the migration ran. A migration that drops or renames such a column must recreate the views without it in
   the same migration. `TestMigrations_UpDownUp` reads every view after migrating up.
+
+### The normalized URL invariant
+
+Every row of `links` has `normalized_url = domain.NormalizeURL(url)`. The importer and every later writer keep
+it; a URL that does not normalize is never written. Public revision reads rely on it: a snapshot's link is shown
+only if `NormalizeURL` of the URL in the document is the `normalized_url` of a link that is not hidden, and then
+under that link's `url`. A row that broke the invariant would make the read show or drop the wrong links.
+
+A change to what `NormalizeURL` returns (a new tracking parameter, say) is therefore a data change, not just a code
+change. Ship it with a command or migration that re-normalises every `links` row, and run that before the release
+whose reads rely on the new output. Until the rows are re-normalised, the new code is not safe: a document URL
+that now normalizes differently is dropped if it matches no row, but it can match another row. A hidden link's
+URL that differed from a visible link's only in a newly dropped parameter now normalizes to the visible row's
+`normalized_url`, so the revision shows it under the visible link. Only the merge below, which keeps a group
+hidden if any of its rows is, closes that. A rollback to the old code after re-normalising is safe: merged rows
+keep their hidden state, and a URL that no longer matches a row is dropped.
+
+Re-normalising can give two rows the same `normalized_url`, which the unique index refuses. Merge each such group
+into its row with the lowest ID, in one transaction: keep that row's `url` and editor-owned fields, set its
+`is_hidden` if any row of the group is hidden (a takedown is never undone by a merge), move the other rows'
+`link_attachments` (dropping any that would duplicate one the kept row has for the same role and entity) and
+`performances` to it, delete the other rows, and only then write the new `normalized_url`. List the merged groups
+for the moderators.
 
 ### Failed migrations (dirty state)
 

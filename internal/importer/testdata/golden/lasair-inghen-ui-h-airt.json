@@ -1,0 +1,124 @@
+{
+  "person": {
+    "id": 1,
+    "slug": "lasair-inghen-ui-h-airt",
+    "sort_name": "Lasair inghen ui h’Airt",
+    "sort_letter": "L",
+    "doc": {
+      "schema_version": 1,
+      "name": "Lasair inghen ui h’Airt",
+      "kind": "community_bard",
+      "status": "active",
+      "status_date": null,
+      "status_source_url": null,
+      "pronouns": null,
+      "notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": "- [April 2021 - Permission to perform her work at Bardic War](https://scribhinnilasair.wordpress.com/2021/04/25/to-war/)",
+      "is_stub": false,
+      "aliases": [],
+      "roles": [],
+      "affiliation_ids": [
+        4,
+        1
+      ],
+      "relations": [],
+      "links": [
+        {
+          "url": "https://scribhinnilasair.wordpress.com/",
+          "title": "Scribhinni Lasair",
+          "description": null,
+          "platform": "scribhinnilasair.wordpress.com",
+          "place_type": "author_site",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "website"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://scribhinnilasair.wordpress.com/2021/04/25/to-war/",
+          "title": "April 2021 - Permission to perform her work at Bardic War",
+          "description": null,
+          "platform": "scribhinnilasair.wordpress.com",
+          "place_type": "author_site",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "licensing_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20Inghen%20Ui%20h%27Airt",
+          "title": "MidBards Performance Archive",
+          "description": null,
+          "platform": "tilted-windmill.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance",
+            "external_profile"
+          ],
+          "performances": [
+            {
+              "piece_id": null,
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "[https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20Inghen%20Ui%20h%27Airt MidBards Performance Archive]",
+              "performer_ids": []
+            }
+          ]
+        }
+      ],
+      "preferences": []
+    },
+    "legacy": {
+      "page_id": 4,
+      "title": "Lasair inghen ui h’Airt"
+    },
+    "revision": {
+      "id": 225,
+      "summary": "Imported from the wiki (page revision 22).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  },
+  "review": [
+    {
+      "id": "LINK-224",
+      "kind": "repeated",
+      "page": "Lasair inghen ui h’Airt",
+      "text": "URLs written more than once, imported once each: https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20Inghen%20Ui%20h%27Airt."
+    },
+    {
+      "id": "LINK-225",
+      "kind": "roles",
+      "page": "Lasair inghen ui h’Airt",
+      "text": "https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20Inghen%20Ui%20h%27Airt has several roles: performance, external_profile."
+    },
+    {
+      "id": "LINK-226",
+      "kind": "collection_tie",
+      "page": "Lasair inghen ui h’Airt",
+      "text": "https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20Inghen%20Ui%20h%27Airt could belong to several collections (https://tilted-windmill.com/midbards/works.html, https://tilted-windmill.com/midbards/songbooks.html): it belongs to none."
+    },
+    {
+      "id": "PERF-001",
+      "kind": "incomplete",
+      "page": "Lasair inghen ui h’Airt",
+      "text": "A performance item has no performer, event or year the importer could read: \"[https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20I…\"."
+    },
+    {
+      "id": "PERSON-001",
+      "kind": "affiliations",
+      "page": "Lasair inghen ui h’Airt",
+      "text": "Affiliations from categories: Atlantia, SCA Bards."
+    }
+  ]
+}

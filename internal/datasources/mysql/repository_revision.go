@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"maps"
 	"time"
-	"unicode/utf8"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
@@ -363,14 +362,14 @@ func baseDocument[D domain.Document](ctx context.Context, c *catalogueReader, id
 // there is.
 func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotReferences) domain.SnapshotVisibility {
 	vis := domain.SnapshotVisibility{
-		Pieces:          make(map[int64]domain.PieceSummary),
-		Persons:         make(map[int64]domain.PersonSummary),
-		NoPagePersons:   make(map[int64]domain.PersonSummary),
-		PublicAliases:   make(map[int64]map[string]bool),
-		Terms:           make(map[int64]domain.TermSummary),
-		Collections:     make(map[int64]domain.CollectionSummary),
-		Events:          make(map[int64]domain.EventSummary),
-		VisibleLinkURLs: make(map[string]bool),
+		Pieces:        make(map[int64]domain.PieceSummary),
+		Persons:       make(map[int64]domain.PersonSummary),
+		NoPagePersons: make(map[int64]domain.PersonSummary),
+		PublicAliases: make(map[int64]map[string]bool),
+		Terms:         make(map[int64]domain.TermSummary),
+		Collections:   make(map[int64]domain.CollectionSummary),
+		Events:        make(map[int64]domain.EventSummary),
+		VisibleLinks:  make(map[string]string),
 	}
 
 	if ids := unsignedIDs(refs.PieceIDs); len(ids) > 0 {
@@ -434,46 +433,32 @@ func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis
 	}
 }
 
-// linkVisibility loads which of the referenced URLs are visible links': those that are exactly the URL as entered,
-// or the normalized URL, of a link that is not hidden, and of no hidden link. Only the URLs the rows hold are
-// trusted, compared exactly, so a URL MySQL matched otherwise, or one no link has now, is not visible.
+// linkVisibility loads which of the referenced URLs' normalized forms are visible links', with each visible link's
+// URL: the normalized URL of a link that is not hidden, and of no hidden link. A URL that does not normalize is
+// never visible. Only the normalized URLs the rows hold are trusted, so one MySQL matched otherwise, or one no
+// link has now, is not visible. Normalized URLs are ASCII, so none is refused by the ASCII column (MySQL error 3988).
 func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis *domain.SnapshotVisibility) {
+	normalized := make([]string, 0, len(urls))
+	for _, url := range urls {
+		if n, err := domain.NormalizeURL(url); err == nil {
+			normalized = append(normalized, n)
+		}
+	}
+	if len(normalized) == 0 {
+		return
+	}
+
 	hidden := make(map[string]bool)
-	for _, row := range fetch(ctx, c, "links", c.q.ListLinksByURL,
-		queries.ListLinksByURLParams{Urls: urls, NormalizedUrls: asciiOnly(urls)}) {
+	for _, row := range fetch(ctx, c, "links", c.q.ListLinksByNormalizedURL, normalized) {
 		if row.IsHidden {
-			hidden[row.Url], hidden[row.NormalizedUrl] = true, true
+			hidden[row.NormalizedUrl] = true
 		} else {
-			vis.VisibleLinkURLs[row.Url], vis.VisibleLinkURLs[row.NormalizedUrl] = true, true
+			vis.VisibleLinks[row.NormalizedUrl] = row.Url
 		}
 	}
 	for url := range hidden {
-		delete(vis.VisibleLinkURLs, url)
+		delete(vis.VisibleLinks, url)
 	}
-}
-
-// asciiOnly returns the strings of ss that are pure ASCII. MySQL refuses a statement that compares an ASCII
-// column with a parameter holding any other character (error 3988) instead of finding no match. Such a value
-// cannot equal an ASCII column anyway, so it is left out: a URL as entered with an accented letter, for example,
-// is never a normalized URL. An empty result is safe, since sqlc writes an empty slice as IN (NULL).
-func asciiOnly(ss []string) []string {
-	ascii := make([]string, 0, len(ss))
-	for _, s := range ss {
-		if isASCII(s) {
-			ascii = append(ascii, s)
-		}
-	}
-	return ascii
-}
-
-// isASCII reports whether s holds only ASCII bytes.
-func isASCII(s string) bool {
-	for i := range len(s) {
-		if s[i] >= utf8.RuneSelf {
-			return false
-		}
-	}
-	return true
 }
 
 // personVisibility loads the referenced public persons, with and without a page.
