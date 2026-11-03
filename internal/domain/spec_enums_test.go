@@ -58,6 +58,8 @@ func specEnums() map[string][]string {
 		"FlagCode":             strs(flagCodeValues),
 		"LinkReportReason":     strs(linkReportReasonValues),
 		"LinkReportStatus":     strs(linkReportStatusValues),
+		"ContactRequestKind":   strs(contactRequestKindValues),
+		"ContactRequestStatus": strs(contactRequestStatusValues),
 		"RebaseStatus":         strs([]RebaseStatus{RebaseStatusNotNeeded, RebaseStatusClean, RebaseStatusConflicts}),
 		"DuplicateField": strs([]DuplicateField{
 			DuplicateFieldTitle, DuplicateFieldAlias, DuplicateFieldName, DuplicateFieldURL,

@@ -12,6 +12,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
+	"github.com/jbeshir/bardic-torch/internal/transport/web/controller"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -393,7 +394,24 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 			httpjson.CodeAPIAuthNotAllowed)
 		sendRejected(t, w.e, http.MethodPost, idPath("/v1/revisions/", id)+"/approve", w.modToken,
 			`{"acknowledged_flags":[]}`, http.StatusForbidden, httpjson.CodeAPIAuthNotAllowed)
-		// The contact inbox (GET /v1/moderation/contact-requests) is chunk 8's, and does not exist yet.
+
+		// The contact inbox holds personal data, which only an interactive session may read or act on.
+		const message = "Please correct the second verse."
+		sendContact(t, w.e, contactBody("correction", "Wren Placeholder", "wren@example.org", message))
+		sendRejected(t, w.e, http.MethodGet, contactRequestsPath, w.modToken, "", http.StatusForbidden,
+			httpjson.CodeAPIAuthNotAllowed)
+		inbox := sendOK[jsonObject](t, w.e, http.MethodGet, contactRequestsPath+"?status=open", w.moderator, "",
+			http.StatusOK)
+		request := contactRequestWith(t, inbox, message)
+		assert.Equal(t, "wren@example.org", request["email"])
+		resolvePath := idPath(contactRequestsPath+"/", objectID(t, request, "id"))
+		sendRejected(t, w.e, http.MethodPost, resolvePath, w.modToken, `{"status":"resolved"}`,
+			http.StatusForbidden, httpjson.CodeAPIAuthNotAllowed)
+		resolved := sendOK[controller.ContactRequest](t, w.e, http.MethodPost, resolvePath, w.moderator,
+			`{"status":"resolved","note":"Corrected."}`, http.StatusOK)
+		assert.Equal(t, domain.ContactRequestStatusResolved, resolved.Status)
+		sendRejected(t, w.e, http.MethodPost, resolvePath, w.moderator, `{"status":"dismissed"}`,
+			http.StatusConflict, httpjson.CodeConflict)
 	})
 
 	t.Run("10_rename_to_hidden_alias", func(t *testing.T) {

@@ -57,6 +57,9 @@ type Dependencies struct {
 	ResolveLinkReport             command.Command[command.ResolveLinkReportRequest, domain.LinkReport]
 	GetModerationLink             command.Command[command.ModerationLinkRequest, domain.ModerationLink]
 	SetLinkHidden                 command.Command[command.SetLinkHiddenRequest, domain.ModerationLink]
+	SubmitContactRequest          command.Command[command.ContactSubmission, int64]
+	ListContactRequests           command.Command[command.ContactRequestListRequest, domain.ContactRequestList]
+	ResolveContactRequest         command.Command[command.ResolveContactRequestRequest, domain.ContactRequest]
 	Now                           func() time.Time
 }
 
@@ -118,6 +121,10 @@ func routes(deps Dependencies) []route {
 			handler: controller.RevisionGet{Getter: deps.PublicRevisionGetter}},
 		{method: http.MethodGet, path: "/v1/needs-work",
 			handler: controller.NeedsWorkListGet{Lister: deps.PublicNeedsWorkLister}},
+		// The contact form needs no account: like the catalogue reads, it answers whatever credentials a request
+		// carries. Turnstile, not authentication, keeps automated senders out (D21).
+		{method: http.MethodPost, path: "/v1/contact",
+			handler: controller.ContactSubmit{Command: deps.SubmitContactRequest}},
 
 		{method: http.MethodGet, path: "/v1/me", handler: requireAuth(controller.MeGet{}), authenticated: true},
 		{method: http.MethodPatch, path: "/v1/me", authenticated: true, handler: requireAuth(controller.MePatch{
@@ -147,6 +154,11 @@ func routes(deps Dependencies) []route {
 			handler: requireInteractiveModerator(controller.ModerationLinkGet{Command: deps.GetModerationLink})},
 		{method: http.MethodPut, path: "/v1/links/{link_id}/hidden", authenticated: true,
 			handler: requireInteractiveModerator(controller.LinkHiddenSet{Command: deps.SetLinkHidden})},
+		// Contact requests hold personal data, which only interactive moderators see (D21, D25).
+		{method: http.MethodGet, path: "/v1/moderation/contact-requests", authenticated: true,
+			handler: requireInteractiveModerator(controller.ContactRequestsList{Command: deps.ListContactRequests})},
+		{method: http.MethodPost, path: "/v1/moderation/contact-requests/{request_id}", authenticated: true,
+			handler: requireInteractiveModerator(controller.ContactRequestResolve{Command: deps.ResolveContactRequest})},
 
 		// API tokens cannot manage API tokens, so a leaked token cannot be used to mint or revoke others.
 		{method: http.MethodPost, path: "/v1/tokens", authenticated: true,

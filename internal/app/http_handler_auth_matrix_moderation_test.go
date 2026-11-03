@@ -164,3 +164,58 @@ func expectModerationRevision(m handlerMocks, times int) {
 	m.moderation.EXPECT().GetModerationRevision(mock.Anything, int64(matrixRevisionID)).
 		Return(matrixModerationRevision, nil).Times(times)
 }
+
+// matrixContactRequestID is the contact request the moderation operations act on.
+const matrixContactRequestID = 12
+
+// matrixTurnstileToken is the dummy token Cloudflare's test site keys produce.
+const matrixTurnstileToken = "XXXX.DUMMY.TOKEN.XXXX"
+
+var matrixContactRequest = domain.ContactRequest{
+	ID: matrixContactRequestID, Kind: domain.ContactRequestKindGeneral, Email: new("wren@example.org"),
+	Message: new("Hello."), Status: domain.ContactRequestStatusResolved, CreatedAt: handlerNow, ResolvedAt: &handlerNow,
+	ResolvedBy: &domain.ModerationAuthor{ID: moderatorID, DisplayName: matrixDisplayName, Role: domain.RoleModerator},
+}
+
+// contactMatrix are the rows of the contact form, which is public, and of the contact request inbox, which is for
+// interactive moderators only (D25), added to authMatrix.
+func contactMatrix() map[openapitest.Operation]matrixRow {
+	return map[openapitest.Operation]matrixRow{
+		{Method: http.MethodPost, Path: "/v1/contact"}: {
+			access: public,
+			body: `{"kind":"general","name":null,"email":"wren@example.org","message":"Hello.","url":null,` +
+				`"turnstile_token":"` + matrixTurnstileToken + `"}`,
+			successStatus: http.StatusAccepted,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.turnstile.EXPECT().VerifyTurnstile(mock.Anything, matrixTurnstileToken).Return(nil).Once()
+				m.contactCreator.EXPECT().CreateContactRequest(mock.Anything, datasources.NewContactRequest{
+					Kind: domain.ContactRequestKindGeneral, Email: "wren@example.org", Message: "Hello.", Now: handlerNow,
+				}).Return(matrixContactRequestID, nil).Once()
+			},
+		},
+		{Method: http.MethodGet, Path: "/v1/moderation/contact-requests"}: {
+			access:        interactiveModerator,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.contactPurger.EXPECT().PurgeContactRequests(mock.Anything, handlerNow).Return(0, nil).Once()
+				m.contactLister.EXPECT().ListContactRequests(mock.Anything,
+					datasources.ContactRequestQuery{Page: matrixPage}).
+					Return(domain.ContactRequestList{Requests: []domain.ContactRequest{matrixContactRequest}, Total: 1},
+						nil).Once()
+			},
+		},
+		{Method: http.MethodPost, Path: "/v1/moderation/contact-requests/{request_id}"}: {
+			access:        interactiveModerator,
+			pathParams:    map[string]string{"request_id": strconv.Itoa(matrixContactRequestID)},
+			body:          `{"status":"resolved","note":null}`,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, userID string) {
+				m.contactResolver.EXPECT().ResolveContactRequest(mock.Anything, datasources.ResolveContactRequestRequest{
+					ModeratorUserID: userID, RequestID: matrixContactRequestID,
+					Status: domain.ContactRequestStatusResolved, Now: handlerNow,
+				}).Return(matrixContactRequest, nil).Once()
+				m.contactPurger.EXPECT().PurgeContactRequests(mock.Anything, handlerNow).Return(0, nil).Once()
+			},
+		},
+	}
+}

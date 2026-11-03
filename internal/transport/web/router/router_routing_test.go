@@ -41,26 +41,29 @@ const (
 	jsonContentType = "application/json"
 	unmatched       = "unmatched"
 
-	healthyBody         = `{"status":"ok"}` + "\n"
-	noRouteBody         = `{"code":"not_found","message":"no route matches the path"}` + "\n"
-	notAllowedBody      = `{"code":"method_not_allowed","message":"method not allowed for this path"}` + "\n"
-	authRequiredBody    = `{"code":"unauthenticated","message":"authentication required"}` + "\n"
-	invalidCredsBody    = `{"code":"unauthenticated","message":"invalid credentials"}` + "\n"
-	userNotFoundBody    = `{"code":"not_found","message":"user not found"}` + "\n"
-	tokenNotFoundBody   = `{"code":"not_found","message":"API token not found"}` + "\n"
-	blockedTemplate     = "/v1/users/{user_id}/blocked"
-	revokeTemplate      = "/v1/tokens/{token_id}"
-	blockedRequestBody  = `{"blocked":true}`
-	routingTokenPath    = "/v1/tokens/" + routingRevokeID
-	routingBlockedPath  = "/v1/users/auth0%7Cuser/blocked"
-	routingUnknownV1    = "/v1/unknown"
-	routingUnknownRoot  = "/unknown"
-	routingHealthz      = "/healthz"
-	routingMe           = "/v1/me"
-	routingTokens       = "/v1/tokens"
-	routingReadyz       = "/readyz"
-	routingConnectHost  = "example.com:443"
-	routingConnectRedir = "//example.com:443/"
+	healthyBody              = `{"status":"ok"}` + "\n"
+	noRouteBody              = `{"code":"not_found","message":"no route matches the path"}` + "\n"
+	notAllowedBody           = `{"code":"method_not_allowed","message":"method not allowed for this path"}` + "\n"
+	authRequiredBody         = `{"code":"unauthenticated","message":"authentication required"}` + "\n"
+	unsupportedMediaTypeBody = `{"code":"unsupported_media_type","message":"request body must be sent as application/json"}` +
+		"\n"
+	invalidContactKindBody = `{"code":"invalid_request","message":"invalid kind: not one of its allowed values"}` + "\n"
+	invalidCredsBody       = `{"code":"unauthenticated","message":"invalid credentials"}` + "\n"
+	userNotFoundBody       = `{"code":"not_found","message":"user not found"}` + "\n"
+	tokenNotFoundBody      = `{"code":"not_found","message":"API token not found"}` + "\n"
+	blockedTemplate        = "/v1/users/{user_id}/blocked"
+	revokeTemplate         = "/v1/tokens/{token_id}"
+	blockedRequestBody     = `{"blocked":true}`
+	routingTokenPath       = "/v1/tokens/" + routingRevokeID
+	routingBlockedPath     = "/v1/users/auth0%7Cuser/blocked"
+	routingUnknownV1       = "/v1/unknown"
+	routingUnknownRoot     = "/unknown"
+	routingHealthz         = "/healthz"
+	routingMe              = "/v1/me"
+	routingTokens          = "/v1/tokens"
+	routingReadyz          = "/readyz"
+	routingConnectHost     = "example.com:443"
+	routingConnectRedir    = "//example.com:443/"
 
 	internalBody    = `{"code":"internal","message":"internal error"}` + "\n"
 	invalidSlugBody = `{"code":"invalid_request","message":"invalid slug: must be lowercase ASCII letters and ` +
@@ -78,6 +81,8 @@ const (
 	routingRevisionTemplate  = "/v1/revisions/{revision_id}"
 	routingRevisionPath      = "/v1/revisions/" + routingCatalogueID
 	routingNeedsWork         = "/v1/needs-work"
+	routingContact           = "/v1/contact"
+	routingContactRequests   = "/v1/moderation/contact-requests"
 
 	routingPieceEditableTmpl = "/v1/pieces/{slug}/editable"
 	routingPieceEditable     = routingPiecePath + "/editable"
@@ -114,6 +119,10 @@ func catalogueListFailed(template string) routingCase {
 
 // publicRows are the public catalogue paths. They never authenticate.
 var publicRows = []routeRow{
+	{path: routingContact, allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: {status: http.StatusUnsupportedMediaType, contentType: jsonContentType,
+			respBody: unsupportedMediaTypeBody, route: routingContact},
+	}},
 	{path: routingPieces, allow: http.MethodGet, routed: map[string]routingCase{
 		http.MethodGet: catalogueListFailed(routingPieces),
 	}},
@@ -196,6 +205,10 @@ func publicCases() []routingCase {
 		getWith(revision, routingRevisionPath, routingInvalid),
 		getWith(catalogueNotFound(routingCollectionHistory, "collection", routingCatalogueID),
 			"/v1/collections/42/history", routingModerator),
+		// The contact form, the one public write, ignores credentials too.
+		{method: http.MethodPost, target: routingContact, authorization: routingInvalid, body: `{"kind":"x"}`,
+			status: http.StatusBadRequest, contentType: jsonContentType, respBody: invalidContactKindBody,
+			route: routingContact},
 		// A wrong method on a public path is a 405, never a 401, whatever the credentials.
 		notAllowedAt(http.MethodPost, routingPieces, routingInvalid, http.MethodGet),
 		notAllowedAt(http.MethodDelete, routingPiecePath, routingModerator, http.MethodGet),
@@ -597,6 +610,12 @@ var routeRows = []routeRow{
 	}},
 	{path: "/v1/links/" + routingCatalogueID + "/hidden", allow: http.MethodPut, routed: map[string]routingCase{
 		http.MethodPut: anonymousAuthRequired("/v1/links/{link_id}/hidden"),
+	}},
+	{path: routingContactRequests, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired(routingContactRequests),
+	}},
+	{path: routingContactRequests + "/" + routingCatalogueID, allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired("/v1/moderation/contact-requests/{request_id}"),
 	}},
 }
 

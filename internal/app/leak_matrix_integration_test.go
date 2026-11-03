@@ -86,6 +86,13 @@ const (
 	reportMessage   = "leakmark-report-message"
 )
 
+// An open contact request's personal data, which only interactive moderators may read, and which is never logged.
+const (
+	contactName    = "Leakmark Contact Name"
+	contactEmail   = "leakmark-contact@example.invalid"
+	contactMessage = "leakmark-contact-message"
+)
+
 // namedCredit is a certain, named credit of personID, with its defaults written out.
 func namedCredit(personID int64, role domain.CreditRole, note *string) domain.DocCredit {
 	return domain.DocCredit{PersonID: &personID, Role: role, Attribution: domain.AttributionNamed,
@@ -482,6 +489,9 @@ func seedModeratedLantern(c *catalogtest.Catalog, piece catalogtest.Ref, doc dom
 	c.Exec("INSERT INTO link_reports (link_id, reporter_user_id, reason, message, created_at) "+
 		"SELECT id, ?, 'other', ?, ? FROM links WHERE url = ?", leakAuthorID, reportMessage, reviewedAt,
 		"https://example.org/lantern")
+	c.Exec("INSERT INTO contact_requests (kind, name, email, message, url, created_at) "+
+		"VALUES ('takedown', ?, ?, ?, ?, ?)", contactName, contactEmail, contactMessage,
+		"https://example.org/leakmark-contact-url", reviewedAt)
 
 	return rejectedID, rebasedID
 }
@@ -713,43 +723,46 @@ const (
 
 // leakExempt are the operations that read no catalogue data, and why. A public /v1 GET cannot be exempt.
 var leakExempt = map[openapitest.Operation]string{
-	{Method: http.MethodGet, Path: healthzPath}:                                "health check",
-	{Method: http.MethodGet, Path: readyzPath}:                                 "health check",
-	{Method: http.MethodGet, Path: mePath}:                                     exemptAccount,
-	{Method: http.MethodPatch, Path: mePath}:                                   exemptAccount,
-	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}:              "moderation of accounts",
-	{Method: http.MethodPost, Path: tokensPath}:                                exemptAPIAuth,
-	{Method: http.MethodGet, Path: tokensPath}:                                 exemptAPIAuth,
-	{Method: http.MethodDelete, Path: "/v1/tokens/{token_id}"}:                 exemptAPIAuth,
-	{Method: http.MethodPost, Path: draftsPath}:                                exemptOwnRevisions,
-	{Method: http.MethodGet, Path: draftPath}:                                  exemptOwnRevisions,
-	{Method: http.MethodPut, Path: draftPath}:                                  exemptOwnRevisions,
-	{Method: http.MethodDelete, Path: draftPath}:                               exemptOwnRevisions,
-	{Method: http.MethodPost, Path: revisionsPath}:                             exemptOwnRevisions,
-	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/withdraw"}:    exemptOwnRevisions,
-	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/revert"}:      exemptOwnRevisions,
-	{Method: http.MethodGet, Path: myRevisionsPath}:                            exemptOwnRevisions,
-	{Method: http.MethodGet, Path: myRevisionPath}:                             exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/editable"}:               exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/persons/{slug}/editable"}:              exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/terms/{slug}/editable"}:                exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/events/{slug}/editable"}:               exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/editable"}: exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/pending"}:                exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/persons/{slug}/pending"}:               exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/terms/{slug}/pending"}:                 exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/events/{slug}/pending"}:                exemptOwnRevisions,
-	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/pending"}:  exemptOwnRevisions,
-	{Method: http.MethodPost, Path: reportLinkPath}:                            "writes a link report; returns only its receipt",
-	{Method: http.MethodGet, Path: moderationQueuePath}:                        exemptModeration,
-	{Method: http.MethodGet, Path: moderationRevisionRoute}:                    exemptModeration,
-	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/approve"}:     exemptModeration,
-	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/reject"}:      exemptModeration,
-	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/rebase"}:      exemptModeration,
-	{Method: http.MethodGet, Path: moderationReportsPath}:                      exemptModeration,
-	{Method: http.MethodPost, Path: "/v1/moderation/link-reports/{report_id}"}: exemptModeration,
-	{Method: http.MethodGet, Path: moderationLinksPath}:                        exemptModeration,
-	{Method: http.MethodPut, Path: "/v1/links/{link_id}/hidden"}:               exemptModeration,
+	{Method: http.MethodGet, Path: healthzPath}:                                     "health check",
+	{Method: http.MethodGet, Path: readyzPath}:                                      "health check",
+	{Method: http.MethodGet, Path: mePath}:                                          exemptAccount,
+	{Method: http.MethodPatch, Path: mePath}:                                        exemptAccount,
+	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}:                   "moderation of accounts",
+	{Method: http.MethodPost, Path: tokensPath}:                                     exemptAPIAuth,
+	{Method: http.MethodGet, Path: tokensPath}:                                      exemptAPIAuth,
+	{Method: http.MethodDelete, Path: "/v1/tokens/{token_id}"}:                      exemptAPIAuth,
+	{Method: http.MethodPost, Path: draftsPath}:                                     exemptOwnRevisions,
+	{Method: http.MethodGet, Path: draftPath}:                                       exemptOwnRevisions,
+	{Method: http.MethodPut, Path: draftPath}:                                       exemptOwnRevisions,
+	{Method: http.MethodDelete, Path: draftPath}:                                    exemptOwnRevisions,
+	{Method: http.MethodPost, Path: revisionsPath}:                                  exemptOwnRevisions,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/withdraw"}:         exemptOwnRevisions,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/revert"}:           exemptOwnRevisions,
+	{Method: http.MethodGet, Path: myRevisionsPath}:                                 exemptOwnRevisions,
+	{Method: http.MethodGet, Path: myRevisionPath}:                                  exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/editable"}:                    exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/editable"}:                   exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/editable"}:                     exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/editable"}:                    exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/editable"}:      exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/pending"}:                     exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/pending"}:                    exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/pending"}:                      exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/pending"}:                     exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/pending"}:       exemptOwnRevisions,
+	{Method: http.MethodPost, Path: reportLinkPath}:                                 "writes a link report; returns only its receipt",
+	{Method: http.MethodGet, Path: moderationQueuePath}:                             exemptModeration,
+	{Method: http.MethodGet, Path: moderationRevisionRoute}:                         exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/approve"}:          exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/reject"}:           exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/rebase"}:           exemptModeration,
+	{Method: http.MethodGet, Path: moderationReportsPath}:                           exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/moderation/link-reports/{report_id}"}:      exemptModeration,
+	{Method: http.MethodGet, Path: moderationLinksPath}:                             exemptModeration,
+	{Method: http.MethodPut, Path: "/v1/links/{link_id}/hidden"}:                    exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/contact"}:                                  "writes a contact request; returns no catalogue data",
+	{Method: http.MethodGet, Path: "/v1/moderation/contact-requests"}:               exemptModeration,
+	{Method: http.MethodPost, Path: "/v1/moderation/contact-requests/{request_id}"}: exemptModeration,
 }
 
 // TestHTTP_LeakMatrix sends every leakMatrix request to the production handler over a real repository holding
@@ -760,7 +773,7 @@ func TestHTTP_LeakMatrix(t *testing.T) {
 
 	db, fx := leakCatalogue.Get(t)
 	requireLeakMarkersStored(t, db)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
 	contract := openapitest.New(t)
 
 	operations := contract.Operations()
@@ -879,7 +892,7 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 			"AND l.normalized_url = 'https://example.org/leakmark-respelled-link' WHERE r.status = 'approved' " +
 			"AND JSON_SEARCH(r.snapshot_json, 'one', '" + respelledLinkURL + "', NULL, '$.links[*].url') IS NOT NULL",
 		// A rejected revision with marked notes; a pending revision a moderator rebased, whose original submission
-		// alone holds its marker; a marked message of an open report of a visible link.
+		// alone holds its marker; a marked message of an open report of a visible link; an open contact request.
 		"SELECT COUNT(*) FROM revisions WHERE status = 'rejected' AND snapshot_json->>'$.notes_md' = '" +
 			rejectedNotes + "'",
 		"SELECT COUNT(*) FROM revisions WHERE status = 'pending' AND rebased_by_user_id IS NOT NULL " +
@@ -887,6 +900,8 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 			"AND snapshot_json->>'$.notes_md' <> '" + rebasedOriginal + "'",
 		"SELECT COUNT(*) FROM link_reports r JOIN links l ON l.id = r.link_id " +
 			"WHERE r.status = 'open' AND NOT l.is_hidden AND r.message = '" + reportMessage + "'",
+		"SELECT COUNT(*) FROM contact_requests WHERE status = 'open' AND name = '" + contactName + "' " +
+			"AND email = '" + contactEmail + "' AND message = '" + contactMessage + "'",
 	} {
 		var count int
 		require.NoError(t, db.QueryRowContext(t.Context(), query).Scan(&count), query)
@@ -912,7 +927,7 @@ func TestHTTP_LeakMatrix_PlantedLeakFails(t *testing.T) {
 	t.Parallel()
 
 	db, fx := leakCatalogue.Get(t)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
 
 	req := leakRequest{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK,
 		reveals: []string{fx.noPage.Slug, noPageName}}
@@ -935,7 +950,7 @@ func TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing(t *testing.T) {
 	t.Parallel()
 
 	db, fx := leakCatalogue.Get(t)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
 
 	for name, id := range map[string]int64{
 		// Adds an alias that is hidden now, and a relation to a person who now prefers no page.

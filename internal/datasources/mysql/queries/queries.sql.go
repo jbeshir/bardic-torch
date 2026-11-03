@@ -87,6 +87,30 @@ func (q *Queries) CountApprovedRevisions(ctx context.Context, arg CountApprovedR
 	return count, err
 }
 
+const countContactRequests = `-- name: CountContactRequests :one
+SELECT COUNT(*)
+FROM contact_requests cr
+WHERE (? IS NULL OR cr.status = ?)
+    AND (? IS NULL OR cr.kind = ?)
+`
+
+type CountContactRequestsParams struct {
+	Status NullContactRequestsStatus
+	Kind   NullContactRequestsKind
+}
+
+func (q *Queries) CountContactRequests(ctx context.Context, arg CountContactRequestsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countContactRequests,
+		arg.Status,
+		arg.Status,
+		arg.Kind,
+		arg.Kind,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countDrafts = `-- name: CountDrafts :one
 SELECT COUNT(*)
 FROM revisions
@@ -176,6 +200,26 @@ func (q *Queries) CountMyRevisions(ctx context.Context, arg CountMyRevisionsPara
 		arg.EntityType,
 		arg.EntityType,
 	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countOpenContactRequests = `-- name: CountOpenContactRequests :one
+
+SELECT COUNT(*)
+FROM contact_requests
+WHERE status = 'open'
+`
+
+// ============================================
+// Contact requests (D21)
+//
+// The sender's name, email, message and url are personal data: never logged, and purged ContactRetention after
+// resolution.
+// ============================================
+func (q *Queries) CountOpenContactRequests(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOpenContactRequests)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -692,6 +736,56 @@ func (q *Queries) GetApprovedRevision(ctx context.Context, id uint64) (GetApprov
 		&i.CreatedAt,
 		&i.SnapshotJson,
 		&i.AuthorDisplayName,
+	)
+	return i, err
+}
+
+const getContactRequest = `-- name: GetContactRequest :one
+SELECT cr.id, cr.kind, cr.name, cr.email, cr.message, cr.url, cr.status, cr.created_at, cr.resolved_at,
+    cr.resolution_note, cr.purged_at, cr.resolved_by_user_id, v.display_name AS resolver_display_name,
+    v.role AS resolver_role, v.blocked_at AS resolver_blocked_at
+FROM contact_requests cr
+LEFT JOIN users v ON v.id = cr.resolved_by_user_id
+WHERE cr.id = ?
+`
+
+type GetContactRequestRow struct {
+	ID                  uint64
+	Kind                ContactRequestsKind
+	Name                sql.NullString
+	Email               sql.NullString
+	Message             sql.NullString
+	Url                 sql.NullString
+	Status              ContactRequestsStatus
+	CreatedAt           time.Time
+	ResolvedAt          sql.NullTime
+	ResolutionNote      sql.NullString
+	PurgedAt            sql.NullTime
+	ResolvedByUserID    sql.NullString
+	ResolverDisplayName sql.NullString
+	ResolverRole        NullUsersRole
+	ResolverBlockedAt   sql.NullTime
+}
+
+func (q *Queries) GetContactRequest(ctx context.Context, id uint64) (GetContactRequestRow, error) {
+	row := q.db.QueryRowContext(ctx, getContactRequest, id)
+	var i GetContactRequestRow
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.Name,
+		&i.Email,
+		&i.Message,
+		&i.Url,
+		&i.Status,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+		&i.ResolutionNote,
+		&i.PurgedAt,
+		&i.ResolvedByUserID,
+		&i.ResolverDisplayName,
+		&i.ResolverRole,
+		&i.ResolverBlockedAt,
 	)
 	return i, err
 }
@@ -1414,6 +1508,35 @@ func (q *Queries) InsertConservationHistory(ctx context.Context, arg InsertConse
 		arg.At,
 	)
 	return err
+}
+
+const insertContactRequest = `-- name: InsertContactRequest :execlastid
+INSERT INTO contact_requests (kind, name, email, message, url, created_at)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type InsertContactRequestParams struct {
+	Kind      ContactRequestsKind
+	Name      sql.NullString
+	Email     sql.NullString
+	Message   sql.NullString
+	Url       sql.NullString
+	CreatedAt time.Time
+}
+
+func (q *Queries) InsertContactRequest(ctx context.Context, arg InsertContactRequestParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertContactRequest,
+		arg.Kind,
+		arg.Name,
+		arg.Email,
+		arg.Message,
+		arg.Url,
+		arg.CreatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 const insertDraft = `-- name: InsertDraft :execlastid
@@ -2408,6 +2531,52 @@ func (q *Queries) ListConservationHistory(ctx context.Context, pieceID uint64) (
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listContactRequests = `-- name: ListContactRequests :many
+SELECT cr.id
+FROM contact_requests cr
+WHERE (? IS NULL OR cr.status = ?)
+    AND (? IS NULL OR cr.kind = ?)
+ORDER BY cr.created_at DESC, cr.id DESC
+LIMIT ? OFFSET ?
+`
+
+type ListContactRequestsParams struct {
+	Status NullContactRequestsStatus
+	Kind   NullContactRequestsKind
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListContactRequests(ctx context.Context, arg ListContactRequestsParams) ([]uint64, error) {
+	rows, err := q.db.QueryContext(ctx, listContactRequests,
+		arg.Status,
+		arg.Status,
+		arg.Kind,
+		arg.Kind,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uint64
+	for rows.Next() {
+		var id uint64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -5784,6 +5953,20 @@ func (q *Queries) ListUserActiveAPITokens(ctx context.Context, userID string) ([
 	return items, nil
 }
 
+const lockContactRequest = `-- name: LockContactRequest :one
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ status
+FROM contact_requests
+WHERE id = ?
+FOR UPDATE
+`
+
+func (q *Queries) LockContactRequest(ctx context.Context, id uint64) (ContactRequestsStatus, error) {
+	row := q.db.QueryRowContext(ctx, lockContactRequest, id)
+	var status ContactRequestsStatus
+	err := row.Scan(&status)
+	return status, err
+}
+
 const lockLink = `-- name: LockLink :one
 SELECT /*+ MAX_EXECUTION_TIME(4000) */ id
 FROM links
@@ -5969,6 +6152,25 @@ func (q *Queries) PromoteToModerator(ctx context.Context, arg PromoteToModerator
 	return err
 }
 
+const purgeContactRequests = `-- name: PurgeContactRequests :execrows
+UPDATE contact_requests
+SET name = NULL, email = NULL, message = NULL, url = NULL, purged_at = ?
+WHERE status IN ('resolved', 'dismissed') AND resolved_at < ? AND purged_at IS NULL
+`
+
+type PurgeContactRequestsParams struct {
+	Now    sql.NullTime
+	Cutoff sql.NullTime
+}
+
+func (q *Queries) PurgeContactRequests(ctx context.Context, arg PurgeContactRequestsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, purgeContactRequests, arg.Now, arg.Cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const rebaseRevisionRow = `-- name: RebaseRevisionRow :execrows
 UPDATE revisions
 SET snapshot_json = ?, base_revision_id = ?, summary = ?, rebased_by_user_id = ?, rebased_at = ?
@@ -6017,6 +6219,34 @@ func (q *Queries) RejectRevisionRow(ctx context.Context, arg RejectRevisionRowPa
 		arg.ReviewerUserID,
 		arg.ReviewedAt,
 		arg.ReviewNote,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const resolveContactRequest = `-- name: ResolveContactRequest :execrows
+UPDATE contact_requests
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ? AND status = 'open'
+`
+
+type ResolveContactRequestParams struct {
+	Status           ContactRequestsStatus
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+	ID               uint64
+}
+
+func (q *Queries) ResolveContactRequest(ctx context.Context, arg ResolveContactRequestParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, resolveContactRequest,
+		arg.Status,
+		arg.ResolvedByUserID,
+		arg.ResolvedAt,
+		arg.ResolutionNote,
 		arg.ID,
 	)
 	if err != nil {

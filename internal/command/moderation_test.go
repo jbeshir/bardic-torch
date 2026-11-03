@@ -90,6 +90,18 @@ func TestModeratorCommands_RequireAnInteractiveModerator(t *testing.T) {
 						ModerationLinkRequest{Principal: p.principal, URL: testLinkURL})
 					return err
 				},
+				"list_contact_requests": func() error {
+					_, err := (&ListContactRequests{Purger: mocks.NewContactRequestPurger(t),
+						Lister: mocks.NewContactRequestLister(t), Now: fixedClock}).Execute(t.Context(),
+						ContactRequestListRequest{Principal: p.principal})
+					return err
+				},
+				"resolve_contact_request": func() error {
+					_, err := (&ResolveContactRequest{Resolver: mocks.NewContactRequestResolver(t),
+						Purger: mocks.NewContactRequestPurger(t), Now: fixedClock}).Execute(t.Context(),
+						ResolveContactRequestRequest{Principal: p.principal, RequestID: testContactRequestID})
+					return err
+				},
 			}
 			for name, f := range run {
 				assert.ErrorIs(t, f(), domain.ErrModeratorRequired, name)

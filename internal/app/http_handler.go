@@ -10,7 +10,7 @@ import (
 )
 
 // HTTPDependencies are what the HTTP handler is built from: the datasources, the validators that authenticate
-// requests, and the clock.
+// requests, the contact form's Turnstile verifier, and the clock.
 type HTTPDependencies struct {
 	Pinger                        datasources.Pinger
 	AuthValidators                []router.AuthValidator
@@ -60,6 +60,11 @@ type HTTPDependencies struct {
 	LinkReportLister              datasources.LinkReportLister
 	LinkReportResolver            datasources.LinkReportResolver
 	LinkHiddenSetter              datasources.LinkHiddenSetter
+	ContactRequestCreator         datasources.ContactRequestCreator
+	ContactRequestLister          datasources.ContactRequestLister
+	ContactRequestResolver        datasources.ContactRequestResolver
+	ContactRequestPurger          datasources.ContactRequestPurger
+	TurnstileVerifier             datasources.TurnstileVerifier
 	Now                           func() time.Time
 }
 
@@ -145,6 +150,15 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		ResolveLinkReport: &command.ResolveLinkReport{Resolver: deps.LinkReportResolver, Now: deps.Now},
 		GetModerationLink: &command.GetModerationLink{Getter: deps.ModerationLinkGetter},
 		SetLinkHidden:     &command.SetLinkHidden{Setter: deps.LinkHiddenSetter, Now: deps.Now},
-		Now:               deps.Now,
+		SubmitContactRequest: &command.SubmitContactRequest{
+			Verifier: deps.TurnstileVerifier, Creator: deps.ContactRequestCreator, Now: deps.Now,
+		},
+		ListContactRequests: &command.ListContactRequests{
+			Purger: deps.ContactRequestPurger, Lister: deps.ContactRequestLister, Now: deps.Now,
+		},
+		ResolveContactRequest: &command.ResolveContactRequest{
+			Resolver: deps.ContactRequestResolver, Purger: deps.ContactRequestPurger, Now: deps.Now,
+		},
+		Now: deps.Now,
 	})
 }

@@ -67,6 +67,8 @@ const (
 	CodeDisplayNameTaken    ErrorCode = "display_name_taken"
 	CodeDisplayNameReserved ErrorCode = "display_name_reserved"
 	CodeReportLimitReached  ErrorCode = "report_limit_reached"
+	// The code of a contact request whose Turnstile token does not pass (D21).
+	CodeTurnstileFailed ErrorCode = "turnstile_failed"
 )
 
 type errorBody struct {

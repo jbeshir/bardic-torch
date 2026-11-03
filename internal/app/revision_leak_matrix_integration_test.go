@@ -277,6 +277,8 @@ func (w revisionLeakWorld) seedAuthorRevisions(t *testing.T, fx revisionLeakFixt
 	// A reports a visible link of the piece, with a message for the moderators' inbox.
 	sendOK[jsonObject](t, w.e, http.MethodPost, reportLinkPath, a,
 		reportLinkRequest(t, "https://example.org/lantern", reportMessage), http.StatusCreated)
+	// Someone without an account writes to the moderators; their personal data is for the inbox alone.
+	sendContact(t, w.e, contactBody("opt_out", contactName, contactEmail, contactMessage))
 
 	fx.own = []ownRevision{
 		{id: piece, reveals: []string{pendingNotes, pendingSummary}},
@@ -631,6 +633,14 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 		return moderatorOnly(moderationReportsPath, func(t *testing.T, body string) {
 			t.Helper()
 			assert.Contains(t, body, `"`+reportMessage+`"`, "the inbox does not show A's report message")
+		})
+	},
+	{Method: http.MethodGet, Path: contactRequestsPath}: func(revisionLeakFixture) []revisionLeakRequest {
+		return moderatorOnly(contactRequestsPath, func(t *testing.T, body string) {
+			t.Helper()
+			for _, pii := range []string{contactName, contactEmail, contactMessage} {
+				assert.Contains(t, body, `"`+pii+`"`, "the inbox does not show the contact request's data")
+			}
 		})
 	},
 	{Method: http.MethodGet, Path: moderationLinksPath}: func(revisionLeakFixture) []revisionLeakRequest {

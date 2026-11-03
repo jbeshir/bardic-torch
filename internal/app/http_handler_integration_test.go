@@ -99,7 +99,7 @@ func TestHTTP_EndToEnd(t *testing.T) {
 		auth0Validator,
 		router.NewAPITokenValidator(repository, repository, now),
 	}
-	e := endToEnd{handler: NewHTTPHandler(repositoryHTTPDependencies(repository, authValidators)), contract: openapitest.New(t)}
+	e := endToEnd{handler: NewHTTPHandler(repositoryHTTPDependencies(repository, authValidators, passingTurnstile{})), contract: openapitest.New(t)}
 
 	auth0 := func(userID string) string {
 		return "Bearer auth0|" + auth0test.Sign(t, issuer.Key, issuer.Claims(userID, endToEndAudience))

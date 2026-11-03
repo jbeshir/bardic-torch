@@ -235,7 +235,7 @@ var matrixPage = domain.Page{Limit: domain.DefaultPageLimit}
 
 // authMatrix is the access every operation in the OpenAPI spec requires. TestRouter_AuthMatrix fails for an
 // operation without a row, so each new endpoint adds one here.
-var authMatrix = withRows(revisionMatrix(), moderationMatrix(), map[openapitest.Operation]matrixRow{
+var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(), map[openapitest.Operation]matrixRow{
 	{Method: http.MethodGet, Path: healthzPath}: {
 		access:        public,
 		successStatus: http.StatusOK,

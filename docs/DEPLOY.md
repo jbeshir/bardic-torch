@@ -15,6 +15,7 @@ Replace these in the commands below:
 | `<AUTH0_DOMAIN>` | Auth0 tenant domain, as a bare host name with no `https://` or trailing slash. Use the custom domain if the tenant has one (see [Custom domain](#custom-domain)). | `bardic-torch.eu.auth0.com` |
 | `<MODERATOR_USER_IDS>` | Comma-separated Auth0 user IDs of the moderators | `google-oauth2\|1234,facebook\|5678` |
 | `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
+| `<TURNSTILE_SECRET_KEY>` | The secret key of the contact form's Cloudflare Turnstile widget (see [Cloudflare Turnstile](#cloudflare-turnstile)) | `0x4AAAAAAA…` |
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
 | `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
@@ -201,6 +202,37 @@ Auth0 creates a user the first time someone logs in. To get John's and Fabian's 
 Management → Users**, select the user, and copy the **user_id** field, e.g. `google-oauth2|1234` or
 `facebook|5678`. The ID is case-sensitive. These form `<MODERATOR_USER_IDS>`.
 
+## Cloudflare Turnstile
+
+The public contact form (`POST /v1/contact`, no account needed) is protected by a Cloudflare Turnstile widget on
+the FE. The API verifies each token server-side with Cloudflare's siteverify API and accepts it only if Cloudflare
+passes it, it was minted on a hostname in `TURNSTILE_HOSTNAMES`, and its action is `contact`.
+
+1. In the Cloudflare dashboard, **Turnstile → Add widget** (John's account): name it `bardictorch contact`, add
+   both hostnames, `bardictorch.org` and `preview.bardictorch.org`.
+2. Copy the widget's **Secret key** into `TURNSTILE_SECRET_KEY` (see [Configuration](#configuration)). The
+   **Site key** and the widget's `data-action="contact"` are the FE's configuration, not the API's.
+
+Cloudflare's documented test keys serve development and staging. They still call siteverify, so the API needs to
+reach `challenges.cloudflare.com`:
+
+| Key | Value | Result |
+|---|---|---|
+| Secret (API) | `1x0000000000000000000000000000000AA` | always passes (the `.env.dist` default) |
+| Secret (API) | `2x0000000000000000000000000000000AA` | always fails |
+| Secret (API) | `3x0000000000000000000000000000000AA` | fails as a token already spent |
+| Site key (FE) | `1x00000000000000000000AA` | always passes |
+| Site key (FE) | `2x00000000000000000000AB` | always blocks |
+| Site key (FE) | `3x00000000000000000000FF` | forces an interactive challenge |
+
+The test site keys produce the dummy token `XXXX.DUMMY.TOKEN.XXXX`, which only the test secrets accept. Leave
+`TURNSTILE_HOSTNAMES` empty with the test secrets: their tokens may report a hostname that is not yours.
+
+When Cloudflare fails, cannot be reached within 5 seconds, or reports a misconfigured secret, the contact form
+answers 503 and nothing is stored; a misconfiguration (`invalid-input-secret`, `missing-input-secret`) is logged at
+error. At most 8 verifications run at once, and at most 1000 contact requests may be open; beyond either the form
+answers 503.
+
 ## First-time setup
 
 ### App and database
@@ -279,12 +311,17 @@ dokku config:set --no-restart bardic-torch-api \
   AUTH_DRIVERS=auth0,api_token \
   AUTH0_DOMAIN=<AUTH0_DOMAIN> \
   AUTH0_AUDIENCE=https://api.bardictorch.org \
-  BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>'
+  BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>' \
+  TURNSTILE_SECRET_KEY='<TURNSTILE_SECRET_KEY>' \
+  TURNSTILE_HOSTNAMES=bardictorch.org,preview.bardictorch.org
 ```
 
 - Keep the single quotes around the user IDs: they contain `|`, which the shell would otherwise treat as a pipe.
 - `BOOTSTRAP_MODERATOR_USER_IDS` must be set, but may be empty if the moderator IDs are not known yet. Set it
   later as in [Moderators](#moderators).
+- `TURNSTILE_SECRET_KEY` must be set, but may be empty: the contact form (`POST /v1/contact`) then answers 503,
+  and the API logs a warning at startup. `TURNSTILE_HOSTNAMES` lists the hostnames a token must have been minted
+  on; empty skips that check, which only development should do.
 - `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
   if `AUTH_DRIVERS` names an unknown driver, or if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
   enabled.
@@ -554,3 +591,14 @@ Promotion also unblocks: if a blocked contributor is listed in `BOOTSTRAP_MODERA
 makes them an unblocked moderator. Listing an ID means trusting that person, and a blocked moderator could not be
 unblocked through the API, because moderators cannot be blocked or unblocked. To block someone who is a
 moderator, demote them first as above, then block them through `PUT /v1/users/{user_id}/blocked`.
+
+### Contact requests
+
+Messages sent through the contact form are in the moderators' inbox, `GET /v1/moderation/contact-requests`,
+which, like every moderator operation, needs an interactive Auth0 session: an API token gets 403. The sender's name,
+email address, message and URL are personal data. The API never logs them, and only that inbox returns them.
+
+Retention: 180 days after a request is resolved or dismissed, its name, email address, message and URL are
+deleted, and the inbox shows it as `purged`. The purge runs at startup, after each resolution and before each
+inbox list; there is no scheduled job. Open requests are kept until a moderator resolves or dismisses them, since
+they still need action.

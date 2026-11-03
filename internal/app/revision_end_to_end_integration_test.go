@@ -51,7 +51,7 @@ func newRevisionWorld(t *testing.T, logger *slog.Logger, moderatorID string) rev
 	authValidators := []router.AuthValidator{auth0Validator, router.NewAPITokenValidator(repository, repository, now)}
 
 	return revisionWorld{
-		e: endToEnd{handler: NewHTTPHandler(repositoryHTTPDependencies(repository, authValidators)),
+		e: endToEnd{handler: NewHTTPHandler(repositoryHTTPDependencies(repository, authValidators, passingTurnstile{})),
 			contract: openapitest.New(t), logger: logger},
 		db: db, repository: repository, issuer: issuer,
 	}

@@ -41,6 +41,8 @@ tags:
     description: |
       Actions and views reserved for moderators, in an interactive (Auth0) session: a moderator's API token gets
       403 `api_token_not_allowed`, because a leaked long-lived token must not moderate or read moderator views.
+  - name: Contact
+    description: The public contact form, which needs no account
   - name: API tokens
     description: Personal API tokens for programmatic access
   - name: Revisions
@@ -802,6 +804,123 @@ paths:
           $ref: "#/components/responses/InteractiveModeratorForbidden"
         "404":
           $ref: "#/components/responses/LinkNotFound"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/moderation/contact-requests:
+    get:
+      tags:
+        - Moderation
+      summary: List contact requests
+      description: |
+        Lists one page of the contact requests, newest first, then by `id` descending, with how many match in
+        all. Each holds its sender's personal data until it is purged, 180 days after resolution; the purge of
+        requests past that runs before the list. Requires an interactive moderator session.
+      operationId: listContactRequests
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Only list requests with this status.
+          schema:
+            $ref: "#/components/schemas/ContactRequestStatus"
+        - name: kind
+          in: query
+          required: false
+          description: Only list requests of this kind.
+          schema:
+            $ref: "#/components/schemas/ContactRequestKind"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: One page of contact requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRequestList"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/moderation/contact-requests/{request_id}:
+    post:
+      tags:
+        - Moderation
+      summary: Resolve a contact request
+      description: |
+        Resolves or dismisses an open contact request. Its personal data is purged 180 days later. Requires an
+        interactive moderator session.
+      operationId: resolveContactRequest
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          description: The request's `id`.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            examples:
+              - 12
+      requestBody:
+        description: The resolution.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveContactRequestRequest"
+      responses:
+        "200":
+          description: The resolved request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRequest"
+        "400":
+          description: |
+            The `request_id` is not a positive integer, or the request body is malformed or invalid; the error
+            code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid status: must be resolved or dismissed"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "404":
+          description: There is no request with this `id`; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: contact request not found
+        "409":
+          description: The request is already resolved or dismissed; the error code is `conflict`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: conflict
+                message: the contact request is not open
         "413":
           $ref: "#/components/responses/RequestTooLarge"
         "415":
@@ -1809,6 +1928,81 @@ paths:
         "500":
           $ref: "#/components/responses/InternalSearch"
 
+
+  /v1/contact:
+    post:
+      tags:
+        - Contact
+      summary: Send a contact request
+      description: |
+        Sends a message to the moderators through the contact form: a takedown or opt-out request, a correction,
+        or anything else. No account is needed; instead `turnstile_token`, from the form's Cloudflare Turnstile
+        widget (action `contact`), must pass server-side verification, which runs after the body is validated and
+        before anything is stored. The answer holds no ID. The name, email address, message and URL are shown
+        only to moderators, in an interactive session, and are never logged; 180 days after a moderator resolves
+        or dismisses the request they are deleted. The body may be up to 64 KiB. Credentials are ignored.
+      operationId: submitContactRequest
+      security: []
+      requestBody:
+        description: The message, how to reply, and the Turnstile token.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactRequestSubmission"
+      responses:
+        "202":
+          description: The request is stored for the moderators.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRequestReceived"
+        "400":
+          description: |
+            The request body is malformed or invalid (`invalid_request`; the message names the field, never its
+            value), or the Turnstile token did not pass: it is missing, invalid, expired, already used, or was
+            minted for another site or form (`turnstile_failed`). Nothing is stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid:
+                  summary: A field is invalid
+                  value:
+                    code: invalid_request
+                    message: "invalid email: must be an address of the form local@domain, without spaces"
+                turnstile:
+                  summary: The Turnstile token did not pass
+                  value:
+                    code: turnstile_failed
+                    message: "the turnstile check failed: complete it again and resend"
+        "413":
+          description: The request body is larger than 64 KiB; the error code is `request_too_large`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: request_too_large
+                message: request body is too large
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          description: |
+            The request cannot be taken now, and nothing is stored: the contact form is disabled, Cloudflare failed,
+            could not be reached in time or reports a misconfiguration, too many verifications are running, 1000
+            requests are already open, or the write could not finish in time. It may be retried later, with a new
+            Turnstile token. The error code is `unavailable`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: unavailable
+                message: the contact form is unavailable; try again later
 
   /v1/pieces/{slug}/editable:
     get:
@@ -3261,6 +3455,7 @@ components:
             - display_name_taken
             - display_name_reserved
             - report_limit_reached
+            - turnstile_failed
           examples:
             - unavailable
         message:
@@ -8539,6 +8734,196 @@ components:
         - status: resolved
           note: null
           hide_link: true
+
+    ContactRequestKind:
+      type: string
+      description: |
+        What a contact request asks for: content removed (`takedown`), a person's page removed or hidden
+        (`opt_out`), a correction, or anything else (`general`).
+      enum: [takedown, opt_out, correction, general]
+      examples:
+        - correction
+
+    ContactRequestStatus:
+      type: string
+      description: Where a contact request is in moderation.
+      enum: [open, resolved, dismissed]
+      examples:
+        - open
+
+    ContactRequestSubmission:
+      type: object
+      description: |
+        The body of a contact request. `name` and `url` are optional; `url` is the page or link the request is
+        about, an http or https URL.
+      additionalProperties: false
+      required: [kind, email, message, turnstile_token]
+      properties:
+        kind:
+          $ref: "#/components/schemas/ContactRequestKind"
+        name:
+          type: [string, "null"]
+          maxLength: 255
+          examples:
+            - Wren Placeholder
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+          description: Where to reply, of the form local@domain, without spaces or control characters.
+          examples:
+            - wren@example.org
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+            - The second verse of The Copper Kettle is credited to the wrong person.
+        url:
+          type: [string, "null"]
+          maxLength: 2048
+          examples:
+            - https://bardictorch.org/pieces/the-copper-kettle
+        turnstile_token:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: The token of the form's Turnstile widget, minted for the action `contact`.
+          examples:
+            - XXXX.DUMMY.TOKEN.XXXX
+      examples:
+        - kind: correction
+          name: Wren Placeholder
+          email: wren@example.org
+          message: The second verse of The Copper Kettle is credited to the wrong person.
+          url: https://bardictorch.org/pieces/the-copper-kettle
+          turnstile_token: XXXX.DUMMY.TOKEN.XXXX
+
+    ContactRequestReceived:
+      type: object
+      description: The answer to a stored contact request. It holds no ID.
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [received]
+          examples:
+            - received
+      examples:
+        - status: received
+
+    ContactRequest:
+      type: object
+      description: |
+        A contact request as moderators see it. `name`, `email`, `message` and `url` are null once the request is
+        `purged`, 180 days after it was resolved or dismissed; `name` and `url` are also null when the sender gave
+        none.
+      additionalProperties: false
+      required: [id, kind, name, email, message, url, status, created_at, resolved_at, resolved_by, note, purged]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          examples:
+            - 12
+        kind:
+          $ref: "#/components/schemas/ContactRequestKind"
+        name:
+          type: [string, "null"]
+          examples:
+            - Wren Placeholder
+        email:
+          type: [string, "null"]
+          examples:
+            - wren@example.org
+        message:
+          type: [string, "null"]
+          examples:
+            - The second verse of The Copper Kettle is credited to the wrong person.
+        url:
+          type: [string, "null"]
+          examples:
+            - null
+        status:
+          $ref: "#/components/schemas/ContactRequestStatus"
+        created_at:
+          type: string
+          format: date-time
+          examples:
+            - "2026-10-01T09:00:00Z"
+        resolved_at:
+          type: [string, "null"]
+          format: date-time
+          examples:
+            - null
+        resolved_by:
+          oneOf:
+            - $ref: "#/components/schemas/ModerationAuthor"
+            - type: "null"
+        note:
+          type: [string, "null"]
+          description: The moderator's resolution note.
+          examples:
+            - null
+        purged:
+          type: boolean
+          examples:
+            - false
+      examples:
+        - id: 12
+          kind: correction
+          name: Wren Placeholder
+          email: wren@example.org
+          message: The second verse of The Copper Kettle is credited to the wrong person.
+          url: null
+          status: open
+          created_at: "2026-10-01T09:00:00Z"
+          resolved_at: null
+          resolved_by: null
+          note: null
+          purged: false
+
+    ContactRequestList:
+      type: object
+      description: One page of contact requests, newest first, with how many match in all.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactRequest"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          examples:
+            - 1
+      examples:
+        - data: []
+          total: 0
+
+    ResolveContactRequestRequest:
+      type: object
+      description: The body of a contact request's resolution.
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [resolved, dismissed]
+          examples:
+            - resolved
+        note:
+          type: [string, "null"]
+          maxLength: 2000
+          examples:
+            - null
+      examples:
+        - status: resolved
+          note: Credit corrected.
 
     DocumentError:
       type: object

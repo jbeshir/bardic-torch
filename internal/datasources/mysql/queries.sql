@@ -1338,3 +1338,57 @@ WHERE id = ?;
 UPDATE link_reports
 SET status = 'resolved', resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
 WHERE link_id = ? AND status = 'open';
+
+-- ============================================
+-- Contact requests (D21)
+--
+-- The sender's name, email, message and url are personal data: never logged, and purged ContactRetention after
+-- resolution.
+-- ============================================
+
+-- name: CountOpenContactRequests :one
+SELECT COUNT(*)
+FROM contact_requests
+WHERE status = 'open';
+
+-- name: InsertContactRequest :execlastid
+INSERT INTO contact_requests (kind, name, email, message, url, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: ListContactRequests :many
+SELECT cr.id
+FROM contact_requests cr
+WHERE (sqlc.narg(status) IS NULL OR cr.status = sqlc.narg(status))
+    AND (sqlc.narg(kind) IS NULL OR cr.kind = sqlc.narg(kind))
+ORDER BY cr.created_at DESC, cr.id DESC
+LIMIT ? OFFSET ?;
+
+-- name: CountContactRequests :one
+SELECT COUNT(*)
+FROM contact_requests cr
+WHERE (sqlc.narg(status) IS NULL OR cr.status = sqlc.narg(status))
+    AND (sqlc.narg(kind) IS NULL OR cr.kind = sqlc.narg(kind));
+
+-- name: GetContactRequest :one
+SELECT cr.id, cr.kind, cr.name, cr.email, cr.message, cr.url, cr.status, cr.created_at, cr.resolved_at,
+    cr.resolution_note, cr.purged_at, cr.resolved_by_user_id, v.display_name AS resolver_display_name,
+    v.role AS resolver_role, v.blocked_at AS resolver_blocked_at
+FROM contact_requests cr
+LEFT JOIN users v ON v.id = cr.resolved_by_user_id
+WHERE cr.id = ?;
+
+-- name: LockContactRequest :one
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ status
+FROM contact_requests
+WHERE id = ?
+FOR UPDATE;
+
+-- name: ResolveContactRequest :execrows
+UPDATE contact_requests
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ? AND status = 'open';
+
+-- name: PurgeContactRequests :execrows
+UPDATE contact_requests
+SET name = NULL, email = NULL, message = NULL, url = NULL, purged_at = sqlc.arg(now)
+WHERE status IN ('resolved', 'dismissed') AND resolved_at < sqlc.arg(cutoff) AND purged_at IS NULL;

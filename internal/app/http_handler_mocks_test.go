@@ -96,6 +96,11 @@ type handlerMocks struct {
 	reportLister      *mocks.LinkReportLister
 	reportResolver    *mocks.LinkReportResolver
 	linkHider         *mocks.LinkHiddenSetter
+	contactCreator    *mocks.ContactRequestCreator
+	contactLister     *mocks.ContactRequestLister
+	contactResolver   *mocks.ContactRequestResolver
+	contactPurger     *mocks.ContactRequestPurger
+	turnstile         *mocks.TurnstileVerifier
 	handler           http.Handler
 	validate          *openapitest.Validator
 }
@@ -148,6 +153,11 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		reportLister:      mocks.NewLinkReportLister(t),
 		reportResolver:    mocks.NewLinkReportResolver(t),
 		linkHider:         mocks.NewLinkHiddenSetter(t),
+		contactCreator:    mocks.NewContactRequestCreator(t),
+		contactLister:     mocks.NewContactRequestLister(t),
+		contactResolver:   mocks.NewContactRequestResolver(t),
+		contactPurger:     mocks.NewContactRequestPurger(t),
+		turnstile:         mocks.NewTurnstileVerifier(t),
 		validate:          openapitest.New(t),
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
@@ -202,6 +212,11 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		LinkReportLister:              m.reportLister,
 		LinkReportResolver:            m.reportResolver,
 		LinkHiddenSetter:              m.linkHider,
+		ContactRequestCreator:         m.contactCreator,
+		ContactRequestLister:          m.contactLister,
+		ContactRequestResolver:        m.contactResolver,
+		ContactRequestPurger:          m.contactPurger,
+		TurnstileVerifier:             m.turnstile,
 		Now: func() time.Time {
 			return handlerNow
 		},
