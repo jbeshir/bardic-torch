@@ -53,7 +53,13 @@ func specEnums() map[string][]string {
 		"NeedsWorkReason":      strs(NeedsWorkReasons()),
 		"PieceSort":            strs(pieceSortValues),
 		"PersonSort":           strs(personSortValues),
-		"Letter":               letters,
+		"EntityType":           strs(entityTypeValues),
+		"RevisionStatus":       strs(revisionStatusValues),
+		"FlagCode":             strs(flagCodeValues),
+		"DuplicateField": strs([]DuplicateField{
+			DuplicateFieldTitle, DuplicateFieldAlias, DuplicateFieldName, DuplicateFieldURL,
+		}),
+		"Letter": letters,
 	}
 }
 

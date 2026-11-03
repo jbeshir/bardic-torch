@@ -18,9 +18,6 @@ var (
 	_ datasources.DraftDiscarder = (*Repository)(nil)
 )
 
-// errDocumentType is a document of another entity type than the draft or entity it is saved for.
-var errDocumentType = errors.New("document is not of the entity's type")
-
 // txReader returns a catalogueReader reading in the write transaction tx.
 func (r *Repository) txReader(tx *sql.Tx) *catalogueReader {
 	return &catalogueReader{q: r.queries.WithTx(tx), run: txRunner(tx)}
@@ -52,7 +49,7 @@ func (r *Repository) saveDraft(
 		return datasources.SavedDraft{}, err
 	}
 	if req.Document.EntityType() != req.EntityType || req.Entity != nil && req.Entity.Type != req.EntityType {
-		return datasources.SavedDraft{}, errDocumentType
+		return datasources.SavedDraft{}, datasources.ErrDocumentType
 	}
 	if _, err := c.q.LockUser(ctx, req.Actor.UserID); err != nil {
 		return datasources.SavedDraft{}, fmt.Errorf("locking user: %w", lookupError("user", err))
@@ -205,7 +202,7 @@ func (r *Repository) UpdateDraft(ctx context.Context, req datasources.UpdateDraf
 			return err
 		}
 		if string(row.EntityType) != string(req.Document.EntityType()) {
-			return errDocumentType
+			return datasources.ErrDocumentType
 		}
 		snapshot, err := encodeJSON(req.Document)
 		if err != nil {

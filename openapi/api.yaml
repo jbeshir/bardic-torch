@@ -41,6 +41,10 @@ tags:
     description: Actions reserved for moderators
   - name: API tokens
     description: Personal API tokens for programmatic access
+  - name: Revisions
+    description: |
+      The caller's own edits: editable documents, drafts, submissions, withdrawals and reverts, and their
+      revisions. An API token acts with contributor powers, whatever its user's role.
   - name: Catalogue
     description: |
       Public reads of the catalogue: pieces, persons, the terms that classify them, and the collections and
@@ -1230,6 +1234,943 @@ paths:
           $ref: "#/components/responses/InternalSearch"
 
 
+  /v1/pieces/{slug}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get the editable document of a piece
+      description: |
+        Returns the document the caller starts an edit of a piece from, in the editor format, with the entities it
+        references and the caller's draft and pending revision of it, if any. If the caller has a pending revision
+        of the piece, the document is that revision as they see it, on the base it was submitted on
+        (`starting_point` `pending`); otherwise it is the current document (`current`). What the caller may not
+        see is withheld: hidden aliases and links, everything of a person who prefers not to have a page but
+        their identity, and references to entities that are not public. An interactive moderator sees everything
+        but preference profiles, with `link_states`; an API token, whatever its user's role, sees what a
+        contributor sees. A piece that is neither public nor the caller's own pending new piece (addressed by
+        its placeholder slug) is not found, exactly like an unknown one.
+      operationId: getPieceEditable
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The editable document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            No piece the caller may edit has this address; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: piece not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/pieces/{slug}/pending:
+    get:
+      tags:
+        - Revisions
+      summary: Get the caller's pending revision of a piece
+      description: |
+        Returns the caller's pending revision of a piece as they see it: what they typed is shown as they typed
+        it, what they received from the current document as it is public now, and hidden aliases never. A
+        placeholder slug addresses the caller's own pending new piece. Moderator flags are never shown.
+      operationId: getPiecePending
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The caller's pending revision of the piece.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            The caller has no pending revision of a piece with this address, or no piece the caller may edit has
+            it; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: pending revision not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/persons/{slug}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get the editable document of a person
+      description: |
+        Returns the document the caller starts an edit of a person from, in the editor format, with the entities it
+        references and the caller's draft and pending revision of it, if any. If the caller has a pending revision
+        of the person, the document is that revision as they see it, on the base it was submitted on
+        (`starting_point` `pending`); otherwise it is the current document (`current`). What the caller may not
+        see is withheld: hidden aliases and links, everything of a person who prefers not to have a page but
+        their identity, and references to entities that are not public. An interactive moderator sees everything
+        but preference profiles, with `link_states`; an API token, whatever its user's role, sees what a
+        contributor sees. A person that is neither public nor the caller's own pending new person (addressed by
+        its placeholder slug) is not found, exactly like an unknown one.
+      operationId: getPersonEditable
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The editable document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            No person the caller may edit has this address; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: person not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/persons/{slug}/pending:
+    get:
+      tags:
+        - Revisions
+      summary: Get the caller's pending revision of a person
+      description: |
+        Returns the caller's pending revision of a person as they see it: what they typed is shown as they typed
+        it, what they received from the current document as it is public now, and hidden aliases never. A
+        placeholder slug addresses the caller's own pending new person. Moderator flags are never shown.
+      operationId: getPersonPending
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The caller's pending revision of the person.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            The caller has no pending revision of a person with this address, or no person the caller may edit has
+            it; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: pending revision not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/terms/{slug}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get the editable document of a term
+      description: |
+        Returns the document the caller starts an edit of a term from, in the editor format, with the entities it
+        references and the caller's draft and pending revision of it, if any. If the caller has a pending revision
+        of the term, the document is that revision as they see it, on the base it was submitted on
+        (`starting_point` `pending`); otherwise it is the current document (`current`). What the caller may not
+        see is withheld: hidden aliases and links, everything of a person who prefers not to have a page but
+        their identity, and references to entities that are not public. An interactive moderator sees everything
+        but preference profiles, with `link_states`; an API token, whatever its user's role, sees what a
+        contributor sees. A term that is neither public nor the caller's own pending new term (addressed by
+        its placeholder slug) is not found, exactly like an unknown one.
+      operationId: getTermEditable
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The editable document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            No term the caller may edit has this address; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: term not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/terms/{slug}/pending:
+    get:
+      tags:
+        - Revisions
+      summary: Get the caller's pending revision of a term
+      description: |
+        Returns the caller's pending revision of a term as they see it: what they typed is shown as they typed
+        it, what they received from the current document as it is public now, and hidden aliases never. A
+        placeholder slug addresses the caller's own pending new term. Moderator flags are never shown.
+      operationId: getTermPending
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The caller's pending revision of the term.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            The caller has no pending revision of a term with this address, or no term the caller may edit has
+            it; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: pending revision not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/events/{slug}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get the editable document of a event
+      description: |
+        Returns the document the caller starts an edit of a event from, in the editor format, with the entities it
+        references and the caller's draft and pending revision of it, if any. If the caller has a pending revision
+        of the event, the document is that revision as they see it, on the base it was submitted on
+        (`starting_point` `pending`); otherwise it is the current document (`current`). What the caller may not
+        see is withheld: hidden aliases and links, everything of a person who prefers not to have a page but
+        their identity, and references to entities that are not public. An interactive moderator sees everything
+        but preference profiles, with `link_states`; an API token, whatever its user's role, sees what a
+        contributor sees. A event that is neither public nor the caller's own pending new event (addressed by
+        its placeholder slug) is not found, exactly like an unknown one.
+      operationId: getEventEditable
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The editable document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            No event the caller may edit has this address; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: event not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/events/{slug}/pending:
+    get:
+      tags:
+        - Revisions
+      summary: Get the caller's pending revision of a event
+      description: |
+        Returns the caller's pending revision of a event as they see it: what they typed is shown as they typed
+        it, what they received from the current document as it is public now, and hidden aliases never. A
+        placeholder slug addresses the caller's own pending new event. Moderator flags are never shown.
+      operationId: getEventPending
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The caller's pending revision of the event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            The caller has no pending revision of a event with this address, or no event the caller may edit has
+            it; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: pending revision not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/collections/{collection_id}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get the editable document of a collection
+      description: |
+        Returns the document the caller starts an edit of a collection from, in the editor format, with the entities it
+        references and the caller's draft and pending revision of it, if any. If the caller has a pending revision
+        of the collection, the document is that revision as they see it, on the base it was submitted on
+        (`starting_point` `pending`); otherwise it is the current document (`current`). What the caller may not
+        see is withheld: hidden aliases and links, everything of a person who prefers not to have a page but
+        their identity, and references to entities that are not public. An interactive moderator sees everything
+        but preference profiles, with `link_states`; an API token, whatever its user's role, sees what a
+        contributor sees. A collection that is neither public nor the caller's own pending new collection (addressed by
+        its placeholder slug) is not found, exactly like an unknown one.
+      operationId: getCollectionEditable
+      parameters:
+        - $ref: "#/components/parameters/CollectionID"
+      responses:
+        "200":
+          description: The editable document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidCollectionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            No collection the caller may edit has this address; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: collection not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/collections/{collection_id}/pending:
+    get:
+      tags:
+        - Revisions
+      summary: Get the caller's pending revision of a collection
+      description: |
+        Returns the caller's pending revision of a collection as they see it: what they typed is shown as they typed
+        it, what they received from the current document as it is public now, and hidden aliases never. A
+        placeholder slug addresses the caller's own pending new collection. Moderator flags are never shown.
+      operationId: getCollectionPending
+      parameters:
+        - $ref: "#/components/parameters/CollectionID"
+      responses:
+        "200":
+          description: The caller's pending revision of the collection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          $ref: "#/components/responses/InvalidCollectionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            The caller has no pending revision of a collection with this address, or no collection the caller may edit has
+            it; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: pending revision not found
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/drafts:
+    post:
+      tags:
+        - Revisions
+      summary: Save a draft
+      description: |
+        Saves a draft of an entity, or of a new entity if `entity` is null, holding a document in the editor
+        format. A caller has one draft per existing entity: saving another replaces its document and summary,
+        keeping its `id` and base, and answers 200 instead of 201. A placeholder slug addresses the caller's own
+        pending new entity. Drafts may be incomplete: only references and malformed values are checked now, and
+        the whole document when it is submitted. A draft of a new entity lists the entities its names match in
+        `duplicates`. Drafts are private to their author; a caller holds at most 50. The body may be up to 1 MiB.
+      operationId: createDraft
+      requestBody:
+        description: The draft to save.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDraftRequest"
+      responses:
+        "200":
+          description: The caller's draft of the entity, which the request replaced.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Draft"
+        "201":
+          description: The new draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Draft"
+        "400":
+          $ref: "#/components/responses/InvalidDocumentRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            No entity the caller may edit has this address; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: entity not found
+        "409":
+          description: |
+            The caller already holds 50 drafts; the error code is `draft_limit_reached`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: draft_limit_reached
+                message: a user may hold at most 50 drafts
+        "413":
+          $ref: "#/components/responses/DocumentTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/InvalidDraftDocument"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/drafts/{draft_id}:
+    get:
+      tags:
+        - Revisions
+      summary: Get a draft
+      description: |
+        Returns one of the caller's drafts as they saved it, with the entities its new entity may duplicate, the
+        entities it references and a preview of it once approved. Another user's draft is not found, exactly
+        like an unknown one; moderators do not see drafts.
+      operationId: getDraft
+      parameters:
+        - $ref: "#/components/parameters/DraftID"
+      responses:
+        "200":
+          description: The draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Draft"
+        "400":
+          $ref: "#/components/responses/InvalidDraftID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/DraftNotFound"
+        "409":
+          $ref: "#/components/responses/NotDraft"
+        "500":
+          $ref: "#/components/responses/Internal"
+    put:
+      tags:
+        - Revisions
+      summary: Update a draft
+      description: |
+        Replaces one of the caller's drafts' document and summary, keeping its base. The body may be up to 1 MiB.
+      operationId: updateDraft
+      parameters:
+        - $ref: "#/components/parameters/DraftID"
+      requestBody:
+        description: The draft's new document and summary.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDraftRequest"
+      responses:
+        "200":
+          description: The updated draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Draft"
+        "400":
+          description: |
+            The `draft_id` is not a positive integer, the request body is malformed, its `entity_type` is not the
+            draft's, or its document is not a document of that type; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid entity_type: not the draft's entity type"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/DraftNotFound"
+        "409":
+          $ref: "#/components/responses/NotDraft"
+        "413":
+          $ref: "#/components/responses/DocumentTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/InvalidDraftDocument"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+    delete:
+      tags:
+        - Revisions
+      summary: Discard a draft
+      description: Deletes one of the caller's drafts.
+      operationId: deleteDraft
+      parameters:
+        - $ref: "#/components/parameters/DraftID"
+      responses:
+        "204":
+          description: The draft is deleted.
+        "400":
+          $ref: "#/components/responses/InvalidDraftID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/DraftNotFound"
+        "409":
+          $ref: "#/components/responses/NotDraft"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/revisions:
+    post:
+      tags:
+        - Revisions
+      summary: Submit a draft
+      description: |
+        Submits one of the caller's drafts, which becomes a revision with the same `id`. A contributor's
+        submission, and any made with an API token, is pending until a moderator reviews it; it is stored on the
+        draft's own base, never merged with later changes, and replaces the caller's pending revision of the
+        entity, which is withdrawn. A caller may have at most 30 pending revisions. An interactive moderator's
+        submission is approved at once: one whose base is stale is merged with the current document, and must
+        acknowledge its flags. What was withheld from the caller's editable document is kept. A new entity
+        whose names match others needs `acknowledge_duplicates` from a contributor, and one matching a person
+        who has asked not to have a page cannot be submitted. Submitting a draft already submitted returns its
+        revision as it is (200), so that a retry is safe.
+      operationId: submitRevision
+      requestBody:
+        description: The draft to submit.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitRevisionRequest"
+      responses:
+        "200":
+          description: The draft was already submitted; its revision as it is.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "201":
+          description: The revision, pending, or approved for an interactive moderator.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/DraftNotFound"
+        "409":
+          description: |
+            The submission is refused: the caller's revision with this `id` was rejected or withdrawn
+            (`not_draft`); the caller has 30 pending revisions (`pending_limit_reached`); the new entity may
+            duplicate others, which are listed (`possible_duplicate`); a pending new entity of the caller's it
+            edits or references no longer exists (`entity_gone`); or, for an interactive moderator, the entity
+            changed since the base in a way that conflicts (`rebase_required`), the submission's flags are not
+            acknowledged (`unacknowledged_flags`) or conflict with hidden data (`hidden_data_conflict`), or a
+            pending new entity it references has flags (`pending_reference_flagged`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Error"
+                  - $ref: "#/components/schemas/DuplicateError"
+                  - $ref: "#/components/schemas/FlagsError"
+              examples:
+                notDraft:
+                  summary: The revision was rejected or withdrawn
+                  value:
+                    code: not_draft
+                    message: the revision is not a draft
+                pendingLimit:
+                  summary: Too many pending revisions
+                  value:
+                    code: pending_limit_reached
+                    message: a user may have at most 30 pending revisions
+                possibleDuplicate:
+                  summary: The new entity may duplicate others
+                  value:
+                    code: possible_duplicate
+                    message: "the new entity may duplicate an existing one: acknowledge_duplicates confirms it"
+                    duplicates:
+                      - entity_type: piece
+                        slug: the-copper-kettle
+                        collection_id: null
+                        name: The Copper Kettle
+                        matched: title
+                unacknowledgedFlags:
+                  summary: A moderator's flags are not acknowledged
+                  value:
+                    code: unacknowledged_flags
+                    message: the revision has flags that are not acknowledged
+                    flags:
+                      - code: hidden_alias_in_text
+                        path: /notes_md
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          description: |
+            The document is invalid (`invalid_document`, with its problems), or the new person's name matches a
+            person who has asked not to have a page (`duplicate_blocked`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/DocumentError"
+                  - $ref: "#/components/schemas/Error"
+              examples:
+                invalidDocument:
+                  summary: The document is invalid
+                  value:
+                    code: invalid_document
+                    message: the document is invalid
+                    problems:
+                      - path: /title
+                        problem: blank
+                duplicateBlocked:
+                  summary: The new person matches a person who has asked not to have a page
+                  value:
+                    code: duplicate_blocked
+                    message: a person with this name has asked not to have a page
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/revisions/{revision_id}/withdraw:
+    post:
+      tags:
+        - Revisions
+      summary: Withdraw a pending revision
+      description: |
+        Withdraws one of the caller's pending revisions; a pending new entity no other pending revision has is
+        deleted. The request has no body. Another user's revision is not found, exactly like an unknown one:
+        moderators reject instead.
+      operationId: withdrawRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      responses:
+        "200":
+          description: The withdrawn revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          $ref: "#/components/responses/InvalidRevisionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/MyRevisionNotFound"
+        "409":
+          description: The revision is not pending; the error code is `not_pending`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_pending
+                message: the revision is not pending
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/revisions/{revision_id}/revert:
+    post:
+      tags:
+        - Revisions
+      summary: Revert to a revision
+      description: |
+        Reverts an entity to one of its approved revisions with a new revision on the current one: the reverted
+        revision's document, keeping what was hidden since and the current preference profiles. A contributor's
+        revert, and any made with an API token, is pending and replaces the caller's pending revision of the
+        entity; an interactive moderator's is approved at once and must acknowledge its flags. A revert identical
+        to the caller's pending revision of the entity (or, for a moderator, to the current revision, which they
+        made) returns it as it is (200).
+      operationId: revertRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      requestBody:
+        description: The revert's summary, and a moderator's acknowledged flags.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevertRequest"
+      responses:
+        "200":
+          description: The revert was already made; its revision as it is.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "201":
+          description: The new revision, pending, or approved for an interactive moderator.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          description: |
+            The `revision_id` is not a positive integer, or the request body is malformed or invalid; the error
+            code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid acknowledged_flags: not one of its allowed values"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            No approved revision of a public entity has this `id`; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: revision not found
+        "409":
+          description: |
+            The revert is refused: the revision is the entity's current one (`already_current`); the caller has
+            30 pending revisions (`pending_limit_reached`); an entity the document references no longer exists
+            (`entity_gone`); or, for an interactive moderator, the revert's flags are not acknowledged
+            (`unacknowledged_flags`) or conflict with hidden data (`hidden_data_conflict`), or a pending new
+            entity it references has flags (`pending_reference_flagged`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Error"
+                  - $ref: "#/components/schemas/FlagsError"
+              examples:
+                alreadyCurrent:
+                  summary: The revision is current
+                  value:
+                    code: already_current
+                    message: the revision is already the entity's current revision
+                unacknowledgedFlags:
+                  summary: A moderator's flags are not acknowledged
+                  value:
+                    code: unacknowledged_flags
+                    message: the revision has flags that are not acknowledged
+                    flags:
+                      - code: hidden_alias_in_summary
+                        path: null
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/InvalidDocument"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/me/revisions:
+    get:
+      tags:
+        - Revisions
+      summary: List the caller's revisions
+      description: |
+        Lists one page of the caller's own revisions, drafts included, newest first by when they were submitted,
+        else last saved, else created, with how many match in all.
+      operationId: listMyRevisions
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Only list revisions with this status.
+          schema:
+            $ref: "#/components/schemas/RevisionStatus"
+        - name: entity_type
+          in: query
+          required: false
+          description: Only list revisions of entities of this type.
+          schema:
+            $ref: "#/components/schemas/EntityType"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the caller's revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevisionList"
+        "400":
+          description: |
+            The `status` or `entity_type` is not one of its values, `limit` or `offset` is out of range, a
+            parameter is given more than once, or the query string is not validly percent-encoded; the error code
+            is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid status: not one of its allowed values"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+
+  /v1/me/revisions/{revision_id}:
+    get:
+      tags:
+        - Revisions
+      summary: Get one of the caller's revisions
+      description: |
+        Returns one of the caller's own revisions, drafts included, with its views as the caller sees them: what
+        they typed shown as they typed it, what they received from the current document as it is public now,
+        hidden aliases never. An approved revision shows the public views. Moderator flags are never shown.
+        Another user's revision is not found, exactly like an unknown one.
+      operationId: getMyRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      responses:
+        "200":
+          description: The revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRevision"
+        "400":
+          $ref: "#/components/responses/InvalidRevisionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/MyRevisionNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+
 components:
   securitySchemes:
     auth0Bearer:
@@ -1266,6 +2207,17 @@ components:
         minimum: 1
         examples:
           - 42
+    DraftID:
+      name: draft_id
+      in: path
+      required: true
+      description: The draft's `id`.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        examples:
+          - 51
     Slug:
       name: slug
       in: path
@@ -1471,6 +2423,123 @@ components:
           example:
             code: internal
             message: internal error
+    InvalidCollectionID:
+      description: |
+        The `collection_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid collection_id: must be an integer from 1 to 9223372036854775807"
+    InvalidDraftID:
+      description: The `draft_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid draft_id: must be an integer from 1 to 9223372036854775807"
+    InvalidRevisionID:
+      description: |
+        The `revision_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid revision_id: must be an integer from 1 to 9223372036854775807"
+    InvalidDocumentRequest:
+      description: |
+        The request body is malformed, its `entity` does not address an entity of its `entity_type` (a collection
+        by `collection_id`, any other by `slug`), or its document is not a document of that type; the error code
+        is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: field document has an unknown field
+    InvalidDraftDocument:
+      description: |
+        The document references an entity the caller may not reference, whether it does not exist or is not
+        public, or holds an unknown value, a string that is not valid UTF-8 in NFC or holds control characters,
+        or a summary longer than 500 characters; the error code is `invalid_document`. A draft may otherwise be
+        incomplete.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DocumentError"
+          example:
+            code: invalid_document
+            message: the document is invalid
+            problems:
+              - path: /terms/0/term
+                problem: unknown_reference
+    InvalidDocument:
+      description: The document is invalid; the error code is `invalid_document`, with its problems.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DocumentError"
+          example:
+            code: invalid_document
+            message: the document is invalid
+            problems:
+              - path: /summary
+                problem: reason_required
+    DraftNotFound:
+      description: The caller has no draft with this `id`; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: draft not found
+    NotDraft:
+      description: |
+        The caller's revision with this `id` is no longer a draft; the error code is `not_draft`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_draft
+            message: the revision is not a draft
+    MyRevisionNotFound:
+      description: The caller has no revision with this `id`; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: revision not found
+    DocumentTooLarge:
+      description: The request body is larger than 1 MiB; the error code is `request_too_large`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: request_too_large
+            message: request body is too large
+    WriteUnavailable:
+      description: |
+        The write could not take its locks, or finish, in the time the server allows; it may be retried. The error
+        code is `unavailable`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unavailable
+            message: the write could not be completed in time; try again
 
   schemas:
     Error:
@@ -1498,6 +2567,15 @@ components:
             - token_limit_reached
             - internal
             - unavailable
+            - not_draft
+            - not_pending
+            - rebase_required
+            - entity_gone
+            - already_current
+            - pending_limit_reached
+            - draft_limit_reached
+            - duplicate_blocked
+            - hidden_data_conflict
           examples:
             - unavailable
         message:
@@ -4653,3 +5731,1491 @@ components:
       examples:
         - reason: stub
           count: 3
+
+    EntityType:
+      type: string
+      description: The type of an entity a revision edits.
+      enum: [piece, person, term, collection, event]
+      examples:
+        - piece
+
+    RevisionStatus:
+      type: string
+      description: |
+        Where a revision is in moderation: a `draft` its author has not submitted, `pending` review, `approved`,
+        `rejected` by a moderator, or `withdrawn` by its author (or superseded by their later submission).
+      enum: [draft, pending, approved, rejected, withdrawn]
+      examples:
+        - pending
+
+    FlagCode:
+      type: string
+      description: |
+        A moderator flag on a revision. Flags are never shown to a revision's contributor; only moderators see
+        and acknowledge them.
+      enum:
+        - hidden_alias_in_summary
+        - hidden_alias_in_text
+        - hidden_alias_in_review_note
+        - hidden_alias_collision
+        - hidden_link_collision
+        - hidden_link_attached
+        - hidden_data_conflict
+        - possible_duplicate
+        - references_pending
+      examples:
+        - possible_duplicate
+
+    DuplicateField:
+      type: string
+      description: Which of an entity's names a new entity's names matched; never a hidden alias.
+      enum: [title, alias, name, url]
+      examples:
+        - title
+
+    EditorSlug:
+      type: string
+      description: |
+        The slug of a piece, person, term or event the document references, or of the caller's own pending new
+        term or person (a placeholder slug).
+      pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+      maxLength: 191
+      examples:
+        - the-copper-kettle
+
+    EditorText:
+      type: [string, "null"]
+      description: Markdown or plain text, at most 65535 bytes.
+      examples:
+        - Sung at every revel since the founding of the barony.
+
+    EditorPerformance:
+      type: object
+      description: A performance a link records, with its event and performers by slug.
+      additionalProperties: false
+      required: [event, year, uploader, description_verbatim, performers]
+      properties:
+        event:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        year:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 2100
+          examples:
+            - 2019
+        uploader:
+          type: [string, "null"]
+          maxLength: 255
+          examples:
+            - Morwen
+        description_verbatim:
+          type: string
+          description: How the source describes the performance, word for word.
+          maxLength: 65535
+          examples:
+            - Sung at Midwinter Revel by Morwen.
+        performers:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/EditorSlug"
+      examples:
+        - event: midwinter-revel
+          year: 2019
+          uploader: null
+          description_verbatim: Sung at Midwinter Revel by Morwen.
+          performers: [morwen]
+
+    EditorPieceDocument:
+      type: object
+      description: |
+        A piece's document in the editor format: its editor-owned fields, with references by slug (collections by
+        ID). What the caller may not see is withheld from an editable document, and kept when it is submitted.
+      additionalProperties: false
+      required:
+        - title
+        - kind
+        - secondary_kinds
+        - conservation
+        - is_stub
+        - notes_md
+        - version_notes_md
+        - licensing_status
+        - licensing_notes_md
+        - licence
+        - historical_source_md
+        - period_start
+        - period_end
+        - aliases
+        - terms
+        - relations
+        - credits
+        - links
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          examples:
+            - The Copper Kettle
+        kind:
+          $ref: "#/components/schemas/PieceKind"
+        secondary_kinds:
+          type: array
+          items:
+            $ref: "#/components/schemas/PieceKind"
+        conservation:
+          type: object
+          description: The piece's conservation status, with the source of an assessment.
+          additionalProperties: false
+          required: [status, source_url]
+          properties:
+            status:
+              $ref: "#/components/schemas/ConservationStatus"
+            source_url:
+              type: [string, "null"]
+              maxLength: 2048
+              examples:
+                - https://example.org/survey
+          examples:
+            - status: unassessed
+              source_url: null
+        is_stub:
+          type: boolean
+        notes_md:
+          $ref: "#/components/schemas/EditorText"
+        version_notes_md:
+          $ref: "#/components/schemas/EditorText"
+        licensing_status:
+          $ref: "#/components/schemas/LicensingStatus"
+        licensing_notes_md:
+          $ref: "#/components/schemas/EditorText"
+        licence:
+          oneOf:
+            - $ref: "#/components/schemas/Licence"
+            - type: "null"
+        historical_source_md:
+          $ref: "#/components/schemas/EditorText"
+        period_start:
+          type: [integer, "null"]
+          examples:
+            - 1300
+        period_end:
+          type: [integer, "null"]
+          examples:
+            - 1400
+        aliases:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            description: Another title of the piece.
+            additionalProperties: false
+            required: [text, kind]
+            properties:
+              text:
+                type: string
+                maxLength: 255
+                examples:
+                  - Copper Kettle
+              kind:
+                $ref: "#/components/schemas/PieceAliasKind"
+        terms:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            description: A term tagging the piece, or part of it.
+            additionalProperties: false
+            required: [term, is_primary, part]
+            properties:
+              term:
+                $ref: "#/components/schemas/EditorSlug"
+              is_primary:
+                type: boolean
+              part:
+                oneOf:
+                  - $ref: "#/components/schemas/PiecePart"
+                  - type: "null"
+        relations:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            description: A relation of the piece to another piece.
+            additionalProperties: false
+            required: [piece, type]
+            properties:
+              piece:
+                $ref: "#/components/schemas/EditorSlug"
+              type:
+                $ref: "#/components/schemas/PieceRelationType"
+        credits:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            description: A credit of the piece, or part of it, to a person (attribution `named`) or to no one in particular.
+            additionalProperties: false
+            required: [person, role, attribution, certainty, part, note]
+            properties:
+              person:
+                oneOf:
+                  - $ref: "#/components/schemas/EditorSlug"
+                  - type: "null"
+              role:
+                $ref: "#/components/schemas/CreditRole"
+              attribution:
+                $ref: "#/components/schemas/Attribution"
+              certainty:
+                $ref: "#/components/schemas/Certainty"
+              part:
+                oneOf:
+                  - $ref: "#/components/schemas/PiecePart"
+                  - type: "null"
+              note:
+                type: [string, "null"]
+                maxLength: 500
+                examples:
+                  - Words by Morwen, after a ballad.
+        links:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/EditorPieceLink"
+      examples:
+        - title: The Copper Kettle
+          kind: song
+          secondary_kinds: []
+          conservation:
+            status: unassessed
+            source_url: null
+          is_stub: false
+          notes_md: null
+          version_notes_md: null
+          licensing_status: unknown
+          licensing_notes_md: null
+          licence: null
+          historical_source_md: null
+          period_start: null
+          period_end: null
+          aliases: []
+          terms: [{term: drinking-songs, is_primary: true, part: null}]
+          relations: []
+          credits:
+            - person: morwen
+              role: lyrics
+              attribution: named
+              certainty: certain
+              part: null
+              note: null
+          links: []
+
+    EditorPieceLink:
+      type: object
+      description: |
+        A link attached to a piece, with the roles it has there and the performances of the piece it records.
+        A link is identified by its URL, normalized; its hidden state and liveness are not the document's.
+      additionalProperties: false
+      required: [url, title, description, platform, place_type, collection_id, locator, roles, performances]
+      properties:
+        url:
+          type: string
+          description: The link's URL, as entered.
+          maxLength: 2048
+          examples:
+            - https://example.org/the-copper-kettle
+        title:
+          type: [string, "null"]
+          maxLength: 500
+          examples:
+            - The Copper Kettle, sung at Midwinter
+        description:
+          type: [string, "null"]
+          maxLength: 500
+          examples:
+            - A recording from the revel.
+        platform:
+          type: [string, "null"]
+          description: The site the link is on.
+          maxLength: 64
+          examples:
+            - example.org
+        place_type:
+          oneOf:
+            - $ref: "#/components/schemas/LinkPlaceType"
+            - type: "null"
+        collection_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The collection the link belongs to, by its `id`.
+          examples:
+            - 12
+        locator:
+          type: [string, "null"]
+          description: Where in the collection the linked item is, such as a page number.
+          maxLength: 255
+          examples:
+            - p. 12
+        roles:
+          type: array
+          description: What the link offers, at least one and each once.
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/LinkRole"
+        performances:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/EditorPerformance"
+      examples:
+        - url: https://example.org/the-copper-kettle
+          title: null
+          description: null
+          platform: null
+          place_type: null
+          collection_id: null
+          locator: null
+          roles: [performance]
+          performances:
+            - event: midwinter-revel
+              year: 2019
+              uploader: null
+              description_verbatim: Sung at Midwinter Revel by Morwen.
+              performers: [morwen]
+
+    EditorPersonDocument:
+      type: object
+      description: |
+        A person's document in the editor format. Of a person who prefers not to have a page, only the identity
+        (name, kind, status and its date and source) is editable; the rest is withheld.
+      additionalProperties: false
+      required:
+        - name
+        - kind
+        - status
+        - status_date
+        - status_source_url
+        - pronouns
+        - notes_md
+        - licensing_status
+        - licensing_notes_md
+        - is_stub
+        - aliases
+        - roles
+        - affiliations
+        - relations
+        - links
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          examples:
+            - Morwen
+        kind:
+          $ref: "#/components/schemas/PersonKind"
+        status:
+          $ref: "#/components/schemas/PersonStatus"
+        status_date:
+          type: [string, "null"]
+          format: date
+          examples:
+            - "2026-01-01"
+        status_source_url:
+          type: [string, "null"]
+          maxLength: 2048
+          examples:
+            - https://example.org/notice
+        pronouns:
+          type: [string, "null"]
+          maxLength: 64
+          examples:
+            - she/her
+        notes_md:
+          $ref: "#/components/schemas/EditorText"
+        licensing_status:
+          $ref: "#/components/schemas/LicensingStatus"
+        licensing_notes_md:
+          $ref: "#/components/schemas/EditorText"
+        is_stub:
+          type: boolean
+        aliases:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            description: |
+              Another name of the person. A contributor may add only public aliases, and never sees hidden ones.
+            additionalProperties: false
+            required: [name, kind, is_public]
+            properties:
+              name:
+                type: string
+                maxLength: 255
+                examples:
+                  - Morwen of the Vale
+              kind:
+                $ref: "#/components/schemas/PersonAliasKind"
+              is_public:
+                type: boolean
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonRole"
+        affiliations:
+          type: array
+          description: The person's affiliation terms, by slug.
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/EditorSlug"
+        relations:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            description: A relation of the person to another person.
+            additionalProperties: false
+            required: [person, type]
+            properties:
+              person:
+                $ref: "#/components/schemas/EditorSlug"
+              type:
+                $ref: "#/components/schemas/PersonRelationType"
+        links:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/EditorPersonLink"
+      examples:
+        - name: Morwen
+          kind: community_bard
+          status: active
+          status_date: null
+          status_source_url: null
+          pronouns: null
+          notes_md: null
+          licensing_status: unknown
+          licensing_notes_md: null
+          is_stub: true
+          aliases: [{name: Morwen of the Vale, kind: nickname, is_public: true}]
+          roles: []
+          affiliations: []
+          relations: []
+          links: []
+
+    EditorPersonLink:
+      type: object
+      description: A link attached to a person, with the performances it records, each of a piece or of none.
+      additionalProperties: false
+      required: [url, title, description, platform, place_type, collection_id, locator, roles, performances]
+      properties:
+        url:
+          $ref: "#/components/schemas/EditorPieceLink/properties/url"
+        title:
+          $ref: "#/components/schemas/EditorPieceLink/properties/title"
+        description:
+          $ref: "#/components/schemas/EditorPieceLink/properties/description"
+        platform:
+          $ref: "#/components/schemas/EditorPieceLink/properties/platform"
+        place_type:
+          $ref: "#/components/schemas/EditorPieceLink/properties/place_type"
+        collection_id:
+          $ref: "#/components/schemas/EditorPieceLink/properties/collection_id"
+        locator:
+          $ref: "#/components/schemas/EditorPieceLink/properties/locator"
+        roles:
+          $ref: "#/components/schemas/EditorPieceLink/properties/roles"
+        performances:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            description: A performance the link records, of the piece `piece` if it is set.
+            additionalProperties: false
+            required: [piece, event, year, uploader, description_verbatim, performers]
+            properties:
+              piece:
+                oneOf:
+                  - $ref: "#/components/schemas/EditorSlug"
+                  - type: "null"
+              event:
+                $ref: "#/components/schemas/EditorPerformance/properties/event"
+              year:
+                $ref: "#/components/schemas/EditorPerformance/properties/year"
+              uploader:
+                $ref: "#/components/schemas/EditorPerformance/properties/uploader"
+              description_verbatim:
+                $ref: "#/components/schemas/EditorPerformance/properties/description_verbatim"
+              performers:
+                $ref: "#/components/schemas/EditorPerformance/properties/performers"
+      examples:
+        - url: https://example.org/morwen
+          title: Morwen's songs
+          description: null
+          platform: example.org
+          place_type: author_site
+          collection_id: null
+          locator: null
+          roles: [website]
+          performances: []
+
+    EditorTermDocument:
+      type: object
+      description: A term's document in the editor format, with its parent and related affiliation by slug.
+      additionalProperties: false
+      required: [facet, name, display_name, parent, related_affiliation, description_md, position, aliases]
+      properties:
+        facet:
+          $ref: "#/components/schemas/Facet"
+        name:
+          type: string
+          maxLength: 255
+          examples:
+            - Drinking songs
+        display_name:
+          type: string
+          maxLength: 255
+          examples:
+            - Drinking songs
+        parent:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        related_affiliation:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        description_md:
+          $ref: "#/components/schemas/EditorText"
+        position:
+          type: integer
+          minimum: 0
+          maximum: 32767
+          examples:
+            - 0
+        aliases:
+          type: array
+          maxItems: 100
+          items:
+            type: string
+            maxLength: 255
+            examples:
+              - Tavern songs
+      examples:
+        - facet: topic
+          name: Drinking songs
+          display_name: Drinking songs
+          parent: null
+          related_affiliation: null
+          description_md: null
+          position: 0
+          aliases: []
+
+    EditorCollectionDocument:
+      type: object
+      description: A collection's document in the editor format, with its region by slug and its parent by ID.
+      additionalProperties: false
+      required: [name, url, kind, description_md, region, parent_id, is_bardic_resource, enumerable]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          examples:
+            - The Northmarch Songbook
+        url:
+          type: [string, "null"]
+          maxLength: 2048
+          examples:
+            - https://example.org/songbook.pdf
+        kind:
+          $ref: "#/components/schemas/CollectionKind"
+        description_md:
+          $ref: "#/components/schemas/EditorText"
+        region:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        parent_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The collection this one is part of, by its `id`.
+          examples:
+            - 3
+        is_bardic_resource:
+          type: boolean
+        enumerable:
+          $ref: "#/components/schemas/CollectionEnumerable"
+      examples:
+        - name: The Northmarch Songbook
+          url: https://example.org/songbook.pdf
+          kind: songbook_pdf
+          description_md: null
+          region: null
+          parent_id: null
+          is_bardic_resource: true
+          enumerable: pdf
+
+    EditorEventDocument:
+      type: object
+      description: An event's document in the editor format.
+      additionalProperties: false
+      required: [name, kind, description_md]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          examples:
+            - Midwinter Revel
+        kind:
+          $ref: "#/components/schemas/EventKind"
+        description_md:
+          $ref: "#/components/schemas/EditorText"
+      examples:
+        - name: Midwinter Revel
+          kind: event
+          description_md: null
+
+    EditorDocument:
+      description: |
+        A document in the editor format, in the shape of the `entity_type` beside it in the enclosing object.
+      oneOf:
+        - $ref: "#/components/schemas/EditorPieceDocument"
+        - $ref: "#/components/schemas/EditorPersonDocument"
+        - $ref: "#/components/schemas/EditorTermDocument"
+        - $ref: "#/components/schemas/EditorCollectionDocument"
+        - $ref: "#/components/schemas/EditorEventDocument"
+      examples:
+        - name: Midwinter Revel
+          kind: event
+          description_md: null
+
+    Snapshot:
+      description: A snapshot view, in the shape of the `entity_type` beside it in the enclosing object.
+      oneOf:
+        - $ref: "#/components/schemas/PieceSnapshot"
+        - $ref: "#/components/schemas/PersonSnapshot"
+        - $ref: "#/components/schemas/TermSnapshot"
+        - $ref: "#/components/schemas/CollectionSnapshot"
+        - $ref: "#/components/schemas/EventSnapshot"
+      examples:
+        - name: Midwinter Revel
+          kind: event
+          description_md: null
+
+    EditorEntityRef:
+      type: object
+      description: |
+        The entity a revision or draft edits: a piece, person, term or event by `slug`, a collection by
+        `collection_id`. `is_new` is true for the caller's own pending new entity, whose slug is a placeholder.
+      additionalProperties: false
+      required: [slug, collection_id, is_new]
+      properties:
+        slug:
+          type: [string, "null"]
+          description: The entity's slug; null for a collection.
+          examples:
+            - the-copper-kettle
+        collection_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The collection's `id`; null for other entities.
+          examples:
+            - null
+        is_new:
+          type: boolean
+      examples:
+        - slug: the-copper-kettle
+          collection_id: null
+          is_new: false
+
+    EditorReference:
+      type: object
+      description: |
+        An entity a document references, as the caller sees it, with a label to show it by: a public entity's
+        title or name, or the name the caller's own pending new term or person has in its pending document.
+      additionalProperties: false
+      required: [entity_type, slug, collection_id, label, is_pending]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        slug:
+          type: [string, "null"]
+          description: The entity's slug; null for a collection.
+          examples:
+            - drinking-songs
+        collection_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The collection's `id`; null for other entities.
+          examples:
+            - null
+        label:
+          type: string
+          examples:
+            - Drinking songs
+        is_pending:
+          type: boolean
+          description: True for the caller's own pending new term or person.
+      examples:
+        - entity_type: term
+          slug: drinking-songs
+          collection_id: null
+          label: Drinking songs
+          is_pending: false
+
+    LinkState:
+      type: object
+      description: |
+        The state of one of a document's links, by the document's URL, for a moderator: the existing link's `id`,
+        hidden state and liveness, or a null `link_id` and `liveness` for a URL no link has yet.
+      additionalProperties: false
+      required: [url, link_id, is_hidden, liveness]
+      properties:
+        url:
+          type: string
+          examples:
+            - https://example.org/the-copper-kettle
+        link_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - 7
+        is_hidden:
+          type: boolean
+        liveness:
+          oneOf:
+            - $ref: "#/components/schemas/Liveness"
+            - type: "null"
+      examples:
+        - url: https://example.org/the-copper-kettle
+          link_id: 7
+          is_hidden: false
+          liveness: ok
+
+    Editable:
+      type: object
+      description: |
+        The document the caller starts an edit of an entity from. With `starting_point` `current` it is the
+        entity's current document, without what the caller may not see; with `pending` it is the caller's pending
+        revision of the entity as they see it, and `base_revision_id` is the base that revision was submitted on,
+        so that a new draft keeps it. A draft is saved with this `base_revision_id`.
+      additionalProperties: false
+      required:
+        - entity_type
+        - entity
+        - base_revision_id
+        - starting_point
+        - document
+        - references
+        - link_states
+        - draft
+        - pending
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        entity:
+          $ref: "#/components/schemas/EditorEntityRef"
+        base_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The revision a draft started from this document is based on; null for a pending new entity.
+          examples:
+            - 41
+        starting_point:
+          type: string
+          enum: [current, pending]
+          examples:
+            - current
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+        references:
+          type: array
+          description: The entities the document references, each once.
+          items:
+            $ref: "#/components/schemas/EditorReference"
+        link_states:
+          type: array
+          description: The states of the document's links, for an interactive moderator; always empty otherwise.
+          items:
+            $ref: "#/components/schemas/LinkState"
+        draft:
+          description: The caller's draft of the entity, if they have one.
+          oneOf:
+            - type: object
+              description: A draft, by `id`, with when it was last saved.
+              additionalProperties: false
+              required: [id, updated_at]
+              properties:
+                id:
+                  $ref: "#/components/schemas/RevisionSummary/properties/id"
+                updated_at:
+                  type: string
+                  format: date-time
+                  examples:
+                    - "2026-10-01T09:00:00Z"
+            - type: "null"
+        pending:
+          description: The caller's pending revision of the entity, if they have one.
+          oneOf:
+            - type: object
+              description: A pending revision, by `id`, with when it was submitted.
+              additionalProperties: false
+              required: [id, submitted_at]
+              properties:
+                id:
+                  $ref: "#/components/schemas/RevisionSummary/properties/id"
+                submitted_at:
+                  type: string
+                  format: date-time
+                  examples:
+                    - "2026-10-01T09:00:00Z"
+            - type: "null"
+      examples:
+        - entity_type: event
+          entity:
+            slug: midwinter-revel
+            collection_id: null
+            is_new: false
+          base_revision_id: 46
+          starting_point: current
+          document:
+            name: Midwinter Revel
+            kind: event
+            description_md: null
+          references: []
+          link_states: []
+          draft: null
+          pending: null
+
+    DraftEntityKey:
+      type: object
+      description: The existing entity a draft is of, by `slug`, or a collection by `collection_id`; the other is null.
+      additionalProperties: false
+      required: [slug, collection_id]
+      properties:
+        slug:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        collection_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - null
+      examples:
+        - slug: midwinter-revel
+          collection_id: null
+
+    CreateDraftRequest:
+      type: object
+      description: |
+        A draft to save: of the entity `entity`, or of a new entity of `entity_type` if it is null, on the base
+        `base_revision_id`, the one `Editable` gave, or the entity's current revision if it is null.
+      additionalProperties: false
+      required: [entity_type, entity, base_revision_id, document, summary]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        entity:
+          oneOf:
+            - $ref: "#/components/schemas/DraftEntityKey"
+            - type: "null"
+        base_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - 46
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+        summary:
+          $ref: "#/components/schemas/RevisionSummaryText"
+      examples:
+        - entity_type: event
+          entity:
+            slug: midwinter-revel
+            collection_id: null
+          base_revision_id: 46
+          document:
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+          summary: Describe the revel.
+
+    UpdateDraftRequest:
+      type: object
+      description: A draft's new document and summary; `entity_type` must be the draft's.
+      additionalProperties: false
+      required: [entity_type, document, summary]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+        summary:
+          $ref: "#/components/schemas/RevisionSummaryText"
+      examples:
+        - entity_type: event
+          document:
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+          summary: Describe the revel.
+
+    RevisionSummaryText:
+      type: string
+      description: What the edit changes, in its author's words; may be empty. At most 500 characters.
+      maxLength: 500
+      examples:
+        - Describe the revel.
+
+    DuplicateMatch:
+      type: object
+      description: An existing entity a new one may duplicate, by `slug` (a collection by `collection_id`).
+      additionalProperties: false
+      required: [entity_type, slug, collection_id, name, matched]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        slug:
+          type: [string, "null"]
+          examples:
+            - the-copper-kettle
+        collection_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - null
+        name:
+          type: string
+          description: The entity's title or name.
+          examples:
+            - The Copper Kettle
+        matched:
+          $ref: "#/components/schemas/DuplicateField"
+      examples:
+        - entity_type: piece
+          slug: the-copper-kettle
+          collection_id: null
+          name: The Copper Kettle
+          matched: title
+
+    Draft:
+      type: object
+      description: |
+        A draft as its author saved it. `duplicates` are the entities a new entity's names match (always empty
+        for a draft of an existing entity), `references` the entities the document references, and `preview` the
+        draft as it would show once approved, or null if it does not convert to a view yet.
+      additionalProperties: false
+      required:
+        - id
+        - entity_type
+        - entity
+        - base_revision_id
+        - document
+        - summary
+        - created_at
+        - updated_at
+        - duplicates
+        - references
+        - preview
+      properties:
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        entity:
+          description: The entity the draft is of; null for a draft of a new entity.
+          oneOf:
+            - $ref: "#/components/schemas/EditorEntityRef"
+            - type: "null"
+        base_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The revision the draft is based on; null for a new entity.
+          examples:
+            - 46
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+        summary:
+          $ref: "#/components/schemas/RevisionSummaryText"
+        created_at:
+          type: string
+          format: date-time
+          examples:
+            - "2026-10-01T09:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          examples:
+            - "2026-10-01T09:05:00Z"
+        duplicates:
+          type: array
+          items:
+            $ref: "#/components/schemas/DuplicateMatch"
+        references:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditorReference"
+        preview:
+          oneOf:
+            - $ref: "#/components/schemas/Snapshot"
+            - type: "null"
+      examples:
+        - id: 51
+          entity_type: event
+          entity:
+            slug: midwinter-revel
+            collection_id: null
+            is_new: false
+          base_revision_id: 46
+          document:
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+          summary: Describe the revel.
+          created_at: "2026-10-01T09:00:00Z"
+          updated_at: "2026-10-01T09:05:00Z"
+          duplicates: []
+          references: []
+          preview:
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+
+    SubmitRevisionRequest:
+      type: object
+      description: |
+        A submission of the caller's draft. `acknowledge_duplicates` confirms that a new entity duplicates none of
+        the entities its draft lists in `duplicates`. `acknowledged_flags` are a moderator's acknowledgements of
+        their submission's flags; contributors send `[]`, and API tokens' are ignored.
+      additionalProperties: false
+      required: [draft_id, acknowledge_duplicates, acknowledged_flags]
+      properties:
+        draft_id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        acknowledge_duplicates:
+          type: boolean
+        acknowledged_flags:
+          $ref: "#/components/schemas/AcknowledgedFlags"
+      examples:
+        - draft_id: 51
+          acknowledge_duplicates: false
+          acknowledged_flags: []
+
+    AcknowledgedFlags:
+      type: array
+      description: The flags a moderator acknowledges, each once; ignored for contributors and API tokens.
+      uniqueItems: true
+      items:
+        $ref: "#/components/schemas/FlagCode"
+      examples:
+        - []
+
+    RevertRequest:
+      type: object
+      description: |
+        A revert to an approved revision, with a summary, which a conservation status change needs as its reason.
+        Without one the revision's summary is `Revert to revision <id>.`.
+      additionalProperties: false
+      required: [summary, acknowledged_flags]
+      properties:
+        summary:
+          oneOf:
+            - $ref: "#/components/schemas/RevisionSummaryText"
+            - type: "null"
+        acknowledged_flags:
+          $ref: "#/components/schemas/AcknowledgedFlags"
+      examples:
+        - summary: Restore the credit.
+          acknowledged_flags: []
+
+    AuthorRef:
+      type: object
+      description: A revision's author as they see themselves.
+      additionalProperties: false
+      required: [display_name, role]
+      properties:
+        display_name:
+          $ref: "#/components/schemas/User/properties/display_name"
+        role:
+          $ref: "#/components/schemas/User/properties/role"
+      examples:
+        - display_name: Morwen
+          role: contributor
+
+    MyRevisionSummary:
+      type: object
+      description: |
+        One of the caller's own revisions, drafts included. `title` is the title or name the caller's document
+        gives the entity; `entity` is null for a new entity's draft, and once a new entity's placeholder is
+        deleted. `base_revision_id` is the revision's base now, and `submitted_base_revision_id` the base it was
+        submitted on, which a moderator's rebase never changes.
+      additionalProperties: false
+      required:
+        - id
+        - status
+        - entity_type
+        - entity
+        - title
+        - summary
+        - source
+        - author
+        - created_at
+        - submitted_at
+        - reviewed_at
+        - review_note
+        - base_revision_id
+        - submitted_base_revision_id
+      properties:
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        status:
+          $ref: "#/components/schemas/RevisionStatus"
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        entity:
+          oneOf:
+            - $ref: "#/components/schemas/EditorEntityRef"
+            - type: "null"
+        title:
+          type: string
+          examples:
+            - Midwinter Revel
+        summary:
+          $ref: "#/components/schemas/RevisionSummaryText"
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        author:
+          $ref: "#/components/schemas/AuthorRef"
+        created_at:
+          type: string
+          format: date-time
+          examples:
+            - "2026-10-01T09:00:00Z"
+        submitted_at:
+          type: [string, "null"]
+          format: date-time
+          examples:
+            - "2026-10-01T09:10:00Z"
+        reviewed_at:
+          type: [string, "null"]
+          format: date-time
+          examples:
+            - null
+        review_note:
+          type: [string, "null"]
+          description: A moderator's note to the author on approving or rejecting the revision.
+          examples:
+            - null
+        base_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - 46
+        submitted_base_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - 46
+      examples:
+        - id: 51
+          status: pending
+          entity_type: event
+          entity:
+            slug: midwinter-revel
+            collection_id: null
+            is_new: false
+          title: Midwinter Revel
+          summary: Describe the revel.
+          source: user
+          author:
+            display_name: Morwen
+            role: contributor
+          created_at: "2026-10-01T09:00:00Z"
+          submitted_at: "2026-10-01T09:10:00Z"
+          reviewed_at: null
+          review_note: null
+          base_revision_id: 46
+          submitted_base_revision_id: 46
+
+    MyRevision:
+      type: object
+      description: |
+        One of the caller's own revisions with its views: `snapshot` is the caller's view of what they submitted
+        (what they typed shown as they typed it, what they received from the current document shown as it is
+        public now, hidden aliases never), `base_snapshot` the same view of the base it was submitted on, and
+        `changed_fields` the snapshot's top-level fields that differ from the base's. For an approved revision
+        both are the public views. `pending_references` are the caller's own pending new terms and persons the
+        revision references. Moderator flags are never shown here.
+      additionalProperties: false
+      required:
+        - id
+        - status
+        - entity_type
+        - entity
+        - title
+        - summary
+        - source
+        - author
+        - created_at
+        - submitted_at
+        - reviewed_at
+        - review_note
+        - base_revision_id
+        - submitted_base_revision_id
+        - snapshot
+        - base_snapshot
+        - changed_fields
+        - pending_references
+      properties:
+        id:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/id"
+        status:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/status"
+        entity_type:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/entity_type"
+        entity:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/entity"
+        title:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/title"
+        summary:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/summary"
+        source:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/source"
+        author:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/author"
+        created_at:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/created_at"
+        submitted_at:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/submitted_at"
+        reviewed_at:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/reviewed_at"
+        review_note:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/review_note"
+        base_revision_id:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/base_revision_id"
+        submitted_base_revision_id:
+          $ref: "#/components/schemas/MyRevisionSummary/properties/submitted_base_revision_id"
+        snapshot:
+          $ref: "#/components/schemas/Snapshot"
+        base_snapshot:
+          oneOf:
+            - $ref: "#/components/schemas/Snapshot"
+            - type: "null"
+        changed_fields:
+          type: array
+          description: The snapshot's top-level fields that differ from the base's, or with no base, that are not empty.
+          uniqueItems: true
+          items:
+            type: string
+            examples:
+              - description_md
+        pending_references:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditorReference"
+      examples:
+        - id: 51
+          status: pending
+          entity_type: event
+          entity:
+            slug: midwinter-revel
+            collection_id: null
+            is_new: false
+          title: Midwinter Revel
+          summary: Describe the revel.
+          source: user
+          author:
+            display_name: Morwen
+            role: contributor
+          created_at: "2026-10-01T09:00:00Z"
+          submitted_at: "2026-10-01T09:10:00Z"
+          reviewed_at: null
+          review_note: null
+          base_revision_id: 46
+          submitted_base_revision_id: 46
+          snapshot:
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+          base_snapshot:
+            name: Midwinter Revel
+            kind: event
+            description_md: null
+          changed_fields: [description_md]
+          pending_references: []
+
+    MyRevisionList:
+      type: object
+      description: |
+        One page of the caller's own revisions, drafts included, newest first by when they were submitted, else
+        last saved, else created, with how many match in all.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyRevisionSummary"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          examples:
+            - 1
+      examples:
+        - data: []
+          total: 0
+
+    DocumentError:
+      type: object
+      description: |
+        The body of a 422 `invalid_document` response: the document's problems, each at its JSON-pointer-like path
+        in the editor format (such as `/links/2/roles`) or at `/summary` or `/base_revision_id`. Neither the
+        message nor a problem ever quotes a value.
+      additionalProperties: false
+      required: [code, message, problems]
+      properties:
+        code:
+          type: string
+          enum: [invalid_document]
+        message:
+          type: string
+          examples:
+            - the document is invalid
+        problems:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            description: A problem of the document.
+            additionalProperties: false
+            required: [path, problem]
+            properties:
+              path:
+                type: string
+                examples:
+                  - /aliases/0/name
+              problem:
+                type: string
+                enum:
+                  - required
+                  - too_long
+                  - invalid_characters
+                  - not_nfc
+                  - blank
+                  - duplicate
+                  - unknown_reference
+                  - self_reference
+                  - cycle
+                  - too_deep
+                  - wrong_facet
+                  - facet_immutable
+                  - source_required
+                  - reason_required
+                  - invalid_url
+                  - licence_needs_known_status
+                  - date_needs_status
+                  - named_needs_person
+                  - person_needs_named
+                  - credit_to_no_page_person
+                  - relation_to_no_page_person
+                  - second_primary_term
+                  - part_not_allowed
+                  - out_of_range
+                  - too_many
+                  - alias_visibility
+                  - withheld_placeholder
+                  - withheld_field_changed
+                examples:
+                  - blank
+      examples:
+        - code: invalid_document
+          message: the document is invalid
+          problems:
+            - path: /credits/0/person
+              problem: unknown_reference
+
+    DuplicateError:
+      type: object
+      description: The body of a 409 `possible_duplicate` response, with the entities the new one may duplicate.
+      additionalProperties: false
+      required: [code, message, duplicates]
+      properties:
+        code:
+          type: string
+          enum: [possible_duplicate]
+        message:
+          type: string
+          examples:
+            - "the new entity may duplicate an existing one: acknowledge_duplicates confirms it"
+        duplicates:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/DuplicateMatch"
+      examples:
+        - code: possible_duplicate
+          message: "the new entity may duplicate an existing one: acknowledge_duplicates confirms it"
+          duplicates:
+            - entity_type: piece
+              slug: the-copper-kettle
+              collection_id: null
+              name: The Copper Kettle
+              matched: title
+
+    Flag:
+      type: object
+      description: A moderator flag on a revision, with the path of what raised it in the full document, if anything did.
+      additionalProperties: false
+      required: [code, path]
+      properties:
+        code:
+          $ref: "#/components/schemas/FlagCode"
+        path:
+          type: [string, "null"]
+          examples:
+            - /aliases/1/name
+      examples:
+        - code: hidden_alias_in_text
+          path: /notes_md
+
+    FlagsError:
+      type: object
+      description: |
+        The body of a 409 response refusing a moderator's revision for its flags: `unacknowledged_flags`, with the
+        flags to acknowledge, or `pending_reference_flagged`, with the flags of the referenced pending revision the
+        message names, which must be approved on its own first.
+      additionalProperties: false
+      required: [code, message, flags]
+      properties:
+        code:
+          type: string
+          enum: [unacknowledged_flags, pending_reference_flagged]
+        message:
+          type: string
+          examples:
+            - the revision has flags that are not acknowledged
+        flags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Flag"
+      examples:
+        - code: unacknowledged_flags
+          message: the revision has flags that are not acknowledged
+          flags:
+            - code: possible_duplicate
+              path: null

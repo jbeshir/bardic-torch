@@ -19,6 +19,8 @@ var (
 	// ErrEntityGone is a write whose entity row, or an entity it references, no longer exists: a pending new
 	// entity's placeholder was deleted.
 	ErrEntityGone = errors.New("entity gone")
+	// ErrDocumentType is a document of another entity type than the draft, entity or revision it is written for.
+	ErrDocumentType = errors.New("document is not of the entity's type")
 )
 
 // EditorRefResolver converts references between the editor format and documents (D5) for a caller: a piece,
@@ -78,7 +80,8 @@ type UpdateDraftRequest struct {
 }
 
 // DraftUpdater replaces a draft's document and summary, keeping its base. It returns ErrNotFound unless the draft
-// is the actor's, and domain.ErrNotDraft if it is no longer a draft.
+// is the actor's, domain.ErrNotDraft if it is no longer a draft, and ErrDocumentType for a document of another
+// entity type than the draft.
 type DraftUpdater interface {
 	UpdateDraft(ctx context.Context, req UpdateDraftRequest) (domain.Draft, error)
 }

@@ -78,6 +78,19 @@ const (
 	routingRevisionTemplate  = "/v1/revisions/{revision_id}"
 	routingRevisionPath      = "/v1/revisions/" + routingCatalogueID
 	routingNeedsWork         = "/v1/needs-work"
+
+	routingPieceEditableTmpl = "/v1/pieces/{slug}/editable"
+	routingPieceEditable     = routingPiecePath + "/editable"
+	routingPiecePending      = routingPiecePath + "/pending"
+	routingDrafts            = "/v1/drafts"
+	routingDraftTmpl         = "/v1/drafts/{draft_id}"
+	routingDraftPath         = routingDrafts + "/" + routingCatalogueID
+	routingRevisions         = "/v1/revisions"
+	routingWithdrawTmpl      = "/v1/revisions/{revision_id}/withdraw"
+	routingWithdrawPath      = routingRevisionPath + "/withdraw"
+	routingMyRevisions       = "/v1/me/revisions"
+	// routingPlaceholder is the placeholder slug of a pending new piece.
+	routingPlaceholder = "pending-piece-12"
 )
 
 // catalogueNotFound is the answer of a public catalogue route whose controller asked the fixture for pathValue and
@@ -229,7 +242,8 @@ func publicCases() []routingCase {
 		notFound(http.MethodGet, routingPieceHistory+"/extra", routingInvalid),
 		notFound(http.MethodGet, routingNeedsWork+"/", routingInvalid),
 		notFound(http.MethodGet, routingNeedsWork+"/x", routingInvalid),
-		notFound(http.MethodGet, "/v1/revisions", routingInvalid),
+		// POST /v1/revisions submits a draft; there is no list of revisions.
+		notAllowedAt(http.MethodGet, routingRevisions, routingInvalid, http.MethodPost),
 		notFound(http.MethodGet, "/v1/revisions/", routingInvalid),
 		notFound(http.MethodGet, "/v1/p%69eces", ""),
 		notFound(http.MethodGet, "/v1/p%69eces/"+routingSlug, routingInvalid),
@@ -364,6 +378,36 @@ func (*routingFixture) ListPublicNeedsWork(
 	return domain.NeedsWorkList{}, errRoutingList
 }
 
+// The revision commands record the slug or ID they are given and find nothing.
+
+type routingEditable struct{ f *routingFixture }
+
+func (c routingEditable) Execute(_ context.Context, req command.EntityRequest) (domain.Editable, error) {
+	c.f.recordPathValue(req.Key.Slug)
+	return domain.Editable{}, datasources.ErrNotFound
+}
+
+type routingPending struct{ f *routingFixture }
+
+func (c routingPending) Execute(_ context.Context, req command.EntityRequest) (domain.MyRevision, error) {
+	c.f.recordPathValue(req.Key.Slug)
+	return domain.MyRevision{}, datasources.ErrNotFound
+}
+
+type routingRevision struct{ f *routingFixture }
+
+func (c routingRevision) Execute(_ context.Context, req command.RevisionRequest) (domain.MyRevision, error) {
+	c.f.recordPathValue(strconv.FormatInt(req.ID, 10))
+	return domain.MyRevision{}, datasources.ErrNotFound
+}
+
+type routingDraft struct{ f *routingFixture }
+
+func (c routingDraft) Execute(_ context.Context, req command.RevisionRequest) (command.DraftResult, error) {
+	c.f.recordPathValue(strconv.FormatInt(req.ID, 10))
+	return command.DraftResult{}, datasources.ErrNotFound
+}
+
 func (f *routingFixture) dependencies() Dependencies {
 	moderator := testUser
 	moderator.ID, moderator.Role = routingModeratorID, domain.RoleModerator
@@ -387,6 +431,10 @@ func (f *routingFixture) dependencies() Dependencies {
 		PublicCollectionHistoryLister: f,
 		PublicRevisionGetter:          f,
 		PublicNeedsWorkLister:         f,
+		GetEditable:                   routingEditable{f},
+		GetPendingVersion:             routingPending{f},
+		WithdrawRevision:              routingRevision{f},
+		GetDraft:                      routingDraft{f},
 		Now:                           func() time.Time { return testNow },
 	}
 }
@@ -454,6 +502,59 @@ var routeRows = []routeRow{
 	// supported methods, and is fixed.
 	{path: routingTokenPath, allow: "DELETE", routed: map[string]routingCase{
 		http.MethodDelete: anonymousAuthRequired(revokeTemplate),
+	}},
+	{path: routingPieceEditable, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired(routingPieceEditableTmpl),
+	}},
+	{path: "/v1/persons/" + routingSlug + "/editable", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/persons/{slug}/editable"),
+	}},
+	{path: "/v1/terms/" + routingSlug + "/editable", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/terms/{slug}/editable"),
+	}},
+	{path: "/v1/events/" + routingSlug + "/editable", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/events/{slug}/editable"),
+	}},
+	{path: "/v1/collections/" + routingCatalogueID + "/editable", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/collections/{collection_id}/editable"),
+	}},
+	{path: routingPiecePending, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/pieces/{slug}/pending"),
+	}},
+	{path: "/v1/persons/" + routingSlug + "/pending", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/persons/{slug}/pending"),
+	}},
+	{path: "/v1/terms/" + routingSlug + "/pending", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/terms/{slug}/pending"),
+	}},
+	{path: "/v1/events/" + routingSlug + "/pending", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/events/{slug}/pending"),
+	}},
+	{path: "/v1/collections/" + routingCatalogueID + "/pending", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/collections/{collection_id}/pending"),
+	}},
+	{path: routingDrafts, allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired(routingDrafts),
+	}},
+	{path: routingDraftPath, allow: "DELETE, GET, PUT", routed: map[string]routingCase{
+		http.MethodDelete: anonymousAuthRequired(routingDraftTmpl),
+		http.MethodGet:    anonymousAuthRequired(routingDraftTmpl),
+		http.MethodPut:    anonymousAuthRequired(routingDraftTmpl),
+	}},
+	{path: routingRevisions, allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired(routingRevisions),
+	}},
+	{path: routingWithdrawPath, allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired(routingWithdrawTmpl),
+	}},
+	{path: routingRevisionPath + "/revert", allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired("/v1/revisions/{revision_id}/revert"),
+	}},
+	{path: routingMyRevisions, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired(routingMyRevisions),
+	}},
+	{path: routingMyRevisions + "/" + routingCatalogueID, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/me/revisions/{revision_id}"),
 	}},
 }
 
@@ -553,6 +654,15 @@ func unroutedCases() []routingCase {
 		notFound(http.MethodGet, "/%761/me", routingInvalid),
 		notFound(http.MethodPut, "/v1/users/auth0%7Cuser/bl%6Fcked", routingInvalid),
 		notFound(http.MethodDelete, "/v1/tok%65ns/"+routingRevokeID, routingInvalid),
+		// Around the revision routes.
+		notFound(http.MethodGet, routingMyRevisions+"/", routingInvalid),
+		notFound(http.MethodPost, routingDrafts+"/", routingInvalid),
+		notFound(http.MethodGet, routingPieceEditable+"/", routingInvalid),
+		notFound(http.MethodGet, routingPiecePath+"/edit%61ble", routingInvalid),
+		notFound(http.MethodPost, routingWithdrawPath+"/extra", routingInvalid),
+		notAllowedAt(http.MethodPost, routingPieceEditable, routingInvalid, http.MethodGet),
+		notAllowedAt(http.MethodPatch, routingDraftPath, routingInvalid, "DELETE, GET, PUT"),
+		notAllowedAt(http.MethodGet, routingWithdrawPath, routingInvalid, http.MethodPost),
 	}
 }
 
@@ -609,6 +719,18 @@ func encodedIDCases() []routingCase {
 		notFound(http.MethodDelete, "/v1/tokens/%2F", ""),
 		notFound(http.MethodPut, "/v1/users/%2F/blocked", routingInvalid),
 		revokeAsModerator("/v1/tokens/a%2Fb"),
+		// Revision routes decode their slug or ID once, like the others; a placeholder slug is a slug.
+		asModerator(http.MethodGet, "/v1/pieces/pending-piece-1%32/editable", routingPieceEditableTmpl,
+			`{"code":"not_found","message":"piece not found"}`, routingPlaceholder),
+		asModerator(http.MethodGet, "/v1/pieces/"+routingPlaceholder+"/pending", "/v1/pieces/{slug}/pending",
+			`{"code":"not_found","message":"pending revision not found"}`, routingPlaceholder),
+		asModerator(http.MethodPost, "/v1/revisions/4%32/withdraw", routingWithdrawTmpl,
+			`{"code":"not_found","message":"revision not found"}`, routingCatalogueID),
+		asModerator(http.MethodGet, routingDrafts+"/%342", routingDraftTmpl,
+			`{"code":"not_found","message":"draft not found"}`, routingCatalogueID),
+		notFound(http.MethodGet, "/v1/pieces/%2F/editable", routingModerator),
+		notFound(http.MethodDelete, routingDrafts+"/%2F", routingModerator),
+		notFound(http.MethodPost, "/v1/revisions/%2F/withdraw", ""),
 		{
 			method: http.MethodDelete, target: routingTokenPath, authorization: routingModerator,
 			status: http.StatusNotFound, contentType: jsonContentType, respBody: tokenNotFoundBody, authRan: true,
@@ -695,4 +817,14 @@ func serveRouting(t *testing.T, tc routingCase) (*httptest.ResponseRecorder, *ro
 	require.True(t, ok, "the request completion log has a route")
 
 	return rec, fixture, routeString
+}
+
+// asModerator is a request as a moderator to route, which answers 404 with body after its controller passed
+// pathValue on.
+func asModerator(method, target, route, body, pathValue string) routingCase {
+	return routingCase{
+		method: method, target: target, authorization: routingModerator,
+		status: http.StatusNotFound, contentType: jsonContentType, respBody: body + "\n", authRan: true,
+		route: route, pathValue: pathValue,
+	}
 }

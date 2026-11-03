@@ -36,6 +36,17 @@ type Dependencies struct {
 	PublicCollectionHistoryLister datasources.PublicCollectionHistoryLister
 	PublicRevisionGetter          datasources.PublicRevisionGetter
 	PublicNeedsWorkLister         datasources.PublicNeedsWorkLister
+	GetEditable                   command.Command[command.EntityRequest, domain.Editable]
+	GetPendingVersion             command.Command[command.EntityRequest, domain.MyRevision]
+	SaveDraft                     command.Command[command.SaveDraftRequest, command.SavedDraft]
+	UpdateDraft                   command.Command[command.UpdateDraftRequest, command.DraftResult]
+	GetDraft                      command.Command[command.RevisionRequest, command.DraftResult]
+	DiscardDraft                  command.Command[command.RevisionRequest, command.Empty]
+	SubmitRevision                command.Command[command.SubmitRevisionRequest, command.SubmittedRevision]
+	WithdrawRevision              command.Command[command.RevisionRequest, domain.MyRevision]
+	RevertTo                      command.Command[command.RevertRequest, command.SubmittedRevision]
+	ListMyRevisions               command.Command[command.ListMyRevisionsRequest, domain.MyRevisionList]
+	GetMyRevision                 command.Command[command.RevisionRequest, domain.MyRevision]
 	Now                           func() time.Time
 }
 
@@ -114,6 +125,39 @@ func routes(deps Dependencies) []route {
 			handler: requireNonAPIToken(controller.APITokenList{Lister: deps.APITokenLister})},
 		{method: http.MethodDelete, path: "/v1/tokens/{token_id}", authenticated: true,
 			handler: requireNonAPIToken(controller.APITokenRevoke{Revoker: deps.APITokenRevoker, Now: deps.Now})},
+
+		// Revisions: the caller's own editable documents, drafts, submissions and revisions. API tokens act with
+		// contributor powers (D25), which the commands apply. The editable and pending documents of each entity
+		// type have literal last segments, so they coexist with the public {slug} and history routes; placeholder
+		// slugs address the caller's own pending new entities.
+		editableRoute("pieces", "{slug}", domain.EntityTypePiece, deps),
+		editableRoute("persons", "{slug}", domain.EntityTypePerson, deps),
+		editableRoute("terms", "{slug}", domain.EntityTypeTerm, deps),
+		editableRoute("events", "{slug}", domain.EntityTypeEvent, deps),
+		editableRoute("collections", "{collection_id}", domain.EntityTypeCollection, deps),
+		pendingRoute("pieces", "{slug}", domain.EntityTypePiece, deps),
+		pendingRoute("persons", "{slug}", domain.EntityTypePerson, deps),
+		pendingRoute("terms", "{slug}", domain.EntityTypeTerm, deps),
+		pendingRoute("events", "{slug}", domain.EntityTypeEvent, deps),
+		pendingRoute("collections", "{collection_id}", domain.EntityTypeCollection, deps),
+		{method: http.MethodPost, path: "/v1/drafts", authenticated: true,
+			handler: requireAuth(controller.DraftCreate{Command: deps.SaveDraft})},
+		{method: http.MethodGet, path: draftPath, authenticated: true,
+			handler: requireAuth(controller.DraftGet{Command: deps.GetDraft})},
+		{method: http.MethodPut, path: draftPath, authenticated: true,
+			handler: requireAuth(controller.DraftUpdate{Command: deps.UpdateDraft})},
+		{method: http.MethodDelete, path: draftPath, authenticated: true,
+			handler: requireAuth(controller.DraftDelete{Command: deps.DiscardDraft})},
+		{method: http.MethodPost, path: "/v1/revisions", authenticated: true,
+			handler: requireAuth(controller.RevisionSubmit{Command: deps.SubmitRevision})},
+		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/withdraw", authenticated: true,
+			handler: requireAuth(controller.RevisionWithdraw{Command: deps.WithdrawRevision})},
+		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/revert", authenticated: true,
+			handler: requireAuth(controller.RevisionRevert{Command: deps.RevertTo})},
+		{method: http.MethodGet, path: "/v1/me/revisions", authenticated: true,
+			handler: requireAuth(controller.MyRevisionsList{Command: deps.ListMyRevisions})},
+		{method: http.MethodGet, path: "/v1/me/revisions/{revision_id}", authenticated: true,
+			handler: requireAuth(controller.MyRevisionGet{Command: deps.GetMyRevision})},
 	}
 }
 
@@ -129,3 +173,20 @@ func New(deps Dependencies) http.Handler {
 	r := newRouter(routes(deps), authMiddleware(deps.AuthValidators, deps.ResolveUser))
 	return requestLogger(r.lookup)(securityHeaders(cors(strings.Join(r.methods, ", "))(r)))
 }
+
+// editableRoute is the route of GET /v1/<collection>/<key>/editable, the caller's editable document of an entity of
+// entityType.
+func editableRoute(collection, key string, entityType domain.EntityType, deps Dependencies) route {
+	return route{method: http.MethodGet, path: "/v1/" + collection + "/" + key + "/editable", authenticated: true,
+		handler: requireAuth(controller.EditableGet{Command: deps.GetEditable, EntityType: entityType})}
+}
+
+// pendingRoute is the route of GET /v1/<collection>/<key>/pending, the caller's pending revision of an entity of
+// entityType.
+func pendingRoute(collection, key string, entityType domain.EntityType, deps Dependencies) route {
+	return route{method: http.MethodGet, path: "/v1/" + collection + "/" + key + "/pending", authenticated: true,
+		handler: requireAuth(controller.PendingGet{Command: deps.GetPendingVersion, EntityType: entityType})}
+}
+
+// draftPath is the path of a draft, which three routes share.
+const draftPath = "/v1/drafts/{draft_id}"

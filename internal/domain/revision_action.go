@@ -102,3 +102,13 @@ const (
 func ParseContactRequestStatus(s string) (ContactRequestStatus, error) {
 	return parseEnum[ContactRequestStatus](s, "contact request status")
 }
+
+// ParseEntityType returns the EntityType named by s, or an error if s is not a known entity type.
+func ParseEntityType(s string) (EntityType, error) {
+	return parseEnum[EntityType](s, "entity type")
+}
+
+// ParseRevisionStatus returns the RevisionStatus named by s, or an error if s is not a known status.
+func ParseRevisionStatus(s string) (RevisionStatus, error) {
+	return parseEnum[RevisionStatus](s, "revision status")
+}

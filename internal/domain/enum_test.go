@@ -55,6 +55,15 @@ func TestEnums_ModerationVocabularies(t *testing.T) {
 		{"contact request status", strs(contactRequestStatusValues),
 			func(s string) bool { return ContactRequestStatus(s).Valid() },
 			func(s string) (string, error) { v, err := ParseContactRequestStatus(s); return string(v), err }, "closed"},
+		{"entity type", strs(entityTypeValues),
+			func(s string) bool { return EntityType(s).Valid() },
+			func(s string) (string, error) { v, err := ParseEntityType(s); return string(v), err }, "song"},
+		{"revision status", strs(revisionStatusValues),
+			func(s string) bool { return RevisionStatus(s).Valid() },
+			func(s string) (string, error) { v, err := ParseRevisionStatus(s); return string(v), err }, "deleted"},
+		{"flag code", strs(flagCodeValues),
+			func(s string) bool { return FlagCode(s).Valid() },
+			func(s string) (string, error) { v, err := ParseFlagCode(s); return string(v), err }, "suspicious"},
 	}
 
 	for _, tc := range cases {

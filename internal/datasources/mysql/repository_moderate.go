@@ -66,7 +66,7 @@ func (r *Repository) RebaseRevision(ctx context.Context, req datasources.RebaseR
 			return err
 		}
 		if req.Document.EntityType() != in.entity.Type {
-			return errDocumentType
+			return datasources.ErrDocumentType
 		}
 		return c.rebase(ctx, req, in)
 	})

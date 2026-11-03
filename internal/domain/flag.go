@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 // FlagCode is a moderator flag on a revision (D19): something the moderator must see, and for most flags
 // acknowledge, before approving. Flags are never shown to the revision's contributor, so raising one is never an
 // oracle for hidden data.
@@ -33,4 +35,19 @@ const (
 type Flag struct {
 	Code FlagCode `json:"code"`
 	Path string   `json:"path"`
+}
+
+// flagCodeValues are the flag codes, in declaration order.
+var flagCodeValues = []FlagCode{
+	FlagHiddenAliasInSummary, FlagHiddenAliasInText, FlagHiddenAliasInReviewNote, FlagHiddenAliasCollision,
+	FlagHiddenLinkCollision, FlagHiddenLinkAttached, FlagHiddenDataConflict, FlagPossibleDuplicate,
+	FlagReferencesPending,
+}
+
+// Valid reports whether f is a known FlagCode.
+func (f FlagCode) Valid() bool { return slices.Contains(flagCodeValues, f) }
+
+// ParseFlagCode returns the FlagCode named by s, or an error if s is not a known flag code.
+func ParseFlagCode(s string) (FlagCode, error) {
+	return parseEnum[FlagCode](s, "flag code")
 }

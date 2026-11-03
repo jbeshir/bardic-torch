@@ -652,20 +652,40 @@ func historyPath(collection, address string) string {
 
 // Reasons an operation is in leakExempt.
 const (
-	exemptAccount = "the caller's own account"
-	exemptAPIAuth = "the caller's API tokens"
+	exemptAccount      = "the caller's own account"
+	exemptAPIAuth      = "the caller's API tokens"
+	exemptOwnRevisions = "the caller's own drafts and revisions; covered by TestHTTP_RevisionLeakMatrix"
 )
 
 // leakExempt are the operations that read no catalogue data, and why. A public /v1 GET cannot be exempt.
 var leakExempt = map[openapitest.Operation]string{
-	{Method: http.MethodGet, Path: healthzPath}:                   "health check",
-	{Method: http.MethodGet, Path: readyzPath}:                    "health check",
-	{Method: http.MethodGet, Path: mePath}:                        exemptAccount,
-	{Method: http.MethodPatch, Path: mePath}:                      exemptAccount,
-	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: "moderation of accounts",
-	{Method: http.MethodPost, Path: tokensPath}:                   exemptAPIAuth,
-	{Method: http.MethodGet, Path: tokensPath}:                    exemptAPIAuth,
-	{Method: http.MethodDelete, Path: "/v1/tokens/{token_id}"}:    exemptAPIAuth,
+	{Method: http.MethodGet, Path: healthzPath}:                                "health check",
+	{Method: http.MethodGet, Path: readyzPath}:                                 "health check",
+	{Method: http.MethodGet, Path: mePath}:                                     exemptAccount,
+	{Method: http.MethodPatch, Path: mePath}:                                   exemptAccount,
+	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}:              "moderation of accounts",
+	{Method: http.MethodPost, Path: tokensPath}:                                exemptAPIAuth,
+	{Method: http.MethodGet, Path: tokensPath}:                                 exemptAPIAuth,
+	{Method: http.MethodDelete, Path: "/v1/tokens/{token_id}"}:                 exemptAPIAuth,
+	{Method: http.MethodPost, Path: draftsPath}:                                exemptOwnRevisions,
+	{Method: http.MethodGet, Path: draftPath}:                                  exemptOwnRevisions,
+	{Method: http.MethodPut, Path: draftPath}:                                  exemptOwnRevisions,
+	{Method: http.MethodDelete, Path: draftPath}:                               exemptOwnRevisions,
+	{Method: http.MethodPost, Path: revisionsPath}:                             exemptOwnRevisions,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/withdraw"}:    exemptOwnRevisions,
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/revert"}:      exemptOwnRevisions,
+	{Method: http.MethodGet, Path: myRevisionsPath}:                            exemptOwnRevisions,
+	{Method: http.MethodGet, Path: myRevisionPath}:                             exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/editable"}:               exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/editable"}:              exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/editable"}:                exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/editable"}:               exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/editable"}: exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/pending"}:                exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/pending"}:               exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/pending"}:                 exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/pending"}:                exemptOwnRevisions,
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/pending"}:  exemptOwnRevisions,
 }
 
 // TestHTTP_LeakMatrix sends every leakMatrix request to the production handler over a real repository holding

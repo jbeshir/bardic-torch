@@ -200,3 +200,47 @@ func TestDecodeJSONBodyLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeJSONField(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		raw         string
+		want        testBody
+		wantMessage string
+	}{
+		{name: "object", raw: `{"name":"Morwen","detail":{"count":2}}`,
+			want: testBody{Name: "Morwen", Detail: &struct {
+				Count int `json:"count"`
+			}{Count: 2}}},
+		{name: "missing", raw: ``, wantMessage: notObjectField},
+		{name: "boolean", raw: `true`, wantMessage: notObjectField},
+		{name: "array", raw: `[]`, wantMessage: notObjectField},
+		{name: "unknown_field", raw: `{"name":"Morwen","extra":1}`, wantMessage: "field document has an unknown field"},
+		{name: "wrong_type", raw: `{"name":1}`, wantMessage: "field document.name has the wrong type"},
+		{name: "nested_wrong_type", raw: `{"detail":{"count":"2"}}`,
+			wantMessage: "field document.detail.count has the wrong type"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			rec := httptest.NewRecorder()
+			var got testBody
+			ok := DecodeJSONField(t.Context(), rec, json.RawMessage(tc.raw), "document", &got)
+
+			if tc.wantMessage == "" {
+				require.True(t, ok, "unexpected error response: %s", rec.Body.String())
+				assert.Equal(t, tc.want, got)
+				return
+			}
+			require.False(t, ok)
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.JSONEq(t, `{"code":"invalid_request","message":"`+tc.wantMessage+`"}`, rec.Body.String())
+		})
+	}
+}
+
+const notObjectField = "field document must be a JSON object"

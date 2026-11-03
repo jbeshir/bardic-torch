@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -234,4 +235,58 @@ func TestDocumentEntityTypes(t *testing.T) {
 	for i, want := range entityTypeValues {
 		assert.Equal(t, want, docs[i].EntityType())
 	}
+}
+
+func TestToEditorAndFromEditor_EveryType(t *testing.T) {
+	t.Parallel()
+	fx := newEditorRefFixture()
+
+	docs := []AnyDocument{
+		editorPieceDocument(), editorPersonDocument(),
+		TermDocument{SchemaVersion: DocumentSchemaVersion, Facet: FacetTopic, Name: "Seafaring",
+			DisplayName: "Seafaring", ParentID: new(editorTermID), Aliases: []string{}},
+		CollectionDocument{SchemaVersion: DocumentSchemaVersion, Name: "Linnet Archive", Kind: CollectionKindOther,
+			RegionTermID: new(editorTermID), Enumerable: CollectionEnumerableUnknown},
+		EventDocument{SchemaVersion: DocumentSchemaVersion, Name: linnetRevel, Kind: EventKindEvent},
+	}
+	for i, doc := range docs {
+		editor, err := ToEditor(doc, fx.slugs)
+		require.NoError(t, err)
+		assert.Equal(t, entityTypeValues[i], editor.EntityType())
+		back, problems, err := FromEditor(editor, fx.refs)
+		require.NoError(t, err)
+		assert.Empty(t, problems)
+		assert.Equal(t, doc, back)
+	}
+	assert.Empty(t, EditorEventDocument{Name: linnetRevel}.References())
+
+	// An unresolvable reference is a problem, not an error.
+	_, problems, err := FromEditor(EditorTermDocument{Facet: FacetTopic, Parent: new("no-such-term")}, RefMap{})
+	require.NoError(t, err)
+	assert.Equal(t, []DocumentProblem{{Path: "/parent", Code: ProblemUnknownReference}}, problems)
+
+	_, err = ToEditor(nil, fx.slugs)
+	require.ErrorIs(t, err, ErrUnknownDocumentType)
+	_, _, err = FromEditor(nil, fx.refs)
+	require.ErrorIs(t, err, ErrUnknownDocumentType)
+}
+
+func TestDraftProblems(t *testing.T) {
+	t.Parallel()
+
+	// An incomplete draft has no draft problems: it is checked in full when it is submitted.
+	assert.Empty(t, DraftProblems(PieceDocument{SchemaVersion: DocumentSchemaVersion}, ""))
+	assert.Empty(t, DraftProblems(editorPieceDocument(), "Adds a credit."))
+
+	doc := editorPersonDocument()
+	doc.Kind = "minstrel"
+	doc.Name = "Wren\u0000Placeholder"
+	doc.Aliases = []DocPersonAlias{{Name: "Wre\u0301n", Kind: PersonAliasKindNickname, IsPublic: true}}
+	problems := DraftProblems(doc, strings.Repeat("s", 501))
+	assert.ElementsMatch(t, []DocumentProblem{
+		{Path: "/kind", Code: ProblemOutOfRange},
+		{Path: pathName, Code: ProblemInvalidCharacters},
+		{Path: "/aliases/0/name", Code: ProblemNotNFC},
+		{Path: "/summary", Code: ProblemTooLong},
+	}, problems)
 }

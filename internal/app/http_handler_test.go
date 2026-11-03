@@ -25,6 +25,11 @@ const (
 	collectionsPath = "/v1/collections"
 	eventsPath      = "/v1/events"
 	needsWorkPath   = "/v1/needs-work"
+	draftsPath      = "/v1/drafts"
+	revisionsPath   = "/v1/revisions"
+	myRevisionsPath = "/v1/me/revisions"
+	myRevisionPath  = "/v1/me/revisions/{revision_id}"
+	draftIDParam    = "draft_id"
 	slugParam       = "slug"
 	// methodNotAllowedBody is the response to a method no route at the path accepts.
 	methodNotAllowedBody = `{"code":"method_not_allowed","message":"method not allowed for this path"}`

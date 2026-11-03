@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -33,17 +34,23 @@ const (
 	endToEndContributorPath = "/v1/users/google-oauth2%7Ce2e-contributor/blocked"
 )
 
-// endToEnd sends requests to the production handler, checking each request and response against the spec.
+// endToEnd sends requests to the production handler, checking each request and response against the spec. If
+// logger is not nil, the handler logs each request to it.
 type endToEnd struct {
 	handler  http.Handler
 	contract *openapitest.Validator
+	logger   *slog.Logger
 }
 
 // send serves a request with the given Authorization header value and JSON body, either of which may be empty.
 func (e endToEnd) send(t *testing.T, method, path, authorization, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
+	ctx := t.Context()
+	if e.logger != nil {
+		ctx = domain.ContextWithLogger(ctx, e.logger)
+	}
+	req := httptest.NewRequestWithContext(ctx, method, path, strings.NewReader(body))
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

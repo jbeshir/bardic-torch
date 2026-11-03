@@ -379,12 +379,7 @@ type docCheck struct {
 }
 
 func newDocCheck[D Document](doc D, prev *D, refs ReferenceIndex, id int64) *docCheck {
-	c := &docCheck{refs: refs, id: id, previousStrings: map[string]bool{}, changed: map[string]bool{}}
-	c.fieldCheck = fieldCheck{report: func(path string, code ProblemCode) {
-		if p := (DocumentProblem{Path: path, Code: code}); !slices.Contains(c.problems, p) {
-			c.problems = append(c.problems, p)
-		}
-	}, paths: documentPaths}
+	c := newProblemCheck(refs, id)
 	if prev != nil {
 		walkStrings(reflect.ValueOf(*prev), "", documentPaths, func(_ string, v reflect.Value) {
 			c.previousStrings[v.String()] = true
@@ -397,13 +392,41 @@ func newDocCheck[D Document](doc D, prev *D, refs ReferenceIndex, id int64) *doc
 	return c
 }
 
-// document checks what every document must be: of the current schema version, with known vocabulary values, every
-// string valid UTF-8 in NFC without control characters; and the summary of its revision.
+// newProblemCheck returns a docCheck with no comparison document and no changed references, recording each
+// problem once.
+func newProblemCheck(refs ReferenceIndex, id int64) *docCheck {
+	c := &docCheck{refs: refs, id: id, previousStrings: map[string]bool{}, changed: map[string]bool{}}
+	c.fieldCheck = fieldCheck{report: func(path string, code ProblemCode) {
+		if p := (DocumentProblem{Path: path, Code: code}); !slices.Contains(c.problems, p) {
+			c.problems = append(c.problems, p)
+		}
+	}, paths: documentPaths}
+
+	return c
+}
+
+// DraftProblems returns the problems even a draft may not have, since drafts may be incomplete (§3.3): vocabulary
+// values that are given but unknown, strings that are not valid UTF-8 in NFC or that hold control characters, and a
+// summary that does not fit. Every other rule is checked when the draft is submitted.
+func DraftProblems(doc AnyDocument, summary string) []DocumentProblem {
+	c := newProblemCheck(ReferenceIndex{}, 0)
+	c.contents(doc, summary, true)
+
+	return c.problems
+}
+
+// document checks what every document must be: of the current schema version, with its contents (contents).
 func (c *docCheck) document(doc any, version int, summary string) {
 	c.check(version == DocumentSchemaVersion, "/schema_version", ProblemOutOfRange)
+	c.contents(doc, summary, false)
+}
+
+// contents checks that every vocabulary value of doc is known (or, if incomplete, empty), that every string is
+// valid UTF-8 in NFC without control characters, and the summary of its revision.
+func (c *docCheck) contents(doc any, summary string, incomplete bool) {
 	walkStrings(reflect.ValueOf(doc), "", documentPaths, func(path string, v reflect.Value) {
 		if e, ok := v.Interface().(validator); ok {
-			c.check(e.Valid(), path, ProblemOutOfRange)
+			c.check(e.Valid() || incomplete && v.String() == "", path, ProblemOutOfRange)
 		}
 	})
 	c.strings(reflect.ValueOf(doc), "")

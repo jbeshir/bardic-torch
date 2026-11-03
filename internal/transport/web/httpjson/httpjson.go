@@ -47,6 +47,20 @@ const (
 	CodeAPIAuthLimitReached  ErrorCode = "token_limit_reached"
 	CodeInternal             ErrorCode = "internal"
 	CodeUnavailable          ErrorCode = "unavailable"
+	// The codes of revision writes (D2, D4, D12, D13, D15, D19).
+	CodeInvalidDocument         ErrorCode = "invalid_document"
+	CodeNotDraft                ErrorCode = "not_draft"
+	CodeNotPending              ErrorCode = "not_pending"
+	CodeRebaseRequired          ErrorCode = "rebase_required"
+	CodeEntityGone              ErrorCode = "entity_gone"
+	CodeAlreadyCurrent          ErrorCode = "already_current"
+	CodePendingLimitReached     ErrorCode = "pending_limit_reached"
+	CodeDraftLimitReached       ErrorCode = "draft_limit_reached"
+	CodePossibleDuplicate       ErrorCode = "possible_duplicate"
+	CodeDuplicateBlocked        ErrorCode = "duplicate_blocked"
+	CodeHiddenDataConflict      ErrorCode = "hidden_data_conflict"
+	CodePendingReferenceFlagged ErrorCode = "pending_reference_flagged"
+	CodeUnacknowledgedFlags     ErrorCode = "unacknowledged_flags"
 )
 
 type errorBody struct {
@@ -93,18 +107,33 @@ func DecodeJSONBodyLimit(w http.ResponseWriter, r *http.Request, dst any, limit 
 
 	var raw json.RawMessage
 	if err := dec.Decode(&raw); err != nil {
-		writeDecodeError(ctx, w, err)
+		writeDecodeError(ctx, w, err, "")
 		return false
 	}
 
 	// Anything after the first value, including a second value, makes the body invalid.
 	if err := dec.Decode(&json.RawMessage{}); !errors.Is(err, io.EOF) {
-		writeDecodeError(ctx, w, cmp.Or(err, errMultipleValues))
+		writeDecodeError(ctx, w, cmp.Or(err, errMultipleValues), "")
 		return false
 	}
 
-	if raw[0] != '{' {
-		WriteError(ctx, w, http.StatusBadRequest, CodeInvalidRequest, "request body must be a JSON object")
+	return decodeObject(ctx, w, raw, dst, "request body", "")
+}
+
+// DecodeJSONField decodes raw, the value of the request body's field name, into dst as DecodeJSONBodyLimit
+// decodes a body: it must be a JSON object, and unknown fields are rejected. If it is unacceptable it writes 400
+// invalid_request, naming the field, and returns false; the caller should then return without writing. Bodies
+// whose shape depends on another of their fields, such as a document whose type is a sibling field, decode that
+// field as a json.RawMessage, then decode it with this.
+func DecodeJSONField(ctx context.Context, w http.ResponseWriter, raw json.RawMessage, name string, dst any) bool {
+	return decodeObject(ctx, w, raw, dst, "field "+name, name+".")
+}
+
+// decodeObject decodes raw into dst, rejecting unknown fields. what names raw in error messages, and prefix goes
+// before the name of a field of raw.
+func decodeObject(ctx context.Context, w http.ResponseWriter, raw json.RawMessage, dst any, what, prefix string) bool {
+	if len(raw) == 0 || raw[0] != '{' {
+		WriteError(ctx, w, http.StatusBadRequest, CodeInvalidRequest, what+" must be a JSON object")
 		return false
 	}
 
@@ -112,14 +141,14 @@ func DecodeJSONBodyLimit(w http.ResponseWriter, r *http.Request, dst any, limit 
 	// error, from unknown fields, which it reports only as text: a body that decodes this way but not strictly
 	// has an unknown field.
 	if err := json.Unmarshal(raw, dst); err != nil {
-		writeDecodeError(ctx, w, err)
+		writeDecodeError(ctx, w, err, prefix)
 		return false
 	}
 	strictDec := json.NewDecoder(bytes.NewReader(raw))
 	strictDec.DisallowUnknownFields()
 	if err := strictDec.Decode(dst); err != nil {
 		logDecodeError(ctx, err)
-		WriteError(ctx, w, http.StatusBadRequest, CodeInvalidRequest, "request body has an unknown field")
+		WriteError(ctx, w, http.StatusBadRequest, CodeInvalidRequest, what+" has an unknown field")
 		return false
 	}
 
@@ -127,8 +156,8 @@ func DecodeJSONBodyLimit(w http.ResponseWriter, r *http.Request, dst any, limit 
 }
 
 // writeDecodeError writes the error response for a body that could not be decoded. The client gets a fixed
-// message, naming at most the JSON field at fault, and err itself is logged at debug level.
-func writeDecodeError(ctx context.Context, w http.ResponseWriter, err error) {
+// message, naming at most the JSON field at fault (after prefix), and err itself is logged at debug level.
+func writeDecodeError(ctx context.Context, w http.ResponseWriter, err error, prefix string) {
 	logDecodeError(ctx, err)
 
 	var (
@@ -149,7 +178,7 @@ func writeDecodeError(ctx context.Context, w http.ResponseWriter, err error) {
 	case errors.Is(err, errMultipleValues):
 		message = "request body must be a single JSON value"
 	case errors.As(err, &typeErr) && typeErr.Field != "":
-		message = "field " + typeErr.Field + " has the wrong type"
+		message = "field " + prefix + typeErr.Field + " has the wrong type"
 	default:
 		message = "invalid request body"
 	}

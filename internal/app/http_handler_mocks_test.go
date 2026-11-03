@@ -73,6 +73,19 @@ type handlerMocks struct {
 	collectionHistory *mocks.PublicCollectionHistoryLister
 	revisions         *mocks.PublicRevisionGetter
 	needsWork         *mocks.PublicNeedsWorkLister
+	refs              *mocks.EditorRefResolver
+	editable          *mocks.EditableDocumentGetter
+	draftSaver        *mocks.DraftSaver
+	draftUpdater      *mocks.DraftUpdater
+	drafts            *mocks.DraftGetter
+	draftDiscarder    *mocks.DraftDiscarder
+	duplicates        *mocks.DuplicateFinder
+	submitter         *mocks.RevisionSubmitter
+	withdrawer        *mocks.RevisionWithdrawer
+	reverter          *mocks.RevisionReverter
+	myRevisionLister  *mocks.MyRevisionLister
+	myRevisions       *mocks.MyRevisionGetter
+	pending           *mocks.PendingVersionGetter
 	handler           http.Handler
 	validate          *openapitest.Validator
 }
@@ -102,6 +115,19 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		collectionHistory: mocks.NewPublicCollectionHistoryLister(t),
 		revisions:         mocks.NewPublicRevisionGetter(t),
 		needsWork:         mocks.NewPublicNeedsWorkLister(t),
+		refs:              mocks.NewEditorRefResolver(t),
+		editable:          mocks.NewEditableDocumentGetter(t),
+		draftSaver:        mocks.NewDraftSaver(t),
+		draftUpdater:      mocks.NewDraftUpdater(t),
+		drafts:            mocks.NewDraftGetter(t),
+		draftDiscarder:    mocks.NewDraftDiscarder(t),
+		duplicates:        mocks.NewDuplicateFinder(t),
+		submitter:         mocks.NewRevisionSubmitter(t),
+		withdrawer:        mocks.NewRevisionWithdrawer(t),
+		reverter:          mocks.NewRevisionReverter(t),
+		myRevisionLister:  mocks.NewMyRevisionLister(t),
+		myRevisions:       mocks.NewMyRevisionGetter(t),
+		pending:           mocks.NewPendingVersionGetter(t),
 		validate:          openapitest.New(t),
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
@@ -133,6 +159,19 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		PublicCollectionHistoryLister: m.collectionHistory,
 		PublicRevisionGetter:          m.revisions,
 		PublicNeedsWorkLister:         m.needsWork,
+		EditorRefResolver:             m.refs,
+		EditableDocumentGetter:        m.editable,
+		DraftSaver:                    m.draftSaver,
+		DraftUpdater:                  m.draftUpdater,
+		DraftGetter:                   m.drafts,
+		DraftDiscarder:                m.draftDiscarder,
+		DuplicateFinder:               m.duplicates,
+		RevisionSubmitter:             m.submitter,
+		RevisionWithdrawer:            m.withdrawer,
+		RevisionReverter:              m.reverter,
+		MyRevisionLister:              m.myRevisionLister,
+		MyRevisionGetter:              m.myRevisions,
+		PendingVersionGetter:          m.pending,
 		Now: func() time.Time {
 			return handlerNow
 		},

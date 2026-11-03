@@ -37,6 +37,19 @@ type HTTPDependencies struct {
 	PublicCollectionHistoryLister datasources.PublicCollectionHistoryLister
 	PublicRevisionGetter          datasources.PublicRevisionGetter
 	PublicNeedsWorkLister         datasources.PublicNeedsWorkLister
+	EditorRefResolver             datasources.EditorRefResolver
+	EditableDocumentGetter        datasources.EditableDocumentGetter
+	DraftSaver                    datasources.DraftSaver
+	DraftUpdater                  datasources.DraftUpdater
+	DraftGetter                   datasources.DraftGetter
+	DraftDiscarder                datasources.DraftDiscarder
+	DuplicateFinder               datasources.DuplicateFinder
+	RevisionSubmitter             datasources.RevisionSubmitter
+	RevisionWithdrawer            datasources.RevisionWithdrawer
+	RevisionReverter              datasources.RevisionReverter
+	MyRevisionLister              datasources.MyRevisionLister
+	MyRevisionGetter              datasources.MyRevisionGetter
+	PendingVersionGetter          datasources.PendingVersionGetter
 	Now                           func() time.Time
 }
 
@@ -82,6 +95,27 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		PublicCollectionHistoryLister: deps.PublicCollectionHistoryLister,
 		PublicRevisionGetter:          deps.PublicRevisionGetter,
 		PublicNeedsWorkLister:         deps.PublicNeedsWorkLister,
-		Now:                           deps.Now,
+		GetEditable:                   &command.GetEditable{Getter: deps.EditableDocumentGetter},
+		GetPendingVersion:             &command.GetPendingVersion{Getter: deps.PendingVersionGetter},
+		SaveDraft: &command.SaveDraft{
+			Resolver: deps.EditorRefResolver, Saver: deps.DraftSaver, Duplicates: deps.DuplicateFinder, Now: deps.Now,
+		},
+		UpdateDraft: &command.UpdateDraft{
+			Resolver: deps.EditorRefResolver, Updater: deps.DraftUpdater, Duplicates: deps.DuplicateFinder,
+			Now: deps.Now,
+		},
+		GetDraft:     &command.GetDraft{Getter: deps.DraftGetter, Duplicates: deps.DuplicateFinder},
+		DiscardDraft: &command.DiscardDraft{Discarder: deps.DraftDiscarder},
+		SubmitRevision: &command.SubmitRevision{
+			Drafts: deps.DraftGetter, Duplicates: deps.DuplicateFinder, Submitter: deps.RevisionSubmitter,
+			Revisions: deps.MyRevisionGetter, Now: deps.Now,
+		},
+		WithdrawRevision: &command.WithdrawRevision{
+			Withdrawer: deps.RevisionWithdrawer, Revisions: deps.MyRevisionGetter,
+		},
+		RevertTo:        &command.RevertTo{Reverter: deps.RevisionReverter, Revisions: deps.MyRevisionGetter, Now: deps.Now},
+		ListMyRevisions: &command.ListMyRevisions{Lister: deps.MyRevisionLister},
+		GetMyRevision:   &command.GetMyRevision{Getter: deps.MyRevisionGetter},
+		Now:             deps.Now,
 	})
 }

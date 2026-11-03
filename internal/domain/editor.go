@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -595,4 +596,75 @@ func appendSlug(slugs []string, slug *string) []string {
 	}
 
 	return append(slugs, *slug)
+}
+
+// AnyEditorDocument is an editor document of one of the five types, for values whose entity type is known only at
+// run time.
+type AnyEditorDocument interface {
+	// EntityType is the type of entity the document is of.
+	EntityType() EntityType
+	// References returns the references the document makes.
+	References() EditorRefs
+}
+
+// EntityType is EntityTypePiece.
+func (EditorPieceDocument) EntityType() EntityType { return EntityTypePiece }
+
+// EntityType is EntityTypePerson.
+func (EditorPersonDocument) EntityType() EntityType { return EntityTypePerson }
+
+// EntityType is EntityTypeTerm.
+func (EditorTermDocument) EntityType() EntityType { return EntityTypeTerm }
+
+// EntityType is EntityTypeCollection.
+func (EditorCollectionDocument) EntityType() EntityType { return EntityTypeCollection }
+
+// EntityType is EntityTypeEvent.
+func (EditorEventDocument) EntityType() EntityType { return EntityTypeEvent }
+
+// References returns the references e makes: none, as an event references nothing.
+func (EditorEventDocument) References() EditorRefs { return EditorRefs{} }
+
+// ErrUnknownDocumentType is a document of no type the editor format has.
+var ErrUnknownDocumentType = errors.New("unknown document type")
+
+// ToEditor returns d in the editor format with the slugs s, as the ToEditor function of its type does.
+func ToEditor(d AnyDocument, s SlugMap) (AnyEditorDocument, error) {
+	switch d := d.(type) {
+	case PieceDocument:
+		return ToEditorPiece(d, s), nil
+	case PersonDocument:
+		return ToEditorPerson(d, s), nil
+	case TermDocument:
+		return ToEditorTerm(d, s), nil
+	case CollectionDocument:
+		return ToEditorCollection(d, s), nil
+	case EventDocument:
+		return ToEditorEvent(d), nil
+	default:
+		return nil, fmt.Errorf("%w [%T]", ErrUnknownDocumentType, d)
+	}
+}
+
+// FromEditor returns the document e describes, with the problems of the references it could not resolve, as the
+// FromEditor function of its type does.
+func FromEditor(e AnyEditorDocument, refs RefMap) (AnyDocument, []DocumentProblem, error) {
+	switch e := e.(type) {
+	case EditorPieceDocument:
+		d, problems := FromEditorPiece(e, refs)
+		return d, problems, nil
+	case EditorPersonDocument:
+		d, problems := FromEditorPerson(e, refs)
+		return d, problems, nil
+	case EditorTermDocument:
+		d, problems := FromEditorTerm(e, refs)
+		return d, problems, nil
+	case EditorCollectionDocument:
+		d, problems := FromEditorCollection(e, refs)
+		return d, problems, nil
+	case EditorEventDocument:
+		return FromEditorEvent(e), nil, nil
+	default:
+		return nil, nil, fmt.Errorf("%w [%T]", ErrUnknownDocumentType, e)
+	}
 }

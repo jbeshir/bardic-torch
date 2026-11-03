@@ -232,7 +232,7 @@ var matrixPage = domain.Page{Limit: domain.DefaultPageLimit}
 
 // authMatrix is the access every operation in the OpenAPI spec requires. TestRouter_AuthMatrix fails for an
 // operation without a row, so each new endpoint adds one here.
-var authMatrix = map[openapitest.Operation]matrixRow{
+var authMatrix = withRows(revisionMatrix(), map[openapitest.Operation]matrixRow{
 	{Method: http.MethodGet, Path: healthzPath}: {
 		access:        public,
 		successStatus: http.StatusOK,
@@ -350,7 +350,7 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 	},
 	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}"}: {
 		access:        public,
-		pathParams:    map[string]string{"collection_id": strconv.Itoa(matrixCollectionID)},
+		pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.collections.EXPECT().GetPublicCollection(mock.Anything, int64(matrixCollectionID)).
@@ -379,7 +379,7 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 	{Method: http.MethodGet, Path: "/v1/events/{slug}/history"}:  historyRow(domain.SlugEntityTypeEvent),
 	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/history"}: {
 		access:        public,
-		pathParams:    map[string]string{"collection_id": strconv.Itoa(matrixCollectionID)},
+		pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.collectionHistory.EXPECT().ListPublicCollectionHistory(mock.Anything, int64(matrixCollectionID),
@@ -388,7 +388,7 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 	},
 	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: {
 		access:        public,
-		pathParams:    map[string]string{"revision_id": strconv.Itoa(matrixRevisionID)},
+		pathParams:    map[string]string{revisionIDParam: strconv.Itoa(matrixRevisionID)},
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.revisions.EXPECT().GetPublicRevision(mock.Anything, int64(matrixRevisionID)).Return(matrixRevision, nil)
@@ -402,7 +402,7 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 				Return(domain.NeedsWorkList{}, nil)
 		},
 	},
-}
+})
 
 // historyRow is the row of the history of the public entity of entityType with slug matrixSlug.
 func historyRow(entityType domain.SlugEntityType) matrixRow {
