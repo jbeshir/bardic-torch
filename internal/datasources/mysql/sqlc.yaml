@@ -10,3 +10,9 @@ sql:
         # Valid lets the catalogue reads reject an ENUM value this release does not know (one a newer release
         # wrote before a rollback) with an error instead of serving it.
         emit_enum_valid_method: true
+        overrides:
+          # A nullable JSON column scans as []byte, which holds NULL as nil; json.RawMessage cannot hold NULL.
+          - db_type: "json"
+            nullable: true
+            go_type:
+              type: "[]byte"

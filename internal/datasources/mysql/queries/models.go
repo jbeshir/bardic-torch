@@ -2387,9 +2387,9 @@ type Revision struct {
 	ReviewNote              sql.NullString
 	CreatedAt               time.Time
 	EntityID                sql.NullInt64
-	SubmittedSnapshotJson   json.RawMessage
-	FlagsJson               json.RawMessage
-	ReceivedKeysJson        json.RawMessage
+	SubmittedSnapshotJson   []byte
+	FlagsJson               []byte
+	ReceivedKeysJson        []byte
 	SubmittedBaseRevisionID sql.NullInt64
 	UpdatedAt               sql.NullTime
 	SubmittedAt             sql.NullTime

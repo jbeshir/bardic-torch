@@ -57,6 +57,8 @@ func problemsOf(t *testing.T, err error) []DocumentProblem {
 	return docErr.Problems
 }
 
+// TestPlanApproval holds every §6.2 row but R19 (a draft base that is not an approved revision), which is the
+// repository's alone: TestRepository_SubmitDraft_BaseNotApproved in internal/datasources/mysql.
 func TestPlanApproval(t *testing.T) {
 	t.Parallel()
 
@@ -135,8 +137,6 @@ func TestPlanApproval(t *testing.T) {
 				require.NoError(t, err)
 				assert.False(t, plan.Rebased)
 			}},
-		{id: "R19_BaseNotApproved", repository: "TestRepository_SubmitDraft (chunk 4): a base that is not an " +
-			"approved revision of the entity is refused when the draft is saved"},
 		{id: "R20_NewEntity", state: func() ApprovalState[PieceDocument] {
 			s := notStale()
 			s.Base, s.Current, s.BaseRevisionID, s.CurrentRevisionID = nil, nil, nil, nil

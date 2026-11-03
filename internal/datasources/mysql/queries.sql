@@ -653,3 +653,331 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 -- name: InsertPerformancePerformer :exec
 INSERT INTO performance_performers (performance_id, person_id, position)
 VALUES (?, ?, ?);
+
+-- ============================================
+-- Revisions: editing, drafts and submissions
+--
+-- Drafts and pending revisions are private to their author (and pending ones to moderators). A pending new entity
+-- is a placeholder row with no current revision and no content (D14); only its author, through these queries, and
+-- moderators may reference or address it. Every locking read carries MAX_EXECUTION_TIME(4000), lockingReadMillis,
+-- which overrides the session's two-second limit so that the lock wait timeout (1205) ends a wait first.
+-- ============================================
+
+-- name: LockUser :one
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ id
+FROM users
+WHERE id = ?
+FOR UPDATE;
+
+-- name: LockRevisions :many
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ id, status, author_user_id, entity_type, entity_id
+FROM revisions
+WHERE id IN (sqlc.slice('ids'))
+ORDER BY id
+FOR UPDATE;
+
+-- name: GetRevision :one
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.submitted_base_revision_id, r.author_user_id, r.source,
+    r.status, r.snapshot_json, r.submitted_snapshot_json, r.received_keys_json, r.summary, r.reviewed_at,
+    r.review_note, r.created_at, r.updated_at, r.submitted_at, u.display_name AS author_display_name,
+    u.role AS author_role
+FROM revisions r
+LEFT JOIN users u ON u.id = r.author_user_id
+WHERE r.id = ?;
+
+-- The approved revision of an entity, which a draft's base must be.
+
+-- name: GetApprovedEntityRevision :one
+SELECT id, snapshot_json
+FROM revisions
+WHERE id = ? AND status = 'approved' AND entity_type = ? AND entity_id = ?;
+
+-- name: GetUserDraftForEntity :one
+SELECT id, updated_at
+FROM revisions
+WHERE author_user_id = ? AND entity_type = ? AND entity_id = ? AND status = 'draft'
+ORDER BY id
+LIMIT 1;
+
+-- name: GetUserPendingForEntity :one
+SELECT id, submitted_base_revision_id, submitted_snapshot_json, received_keys_json, submitted_at
+FROM revisions
+WHERE author_user_id = ? AND entity_type = ? AND entity_id = ? AND status = 'pending'
+ORDER BY id DESC
+LIMIT 1;
+
+-- name: CountDrafts :one
+SELECT COUNT(*)
+FROM revisions
+WHERE author_user_id = ? AND status = 'draft';
+
+-- name: CountPendingRevisions :one
+SELECT COUNT(*)
+FROM revisions
+WHERE author_user_id = sqlc.arg(author_user_id) AND status = 'pending' AND id <> sqlc.arg(excluded_id);
+
+-- name: CountOtherPendingRevisionsOfEntity :one
+SELECT COUNT(*)
+FROM revisions
+WHERE entity_type = ? AND entity_id = ? AND status = 'pending' AND id <> sqlc.arg(excluded_id);
+
+-- name: InsertDraft :execlastid
+INSERT INTO revisions (entity_type, entity_id, base_revision_id, author_user_id, source, status, snapshot_json,
+    received_keys_json, summary, created_at, updated_at)
+VALUES (?, ?, ?, ?, 'user', 'draft', ?, ?, ?, ?, ?);
+
+-- name: UpdateDraftDocument :execrows
+UPDATE revisions
+SET snapshot_json = ?, summary = ?, updated_at = ?
+WHERE id = ? AND status = 'draft';
+
+-- name: DeleteDraft :execrows
+DELETE FROM revisions
+WHERE id = ? AND status = 'draft';
+
+-- name: SubmitDraft :execrows
+UPDATE revisions
+SET status = 'pending', entity_id = sqlc.arg(entity_id), snapshot_json = sqlc.arg(snapshot_json),
+    submitted_snapshot_json = sqlc.arg(submitted_snapshot_json), flags_json = sqlc.arg(flags_json),
+    submitted_at = sqlc.arg(submitted_at), base_revision_id = sqlc.arg(base_revision_id),
+    submitted_base_revision_id = sqlc.arg(base_revision_id)
+WHERE id = sqlc.arg(id) AND status = 'draft';
+
+-- name: WithdrawRevision :execrows
+UPDATE revisions
+SET status = 'withdrawn'
+WHERE id = ? AND status = 'pending';
+
+-- The pending revisions of new entities, whose entity is a placeholder, with the placeholder's slug (none for a
+-- collection, which is addressed by ID): of one author, or with any_author of every author.
+
+-- name: ListPendingNewEntities :many
+SELECT r.id, r.entity_type, r.entity_id, r.author_user_id, r.snapshot_json, pc.slug AS piece_slug,
+    ps.slug AS person_slug, t.slug AS term_slug, e.slug AS event_slug
+FROM revisions r
+LEFT JOIN pieces pc ON r.entity_type = 'piece' AND pc.id = r.entity_id AND pc.current_revision_id IS NULL
+LEFT JOIN persons ps ON r.entity_type = 'person' AND ps.id = r.entity_id AND ps.current_revision_id IS NULL
+LEFT JOIN terms t ON r.entity_type = 'term' AND t.id = r.entity_id AND t.current_revision_id IS NULL
+LEFT JOIN collections c ON r.entity_type = 'collection' AND c.id = r.entity_id AND c.current_revision_id IS NULL
+LEFT JOIN events e ON r.entity_type = 'event' AND e.id = r.entity_id AND e.current_revision_id IS NULL
+WHERE r.status = 'pending' AND (r.author_user_id = sqlc.arg(author_user_id) OR sqlc.arg(any_author))
+    AND (pc.id IS NOT NULL OR ps.id IS NOT NULL OR t.id IS NOT NULL OR c.id IS NOT NULL OR e.id IS NOT NULL)
+ORDER BY r.id;
+
+-- The entities editor documents may reference, by slug or ID: public ones, or with include_unapproved (an
+-- interactive moderator) every one.
+
+-- name: ListEditorPiecesBySlug :many
+SELECT id, slug
+FROM pieces
+WHERE slug IN (sqlc.slice('slugs')) AND (current_revision_id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- name: ListEditorPersonsBySlug :many
+SELECT id, slug
+FROM persons
+WHERE slug IN (sqlc.slice('slugs')) AND (current_revision_id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- name: ListEditorTermsBySlug :many
+SELECT t.id, t.slug
+FROM terms t
+LEFT JOIN public_terms p ON p.id = t.id
+WHERE t.slug IN (sqlc.slice('slugs')) AND (p.id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- name: ListEditorEventsBySlug :many
+SELECT id, slug
+FROM events
+WHERE slug IN (sqlc.slice('slugs')) AND (current_revision_id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- name: ListEditorCollectionsByID :many
+SELECT id, name, current_revision_id IS NOT NULL AS is_public
+FROM collections
+WHERE id IN (sqlc.slice('ids')) AND (current_revision_id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- name: ListEditorPiecesByID :many
+SELECT id, slug, title, current_revision_id IS NOT NULL AS is_public
+FROM pieces
+WHERE id IN (sqlc.slice('ids')) AND (current_revision_id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- name: ListEditorPersonsByID :many
+SELECT id, slug, name, current_revision_id IS NOT NULL AS is_public
+FROM persons
+WHERE id IN (sqlc.slice('ids')) AND (current_revision_id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- name: ListEditorTermsByID :many
+SELECT t.id, t.slug, t.display_name, p.id IS NOT NULL AS is_public
+FROM terms t
+LEFT JOIN public_terms p ON p.id = t.id
+WHERE t.id IN (sqlc.slice('ids')) AND (p.id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- name: ListEditorEventsByID :many
+SELECT id, slug, name, current_revision_id IS NOT NULL AS is_public
+FROM events
+WHERE id IN (sqlc.slice('ids')) AND (current_revision_id IS NOT NULL OR sqlc.arg(include_unapproved));
+
+-- What validation knows of the entities a document references (domain.ReferenceIndex): whether each exists and is
+-- public, a person's status, a term's facet, parent and name, a collection's parent.
+
+-- name: ListPieceReferences :many
+SELECT id, current_revision_id IS NOT NULL AS is_public
+FROM pieces
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: ListPersonReferences :many
+SELECT id, current_revision_id IS NOT NULL AS is_public, status
+FROM persons
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: ListTermReferences :many
+SELECT t.id, t.facet, t.parent_id, t.name, p.id IS NOT NULL AS is_public
+FROM terms t
+LEFT JOIN public_terms p ON p.id = t.id
+WHERE t.id IN (sqlc.slice('ids'));
+
+-- name: ListFacetTermReferences :many
+SELECT t.id, t.facet, t.parent_id, t.name, p.id IS NOT NULL AS is_public
+FROM terms t
+LEFT JOIN public_terms p ON p.id = t.id
+WHERE t.facet = ?;
+
+-- name: ListCollectionReferences :many
+SELECT id, parent_id, current_revision_id IS NOT NULL AS is_public
+FROM collections
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: ListEventReferences :many
+SELECT id, current_revision_id IS NOT NULL AS is_public
+FROM events
+WHERE id IN (sqlc.slice('ids'));
+
+-- The state of the links a document holds, by normalized URL (see ListLinksByNormalizedURL).
+
+-- name: ListLinkStates :many
+SELECT id, normalized_url, is_hidden, liveness
+FROM links
+WHERE normalized_url IN (sqlc.slice('normalized_urls'));
+
+-- Placeholders of pending new entities hold no content (D14): their slugs are random, their names empty.
+
+-- name: InsertPiecePlaceholder :execlastid
+INSERT INTO pieces (slug, title, sort_title, sort_letter, kind)
+VALUES (?, '', '', '0', ?);
+
+-- name: InsertPersonPlaceholder :execlastid
+INSERT INTO persons (slug, name, sort_name, sort_letter, kind)
+VALUES (?, '', '', '0', ?);
+
+-- name: InsertTermPlaceholder :execlastid
+INSERT INTO terms (facet, name, display_name, slug)
+VALUES (?, sqlc.arg(slug), '', sqlc.arg(slug));
+
+-- name: InsertCollectionPlaceholder :execlastid
+INSERT INTO collections (name, sort_name, sort_letter, kind)
+VALUES ('', '', '0', ?);
+
+-- name: InsertEventPlaceholder :execlastid
+INSERT INTO events (slug, name, kind)
+VALUES (?, '', ?);
+
+-- ============================================
+-- Revisions: a user's own
+-- ============================================
+
+-- name: ListMyRevisions :many
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.submitted_base_revision_id, r.source, r.status,
+    r.snapshot_json, r.submitted_snapshot_json, r.summary, r.reviewed_at, r.review_note, r.created_at,
+    r.submitted_at
+FROM revisions r
+WHERE r.author_user_id = sqlc.arg(author_user_id)
+    AND (sqlc.narg(status) IS NULL OR r.status = sqlc.narg(status))
+    AND (sqlc.narg(entity_type) IS NULL OR r.entity_type = sqlc.narg(entity_type))
+ORDER BY COALESCE(r.submitted_at, r.updated_at, r.created_at) DESC, r.id DESC
+LIMIT ? OFFSET ?;
+
+-- name: CountMyRevisions :one
+SELECT COUNT(*)
+FROM revisions r
+WHERE r.author_user_id = sqlc.arg(author_user_id)
+    AND (sqlc.narg(status) IS NULL OR r.status = sqlc.narg(status))
+    AND (sqlc.narg(entity_type) IS NULL OR r.entity_type = sqlc.narg(entity_type));
+
+-- ============================================
+-- Duplicate check on create (D13)
+--
+-- The whole name set of an entity type, compared in Go by domain.DuplicateKey; each query stops at 20001 rows,
+-- one more than the design expects (maxDuplicateNames), so that reaching it is noticed.
+-- ============================================
+
+-- name: ListPieceTitles :many
+SELECT slug, title
+FROM pieces
+WHERE current_revision_id IS NOT NULL
+ORDER BY id
+LIMIT 20001;
+
+-- name: ListPieceAliasNames :many
+SELECT p.slug, p.title, a.text
+FROM piece_aliases a
+JOIN pieces p ON p.id = a.piece_id
+WHERE p.current_revision_id IS NOT NULL
+ORDER BY a.id
+LIMIT 20001;
+
+-- name: ListPersonNames :many
+SELECT slug, name, status
+FROM persons
+WHERE current_revision_id IS NOT NULL
+ORDER BY id
+LIMIT 20001;
+
+-- name: ListPersonAliasNames :many
+SELECT p.slug, p.name, p.status, a.name AS alias
+FROM person_aliases a
+JOIN persons p ON p.id = a.person_id
+WHERE p.current_revision_id IS NOT NULL AND (a.is_public OR sqlc.arg(include_hidden))
+ORDER BY a.id
+LIMIT 20001;
+
+-- name: ListFacetTermNames :many
+SELECT t.slug, t.name, t.display_name
+FROM public_terms t
+WHERE t.facet = ?
+ORDER BY t.id
+LIMIT 20001;
+
+-- name: ListEventNames :many
+SELECT slug, name
+FROM events
+WHERE current_revision_id IS NOT NULL
+ORDER BY id
+LIMIT 20001;
+
+-- name: ListCollectionNames :many
+SELECT id, name, url
+FROM collections
+WHERE current_revision_id IS NOT NULL
+ORDER BY id
+LIMIT 20001;
+
+-- name: ListHiddenAliasNames :many
+SELECT name
+FROM person_aliases
+WHERE NOT is_public
+ORDER BY id;
+
+-- A pending new entity's placeholder is deleted, with its child rows, when its revision leaves pending without
+-- approval and no other pending revision has it (D14); one that has been approved since is kept.
+
+-- name: DeletePiecePlaceholder :exec
+DELETE FROM pieces WHERE id = ? AND current_revision_id IS NULL;
+
+-- name: DeletePersonPlaceholder :exec
+DELETE FROM persons WHERE id = ? AND current_revision_id IS NULL;
+
+-- name: DeleteTermPlaceholder :exec
+DELETE FROM terms WHERE id = ? AND current_revision_id IS NULL;
+
+-- name: DeleteCollectionPlaceholder :exec
+DELETE FROM collections WHERE id = ? AND current_revision_id IS NULL;
+
+-- name: DeleteEventPlaceholder :exec
+DELETE FROM events WHERE id = ? AND current_revision_id IS NULL;

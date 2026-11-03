@@ -31,6 +31,6 @@ const (
 // Flag is a flag on a revision, with the path in the full document of what raised it, if anything in particular
 // did. Like a DocumentProblem it never holds a value.
 type Flag struct {
-	Code FlagCode
-	Path string
+	Code FlagCode `json:"code"`
+	Path string   `json:"path"`
 }
