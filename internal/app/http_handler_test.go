@@ -15,12 +15,21 @@ import (
 )
 
 const (
-	healthzPath = "/healthz"
-	readyzPath  = "/readyz"
-	mePath      = "/v1/me"
-	tokensPath  = "/v1/tokens"
+	healthzPath     = "/healthz"
+	readyzPath      = "/readyz"
+	mePath          = "/v1/me"
+	tokensPath      = "/v1/tokens"
+	piecesPath      = "/v1/pieces"
+	personsPath     = "/v1/persons"
+	termsPath       = "/v1/terms"
+	collectionsPath = "/v1/collections"
+	eventsPath      = "/v1/events"
+	needsWorkPath   = "/v1/needs-work"
+	slugParam       = "slug"
 	// methodNotAllowedBody is the response to a method no route at the path accepts.
 	methodNotAllowedBody = `{"code":"method_not_allowed","message":"method not allowed for this path"}`
+	// noRouteBody is the response to a path no route matches.
+	noRouteBody = `{"code":"not_found","message":"no route matches the path"}`
 )
 
 func TestNewHTTPHandler_HealthChecksIgnoreCredentials(t *testing.T) {
@@ -76,7 +85,7 @@ func TestNewHTTPHandler_UnroutedRequests(t *testing.T) {
 			method:     http.MethodGet,
 			path:       "/missing",
 			wantStatus: http.StatusNotFound,
-			wantBody:   `{"code":"not_found","message":"no route matches the path"}`,
+			wantBody:   noRouteBody,
 		},
 		{
 			name:          "unknown_v1_path_with_credentials",
@@ -84,7 +93,7 @@ func TestNewHTTPHandler_UnroutedRequests(t *testing.T) {
 			path:          "/v1/missing",
 			authorization: "Bearer auth0|" + invalidSecret,
 			wantStatus:    http.StatusNotFound,
-			wantBody:      `{"code":"not_found","message":"no route matches the path"}`,
+			wantBody:      noRouteBody,
 		},
 		{
 			name:       "wrong_method_on_health_check",
@@ -111,6 +120,23 @@ func TestNewHTTPHandler_UnroutedRequests(t *testing.T) {
 			wantStatus:    http.StatusMethodNotAllowed,
 			wantAllow:     "GET, POST",
 			wantBody:      methodNotAllowedBody,
+		},
+		{
+			// Catalogue reads are unauthenticated routes; the 405 probe still finds them, and still ignores credentials.
+			name:          "wrong_method_on_piece_with_credentials",
+			method:        http.MethodDelete,
+			path:          "/v1/pieces/the-copper-kettle",
+			authorization: "Bearer auth0|" + invalidSecret,
+			wantStatus:    http.StatusMethodNotAllowed,
+			wantAllow:     http.MethodGet,
+			wantBody:      methodNotAllowedBody,
+		},
+		{
+			name:       "catalogue_path_with_extra_segment",
+			method:     http.MethodGet,
+			path:       "/v1/persons/wren/extra",
+			wantStatus: http.StatusNotFound,
+			wantBody:   noRouteBody,
 		},
 	}
 

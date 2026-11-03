@@ -19,8 +19,7 @@ import (
 // The migrator opens and owns its own connection pool, separate from any pool the caller uses, so closing it
 // never affects the application's connections. Callers must Close it.
 func NewMigrator(cfg *mysqldriver.Config) (*migrate.Migrate, error) {
-	migrateCfg := cfg.Clone()
-	migrateCfg.MultiStatements = true
+	migrateCfg := migratorConfig(cfg)
 
 	connector, err := mysqldriver.NewConnector(migrateCfg)
 	if err != nil {
@@ -48,6 +47,20 @@ func NewMigrator(cfg *mysqldriver.Config) (*migrate.Migrate, error) {
 	}
 
 	return m, nil
+}
+
+// migratorConfig returns the config of the migrator's connections: cfg, with multiple statements per query for
+// the migration files, and without the SELECT time limit, which would cut short golang-migrate's wait for its
+// lock (GET_LOCK) and any long SELECT a migration runs.
+func migratorConfig(cfg *mysqldriver.Config) *mysqldriver.Config {
+	migrateCfg := cfg.Clone()
+	migrateCfg.MultiStatements = true
+	if migrateCfg.Params == nil {
+		migrateCfg.Params = make(map[string]string)
+	}
+	migrateCfg.Params[maxExecutionTimeParam] = "0"
+
+	return migrateCfg
 }
 
 // NewestMigrationVersion returns the highest version among the embedded migrations.

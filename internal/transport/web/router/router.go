@@ -15,14 +15,28 @@ import (
 type Dependencies struct {
 	Pinger datasources.Pinger
 	// AuthValidators authenticate requests to authenticated routes; with none, every request is anonymous.
-	AuthValidators    []AuthValidator
-	ResolveUser       command.Command[string, domain.User]
-	UpdateDisplayName command.Command[command.UpdateDisplayNameRequest, domain.User]
-	SetUserBlocked    command.Command[command.SetUserBlockedRequest, domain.User]
-	CreateAPIToken    command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
-	APITokenLister    datasources.ActiveAPITokenLister
-	APITokenRevoker   datasources.APITokenRevoker
-	Now               func() time.Time
+	AuthValidators                []AuthValidator
+	ResolveUser                   command.Command[string, domain.User]
+	UpdateDisplayName             command.Command[command.UpdateDisplayNameRequest, domain.User]
+	SetUserBlocked                command.Command[command.SetUserBlockedRequest, domain.User]
+	CreateAPIToken                command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
+	APITokenLister                datasources.ActiveAPITokenLister
+	APITokenRevoker               datasources.APITokenRevoker
+	PublicPieceLister             datasources.PublicPieceLister
+	PublicPieceGetter             datasources.PublicPieceGetter
+	PublicPersonLister            datasources.PublicPersonLister
+	PublicPersonGetter            datasources.PublicPersonGetter
+	PublicTermLister              datasources.PublicTermLister
+	PublicTermGetter              datasources.PublicTermGetter
+	PublicCollectionLister        datasources.PublicCollectionLister
+	PublicCollectionGetter        datasources.PublicCollectionGetter
+	PublicEventLister             datasources.PublicEventLister
+	PublicEventGetter             datasources.PublicEventGetter
+	PublicHistoryLister           datasources.PublicHistoryLister
+	PublicCollectionHistoryLister datasources.PublicCollectionHistoryLister
+	PublicRevisionGetter          datasources.PublicRevisionGetter
+	PublicNeedsWorkLister         datasources.PublicNeedsWorkLister
+	Now                           func() time.Time
 }
 
 // route is one operation the router serves.
@@ -42,6 +56,47 @@ func routes(deps Dependencies) []route {
 	return []route{
 		{method: http.MethodGet, path: "/healthz", handler: controller.Healthz{}},
 		{method: http.MethodGet, path: "/readyz", handler: controller.Readyz{Pinger: deps.Pinger}},
+
+		// Public catalogue reads. The ServeMux routes a request to the most specific matching pattern, whatever the
+		// order of this table, so a later authenticated route with a literal segment where these have a wildcard,
+		// such as GET /v1/pieces/mine or /v1/revisions/pending, is routed to its own handler and not answered by the
+		// public {slug} or {revision_id} route. Two patterns that overlap with neither more specific than the other,
+		// such as /v1/pieces/{slug} and /v1/{collection}/mine, make newRouter panic. The literal segment must be
+		// sent as is: one sent with an encoded letter, such as /v1/pieces/min%65, would match no route.
+		// TestRouter_AuthMatrix fails for an authenticated operation a public route answers.
+		{method: http.MethodGet, path: "/v1/pieces", handler: controller.PieceListGet{Lister: deps.PublicPieceLister}},
+		{method: http.MethodGet, path: "/v1/pieces/{slug}", handler: controller.PieceGet{Getter: deps.PublicPieceGetter}},
+		{method: http.MethodGet, path: "/v1/persons",
+			handler: controller.PersonListGet{Lister: deps.PublicPersonLister}},
+		{method: http.MethodGet, path: "/v1/persons/{slug}",
+			handler: controller.PersonGet{Getter: deps.PublicPersonGetter}},
+		{method: http.MethodGet, path: "/v1/terms", handler: controller.TermListGet{Lister: deps.PublicTermLister}},
+		{method: http.MethodGet, path: "/v1/terms/{slug}", handler: controller.TermGet{Getter: deps.PublicTermGetter}},
+		{method: http.MethodGet, path: "/v1/collections",
+			handler: controller.CollectionListGet{Lister: deps.PublicCollectionLister}},
+		{method: http.MethodGet, path: "/v1/collections/{collection_id}",
+			handler: controller.CollectionGet{Getter: deps.PublicCollectionGetter}},
+		{method: http.MethodGet, path: "/v1/events", handler: controller.EventListGet{Lister: deps.PublicEventLister}},
+		{method: http.MethodGet, path: "/v1/events/{slug}", handler: controller.EventGet{Getter: deps.PublicEventGetter}},
+		// History, of the entities addressed by slug and of collections.
+		{method: http.MethodGet, path: "/v1/pieces/{slug}/history", handler: controller.HistoryGet{
+			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypePiece,
+		}},
+		{method: http.MethodGet, path: "/v1/persons/{slug}/history", handler: controller.HistoryGet{
+			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypePerson,
+		}},
+		{method: http.MethodGet, path: "/v1/terms/{slug}/history", handler: controller.HistoryGet{
+			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypeTerm,
+		}},
+		{method: http.MethodGet, path: "/v1/events/{slug}/history", handler: controller.HistoryGet{
+			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypeEvent,
+		}},
+		{method: http.MethodGet, path: "/v1/collections/{collection_id}/history",
+			handler: controller.CollectionHistoryGet{Lister: deps.PublicCollectionHistoryLister}},
+		{method: http.MethodGet, path: "/v1/revisions/{revision_id}",
+			handler: controller.RevisionGet{Getter: deps.PublicRevisionGetter}},
+		{method: http.MethodGet, path: "/v1/needs-work",
+			handler: controller.NeedsWorkListGet{Lister: deps.PublicNeedsWorkLister}},
 
 		{method: http.MethodGet, path: "/v1/me", handler: requireAuth(controller.MeGet{}), authenticated: true},
 		{method: http.MethodPatch, path: "/v1/me", authenticated: true, handler: requireAuth(controller.MePatch{
@@ -65,9 +120,11 @@ func routes(deps Dependencies) []route {
 // New returns the handler for every route. Each request passes through the request logger, then the security
 // headers, then CORS, which answers preflight requests itself, before any authentication.
 //
-// Authenticated routes pass through the auth middleware and then the require* middleware for their route; the
-// health checks are not authenticated. Requests no route matches get a JSON 404, or 405 if a route matches the
-// path but not the method, without authenticating.
+// Authenticated routes pass through the auth middleware and then the require* middleware for their route. The
+// health checks and the public catalogue reads are not authenticated: they answer whatever credentials a request
+// carries, as they would an anonymous request, so a client with an expired token, or a blocked user, can still
+// read the catalogue. Requests no route matches get a JSON 404, or 405 if a route matches the path but not the
+// method, without authenticating.
 func New(deps Dependencies) http.Handler {
 	r := newRouter(routes(deps), authMiddleware(deps.AuthValidators, deps.ResolveUser))
 	return requestLogger(r.lookup)(securityHeaders(cors(strings.Join(r.methods, ", "))(r)))

@@ -112,7 +112,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
   - flags: `is_stub`, `claimed_by_user_id` (unused in v1)
   - Child tables: `person_aliases(name, kind: legal | sca | stage | nickname | former | redirect, is_public)`, `person_roles`, `person_affiliations(term_id)`, `person_relations(to_person, type: heir_of | member_of | same_as)`.
   - `person_preferences(dimension, value_json, source_url)`, one row per Bard Preference Checklist dimension (R-8). Piece-level overrides go in `piece_preferences` in the same shape.
-- **`terms`**: `facet` (kind, mood, topic, culture, language, legendaria, form, origin, other, affiliation), `name`, `display_name` (without the "(Topic)"/"(Language)" disambiguation suffix), `slug`, `parent_id` (depth ≤ 3), `description_md`, `status` (active / pending_suggestion).
+- **`terms`**: `facet` (mood, topic, culture, language, legendaria, form, origin, other, affiliation), `name`, `display_name` (without the "(Topic)"/"(Language)" disambiguation suffix), `slug`, `parent_id` (depth ≤ 3), `related_affiliation_id` (a `Patriotic (Kingdom)` topic's kingdom, §2.12), `description_md`, `position`. Kinds are not terms (§4.1).
   - Child tables: `term_aliases`, and a `term_ancestors` closure table rebuilt transactionally when a term revision is approved.
 - **`collections`**: `name`, `sort_name`, `url`, `kind`, `description_md`, `region_term_id`, `parent_id`, `is_bardic_resource`, `enumerable`.
 - **`links`**: `url`, `normalized_url` (unique; tracking parameters stripped), `title`, `description`, `platform`, `place_type`, `collection_id`, `locator`, `liveness` (unknown / ok / dead / blocked), `last_checked_at`, `archived_url`, `is_hidden` (moderator takedown, R-11).
@@ -122,12 +122,174 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 
 **Workflow tables:**
 - **`revisions`**: `id`, `entity_type`, `entity_id`, `base_revision_id`, `author_user_id`, `source` (user / import / mcp), `status` (draft / pending / approved / rejected / withdrawn), `snapshot_json`, `summary`, `reviewer_user_id`, `reviewed_at`, `review_note`, `created_at`.
-  - The snapshot is the full document, including owned child rows. Links appear inline by normalized URL.
+  - The snapshot is the full document, including owned child rows. Links appear inline by URL as entered (the normalized URL is derived; §4.1).
 - **`users`**: Auth0 user ID, `display_name`, `role` (contributor / moderator), `created_at`, `blocked_at`. Moderators are not seeded by migration, and no user IDs live in migrations. At startup the API promotes the users listed in `BOOTSTRAP_MODERATOR_USER_IDS`, creating any who have not signed in yet. Promotion also unblocks a blocked user: listing an ID trusts that user, and moderators cannot be blocked or unblocked. This is promote-only and idempotent: removing an ID never demotes the user, and demotion is done in SQL until a moderation endpoint exists.
 - **`repertoire`**: user_id, piece_id, notes, visibility (private / public), added_at.
 - **`link_reports`**: for removal requests (R-11).
 - **`contact_requests`**: kind (takedown / opt_out / correction / general), name, email, message, url, status. These need no account and are protected by Cloudflare Turnstile (R-13).
 - **`api_tokens`**: kept from the feed.
+
+### 4.1 Catalogue decisions refined in BE2
+
+BE2 built the catalogue schema (migrations 003–009) and the public read API. These decisions refine §4 and §6;
+the DDL is in `migrations/003`–`009`.
+
+- **Visibility is approval.** An entity is public exactly when `current_revision_id IS NOT NULL`; a term also needs
+  every ancestor approved. The `terms.status` column was dropped as redundant: a pending suggestion is a term with
+  no approved revision (BE4 deletes rejected new-entity rows, or adds a column). References from a public entity to
+  a non-public one are omitted from every read, and an unknown slug and a non-public slug answer identically.
+  The shared rules are defined once, as views (migration 009) that queries join instead of restating them:
+  `public_terms` (approved, with every ancestor approved), `listed_persons` (public persons with a page) and
+  `public_link_attachments` (attachments to a public piece or a public person with a page).
+- **Kinds are an enum** (`pieces.kind` plus `piece_secondary_kinds`), not terms, so `terms.facet` has no `kind`. The
+  `kind` filter matches the primary or a secondary kind. The list grows by appending ENUM values (an instant ALTER).
+  **Enum growth rule:** a new value ships in code one release before any data uses it, so a rollback never reads a
+  value it does not know.
+- **Disputed is a certainty**, not an attribution (§2.4's wording). The database checks that a credit has a person
+  exactly when `attribution = named`.
+- **Hidden aliases** (`person_aliases.is_public = false`, the default, so a forgotten value fails closed) never
+  appear in a public read, a search match or score, a snapshot or a diff. Alias search matches score 0, as the alias
+  FULLTEXT index's statistics include hidden aliases. A snapshot's person `name` is shown only if it is the
+  person's current name or one of their current public alias names (compared exactly), and is their current name
+  otherwise, so a former name kept as a hidden alias never shows. BE2 cannot scrub free text, so the
+  importer (BE3) hides `redirect` aliases equal to a hidden alias and lists free text containing a hidden alias
+  in `import-review.md`.
+- **`prefers_no_page` persons** show only their identity (name, kind, status, date and source; `profile: null`).
+  They are listed as stubs and found only by name. They are excluded from role/affiliation filters, every person
+  count and member list, every credit (the credit is omitted), performer list, relation list (both directions),
+  collection citation and needs-work.
+- **Hidden links** (`links.is_hidden`) are excluded from every read, including snapshots and needs-work. In a
+  snapshot, a link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL as
+  entered or normalized: a link deleted since, or whose URL changed before it was hidden, is dropped too.
+  `links.url` is binary (`utf8mb4_0900_bin`), so the SQL and Go comparisons are both exact. `normalized_url` is
+  ASCII, and MySQL refuses to compare an ASCII column with a non-ASCII parameter, so a snapshot URL with any other
+  character is compared only with the URLs as entered (it cannot be a normalized URL).
+- **Slugs** are ASCII `[a-z0-9]+(-[a-z0-9]+)*`, at most 191 characters and unique per table. Term slugs keep the
+  wiki's disambiguation suffix (`12th-century` in origin, `12th-century-topic` in topic), while `display_name`
+  drops it. The importer's `Slugify` uses NFKD, strips marks, lowercases and turns non-alphanumeric runs into `-`.
+  An empty result becomes `<entity type>-<id>`, and collisions get `-2`, `-3`… Collections are addressed by ID.
+- **Sort keys and letters are stored and written by the writer** (`sort_title`/`sort_name`, `sort_letter`), never
+  derived in SQL.
+  - The sort key skips leading punctuation and one leading "The", "A" or "An". R-24's "songbook/book" words are not
+    stripped.
+  - `sort_letter` is `A`–`Z` or `0`: the first letter of the sort key after NFKD and mark stripping, with Ł→L, Ø→O,
+    Đ/Ð→D, Æ→A, Œ→O, ß→S, Þ→T and ﬁ→F. Anything else (digits, punctuation, other scripts) is `0`.
+  - Persons sort by name as written.
+- **Search** uses InnoDB FULLTEXT in boolean mode with the server's default stopwords. The API tokenises `q` itself:
+  - it splits on characters other than letters, digits, underscores and combining marks (as InnoDB's parser
+    does), removes combining marks, and drops tokens with no letter or digit, tokens shorter than 3 or longer
+    than 84 characters (`innodb_ft_min_token_size`, `innodb_ft_max_token_size`) and InnoDB stopwords;
+  - it sends `+token*` for at most 8 tokens, so user operators never reach MySQL;
+  - if no token survives, it falls back to an accent-insensitive title/alias prefix match.
+
+  FULLTEXT sees only committed rows, so BE4 searches after its approval transaction commits.
+
+  Known ranking effect: relevance scores from the person name and the piece title, notes and alias indexes
+  depend on index-wide statistics. Those indexes also hold entities that are not public (unapproved drafts), so
+  draft words shift public results' scores and order, though never which results match. Scoring these indexes 0,
+  as is done for person aliases, would remove relevance ranking entirely, and InnoDB cannot narrow a FULLTEXT
+  index's statistics to some of its rows, so this is accepted. It reveals at most that words occur in drafts,
+  not hidden names. Revisit it if BE4 creates drafts in volume.
+- **Snapshots** hold only editor-owned fields. Left out:
+  - IDs, `current_revision_id`, `legacy_*`, `claimed_by_user_id` and sort keys;
+  - `conservation_history`, which is appended on approval from the document's `conservation {status,
+    source_url}`;
+  - link system and moderator state (`liveness`, `last_checked_at`, `archived_url`, `is_hidden`,
+    `normalized_url`).
+
+  So approving an old snapshot cannot un-hide a link or undo a liveness check. Links are inline by URL, documents
+  own only their outgoing relations, and other entities are referenced by ID. A list's order is its rows'
+  `position`. Piece and person documents already include their preference profiles (`dimension`, raw JSON
+  `value`, `source_url`), so BE5 needs no schema-version bump; they stay unexposed until then. A coverage test fails
+  when a column is added without being classified as document-owned or system-owned.
+- **Public revision views** never serve stored documents raw:
+  - references are resolved to public summaries, or omitted;
+  - redaction applies the *current* alias, person and link visibility, so hiding an alias later also hides it in
+    old revisions;
+  - `changed_fields` (the diff) is computed on the redacted views.
+
+  Only approved revisions are public until BE4. Authors show only a display name, and imports list the wiki
+  contributors (`revision_contributors`).
+
+  In detail (`domain.New*Snapshot`, given a `SnapshotVisibility` the repository loads for exactly what the
+  snapshot and its base reference):
+  - A revision is public if it is approved and its entity is public now; anything else is the same 404. History
+    lists approved revisions newest first (`created_at`, then ID).
+  - Views hold the document's editor-owned fields except preference profiles; links have no liveness or other
+    system state. A link is shown only if a link that is not hidden, and no hidden link, now has exactly its URL
+    as entered or normalized.
+  - An alias is shown only if public in the document and now a public alias of the person, by name. A person's
+    name is shown only if it is their current name or a current public alias name, and is their current name
+    otherwise. Credits,
+    performers and relations of persons not public with a page now are dropped (a named credit entirely), as is a
+    person's performance of a piece that is not public.
+  - A person who prefers no page now, or did in the document, is shown by identity only (`profile: null`), in the
+    snapshot and the base.
+  - The base is shown only if it is an approved revision of the same entity; otherwise `base_revision_id` and
+    `base_snapshot` are both null. `changed_fields` lists the sorted top-level view fields whose encodings
+    differ, or with no base those that are not empty (null, `[]`, `""`, false, 0); a person's profile is one field.
+  - A snapshot that does not decode (unknown `schema_version`, wrong shape, a status date that is not a date, a
+    vocabulary value this release does not know) is a 500, logged. Fields the document type does not have are
+    ignored, so a rollback after a release adds a document field keeps serving the revisions written in between:
+    a field is added without a new `schema_version`, and any other change to a document's shape needs one (see
+    DEPLOY.md). A field that hides or redacts other document data (such as a per-link or per-alias privacy flag)
+    is such a change, not an additive field: an older release would ignore it and show what it hides, so it needs
+    a new `schema_version`, which older releases refuse.
+- **Needs-work** (`GET /v1/needs-work`) lists public pieces and persons with a page that are stubs, unassessed
+  (pieces), of unknown licensing (pieces, and community bards) or with a visible dead link; restricted pieces only
+  for being stubs. Pieces come first, then persons, each by sort key. `counts` has every reason, whatever the
+  `reason` filter.
+- **Preference profiles** (`person_preferences`, `piece_preferences`) exist as tables but are not exposed until BE5
+  defines and validates their `value_json` shapes. Until then the only etiquette data in the API is
+  `licensing_status` and `licensing_notes_md` on pieces and person profiles, so FE2 builds a licensing card from
+  those, and the full etiquette card (profile with piece-level overrides) waits for FE4 (§10).
+- **Public reads ignore credentials.** The catalogue reads are served outside the authentication middleware, like
+  the health checks: invalid, expired or uncheckable credentials and blocked users get the same answer as an
+  anonymous request, and no user is looked up or created. A person's page lists the performances recorded by
+  links attached to them, and those they perform in on links with a public attachment (as on an event's page);
+  a performance of a piece that is not public is left out.
+- **Terms, collections and events.** A term's `piece_count`/`person_count` count distinct public pieces, and
+  public persons with a page, tagged with or affiliated with the term or any public descendant; a term under a
+  pending parent is hidden with its subtree, from its ancestors' counts too. The term list is in tree order
+  (facets in enum order, parents first, siblings by position and display name). A term page pages its members
+  with `limit`/`offset`: pieces, or persons for an `affiliation` term. A collection's citations are one per
+  visible link and public piece or person (not no-page) it is attached to, with that attachment's roles. An
+  event's performances leave out those of non-public pieces, as on a person's page, and those whose link is
+  attached to no public piece and no public person with a page, since only a hidden entity's document records
+  them. Collection citations and event performances are capped at 200 with totals; collection children are not
+  capped. Every query parameter is single-valued unless documented as repeatable: a repeated one, or a query
+  string that is not validly percent-encoded, is a 400.
+- **Faceted search and A–Z lists** (`GET /v1/pieces`, `/v1/persons`, `/v1/collections`).
+  - Piece `term`s are grouped by facet: OR within a facet, AND across facets, each term matching its descendants.
+    `kind` and `conservation_status` are two more facets. At most 20 terms; a repeated term counts once. A term
+    that is unknown, unapproved, under an unapproved ancestor or an affiliation gives one 400, `unknown term:
+    <slug>`, echoing only the client's slug. `affiliation` on persons works the same way (`unknown affiliation`).
+  - Facet counts are disjunctive: a value's count ignores the selection in its own facet. Each piece counts once
+    per term, even when tagged with the term and its descendant. Only counts above zero are listed. Letter counts
+    ignore the `letter` filter, and the totals and counts are over every page.
+  - The statements are built in Go from fixed fragments and `?` placeholders, since sqlc cannot express optional
+    filters. A piece search makes at most three round trips (term resolution, the page, every count in one
+    statement), and every statement carries `MAX_EXECUTION_TIME(2000)`. A search the server stops answers 500 and is
+    logged as a warning.
+  - Every connection also sets the session `max_execution_time` to 2000 (`ConfigFromURL`), so every `SELECT`, sqlc
+    reads included, is stopped after 2 s; writes and DDL are not, and the migrator clears it for golang-migrate's
+    `GET_LOCK` wait. The hint stays on builder statements, built from the same constant, so searches stay capped
+    on a connection that lifts the session limit.
+  - `q` is at most 200 code points of valid UTF-8 and must not be blank: only ASCII spaces, tabs and line breaks
+    are blank, which the spec's pattern `[^ \t\n\f\r]` states exactly. Prefix matches have no score, so with
+    `sort=relevance` they come in sort-key order. `relevance` is the default with `q` and a 400 without it.
+- **Response conventions.**
+  - Every scalar property is required, `type: [X, "null"]` when it can be empty, and arrays are required and
+    possibly empty; every object is closed.
+  - Never exposed: `legacy_*` columns, `claimed_by_user_id`, `normalized_url`, internal person, term and piece IDs
+    (collections and revisions are addressed by ID by design), user IDs, and preference profiles until BE5.
+  - Unknown path slugs and non-public slugs are one 404. A malformed slug is a 400.
+  - An unknown ENUM value read from the database or in a stored document, a snapshot with an unsupported
+    `schema_version` and a read the server stops after 2 s are 500s, logged, never panics.
+  - Piece facet counts list only values above zero; needs-work `counts` always list all four reasons, zeros
+    included.
+- **Status sources:** "a status other than active needs a source" is domain validation (BE4), not a CHECK. The
+  importer uses the legacy wiki page URL as the source. `conservation_history` has a `source_url`.
 
 ## 5. Revision engine and moderation rules (the core)
 
@@ -156,14 +318,23 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 
 ## 6. API surface (all specified in OpenAPI; the FE never calls the API directly from the browser)
 
-- **Public reads:**
-  - `GET /v1/pieces`: faceted search. Facet terms are combined with AND across facets and OR within one; descendants count via the closure table. Also takes `q` (FULLTEXT over title, aliases and notes), `letter`, `sort`, and `status`/`kind` filters, and returns counts for each facet value.
-  - `GET /v1/pieces/{slug}`, `GET /v1/persons`, `GET /v1/persons/{slug}`
-  - `GET /v1/terms?facet=…`: the term tree with counts
-  - `GET /v1/terms/{slug}`, with its pieces and persons
-  - `GET /v1/collections`, `GET /v1/collections/{id}`, `GET /v1/events/{slug}`
-  - `GET /v1/{entity}/{id}/history`, `GET /v1/revisions/{id}`: the snapshot plus a structured diff against its base
-  - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18)
+- **Public reads** (built in BE2; `openapi/api.yaml` is the exact contract):
+  - `GET /v1/pieces`: faceted search.
+    - Filters: `term` (repeatable slugs), `kind`, `conservation_status`, `stub`, `q`, `letter` (`A`–`Z` or `0`), `sort` (`title` / `relevance`), `limit` and `offset`.
+    - Terms combine with OR within a facet and AND across facets, and a term matches its descendants (closure table). `kind` and `conservation_status` act as two more facets.
+    - `q` is FULLTEXT over title, aliases and notes (§4.1).
+    - Facet counts are disjunctive: each facet's counts ignore that facet's own selection. Letter counts are returned for the A–Z bar.
+  - `GET /v1/pieces/{slug}`
+  - `GET /v1/persons` (`kind`, `role`, `affiliation`, `q`, `letter`, `sort`) and `GET /v1/persons/{slug}`
+  - `GET /v1/terms?facet=…`: the term tree with piece and person counts
+  - `GET /v1/terms/{slug}`, with its pieces or persons (paginated, including descendants)
+  - `GET /v1/collections`, `GET /v1/collections/{collection_id}`
+  - `GET /v1/events` (added in BE2) and `GET /v1/events/{slug}`
+  - history:
+    - `GET /v1/{pieces|persons|terms|events}/{slug}/history` and `GET /v1/collections/{collection_id}/history`
+    - `GET /v1/revisions/{revision_id}`: the redacted snapshot view, its base and the changed fields
+  - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18). Restricted pieces appear only as stubs, and `prefers_no_page` persons never appear.
+  - Lists page with `limit` (at most 100) and `offset` (at most 10000), and every ordering ends with the ID, so pages are stable. Nested lists that grow with data are capped at 200 entries, each with a `*_total` field.
 - **Authenticated:**
   - `GET /v1/me`, and `PATCH /v1/me` to set the display name
   - drafts: `PUT /v1/drafts/{entity}/{id|new}`, and `POST /v1/revisions` to submit
@@ -200,6 +371,20 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 10. Write all imported data as approved revisions with `source = import`, crediting wiki contributors.
 11. Write `import-review.md` for the moderators, listing every flagged ambiguity, drift item and fuzzy-matched person.
 
+**Writing into the BE2 schema** (§4.1):
+- Write sort keys and `sort_letter`. Build the `term_ancestors` closure, including each term's row for itself.
+- Use the legacy page URL as the source of a non-active person status, and as the conservation source where the
+  wiki gives none.
+- Hide legal aliases, and any `redirect` alias equal to a hidden alias. List free text containing a hidden alias in
+  `import-review.md`.
+- Write documents with editor-owned fields only. Write the link system state (liveness) to `links` directly.
+- Write revision `summary` text that is neutral: it is free text shown on every approved revision, including those of
+  persons without a page, and nothing checks it against hidden aliases. BE4 should flag editor summaries that
+  contain a hidden alias.
+- Hidden-link redaction compares a document's URL exactly with the link's current `url` or `normalized_url`. When
+  the URL normaliser lands (BE3), normalise document URLs before the lookup, and key the visible-URL set by
+  normalised URL, so that a link later edited to another spelling of the same URL stays redacted in older snapshots.
+
 **Modes:** `--dry-run` (report only), and `--apply`, which only runs against an empty catalogue.
 
 **Tests assert:**
@@ -218,7 +403,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
   - an infobox with kind, credits, facets, origin and conservation badge
   - links grouped by role
   - performances, with performer, event and year
-  - an etiquette card that combines the bard's profile with piece-level overrides (R-9)
+  - an etiquette card that combines the bard's profile with piece-level overrides (R-9); FE2 shows a licensing card (status and sourced notes) until BE5 exposes profiles (§4.1)
   - notes and related pieces
 - person page: aliases, affiliations, roles, etiquette card, works, performances, external profiles
 - term pages, showing the tree, subcategories and members
@@ -255,6 +440,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 - Unit tests for domain and commands, using mockery mocks. The revision engine gets table-driven tests for every state transition, stale/rebase case and sourced-field rule.
 - Repository tests against **real MySQL 8.4**. BE1's spike succeeded, so they run in the sandbox (`make test-integration-local`, a conda-forge mysqld), on the host (`make test-integration`, podman) and in CI (`make test-integration-external` against a `mysql:8.4` service, under `-race`).
 - HTTP tests for every route, checking authentication, authorisation by role (anonymous, contributor, moderator, API token) and status codes, against the OpenAPI spec using kin-openapi response validation.
+- Catalogue reads: exact-struct repository tests on shared fixtures built to tell the behaviours apart, an HTTP leak matrix that proves no hidden string reaches any public response, and parity tests between the database ENUMs, the domain vocabularies and the OpenAPI enum schemas (docs/TESTING.md).
 - Importer golden tests (§7).
 - `make validate` covers the format check, lint (golangci pinned via `go tool`), vacuum OpenAPI lint, unit tests, build and the generated-code check (sqlc and mockery output up to date). docs/TESTING.md describes every target.
 - `make vulncheck` (govulncheck, pinned via `go tool`) runs as its own CI job on every push and pull request. It is outside `make validate` because it needs vuln.go.dev.
@@ -302,13 +488,13 @@ Each pipeline has the same internal shape:
 | H0 | host setup | — | decisions in §2 | Create both GitHub repos and copy this plan into `bardic-torch/docs/`. Set up the dokku app, MySQL, letsencrypt and the api.bardictorch.org domain. Create the Cloudflare Pages project with bardictorch.org and www. Create the Auth0 application with Google and Facebook connections, plus a Turnstile site key. *The Auth0, Cloudflare and DNS dashboard steps are John's.* |
 | BE1 | foundation | BE | H0 | Copy and strip the feed skeleton. Add the users table, roles and the moderator bootstrap, the auth carried over from the feed, the test harness (with the **in-sandbox MySQL spike**), the OpenAPI skeleton, CI, and the dokku files (Dockerfile, `app.json` predeploy migrate step). The cron entry lands with `cmd/check-links` in BE5. |
 | FE1 | foundation | FE | H0 (runs alongside BE1) | Copy and strip the feed FE. Add the wiki-style design system and layout, dark mode, auth, the type-generation pipeline, the fixture server, and the Playwright, axe and screenshot harness. Add the static help pages. |
-| BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search and A–Z. The revisions table exists but only stores import data. |
+| BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search, A–Z and needs-work. The revisions table exists but only stores import data. Decisions refined in BE2 are in §4.1. |
 | BE3 | importer | BE | BE2 | Everything in §7. A dry-run report is produced for John and Fabian to read. |
-| FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8, the etiquette card and conservation badge, the mobile facet drawer, and SEO. |
-| BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report, contact (Turnstile) and needs-work endpoints. |
-| FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, and history, diff and revert. |
+| FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8 (including the read-only history and diff pages), the licensing card (licensing status and sourced notes) and conservation badge, the mobile facet drawer, and SEO. |
+| BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report and contact (Turnstile) endpoints. (needs-work, a public read, moved to BE2.) |
+| FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, revert, and the pending-version diff. (The read-only history and diff pages are FE2's.) |
 | BE5 | contributor extras | BE | BE4 | Repertoire, preference profiles and their validation, conservation suggestions, the `check-links` cron with Wayback lookup, API-token MCP tools, and rate limits. |
-| FE4 | moderation and extras UI | FE | BE5 spec, FE3 | The moderation queue, diff and three-way review, the inboxes, repertoire, the preference-profile editor, the needs-work dashboard, and the contact form. |
+| FE4 | moderation and extras UI | FE | BE5 spec, FE3 | The moderation queue, diff and three-way review, the inboxes, repertoire, the etiquette card (preference profiles with piece-level overrides, once BE5 exposes them), the preference-profile editor, the needs-work dashboard, and the contact form. |
 | H1 | launch | host | all | Full-stack e2e against the real import, a staging deploy, the real import run with its review report worked through, the click-through by John and Fabian, then production. |
 
 **Concurrency:** at most two pipelines run at once, one per repo.

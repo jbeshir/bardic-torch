@@ -50,31 +50,59 @@ func prefixValidator(prefix string, method domain.AuthMethod) router.AuthValidat
 // handlerMocks are the datasources behind a handler built with NewHTTPHandler, authenticating with
 // prefixValidator for both Auth0 ("auth0|") and API tokens.
 type handlerMocks struct {
-	pinger       *mocks.Pinger
-	users        *mocks.UserGetter
-	displayNames *mocks.DisplayNameUpdater
-	blocker      *mocks.UserBlocker
-	unblocker    *mocks.UserUnblocker
-	counter      *mocks.ActiveAPITokenCounter
-	creator      *mocks.APITokenCreator
-	lister       *mocks.ActiveAPITokenLister
-	revoker      *mocks.APITokenRevoker
-	handler      http.Handler
-	validate     *openapitest.Validator
+	pinger            *mocks.Pinger
+	users             *mocks.UserGetter
+	displayNames      *mocks.DisplayNameUpdater
+	blocker           *mocks.UserBlocker
+	unblocker         *mocks.UserUnblocker
+	counter           *mocks.ActiveAPITokenCounter
+	creator           *mocks.APITokenCreator
+	lister            *mocks.ActiveAPITokenLister
+	revoker           *mocks.APITokenRevoker
+	pieceLister       *mocks.PublicPieceLister
+	pieces            *mocks.PublicPieceGetter
+	personLister      *mocks.PublicPersonLister
+	persons           *mocks.PublicPersonGetter
+	termLister        *mocks.PublicTermLister
+	terms             *mocks.PublicTermGetter
+	collectionLister  *mocks.PublicCollectionLister
+	collections       *mocks.PublicCollectionGetter
+	eventLister       *mocks.PublicEventLister
+	events            *mocks.PublicEventGetter
+	history           *mocks.PublicHistoryLister
+	collectionHistory *mocks.PublicCollectionHistoryLister
+	revisions         *mocks.PublicRevisionGetter
+	needsWork         *mocks.PublicNeedsWorkLister
+	handler           http.Handler
+	validate          *openapitest.Validator
 }
 
 func newHandlerMocks(t *testing.T) handlerMocks {
 	m := handlerMocks{
-		pinger:       mocks.NewPinger(t),
-		users:        mocks.NewUserGetter(t),
-		displayNames: mocks.NewDisplayNameUpdater(t),
-		blocker:      mocks.NewUserBlocker(t),
-		unblocker:    mocks.NewUserUnblocker(t),
-		counter:      mocks.NewActiveAPITokenCounter(t),
-		creator:      mocks.NewAPITokenCreator(t),
-		lister:       mocks.NewActiveAPITokenLister(t),
-		revoker:      mocks.NewAPITokenRevoker(t),
-		validate:     openapitest.New(t),
+		pinger:            mocks.NewPinger(t),
+		users:             mocks.NewUserGetter(t),
+		displayNames:      mocks.NewDisplayNameUpdater(t),
+		blocker:           mocks.NewUserBlocker(t),
+		unblocker:         mocks.NewUserUnblocker(t),
+		counter:           mocks.NewActiveAPITokenCounter(t),
+		creator:           mocks.NewAPITokenCreator(t),
+		lister:            mocks.NewActiveAPITokenLister(t),
+		revoker:           mocks.NewAPITokenRevoker(t),
+		pieceLister:       mocks.NewPublicPieceLister(t),
+		pieces:            mocks.NewPublicPieceGetter(t),
+		personLister:      mocks.NewPublicPersonLister(t),
+		persons:           mocks.NewPublicPersonGetter(t),
+		termLister:        mocks.NewPublicTermLister(t),
+		terms:             mocks.NewPublicTermGetter(t),
+		collectionLister:  mocks.NewPublicCollectionLister(t),
+		collections:       mocks.NewPublicCollectionGetter(t),
+		eventLister:       mocks.NewPublicEventLister(t),
+		events:            mocks.NewPublicEventGetter(t),
+		history:           mocks.NewPublicHistoryLister(t),
+		collectionHistory: mocks.NewPublicCollectionHistoryLister(t),
+		revisions:         mocks.NewPublicRevisionGetter(t),
+		needsWork:         mocks.NewPublicNeedsWorkLister(t),
+		validate:          openapitest.New(t),
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
 		Pinger: m.pinger,
@@ -82,15 +110,29 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 			prefixValidator("auth0|", domain.AuthMethodAuth0),
 			prefixValidator(domain.APITokenPrefix, domain.AuthMethodAPIToken),
 		},
-		UserGetter:            m.users,
-		UserEnsurer:           mocks.NewUserEnsurer(t),
-		DisplayNameUpdater:    m.displayNames,
-		UserBlocker:           m.blocker,
-		UserUnblocker:         m.unblocker,
-		APITokenCreator:       m.creator,
-		ActiveAPITokenCounter: m.counter,
-		ActiveAPITokenLister:  m.lister,
-		APITokenRevoker:       m.revoker,
+		UserGetter:                    m.users,
+		UserEnsurer:                   mocks.NewUserEnsurer(t),
+		DisplayNameUpdater:            m.displayNames,
+		UserBlocker:                   m.blocker,
+		UserUnblocker:                 m.unblocker,
+		APITokenCreator:               m.creator,
+		ActiveAPITokenCounter:         m.counter,
+		ActiveAPITokenLister:          m.lister,
+		APITokenRevoker:               m.revoker,
+		PublicPieceLister:             m.pieceLister,
+		PublicPieceGetter:             m.pieces,
+		PublicPersonLister:            m.personLister,
+		PublicPersonGetter:            m.persons,
+		PublicTermLister:              m.termLister,
+		PublicTermGetter:              m.terms,
+		PublicCollectionLister:        m.collectionLister,
+		PublicCollectionGetter:        m.collections,
+		PublicEventLister:             m.eventLister,
+		PublicEventGetter:             m.events,
+		PublicHistoryLister:           m.history,
+		PublicCollectionHistoryLister: m.collectionHistory,
+		PublicRevisionGetter:          m.revisions,
+		PublicNeedsWorkLister:         m.needsWork,
 		Now: func() time.Time {
 			return handlerNow
 		},

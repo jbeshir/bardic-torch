@@ -118,6 +118,10 @@ func TestHTTP_EndToEnd(t *testing.T) {
 		rec := e.send(t, http.MethodGet, "/v1/me", authorization, "")
 		assert.Equal(t, http.StatusUnauthorized, rec.Code, name)
 		assert.JSONEq(t, `{"code":"unauthenticated","message":"invalid credentials"}`, rec.Body.String(), name)
+
+		// Public catalogue reads skip authentication, so the real validator never sees these tokens there.
+		rec = e.send(t, http.MethodGet, "/v1/pieces", authorization, "")
+		assert.Equal(t, http.StatusOK, rec.Code, name)
 	}
 
 	// The first authenticated request creates the user.

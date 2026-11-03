@@ -19,6 +19,28 @@ the product and implementation plan.
   request by the auth middleware before any authorisation check.
 - **API Token** -- A user-created bearer token (`user_api|…`) for programmatic access, stored as a SHA-256 hash, at
   most 10 active per user. Tokens cannot manage tokens; only Auth0 sessions can.
+- **Piece** -- A bardic song, poem, story, dance tune, instrumental or comedy piece, addressed by slug. It has a
+  primary kind plus optional secondary kinds, a conservation status, licensing information, aliases (other titles),
+  credits, relations to other pieces, links and term tags. A stub is a piece with little recorded yet.
+- **Person** -- A community bard, historical author or group, addressed by slug, with aliases, roles, affiliations,
+  relations, links, the works they are credited on and the performances they appear in. A person with status
+  `prefers_no_page` shows only their identity: they are listed as a stub, found only by name, and omitted from
+  credits, member lists, counts and needs-work.
+- **Term and facet** -- Terms classify pieces (and, for the `affiliation` facet, persons). Each belongs to one facet
+  (mood, topic, culture, language, legendaria, form, origin, other, affiliation) and may have a parent, up to three
+  levels deep. Filtering by a term matches pieces tagged with it or any descendant. Within a facet terms combine
+  with OR, across facets with AND. Piece kind and conservation status act as two more facets.
+- **Collection** -- A website or archive that hosts bardic material, addressed by numeric ID, with the links cited
+  from it.
+- **Event** -- An event or venue where pieces were performed, addressed by slug.
+- **Link** -- An external URL attached to pieces or persons with one or more roles (lyrics, sheet music,
+  performance...). Moderators can hide a link, and hidden links appear in no public read.
+- **Revision and visibility** -- Every change to a catalogue entity is a revision. An entity is public only once it
+  has an approved current revision (a term also needs every ancestor approved); anything else, and anything unknown,
+  gets the same 404. Only approved revisions appear in the public history, as redacted views using current
+  visibility, with the fields that changed.
+- **Hidden alias** -- A person alias marked non-public (such as a legal name). It appears in no read, search match or
+  revision view.
 - **Null Auth** -- With `AUTH_DRIVERS` empty, every request is anonymous, so the API runs locally without Auth0.
 
 ## Architecture Overview
@@ -33,7 +55,7 @@ graph TD
     MW[Middleware<br/>CORS, auth, require role]
     CTRL[Controllers]
     CMD[Commands<br/>Business rules]
-    DOM[Domain<br/>Users, roles, tokens]
+    DOM[Domain<br/>Users, tokens, catalogue, snapshots]
     REPO[MySQL repository<br/>sqlc]
     DB[(MySQL 8.4)]
     AUTH0[Auth0 JWKS]
@@ -43,10 +65,17 @@ graph TD
     MW --> CMD
     MW --> CTRL
     CTRL --> CMD
+    CTRL -->|public reads| REPO
     CMD --> DOM
     CMD --> REPO
     REPO --> DB
 ```
+
+The public catalogue reads are registered outside the authentication middleware, so they answer every request as
+an anonymous one. Faceted piece, person and collection lists are built in Go from fixed SQL fragments (sqlc cannot
+express optional filters) and use InnoDB FULLTEXT for `q`. Every `SELECT` the API runs
+is capped by a session `max_execution_time` of 2 s (see [docs/DEPLOY.md](docs/DEPLOY.md)); a list the server
+stops for that answers 500 `internal`.
 
 Two entrypoints share the internal packages:
 
@@ -76,7 +105,7 @@ make run
 
 `make db-up` starts MySQL 8.4 on `127.0.0.1:3306` with the credentials in `.env.dist`'s `DATABASE_URL`. `make
 run` applies the migrations and starts the API on port 5000 with null auth, so `curl localhost:5000/readyz` returns
-200 and `/v1` endpoints return 401. `make db-down` removes the database. `make help` lists every target.
+200 and the authenticated `/v1` endpoints return 401 (the public catalogue reads work, and are empty until data is imported). `make db-down` removes the database. `make help` lists every target.
 
 ### Common Commands
 
@@ -93,7 +122,7 @@ run` applies the migrations and starts the API on port 5000 with null auth, so `
 
 | Service | Purpose | Required |
 |---|---|---|
-| MySQL 8.4 | Users, roles and API tokens | Yes |
+| MySQL 8.4 | Users, roles, API tokens and the catalogue (pieces, persons, terms, collections, events, links, revisions) | Yes |
 | Auth0 | Verifies the FE's access tokens (Google and Facebook login) | No (`AUTH_DRIVERS=` for null auth) |
 
 Production runs on dokku with the dokku mysql plugin; [docs/DEPLOY.md](docs/DEPLOY.md) covers setup, Auth0,
@@ -107,12 +136,35 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 |---|---|---|---|
 | `GET` | `/healthz` | No | Liveness |
 | `GET` | `/readyz` | No | Readiness: the database answers |
+| `GET` | `/v1/pieces` | No | Faceted piece search: `term`, `kind`, `conservation_status`, `stub`, `q`, `letter`, `sort`, with facet and A-Z counts |
+| `GET` | `/v1/pieces/{slug}` | No | A piece |
+| `GET` | `/v1/pieces/{slug}/history` | No | A piece's approved revisions, newest first |
+| `GET` | `/v1/persons` | No | Persons: `kind`, `role`, `affiliation`, `q`, `letter`, `sort` |
+| `GET` | `/v1/persons/{slug}` | No | A person |
+| `GET` | `/v1/persons/{slug}/history` | No | A person's approved revisions |
+| `GET` | `/v1/terms` | No | The term tree with piece and person counts (`facet` filter) |
+| `GET` | `/v1/terms/{slug}` | No | A term with its ancestors, children and a page of its pieces or persons |
+| `GET` | `/v1/terms/{slug}/history` | No | A term's approved revisions |
+| `GET` | `/v1/collections` | No | Collections: `kind`, `letter` |
+| `GET` | `/v1/collections/{collection_id}` | No | A collection with its children and citations |
+| `GET` | `/v1/collections/{collection_id}/history` | No | A collection's approved revisions |
+| `GET` | `/v1/events` | No | Events and venues |
+| `GET` | `/v1/events/{slug}` | No | An event with its performances |
+| `GET` | `/v1/events/{slug}/history` | No | An event's approved revisions |
+| `GET` | `/v1/revisions/{revision_id}` | No | An approved revision: redacted snapshot, base snapshot and changed fields |
+| `GET` | `/v1/needs-work` | No | Stub, unassessed, unknown-licensing and dead-link pieces and persons, with a count per reason |
 | `GET` | `/v1/me` | Required | The caller's user |
 | `PATCH` | `/v1/me` | Required | Change the caller's display name |
 | `PUT` | `/v1/users/{user_id}/blocked` | Moderator | Block or unblock a contributor |
 | `GET` | `/v1/tokens` | Auth0 only | List the caller's active API tokens |
 | `POST` | `/v1/tokens` | Auth0 only | Create an API token (max 10 active) |
 | `DELETE` | `/v1/tokens/{token_id}` | Auth0 only | Revoke an API token |
+
+Catalogue reads ignore credentials: an invalid or expired token gets the same answer as no token. Paged lists (all but `/v1/terms`, which returns the whole tree) take
+`limit` (1-100, default 50) and `offset` (0-10000) and return `total`; every list order ends with an internal ID, so pages
+of an unchanged catalogue concatenate; nested lists that grow with data are capped at 200
+with a `*_total`. Query parameters are single-valued unless documented as repeatable, and a repeated or badly
+encoded one is a 400.
 
 Any other path gets a JSON 404 (`not_found`), and a listed path with another method a JSON 405
 (`method_not_allowed`) with an `Allow` header; neither authenticates. Request headers over 16 KiB get a plain-text

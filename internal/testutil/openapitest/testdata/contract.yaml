@@ -43,6 +43,7 @@ paths:
           pattern: "^[a-z]+$"
     get:
       operationId: getSong
+      security: []
       responses:
         "200":
           description: The song
@@ -58,10 +59,16 @@ paths:
                 $ref: "#/components/schemas/Error"
     delete:
       operationId: deleteSong
+      security:
+        - bearer: []
       responses:
         "204":
           description: Deleted
 components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
   schemas:
     Song:
       type: object

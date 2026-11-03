@@ -17,6 +17,11 @@ set -euo pipefail
 
 readonly database=bardic_torch
 readonly mysql_image=docker.io/library/mysql:8.4
+# Both throwaway servers trade crash safety for speed: their data is discarded on exit, and creating the
+# catalogue schema for each test database spends most of its time waiting for disk syncs.
+readonly throwaway_server_flags=(
+  --skip-log-bin --innodb-flush-log-at-trx-commit=0 --innodb-doublewrite=OFF --innodb-flush-method=nosync
+)
 readonly ready_timeout_seconds=120
 
 mode=${1:-}
@@ -81,7 +86,7 @@ start_podman() {
     -e MYSQL_DATABASE="$database" \
     -p "127.0.0.1:$port:3306" \
     "$mysql_image" \
-    --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci)
+    --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci "${throwaway_server_flags[@]}")
   admin_url="mysql://root:$root_password@127.0.0.1:$port"
 }
 
@@ -110,7 +115,7 @@ start_local() {
     --basedir="$prefix" --datadir="$workdir/data" \
     --port="$port" --bind-address=127.0.0.1 --mysqlx=OFF \
     --socket="$workdir/mysqld.sock" --pid-file="$workdir/mysqld.pid" --log-error="$workdir/mysqld.log" \
-    --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci \
+    --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci "${throwaway_server_flags[@]}" \
     --init-file="$workdir/init.sql" &
   mysqld_pid=$!
   admin_url="mysql://root@127.0.0.1:$port"

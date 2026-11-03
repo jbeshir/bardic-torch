@@ -236,6 +236,13 @@ dokku mysql:link bardic-torch-db bardic-torch-api
   string (`-q`), because the API rejects URLs with query parameters. Check it with
   `dokku config:get bardic-torch-api DATABASE_URL`.
 
+Every connection the API opens sets the session variable `max_execution_time` to 2000, so the server stops any
+`SELECT` that runs longer than 2 seconds (a logged 500), and a slow anonymous read cannot hold a pooled connection
+that `/readyz` and authentication need. The limit applies to every `SELECT`, including locking reads
+(`FOR UPDATE`) and `GET_LOCK` waits, but not to `INSERT`, `UPDATE`, `DELETE` or DDL statements, nor to a `SELECT`
+inside them. `migrate` clears it on its own connections, as golang-migrate waits up to 10 seconds for its lock with
+`GET_LOCK`. Nothing needs configuring on the server.
+
 Make the database default `utf8mb4` / `utf8mb4_0900_ai_ci`, as in development, the integration tests and CI.
 dokku-mysql configures its server with `utf8mb4_unicode_ci`, so without this a table or column whose migration
 omits `COLLATE` would compare and sort text differently in production than in every test:
@@ -355,6 +362,30 @@ before it:
   column without a default, or narrowing a column. Do these in two releases: first a release that stops using the
   old shape (and writes both, if needed), then a release whose migration removes it.
 - Never edit a migration that has been deployed; add a new one.
+- **Enum growth**: appending a value to a catalogue `ENUM` column is an instant, compatible migration, but old code
+  fails when it reads a value it does not know (the read path returns a logged 500 for it). So ship the code that
+  understands a new value in one release, and only a later release may write rows that use it. Never roll back to a
+  release older than one whose data uses a value it lacks; if you must, first delete or rewrite those rows. Removing
+  or reordering ENUM values is a narrowing change: use the two-release rule above. The same holds for vocabulary
+  values inside revision snapshot documents, which reads validate too. The OpenAPI enum schema of the vocabulary changes in the same release as the domain list
+  (`TestSpec_EnumSchemasMatchDomain` fails otherwise); a client generated from the spec then knows the value before
+  any data uses it.
+- **Snapshot documents** (`revisions.snapshot_json`) follow the same rule as columns. A reader ignores document
+  fields it does not know, so a release may add a field (for a new column) without a new `schema_version`: after
+  a rollback, the older release keeps serving the revisions written in between, showing only the fields it knows.
+  Removing, renaming or retyping a field, or changing what one means, needs a new `schema_version`, which every
+  older release refuses (a logged 500 for each such revision): ship the reader for the new version one release
+  before any release writes it. A new field that hides or redacts other document data (a privacy flag on a link
+  or an alias, say) is not additive, even though older readers would parse it: they would ignore it and show
+  what it hides. Such a field needs a new `schema_version`, so that an older release refuses those documents
+  rather than failing open.
+- **Views** (`public_terms`, `listed_persons`, `public_link_attachments`, migration 009) define the visibility
+  rules once. MySQL fixes a view's columns when it is created, so a migration that adds a column a public read
+  needs from `terms`, `persons` or `link_attachments` also recreates the view (`CREATE OR REPLACE VIEW`). MySQL
+  does not stop a migration from dropping or renaming a column a view selects: the `ALTER TABLE` succeeds, but
+  the view is then invalid and every read using it fails (error 1356), so every public read would answer 500
+  once the migration ran. A migration that drops or renames such a column must recreate the views without it in
+  the same migration. `TestMigrations_UpDownUp` reads every view after migrating up.
 
 ### Failed migrations (dirty state)
 

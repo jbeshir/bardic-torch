@@ -31,3 +31,19 @@ func TestNewestMigrationVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
+
+func TestMigratorConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := ConfigFromURL("mysql://user@localhost/" + testDBName)
+	require.NoError(t, err)
+
+	got := migratorConfig(cfg)
+	assert.True(t, got.MultiStatements)
+	// golang-migrate waits for its lock with GET_LOCK, which the application's SELECT time limit would cut short.
+	assert.Equal(t, "0", got.Params["max_execution_time"])
+	assert.Equal(t, "'+00:00'", got.Params["time_zone"])
+
+	assert.False(t, cfg.MultiStatements, "the application's config is unchanged")
+	assert.Equal(t, "2000", cfg.Params["max_execution_time"])
+}

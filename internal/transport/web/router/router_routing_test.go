@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -58,14 +61,193 @@ const (
 	routingReadyz       = "/readyz"
 	routingConnectHost  = "example.com:443"
 	routingConnectRedir = "//example.com:443/"
+
+	internalBody    = `{"code":"internal","message":"internal error"}` + "\n"
+	invalidSlugBody = `{"code":"invalid_request","message":"invalid slug: must be lowercase ASCII letters and ` +
+		`digits, in runs joined by single hyphens, at most 191 characters"}` + "\n"
+
+	routingSlug              = "the-copper-kettle"
+	routingCatalogueID       = "42"
+	routingPieces            = "/v1/pieces"
+	routingPieceTemplate     = "/v1/pieces/{slug}"
+	routingPiecePath         = routingPieces + "/" + routingSlug
+	routingPieceHistory      = routingPiecePath + "/history"
+	routingPieceHistoryTmpl  = "/v1/pieces/{slug}/history"
+	routingCollectionTmpl    = "/v1/collections/{collection_id}"
+	routingCollectionHistory = "/v1/collections/{collection_id}/history"
+	routingRevisionTemplate  = "/v1/revisions/{revision_id}"
+	routingRevisionPath      = "/v1/revisions/" + routingCatalogueID
+	routingNeedsWork         = "/v1/needs-work"
 )
+
+// catalogueNotFound is the answer of a public catalogue route whose controller asked the fixture for pathValue and
+// was told that no public what has it.
+func catalogueNotFound(template, what, pathValue string) routingCase {
+	return routingCase{
+		status: http.StatusNotFound, contentType: jsonContentType,
+		respBody: `{"code":"not_found","message":"` + what + ` not found"}` + "\n", route: template, pathValue: pathValue,
+	}
+}
+
+// catalogueListFailed is the answer of a public catalogue list route whose controller asked the fixture for the
+// list.
+func catalogueListFailed(template string) routingCase {
+	return routingCase{
+		status: http.StatusInternalServerError, contentType: jsonContentType, respBody: internalBody, route: template,
+	}
+}
+
+// publicRows are the public catalogue paths. They never authenticate.
+var publicRows = []routeRow{
+	{path: routingPieces, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueListFailed(routingPieces),
+	}},
+	{path: routingPiecePath, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound(routingPieceTemplate, "piece", routingSlug),
+	}},
+	{path: "/v1/persons", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueListFailed("/v1/persons"),
+	}},
+	{path: "/v1/persons/" + routingSlug, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/persons/{slug}", "person", routingSlug),
+	}},
+	{path: "/v1/terms", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueListFailed("/v1/terms"),
+	}},
+	{path: "/v1/terms/" + routingSlug, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/terms/{slug}", "term", routingSlug),
+	}},
+	{path: "/v1/collections", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueListFailed("/v1/collections"),
+	}},
+	{path: "/v1/collections/" + routingCatalogueID, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound(routingCollectionTmpl, "collection", routingCatalogueID),
+	}},
+	{path: "/v1/events", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueListFailed("/v1/events"),
+	}},
+	{path: "/v1/events/" + routingSlug, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/events/{slug}", "event", routingSlug),
+	}},
+	{path: routingPieceHistory, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound(routingPieceHistoryTmpl, "piece", routingSlug),
+	}},
+	{path: "/v1/persons/" + routingSlug + "/history", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/persons/{slug}/history", "person", routingSlug),
+	}},
+	{path: "/v1/terms/" + routingSlug + "/history", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/terms/{slug}/history", "term", routingSlug),
+	}},
+	{path: "/v1/events/" + routingSlug + "/history", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/events/{slug}/history", "event", routingSlug),
+	}},
+	{path: "/v1/collections/" + routingCatalogueID + "/history", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound(routingCollectionHistory, "collection", routingCatalogueID),
+	}},
+	{path: routingRevisionPath, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound(routingRevisionTemplate, "revision", routingCatalogueID),
+	}},
+	{path: routingNeedsWork, allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueListFailed(routingNeedsWork),
+	}},
+}
+
+// getWith returns tc as the answer to a GET of target with the Authorization header authorization.
+func getWith(tc routingCase, target, authorization string) routingCase {
+	tc.method, tc.target, tc.authorization = http.MethodGet, target, authorization
+	return tc
+}
+
+// publicCases send requests to the public catalogue routes. They answer every credentials, even invalid ones,
+// as they would an anonymous request, without authenticating; their path values are decoded once, as on the
+// authenticated routes.
+func publicCases() []routingCase {
+	piece := catalogueNotFound(routingPieceTemplate, "piece", routingSlug)
+	revision := catalogueNotFound(routingRevisionTemplate, "revision", routingCatalogueID)
+	invalidSlug := routingCase{
+		status: http.StatusBadRequest, contentType: jsonContentType, respBody: invalidSlugBody,
+		route: routingPieceTemplate,
+	}
+
+	return []routingCase{
+		getWith(piece, routingPiecePath, routingInvalid),
+		getWith(piece, routingPiecePath, routingModerator),
+		getWith(piece, routingPiecePath+"?x=%7C", routingInvalid),
+		getWith(catalogueListFailed(routingPieces), routingPieces+"?q=kettle",
+			routingInvalid),
+		getWith(catalogueListFailed(routingNeedsWork), routingNeedsWork, routingModerator),
+		getWith(catalogueNotFound(routingPieceHistoryTmpl, "piece", routingSlug),
+			routingPieceHistory, routingInvalid),
+		getWith(revision, routingRevisionPath, routingInvalid),
+		getWith(catalogueNotFound(routingCollectionHistory, "collection", routingCatalogueID),
+			"/v1/collections/42/history", routingModerator),
+		// A wrong method on a public path is a 405, never a 401, whatever the credentials.
+		notAllowedAt(http.MethodPost, routingPieces, routingInvalid, http.MethodGet),
+		notAllowedAt(http.MethodDelete, routingPiecePath, routingModerator, http.MethodGet),
+		notAllowedAt(http.MethodHead, routingPiecePath, routingInvalid, http.MethodGet),
+		notAllowedAt(http.MethodPut, routingPieceHistory, routingInvalid, http.MethodGet),
+		notAllowedAt(http.MethodDelete, routingRevisionPath, routingInvalid, http.MethodGet),
+		notAllowedAt(http.MethodPatch, routingNeedsWork, routingInvalid, http.MethodGet),
+		// A literal segment of a public route's shape is a slug.
+		getWith(catalogueNotFound(routingPieceTemplate, "piece", "history"),
+			"/v1/pieces/history", ""),
+		// Path values are decoded once before the controller checks them.
+		getWith(piece, "/v1/pieces/the-copper-k%65ttle", ""),
+		getWith(catalogueNotFound(routingPieceHistoryTmpl, "piece", routingSlug),
+			"/v1/pieces/the-copper-k%65ttle/history", ""),
+		getWith(revision, "/v1/revisions/%342", ""),
+		getWith(catalogueNotFound(routingCollectionTmpl, "collection", routingCatalogueID),
+			"/v1/collections/4%32", ""),
+		getWith(invalidSlug, "/v1/pieces/a%2Fb", routingInvalid),
+		getWith(invalidSlug, "/v1/pieces/the%20kettle", ""),
+		getWith(invalidSlug, "/v1/pieces/the-copper-kettle%257C", ""),
+		{
+			method: http.MethodGet, target: "/v1/revisions/4%2F2",
+			status: http.StatusBadRequest, contentType: jsonContentType,
+			respBody: `{"code":"invalid_request","message":"invalid revision_id: must be an integer from 1 to ` +
+				`9223372036854775807"}` + "\n",
+			route: routingRevisionTemplate,
+		},
+		// A slug or ID that is exactly %2F (or %2f) is an unrouted 404 for every method, as on the authenticated
+		// routes. gorilla/mux routed these to their controllers, which answered 400 for the slug or ID, and answered
+		// a wrong method with 405 and Allow: GET.
+		notFound(http.MethodGet, "/v1/pieces/%2F", ""),
+		notFound(http.MethodGet, "/v1/pieces/%2F", routingInvalid),
+		notFound(http.MethodGet, "/v1/pieces/%2F/history", ""),
+		notFound(http.MethodGet, "/v1/collections/%2F", ""),
+		notFound(http.MethodGet, "/v1/revisions/%2F", routingInvalid),
+		notFound(http.MethodGet, "/v1/pieces/%2f", ""),
+		notFound(http.MethodGet, "/v1/events/%2f/history", routingInvalid),
+		notFound(http.MethodPost, "/v1/pieces/%2F", routingInvalid),
+		notFound(http.MethodHead, "/v1/revisions/%2F", ""),
+		notFound(http.MethodDelete, "/v1/collections/%2f/history", routingInvalid),
+		// Unrouted paths around the public routes, none of which authenticates.
+		notFound(http.MethodGet, "/v1/pieces/", ""),
+		notFound(http.MethodGet, routingPiecePath+"/", routingInvalid),
+		notFound(http.MethodGet, routingPieceHistory+"/", routingInvalid),
+		notFound(http.MethodGet, routingPiecePath+"/extra", routingInvalid),
+		notFound(http.MethodGet, routingPieceHistory+"/extra", routingInvalid),
+		notFound(http.MethodGet, routingNeedsWork+"/", routingInvalid),
+		notFound(http.MethodGet, routingNeedsWork+"/x", routingInvalid),
+		notFound(http.MethodGet, "/v1/revisions", routingInvalid),
+		notFound(http.MethodGet, "/v1/revisions/", routingInvalid),
+		notFound(http.MethodGet, "/v1/p%69eces", ""),
+		notFound(http.MethodGet, "/v1/p%69eces/"+routingSlug, routingInvalid),
+		notFound(http.MethodGet, routingPiecePath+"/hist%6Fry", routingInvalid),
+		notFound(http.MethodGet, "/v1/needs%2Dwork", ""),
+		// Non-canonical public paths are redirected like any other, before routing.
+		redirect(http.MethodGet, "/v1/pieces//"+routingSlug, routingPiecePath),
+		redirect(http.MethodGet, "/v1/pieces/x/../"+routingSlug+"/history?limit=5", routingPieceHistory+"?limit=5"),
+		redirect(http.MethodGet, "/v1//needs-work?reason=no_links", routingNeedsWork+"?reason=no_links"),
+	}
+}
 
 // routingFixture records what the handlers New builds were asked to do for one request.
 type routingFixture struct {
 	mu sync.Mutex
 	// authRan is whether an auth validator was consulted.
 	authRan bool
-	// pathValue is the user or token ID a command or datasource was given.
+	// pathValue is the user or token ID, slug or catalogue ID a command or datasource was given.
 	pathValue string
 }
 
@@ -104,16 +286,108 @@ func (f *routingFixture) RevokeAPIToken(_ context.Context, _, tokenID string, _ 
 	return datasources.ErrNotFound
 }
 
+// errRoutingList is what the fixture's catalogue lists fail with, so a list route answers 500 once its controller
+// has run.
+var errRoutingList = errors.New("routing fixture lists nothing")
+
+// The catalogue getters record the slug or ID they are given and find nothing.
+
+func (f *routingFixture) GetPublicPiece(_ context.Context, slug string) (domain.Piece, error) {
+	f.recordPathValue(slug)
+	return domain.Piece{}, datasources.ErrNotFound
+}
+
+func (f *routingFixture) GetPublicPerson(_ context.Context, slug string) (domain.Person, error) {
+	f.recordPathValue(slug)
+	return domain.Person{}, datasources.ErrNotFound
+}
+
+func (f *routingFixture) GetPublicTerm(_ context.Context, slug string, _ domain.Page) (domain.Term, error) {
+	f.recordPathValue(slug)
+	return domain.Term{}, datasources.ErrNotFound
+}
+
+func (f *routingFixture) GetPublicEvent(_ context.Context, slug string) (domain.Event, error) {
+	f.recordPathValue(slug)
+	return domain.Event{}, datasources.ErrNotFound
+}
+
+func (f *routingFixture) GetPublicCollection(_ context.Context, id int64) (domain.Collection, error) {
+	f.recordPathValue(strconv.FormatInt(id, 10))
+	return domain.Collection{}, datasources.ErrNotFound
+}
+
+func (f *routingFixture) GetPublicRevision(_ context.Context, id int64) (domain.Revision, error) {
+	f.recordPathValue(strconv.FormatInt(id, 10))
+	return nil, datasources.ErrNotFound
+}
+
+func (f *routingFixture) ListPublicHistory(
+	_ context.Context, _ domain.SlugEntityType, slug string, _ domain.Page,
+) (domain.RevisionHistory, error) {
+	f.recordPathValue(slug)
+	return domain.RevisionHistory{}, datasources.ErrNotFound
+}
+
+func (f *routingFixture) ListPublicCollectionHistory(
+	_ context.Context, id int64, _ domain.Page,
+) (domain.RevisionHistory, error) {
+	f.recordPathValue(strconv.FormatInt(id, 10))
+	return domain.RevisionHistory{}, datasources.ErrNotFound
+}
+
+func (*routingFixture) ListPublicPieces(context.Context, datasources.PieceQuery) (domain.PieceList, error) {
+	return domain.PieceList{}, errRoutingList
+}
+
+func (*routingFixture) ListPublicPersons(context.Context, datasources.PersonQuery) (domain.PersonList, error) {
+	return domain.PersonList{}, errRoutingList
+}
+
+func (*routingFixture) ListPublicTerms(context.Context, *domain.Facet) ([]domain.TermListItem, error) {
+	return nil, errRoutingList
+}
+
+func (*routingFixture) ListPublicCollections(
+	context.Context, datasources.CollectionQuery,
+) (domain.CollectionList, error) {
+	return domain.CollectionList{}, errRoutingList
+}
+
+func (*routingFixture) ListPublicEvents(context.Context, *domain.EventKind, domain.Page) (domain.EventList, error) {
+	return domain.EventList{}, errRoutingList
+}
+
+func (*routingFixture) ListPublicNeedsWork(
+	context.Context, *domain.NeedsWorkReason, domain.Page,
+) (domain.NeedsWorkList, error) {
+	return domain.NeedsWorkList{}, errRoutingList
+}
+
 func (f *routingFixture) dependencies() Dependencies {
 	moderator := testUser
 	moderator.ID, moderator.Role = routingModeratorID, domain.RoleModerator
 	return Dependencies{
-		Pinger:          f,
-		AuthValidators:  []AuthValidator{f.validate},
-		ResolveUser:     resolveTo(moderator),
-		SetUserBlocked:  f,
-		APITokenRevoker: f,
-		Now:             func() time.Time { return testNow },
+		Pinger:                        f,
+		AuthValidators:                []AuthValidator{f.validate},
+		ResolveUser:                   resolveTo(moderator),
+		SetUserBlocked:                f,
+		APITokenRevoker:               f,
+		PublicPieceLister:             f,
+		PublicPieceGetter:             f,
+		PublicPersonLister:            f,
+		PublicPersonGetter:            f,
+		PublicTermLister:              f,
+		PublicTermGetter:              f,
+		PublicCollectionLister:        f,
+		PublicCollectionGetter:        f,
+		PublicEventLister:             f,
+		PublicEventGetter:             f,
+		PublicHistoryLister:           f,
+		PublicCollectionHistoryLister: f,
+		PublicRevisionGetter:          f,
+		PublicNeedsWorkLister:         f,
+		Now:                           func() time.Time { return testNow },
 	}
 }
 
@@ -158,10 +432,10 @@ func anonymousAuthRequired(template string) routingCase {
 }
 
 var routeRows = []routeRow{
-	{path: routingHealthz, allow: "GET", routed: map[string]routingCase{
+	{path: routingHealthz, allow: http.MethodGet, routed: map[string]routingCase{
 		http.MethodGet: {status: http.StatusOK, contentType: jsonContentType, respBody: healthyBody, route: routingHealthz},
 	}},
-	{path: routingReadyz, allow: "GET", routed: map[string]routingCase{
+	{path: routingReadyz, allow: http.MethodGet, routed: map[string]routingCase{
 		http.MethodGet: {status: http.StatusOK, contentType: jsonContentType, respBody: healthyBody, route: routingReadyz},
 	}},
 	{path: routingMe, allow: "GET, PATCH", routed: map[string]routingCase{
@@ -187,7 +461,7 @@ var routeRows = []routeRow{
 // is answered by CORS and every other method, HEAD included, gets 405.
 func everyRouteAndMethod() []routingCase {
 	var cases []routingCase
-	for _, row := range routeRows {
+	for _, row := range slices.Concat(routeRows, publicRows) {
 		for _, method := range everyMethod {
 			tc, routed := row.routed[method]
 			switch {
@@ -361,6 +635,7 @@ func TestRouter_Routing(t *testing.T) {
 	cases = append(cases, unroutedCases()...)
 	cases = append(cases, cleaningCases()...)
 	cases = append(cases, encodedIDCases()...)
+	cases = append(cases, publicCases()...)
 
 	for _, tc := range cases {
 		name := tc.method + " " + tc.target

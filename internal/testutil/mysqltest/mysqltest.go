@@ -9,6 +9,8 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"testing"
@@ -28,14 +30,9 @@ const databaseNamePrefix = "bt_test_"
 func NewDatabase(t testing.TB) *sql.DB {
 	t.Helper()
 
-	cfg, err := mysql.ConfigFromURL(NewDatabaseURL(t))
+	db, err := Connect(t.Context(), NewDatabaseURL(t))
 	if err != nil {
-		t.Fatalf("parsing test database URL: %v", err)
-	}
-
-	db, err := mysql.Connect(t.Context(), cfg)
-	if err != nil {
-		t.Fatalf("connecting to test database: %v", err)
+		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
@@ -47,82 +44,109 @@ func NewDatabase(t testing.TB) *sql.DB {
 func NewDatabaseURL(t testing.TB) string {
 	t.Helper()
 
-	dbURL, cfg := newDatabaseConfig(t)
-	admin := connectAdmin(t, cfg)
-
-	quotedName := "`" + cfg.DBName + "`"
-	if _, err := admin.ExecContext(t.Context(), "CREATE DATABASE "+quotedName); err != nil {
-		t.Fatalf("creating test database: %v", err)
+	dbURL, drop, err := CreateDatabase(t.Context())
+	if err != nil {
+		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		ctx := context.WithoutCancel(t.Context())
-		if _, err := admin.ExecContext(ctx, "DROP DATABASE "+quotedName); err != nil {
-			t.Errorf("dropping test database: %v", err)
+		if err := drop(context.WithoutCancel(t.Context())); err != nil {
+			t.Error(err)
 		}
 	})
-
-	m, err := mysql.NewMigrator(cfg)
-	if err != nil {
-		t.Fatalf("creating migrator: %v", err)
-	}
-	defer func() { _, _ = m.Close() }()
-	if err := m.Up(); err != nil {
-		t.Fatalf("migrating test database: %v", err)
-	}
 
 	return dbURL
 }
 
+// CreateDatabase creates a migrated database as NewDatabaseURL does, but not tied to a test: the caller must
+// call drop once no test uses it. It is for a database several tests share (see catalogtest.Shared).
+func CreateDatabase(ctx context.Context) (dbURL string, drop func(context.Context) error, err error) {
+	dbURL, cfg, err := newDatabaseConfig()
+	if err != nil {
+		return "", nil, err
+	}
+
+	adminCfg := cfg.Clone()
+	adminCfg.DBName = ""
+	admin, err := mysql.Connect(ctx, adminCfg)
+	if err != nil {
+		return "", nil, fmt.Errorf("connecting to %s: %w", AdminURLEnv, err)
+	}
+
+	quotedName := "`" + cfg.DBName + "`"
+	if _, err := admin.ExecContext(ctx, "CREATE DATABASE "+quotedName); err != nil {
+		_ = admin.Close()
+		return "", nil, fmt.Errorf("creating test database: %w", err)
+	}
+	drop = func(ctx context.Context) error {
+		defer func() { _ = admin.Close() }()
+		if _, err := admin.ExecContext(ctx, "DROP DATABASE "+quotedName); err != nil {
+			return fmt.Errorf("dropping test database: %w", err)
+		}
+
+		return nil
+	}
+
+	if err := migrate(cfg); err != nil {
+		return "", nil, errors.Join(err, drop(ctx))
+	}
+
+	return dbURL, drop, nil
+}
+
+// Connect opens a connection pool to the database at dbURL, configured as the application configures its own.
+func Connect(ctx context.Context, dbURL string) (*sql.DB, error) {
+	cfg, err := mysql.ConfigFromURL(dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing test database URL: %w", err)
+	}
+	db, err := mysql.Connect(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("connecting to test database: %w", err)
+	}
+
+	return db, nil
+}
+
+// migrate applies every migration to the database of cfg.
+func migrate(cfg *mysqldriver.Config) error {
+	m, err := mysql.NewMigrator(cfg)
+	if err != nil {
+		return fmt.Errorf("creating migrator: %w", err)
+	}
+	defer func() { _, _ = m.Close() }()
+	if err := m.Up(); err != nil {
+		return fmt.Errorf("migrating test database: %w", err)
+	}
+
+	return nil
+}
+
 // newDatabaseConfig picks a new random database name on the server at AdminURLEnv, returning its URL and
 // the config parsed from it.
-func newDatabaseConfig(t testing.TB) (string, *mysqldriver.Config) {
-	t.Helper()
-
+func newDatabaseConfig() (string, *mysqldriver.Config, error) {
 	adminURL, ok := os.LookupEnv(AdminURLEnv)
 	if !ok {
-		t.Fatalf("%s is not set; run the integration tests with make test-integration or make test-integration-local",
+		return "", nil, fmt.Errorf(
+			"%s is not set; run the integration tests with make test-integration or make test-integration-local",
 			AdminURLEnv)
 	}
 	u, err := url.Parse(adminURL)
 	if err != nil {
-		t.Fatalf("parsing %s: %v", AdminURLEnv, err)
+		return "", nil, fmt.Errorf("parsing %s: %w", AdminURLEnv, err)
 	}
 	if u.Path != "" && u.Path != "/" {
-		t.Fatalf("%s must not name a database", AdminURLEnv)
+		return "", nil, fmt.Errorf("%s must not name a database", AdminURLEnv)
 	}
-
-	u.Path = "/" + databaseNamePrefix + randomHex(t)
-	cfg, err := mysql.ConfigFromURL(u.String())
-	if err != nil {
-		t.Fatalf("parsing %s: %v", AdminURLEnv, err)
-	}
-
-	return u.String(), cfg
-}
-
-// connectAdmin connects to the server of cfg without selecting a database. The pool is closed when the test
-// finishes.
-func connectAdmin(t testing.TB, cfg *mysqldriver.Config) *sql.DB {
-	t.Helper()
-
-	adminCfg := cfg.Clone()
-	adminCfg.DBName = ""
-	admin, err := mysql.Connect(t.Context(), adminCfg)
-	if err != nil {
-		t.Fatalf("connecting to %s: %v", AdminURLEnv, err)
-	}
-	t.Cleanup(func() { _ = admin.Close() })
-
-	return admin
-}
-
-func randomHex(t testing.TB) string {
-	t.Helper()
 
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		t.Fatalf("generating database name: %v", err)
+		return "", nil, fmt.Errorf("generating database name: %w", err)
+	}
+	u.Path = "/" + databaseNamePrefix + hex.EncodeToString(b)
+	cfg, err := mysql.ConfigFromURL(u.String())
+	if err != nil {
+		return "", nil, fmt.Errorf("parsing %s: %w", AdminURLEnv, err)
 	}
 
-	return hex.EncodeToString(b)
+	return u.String(), cfg, nil
 }

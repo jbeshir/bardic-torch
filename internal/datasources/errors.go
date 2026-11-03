@@ -4,3 +4,19 @@ import "errors"
 
 // ErrNotFound is returned, possibly wrapped, when the requested record does not exist.
 var ErrNotFound = errors.New("not found")
+
+// ErrQueryTimeout is returned, wrapped, when the database stopped a query that ran longer than its execution
+// time limit.
+var ErrQueryTimeout = errors.New("query exceeded its execution time limit")
+
+// UnknownTermError is returned, possibly wrapped, when a search filters on a term slug that no public term of the
+// facets the filter accepts has. Unknown and unapproved terms give the same error, so that the error does not
+// reveal that an unapproved term exists.
+type UnknownTermError struct {
+	// Slug is the slug as the search gave it.
+	Slug string
+}
+
+func (e *UnknownTermError) Error() string {
+	return "unknown term [" + e.Slug + "]"
+}

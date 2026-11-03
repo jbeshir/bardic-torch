@@ -134,7 +134,7 @@ func TestAuthMiddleware_Rejections(t *testing.T) {
 			validator:  failsWith(errors.New("connection refused")),
 			resolve:    failIfResolved,
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   `{"code":"internal","message":"internal error"}`,
+			wantBody:   internalBody,
 		},
 		{
 			name:      "resolver_failure",
@@ -145,7 +145,7 @@ func TestAuthMiddleware_Rejections(t *testing.T) {
 				}
 			},
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   `{"code":"internal","message":"internal error"}`,
+			wantBody:   internalBody,
 		},
 	}
 

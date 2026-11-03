@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -14,29 +15,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	versionTwo  = "version: 2\n"
-	versionNone = "version: none\n"
-)
+const versionNone = "version: none\n"
 
 func TestMigrateRun_UpVersionDown(t *testing.T) {
 	t.Parallel()
 
 	databaseURL := mysqltest.NewDatabaseURL(t)
+	newest, err := mysql.NewestMigrationVersion()
+	require.NoError(t, err)
+	require.Greater(t, newest, uint(1), "the steps below need at least two migrations")
+	versionNewest := fmt.Sprintf("version: %d\n", newest)
+	allSteps := strconv.FormatUint(uint64(newest), 10)
 
 	steps := []struct {
 		args []string
 		want string
 	}{
 		// The database starts fully migrated, so up has nothing to apply and still succeeds.
-		{args: []string{string(actionUp)}, want: versionTwo},
-		{args: []string{string(actionVersion)}, want: versionTwo},
-		{args: []string{string(actionDown), "1"}, want: "version: 1\n"},
-		{args: []string{string(actionDown), "1"}, want: versionNone},
+		{args: []string{string(actionUp)}, want: versionNewest},
+		{args: []string{string(actionVersion)}, want: versionNewest},
+		{args: []string{string(actionDown), "1"}, want: fmt.Sprintf("version: %d\n", newest-1)},
+		{args: []string{string(actionDown), strconv.FormatUint(uint64(newest-1), 10)}, want: versionNone},
 		{args: []string{string(actionVersion)}, want: versionNone},
-		{args: []string{string(actionUp)}, want: versionTwo},
-		{args: []string{string(actionDown), "2"}, want: versionNone},
-		{args: []string{string(actionUp)}, want: versionTwo},
+		{args: []string{string(actionUp)}, want: versionNewest},
+		{args: []string{string(actionDown), allSteps}, want: versionNone},
+		{args: []string{string(actionUp)}, want: versionNewest},
 	}
 	for _, step := range steps {
 		var stdout bytes.Buffer
@@ -45,8 +48,9 @@ func TestMigrateRun_UpVersionDown(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	err := run(t.Context(), []string{string(actionDown), "3"}, databaseURL, &stdout)
-	require.ErrorContains(t, err, "rolling back 3 migrations")
+	err = run(t.Context(), []string{string(actionDown), strconv.FormatUint(uint64(newest+1), 10)}, databaseURL,
+		&stdout)
+	require.ErrorContains(t, err, fmt.Sprintf("rolling back %d migrations", newest+1))
 }
 
 // An older release's predeploy runs its own up against a schema a newer release migrated further, which must

@@ -8,6 +8,8 @@ package queries
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -28,6 +30,117 @@ func (q *Queries) BlockUser(ctx context.Context, arg BlockUserParams) (int64, er
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const countApprovedRevisions = `-- name: CountApprovedRevisions :one
+SELECT COUNT(*)
+FROM revisions
+WHERE entity_type = ? AND entity_id = ? AND status = 'approved'
+`
+
+type CountApprovedRevisionsParams struct {
+	EntityType RevisionsEntityType
+	EntityID   uint64
+}
+
+func (q *Queries) CountApprovedRevisions(ctx context.Context, arg CountApprovedRevisionsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countApprovedRevisions, arg.EntityType, arg.EntityID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPublicCollectionCitations = `-- name: CountPublicCollectionCitations :one
+SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT l.id, a.piece_id, a.person_id
+    FROM links l
+    JOIN public_link_attachments a ON a.link_id = l.id
+    WHERE l.collection_id = ? AND NOT l.is_hidden
+) cited
+`
+
+func (q *Queries) CountPublicCollectionCitations(ctx context.Context, collectionID sql.NullInt64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPublicCollectionCitations, collectionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPublicEventPerformances = `-- name: CountPublicEventPerformances :one
+SELECT COUNT(*)
+FROM performances perf
+JOIN links l ON l.id = perf.link_id
+LEFT JOIN pieces p ON p.id = perf.piece_id
+WHERE perf.event_id = ? AND NOT l.is_hidden
+    AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
+    AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = perf.link_id)
+`
+
+func (q *Queries) CountPublicEventPerformances(ctx context.Context, eventID sql.NullInt64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPublicEventPerformances, eventID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPublicEvents = `-- name: CountPublicEvents :one
+SELECT COUNT(*)
+FROM events
+WHERE current_revision_id IS NOT NULL AND (? IS NULL OR kind = ?)
+`
+
+type CountPublicEventsParams struct {
+	Kind NullEventsKind
+}
+
+func (q *Queries) CountPublicEvents(ctx context.Context, arg CountPublicEventsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPublicEvents, arg.Kind, arg.Kind)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPublicPersonPerformances = `-- name: CountPublicPersonPerformances :one
+SELECT COUNT(*)
+FROM performances perf
+JOIN links l ON l.id = perf.link_id
+LEFT JOIN pieces p ON p.id = perf.piece_id
+WHERE NOT l.is_hidden
+    AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
+    AND (
+        (EXISTS (SELECT 1 FROM performance_performers pp
+                WHERE pp.performance_id = perf.id AND pp.person_id = ?)
+            AND EXISTS (SELECT 1 FROM public_link_attachments pa WHERE pa.link_id = perf.link_id))
+        OR EXISTS (SELECT 1 FROM link_attachments a
+            WHERE a.link_id = perf.link_id AND a.person_id = ?)
+    )
+`
+
+type CountPublicPersonPerformancesParams struct {
+	PerformerID      uint64
+	AttachedPersonID sql.NullInt64
+}
+
+func (q *Queries) CountPublicPersonPerformances(ctx context.Context, arg CountPublicPersonPerformancesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPublicPersonPerformances, arg.PerformerID, arg.AttachedPersonID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPublicPersonWorks = `-- name: CountPublicPersonWorks :one
+SELECT COUNT(*)
+FROM piece_credits c
+JOIN pieces p ON p.id = c.piece_id
+WHERE c.person_id = ? AND p.current_revision_id IS NOT NULL
+`
+
+func (q *Queries) CountPublicPersonWorks(ctx context.Context, personID sql.NullInt64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPublicPersonWorks, personID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const countUserActiveAPITokens = `-- name: CountUserActiveAPITokens :one
@@ -95,6 +208,338 @@ func (q *Queries) GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiT
 	return i, err
 }
 
+const getApprovedBaseRevision = `-- name: GetApprovedBaseRevision :one
+
+SELECT b.id, b.snapshot_json
+FROM revisions r
+JOIN revisions b ON b.id = r.base_revision_id
+WHERE r.id = ? AND b.status = 'approved' AND b.entity_type = r.entity_type AND b.entity_id = r.entity_id
+`
+
+type GetApprovedBaseRevisionRow struct {
+	ID           uint64
+	SnapshotJson json.RawMessage
+}
+
+// A revision's base is shown only if it is an approved revision of the same entity.
+func (q *Queries) GetApprovedBaseRevision(ctx context.Context, id uint64) (GetApprovedBaseRevisionRow, error) {
+	row := q.db.QueryRowContext(ctx, getApprovedBaseRevision, id)
+	var i GetApprovedBaseRevisionRow
+	err := row.Scan(&i.ID, &i.SnapshotJson)
+	return i, err
+}
+
+const getApprovedRevision = `-- name: GetApprovedRevision :one
+SELECT r.id, r.entity_type, r.entity_id, r.source, r.summary, r.created_at, r.snapshot_json,
+    u.display_name AS author_display_name
+FROM revisions r
+LEFT JOIN users u ON u.id = r.author_user_id
+WHERE r.id = ? AND r.status = 'approved'
+`
+
+type GetApprovedRevisionRow struct {
+	ID                uint64
+	EntityType        RevisionsEntityType
+	EntityID          uint64
+	Source            RevisionsSource
+	Summary           string
+	CreatedAt         time.Time
+	SnapshotJson      json.RawMessage
+	AuthorDisplayName sql.NullString
+}
+
+func (q *Queries) GetApprovedRevision(ctx context.Context, id uint64) (GetApprovedRevisionRow, error) {
+	row := q.db.QueryRowContext(ctx, getApprovedRevision, id)
+	var i GetApprovedRevisionRow
+	err := row.Scan(
+		&i.ID,
+		&i.EntityType,
+		&i.EntityID,
+		&i.Source,
+		&i.Summary,
+		&i.CreatedAt,
+		&i.SnapshotJson,
+		&i.AuthorDisplayName,
+	)
+	return i, err
+}
+
+const getPublicCollection = `-- name: GetPublicCollection :one
+SELECT c.id, c.name, c.kind, c.url, c.is_bardic_resource, c.description_md, c.enumerable,
+    r.slug AS region_slug, r.facet AS region_facet, r.display_name AS region_display_name,
+    parent.id AS parent_id, parent.name AS parent_name, parent.kind AS parent_kind, parent.url AS parent_url,
+    parent.is_bardic_resource AS parent_is_bardic_resource
+FROM collections c
+LEFT JOIN public_terms r ON r.id = c.region_term_id
+LEFT JOIN collections parent ON parent.id = c.parent_id AND parent.current_revision_id IS NOT NULL
+WHERE c.id = ? AND c.current_revision_id IS NOT NULL
+`
+
+type GetPublicCollectionRow struct {
+	ID                     uint64
+	Name                   string
+	Kind                   CollectionsKind
+	Url                    sql.NullString
+	IsBardicResource       bool
+	DescriptionMd          sql.NullString
+	Enumerable             CollectionsEnumerable
+	RegionSlug             sql.NullString
+	RegionFacet            NullTermsFacet
+	RegionDisplayName      sql.NullString
+	ParentID               sql.NullInt64
+	ParentName             sql.NullString
+	ParentKind             NullCollectionsKind
+	ParentUrl              sql.NullString
+	ParentIsBardicResource sql.NullBool
+}
+
+func (q *Queries) GetPublicCollection(ctx context.Context, id uint64) (GetPublicCollectionRow, error) {
+	row := q.db.QueryRowContext(ctx, getPublicCollection, id)
+	var i GetPublicCollectionRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Kind,
+		&i.Url,
+		&i.IsBardicResource,
+		&i.DescriptionMd,
+		&i.Enumerable,
+		&i.RegionSlug,
+		&i.RegionFacet,
+		&i.RegionDisplayName,
+		&i.ParentID,
+		&i.ParentName,
+		&i.ParentKind,
+		&i.ParentUrl,
+		&i.ParentIsBardicResource,
+	)
+	return i, err
+}
+
+const getPublicCollectionID = `-- name: GetPublicCollectionID :one
+SELECT id FROM collections WHERE id = ? AND current_revision_id IS NOT NULL
+`
+
+func (q *Queries) GetPublicCollectionID(ctx context.Context, id uint64) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getPublicCollectionID, id)
+	var id_2 uint64
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
+const getPublicEvent = `-- name: GetPublicEvent :one
+SELECT id, slug, name, kind, description_md
+FROM events
+WHERE slug = ? AND current_revision_id IS NOT NULL
+`
+
+type GetPublicEventRow struct {
+	ID            uint64
+	Slug          string
+	Name          string
+	Kind          EventsKind
+	DescriptionMd sql.NullString
+}
+
+func (q *Queries) GetPublicEvent(ctx context.Context, slug string) (GetPublicEventRow, error) {
+	row := q.db.QueryRowContext(ctx, getPublicEvent, slug)
+	var i GetPublicEventRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Kind,
+		&i.DescriptionMd,
+	)
+	return i, err
+}
+
+const getPublicEventID = `-- name: GetPublicEventID :one
+SELECT id FROM events WHERE slug = ? AND current_revision_id IS NOT NULL
+`
+
+func (q *Queries) GetPublicEventID(ctx context.Context, slug string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getPublicEventID, slug)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getPublicPerson = `-- name: GetPublicPerson :one
+SELECT id, slug, name, kind, status, status_date, status_source_url, is_stub, pronouns, notes_md, licensing_status,
+    licensing_notes_md
+FROM persons
+WHERE slug = ? AND current_revision_id IS NOT NULL
+`
+
+type GetPublicPersonRow struct {
+	ID               uint64
+	Slug             string
+	Name             string
+	Kind             PersonsKind
+	Status           PersonsStatus
+	StatusDate       sql.NullTime
+	StatusSourceUrl  sql.NullString
+	IsStub           bool
+	Pronouns         sql.NullString
+	NotesMd          sql.NullString
+	LicensingStatus  PersonsLicensingStatus
+	LicensingNotesMd sql.NullString
+}
+
+func (q *Queries) GetPublicPerson(ctx context.Context, slug string) (GetPublicPersonRow, error) {
+	row := q.db.QueryRowContext(ctx, getPublicPerson, slug)
+	var i GetPublicPersonRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Kind,
+		&i.Status,
+		&i.StatusDate,
+		&i.StatusSourceUrl,
+		&i.IsStub,
+		&i.Pronouns,
+		&i.NotesMd,
+		&i.LicensingStatus,
+		&i.LicensingNotesMd,
+	)
+	return i, err
+}
+
+const getPublicPersonID = `-- name: GetPublicPersonID :one
+SELECT id FROM persons WHERE slug = ? AND current_revision_id IS NOT NULL
+`
+
+func (q *Queries) GetPublicPersonID(ctx context.Context, slug string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getPublicPersonID, slug)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getPublicPiece = `-- name: GetPublicPiece :one
+
+SELECT id, slug, title, kind, conservation_status, is_stub, notes_md, version_notes_md, licensing_status,
+    licensing_notes_md, licence, historical_source_md, period_start, period_end
+FROM pieces
+WHERE slug = ? AND current_revision_id IS NOT NULL
+`
+
+type GetPublicPieceRow struct {
+	ID                 uint64
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+	NotesMd            sql.NullString
+	VersionNotesMd     sql.NullString
+	LicensingStatus    PiecesLicensingStatus
+	LicensingNotesMd   sql.NullString
+	Licence            NullPiecesLicence
+	HistoricalSourceMd sql.NullString
+	PeriodStart        sql.NullInt16
+	PeriodEnd          sql.NullInt16
+}
+
+// ============================================
+// Catalogue: public reads
+//
+// An entity is public when it has an approved revision (current_revision_id IS NOT NULL); a term also needs
+// every ancestor approved (the public_terms view). Persons who prefer no page are dropped from every list that
+// references them (the listed_persons view), and hidden links from every read. What a link records is shown on
+// another entity's page only if the link has a public attachment (the public_link_attachments view).
+// ============================================
+func (q *Queries) GetPublicPiece(ctx context.Context, slug string) (GetPublicPieceRow, error) {
+	row := q.db.QueryRowContext(ctx, getPublicPiece, slug)
+	var i GetPublicPieceRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Title,
+		&i.Kind,
+		&i.ConservationStatus,
+		&i.IsStub,
+		&i.NotesMd,
+		&i.VersionNotesMd,
+		&i.LicensingStatus,
+		&i.LicensingNotesMd,
+		&i.Licence,
+		&i.HistoricalSourceMd,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+	)
+	return i, err
+}
+
+const getPublicPieceID = `-- name: GetPublicPieceID :one
+
+SELECT id FROM pieces WHERE slug = ? AND current_revision_id IS NOT NULL
+`
+
+// ============================================
+// Catalogue: public history and revisions
+//
+// Only approved revisions of public entities are public. Authors are shown by display name only.
+// ============================================
+func (q *Queries) GetPublicPieceID(ctx context.Context, slug string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getPublicPieceID, slug)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getPublicTerm = `-- name: GetPublicTerm :one
+SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md,
+    ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name
+FROM public_terms t
+LEFT JOIN public_terms ra ON ra.id = t.related_affiliation_id
+WHERE t.slug = ?
+`
+
+type GetPublicTermRow struct {
+	ID                 uint64
+	Slug               string
+	Facet              TermsFacet
+	Name               string
+	DisplayName        string
+	DescriptionMd      sql.NullString
+	RelatedSlug        sql.NullString
+	RelatedFacet       NullTermsFacet
+	RelatedDisplayName sql.NullString
+}
+
+func (q *Queries) GetPublicTerm(ctx context.Context, slug string) (GetPublicTermRow, error) {
+	row := q.db.QueryRowContext(ctx, getPublicTerm, slug)
+	var i GetPublicTermRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Facet,
+		&i.Name,
+		&i.DisplayName,
+		&i.DescriptionMd,
+		&i.RelatedSlug,
+		&i.RelatedFacet,
+		&i.RelatedDisplayName,
+	)
+	return i, err
+}
+
+const getPublicTermID = `-- name: GetPublicTermID :one
+SELECT t.id
+FROM public_terms t
+WHERE t.slug = ?
+`
+
+func (q *Queries) GetPublicTermID(ctx context.Context, slug string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getPublicTermID, slug)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getUser = `-- name: GetUser :one
 
 SELECT id, display_name, role, created_at, blocked_at
@@ -133,6 +578,2020 @@ type InsertUserIfMissingParams struct {
 func (q *Queries) InsertUserIfMissing(ctx context.Context, arg InsertUserIfMissingParams) error {
 	_, err := q.db.ExecContext(ctx, insertUserIfMissing, arg.ID, arg.DisplayName, arg.CreatedAt)
 	return err
+}
+
+const listApprovedRevisions = `-- name: ListApprovedRevisions :many
+SELECT r.id, r.source, r.summary, r.created_at, u.display_name AS author_display_name
+FROM revisions r
+LEFT JOIN users u ON u.id = r.author_user_id
+WHERE r.entity_type = ? AND r.entity_id = ? AND r.status = 'approved'
+ORDER BY r.created_at DESC, r.id DESC
+LIMIT ? OFFSET ?
+`
+
+type ListApprovedRevisionsParams struct {
+	EntityType RevisionsEntityType
+	EntityID   uint64
+	Limit      int32
+	Offset     int32
+}
+
+type ListApprovedRevisionsRow struct {
+	ID                uint64
+	Source            RevisionsSource
+	Summary           string
+	CreatedAt         time.Time
+	AuthorDisplayName sql.NullString
+}
+
+func (q *Queries) ListApprovedRevisions(ctx context.Context, arg ListApprovedRevisionsParams) ([]ListApprovedRevisionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listApprovedRevisions,
+		arg.EntityType,
+		arg.EntityID,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListApprovedRevisionsRow
+	for rows.Next() {
+		var i ListApprovedRevisionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.Summary,
+			&i.CreatedAt,
+			&i.AuthorDisplayName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConservationHistory = `-- name: ListConservationHistory :many
+SELECT status, reason, source_url, at
+FROM conservation_history
+WHERE piece_id = ?
+ORDER BY at, id
+`
+
+type ListConservationHistoryRow struct {
+	Status    ConservationHistoryStatus
+	Reason    string
+	SourceUrl sql.NullString
+	At        time.Time
+}
+
+func (q *Queries) ListConservationHistory(ctx context.Context, pieceID uint64) ([]ListConservationHistoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listConservationHistory, pieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListConservationHistoryRow
+	for rows.Next() {
+		var i ListConservationHistoryRow
+		if err := rows.Scan(
+			&i.Status,
+			&i.Reason,
+			&i.SourceUrl,
+			&i.At,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinkAttachmentRoles = `-- name: ListLinkAttachmentRoles :many
+SELECT link_id, piece_id, person_id, role
+FROM link_attachments
+WHERE link_id IN (/*SLICE:link_ids*/?)
+ORDER BY link_id, position, id
+`
+
+type ListLinkAttachmentRolesRow struct {
+	LinkID   uint64
+	PieceID  sql.NullInt64
+	PersonID sql.NullInt64
+	Role     LinkAttachmentsRole
+}
+
+func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64) ([]ListLinkAttachmentRolesRow, error) {
+	query := listLinkAttachmentRoles
+	var queryParams []interface{}
+	if len(linkIds) > 0 {
+		for _, v := range linkIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:link_ids*/?", strings.Repeat(",?", len(linkIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:link_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinkAttachmentRolesRow
+	for rows.Next() {
+		var i ListLinkAttachmentRolesRow
+		if err := rows.Scan(
+			&i.LinkID,
+			&i.PieceID,
+			&i.PersonID,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinksByURL = `-- name: ListLinksByURL :many
+
+SELECT url, normalized_url, is_hidden
+FROM links
+WHERE url IN (/*SLICE:urls*/?) OR normalized_url IN (/*SLICE:normalized_urls*/?)
+`
+
+type ListLinksByURLParams struct {
+	Urls           []string
+	NormalizedUrls []string
+}
+
+type ListLinksByURLRow struct {
+	Url           string
+	NormalizedUrl string
+	IsHidden      bool
+}
+
+// A snapshot's link is shown only if a link that is not hidden has exactly its URL, as entered or normalized, and
+// no hidden link does. Both columns are binary, and the caller compares the URLs these rows hold exactly too, so a
+// URL that differs in any way, or a link since deleted, fails closed.
+func (q *Queries) ListLinksByURL(ctx context.Context, arg ListLinksByURLParams) ([]ListLinksByURLRow, error) {
+	query := listLinksByURL
+	var queryParams []interface{}
+	if len(arg.Urls) > 0 {
+		for _, v := range arg.Urls {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:urls*/?", strings.Repeat(",?", len(arg.Urls))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:urls*/?", "NULL", 1)
+	}
+	if len(arg.NormalizedUrls) > 0 {
+		for _, v := range arg.NormalizedUrls {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", strings.Repeat(",?", len(arg.NormalizedUrls))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinksByURLRow
+	for rows.Next() {
+		var i ListLinksByURLRow
+		if err := rows.Scan(&i.Url, &i.NormalizedUrl, &i.IsHidden); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPersonRoles = `-- name: ListPersonRoles :many
+SELECT role
+FROM person_roles
+WHERE person_id = ?
+ORDER BY role
+`
+
+func (q *Queries) ListPersonRoles(ctx context.Context, personID uint64) ([]PersonRolesRole, error) {
+	rows, err := q.db.QueryContext(ctx, listPersonRoles, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PersonRolesRole
+	for rows.Next() {
+		var role PersonRolesRole
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		items = append(items, role)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPieceAliases = `-- name: ListPieceAliases :many
+SELECT text, kind
+FROM piece_aliases
+WHERE piece_id = ?
+ORDER BY id
+`
+
+type ListPieceAliasesRow struct {
+	Text string
+	Kind PieceAliasesKind
+}
+
+func (q *Queries) ListPieceAliases(ctx context.Context, pieceID uint64) ([]ListPieceAliasesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPieceAliases, pieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPieceAliasesRow
+	for rows.Next() {
+		var i ListPieceAliasesRow
+		if err := rows.Scan(&i.Text, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPieceSecondaryKinds = `-- name: ListPieceSecondaryKinds :many
+SELECT p.slug, k.kind
+FROM piece_secondary_kinds k
+JOIN pieces p ON p.id = k.piece_id
+WHERE p.slug IN (/*SLICE:slugs*/?)
+ORDER BY p.slug, k.kind
+`
+
+type ListPieceSecondaryKindsRow struct {
+	Slug string
+	Kind PieceSecondaryKindsKind
+}
+
+func (q *Queries) ListPieceSecondaryKinds(ctx context.Context, slugs []string) ([]ListPieceSecondaryKindsRow, error) {
+	query := listPieceSecondaryKinds
+	var queryParams []interface{}
+	if len(slugs) > 0 {
+		for _, v := range slugs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:slugs*/?", strings.Repeat(",?", len(slugs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:slugs*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPieceSecondaryKindsRow
+	for rows.Next() {
+		var i ListPieceSecondaryKindsRow
+		if err := rows.Scan(&i.Slug, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicAliasNames = `-- name: ListPublicAliasNames :many
+SELECT person_id, name
+FROM person_aliases
+WHERE person_id IN (/*SLICE:person_ids*/?) AND is_public
+`
+
+type ListPublicAliasNamesRow struct {
+	PersonID uint64
+	Name     string
+}
+
+func (q *Queries) ListPublicAliasNames(ctx context.Context, personIds []uint64) ([]ListPublicAliasNamesRow, error) {
+	query := listPublicAliasNames
+	var queryParams []interface{}
+	if len(personIds) > 0 {
+		for _, v := range personIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:person_ids*/?", strings.Repeat(",?", len(personIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:person_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicAliasNamesRow
+	for rows.Next() {
+		var i ListPublicAliasNamesRow
+		if err := rows.Scan(&i.PersonID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicCollectionChildren = `-- name: ListPublicCollectionChildren :many
+SELECT id, name, kind, url, is_bardic_resource
+FROM collections
+WHERE parent_id = ? AND current_revision_id IS NOT NULL
+ORDER BY sort_name, id
+`
+
+type ListPublicCollectionChildrenRow struct {
+	ID               uint64
+	Name             string
+	Kind             CollectionsKind
+	Url              sql.NullString
+	IsBardicResource bool
+}
+
+func (q *Queries) ListPublicCollectionChildren(ctx context.Context, parentID sql.NullInt64) ([]ListPublicCollectionChildrenRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicCollectionChildren, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicCollectionChildrenRow
+	for rows.Next() {
+		var i ListPublicCollectionChildrenRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Kind,
+			&i.Url,
+			&i.IsBardicResource,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicCollectionCitations = `-- name: ListPublicCollectionCitations :many
+
+SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, a.piece_id, a.person_id,
+    COALESCE(p.sort_title, pe.sort_name) AS sort_key,
+    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
+    pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub
+FROM links l
+JOIN public_link_attachments a ON a.link_id = l.id
+LEFT JOIN pieces p ON p.id = a.piece_id
+LEFT JOIN persons pe ON pe.id = a.person_id
+WHERE l.collection_id = ? AND NOT l.is_hidden
+ORDER BY sort_key, l.id, a.piece_id, a.person_id
+LIMIT ?
+`
+
+type ListPublicCollectionCitationsParams struct {
+	CollectionID sql.NullInt64
+	Limit        int32
+}
+
+type ListPublicCollectionCitationsRow struct {
+	LinkID                  uint64
+	Url                     string
+	Title                   sql.NullString
+	Locator                 sql.NullString
+	PieceID                 sql.NullInt64
+	PersonID                sql.NullInt64
+	SortKey                 string
+	PieceSlug               sql.NullString
+	PieceTitle              sql.NullString
+	PieceKind               NullPiecesKind
+	PieceConservationStatus NullPiecesConservationStatus
+	PieceIsStub             sql.NullBool
+	PersonSlug              sql.NullString
+	PersonName              sql.NullString
+	PersonKind              NullPersonsKind
+	PersonIsStub            sql.NullBool
+}
+
+// A collection's citations are its visible links, once per public piece or public person with a page that each
+// is attached to, whatever roles it is attached with.
+func (q *Queries) ListPublicCollectionCitations(ctx context.Context, arg ListPublicCollectionCitationsParams) ([]ListPublicCollectionCitationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicCollectionCitations, arg.CollectionID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicCollectionCitationsRow
+	for rows.Next() {
+		var i ListPublicCollectionCitationsRow
+		if err := rows.Scan(
+			&i.LinkID,
+			&i.Url,
+			&i.Title,
+			&i.Locator,
+			&i.PieceID,
+			&i.PersonID,
+			&i.SortKey,
+			&i.PieceSlug,
+			&i.PieceTitle,
+			&i.PieceKind,
+			&i.PieceConservationStatus,
+			&i.PieceIsStub,
+			&i.PersonSlug,
+			&i.PersonName,
+			&i.PersonKind,
+			&i.PersonIsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicCollectionsByID = `-- name: ListPublicCollectionsByID :many
+SELECT id, name, kind, url, is_bardic_resource
+FROM collections
+WHERE id IN (/*SLICE:ids*/?) AND current_revision_id IS NOT NULL
+`
+
+type ListPublicCollectionsByIDRow struct {
+	ID               uint64
+	Name             string
+	Kind             CollectionsKind
+	Url              sql.NullString
+	IsBardicResource bool
+}
+
+func (q *Queries) ListPublicCollectionsByID(ctx context.Context, ids []uint64) ([]ListPublicCollectionsByIDRow, error) {
+	query := listPublicCollectionsByID
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicCollectionsByIDRow
+	for rows.Next() {
+		var i ListPublicCollectionsByIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Kind,
+			&i.Url,
+			&i.IsBardicResource,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicEventPerformances = `-- name: ListPublicEventPerformances :many
+
+SELECT perf.id, perf.year, perf.description_verbatim, l.url, l.title, l.platform,
+    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub
+FROM performances perf
+JOIN links l ON l.id = perf.link_id
+LEFT JOIN pieces p ON p.id = perf.piece_id
+WHERE perf.event_id = ? AND NOT l.is_hidden
+    AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
+    AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = perf.link_id)
+ORDER BY perf.year IS NULL, perf.year DESC, perf.id
+LIMIT ?
+`
+
+type ListPublicEventPerformancesParams struct {
+	EventID sql.NullInt64
+	Limit   int32
+}
+
+type ListPublicEventPerformancesRow struct {
+	ID                      uint64
+	Year                    sql.NullInt16
+	DescriptionVerbatim     string
+	Url                     string
+	Title                   sql.NullString
+	Platform                sql.NullString
+	PieceSlug               sql.NullString
+	PieceTitle              sql.NullString
+	PieceKind               NullPiecesKind
+	PieceConservationStatus NullPiecesConservationStatus
+	PieceIsStub             sql.NullBool
+}
+
+// An event's performances are on visible links attached to a public piece or a public person with a page, as
+// a performance only an unapproved or no-page entity's links record may name them. A performance of a piece
+// that is not public is left out entirely, as on a person's page.
+func (q *Queries) ListPublicEventPerformances(ctx context.Context, arg ListPublicEventPerformancesParams) ([]ListPublicEventPerformancesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicEventPerformances, arg.EventID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicEventPerformancesRow
+	for rows.Next() {
+		var i ListPublicEventPerformancesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Year,
+			&i.DescriptionVerbatim,
+			&i.Url,
+			&i.Title,
+			&i.Platform,
+			&i.PieceSlug,
+			&i.PieceTitle,
+			&i.PieceKind,
+			&i.PieceConservationStatus,
+			&i.PieceIsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicEvents = `-- name: ListPublicEvents :many
+SELECT slug, name, kind
+FROM events
+WHERE current_revision_id IS NOT NULL AND (? IS NULL OR kind = ?)
+ORDER BY name, id
+LIMIT ? OFFSET ?
+`
+
+type ListPublicEventsParams struct {
+	Kind   NullEventsKind
+	Limit  int32
+	Offset int32
+}
+
+type ListPublicEventsRow struct {
+	Slug string
+	Name string
+	Kind EventsKind
+}
+
+func (q *Queries) ListPublicEvents(ctx context.Context, arg ListPublicEventsParams) ([]ListPublicEventsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicEvents,
+		arg.Kind,
+		arg.Kind,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicEventsRow
+	for rows.Next() {
+		var i ListPublicEventsRow
+		if err := rows.Scan(&i.Slug, &i.Name, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicEventsByID = `-- name: ListPublicEventsByID :many
+SELECT id, slug, name, kind
+FROM events
+WHERE id IN (/*SLICE:ids*/?) AND current_revision_id IS NOT NULL
+`
+
+type ListPublicEventsByIDRow struct {
+	ID   uint64
+	Slug string
+	Name string
+	Kind EventsKind
+}
+
+func (q *Queries) ListPublicEventsByID(ctx context.Context, ids []uint64) ([]ListPublicEventsByIDRow, error) {
+	query := listPublicEventsByID
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicEventsByIDRow
+	for rows.Next() {
+		var i ListPublicEventsByIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.Kind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPerformers = `-- name: ListPublicPerformers :many
+SELECT pp.performance_id, p.slug, p.name, p.kind, p.is_stub
+FROM performance_performers pp
+JOIN listed_persons p ON p.id = pp.person_id
+WHERE pp.performance_id IN (/*SLICE:performance_ids*/?)
+ORDER BY pp.performance_id, pp.position
+`
+
+type ListPublicPerformersRow struct {
+	PerformanceID uint64
+	Slug          string
+	Name          string
+	Kind          PersonsKind
+	IsStub        bool
+}
+
+func (q *Queries) ListPublicPerformers(ctx context.Context, performanceIds []uint64) ([]ListPublicPerformersRow, error) {
+	query := listPublicPerformers
+	var queryParams []interface{}
+	if len(performanceIds) > 0 {
+		for _, v := range performanceIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:performance_ids*/?", strings.Repeat(",?", len(performanceIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:performance_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPerformersRow
+	for rows.Next() {
+		var i ListPublicPerformersRow
+		if err := rows.Scan(
+			&i.PerformanceID,
+			&i.Slug,
+			&i.Name,
+			&i.Kind,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonAffiliations = `-- name: ListPublicPersonAffiliations :many
+SELECT t.slug, t.facet, t.display_name
+FROM person_affiliations pa
+JOIN public_terms t ON t.id = pa.term_id
+WHERE pa.person_id = ?
+ORDER BY t.position, t.display_name, t.id
+`
+
+type ListPublicPersonAffiliationsRow struct {
+	Slug        string
+	Facet       TermsFacet
+	DisplayName string
+}
+
+func (q *Queries) ListPublicPersonAffiliations(ctx context.Context, personID uint64) ([]ListPublicPersonAffiliationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPersonAffiliations, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonAffiliationsRow
+	for rows.Next() {
+		var i ListPublicPersonAffiliationsRow
+		if err := rows.Scan(&i.Slug, &i.Facet, &i.DisplayName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonAliases = `-- name: ListPublicPersonAliases :many
+SELECT name, kind
+FROM person_aliases
+WHERE person_id = ? AND is_public
+ORDER BY id
+`
+
+type ListPublicPersonAliasesRow struct {
+	Name string
+	Kind PersonAliasesKind
+}
+
+func (q *Queries) ListPublicPersonAliases(ctx context.Context, personID uint64) ([]ListPublicPersonAliasesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPersonAliases, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonAliasesRow
+	for rows.Next() {
+		var i ListPublicPersonAliasesRow
+		if err := rows.Scan(&i.Name, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonLinks = `-- name: ListPublicPersonLinks :many
+
+SELECT l.id, l.url, l.title, l.description, l.platform, l.place_type, c.id AS collection_id,
+    c.name AS collection_name, l.locator, l.liveness, l.last_checked_at, l.archived_url, a.role
+FROM link_attachments a
+JOIN links l ON l.id = a.link_id
+LEFT JOIN collections c ON c.id = l.collection_id AND c.current_revision_id IS NOT NULL
+WHERE a.person_id = ? AND NOT l.is_hidden
+ORDER BY a.position, l.id, a.id
+`
+
+type ListPublicPersonLinksRow struct {
+	ID             uint64
+	Url            string
+	Title          sql.NullString
+	Description    sql.NullString
+	Platform       sql.NullString
+	PlaceType      NullLinksPlaceType
+	CollectionID   sql.NullInt64
+	CollectionName sql.NullString
+	Locator        sql.NullString
+	Liveness       LinksLiveness
+	LastCheckedAt  sql.NullTime
+	ArchivedUrl    sql.NullString
+	Role           LinkAttachmentsRole
+}
+
+// Identical to ListPublicPieceLinks but for the attachment column.
+func (q *Queries) ListPublicPersonLinks(ctx context.Context, personID sql.NullInt64) ([]ListPublicPersonLinksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPersonLinks, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonLinksRow
+	for rows.Next() {
+		var i ListPublicPersonLinksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.Description,
+			&i.Platform,
+			&i.PlaceType,
+			&i.CollectionID,
+			&i.CollectionName,
+			&i.Locator,
+			&i.Liveness,
+			&i.LastCheckedAt,
+			&i.ArchivedUrl,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonPerformances = `-- name: ListPublicPersonPerformances :many
+
+SELECT perf.year, perf.description_verbatim, l.url, l.title, l.platform,
+    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
+    e.slug AS event_slug, e.name AS event_name, e.kind AS event_kind
+FROM performances perf
+JOIN links l ON l.id = perf.link_id
+LEFT JOIN pieces p ON p.id = perf.piece_id
+LEFT JOIN events e ON e.id = perf.event_id AND e.current_revision_id IS NOT NULL
+WHERE NOT l.is_hidden
+    AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
+    AND (
+        (EXISTS (SELECT 1 FROM performance_performers pp
+                WHERE pp.performance_id = perf.id AND pp.person_id = ?)
+            AND EXISTS (SELECT 1 FROM public_link_attachments pa WHERE pa.link_id = perf.link_id))
+        OR EXISTS (SELECT 1 FROM link_attachments a
+            WHERE a.link_id = perf.link_id AND a.person_id = ?)
+    )
+ORDER BY perf.year IS NULL, perf.year DESC, perf.id
+LIMIT ?
+`
+
+type ListPublicPersonPerformancesParams struct {
+	PerformerID      uint64
+	AttachedPersonID sql.NullInt64
+	Limit            int32
+}
+
+type ListPublicPersonPerformancesRow struct {
+	Year                    sql.NullInt16
+	DescriptionVerbatim     string
+	Url                     string
+	Title                   sql.NullString
+	Platform                sql.NullString
+	PieceSlug               sql.NullString
+	PieceTitle              sql.NullString
+	PieceKind               NullPiecesKind
+	PieceConservationStatus NullPiecesConservationStatus
+	PieceIsStub             sql.NullBool
+	EventSlug               sql.NullString
+	EventName               sql.NullString
+	EventKind               NullEventsKind
+}
+
+// A person's performances are those recorded by links attached to them, and those they perform in on links with
+// a public attachment, as a performance only an unapproved or no-page entity's links record may name them. A
+// performance of a piece that is not public is left out entirely, as its description may name the piece.
+func (q *Queries) ListPublicPersonPerformances(ctx context.Context, arg ListPublicPersonPerformancesParams) ([]ListPublicPersonPerformancesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPersonPerformances, arg.PerformerID, arg.AttachedPersonID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonPerformancesRow
+	for rows.Next() {
+		var i ListPublicPersonPerformancesRow
+		if err := rows.Scan(
+			&i.Year,
+			&i.DescriptionVerbatim,
+			&i.Url,
+			&i.Title,
+			&i.Platform,
+			&i.PieceSlug,
+			&i.PieceTitle,
+			&i.PieceKind,
+			&i.PieceConservationStatus,
+			&i.PieceIsStub,
+			&i.EventSlug,
+			&i.EventName,
+			&i.EventKind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonRelationsFrom = `-- name: ListPublicPersonRelationsFrom :many
+SELECT r.type, p.slug, p.name, p.kind, p.is_stub
+FROM person_relations r
+JOIN listed_persons p ON p.id = r.from_person_id
+WHERE r.to_person_id = ?
+ORDER BY r.type, p.sort_name, p.id
+`
+
+type ListPublicPersonRelationsFromRow struct {
+	Type   PersonRelationsType
+	Slug   string
+	Name   string
+	Kind   PersonsKind
+	IsStub bool
+}
+
+func (q *Queries) ListPublicPersonRelationsFrom(ctx context.Context, toPersonID uint64) ([]ListPublicPersonRelationsFromRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPersonRelationsFrom, toPersonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonRelationsFromRow
+	for rows.Next() {
+		var i ListPublicPersonRelationsFromRow
+		if err := rows.Scan(
+			&i.Type,
+			&i.Slug,
+			&i.Name,
+			&i.Kind,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonRelationsTo = `-- name: ListPublicPersonRelationsTo :many
+SELECT r.type, p.slug, p.name, p.kind, p.is_stub
+FROM person_relations r
+JOIN listed_persons p ON p.id = r.to_person_id
+WHERE r.from_person_id = ?
+ORDER BY r.type, p.sort_name, p.id
+`
+
+type ListPublicPersonRelationsToRow struct {
+	Type   PersonRelationsType
+	Slug   string
+	Name   string
+	Kind   PersonsKind
+	IsStub bool
+}
+
+func (q *Queries) ListPublicPersonRelationsTo(ctx context.Context, fromPersonID uint64) ([]ListPublicPersonRelationsToRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPersonRelationsTo, fromPersonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonRelationsToRow
+	for rows.Next() {
+		var i ListPublicPersonRelationsToRow
+		if err := rows.Scan(
+			&i.Type,
+			&i.Slug,
+			&i.Name,
+			&i.Kind,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonWorks = `-- name: ListPublicPersonWorks :many
+SELECT c.role, c.certainty, c.part, p.slug, p.title, p.kind, p.conservation_status, p.is_stub
+FROM piece_credits c
+JOIN pieces p ON p.id = c.piece_id
+WHERE c.person_id = ? AND p.current_revision_id IS NOT NULL
+ORDER BY p.sort_title, p.id, c.position, c.id
+LIMIT ?
+`
+
+type ListPublicPersonWorksParams struct {
+	PersonID sql.NullInt64
+	Limit    int32
+}
+
+type ListPublicPersonWorksRow struct {
+	Role               PieceCreditsRole
+	Certainty          PieceCreditsCertainty
+	Part               NullPieceCreditsPart
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+}
+
+func (q *Queries) ListPublicPersonWorks(ctx context.Context, arg ListPublicPersonWorksParams) ([]ListPublicPersonWorksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPersonWorks, arg.PersonID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonWorksRow
+	for rows.Next() {
+		var i ListPublicPersonWorksRow
+		if err := rows.Scan(
+			&i.Role,
+			&i.Certainty,
+			&i.Part,
+			&i.Slug,
+			&i.Title,
+			&i.Kind,
+			&i.ConservationStatus,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonsByID = `-- name: ListPublicPersonsByID :many
+SELECT id, slug, name, kind, status, is_stub
+FROM persons
+WHERE id IN (/*SLICE:ids*/?) AND current_revision_id IS NOT NULL
+`
+
+type ListPublicPersonsByIDRow struct {
+	ID     uint64
+	Slug   string
+	Name   string
+	Kind   PersonsKind
+	Status PersonsStatus
+	IsStub bool
+}
+
+func (q *Queries) ListPublicPersonsByID(ctx context.Context, ids []uint64) ([]ListPublicPersonsByIDRow, error) {
+	query := listPublicPersonsByID
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonsByIDRow
+	for rows.Next() {
+		var i ListPublicPersonsByIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.Kind,
+			&i.Status,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPieceCredits = `-- name: ListPublicPieceCredits :many
+SELECT c.role, c.attribution, c.certainty, c.part, c.note,
+    p.slug AS person_slug, p.name AS person_name, p.kind AS person_kind, p.is_stub AS person_is_stub
+FROM piece_credits c
+LEFT JOIN listed_persons p ON p.id = c.person_id
+WHERE c.piece_id = ? AND (c.person_id IS NULL OR p.id IS NOT NULL)
+ORDER BY c.position, c.id
+`
+
+type ListPublicPieceCreditsRow struct {
+	Role         PieceCreditsRole
+	Attribution  PieceCreditsAttribution
+	Certainty    PieceCreditsCertainty
+	Part         NullPieceCreditsPart
+	Note         sql.NullString
+	PersonSlug   sql.NullString
+	PersonName   sql.NullString
+	PersonKind   NullPersonsKind
+	PersonIsStub sql.NullBool
+}
+
+func (q *Queries) ListPublicPieceCredits(ctx context.Context, pieceID uint64) ([]ListPublicPieceCreditsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPieceCredits, pieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPieceCreditsRow
+	for rows.Next() {
+		var i ListPublicPieceCreditsRow
+		if err := rows.Scan(
+			&i.Role,
+			&i.Attribution,
+			&i.Certainty,
+			&i.Part,
+			&i.Note,
+			&i.PersonSlug,
+			&i.PersonName,
+			&i.PersonKind,
+			&i.PersonIsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPieceLinks = `-- name: ListPublicPieceLinks :many
+
+SELECT l.id, l.url, l.title, l.description, l.platform, l.place_type, c.id AS collection_id,
+    c.name AS collection_name, l.locator, l.liveness, l.last_checked_at, l.archived_url, a.role
+FROM link_attachments a
+JOIN links l ON l.id = a.link_id
+LEFT JOIN collections c ON c.id = l.collection_id AND c.current_revision_id IS NOT NULL
+WHERE a.piece_id = ? AND NOT l.is_hidden
+ORDER BY a.position, l.id, a.id
+`
+
+type ListPublicPieceLinksRow struct {
+	ID             uint64
+	Url            string
+	Title          sql.NullString
+	Description    sql.NullString
+	Platform       sql.NullString
+	PlaceType      NullLinksPlaceType
+	CollectionID   sql.NullInt64
+	CollectionName sql.NullString
+	Locator        sql.NullString
+	Liveness       LinksLiveness
+	LastCheckedAt  sql.NullTime
+	ArchivedUrl    sql.NullString
+	Role           LinkAttachmentsRole
+}
+
+// ListPublicPieceLinks and ListPublicPersonLinks differ only in the attachment column, so that each uses its
+// (entity, position) index: a merged query with an OR of the two columns is planned as a scan of links. They must
+// select the same columns, which personLinkRows' conversion of one row type to the other checks at compile time.
+func (q *Queries) ListPublicPieceLinks(ctx context.Context, pieceID sql.NullInt64) ([]ListPublicPieceLinksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPieceLinks, pieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPieceLinksRow
+	for rows.Next() {
+		var i ListPublicPieceLinksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.Description,
+			&i.Platform,
+			&i.PlaceType,
+			&i.CollectionID,
+			&i.CollectionName,
+			&i.Locator,
+			&i.Liveness,
+			&i.LastCheckedAt,
+			&i.ArchivedUrl,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPiecePerformances = `-- name: ListPublicPiecePerformances :many
+SELECT perf.id, perf.link_id, perf.year, perf.uploader, perf.description_verbatim,
+    e.slug AS event_slug, e.name AS event_name, e.kind AS event_kind
+FROM performances perf
+JOIN links l ON l.id = perf.link_id
+LEFT JOIN events e ON e.id = perf.event_id AND e.current_revision_id IS NOT NULL
+WHERE perf.piece_id = ? AND NOT l.is_hidden
+    AND EXISTS (SELECT 1 FROM link_attachments a WHERE a.link_id = perf.link_id AND a.piece_id = perf.piece_id)
+ORDER BY perf.link_id, perf.id
+`
+
+type ListPublicPiecePerformancesRow struct {
+	ID                  uint64
+	LinkID              uint64
+	Year                sql.NullInt16
+	Uploader            sql.NullString
+	DescriptionVerbatim string
+	EventSlug           sql.NullString
+	EventName           sql.NullString
+	EventKind           NullEventsKind
+}
+
+func (q *Queries) ListPublicPiecePerformances(ctx context.Context, pieceID sql.NullInt64) ([]ListPublicPiecePerformancesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPiecePerformances, pieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPiecePerformancesRow
+	for rows.Next() {
+		var i ListPublicPiecePerformancesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LinkID,
+			&i.Year,
+			&i.Uploader,
+			&i.DescriptionVerbatim,
+			&i.EventSlug,
+			&i.EventName,
+			&i.EventKind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPieceRelationsFrom = `-- name: ListPublicPieceRelationsFrom :many
+SELECT r.type, p.slug, p.title, p.kind, p.conservation_status, p.is_stub
+FROM piece_relations r
+JOIN pieces p ON p.id = r.from_piece_id
+WHERE r.to_piece_id = ? AND p.current_revision_id IS NOT NULL
+ORDER BY r.type, p.sort_title, p.id
+`
+
+type ListPublicPieceRelationsFromRow struct {
+	Type               PieceRelationsType
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+}
+
+func (q *Queries) ListPublicPieceRelationsFrom(ctx context.Context, toPieceID uint64) ([]ListPublicPieceRelationsFromRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPieceRelationsFrom, toPieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPieceRelationsFromRow
+	for rows.Next() {
+		var i ListPublicPieceRelationsFromRow
+		if err := rows.Scan(
+			&i.Type,
+			&i.Slug,
+			&i.Title,
+			&i.Kind,
+			&i.ConservationStatus,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPieceRelationsTo = `-- name: ListPublicPieceRelationsTo :many
+SELECT r.type, p.slug, p.title, p.kind, p.conservation_status, p.is_stub
+FROM piece_relations r
+JOIN pieces p ON p.id = r.to_piece_id
+WHERE r.from_piece_id = ? AND p.current_revision_id IS NOT NULL
+ORDER BY r.type, p.sort_title, p.id
+`
+
+type ListPublicPieceRelationsToRow struct {
+	Type               PieceRelationsType
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+}
+
+func (q *Queries) ListPublicPieceRelationsTo(ctx context.Context, fromPieceID uint64) ([]ListPublicPieceRelationsToRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPieceRelationsTo, fromPieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPieceRelationsToRow
+	for rows.Next() {
+		var i ListPublicPieceRelationsToRow
+		if err := rows.Scan(
+			&i.Type,
+			&i.Slug,
+			&i.Title,
+			&i.Kind,
+			&i.ConservationStatus,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPieceTerms = `-- name: ListPublicPieceTerms :many
+SELECT t.slug, t.facet, t.display_name, pt.is_primary, pt.part
+FROM piece_terms pt
+JOIN public_terms t ON t.id = pt.term_id
+WHERE pt.piece_id = ?
+ORDER BY t.facet, pt.position, t.id
+`
+
+type ListPublicPieceTermsRow struct {
+	Slug        string
+	Facet       TermsFacet
+	DisplayName string
+	IsPrimary   bool
+	Part        NullPieceTermsPart
+}
+
+func (q *Queries) ListPublicPieceTerms(ctx context.Context, pieceID uint64) ([]ListPublicPieceTermsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPieceTerms, pieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPieceTermsRow
+	for rows.Next() {
+		var i ListPublicPieceTermsRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Facet,
+			&i.DisplayName,
+			&i.IsPrimary,
+			&i.Part,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPiecesByID = `-- name: ListPublicPiecesByID :many
+
+SELECT id, slug, title, kind, conservation_status, is_stub
+FROM pieces
+WHERE id IN (/*SLICE:ids*/?) AND current_revision_id IS NOT NULL
+`
+
+type ListPublicPiecesByIDRow struct {
+	ID                 uint64
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+}
+
+// The current state of the entities and links snapshot documents reference, which their views are redacted by.
+func (q *Queries) ListPublicPiecesByID(ctx context.Context, ids []uint64) ([]ListPublicPiecesByIDRow, error) {
+	query := listPublicPiecesByID
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPiecesByIDRow
+	for rows.Next() {
+		var i ListPublicPiecesByIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Title,
+			&i.Kind,
+			&i.ConservationStatus,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicTermChildren = `-- name: ListPublicTermChildren :many
+SELECT t.id, t.slug, t.facet, t.display_name
+FROM public_terms t
+WHERE t.parent_id = ?
+ORDER BY t.position, t.display_name, t.id
+`
+
+type ListPublicTermChildrenRow struct {
+	ID          uint64
+	Slug        string
+	Facet       TermsFacet
+	DisplayName string
+}
+
+func (q *Queries) ListPublicTermChildren(ctx context.Context, parentID sql.NullInt64) ([]ListPublicTermChildrenRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicTermChildren, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicTermChildrenRow
+	for rows.Next() {
+		var i ListPublicTermChildrenRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Facet,
+			&i.DisplayName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicTermCounts = `-- name: ListPublicTermCounts :many
+
+SELECT ta.ancestor_id AS term_id, 'piece' AS member, COUNT(DISTINCT pt.piece_id) AS n
+FROM term_ancestors ta
+JOIN public_terms d ON d.id = ta.descendant_id
+JOIN piece_terms pt ON pt.term_id = ta.descendant_id
+JOIN pieces p ON p.id = pt.piece_id
+WHERE ta.ancestor_id IN (/*SLICE:piece_term_ids*/?) AND p.current_revision_id IS NOT NULL
+GROUP BY ta.ancestor_id
+UNION ALL
+SELECT ta.ancestor_id, 'person', COUNT(DISTINCT pa.person_id)
+FROM term_ancestors ta
+JOIN public_terms d ON d.id = ta.descendant_id
+JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
+JOIN listed_persons p ON p.id = pa.person_id
+WHERE ta.ancestor_id IN (/*SLICE:person_term_ids*/?)
+GROUP BY ta.ancestor_id
+`
+
+type ListPublicTermCountsParams struct {
+	PieceTermIds  []uint64
+	PersonTermIds []uint64
+}
+
+type ListPublicTermCountsRow struct {
+	TermID uint64
+	Member string
+	N      int64
+}
+
+// A term's counts are of the distinct public pieces tagged with, and public persons with a page affiliated
+// with, the term or any public descendant: both ends of the closure are checked, so a pending term hides its
+// subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
+func (q *Queries) ListPublicTermCounts(ctx context.Context, arg ListPublicTermCountsParams) ([]ListPublicTermCountsRow, error) {
+	query := listPublicTermCounts
+	var queryParams []interface{}
+	if len(arg.PieceTermIds) > 0 {
+		for _, v := range arg.PieceTermIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:piece_term_ids*/?", strings.Repeat(",?", len(arg.PieceTermIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:piece_term_ids*/?", "NULL", 1)
+	}
+	if len(arg.PersonTermIds) > 0 {
+		for _, v := range arg.PersonTermIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:person_term_ids*/?", strings.Repeat(",?", len(arg.PersonTermIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:person_term_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicTermCountsRow
+	for rows.Next() {
+		var i ListPublicTermCountsRow
+		if err := rows.Scan(&i.TermID, &i.Member, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicTermPersons = `-- name: ListPublicTermPersons :many
+SELECT p.slug, p.name, p.kind, p.is_stub
+FROM listed_persons p
+WHERE EXISTS (
+        SELECT 1
+        FROM person_affiliations pa
+        JOIN term_ancestors ta ON ta.descendant_id = pa.term_id
+        JOIN public_terms d ON d.id = ta.descendant_id
+        WHERE pa.person_id = p.id AND ta.ancestor_id = ?
+    )
+ORDER BY p.sort_name, p.id
+LIMIT ? OFFSET ?
+`
+
+type ListPublicTermPersonsParams struct {
+	TermID uint64
+	Limit  int32
+	Offset int32
+}
+
+type ListPublicTermPersonsRow struct {
+	Slug   string
+	Name   string
+	Kind   PersonsKind
+	IsStub bool
+}
+
+func (q *Queries) ListPublicTermPersons(ctx context.Context, arg ListPublicTermPersonsParams) ([]ListPublicTermPersonsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicTermPersons, arg.TermID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicTermPersonsRow
+	for rows.Next() {
+		var i ListPublicTermPersonsRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Name,
+			&i.Kind,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicTermPieces = `-- name: ListPublicTermPieces :many
+SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub
+FROM pieces p
+WHERE p.current_revision_id IS NOT NULL
+    AND EXISTS (
+        SELECT 1
+        FROM piece_terms pt
+        JOIN term_ancestors ta ON ta.descendant_id = pt.term_id
+        JOIN public_terms d ON d.id = ta.descendant_id
+        WHERE pt.piece_id = p.id AND ta.ancestor_id = ?
+    )
+ORDER BY p.sort_title, p.id
+LIMIT ? OFFSET ?
+`
+
+type ListPublicTermPiecesParams struct {
+	TermID uint64
+	Limit  int32
+	Offset int32
+}
+
+type ListPublicTermPiecesRow struct {
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+}
+
+func (q *Queries) ListPublicTermPieces(ctx context.Context, arg ListPublicTermPiecesParams) ([]ListPublicTermPiecesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicTermPieces, arg.TermID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicTermPiecesRow
+	for rows.Next() {
+		var i ListPublicTermPiecesRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Title,
+			&i.Kind,
+			&i.ConservationStatus,
+			&i.IsStub,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicTerms = `-- name: ListPublicTerms :many
+SELECT t.id, t.slug, t.facet, t.name, t.display_name, parent.slug AS parent_slug
+FROM public_terms t
+LEFT JOIN terms parent ON parent.id = t.parent_id
+WHERE (? IS NULL OR t.facet = ?)
+ORDER BY t.facet, t.position, t.display_name, t.id
+`
+
+type ListPublicTermsParams struct {
+	Facet NullTermsFacet
+}
+
+type ListPublicTermsRow struct {
+	ID          uint64
+	Slug        string
+	Facet       TermsFacet
+	Name        string
+	DisplayName string
+	ParentSlug  sql.NullString
+}
+
+func (q *Queries) ListPublicTerms(ctx context.Context, arg ListPublicTermsParams) ([]ListPublicTermsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicTerms, arg.Facet, arg.Facet)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicTermsRow
+	for rows.Next() {
+		var i ListPublicTermsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Facet,
+			&i.Name,
+			&i.DisplayName,
+			&i.ParentSlug,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicTermsByID = `-- name: ListPublicTermsByID :many
+SELECT t.id, t.slug, t.facet, t.display_name
+FROM public_terms t
+WHERE t.id IN (/*SLICE:ids*/?)
+`
+
+type ListPublicTermsByIDRow struct {
+	ID          uint64
+	Slug        string
+	Facet       TermsFacet
+	DisplayName string
+}
+
+func (q *Queries) ListPublicTermsByID(ctx context.Context, ids []uint64) ([]ListPublicTermsByIDRow, error) {
+	query := listPublicTermsByID
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicTermsByIDRow
+	for rows.Next() {
+		var i ListPublicTermsByIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Facet,
+			&i.DisplayName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRevisionContributors = `-- name: ListRevisionContributors :many
+SELECT revision_id, name
+FROM revision_contributors
+WHERE revision_id IN (/*SLICE:revision_ids*/?)
+ORDER BY revision_id, position
+`
+
+type ListRevisionContributorsRow struct {
+	RevisionID uint64
+	Name       string
+}
+
+func (q *Queries) ListRevisionContributors(ctx context.Context, revisionIds []uint64) ([]ListRevisionContributorsRow, error) {
+	query := listRevisionContributors
+	var queryParams []interface{}
+	if len(revisionIds) > 0 {
+		for _, v := range revisionIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:revision_ids*/?", strings.Repeat(",?", len(revisionIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:revision_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRevisionContributorsRow
+	for rows.Next() {
+		var i ListRevisionContributorsRow
+		if err := rows.Scan(&i.RevisionID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTermAliases = `-- name: ListTermAliases :many
+SELECT name
+FROM term_aliases
+WHERE term_id = ?
+ORDER BY id
+`
+
+func (q *Queries) ListTermAliases(ctx context.Context, termID uint64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listTermAliases, termID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTermAncestors = `-- name: ListTermAncestors :many
+
+SELECT anc.slug, anc.facet, anc.display_name
+FROM term_ancestors ta
+JOIN terms anc ON anc.id = ta.ancestor_id
+WHERE ta.descendant_id = ? AND ta.depth > 0
+ORDER BY ta.depth DESC
+`
+
+type ListTermAncestorsRow struct {
+	Slug        string
+	Facet       TermsFacet
+	DisplayName string
+}
+
+// A public term's ancestors are all public.
+func (q *Queries) ListTermAncestors(ctx context.Context, descendantID uint64) ([]ListTermAncestorsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTermAncestors, descendantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTermAncestorsRow
+	for rows.Next() {
+		var i ListTermAncestorsRow
+		if err := rows.Scan(&i.Slug, &i.Facet, &i.DisplayName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUserActiveAPITokens = `-- name: ListUserActiveAPITokens :many
