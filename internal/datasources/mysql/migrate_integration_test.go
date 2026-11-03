@@ -152,7 +152,7 @@ var textColumns = []string{
 func TestMigrations_ColumnCollations(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	// Views' columns have their tables' collations.
 	rows, err := db.QueryContext(t.Context(), "SELECT CONCAT(c.table_name, '.', c.column_name), c.collation_name "+
 		"FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema = c.table_schema "+
@@ -187,7 +187,7 @@ func TestMigrations_ColumnCollations(t *testing.T) {
 func TestMigrations_ViewsCheckTheReader(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	rows, err := db.QueryContext(t.Context(),
 		"SELECT table_name, security_type FROM information_schema.views WHERE table_schema = DATABASE()")
 	require.NoError(t, err)
@@ -287,7 +287,7 @@ func ownerBackfillStatements(t *testing.T) []string {
 func TestMigration010_BackfillsPerformanceOwners(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	imp, _ := importtest.Scrubbed(t)
 	catalogtest.New(t, db).Import(imp)
 	want := performanceOwners(t, db)

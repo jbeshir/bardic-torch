@@ -23,6 +23,11 @@ readonly throwaway_server_flags=(
   --skip-log-bin --innodb-flush-log-at-trx-commit=0 --innodb-doublewrite=OFF --innodb-flush-method=nosync
 )
 readonly ready_timeout_seconds=120
+# go test's -timeout is per package binary, and go test's default of 10m is too tight for
+# internal/datasources/mysql under -race on a 2-core CI runner against a server with default durability: it takes
+# about 340 s on a 20-core machine, mostly creating migrated databases, which serialise on the server. 20m leaves
+# a margin of several times that and still stops a hung test. GOTESTFLAGS may override it with its own -timeout.
+readonly test_timeout=20m
 
 mode=${1:-}
 workdir=$(mktemp -d)
@@ -161,4 +166,4 @@ wait_until database_ready
 # expands an empty array to nothing; bash before 4.4 (macOS's 3.2) treats a bare empty "${array[@]}" as unbound
 # under set -u.
 read -r -a extra_test_flags <<<"${GOTESTFLAGS:-}"
-TEST_MYSQL_ADMIN_URL="$admin_url" go test -tags integration -count=1 ${extra_test_flags[@]+"${extra_test_flags[@]}"} ./...
+TEST_MYSQL_ADMIN_URL="$admin_url" go test -tags integration -count=1 -timeout "$test_timeout" ${extra_test_flags[@]+"${extra_test_flags[@]}"} ./...

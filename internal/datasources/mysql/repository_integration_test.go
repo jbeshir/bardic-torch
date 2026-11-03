@@ -10,6 +10,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ const moderatorID = "auth0|moderator"
 func newRepository(t *testing.T) *mysql.Repository {
 	t.Helper()
 
-	return mysql.New(mysqltest.NewDatabase(t))
+	return mysql.New(catalogtest.Writable(t))
 }
 
 func ensureUser(t *testing.T, repo *mysql.Repository, userID, displayName string) domain.User {
@@ -51,6 +52,7 @@ func getUser(t *testing.T, repo *mysql.Repository, userID string) domain.User {
 func TestRepository_Ping(t *testing.T) {
 	t.Parallel()
 
+	// The test closes the pool, so it cannot hand the database on to a later test.
 	db := mysqltest.NewDatabase(t)
 	repo := mysql.New(db)
 	require.NoError(t, repo.Ping(t.Context()))
@@ -112,7 +114,7 @@ func TestRepository_EnsureUser_PreservesExistingUser(t *testing.T) {
 func TestRepository_EnsureUser_ConcurrentFirstCallsCreateOneUser(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	repo := mysql.New(db)
 	const userID = "auth0|concurrent"
 	const calls = 10

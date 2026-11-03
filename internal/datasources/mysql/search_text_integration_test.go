@@ -11,7 +11,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +21,7 @@ import (
 func TestRepository_ListPublicPieces_Text(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	piece := func(slug, title, sortTitle string, notes *string, aliases ...string) {
 		doc := domain.PieceDocument{Title: title, NotesMD: notes}
@@ -134,7 +133,7 @@ const (
 func TestRepository_ListPublicPersons_AliasMatchesUnscored(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Zed Moor", Aliases: []domain.DocPersonAlias{
 		{Name: "Smith of Smithfield, Smith of Moor", Kind: domain.PersonAliasKindNickname, IsPublic: true},

@@ -11,8 +11,8 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 )
 
 // The MySQL error numbers of the constraint classes Validate mirrors.
@@ -67,7 +67,7 @@ func TestCatalogueImportValidate_MirrorsSchema(t *testing.T) {
 			tc.plant(t, &imp)
 
 			require.ErrorIs(t, imp.Validate(), domain.ErrInvalidImport, "Validate rejects it")
-			err := mysql.New(mysqltest.NewDatabase(t)).ImportCatalogue(t.Context(), imp)
+			err := mysql.New(catalogtest.Writable(t)).ImportCatalogue(t.Context(), imp)
 			var dbErr *mysql.ImportDatabaseError
 			require.ErrorAs(t, err, &dbErr, "MySQL rejects it")
 			assert.Equal(t, tc.number, dbErr.Number)

@@ -12,7 +12,7 @@ import (
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,13 +23,18 @@ const (
 	errLockWaitTimeout = 1205
 )
 
-// newProbeTable creates a table the tests write to from a write transaction.
+// newProbeTable creates a table the tests write to from a write transaction, and drops it when the test ends.
 func newProbeTable(t *testing.T, db *sql.DB) {
 	t.Helper()
 
 	_, err := db.ExecContext(t.Context(), "CREATE TABLE probe_writes (n BIGINT NOT NULL) "+
 		"ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci")
 	require.NoError(t, err)
+	// The database is reused by later tests, which expect to find only the migrated tables.
+	t.Cleanup(func() {
+		_, err := db.ExecContext(context.WithoutCancel(t.Context()), "DROP TABLE probe_writes")
+		require.NoError(t, err)
+	})
 }
 
 func probeRows(t *testing.T, db *sql.DB) int {
@@ -44,7 +49,7 @@ func probeRows(t *testing.T, db *sql.DB) int {
 func TestWithWriteTx_RetriesADeadlock(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	newProbeTable(t, db)
 	repo := mysql.New(db)
 
@@ -72,7 +77,7 @@ func TestWithWriteTx_RetriesADeadlock(t *testing.T) {
 func TestWithWriteTx_GivesUpAfterTwoRetries(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	newProbeTable(t, db)
 	repo := mysql.New(db)
 
@@ -96,7 +101,7 @@ func TestWithWriteTx_GivesUpAfterTwoRetries(t *testing.T) {
 func TestWithWriteTx_OtherErrorsAreNotRetried(t *testing.T) {
 	t.Parallel()
 
-	repo := mysql.New(mysqltest.NewDatabase(t))
+	repo := mysql.New(catalogtest.Writable(t))
 	errOther := errors.New("something else")
 
 	attempts := 0
@@ -127,7 +132,7 @@ func TestWithWriteTx_OtherErrorsAreNotRetried(t *testing.T) {
 func TestWithWriteTx_DeadlinePassed(t *testing.T) {
 	t.Parallel()
 
-	repo := mysql.New(mysqltest.NewDatabase(t))
+	repo := mysql.New(catalogtest.Writable(t))
 
 	start := time.Now()
 	attempts := 0
@@ -148,7 +153,7 @@ func TestWithWriteTx_DeadlinePassed(t *testing.T) {
 func TestWithWriteTx_CommitsOnSuccess(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	newProbeTable(t, db)
 	repo := mysql.New(db)
 

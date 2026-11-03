@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -390,7 +390,7 @@ func checkFieldsStored(t *testing.T, coverage documentCoverage, paths []string, 
 func TestDocumentCoverage(t *testing.T) {
 	t.Parallel()
 
-	columns := tableColumns(t, mysqltest.NewDatabase(t))
+	columns := tableColumns(t, catalogtest.Writable(t))
 
 	owned := map[string]bool{}
 	for _, coverage := range documentCoverages {

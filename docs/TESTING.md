@@ -383,7 +383,14 @@ in parallel. A missing `TEST_MYSQL_ADMIN_URL` fails the test rather than skippin
 
 A migrated database is expensive (timings under [Integration test modes](#integration-test-modes)), and MySQL
 serialises much of that DDL, so parallel tests do not hide it. Read-only tests therefore share a
-seeded database (see catalogtest), and new private-database tests should be kept to what needs one.
+seeded database (see catalogtest), and new private-database tests should be kept to what needs one. A test that
+only writes rows takes `catalogtest.Writable(t)`: an empty migrated database that only that test uses, emptied
+with `DELETE` (not `TRUNCATE`, which is DDL and costs about as much as migrating a new database) and handed to a
+later test, so the package migrates about one database per parallel test instead of one per test. It needs
+`catalogtest.Main` as `TestMain`. A test that changes the schema or a global setting, or closes the pool, must
+use `mysqltest.NewDatabase` (or `NewDatabaseURL`), and a test that creates a table drops it again in a cleanup.
+Under `-race` on a default-settings server this cut `internal/datasources/mysql` from about 1190 s to about 340 s
+(20 cores).
 
 - **Schema** (`internal/datasources/mysql/*schema*_integration_test.go`, `migrate_integration_test.go`):
   - `TestMigrations_UpDownUp` checks the exact sets of tables and views after up, none after down and the
@@ -571,11 +578,15 @@ person's page shows it and the scan reports it, as it reports each planted place
 
 All three modes run `scripts/test-integration.sh <mode>`, which builds `cmd/migrate`, waits until the
 `bardic_torch` database accepts connections, runs `migrate up` and `migrate version` on it, and then runs
-`go test -tags integration -count=1 ./...` with `TEST_MYSQL_ADMIN_URL` set and any extra `go test` flags from
-`GOTESTFLAGS` (default none), e.g. `make test-integration-local GOTESTFLAGS=-race`. The race detector needs
+`go test -tags integration -count=1 -timeout 20m ./...` with `TEST_MYSQL_ADMIN_URL` set and any extra `go test`
+flags from `GOTESTFLAGS` (default none; a `-timeout` there overrides the script's), e.g. `make test-integration-local GOTESTFLAGS=-race`. The race detector needs
 cgo, which CI has but the sandbox Go image may not, so only CI sets it. Throwaway servers listen on a random
 free `127.0.0.1` port and keep their files in a private temporary directory removed on exit, so concurrent runs
 do not collide.
+
+The script passes an explicit `-timeout 20m` (`test_timeout`) because go test's default of 10m is too tight for
+`internal/datasources/mysql` under `-race` on a 2-core CI runner: the package takes about 340 s on 20 cores,
+mostly creating migrated databases. Keep the package well inside the timeout rather than raising it.
 
 Both throwaway servers (podman and local) also start with durability flags, defined once in
 `scripts/test-integration.sh` (`throwaway_server_flags`): `--skip-log-bin --innodb-flush-log-at-trx-commit=0

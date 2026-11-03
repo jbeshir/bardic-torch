@@ -12,7 +12,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -71,7 +70,7 @@ var (
 
 func newEditingFixture(t *testing.T) *editingFixture {
 	t.Helper()
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	for _, u := range []struct{ id, name, role string }{
 		{wrenUserID, wrenDisplay, "contributor"}, {ashUserID, "Ash", "contributor"}, {rowanUserID, "Rowan", "moderator"},

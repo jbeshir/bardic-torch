@@ -8,7 +8,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +18,7 @@ import (
 func TestRepository_GetPublicPerson_PerformancesNeedPublicAttachment(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	performer := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Tamsin Reed"}})
 	performance := func(url, description string) []domain.DocPersonLink {
@@ -66,7 +65,7 @@ func TestRepository_GetPublicPerson_PerformancesNeedPublicAttachment(t *testing.
 func TestRepository_GetPublicRevision_FormerName(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	repo := mysql.New(db)
 	// No subtests: catalogtest must be called from the test's own goroutine.
@@ -167,7 +166,7 @@ func normalized(t *testing.T, url string) string {
 func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	const (
 		title       = "The Lark's Rest"
@@ -199,7 +198,7 @@ func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
 func TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	const (
 		title    = "The Hollow Oak"
@@ -224,7 +223,7 @@ func TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted(t *testin
 func TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	const (
 		title   = "The Hollow Oak"
@@ -249,7 +248,7 @@ func TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown(t *testing.
 func TestRepository_GetPublicRevision_NonASCIILinkURL(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	c := catalogtest.New(t, db)
 	const (
 		title         = "The Willow Glen"

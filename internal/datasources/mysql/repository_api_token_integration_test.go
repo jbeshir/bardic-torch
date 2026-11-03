@@ -13,7 +13,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -236,7 +236,7 @@ func TestRepository_APITokens_RevokeForeignOrUnknownTokenNotFound(t *testing.T) 
 func TestRepository_APITokens_DeletingUserCascades(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	repo := mysql.New(db)
 	ctx := t.Context()
 	ensureUser(t, repo, "auth0|owner", "Owner")

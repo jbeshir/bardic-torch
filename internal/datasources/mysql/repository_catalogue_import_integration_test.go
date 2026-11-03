@@ -18,7 +18,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 )
 
 // Tables the tests name more than once.
@@ -142,7 +141,7 @@ func TestRepository_ImportCatalogue_CatalogueTablesAreEveryCatalogueTable(t *tes
 	t.Parallel()
 
 	var tables []string
-	for table := range tableColumns(t, mysqltest.NewDatabase(t)) {
+	for table := range tableColumns(t, catalogtest.Writable(t)) {
 		if !slices.Contains(nonCatalogueTables, table) {
 			tables = append(tables, table)
 		}
@@ -350,7 +349,7 @@ func TestRepository_ImportCatalogue_RefusesNonEmpty(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			db := mysqltest.NewDatabase(t)
+			db := catalogtest.Writable(t)
 			seed.seed(catalogtest.New(t, db))
 
 			err := mysql.New(db).ImportCatalogue(t.Context(), imp)
@@ -383,7 +382,7 @@ func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 	}
 	require.True(t, planted, "the scrubbed import has a performance with a performer")
 	require.Equal(t, tablePerformers, mysql.CatalogueTables[len(mysql.CatalogueTables)-1])
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 
 	err := mysql.New(db).ImportCatalogue(t.Context(), imp)
 
@@ -400,7 +399,7 @@ func TestRepository_ImportCatalogue_ConcurrentImports(t *testing.T) {
 	t.Parallel()
 
 	imp, _ := importtest.Scrubbed(t)
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	errs := make([]error, 2)
 	var wg sync.WaitGroup
 	for k := range errs {

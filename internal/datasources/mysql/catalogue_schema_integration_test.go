@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -144,7 +144,7 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		"contact_requests.status":      contactRequestStatuses,
 	}
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	rows, err := db.QueryContext(t.Context(), "SELECT CONCAT(c.table_name, '.', c.column_name), c.column_type "+
 		"FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema = c.table_schema "+
 		"AND t.table_name = c.table_name WHERE c.table_schema = DATABASE() AND t.table_type = 'BASE TABLE' "+
@@ -248,7 +248,7 @@ const (
 func TestMigrations_Constraints(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	r := seedCatalogue(t, db)
 
 	cases := []struct {
@@ -411,7 +411,7 @@ func TestMigrations_Constraints(t *testing.T) {
 func TestMigrations_ConstraintsAllowCascades(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	r := seedCatalogue(t, db)
 	ctx := t.Context()
 
@@ -442,7 +442,7 @@ func TestMigrations_ConstraintsAllowCascades(t *testing.T) {
 func TestMigrations_PersonAliasHiddenByDefault(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	r := seedCatalogue(t, db)
 
 	id := insertRow(t, db, "INSERT INTO person_aliases (person_id, name, kind) VALUES (?, 'Wren Hollow', 'legal')",
@@ -458,7 +458,7 @@ func TestMigrations_PersonAliasHiddenByDefault(t *testing.T) {
 func TestMigrations_ModerationConstraints(t *testing.T) {
 	t.Parallel()
 
-	db := mysqltest.NewDatabase(t)
+	db := catalogtest.Writable(t)
 	r := seedCatalogue(t, db)
 	insertRow(t, db, "INSERT INTO users (id, display_name, role, created_at, display_name_key) "+
 		"VALUES ('auth0|wren', 'Wren Placeholder', 'contributor', '2026-01-01 00:00:00', 'wren placeholder')")
