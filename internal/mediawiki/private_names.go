@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // PublicNames are names that docs/PLAN.md already publishes (a bard's name, and the wiki's own name) but that the
@@ -94,7 +96,7 @@ func PrivateNames(pages []Page, redirects []Redirect) ([]PrivateName, []PrivacyD
 	c := privacyCollector{public: map[string]bool{}, published: map[string]bool{}, numbers: map[string]int{},
 		bards: map[string]bool{}, otherTitles: map[string]bool{}}
 	for _, name := range PublicNames {
-		c.published[FoldName(name)] = true
+		c.published[domain.FoldName(name)] = true
 	}
 	maxYear := LatestYear(pages)
 	for kingdom := range scaKingdoms {
@@ -141,7 +143,7 @@ type privacyCollector struct {
 }
 
 func (c *privacyCollector) alias(pageID int64, rule, name string, class AliasClassification) {
-	key := FoldName(name)
+	key := domain.FoldName(name)
 	switch {
 	case IsPlaceholderName(name):
 		c.keep(pageID, rule, name, PrivacyPlaceholder)
@@ -198,7 +200,7 @@ func (c *privacyCollector) reason(cand NameCandidate) (reason PrivacyReason, cla
 // isPublicPerson reports whether name is a person's public name: a published name, a bard's page title or public
 // alias, or a name the classifier makes public. A piece title is not ("Song Title / Other Title").
 func (c *privacyCollector) isPublicPerson(name string) bool {
-	key := FoldName(name)
+	key := domain.FoldName(name)
 
 	return c.published[key] || c.public[key] || c.bards[NormTitle(name)] ||
 		ClassifyPersonAlias(AliasCandidate{Name: name, Source: AliasFromH1Parenthetical}).Public()
@@ -206,7 +208,7 @@ func (c *privacyCollector) isPublicPerson(name string) bool {
 
 // known decides on a candidate that is a placeholder or a name already decided on.
 func (c *privacyCollector) known(cand NameCandidate) (PrivacyReason, bool) {
-	key := FoldName(cand.Text)
+	key := domain.FoldName(cand.Text)
 	switch {
 	case IsPlaceholderName(cand.Text):
 		return PrivacyPlaceholder, true
@@ -233,7 +235,7 @@ func (c *privacyCollector) lead(cand NameCandidate) {
 	for k, f := range fields {
 		if !hasCapitalisedWord(f) {
 			lead := strings.Join(fields[:k], " ")
-			key := FoldName(lead)
+			key := domain.FoldName(lead)
 			words := foldedWords(lead)
 			if len(words) < 2 || IsPlaceholderName(lead) || c.published[key] || c.public[key] || c.inTitle(words) {
 				return
@@ -250,7 +252,7 @@ func (c *privacyCollector) keep(pageID int64, rule, name string, reason PrivacyR
 }
 
 func (c *privacyCollector) private(pageID int64, rule, name string, reason PrivacyReason) {
-	key := FoldName(name)
+	key := domain.FoldName(name)
 	if c.numbers[key] == 0 {
 		c.numbers[key] = len(c.names) + 1
 		c.names = append(c.names, PrivateName{Text: name})
@@ -292,7 +294,7 @@ func equalWords(a, b []string) bool {
 // foldedWords are the folded words of text, as NameMatcher reads them.
 func foldedWords(text string) []string {
 	var out []string
-	for _, w := range Words(text) {
+	for _, w := range domain.Words(text) {
 		out = append(out, w.Folded)
 	}
 
@@ -302,7 +304,7 @@ func foldedWords(text string) []string {
 // withoutPossessive drops the "s" of a final "'s" from words, the folded words of name.
 func withoutPossessive(name string, words []string) []string {
 	stem, possessive := strings.CutSuffix(name, "s")
-	if r, _ := utf8.DecodeLastRuneInString(stem); possessive && isApostrophe(r) {
+	if r, _ := utf8.DecodeLastRuneInString(stem); possessive && domain.IsApostrophe(r) {
 		return words[:len(words)-1]
 	}
 
@@ -320,7 +322,7 @@ var EmailAddress = regexp.MustCompile(`[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p
 // last word before its first ("Last First") and with an honorific before its surname or a part of a hyphenated
 // surname ("Mr. Last"); any other private name only as its words in order.
 type PrivateNameMatcher struct {
-	matcher NameMatcher
+	matcher domain.NameMatcher
 	forms   []privateNameForm
 }
 
@@ -347,7 +349,7 @@ func NewPrivateNameMatcher(names []PrivateName) PrivateNameMatcher {
 	var legal, others []string
 	var legalForms, otherForms []privateNameForm
 	for k, p := range names {
-		multiword := len(Words(p.Text)) > 1
+		multiword := len(domain.Words(p.Text)) > 1
 		if !p.Legal {
 			others = append(others, p.Text)
 			otherForms = append(otherForms, privateNameForm{name: k, multiword: multiword})
@@ -372,14 +374,14 @@ func NewPrivateNameMatcher(names []PrivateName) PrivateNameMatcher {
 		}
 		for _, h := range honorifics {
 			for _, surname := range surnames {
-				if len(Words(surname)) > 0 {
+				if len(domain.Words(surname)) > 0 {
 					add(h+" "+surname, privateNameForm{name: k, multiword: true, honorific: true})
 				}
 			}
 		}
 	}
 
-	return PrivateNameMatcher{matcher: NewNameMatcher(legal, others), forms: append(legalForms, otherForms...)}
+	return PrivateNameMatcher{matcher: domain.NewNameMatcher(legal, others), forms: append(legalForms, otherForms...)}
 }
 
 // Find returns the occurrences of the private names in text, sorted by position and not overlapping, as

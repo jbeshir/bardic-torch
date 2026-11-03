@@ -126,7 +126,7 @@ func ParseBard(p Page, s Site) BardRecord {
 		case sec.Key == SectionAffiliations:
 			notes = appendSection(notes, sec, affiliationProse(body))
 		case sec.Key.IsOther():
-			if FoldName(Plain(sec.Heading)) == FoldName(p.Title) {
+			if domain.FoldName(Plain(sec.Heading)) == domain.FoldName(p.Title) {
 				b.StrayHeadings = append(b.StrayHeadings, Plain(sec.Heading))
 			}
 			notes = appendSection(notes, sec, body)
@@ -150,14 +150,14 @@ func bardAliases(p Page, s Site) []PersonAlias {
 		class := ClassifyPersonAlias(c)
 		out = append(out, PersonAlias{AliasCandidate: c, Classification: class, Kind: class.Kind, IsPublic: class.Public()})
 		if !class.Public() {
-			hidden[FoldName(c.Name)] = true
+			hidden[domain.FoldName(c.Name)] = true
 		}
 	}
 	for _, from := range s.RedirectsTo(p.Title) {
 		c := AliasCandidate{Name: from, Source: AliasFromRedirect}
 		class := ClassifyPersonAlias(c)
 		out = append(out, PersonAlias{AliasCandidate: c, Classification: class, Kind: domain.PersonAliasKindRedirect,
-			IsPublic: class.Public() && !hidden[FoldName(from)]})
+			IsPublic: class.Public() && !hidden[domain.FoldName(from)]})
 	}
 
 	return out
@@ -194,7 +194,7 @@ func statusDate(text string) *domain.Date {
 	if m == nil {
 		return nil
 	}
-	value := collapseSpaces(m[1])
+	value := domain.CollapseSpaces(m[1])
 	for _, layout := range deceasedLayouts {
 		if t, err := time.Parse(layout, value); err == nil {
 			return &domain.Date{Time: t}

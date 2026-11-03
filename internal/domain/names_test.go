@@ -1,9 +1,17 @@
-package mediawiki
+package domain
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+)
+
+// The names the matcher tests look for: invented, as every fixture name is.
+const (
+	wren      = "Wren Placeholder"
+	wrenFirst = "Wren"
+	ashFirst  = "Ash"
+	rowan     = "Rowan Placeholder"
 )
 
 // matchedTexts returns what each match covers in text.
@@ -22,7 +30,7 @@ func TestNameMatcher_Forms(t *testing.T) {
 		"by WREN placeholder.":                         {"WREN placeholder"},
 		"wren\n  placeholder":                          {"wren\n  placeholder"},
 		"https://example.org/wiki/Wren_Placeholder":    {"Wren_Placeholder"},
-		"https://example.org/wren-placeholder.html":    {"wren-placeholder"},
+		"https://example.org/wren-placeholder.html":    {testBardSlug},
 		"wren.placeholder@example.invalid":             {"wren.placeholder"},
 		"https://wrenplaceholder.example/":             {"wrenplaceholder"},
 		"https://youtube.com/@WrenPlaceholderMusic":    {"WrenPlaceholder"},

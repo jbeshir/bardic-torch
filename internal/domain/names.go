@@ -1,12 +1,10 @@
-package mediawiki
+package domain
 
 import (
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // MinConcatenatedSubstring is the shortest concatenated name form ("wrenplaceholder") NameMatcher finds inside a
@@ -230,7 +228,7 @@ func tokenizeNames(text string, joinApostrophes bool) []nameToken {
 			f := foldRune(r)
 			cur = cur.with(f, i, size)
 			folded.WriteString(f)
-		case joinApostrophes && isApostrophe(r) && inToken && startsWord(text[i+size:]):
+		case joinApostrophes && IsApostrophe(r) && inToken && startsWord(text[i+size:]):
 		default:
 			endToken()
 		}
@@ -268,14 +266,7 @@ func foldRune(r rune) string {
 		return string(unicode.ToLower(r))
 	}
 
-	return domain.CollationKey(string(r))
-}
-
-// isCapitalised reports whether word starts with an upper-case letter.
-func isCapitalised(word string) bool {
-	r, _ := utf8.DecodeRuneInString(word)
-
-	return unicode.IsUpper(r)
+	return CollationKey(string(r))
 }
 
 // Word is a word of a text as NameMatcher reads it: a run of letters, digits and combining marks, folded to lower

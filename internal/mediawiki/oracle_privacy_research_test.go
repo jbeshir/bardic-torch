@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/wikidumptest"
 )
 
@@ -206,7 +207,7 @@ func TestResearchOracle_EveryNameRunClassified(t *testing.T) {
 	for _, dec := range c.Privacy {
 		decided = append(decided, dec.Text)
 	}
-	matcher := NewNameMatcher(nil, decided)
+	matcher := domain.NewNameMatcher(nil, decided)
 	titles := oracleTitles(d, c)
 	// A word that is a category's whole name (a kingdom, a genre) is not part of a person's name either.
 	nonNames := map[string]bool{}

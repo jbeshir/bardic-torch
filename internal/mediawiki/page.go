@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // PageType is what a page of the main namespace is for the importer.
@@ -123,7 +125,7 @@ var sectionKeys = []struct {
 	{regexp.MustCompile(`(?i)^sheet music$`), SectionSheetMusic},
 	{regexp.MustCompile(`(?i)^dancing instructions$`), SectionDancingInstructions},
 	{regexp.MustCompile(`(?i)^timeline of text sources$`), SectionTextSources},
-	{regexp.MustCompile(`(?i)^bard[` + apostrophes + `]s websites?$`), SectionWebsite},
+	{regexp.MustCompile(`(?i)^bard[` + domain.Apostrophes + `]s websites?$`), SectionWebsite},
 	{regexp.MustCompile(`(?i)^affiliations$`), SectionAffiliations},
 	{regexp.MustCompile(`(?i)^songs( (&|and) works)?$`), SectionWorks},
 	{regexp.MustCompile(`(?i)^music$`), SectionWorksMusic},
@@ -259,7 +261,7 @@ func AnalyzeSection(content string) SectionContent {
 
 // isListMarkerOrSpace is the reference's [\s*#:].
 func isListMarkerOrSpace(r rune) bool {
-	return isSpace(r) || r == '*' || r == '#' || r == ':'
+	return domain.IsSpace(r) || r == '*' || r == '#' || r == ':'
 }
 
 // nonBlankLineStarts are the offsets in s of the lines that are not blank.

@@ -88,16 +88,3 @@ func TestClassifyPersonAlias(t *testing.T) {
 		assert.Equal(t, tt.want.Kind == sca && tt.want.Confident, got.Public(), tt.name)
 	}
 }
-
-func TestFoldName_ApostrophesAndAccents(t *testing.T) {
-	for in, want := range map[string]string{
-		"Lasair inghen ui h’Airt": "lasair inghen ui hairt",
-		"Lasair inghen ui h'Airt": "lasair inghen ui hairt",
-		"  Thórvé   Skáld  ":      "thorve skald",
-		"Ælfric ʼOʼ `Brien‘":      "aelfric o brien",
-		"Astrið Æsa":              "astrid aesa",
-		"WREN\tPLACEHOLDER":       "wren placeholder",
-	} {
-		assert.Equal(t, want, FoldName(in), in)
-	}
-}

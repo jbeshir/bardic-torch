@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
@@ -52,7 +53,7 @@ type Stats struct {
 //   - every inline lyrics block (mediawiki.InlineLyricsBlocks) is replaced with LyricPlaceholderLine lines, at most
 //     InlineLyricsMinLines of them, so the inline-lyrics classification of every section is kept;
 //   - every private name (CandidateDecision.Private) is replaced with its numbered placeholder everywhere it occurs, as
-//     mediawiki.NameMatcher finds it: in wikitext, titles, category names and members, redirects and activity; a
+//     domain.NameMatcher finds it: in wikitext, titles, category names and members, redirects and activity; a
 //     legal name also with an honorific before its surname ("Mr. Surname") and with its last word before its first;
 //   - any other honorific followed by a capitalised word, emails, and phone numbers outside links are replaced;
 //   - wiki user names are replaced in activity and in links to user pages.
@@ -248,7 +249,7 @@ func (s *scrubber) honorific(m []int, text string) string {
 		return text[m[0]:m[1]]
 	}
 	s.stats.Honorifics++
-	key := mediawiki.FoldName(word)
+	key := domain.FoldName(word)
 	if _, ok := s.honorifics[key]; !ok {
 		s.honorifics[key] = s.names.fresh()
 	}

@@ -3,6 +3,7 @@ package scrub
 import (
 	"fmt"
 
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
@@ -22,13 +23,13 @@ func collectPhrases(
 	names, decisions := mediawiki.PrivateNames(pages, redirects)
 	numbers := map[string]int{}
 	for k, n := range names {
-		numbers[mediawiki.FoldName(n.Text)] = k + 1
+		numbers[domain.FoldName(n.Text)] = k + 1
 	}
 	out := make([]CandidateDecision, 0, len(decisions))
 	for _, d := range decisions {
 		c := CandidateDecision{PrivacyDecision: d}
 		if d.Private {
-			c.Placeholder = fmt.Sprintf(mediawiki.LegalNameFormat, numbers[mediawiki.FoldName(d.Text)])
+			c.Placeholder = fmt.Sprintf(mediawiki.LegalNameFormat, numbers[domain.FoldName(d.Text)])
 		}
 		out = append(out, c)
 	}

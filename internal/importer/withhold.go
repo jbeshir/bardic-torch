@@ -37,7 +37,7 @@ type withholder struct {
 	textM      mediawiki.PrivateNameMatcher
 	publishedM mediawiki.PrivateNameMatcher
 	// unsureURL finds the unsure names in URLs, concatenated forms included.
-	unsureURL mediawiki.NameMatcher
+	unsureURL domain.NameMatcher
 }
 
 // withheld is one span withheld from a field: the text as written (Text, a name or an email address), whether it
@@ -52,7 +52,7 @@ func newWithholder(c mediawiki.Corpus, hiddenAliases []string) withholder {
 	var legal, unsure []mediawiki.PrivateName
 	seen := map[string]bool{}
 	add := func(text string, isLegal bool) {
-		key := mediawiki.FoldName(text)
+		key := domain.FoldName(text)
 		if key == "" || seen[key] {
 			return
 		}
@@ -84,7 +84,7 @@ func newWithholder(c mediawiki.Corpus, hiddenAliases []string) withholder {
 
 	return withholder{legal: legal, unsure: unsure, legalM: mediawiki.NewPrivateNameMatcher(legal),
 		privateM: privateM, textM: privateM, publishedM: mediawiki.NewPrivateNameMatcher(nil),
-		unsureURL: mediawiki.NewNameMatcher(unsureTexts, nil)}
+		unsureURL: domain.NewNameMatcher(unsureTexts, nil)}
 }
 
 // publishing returns the withholder for an import that publishes names as persons' names (display names): the

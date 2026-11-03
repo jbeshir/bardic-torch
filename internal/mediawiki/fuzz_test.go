@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // fuzzSeeds are the shapes of wikitext the fuzz tests start from.
@@ -171,11 +173,11 @@ func TestHostileInput_QuadraticShapes(t *testing.T) {
 	for k := range names {
 		names[k] = fmt.Sprintf("Name%04d Placeholder", k)
 	}
-	matcher := NewNameMatcher(names, nil)
+	matcher := domain.NewNameMatcher(names, nil)
 	requireLinearGrowth(t, MaxPageRecordBytes, []sizedParse{
 		{"ParseValue", func(size int) { ParseValue(strings.Repeat("[http://a ", size/10)) }},
 		{"WikitextToMarkdown", func(size int) { WikitextToMarkdown(strings.Repeat("[http://a x ''", size/14)) }},
-		{"Words", func(size int) { Words(strings.Repeat("h", size)) }},
+		{"Words", func(size int) { domain.Words(strings.Repeat("h", size)) }},
 		{"NameMatcher.Find", func(size int) { matcher.Find(strings.Repeat("http", size/4)) }},
 	})
 }
@@ -378,7 +380,7 @@ func TestHostileInput_TimeBudget(t *testing.T) {
 		{"BardAliases", func(size int) { BardAliases(page(size)) }},
 		{"PersonNameCandidates", func(size int) { PersonNameCandidates(page(size), testMaxYear) }},
 		{"ParsePerformanceText", func(size int) { ParsePerformanceText(hostile(size), testMaxYear) }},
-		{"NameMatcher.Find", func(size int) { NewNameMatcher([]string{wren}, []string{wren}).Find(hostile(size)) }},
+		{"NameMatcher.Find", func(size int) { domain.NewNameMatcher([]string{wren}, []string{wren}).Find(hostile(size)) }},
 		{"RepairMarkup", func(size int) { RepairMarkup(hostile(size)) }},
 		{"FindMarkupIssues", func(size int) { FindMarkupIssues(hostile(size)) }},
 	})

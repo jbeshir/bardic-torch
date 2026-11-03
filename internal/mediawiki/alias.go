@@ -3,6 +3,8 @@ package mediawiki
 import (
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
@@ -49,10 +51,10 @@ var nameMarker = regexp.MustCompile(`(?:\b([Ll]egal|[Mm]undane|[Rr]eal)[ \t]+[Nn
 // parenthetical is the title, the H1's lead is. Each name is given once, from its first source.
 func BardAliases(p Page) []AliasCandidate {
 	var out []AliasCandidate
-	seen := map[string]bool{FoldName(p.Title): true}
+	seen := map[string]bool{domain.FoldName(p.Title): true}
 	add := func(name string, source AliasSource) {
 		name = trimSpace(name)
-		if key := FoldName(name); name != "" && !seen[key] {
+		if key := domain.FoldName(name); name != "" && !seen[key] {
 			seen[key] = true
 			out = append(out, AliasCandidate{Name: name, Source: source})
 		}
@@ -86,13 +88,13 @@ func h1Aliases(p Page) (names []string, lead string, titleInH1 bool) {
 	if open := strings.IndexByte(h1, '('); open >= 0 {
 		lead = h1[:open]
 	}
-	title := FoldName(p.Title)
+	title := domain.FoldName(p.Title)
 	for _, m := range parenthetical.FindAllStringSubmatch(h1, -1) {
 		for _, name := range aliasSeparator.Split(m[1], -1) {
 			if name = trimSpace(name); name == "" {
 				continue
 			}
-			if FoldName(name) == title {
+			if domain.FoldName(name) == title {
 				titleInH1 = true
 			}
 			names = append(names, name)
@@ -160,7 +162,7 @@ func ClassifyPersonAlias(c AliasCandidate) AliasClassification {
 	if c.Source == AliasFromLegalNameMarker || c.Source == AliasFromMundaneNameMarker {
 		return AliasClassification{Kind: domain.PersonAliasKindLegal, Confident: true, Rule: AliasRuleLegalMarker}
 	}
-	words := strings.FieldsFunc(c.Name, func(r rune) bool { return isSpace(r) || r == ',' })
+	words := strings.FieldsFunc(c.Name, func(r rune) bool { return domain.IsSpace(r) || r == ',' })
 	if rule, ok := confidentSCARule(words); ok {
 		return AliasClassification{Kind: domain.PersonAliasKindSCA, Confident: true, Rule: rule}
 	}
@@ -197,8 +199,9 @@ func confidentSCARule(words []string) (AliasRule, bool) {
 	return "", false
 }
 
-// FoldName is the key person names are matched by (never displayed): letters folded (domain.FoldLetters),
-// apostrophes and their variants removed, lower case, white space collapsed.
-func FoldName(s string) string {
-	return collapseSpaces(strings.ToLower(withoutApostrophes(domain.FoldLetters(s))))
+// isCapitalised reports whether word starts with an upper-case letter.
+func isCapitalised(word string) bool {
+	r, _ := utf8.DecodeRuneInString(word)
+
+	return unicode.IsUpper(r)
 }

@@ -85,13 +85,13 @@ func checkFreeTextOnRealDump(t *testing.T, imp domain.CatalogueImport, review Re
 	published := publishedPrivateNames(imp, all)
 	isLegal := map[string]bool{}
 	for _, n := range legal {
-		isLegal[mediawiki.FoldName(n.Text)] = true
+		isLegal[domain.FoldName(n.Text)] = true
 	}
 	kept := 0
 	for k, text := range publicFreeText(t, imp) {
 		for _, m := range matcher.Find(text) {
 			name := all[m.Name].Text
-			if isLegal[mediawiki.FoldName(name)] || !published[name] {
+			if isLegal[domain.FoldName(name)] || !published[name] {
 				wikidumptest.Equal(t, wikidumptest.Location{Field: "public free text", Offset: k},
 					"no private name", "private name")
 
@@ -221,7 +221,7 @@ func jsonStrings(v any, out []string) []string {
 // foldedWords are the folded words of text, as the name matcher reads them.
 func foldedWords(text string) []string {
 	var out []string
-	for _, w := range mediawiki.Words(text) {
+	for _, w := range domain.Words(text) {
 		out = append(out, w.Folded)
 	}
 

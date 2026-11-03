@@ -250,7 +250,7 @@ const scrubLyricWindow = 5
 
 // lyricGramList are the windows of scrubLyricWindow folded words of text.
 func lyricGramList(text string) []string {
-	words := mediawiki.Words(text)
+	words := domain.Words(text)
 	var out []string
 	for k := 0; k+scrubLyricWindow <= len(words); k++ {
 		gram := make([]string, 0, scrubLyricWindow)
@@ -276,7 +276,7 @@ func lyricGrams(texts []string) map[string]bool {
 }
 
 // TestRepositoryHasNoResearchPrivateText scans every text file of the repository, in clear, for every deny phrase
-// of the crawl (with its honorific forms, its last word before its first, and every form mediawiki.NameMatcher
+// of the crawl (with its honorific forms, its last word before its first, and every form domain.NameMatcher
 // finds) and for every email and phone number of the crawl. It is the check the deny list cannot be: names are
 // never hashed into the repository.
 func TestRepositoryHasNoResearchPrivateText(t *testing.T) {

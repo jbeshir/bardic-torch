@@ -4,6 +4,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // tokenScanner matches the inline tokens of a text (links, quotes, tags, separators) at a position, for scans that
@@ -42,7 +44,7 @@ func (sc *tokenScanner) nextURLEnd(from int) int {
 		sc.urlEnd = len(sc.s)
 		for k := from; k < len(sc.s); {
 			r, size := utf8.DecodeRuneInString(sc.s[k:])
-			if r == ']' || isSpace(r) {
+			if r == ']' || domain.IsSpace(r) {
 				sc.urlEnd = k
 
 				break
@@ -134,7 +136,7 @@ func (sc *tokenScanner) lineBreakAt(i int) (int, bool) {
 	k := i + n
 	for k < len(sc.s) {
 		r, size := utf8.DecodeRuneInString(sc.s[k:])
-		if !isSpace(r) {
+		if !domain.IsSpace(r) {
 			break
 		}
 		k += size

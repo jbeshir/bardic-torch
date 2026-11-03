@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // MaxNestingDepth caps how deeply templates may nest before FindTemplates gives up on one, so hostile input cannot
@@ -16,24 +18,8 @@ const MaxNestingDepth = 32
 // character class.
 const jsSpaces = `\t\n\v\f\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}`
 
-// isSpace reports whether r is white space as JavaScript's \s and String.prototype.trim define it, which the
-// research scripts rely on.
-func isSpace(r rune) bool {
-	switch r {
-	case '\t', '\n', '\v', '\f', '\r', ' ', 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff:
-		return true
-	}
-
-	return r >= 0x2000 && r <= 0x200a
-}
-
 func trimSpace(s string) string {
-	return strings.TrimFunc(s, isSpace)
-}
-
-// collapseSpaces replaces every run of white space with one space.
-func collapseSpaces(s string) string {
-	return strings.Join(strings.FieldsFunc(s, isSpace), " ")
+	return strings.TrimFunc(s, domain.IsSpace)
 }
 
 // NormTitle is a page title as MediaWiki stores it: entities decoded, underscores as spaces, white space collapsed
@@ -476,7 +462,7 @@ func bareURLAt(text string, i int) (int, bool) {
 	end := rest + 3
 	for end < len(text) {
 		r, size := utf8.DecodeRuneInString(text[end:])
-		if isSpace(r) || strings.ContainsRune(`][<>|{}"`, r) {
+		if domain.IsSpace(r) || strings.ContainsRune(`][<>|{}"`, r) {
 			break
 		}
 		end += size
@@ -559,7 +545,7 @@ func Sections(text string) []Section {
 // parseHeading parses text[lineStart:lineEnd] as a heading line, returning its level, its text and the offset
 // after its closing "=" run.
 func parseHeading(text string, lineStart, lineEnd int) (level int, heading string, closeEnd int, ok bool) {
-	line := strings.TrimRightFunc(text[lineStart:lineEnd], isSpace)
+	line := strings.TrimRightFunc(text[lineStart:lineEnd], domain.IsSpace)
 	leading := len(line) - len(strings.TrimLeft(line, "="))
 	if leading == 0 {
 		return 0, "", 0, false
@@ -583,7 +569,7 @@ func headingBodyStart(text string, closeEnd int) int {
 	runEnd := closeEnd
 	for runEnd < len(text) {
 		r, size := utf8.DecodeRuneInString(text[runEnd:])
-		if !isSpace(r) {
+		if !domain.IsSpace(r) {
 			break
 		}
 		runEnd += size

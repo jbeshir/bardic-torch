@@ -383,12 +383,12 @@ func (b *builder) reviewContributors() {
 	users := slices.Sorted(maps.Keys(edits))
 	hidden := map[string]bool{}
 	for _, n := range b.w.legal {
-		hidden[mediawiki.FoldName(n.Text)] = true
+		hidden[domain.FoldName(n.Text)] = true
 	}
 	for _, u := range users {
 		flag := ""
 		switch {
-		case hidden[mediawiki.FoldName(u)] || b.w.holdsName(u):
+		case hidden[domain.FoldName(u)] || b.w.holdsName(u):
 			flag = " It matches a hidden alias or possible legal name: consider hiding it."
 		case personNameShaped(u):
 			flag = " It is shaped like a personal name (capitalised words): it may be a legal name; check it may be " +

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // MinPerformanceYear is the earliest year a performance can have: the SCA was founded in 1966.
@@ -183,7 +185,7 @@ func event(masked string, links []Wikilink) TextSpan {
 	if y := trailingYear.FindStringIndex(text); y != nil {
 		text = text[:y[0]]
 	}
-	text = strings.TrimRightFunc(text, isSpace)
+	text = strings.TrimRightFunc(text, domain.IsSpace)
 	if first, _ := utf8.DecodeRuneInString(text); !unicode.IsUpper(first) {
 		return TextSpan{}
 	}
@@ -218,7 +220,7 @@ type PerformanceRecord struct {
 // performer, whatever comes before it ("his original piece, [[W]]"); if the wording names no piece sung, the first
 // link to a work is the piece ("her song [[W]]", "performing [[W]] by …").
 func ParsePerformance(item ListItem, maxYear int, isWork func(target string) bool) PerformanceRecord {
-	verbatim := strings.TrimRightFunc(item.Raw, isSpace)
+	verbatim := strings.TrimRightFunc(item.Raw, domain.IsSpace)
 	text := ParsePerformanceText(verbatim, maxYear)
 	rec := PerformanceRecord{DescriptionVerbatim: verbatim, Uploader: text.Uploader.Text, EventText: text.Event.Text,
 		Year: text.Year, Piece: text.Piece}

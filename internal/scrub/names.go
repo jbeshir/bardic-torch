@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
@@ -52,7 +53,7 @@ func (r *nameReplacer) replace(text string, urls [][2]int) (string, int) {
 // form, and "Legal Name 001" otherwise.
 func placeholderFor(span string, m mediawiki.PrivateNameMatch, inURL bool) string {
 	number := m.Name + 1
-	words := mediawiki.Words(span)
+	words := domain.Words(span)
 	oneWord := len(words) == 1
 	switch {
 	case inURL && strings.Contains(span, "_"):

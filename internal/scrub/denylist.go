@@ -13,7 +13,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/jbeshir/bardic-torch/internal/mediawiki"
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // DenylistWindow is the number of words of each lyric n-gram the deny list holds.
@@ -36,7 +36,7 @@ const digestBytes = 16
 var ErrMalformedDenylist = errors.New("malformed deny list")
 
 // Denylist is the set of digests of the lyric n-grams the scrubber dropped: each window of DenylistWindow words
-// (as mediawiki.Words reads them) of a dropped block, except windows that also occur outside the blocks, which
+// (as domain.Words reads them) of a dropped block, except windows that also occur outside the blocks, which
 // the scrubbed copy holds legitimately (titles, quoted commentary). No text of the crawl can be read back from it.
 type Denylist struct {
 	digests map[string]bool
@@ -119,7 +119,7 @@ func (d Denylist) Scan(text string) []Hit {
 // windows calls f with each window of DenylistWindow words of text: its folded words joined by spaces, and where it
 // starts and ends.
 func windows(text string, f func(key string, start, end int)) {
-	words := mediawiki.Words(text)
+	words := domain.Words(text)
 	folded := make([]string, len(words))
 	for k, w := range words {
 		folded[k] = w.Folded

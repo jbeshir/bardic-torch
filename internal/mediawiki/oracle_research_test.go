@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/wikidumptest"
 )
 
@@ -299,14 +300,14 @@ func TestResearchOracle_BardAliases(t *testing.T) {
 	for _, bard := range o.bards {
 		got := map[string]bool{}
 		for _, a := range BardAliases(o.pages[bard.PageID]) {
-			got[FoldName(a.Name)] = true
+			got[domain.FoldName(a.Name)] = true
 		}
 		for k, alias := range bard.Aliases {
-			if FoldName(alias) == FoldName(bard.Title) {
+			if domain.FoldName(alias) == domain.FoldName(bard.Title) {
 				continue
 			}
 			wikidumptest.Equal(t, wikidumptest.Location{PageID: bard.PageID, Field: "aliases", Offset: k}, true,
-				got[FoldName(alias)])
+				got[domain.FoldName(alias)])
 		}
 	}
 }

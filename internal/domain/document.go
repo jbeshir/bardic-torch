@@ -22,6 +22,8 @@ import (
 //
 // Other entities are referenced by internal ID. A document owns its outgoing relations only. Links are inline and
 // identified by URL. The order of a list is the stored position of its elements.
+// An editor tag names a reference field as the editor format names it, where the editor format references the
+// entity by slug instead of ID ("person" for person_id); DocumentProblem paths use the editor names.
 //
 // TestDocumentCoverage (internal/datasources/mysql) fails when a column of a table a document owns is neither a
 // document field nor classified as system-owned.
@@ -213,20 +215,20 @@ type DocPieceAlias struct {
 
 // DocPieceTerm tags a piece with a term. Part is the part of the piece the term applies to, if not all of it.
 type DocPieceTerm struct {
-	TermID    int64      `json:"term_id"`
+	TermID    int64      `json:"term_id" editor:"term"`
 	IsPrimary bool       `json:"is_primary"`
 	Part      *PiecePart `json:"part"`
 }
 
 // DocPieceRelation relates the document's piece to another piece.
 type DocPieceRelation struct {
-	ToPieceID int64             `json:"to_piece_id"`
+	ToPieceID int64             `json:"to_piece_id" editor:"piece"`
 	Type      PieceRelationType `json:"type"`
 }
 
 // DocCredit credits a piece, or part of it, to a person (attribution named) or to no one in particular.
 type DocCredit struct {
-	PersonID    *int64      `json:"person_id"`
+	PersonID    *int64      `json:"person_id" editor:"person"`
 	Role        CreditRole  `json:"role"`
 	Attribution Attribution `json:"attribution"`
 	Certainty   Certainty   `json:"certainty"`
@@ -268,16 +270,16 @@ type DocPersonLink struct {
 
 // DocPerformance is a performance recorded by a link.
 type DocPerformance struct {
-	EventID             *int64  `json:"event_id"`
+	EventID             *int64  `json:"event_id" editor:"event"`
 	Year                *int16  `json:"year"`
 	Uploader            *string `json:"uploader"`
 	DescriptionVerbatim string  `json:"description_verbatim"`
-	PerformerIDs        []int64 `json:"performer_ids"`
+	PerformerIDs        []int64 `json:"performer_ids" editor:"performers"`
 }
 
 // DocPersonPerformance is a performance recorded by a link attached to a person, of a piece if PieceID is set.
 type DocPersonPerformance struct {
-	PieceID *int64 `json:"piece_id"`
+	PieceID *int64 `json:"piece_id" editor:"piece"`
 	DocPerformance
 }
 
@@ -297,7 +299,7 @@ type PersonDocument struct {
 	IsStub           bool                `json:"is_stub"`
 	Aliases          []DocPersonAlias    `json:"aliases"`
 	Roles            []PersonRole        `json:"roles"`
-	AffiliationIDs   []int64             `json:"affiliation_ids"`
+	AffiliationIDs   []int64             `json:"affiliation_ids" editor:"affiliations"`
 	Relations        []DocPersonRelation `json:"relations"`
 	Links            []DocPersonLink     `json:"links"`
 	Preferences      []DocPreference     `json:"preferences"`
@@ -312,7 +314,7 @@ type DocPersonAlias struct {
 
 // DocPersonRelation relates the document's person to another person.
 type DocPersonRelation struct {
-	ToPersonID int64              `json:"to_person_id"`
+	ToPersonID int64              `json:"to_person_id" editor:"person"`
 	Type       PersonRelationType `json:"type"`
 }
 
@@ -322,8 +324,8 @@ type TermDocument struct {
 	Facet                Facet    `json:"facet"`
 	Name                 string   `json:"name"`
 	DisplayName          string   `json:"display_name"`
-	ParentID             *int64   `json:"parent_id"`
-	RelatedAffiliationID *int64   `json:"related_affiliation_id"`
+	ParentID             *int64   `json:"parent_id" editor:"parent"`
+	RelatedAffiliationID *int64   `json:"related_affiliation_id" editor:"related_affiliation"`
 	DescriptionMD        *string  `json:"description_md"`
 	Position             int32    `json:"position"`
 	Aliases              []string `json:"aliases"`
@@ -336,7 +338,7 @@ type CollectionDocument struct {
 	URL              *string              `json:"url"`
 	Kind             CollectionKind       `json:"kind"`
 	DescriptionMD    *string              `json:"description_md"`
-	RegionTermID     *int64               `json:"region_term_id"`
+	RegionTermID     *int64               `json:"region_term_id" editor:"region"`
 	ParentID         *int64               `json:"parent_id"`
 	IsBardicResource bool                 `json:"is_bardic_resource"`
 	Enumerable       CollectionEnumerable `json:"enumerable"`

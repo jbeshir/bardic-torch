@@ -85,13 +85,13 @@ func NewPersonIndex(bards []BardRecord) PersonIndex {
 	var x PersonIndex
 	for _, b := range bards {
 		ref := PersonRef(b.Title)
-		x.keys = append(x.keys, indexKey{fold: FoldName(b.Title), person: ref, kind: KeyTitle})
+		x.keys = append(x.keys, indexKey{fold: domain.FoldName(b.Title), person: ref, kind: KeyTitle})
 		for _, a := range b.Aliases {
 			kind := KeyHiddenAlias
 			if a.IsPublic {
 				kind = KeyPublicAlias
 			}
-			x.keys = append(x.keys, indexKey{fold: FoldName(a.Name), person: ref, kind: kind})
+			x.keys = append(x.keys, indexKey{fold: domain.FoldName(a.Name), person: ref, kind: kind})
 		}
 	}
 
@@ -102,7 +102,7 @@ func NewPersonIndex(bards []BardRecord) PersonIndex {
 func (x PersonIndex) withStubs(stubs []StubPerson) PersonIndex {
 	out := PersonIndex{keys: slices.Clone(x.keys)}
 	for _, s := range stubs {
-		out.keys = append(out.keys, indexKey{fold: FoldName(s.Name), person: PersonRef(s.Name), kind: KeyStub})
+		out.keys = append(out.keys, indexKey{fold: domain.FoldName(s.Name), person: PersonRef(s.Name), kind: KeyStub})
 	}
 
 	return out
@@ -112,7 +112,7 @@ func (x PersonIndex) withStubs(stubs []StubPerson) PersonIndex {
 // a folded name of at least MinFuzzyNameLength runes) or, for a one-word name, as the first word of a person's
 // name. A name that exactly or fuzzily matches more than one person matches none, and lists them as candidates.
 func (x PersonIndex) Match(name string) PersonMatch {
-	fold := FoldName(name)
+	fold := domain.FoldName(name)
 	if fold == "" {
 		return PersonMatch{Kind: MatchNone}
 	}
@@ -256,7 +256,7 @@ func ResolvePersons(index PersonIndex, mentions []PersonMention, s Site) Persons
 	for _, linked := range []bool{true, false} {
 		var created []StubPerson
 		for _, m := range mentions {
-			if m.Name.linked() == linked && FoldName(m.Name.Name) != "" {
+			if m.Name.linked() == linked && domain.FoldName(m.Name.Name) != "" {
 				created = resolveMention(&p, m, created)
 			}
 		}
@@ -288,8 +288,8 @@ func resolveMention(p *Persons, m PersonMention, created []StubPerson) []StubPer
 
 		return created
 	}
-	fold := FoldName(m.Name.Name)
-	k := slices.IndexFunc(created, func(st StubPerson) bool { return FoldName(st.Name) == fold })
+	fold := domain.FoldName(m.Name.Name)
+	k := slices.IndexFunc(created, func(st StubPerson) bool { return domain.FoldName(st.Name) == fold })
 	if k < 0 {
 		created = append(created, StubPerson{Name: m.Name.Name})
 		k = len(created) - 1

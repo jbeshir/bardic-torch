@@ -15,6 +15,9 @@ const testBardName = "Wren Placeholder"
 // secretValue is planted in the mutated field of every invalid import: no error message may show it.
 const secretValue = "Secretvalue Placeholder"
 
+// testBardSlug is the slug of the fixture bard.
+const testBardSlug = "wren-placeholder"
+
 func importRevision(id int64) ImportedRevision {
 	return ImportedRevision{ID: id, Summary: ImportSummaryPage(id), Contributors: []string{"Wiki User 01"},
 		CreatedAt: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)}
@@ -52,7 +55,7 @@ func validImport() CatalogueImport {
 		Events: []ImportedEvent{{ID: 1, Slug: "green-dragon", Revision: importRevision(5),
 			Doc: EventDocument{SchemaVersion: DocumentSchemaVersion, Name: "Green Dragon", Kind: EventKindVenue}}},
 		Persons: []ImportedPerson{
-			{ID: 1, Slug: "wren-placeholder", SortName: testBardName, SortLetter: "W", Revision: importRevision(6),
+			{ID: 1, Slug: testBardSlug, SortName: testBardName, SortLetter: "W", Revision: importRevision(6),
 				Legacy: &LegacyPage{PageID: ptr(uint32(10)), Title: testBardName},
 				Doc: PersonDocument{SchemaVersion: DocumentSchemaVersion, Name: testBardName,
 					Kind: PersonKindCommunityBard, Status: PersonStatusActive, LicensingStatus: LicensingStatusUnknown,
@@ -108,7 +111,7 @@ func TestCatalogueImportValidate_IDsAndSlugs(t *testing.T) {
 		dup.Slug, dup.Revision.ID = "ash-placeholder-2", 9
 		imp.Persons = append(imp.Persons, dup)
 	}, "person 2: id")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[1].Slug = "wren-placeholder" }, "person 2: slug")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[1].Slug = testBardSlug }, "person 2: slug")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Events[0].Slug = secretValue }, "event 1: slug")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[1].Revision.ID = 6 }, "person 2: revision.id")
 	requireInvalid(t, func(imp *CatalogueImport) {

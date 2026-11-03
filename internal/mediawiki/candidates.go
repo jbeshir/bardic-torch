@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // CandidateRule is the rule that found a possible person name.
@@ -59,7 +61,7 @@ var (
 	slashPair = regexp.MustCompile(`(` + multiwordName + `)[ \t]*/[ \t]*(` + multiwordName + `)`)
 	credited  = regexp.MustCompile(`(?i:\b(?:credited|attributed)[ \t]+to|\bcopyright(?:ed)?(?:[ \t]+to)?|©)[ \t]*` +
 		`["'‘“]?(?:\d{4},?[ \t]+)?(` + multiwordName + `)`)
-	possessive = regexp.MustCompile(`(` + multiwordName + `)[` + apostrophes + `]s?[ \t]+` +
+	possessive = regexp.MustCompile(`(` + multiwordName + `)[` + domain.Apostrophes + `]s?[ \t]+` +
 		`(?i:youtube|blog|channel|page|site|website|` +
 		`homepage|songbook|collection|version|album|recording|book)\b`)
 	performer = regexp.MustCompile(`(` + multiwordName + `)[ \t]+(?:sings|singing|sang|performs|performing|` +
@@ -172,9 +174,9 @@ func alsoKnownAsCandidates(text string, start, end int, add addCandidate) {
 	at := 0
 	for _, sep := range alsoKnownSeparator.FindAllStringIndex(list+",", -1) {
 		part := list[at:min(sep[0], len(list))]
-		trimmed := strings.TrimLeftFunc(part, isSpace)
+		trimmed := strings.TrimLeftFunc(part, domain.IsSpace)
 		offset := start + at + len(part) - len(trimmed)
-		trimmed = strings.TrimRightFunc(trimmed, func(r rune) bool { return isSpace(r) || r == '.' })
+		trimmed = strings.TrimRightFunc(trimmed, func(r rune) bool { return domain.IsSpace(r) || r == '.' })
 		if alsoKnownName.MatchString(trimmed) {
 			add(offset, trimmed, CandidateAlsoKnownAs, "")
 		}
@@ -249,9 +251,9 @@ func h1Candidates(text string, s Section, add addCandidate) {
 }
 
 func addTrimmed(offset int, name string, add addCandidate) {
-	trimmed := strings.TrimLeftFunc(name, isSpace)
+	trimmed := strings.TrimLeftFunc(name, domain.IsSpace)
 	offset += len(name) - len(trimmed)
-	if trimmed = strings.TrimRightFunc(trimmed, isSpace); trimmed != "" {
+	if trimmed = strings.TrimRightFunc(trimmed, domain.IsSpace); trimmed != "" {
 		add(offset, trimmed, CandidateH1Parenthetical, "")
 	}
 }

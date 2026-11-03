@@ -30,7 +30,7 @@ type events struct {
 func newEvents(venues []Page) *events {
 	e := &events{byFold: map[string]int{}}
 	for _, v := range venues {
-		e.byFold[FoldName(v.Title)] = len(e.records)
+		e.byFold[domain.FoldName(v.Title)] = len(e.records)
 		e.records = append(e.records, EventRecord{Name: v.Title, Kind: domain.EventKindVenue, PageID: v.PageID})
 	}
 
@@ -39,7 +39,7 @@ func newEvents(venues []Page) *events {
 
 // at returns the name of the event named text, as a page names it, creating the event if it is new.
 func (e *events) at(text, page string) string {
-	fold := FoldName(text)
+	fold := domain.FoldName(text)
 	if fold == "" {
 		return ""
 	}
@@ -59,7 +59,7 @@ func (e *events) similar() []SimilarEventNames {
 	var out []SimilarEventNames
 	for a := range e.records {
 		for b := a + 1; b < len(e.records); b++ {
-			if withinOneEdit(FoldName(e.records[a].Name), FoldName(e.records[b].Name)) {
+			if withinOneEdit(domain.FoldName(e.records[a].Name), domain.FoldName(e.records[b].Name)) {
 				out = append(out, SimilarEventNames{A: e.records[a].Name, B: e.records[b].Name})
 			}
 		}

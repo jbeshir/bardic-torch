@@ -4,22 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 	"unicode/utf8"
-
-	"golang.org/x/text/unicode/norm"
-)
-
-// The column widths Validate checks: VARCHAR widths in characters, TEXT in bytes.
-const (
-	maxNameLength        = 255
-	maxLinkTitleLength   = 500
-	maxCreditNoteLength  = 500
-	maxSummaryLength     = 500
-	maxPlatformLength    = 64
-	maxPronounsLength    = 64
-	maxTextBytes         = 65535
-	maxContributorsCount = 65535
 )
 
 // Validate checks that the import can be written as it is: it mirrors every constraint of the catalogue schema
@@ -97,11 +82,31 @@ func invalid(entity EntityType, id int64, field, problem string) error {
 	return fmt.Errorf("%w: %s %d: %s: %s", ErrInvalidImport, entity, id, field, problem)
 }
 
+// importProblems are the import's messages for the problems of the checks it shares with document validation
+// (fieldCheck).
+var importProblems = map[ProblemCode]string{
+	ProblemBlank:               "is empty",
+	ProblemTooLong:             "is longer than its column allows",
+	ProblemWithheldPlaceholder: "holds a withheld-text placeholder",
+	ProblemDuplicate:           "duplicates an earlier entry",
+	ProblemNotNFC:              "is not valid UTF-8 in NFC",
+	ProblemInvalidCharacters:   "holds a control character",
+}
+
 // entityCheck checks the fields of one entity, keeping the first problem.
 type entityCheck struct {
+	fieldCheck
 	entity EntityType
 	id     int64
 	err    error
+}
+
+func newEntityCheck(entity EntityType, id int64) *entityCheck {
+	c := &entityCheck{entity: entity, id: id}
+	c.fieldCheck = fieldCheck{report: func(field string, code ProblemCode) { c.fail(field, importProblems[code]) },
+		paths: importPaths}
+
+	return c
 }
 
 func (c *entityCheck) fail(field, problem string) {
@@ -113,49 +118,6 @@ func (c *entityCheck) fail(field, problem string) {
 func (c *entityCheck) require(ok bool, field, problem string) {
 	if !ok {
 		c.fail(field, problem)
-	}
-}
-
-// name checks a name or title of the catalogue (a required VARCHAR(255)): it fits, and holds no withheld-text
-// placeholder (WithheldName, WithheldEmail), which only free text may hold.
-func (c *entityCheck) name(s, field string) {
-	c.varchar(s, maxNameLength, field, true)
-	c.require(!HoldsWithheldText(s), field, "holds a withheld-text placeholder")
-}
-
-// varchar checks a VARCHAR(n) value: at most n characters, and not empty if required.
-func (c *entityCheck) varchar(s string, n int, field string, required bool) {
-	c.require(!required || s != "", field, "is empty")
-	c.require(utf8.RuneCountInString(s) <= n, field, fmt.Sprintf("is longer than %d characters", n))
-}
-
-// optionalVarchar checks a nullable VARCHAR(n) value.
-func (c *entityCheck) optionalVarchar(s *string, n int, field string) {
-	if s != nil {
-		c.varchar(*s, n, field, false)
-	}
-}
-
-// text checks a nullable TEXT value.
-func (c *entityCheck) text(s *string, field string) {
-	if s != nil {
-		c.require(len(*s) <= maxTextBytes, field, fmt.Sprintf("is longer than %d bytes", maxTextBytes))
-	}
-}
-
-// url checks a nullable VARCHAR(2048) URL.
-func (c *entityCheck) url(s *string, field string) {
-	if s != nil {
-		c.require(len(*s) <= MaxURLLength, field, fmt.Sprintf("is longer than %d bytes", MaxURLLength))
-	}
-}
-
-// unique checks that no two of keys are equal.
-func (c *entityCheck) unique(keys []string, field string) {
-	seen := map[string]bool{}
-	for k, key := range keys {
-		c.require(!seen[key], fmt.Sprintf("%s[%d]", field, k), "duplicates an earlier entry")
-		seen[key] = true
 	}
 }
 
@@ -215,7 +177,7 @@ func (v *importValidator) checkTerms() error {
 	ids, slugs, legacy := map[int64]bool{}, map[string]bool{}, map[uint32]bool{}
 	names := map[string]bool{}
 	for _, t := range v.imp.Terms {
-		c := &entityCheck{entity: EntityTypeTerm, id: t.ID}
+		c := newEntityCheck(EntityTypeTerm, t.ID)
 		v.system(c, ids, slugs, &t.Slug, t.Legacy, legacy, t.Revision)
 		document(c, t.Doc, t.Doc.SchemaVersion)
 		d := t.Doc
@@ -254,7 +216,7 @@ func (v *importValidator) checkTerms() error {
 func (v *importValidator) checkCollections() error {
 	ids := map[int64]bool{}
 	for _, col := range v.imp.Collections {
-		c := &entityCheck{entity: EntityTypeCollection, id: col.ID}
+		c := newEntityCheck(EntityTypeCollection, col.ID)
 		v.system(c, ids, nil, nil, nil, nil, col.Revision)
 		c.sortKey(col.SortName, col.SortLetter, "sort_name")
 		document(c, col.Doc, col.Doc.SchemaVersion)
@@ -280,7 +242,7 @@ func (v *importValidator) checkCollections() error {
 func (v *importValidator) checkEvents() error {
 	ids, slugs, legacy := map[int64]bool{}, map[string]bool{}, map[uint32]bool{}
 	for _, e := range v.imp.Events {
-		c := &entityCheck{entity: EntityTypeEvent, id: e.ID}
+		c := newEntityCheck(EntityTypeEvent, e.ID)
 		v.system(c, ids, slugs, &e.Slug, e.Legacy, legacy, e.Revision)
 		document(c, e.Doc, e.Doc.SchemaVersion)
 		c.name(e.Doc.Name, "doc.name")
@@ -296,7 +258,7 @@ func (v *importValidator) checkEvents() error {
 func (v *importValidator) checkPersons() error {
 	ids, slugs, legacy := map[int64]bool{}, map[string]bool{}, map[uint32]bool{}
 	for _, p := range v.imp.Persons {
-		c := &entityCheck{entity: EntityTypePerson, id: p.ID}
+		c := newEntityCheck(EntityTypePerson, p.ID)
 		v.system(c, ids, slugs, &p.Slug, p.Legacy, legacy, p.Revision)
 		c.sortKey(p.SortName, p.SortLetter, "sort_name")
 		document(c, p.Doc, p.Doc.SchemaVersion)
@@ -353,7 +315,7 @@ func (v *importValidator) checkPersons() error {
 func (v *importValidator) checkPieces() error {
 	ids, slugs, legacy := map[int64]bool{}, map[string]bool{}, map[uint32]bool{}
 	for _, p := range v.imp.Pieces {
-		c := &entityCheck{entity: EntityTypePiece, id: p.ID}
+		c := newEntityCheck(EntityTypePiece, p.ID)
 		v.system(c, ids, slugs, &p.Slug, p.Legacy, legacy, p.Revision)
 		c.sortKey(p.SortTitle, p.SortLetter, "sort_title")
 		document(c, p.Doc, p.Doc.SchemaVersion)
@@ -503,7 +465,7 @@ func (v *importValidator) preferences(c *entityCheck, prefs []DocPreference) {
 func (v *importValidator) checkLinks() error {
 	ids, urls := map[int64]bool{}, map[string]bool{}
 	for _, row := range v.imp.Links {
-		c := &entityCheck{entity: "link", id: row.ID}
+		c := newEntityCheck("link", row.ID)
 		l := row.Link
 		c.require(row.ID > 0, "id", "is not positive")
 		c.require(!ids[row.ID], "id", "is not unique")
@@ -559,57 +521,10 @@ func (v *importValidator) checkStrings() error {
 		all = append(all, entity{"link", l.ID, l})
 	}
 	for _, e := range all {
-		if err := normalizedStrings(e.entity, e.id, reflect.ValueOf(e.value), ""); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// normalizedStrings checks every string in v, descending as validateEnums does.
-func normalizedStrings(entity EntityType, id int64, v reflect.Value, path string) error {
-	kind := v.Kind()
-	if kind == reflect.Pointer && !v.IsNil() {
-		return normalizedStrings(entity, id, v.Elem(), path)
-	}
-	if (kind == reflect.Slice && v.Type() != reflect.TypeFor[json.RawMessage]()) || kind == reflect.Array {
-		return normalizedListStrings(entity, id, v, path)
-	}
-	if kind == reflect.Struct {
-		return normalizedFieldStrings(entity, id, v, path)
-	}
-	if kind == reflect.String {
-		s := v.String()
-		if !utf8.ValidString(s) || !norm.NFC.IsNormalString(s) {
-			return invalid(entity, id, path, "is not valid UTF-8 in NFC")
-		}
-		if strings.ContainsFunc(s, IsControlCharacter) {
-			return invalid(entity, id, path, "holds a control character")
-		}
-	}
-
-	return nil
-}
-
-// normalizedFieldStrings is normalizedStrings for each exported field of the struct v.
-func normalizedFieldStrings(entity EntityType, id int64, v reflect.Value, path string) error {
-	for i := range v.NumField() {
-		if f := v.Type().Field(i); f.IsExported() {
-			if err := normalizedStrings(entity, id, v.Field(i), path+"."+f.Name); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// normalizedListStrings is normalizedStrings for each element of the slice or array v.
-func normalizedListStrings(entity EntityType, id int64, v reflect.Value, path string) error {
-	for i := range v.Len() {
-		if err := normalizedStrings(entity, id, v.Index(i), fmt.Sprintf("%s[%d]", path, i)); err != nil {
-			return err
+		c := newEntityCheck(e.entity, e.id)
+		c.strings(reflect.ValueOf(e.value), "")
+		if c.err != nil {
+			return c.err
 		}
 	}
 

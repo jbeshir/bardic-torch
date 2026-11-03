@@ -84,7 +84,7 @@ var genericTitleWords = map[string]bool{
 
 // titleKey is what titles are compared by: letters folded, lower case, punctuation as space, spaces collapsed.
 func titleKey(s string) string {
-	return collapseSpaces(strings.Map(func(r rune) rune {
+	return domain.CollapseSpaces(strings.Map(func(r rune) rune {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			return unicode.ToLower(r)
 		}

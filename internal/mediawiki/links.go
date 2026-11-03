@@ -309,7 +309,7 @@ func proseRuns(occurrences []LinkOccurrence, inRun map[sectionLine]bool) []LinkP
 // if that text is only list markers and separators.
 func proseLinesAround(line string) int {
 	rest := withoutExternalLinks(line)
-	if trimDescription(collapseSpaces(Plain(rest))) == "" {
+	if trimDescription(domain.CollapseSpaces(Plain(rest))) == "" {
 		return 0
 	}
 
@@ -379,7 +379,7 @@ func linkDescription(o LinkOccurrence, line string) string {
 	}
 	rest.WriteString(line[last:])
 
-	return trimDescription(collapseSpaces(Plain(rest.String())))
+	return trimDescription(domain.CollapseSpaces(Plain(rest.String())))
 }
 
 // linkText is what a link reads as in a description: its text, or else its host without "www.", which carries
@@ -399,7 +399,7 @@ func linkText(e ExternalLink) string {
 // trimDescription is s without leading and trailing white space and descriptionSeparators.
 func trimDescription(s string) string {
 	return strings.TrimFunc(s, func(r rune) bool {
-		return isSpace(r) || strings.ContainsRune(descriptionSeparators, r)
+		return domain.IsSpace(r) || strings.ContainsRune(descriptionSeparators, r)
 	})
 }
 

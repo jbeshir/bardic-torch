@@ -224,7 +224,7 @@ func kingdomNames(terms TermPlan) map[string][]string {
 			names = append(names, "Kingdom of the "+m[1])
 		}
 		for _, n := range names {
-			out[t.Category] = append(out[t.Category], FoldName(n))
+			out[t.Category] = append(out[t.Category], domain.FoldName(n))
 		}
 	}
 
@@ -233,7 +233,7 @@ func kingdomNames(terms TermPlan) map[string][]string {
 
 // region returns the kingdom a label names, if it names exactly one, or the kingdoms it names, sorted.
 func region(label string, kingdoms map[string][]string) (string, []string) {
-	words := " " + strings.Join(strings.FieldsFunc(FoldName(label), isNameSeparator), " ") + " "
+	words := " " + strings.Join(strings.FieldsFunc(domain.FoldName(label), isNameSeparator), " ") + " "
 	var found []string
 	for category, names := range kingdoms {
 		if slices.ContainsFunc(names, func(n string) bool { return strings.Contains(words, " "+n+" ") }) {

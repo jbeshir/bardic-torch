@@ -14,26 +14,8 @@ import (
 // The vocabulary of person names that the name rules, the scrubber (internal/scrub) and the importer share, each
 // defined once.
 
-// apostrophes are the apostrophe and quote variants names are written with: a separator or a joiner in a name
-// (NameMatcher), removed by FoldName.
-const apostrophes = "'’‘ʼ`"
-
-func isApostrophe(r rune) bool {
-	return strings.ContainsRune(apostrophes, r)
-}
-
-func withoutApostrophes(s string) string {
-	return strings.Map(func(r rune) rune {
-		if isApostrophe(r) {
-			return -1
-		}
-
-		return r
-	}, s)
-}
-
 // capitalisedWordForm is a capitalised word: an upper-case letter, then letters, marks, apostrophes and hyphens.
-const capitalisedWordForm = `\p{Lu}[\p{L}\p{M}` + apostrophes + `-]*`
+const capitalisedWordForm = `\p{Lu}[\p{L}\p{M}` + domain.Apostrophes + `-]*`
 
 // capitalisedWord is an initial ("J.") or a capitalised word.
 const capitalisedWord = `(?:\p{Lu}\.|` + capitalisedWordForm + `)`
@@ -105,7 +87,7 @@ var multiwordName = capitalisedWord + `(?:[ \t]+(?:` + nameParticle + `[ \t]+)*`
 
 // PossessiveName matches a text that starts with what may be a person's name in the possessive ("First Last's
 // Songbook").
-var PossessiveName = regexp.MustCompile(`^` + multiwordName + `[` + apostrophes + `]s\b`)
+var PossessiveName = regexp.MustCompile(`^` + multiwordName + `[` + domain.Apostrophes + `]s\b`)
 
 // honorifics are the honorifics whose forms with a legal name's surname ("Mr. Surname") are private too.
 var honorifics = []string{"Mr", "Mrs", "Ms", "Mx", "Dr", "Miss"}
@@ -147,7 +129,7 @@ var PlaceholderNumber = regexp.MustCompile(`^[ _-]?[0-9]{2,3}\b`)
 // placeholder is never decided on again, so scrubbing the scrubbed copy changes nothing.
 func IsPlaceholderName(text string) bool {
 	joined := strings.Join(placeholderWords[0][:2], "")
-	words := Words(text)
+	words := domain.Words(text)
 	for k, w := range words {
 		if strings.HasPrefix(w.Folded, joined) {
 			return true
