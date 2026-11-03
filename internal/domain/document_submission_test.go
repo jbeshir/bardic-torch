@@ -16,7 +16,7 @@ func personWithHiddenAlias() (full, editor PersonDocument) {
 	full = validPerson()
 	full.Aliases = []DocPersonAlias{
 		{Name: secondAliasName, Kind: PersonAliasKindSCA, IsPublic: true}, hiddenLegalName,
-		{Name: "Morwen the Bard", Kind: PersonAliasKindNickname, IsPublic: true},
+		{Name: morwenTheBard, Kind: PersonAliasKindNickname, IsPublic: true},
 	}
 	editor = full
 	editor.Aliases = []DocPersonAlias{full.Aliases[0], full.Aliases[2]}
@@ -63,7 +63,7 @@ func TestValidateSubmission_CapsCountVisibleElements(t *testing.T) {
 	}
 	projection := base
 	base.Aliases = append(base.Aliases, hiddenLegalName,
-		DocPersonAlias{Name: "Wren R. Placeholder", Kind: PersonAliasKindLegal})
+		DocPersonAlias{Name: otherLegalName, Kind: PersonAliasKindLegal})
 	editor := projection
 	editor.Aliases = append(append([]DocPersonAlias{}, projection.Aliases...),
 		DocPersonAlias{Name: "Morwen 100", Kind: PersonAliasKindNickname, IsPublic: true})

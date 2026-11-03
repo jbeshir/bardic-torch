@@ -35,6 +35,11 @@ const (
 	moodName                  = "Merry"
 	secondAliasName           = "Morwen of the Hill"
 	legalName                 = "Wren Q. Placeholder"
+	morwenTheBard             = "Morwen the Bard"
+	otherLegalName            = "Wren R. Placeholder"
+	testSummary               = "An edit."
+	pathFirstPerformanceEvent = "/links/0/performances/0/event"
+	pathThirdLink             = "/links/2"
 )
 
 // The entities the validation fixtures reference, by ID.
@@ -158,7 +163,7 @@ const (
 )
 
 func validationContext[D Document](id int64, prev *D, author Role) ValidationContext[D] {
-	return ValidationContext[D]{Author: author, ID: id, Previous: prev, Refs: testRefs(), Summary: "An edit.",
+	return ValidationContext[D]{Author: author, ID: id, Previous: prev, Refs: testRefs(), Summary: testSummary,
 		Today: validToday}
 }
 
@@ -336,7 +341,7 @@ func TestPieceDocument_Validate(t *testing.T) {
 			"/links/0/performances/0/year", ProblemOutOfRange},
 		{"performance at an event that is not public", func(d *PieceDocument) {
 			d.Links[0].Performances[0].EventID = ptr(refPendingEvent)
-		}, "", "/links/0/performances/0/event", ProblemUnknownReference},
+		}, "", pathFirstPerformanceEvent, ProblemUnknownReference},
 		{"performer repeats", func(d *PieceDocument) {
 			d.Links[0].Performances[0].PerformerIDs = []int64{refPerson, refPerson}
 		}, "", "/links/0/performances/0/performers/1", ProblemDuplicate},
@@ -682,7 +687,7 @@ func TestChangedReferences(t *testing.T) {
 		assert.NotEmpty(t, r.Key)
 	}
 	assert.ElementsMatch(t, []string{pathFirstAttributedPerson, "/links/0/collection_id",
-		"/links/0/performances/0/event", "/links/0/performances/0/performers/0"}, keysOf(keys))
+		pathFirstPerformanceEvent, "/links/0/performances/0/performers/0"}, keysOf(keys))
 	assert.Empty(t, ChangedReferences(&prev, prev))
 	assert.Len(t, ChangedReferences(nil, prev), len(documentReferences(prev)))
 
