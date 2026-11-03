@@ -63,13 +63,8 @@ type SlugAllocator struct {
 }
 
 // Allocate returns a slug for the entity id of type t named name that no earlier Allocate gave an entity of type
-// t: Slugify(name), or "<entity type>-<id>" if that is empty, with the first free suffix "-2", "-3"… if it is
-// taken, the base cut (at a hyphen where it can) so that the slug stays within MaxSlugLength.
+// t: the first of EntitySlug(name, t, id, 1), EntitySlug(name, t, id, 2)… that is free.
 func (a *SlugAllocator) Allocate(name string, t SlugEntityType, id int64) string {
-	base := Slugify(name)
-	if base == "" {
-		base = t.String() + "-" + strconv.FormatInt(id, 10)
-	}
 	if a.taken == nil {
 		a.taken = make(map[SlugEntityType]map[string]bool)
 	}
@@ -79,12 +74,27 @@ func (a *SlugAllocator) Allocate(name string, t SlugEntityType, id int64) string
 		a.taken[t] = taken
 	}
 
-	slug := base
+	slug := EntitySlug(name, t, id, 1)
 	for n := 2; taken[slug]; n++ {
-		suffix := "-" + strconv.Itoa(n)
-		slug = truncateSlug(base, MaxSlugLength-len(suffix)) + suffix
+		slug = EntitySlug(name, t, id, n)
 	}
 	taken[slug] = true
 
 	return slug
+}
+
+// EntitySlug returns the n-th slug (counting from 1) to try for the entity id of type t named name: Slugify(name),
+// or "<entity type>-<id>" if that is empty, and from the second on with the suffix "-<n>", the base cut (at a
+// hyphen where it can) so that the slug stays within MaxSlugLength.
+func EntitySlug(name string, t SlugEntityType, id int64, n int) string {
+	base := Slugify(name)
+	if base == "" {
+		base = t.String() + "-" + strconv.FormatInt(id, 10)
+	}
+	if n < 2 {
+		return base
+	}
+	suffix := "-" + strconv.Itoa(n)
+
+	return truncateSlug(base, MaxSlugLength-len(suffix)) + suffix
 }

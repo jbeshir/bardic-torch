@@ -45,8 +45,6 @@ type approvalRow struct {
 	opts  ApprovalOptions
 	err   error
 	check func(t *testing.T, plan ApprovalPlan[PieceDocument], err error)
-	// repository is set for a row decided by the repository alone: the test that covers it.
-	repository string
 }
 
 func problemsOf(t *testing.T, err error) []DocumentProblem {
@@ -57,8 +55,12 @@ func problemsOf(t *testing.T, err error) []DocumentProblem {
 	return docErr.Problems
 }
 
-// TestPlanApproval holds every §6.2 row but R19 (a draft base that is not an approved revision), which is the
-// repository's alone: TestRepository_SubmitDraft_BaseNotApproved in internal/datasources/mysql.
+// TestPlanApproval holds every §6.2 row but those the repository alone decides, which its integration tests in
+// internal/datasources/mysql hold: R19 (a draft base that is not an approved revision,
+// TestRepository_SubmitDraft_BaseNotApproved), R22 (the entity row gone, TestRepository_ApproveRevision_EntityGone),
+// R26 (a rebase against a current revision that moved, TestRepository_RebaseRevision_Stale), R46 (history order,
+// TestRepository_ApproveRevision_HistoryOrder) and R49 (a rebase keeps the submitted base,
+// TestRepository_RebaseRevision).
 func TestPlanApproval(t *testing.T) {
 	t.Parallel()
 
@@ -150,7 +152,6 @@ func TestPlanApproval(t *testing.T) {
 			check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
 				assert.Equal(t, []DocumentProblem{{Path: pathNewTerm, Code: ProblemUnknownReference}}, problemsOf(t, err))
 			}},
-		{id: "R22_EntityGone", repository: "TestRepository_ApproveRevision_* (chunk 5): the entity row is read FOR UPDATE"},
 		{id: "R23_DoubleApprove", state: notStale, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], _ error) {
 			_, err := CheckTransition(TransitionInput{Role: RoleModerator, From: approved, Action: RevisionActionApprove})
 			require.ErrorIs(t, err, ErrNotPending, "the second approval sees the first's status under the lock")
@@ -160,8 +161,6 @@ func TestPlanApproval(t *testing.T) {
 			require.ErrorIs(t, err, ErrNotPending)
 		}},
 		{id: "R25_ConcurrentApprovalSeesStale", state: staleClean, check: assertRebased},
-		{id: "R26_RebaseStaleCurrent", repository: "TestRepository_RebaseRevision (chunk 5): current_revision_id " +
-			"is compared under the entity lock"},
 		{id: "R27_RebaseThenApprove", state: func() ApprovalState[PieceDocument] {
 			resolved := withTitle(withNotes(base), "Resolved")
 			s := pieceApproval(withTitle(base, theirsTitle), resolved, withTitle(base, theirsTitle), currentRevisionID)
@@ -253,7 +252,6 @@ func TestPlanApproval(t *testing.T) {
 			assert.Equal(t, "Wren's Song", SortTitle(validPiece().Title))
 			assert.Equal(t, Letter("W"), SortLetter(SortTitle(validPiece().Title)))
 		}},
-		{id: "R46_HistoryOrder", repository: "TestRepository_ApproveRevision_* (chunk 5): created_at := reviewed_at"},
 		{id: "R47_CleanMergeFailsValidation", state: func() ApprovalState[PieceDocument] {
 			withLink := addLink(base, licensingLink)
 			rev := edit(withLink, func(d *PieceDocument) { d.LicensingStatus = LicensingStatusKnown })
@@ -263,8 +261,6 @@ func TestPlanApproval(t *testing.T) {
 			assert.Equal(t, []DocumentProblem{{Path: pathLicensingStatus, Code: ProblemSourceRequired}},
 				problemsOf(t, err), "SF15: merged cleanly, and not approved")
 		}},
-		{id: "R49_SubmittedBaseKept", repository: "TestRepository_RebaseRevision (chunk 5): " +
-			"submitted_base_revision_id is never written after submit"},
 		{id: "R50_FlaggedPendingReference", state: pending(PendingReference{Entity: ownTerm.Entity,
 			RevisionID: termRevision, Flags: []Flag{{Code: FlagHiddenAliasInSummary, Path: pathSummary}}}),
 			check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
@@ -303,9 +299,6 @@ func TestPlanApproval(t *testing.T) {
 	for _, row := range rows {
 		t.Run(row.id, func(t *testing.T) {
 			t.Parallel()
-			if row.repository != "" {
-				t.Skip("decided by the repository: " + row.repository)
-			}
 			plan, err := PlanApproval(row.state(), row.opts)
 			if row.err != nil {
 				require.ErrorIs(t, err, row.err)

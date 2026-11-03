@@ -26,11 +26,7 @@ func (r *Repository) FindDuplicates(
 ) ([]domain.DuplicateMatch, error) {
 	var matches []domain.DuplicateMatch
 	err := r.readOnly(ctx, func(c *catalogueReader) error {
-		names := c.duplicateNames(ctx, candidate, includeHidden)
-		if includeHidden {
-			names = append(names, pendingDuplicateNames(candidate, c.pendingNewEntities(ctx, "", true))...)
-		}
-		matches = domain.FindDuplicates(candidate, names)
+		matches = c.findDuplicates(ctx, candidate, includeHidden)
 		return c.err
 	})
 	if err != nil {
@@ -38,6 +34,18 @@ func (r *Repository) FindDuplicates(
 	}
 
 	return matches, nil
+}
+
+// findDuplicates returns the existing entities the candidate may duplicate (FindDuplicates).
+func (c *catalogueReader) findDuplicates(
+	ctx context.Context, candidate domain.DuplicateCandidate, includeHidden bool,
+) []domain.DuplicateMatch {
+	names := c.duplicateNames(ctx, candidate, includeHidden)
+	if includeHidden {
+		names = append(names, pendingDuplicateNames(candidate, c.pendingNewEntities(ctx, "", true))...)
+	}
+
+	return domain.FindDuplicates(candidate, names)
 }
 
 // duplicateNames returns the names of the public entities of the candidate's type.

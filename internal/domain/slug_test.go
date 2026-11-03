@@ -118,3 +118,12 @@ func TestSlugAllocator_SuffixFitsMaxLength(t *testing.T) {
 		assert.True(t, IsSlug(slug), slug)
 	}
 }
+
+func TestEntitySlug(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "the-wren-s-song", EntitySlug("The Wren's Song", SlugEntityTypePiece, 3, 1))
+	assert.Equal(t, "the-wren-s-song-2", EntitySlug("The Wren's Song", SlugEntityTypePiece, 3, 2))
+	assert.Equal(t, "term-3", EntitySlug("…", SlugEntityTypeTerm, 3, 1))
+	assert.Equal(t, "term-3-12", EntitySlug("…", SlugEntityTypeTerm, 3, 12))
+}

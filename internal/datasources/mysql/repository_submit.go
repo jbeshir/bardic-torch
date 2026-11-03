@@ -30,8 +30,7 @@ var errBaseNotApproved = errors.New("draft base is not an approved revision of i
 // FOR SHARE. A draft already submitted is a replay, returned as it is. The submission is planned on the draft's own
 // base, never merged with the current document (domain.PlanSubmit), stored as pending with the author's document
 // kept beside it, and supersedes the author's pending revision of the entity. A new entity gets its placeholder.
-// An interactive moderator's submission is approved at once, which needs the approval writer: until it exists,
-// SubmitDraft refuses it with errors.ErrUnsupported.
+// An interactive moderator's submission is approved at once, in the same transaction (D3).
 func (r *Repository) SubmitDraft(ctx context.Context, req datasources.SubmitRequest) (datasources.SubmitResult, error) {
 	var result datasources.SubmitResult
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -57,12 +56,12 @@ func (r *Repository) submitDraft(
 	if s.result.Replayed {
 		return s.result, nil
 	}
-	if s.result.Status == domain.RevisionStatusApproved {
-		return datasources.SubmitResult{}, fmt.Errorf("an interactive moderator's submission: %w", errors.ErrUnsupported)
-	}
 	docs, err := c.loadSubmission(ctx, s.draft)
 	if err != nil {
 		return datasources.SubmitResult{}, err
+	}
+	if s.result.Status == domain.RevisionStatusApproved {
+		return s.result, c.submitApproved(ctx, req, s, docs)
 	}
 
 	count, err := c.q.CountPendingRevisions(ctx, queries.CountPendingRevisionsParams{
@@ -79,8 +78,37 @@ func (r *Repository) submitDraft(
 	if err != nil {
 		return datasources.SubmitResult{}, err
 	}
+	if !s.draft.EntityID.Valid && len(req.Duplicates) > 0 {
+		flags = append(flags, domain.Flag{Code: domain.FlagPossibleDuplicate})
+	}
+	_, err = c.writeSubmission(ctx, req, s, docs.entity, doc, flags)
 
-	return s.result, c.writeSubmission(ctx, req, s, docs.entity, doc, flags)
+	return s.result, err
+}
+
+// submitApproved submits an interactive moderator's draft, which is approved at once (D3): restored like any
+// submission (only the preferences were withheld), stored as pending, then approved inline by the approval writer,
+// the moderator its reviewer, in the same transaction, so that a refused approval leaves the draft a draft. The
+// pending cap does not apply: the revision does not stay pending.
+func (c *catalogueReader) submitApproved(
+	ctx context.Context, req datasources.SubmitRequest, s submission, docs submissionDocuments,
+) error {
+	doc, flags, err := c.planSubmission(ctx, req, docs, s.draft)
+	if err != nil {
+		return err
+	}
+	entity, err := c.writeSubmission(ctx, req, s, docs.entity, doc, flags)
+	if err != nil {
+		return err
+	}
+
+	return c.approve(ctx, approvalInput{
+		revisionID: s.draft.ID, authorID: req.Actor.UserID, author: domain.RoleModerator, entity: entity,
+		kind: docs.kind, doc: doc, baseRevisionID: int64Ptr(s.draft.BaseRevisionID), summary: s.draft.Summary,
+		storedFlags: flags, reviewer: req.Actor.UserID,
+		options: domain.ApprovalOptions{AcknowledgedFlags: req.AcknowledgedFlags}, duplicates: req.Duplicates,
+		now: req.Now,
+	})
 }
 
 // submission is a draft being submitted, locked: its row, the ID of the pending revision it supersedes (0 if
@@ -216,7 +244,7 @@ func (c *catalogueReader) loadSubmission(ctx context.Context, draft queries.GetR
 	if docs.base, err = c.draftBaseDocument(ctx, kind, docs.entity, draft.BaseRevisionID); err != nil {
 		return submissionDocuments{}, err
 	}
-	if _, err := c.lockReferencedEntities(ctx, docs.entity, docs.references()); err != nil {
+	if _, err := c.lockOwnEntity(ctx, docs.entity, docs.references()); err != nil {
 		return submissionDocuments{}, err
 	}
 
@@ -224,25 +252,25 @@ func (c *catalogueReader) loadSubmission(ctx context.Context, draft queries.GetR
 }
 
 // writeSubmission writes a planned submission: a new entity's placeholder, the superseded revision withdrawn, and
-// the draft stored as pending.
+// the draft stored as pending. It returns the submission's entity, with its placeholder's ID for a new one.
 func (c *catalogueReader) writeSubmission(
 	ctx context.Context, req datasources.SubmitRequest, s submission, entity domain.EntityRef,
 	doc domain.AnyDocument, flags []domain.Flag,
-) error {
+) (domain.EntityRef, error) {
 	if !s.draft.EntityID.Valid {
 		id, err := c.insertPlaceholder(ctx, doc)
 		if err != nil {
-			return err
+			return domain.EntityRef{}, err
 		}
 		entity.ID = id
 	}
 	if s.superseded != 0 {
 		if err := requireMatched(c.q.WithdrawRevision(ctx, s.superseded)); err != nil {
-			return fmt.Errorf("superseding revision [%d]: %w", s.superseded, err)
+			return domain.EntityRef{}, fmt.Errorf("superseding revision [%d]: %w", s.superseded, err)
 		}
 	}
 
-	return c.storeSubmission(ctx, req, s.draft, entity, doc, flags)
+	return entity, c.storeSubmission(ctx, req, s.draft, entity, doc, flags)
 }
 
 // draftBaseDocument returns the document of a draft's base, nil for none (a new entity). The base must be an
@@ -452,19 +480,9 @@ func (r *Repository) WithdrawRevision(ctx context.Context, actor domain.Actor, i
 		if err != nil {
 			return err
 		}
-		entity := domain.EntityRef{Type: enumOf[domain.EntityType](c, row.EntityType), ID: row.EntityID.Int64}
-		entityRow, err := c.entityRow(ctx, entity.Type, entity.ID, true)
-		gone := errors.Is(err, datasources.ErrNotFound)
-		if err != nil && !gone {
-			return err
-		}
-		if err := requireMatched(c.q.WithdrawRevision(ctx, row.ID)); err != nil {
-			return fmt.Errorf("withdrawing: %w", err)
-		}
-		if gone || entityRow.currentRevision != nil {
-			return c.err
-		}
-		return c.deleteUnusedPlaceholder(ctx, entity, row.ID)
+		return c.leavePending(ctx, row, func() error {
+			return requireMatched(c.q.WithdrawRevision(ctx, row.ID))
+		})
 	})
 	if err != nil {
 		return withoutServerMessage(fmt.Sprintf("withdrawing revision [%d]", id), err)
@@ -489,4 +507,23 @@ func (c *catalogueReader) deleteUnusedPlaceholder(
 	}
 
 	return c.deletePlaceholder(ctx, entity)
+}
+
+// leavePending ends the locked pending revision row without approving it, by write (D14): it locks the revision's
+// entity row, writes, and deletes a pending new entity's placeholder if no other pending revision has it.
+func (c *catalogueReader) leavePending(ctx context.Context, row queries.LockRevisionsRow, write func() error) error {
+	entity := domain.EntityRef{Type: enumOf[domain.EntityType](c, row.EntityType), ID: row.EntityID.Int64}
+	entityRow, err := c.entityRow(ctx, entity.Type, entity.ID, true)
+	gone := errors.Is(err, datasources.ErrNotFound)
+	if err != nil && !gone {
+		return err
+	}
+	if err := write(); err != nil {
+		return fmt.Errorf("ending pending revision: %w", err)
+	}
+	if gone || entityRow.currentRevision != nil {
+		return c.err
+	}
+
+	return c.deleteUnusedPlaceholder(ctx, entity, row.ID)
 }

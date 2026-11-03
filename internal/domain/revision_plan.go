@@ -194,7 +194,7 @@ func PlanApproval[D Document](s ApprovalState[D], opts ApprovalOptions) (Approva
 		return ApprovalPlan[D]{}, err
 	}
 	matcher := NewNameMatcher(s.HiddenAliases, nil)
-	flags := slices.DeleteFunc(slices.Clone(s.StoredFlags), func(f Flag) bool { return !submitFlags[f.Code] })
+	flags := approvalFlags(s, doc, matcher)
 	if slices.ContainsFunc(flags, func(f Flag) bool {
 		return f.Code == FlagHiddenAliasCollision || f.Code == FlagHiddenDataConflict
 	}) {
@@ -208,11 +208,7 @@ func PlanApproval[D Document](s ApprovalState[D], opts ApprovalOptions) (Approva
 			return ApprovalPlan[D]{}, &PendingReferenceFlaggedError{RevisionID: ref.RevisionID, Flags: ref.Flags}
 		}
 	}
-	flags = append(flags, contentFlags(doc, s.Current, s.Summary, s.Refs, s.HiddenLinkURLs, matcher)...)
-	if s.PossibleDuplicate {
-		flags = append(flags, Flag{Code: FlagPossibleDuplicate})
-	}
-	summary, err := approvalSummary(uniqueFlags(flags), s.Summary, opts, matcher)
+	summary, err := approvalSummary(flags, s.Summary, opts, matcher)
 	if err != nil {
 		return ApprovalPlan[D]{}, err
 	}
@@ -228,6 +224,28 @@ func PlanApproval[D Document](s ApprovalState[D], opts ApprovalOptions) (Approva
 	plan.ConservationChange, plan.TermFacetRebuild = documentChanges(doc, s.Current, summary)
 
 	return plan, nil
+}
+
+// ApprovalFlags returns the flags approving the revision of s gates on (D19), as PlanApproval finds them: the
+// flags only its submission could find, kept from StoredFlags; those of the document approval would write (the
+// revision's clean merge with the current document if it is stale, else the revision's own); and
+// possible_duplicate. Moderator views show them before the moderator approves.
+func ApprovalFlags[D Document](s ApprovalState[D]) []Flag {
+	// A merge that conflicts leaves the revision's own document, whose flags are the ones to show.
+	doc, _, _ := approvalDocument(s)
+
+	return approvalFlags(s, doc, NewNameMatcher(s.HiddenAliases, nil))
+}
+
+// approvalFlags are the flags of approving the revision of s with the document doc, each once.
+func approvalFlags[D Document](s ApprovalState[D], doc D, matcher NameMatcher) []Flag {
+	flags := slices.DeleteFunc(slices.Clone(s.StoredFlags), func(f Flag) bool { return !submitFlags[f.Code] })
+	flags = append(flags, contentFlags(doc, s.Current, s.Summary, s.Refs, s.HiddenLinkURLs, matcher)...)
+	if s.PossibleDuplicate {
+		flags = append(flags, Flag{Code: FlagPossibleDuplicate})
+	}
+
+	return uniqueFlags(flags)
 }
 
 // approvalDocument is the document an approval writes: the revision's if it is not stale, or its clean merge with

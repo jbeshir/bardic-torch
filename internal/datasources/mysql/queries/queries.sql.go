@@ -13,6 +13,43 @@ import (
 	"time"
 )
 
+const approveRevisionRow = `-- name: ApproveRevisionRow :execrows
+
+UPDATE revisions
+SET status = 'approved', snapshot_json = ?, base_revision_id = ?,
+    summary = ?, reviewer_user_id = ?, created_at = ?,
+    reviewed_at = created_at, review_note = ?
+WHERE id = ? AND status = 'pending'
+`
+
+type ApproveRevisionRowParams struct {
+	SnapshotJson   json.RawMessage
+	BaseRevisionID sql.NullInt64
+	Summary        string
+	ReviewerUserID sql.NullString
+	ApprovedAt     time.Time
+	ReviewNote     sql.NullString
+	ID             uint64
+}
+
+// An approved revision is dated by its approval (created_at = reviewed_at, D1), so that history, ordered by
+// created_at, lists the current revision first.
+func (q *Queries) ApproveRevisionRow(ctx context.Context, arg ApproveRevisionRowParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, approveRevisionRow,
+		arg.SnapshotJson,
+		arg.BaseRevisionID,
+		arg.Summary,
+		arg.ReviewerUserID,
+		arg.ApprovedAt,
+		arg.ReviewNote,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const blockUser = `-- name: BlockUser :execrows
 UPDATE users
 SET blocked_at = COALESCE(blocked_at, ?)
@@ -58,6 +95,43 @@ WHERE author_user_id = ? AND status = 'draft'
 
 func (q *Queries) CountDrafts(ctx context.Context, authorUserID sql.NullString) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countDrafts, authorUserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countModerationQueue = `-- name: CountModerationQueue :one
+SELECT COUNT(*)
+FROM revisions r
+JOIN users u ON u.id = r.author_user_id
+WHERE r.status = 'pending'
+    AND (? IS NULL OR r.entity_type = ?)
+    AND (? IS NULL OR r.author_user_id = ?)
+    AND (? IS NULL OR r.submitted_at <= ?)
+    AND (? IS NULL OR r.submitted_at >= ?)
+    AND (u.blocked_at IS NULL OR ?)
+`
+
+type CountModerationQueueParams struct {
+	EntityType      NullRevisionsEntityType
+	AuthorUserID    sql.NullString
+	SubmittedBefore sql.NullTime
+	SubmittedAfter  sql.NullTime
+	IncludeBlocked  interface{}
+}
+
+func (q *Queries) CountModerationQueue(ctx context.Context, arg CountModerationQueueParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countModerationQueue,
+		arg.EntityType,
+		arg.EntityType,
+		arg.AuthorUserID,
+		arg.AuthorUserID,
+		arg.SubmittedBefore,
+		arg.SubmittedBefore,
+		arg.SubmittedAfter,
+		arg.SubmittedAfter,
+		arg.IncludeBlocked,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -294,12 +368,131 @@ func (q *Queries) DeleteEventPlaceholder(ctx context.Context, id uint64) error {
 	return err
 }
 
+const deleteFacetClosure = `-- name: DeleteFacetClosure :exec
+DELETE FROM term_ancestors
+WHERE descendant_id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) DeleteFacetClosure(ctx context.Context, ids []uint64) error {
+	query := deleteFacetClosure
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const deleteLinkAttachmentsOfPerson = `-- name: DeleteLinkAttachmentsOfPerson :exec
+DELETE FROM link_attachments WHERE person_id = ?
+`
+
+func (q *Queries) DeleteLinkAttachmentsOfPerson(ctx context.Context, personID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deleteLinkAttachmentsOfPerson, personID)
+	return err
+}
+
+const deleteLinkAttachmentsOfPiece = `-- name: DeleteLinkAttachmentsOfPiece :exec
+DELETE FROM link_attachments WHERE piece_id = ?
+`
+
+func (q *Queries) DeleteLinkAttachmentsOfPiece(ctx context.Context, pieceID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deleteLinkAttachmentsOfPiece, pieceID)
+	return err
+}
+
+const deletePerformancesOwnedByPerson = `-- name: DeletePerformancesOwnedByPerson :exec
+DELETE FROM performances WHERE owner_person_id = ?
+`
+
+func (q *Queries) DeletePerformancesOwnedByPerson(ctx context.Context, ownerPersonID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deletePerformancesOwnedByPerson, ownerPersonID)
+	return err
+}
+
+const deletePerformancesOwnedByPiece = `-- name: DeletePerformancesOwnedByPiece :exec
+DELETE FROM performances WHERE owner_piece_id = ?
+`
+
+func (q *Queries) DeletePerformancesOwnedByPiece(ctx context.Context, ownerPieceID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deletePerformancesOwnedByPiece, ownerPieceID)
+	return err
+}
+
+const deletePersonAffiliations = `-- name: DeletePersonAffiliations :exec
+DELETE FROM person_affiliations WHERE person_id = ?
+`
+
+func (q *Queries) DeletePersonAffiliations(ctx context.Context, personID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonAffiliations, personID)
+	return err
+}
+
+const deletePersonAliases = `-- name: DeletePersonAliases :exec
+DELETE FROM person_aliases WHERE person_id = ?
+`
+
+func (q *Queries) DeletePersonAliases(ctx context.Context, personID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonAliases, personID)
+	return err
+}
+
 const deletePersonPlaceholder = `-- name: DeletePersonPlaceholder :exec
 DELETE FROM persons WHERE id = ? AND current_revision_id IS NULL
 `
 
 func (q *Queries) DeletePersonPlaceholder(ctx context.Context, id uint64) error {
 	_, err := q.db.ExecContext(ctx, deletePersonPlaceholder, id)
+	return err
+}
+
+const deletePersonPreferences = `-- name: DeletePersonPreferences :exec
+DELETE FROM person_preferences WHERE person_id = ?
+`
+
+func (q *Queries) DeletePersonPreferences(ctx context.Context, personID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonPreferences, personID)
+	return err
+}
+
+const deletePersonRelations = `-- name: DeletePersonRelations :exec
+DELETE FROM person_relations WHERE from_person_id = ?
+`
+
+func (q *Queries) DeletePersonRelations(ctx context.Context, fromPersonID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonRelations, fromPersonID)
+	return err
+}
+
+const deletePersonRoles = `-- name: DeletePersonRoles :exec
+DELETE FROM person_roles WHERE person_id = ?
+`
+
+func (q *Queries) DeletePersonRoles(ctx context.Context, personID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonRoles, personID)
+	return err
+}
+
+const deletePieceAliases = `-- name: DeletePieceAliases :exec
+DELETE FROM piece_aliases WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePieceAliases(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceAliases, pieceID)
+	return err
+}
+
+const deletePieceCredits = `-- name: DeletePieceCredits :exec
+DELETE FROM piece_credits WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePieceCredits(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceCredits, pieceID)
 	return err
 }
 
@@ -312,6 +505,51 @@ DELETE FROM pieces WHERE id = ? AND current_revision_id IS NULL
 // approval and no other pending revision has it (D14); one that has been approved since is kept.
 func (q *Queries) DeletePiecePlaceholder(ctx context.Context, id uint64) error {
 	_, err := q.db.ExecContext(ctx, deletePiecePlaceholder, id)
+	return err
+}
+
+const deletePiecePreferences = `-- name: DeletePiecePreferences :exec
+DELETE FROM piece_preferences WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePiecePreferences(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePiecePreferences, pieceID)
+	return err
+}
+
+const deletePieceRelations = `-- name: DeletePieceRelations :exec
+DELETE FROM piece_relations WHERE from_piece_id = ?
+`
+
+func (q *Queries) DeletePieceRelations(ctx context.Context, fromPieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceRelations, fromPieceID)
+	return err
+}
+
+const deletePieceSecondaryKinds = `-- name: DeletePieceSecondaryKinds :exec
+DELETE FROM piece_secondary_kinds WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePieceSecondaryKinds(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceSecondaryKinds, pieceID)
+	return err
+}
+
+const deletePieceTerms = `-- name: DeletePieceTerms :exec
+DELETE FROM piece_terms WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePieceTerms(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceTerms, pieceID)
+	return err
+}
+
+const deleteTermAliases = `-- name: DeleteTermAliases :exec
+DELETE FROM term_aliases WHERE term_id = ?
+`
+
+func (q *Queries) DeleteTermAliases(ctx context.Context, termID uint64) error {
+	_, err := q.db.ExecContext(ctx, deleteTermAliases, termID)
 	return err
 }
 
@@ -424,6 +662,152 @@ func (q *Queries) GetApprovedRevision(ctx context.Context, id uint64) (GetApprov
 		&i.CreatedAt,
 		&i.SnapshotJson,
 		&i.AuthorDisplayName,
+	)
+	return i, err
+}
+
+const getLinkFields = `-- name: GetLinkFields :one
+SELECT url, title, description, platform, place_type, collection_id, locator
+FROM links
+WHERE id = ?
+`
+
+type GetLinkFieldsRow struct {
+	Url          string
+	Title        sql.NullString
+	Description  sql.NullString
+	Platform     sql.NullString
+	PlaceType    NullLinksPlaceType
+	CollectionID sql.NullInt64
+	Locator      sql.NullString
+}
+
+func (q *Queries) GetLinkFields(ctx context.Context, id uint64) (GetLinkFieldsRow, error) {
+	row := q.db.QueryRowContext(ctx, getLinkFields, id)
+	var i GetLinkFieldsRow
+	err := row.Scan(
+		&i.Url,
+		&i.Title,
+		&i.Description,
+		&i.Platform,
+		&i.PlaceType,
+		&i.CollectionID,
+		&i.Locator,
+	)
+	return i, err
+}
+
+const getModerationLink = `-- name: GetModerationLink :one
+SELECT l.id, l.url, l.title, l.description, l.platform, l.place_type, l.collection_id,
+    c.name AS collection_name, l.locator, l.liveness, l.is_hidden,
+    (SELECT COUNT(*) FROM link_reports lr WHERE lr.link_id = l.id AND lr.status = 'open') AS open_report_count
+FROM links l
+LEFT JOIN collections c ON c.id = l.collection_id
+WHERE l.normalized_url = ?
+`
+
+type GetModerationLinkRow struct {
+	ID              uint64
+	Url             string
+	Title           sql.NullString
+	Description     sql.NullString
+	Platform        sql.NullString
+	PlaceType       NullLinksPlaceType
+	CollectionID    sql.NullInt64
+	CollectionName  sql.NullString
+	Locator         sql.NullString
+	Liveness        LinksLiveness
+	IsHidden        bool
+	OpenReportCount int64
+}
+
+func (q *Queries) GetModerationLink(ctx context.Context, normalizedUrl string) (GetModerationLinkRow, error) {
+	row := q.db.QueryRowContext(ctx, getModerationLink, normalizedUrl)
+	var i GetModerationLinkRow
+	err := row.Scan(
+		&i.ID,
+		&i.Url,
+		&i.Title,
+		&i.Description,
+		&i.Platform,
+		&i.PlaceType,
+		&i.CollectionID,
+		&i.CollectionName,
+		&i.Locator,
+		&i.Liveness,
+		&i.IsHidden,
+		&i.OpenReportCount,
+	)
+	return i, err
+}
+
+const getModerationRevision = `-- name: GetModerationRevision :one
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.submitted_base_revision_id, r.source, r.status,
+    r.snapshot_json, r.submitted_snapshot_json, r.flags_json, r.summary, r.review_note, r.created_at,
+    r.submitted_at, r.reviewed_at, r.rebased_at, r.author_user_id, a.display_name AS author_display_name,
+    a.role AS author_role, a.blocked_at AS author_blocked_at, r.reviewer_user_id,
+    v.display_name AS reviewer_display_name, v.role AS reviewer_role, v.blocked_at AS reviewer_blocked_at
+FROM revisions r
+LEFT JOIN users a ON a.id = r.author_user_id
+LEFT JOIN users v ON v.id = r.reviewer_user_id
+WHERE r.id = ? AND r.status <> 'draft'
+`
+
+type GetModerationRevisionRow struct {
+	ID                      uint64
+	EntityType              RevisionsEntityType
+	EntityID                sql.NullInt64
+	BaseRevisionID          sql.NullInt64
+	SubmittedBaseRevisionID sql.NullInt64
+	Source                  RevisionsSource
+	Status                  RevisionsStatus
+	SnapshotJson            json.RawMessage
+	SubmittedSnapshotJson   []byte
+	FlagsJson               []byte
+	Summary                 string
+	ReviewNote              sql.NullString
+	CreatedAt               time.Time
+	SubmittedAt             sql.NullTime
+	ReviewedAt              sql.NullTime
+	RebasedAt               sql.NullTime
+	AuthorUserID            sql.NullString
+	AuthorDisplayName       sql.NullString
+	AuthorRole              NullUsersRole
+	AuthorBlockedAt         sql.NullTime
+	ReviewerUserID          sql.NullString
+	ReviewerDisplayName     sql.NullString
+	ReviewerRole            NullUsersRole
+	ReviewerBlockedAt       sql.NullTime
+}
+
+func (q *Queries) GetModerationRevision(ctx context.Context, id uint64) (GetModerationRevisionRow, error) {
+	row := q.db.QueryRowContext(ctx, getModerationRevision, id)
+	var i GetModerationRevisionRow
+	err := row.Scan(
+		&i.ID,
+		&i.EntityType,
+		&i.EntityID,
+		&i.BaseRevisionID,
+		&i.SubmittedBaseRevisionID,
+		&i.Source,
+		&i.Status,
+		&i.SnapshotJson,
+		&i.SubmittedSnapshotJson,
+		&i.FlagsJson,
+		&i.Summary,
+		&i.ReviewNote,
+		&i.CreatedAt,
+		&i.SubmittedAt,
+		&i.ReviewedAt,
+		&i.RebasedAt,
+		&i.AuthorUserID,
+		&i.AuthorDisplayName,
+		&i.AuthorRole,
+		&i.AuthorBlockedAt,
+		&i.ReviewerUserID,
+		&i.ReviewerDisplayName,
+		&i.ReviewerRole,
+		&i.ReviewerBlockedAt,
 	)
 	return i, err
 }
@@ -706,8 +1090,8 @@ func (q *Queries) GetPublicTermID(ctx context.Context, slug string) (uint64, err
 
 const getRevision = `-- name: GetRevision :one
 SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.submitted_base_revision_id, r.author_user_id, r.source,
-    r.status, r.snapshot_json, r.submitted_snapshot_json, r.received_keys_json, r.summary, r.reviewed_at,
-    r.review_note, r.created_at, r.updated_at, r.submitted_at, u.display_name AS author_display_name,
+    r.status, r.snapshot_json, r.submitted_snapshot_json, r.flags_json, r.received_keys_json, r.summary,
+    r.reviewed_at, r.review_note, r.created_at, r.updated_at, r.submitted_at, u.display_name AS author_display_name,
     u.role AS author_role
 FROM revisions r
 LEFT JOIN users u ON u.id = r.author_user_id
@@ -725,6 +1109,7 @@ type GetRevisionRow struct {
 	Status                  RevisionsStatus
 	SnapshotJson            json.RawMessage
 	SubmittedSnapshotJson   []byte
+	FlagsJson               []byte
 	ReceivedKeysJson        []byte
 	Summary                 string
 	ReviewedAt              sql.NullTime
@@ -750,6 +1135,7 @@ func (q *Queries) GetRevision(ctx context.Context, id uint64) (GetRevisionRow, e
 		&i.Status,
 		&i.SnapshotJson,
 		&i.SubmittedSnapshotJson,
+		&i.FlagsJson,
 		&i.ReceivedKeysJson,
 		&i.Summary,
 		&i.ReviewedAt,
@@ -1554,6 +1940,55 @@ func (q *Queries) InsertPieceTerm(ctx context.Context, arg InsertPieceTermParams
 		arg.Position,
 	)
 	return err
+}
+
+const insertRevertRevision = `-- name: InsertRevertRevision :execlastid
+
+INSERT INTO revisions (entity_type, entity_id, base_revision_id, submitted_base_revision_id, author_user_id, source,
+    status, snapshot_json, submitted_snapshot_json, flags_json, received_keys_json, summary, created_at, updated_at,
+    submitted_at)
+VALUES (?, ?, ?, ?,
+    ?, 'user', 'pending', ?, ?,
+    ?, ?, ?, ?, ?,
+    ?)
+`
+
+type InsertRevertRevisionParams struct {
+	EntityType            RevisionsEntityType
+	EntityID              sql.NullInt64
+	BaseRevisionID        sql.NullInt64
+	AuthorUserID          sql.NullString
+	SnapshotJson          json.RawMessage
+	SubmittedSnapshotJson []byte
+	FlagsJson             []byte
+	ReceivedKeysJson      []byte
+	Summary               string
+	CreatedAt             time.Time
+	SubmittedAt           sql.NullTime
+}
+
+// A revert is a new pending revision on the current revision, holding its author's document (the projection of
+// the revert) beside the full document (D10).
+func (q *Queries) InsertRevertRevision(ctx context.Context, arg InsertRevertRevisionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertRevertRevision,
+		arg.EntityType,
+		arg.EntityID,
+		arg.BaseRevisionID,
+		arg.BaseRevisionID,
+		arg.AuthorUserID,
+		arg.SnapshotJson,
+		arg.SubmittedSnapshotJson,
+		arg.FlagsJson,
+		arg.ReceivedKeysJson,
+		arg.Summary,
+		arg.CreatedAt,
+		arg.SubmittedAt,
+		arg.SubmittedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 const insertRevisionContributor = `-- name: InsertRevisionContributor :exec
@@ -2638,6 +3073,163 @@ func (q *Queries) ListLinksByNormalizedURL(ctx context.Context, normalizedUrls [
 	for rows.Next() {
 		var i ListLinksByNormalizedURLRow
 		if err := rows.Scan(&i.NormalizedUrl, &i.Url, &i.IsHidden); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listModerationLinkAttachments = `-- name: ListModerationLinkAttachments :many
+
+SELECT a.piece_id, a.person_id, a.role, pc.slug AS piece_slug, pc.title AS piece_title,
+    pc.current_revision_id IS NOT NULL AS piece_public, ps.slug AS person_slug, ps.name AS person_name,
+    ps.current_revision_id IS NOT NULL AS person_public
+FROM link_attachments a
+LEFT JOIN pieces pc ON pc.id = a.piece_id
+LEFT JOIN persons ps ON ps.id = a.person_id
+WHERE a.link_id = ?
+ORDER BY a.piece_id IS NULL, a.piece_id, a.person_id, a.id
+`
+
+type ListModerationLinkAttachmentsRow struct {
+	PieceID      sql.NullInt64
+	PersonID     sql.NullInt64
+	Role         LinkAttachmentsRole
+	PieceSlug    sql.NullString
+	PieceTitle   sql.NullString
+	PiecePublic  bool
+	PersonSlug   sql.NullString
+	PersonName   sql.NullString
+	PersonPublic bool
+}
+
+// A link's attachments, pieces first, then persons, each by ID, and each entity's roles in attachment order.
+func (q *Queries) ListModerationLinkAttachments(ctx context.Context, linkID uint64) ([]ListModerationLinkAttachmentsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listModerationLinkAttachments, linkID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListModerationLinkAttachmentsRow
+	for rows.Next() {
+		var i ListModerationLinkAttachmentsRow
+		if err := rows.Scan(
+			&i.PieceID,
+			&i.PersonID,
+			&i.Role,
+			&i.PieceSlug,
+			&i.PieceTitle,
+			&i.PiecePublic,
+			&i.PersonSlug,
+			&i.PersonName,
+			&i.PersonPublic,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listModerationQueue = `-- name: ListModerationQueue :many
+
+
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.snapshot_json, r.flags_json, r.summary,
+    r.submitted_at, u.id AS author_id, u.display_name AS author_display_name, u.role AS author_role,
+    u.blocked_at AS author_blocked_at
+FROM revisions r
+JOIN users u ON u.id = r.author_user_id
+WHERE r.status = 'pending'
+    AND (? IS NULL OR r.entity_type = ?)
+    AND (? IS NULL OR r.author_user_id = ?)
+    AND (? IS NULL OR r.submitted_at <= ?)
+    AND (? IS NULL OR r.submitted_at >= ?)
+    AND (u.blocked_at IS NULL OR ?)
+ORDER BY r.submitted_at, r.id
+LIMIT ? OFFSET ?
+`
+
+type ListModerationQueueParams struct {
+	EntityType      NullRevisionsEntityType
+	AuthorUserID    sql.NullString
+	SubmittedBefore sql.NullTime
+	SubmittedAfter  sql.NullTime
+	IncludeBlocked  interface{}
+	Limit           int32
+	Offset          int32
+}
+
+type ListModerationQueueRow struct {
+	ID                uint64
+	EntityType        RevisionsEntityType
+	EntityID          sql.NullInt64
+	BaseRevisionID    sql.NullInt64
+	SnapshotJson      json.RawMessage
+	FlagsJson         []byte
+	Summary           string
+	SubmittedAt       sql.NullTime
+	AuthorID          string
+	AuthorDisplayName string
+	AuthorRole        UsersRole
+	AuthorBlockedAt   sql.NullTime
+}
+
+// ============================================
+// Moderation reads
+//
+// Moderator views (D8): the queue of pending revisions, a revision of any status but draft with every document in
+// full, and a link with every entity it is attached to. User IDs are served here, so that moderators can block.
+// ============================================
+// The pending revisions, oldest first: of one entity type or author if set, submitted at or before
+// submitted_before and at or after submitted_after if set, and of blocked authors only with include_blocked.
+func (q *Queries) ListModerationQueue(ctx context.Context, arg ListModerationQueueParams) ([]ListModerationQueueRow, error) {
+	rows, err := q.db.QueryContext(ctx, listModerationQueue,
+		arg.EntityType,
+		arg.EntityType,
+		arg.AuthorUserID,
+		arg.AuthorUserID,
+		arg.SubmittedBefore,
+		arg.SubmittedBefore,
+		arg.SubmittedAfter,
+		arg.SubmittedAfter,
+		arg.IncludeBlocked,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListModerationQueueRow
+	for rows.Next() {
+		var i ListModerationQueueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.BaseRevisionID,
+			&i.SnapshotJson,
+			&i.FlagsJson,
+			&i.Summary,
+			&i.SubmittedAt,
+			&i.AuthorID,
+			&i.AuthorDisplayName,
+			&i.AuthorRole,
+			&i.AuthorBlockedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -5007,6 +5599,44 @@ func (q *Queries) LockRevisions(ctx context.Context, ids []uint64) ([]LockRevisi
 	return items, nil
 }
 
+const lockTermsOfFacet = `-- name: LockTermsOfFacet :many
+
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ id, parent_id
+FROM terms
+WHERE facet = ?
+ORDER BY id
+FOR UPDATE
+`
+
+type LockTermsOfFacetRow struct {
+	ID       uint64
+	ParentID sql.NullInt64
+}
+
+// Every term of a facet, locked, for rebuilding its closure (D15 step 5).
+func (q *Queries) LockTermsOfFacet(ctx context.Context, facet TermsFacet) ([]LockTermsOfFacetRow, error) {
+	rows, err := q.db.QueryContext(ctx, lockTermsOfFacet, facet)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LockTermsOfFacetRow
+	for rows.Next() {
+		var i LockTermsOfFacetRow
+		if err := rows.Scan(&i.ID, &i.ParentID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockUser = `-- name: LockUser :one
 
 SELECT /*+ MAX_EXECUTION_TIME(4000) */ id
@@ -5047,6 +5677,62 @@ func (q *Queries) PromoteToModerator(ctx context.Context, arg PromoteToModerator
 	return err
 }
 
+const rebaseRevisionRow = `-- name: RebaseRevisionRow :execrows
+UPDATE revisions
+SET snapshot_json = ?, base_revision_id = ?, summary = ?, rebased_by_user_id = ?, rebased_at = ?
+WHERE id = ? AND status = 'pending'
+`
+
+type RebaseRevisionRowParams struct {
+	SnapshotJson    json.RawMessage
+	BaseRevisionID  sql.NullInt64
+	Summary         string
+	RebasedByUserID sql.NullString
+	RebasedAt       sql.NullTime
+	ID              uint64
+}
+
+func (q *Queries) RebaseRevisionRow(ctx context.Context, arg RebaseRevisionRowParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, rebaseRevisionRow,
+		arg.SnapshotJson,
+		arg.BaseRevisionID,
+		arg.Summary,
+		arg.RebasedByUserID,
+		arg.RebasedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const rejectRevisionRow = `-- name: RejectRevisionRow :execrows
+UPDATE revisions
+SET status = 'rejected', reviewer_user_id = ?, reviewed_at = ?, review_note = ?
+WHERE id = ? AND status = 'pending'
+`
+
+type RejectRevisionRowParams struct {
+	ReviewerUserID sql.NullString
+	ReviewedAt     sql.NullTime
+	ReviewNote     sql.NullString
+	ID             uint64
+}
+
+func (q *Queries) RejectRevisionRow(ctx context.Context, arg RejectRevisionRowParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, rejectRevisionRow,
+		arg.ReviewerUserID,
+		arg.ReviewedAt,
+		arg.ReviewNote,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const revokeAPIToken = `-- name: RevokeAPIToken :execrows
 UPDATE api_tokens
 SET revoked_at = COALESCE(revoked_at, ?)
@@ -5061,6 +5747,91 @@ type RevokeAPITokenParams struct {
 
 func (q *Queries) RevokeAPIToken(ctx context.Context, arg RevokeAPITokenParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, revokeAPIToken, arg.RevokedAt, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setCurrentRevisionCollection = `-- name: SetCurrentRevisionCollection :execrows
+UPDATE collections SET current_revision_id = ? WHERE id = ?
+`
+
+type SetCurrentRevisionCollectionParams struct {
+	CurrentRevisionID sql.NullInt64
+	ID                uint64
+}
+
+func (q *Queries) SetCurrentRevisionCollection(ctx context.Context, arg SetCurrentRevisionCollectionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setCurrentRevisionCollection, arg.CurrentRevisionID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setCurrentRevisionEvent = `-- name: SetCurrentRevisionEvent :execrows
+UPDATE events SET current_revision_id = ? WHERE id = ?
+`
+
+type SetCurrentRevisionEventParams struct {
+	CurrentRevisionID sql.NullInt64
+	ID                uint64
+}
+
+func (q *Queries) SetCurrentRevisionEvent(ctx context.Context, arg SetCurrentRevisionEventParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setCurrentRevisionEvent, arg.CurrentRevisionID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setCurrentRevisionPerson = `-- name: SetCurrentRevisionPerson :execrows
+UPDATE persons SET current_revision_id = ? WHERE id = ?
+`
+
+type SetCurrentRevisionPersonParams struct {
+	CurrentRevisionID sql.NullInt64
+	ID                uint64
+}
+
+func (q *Queries) SetCurrentRevisionPerson(ctx context.Context, arg SetCurrentRevisionPersonParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setCurrentRevisionPerson, arg.CurrentRevisionID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setCurrentRevisionPiece = `-- name: SetCurrentRevisionPiece :execrows
+UPDATE pieces SET current_revision_id = ? WHERE id = ?
+`
+
+type SetCurrentRevisionPieceParams struct {
+	CurrentRevisionID sql.NullInt64
+	ID                uint64
+}
+
+func (q *Queries) SetCurrentRevisionPiece(ctx context.Context, arg SetCurrentRevisionPieceParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setCurrentRevisionPiece, arg.CurrentRevisionID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setCurrentRevisionTerm = `-- name: SetCurrentRevisionTerm :execrows
+UPDATE terms SET current_revision_id = ? WHERE id = ?
+`
+
+type SetCurrentRevisionTermParams struct {
+	CurrentRevisionID sql.NullInt64
+	ID                uint64
+}
+
+func (q *Queries) SetCurrentRevisionTerm(ctx context.Context, arg SetCurrentRevisionTermParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setCurrentRevisionTerm, arg.CurrentRevisionID, arg.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -5103,6 +5874,65 @@ func (q *Queries) SubmitDraft(ctx context.Context, arg SubmitDraftParams) (int64
 	return result.RowsAffected()
 }
 
+const trySetSlugEvent = `-- name: TrySetSlugEvent :exec
+UPDATE events SET slug = ? WHERE id = ?
+`
+
+type TrySetSlugEventParams struct {
+	Slug string
+	ID   uint64
+}
+
+func (q *Queries) TrySetSlugEvent(ctx context.Context, arg TrySetSlugEventParams) error {
+	_, err := q.db.ExecContext(ctx, trySetSlugEvent, arg.Slug, arg.ID)
+	return err
+}
+
+const trySetSlugPerson = `-- name: TrySetSlugPerson :exec
+UPDATE persons SET slug = ? WHERE id = ?
+`
+
+type TrySetSlugPersonParams struct {
+	Slug string
+	ID   uint64
+}
+
+func (q *Queries) TrySetSlugPerson(ctx context.Context, arg TrySetSlugPersonParams) error {
+	_, err := q.db.ExecContext(ctx, trySetSlugPerson, arg.Slug, arg.ID)
+	return err
+}
+
+const trySetSlugPiece = `-- name: TrySetSlugPiece :exec
+
+UPDATE pieces SET slug = ? WHERE id = ?
+`
+
+type TrySetSlugPieceParams struct {
+	Slug string
+	ID   uint64
+}
+
+// A new entity's slug is allocated at its first approval by trying candidates until one is not taken (error 1062
+// on idx_slug, which rolls back only the statement), and never changes after.
+func (q *Queries) TrySetSlugPiece(ctx context.Context, arg TrySetSlugPieceParams) error {
+	_, err := q.db.ExecContext(ctx, trySetSlugPiece, arg.Slug, arg.ID)
+	return err
+}
+
+const trySetSlugTerm = `-- name: TrySetSlugTerm :exec
+UPDATE terms SET slug = ? WHERE id = ?
+`
+
+type TrySetSlugTermParams struct {
+	Slug string
+	ID   uint64
+}
+
+func (q *Queries) TrySetSlugTerm(ctx context.Context, arg TrySetSlugTermParams) error {
+	_, err := q.db.ExecContext(ctx, trySetSlugTerm, arg.Slug, arg.ID)
+	return err
+}
+
 const unblockUser = `-- name: UnblockUser :execrows
 UPDATE users
 SET blocked_at = NULL
@@ -5132,6 +5962,47 @@ type UpdateAPITokenLastUsedParams struct {
 func (q *Queries) UpdateAPITokenLastUsed(ctx context.Context, arg UpdateAPITokenLastUsedParams) error {
 	_, err := q.db.ExecContext(ctx, updateAPITokenLastUsed, arg.UsedAt, arg.ID, arg.StaleBefore)
 	return err
+}
+
+const updateCollectionFromDocument = `-- name: UpdateCollectionFromDocument :execrows
+UPDATE collections
+SET name = ?, sort_name = ?, sort_letter = ?, url = ?, kind = ?, description_md = ?, region_term_id = ?,
+    parent_id = ?, is_bardic_resource = ?, enumerable = ?
+WHERE id = ?
+`
+
+type UpdateCollectionFromDocumentParams struct {
+	Name             string
+	SortName         string
+	SortLetter       string
+	Url              sql.NullString
+	Kind             CollectionsKind
+	DescriptionMd    sql.NullString
+	RegionTermID     sql.NullInt64
+	ParentID         sql.NullInt64
+	IsBardicResource bool
+	Enumerable       CollectionsEnumerable
+	ID               uint64
+}
+
+func (q *Queries) UpdateCollectionFromDocument(ctx context.Context, arg UpdateCollectionFromDocumentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateCollectionFromDocument,
+		arg.Name,
+		arg.SortName,
+		arg.SortLetter,
+		arg.Url,
+		arg.Kind,
+		arg.DescriptionMd,
+		arg.RegionTermID,
+		arg.ParentID,
+		arg.IsBardicResource,
+		arg.Enumerable,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateDisplayName = `-- name: UpdateDisplayName :execrows
@@ -5177,6 +6048,240 @@ func (q *Queries) UpdateDraftDocument(ctx context.Context, arg UpdateDraftDocume
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateEventFromDocument = `-- name: UpdateEventFromDocument :execrows
+UPDATE events
+SET name = ?, kind = ?, description_md = ?
+WHERE id = ?
+`
+
+type UpdateEventFromDocumentParams struct {
+	Name          string
+	Kind          EventsKind
+	DescriptionMd sql.NullString
+	ID            uint64
+}
+
+func (q *Queries) UpdateEventFromDocument(ctx context.Context, arg UpdateEventFromDocumentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateEventFromDocument,
+		arg.Name,
+		arg.Kind,
+		arg.DescriptionMd,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateLinkFields = `-- name: UpdateLinkFields :exec
+UPDATE links
+SET url = ?, title = ?, description = ?, platform = ?, place_type = ?, collection_id = ?, locator = ?
+WHERE id = ?
+`
+
+type UpdateLinkFieldsParams struct {
+	Url          string
+	Title        sql.NullString
+	Description  sql.NullString
+	Platform     sql.NullString
+	PlaceType    NullLinksPlaceType
+	CollectionID sql.NullInt64
+	Locator      sql.NullString
+	ID           uint64
+}
+
+func (q *Queries) UpdateLinkFields(ctx context.Context, arg UpdateLinkFieldsParams) error {
+	_, err := q.db.ExecContext(ctx, updateLinkFields,
+		arg.Url,
+		arg.Title,
+		arg.Description,
+		arg.Platform,
+		arg.PlaceType,
+		arg.CollectionID,
+		arg.Locator,
+		arg.ID,
+	)
+	return err
+}
+
+const updatePersonFromDocument = `-- name: UpdatePersonFromDocument :execrows
+UPDATE persons
+SET name = ?, sort_name = ?, sort_letter = ?, kind = ?, status = ?, status_date = ?, status_source_url = ?,
+    pronouns = ?, notes_md = ?, licensing_notes_md = ?, licensing_status = ?, is_stub = ?
+WHERE id = ?
+`
+
+type UpdatePersonFromDocumentParams struct {
+	Name             string
+	SortName         string
+	SortLetter       string
+	Kind             PersonsKind
+	Status           PersonsStatus
+	StatusDate       sql.NullTime
+	StatusSourceUrl  sql.NullString
+	Pronouns         sql.NullString
+	NotesMd          sql.NullString
+	LicensingNotesMd sql.NullString
+	LicensingStatus  PersonsLicensingStatus
+	IsStub           bool
+	ID               uint64
+}
+
+func (q *Queries) UpdatePersonFromDocument(ctx context.Context, arg UpdatePersonFromDocumentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updatePersonFromDocument,
+		arg.Name,
+		arg.SortName,
+		arg.SortLetter,
+		arg.Kind,
+		arg.Status,
+		arg.StatusDate,
+		arg.StatusSourceUrl,
+		arg.Pronouns,
+		arg.NotesMd,
+		arg.LicensingNotesMd,
+		arg.LicensingStatus,
+		arg.IsStub,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updatePieceFromDocument = `-- name: UpdatePieceFromDocument :execrows
+
+UPDATE pieces
+SET title = ?, sort_title = ?, sort_letter = ?, kind = ?, conservation_status = ?, is_stub = ?, notes_md = ?,
+    version_notes_md = ?, licensing_notes_md = ?, licensing_status = ?, licence = ?, historical_source_md = ?,
+    period_start = ?, period_end = ?
+WHERE id = ?
+`
+
+type UpdatePieceFromDocumentParams struct {
+	Title              string
+	SortTitle          string
+	SortLetter         string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+	NotesMd            sql.NullString
+	VersionNotesMd     sql.NullString
+	LicensingNotesMd   sql.NullString
+	LicensingStatus    PiecesLicensingStatus
+	Licence            NullPiecesLicence
+	HistoricalSourceMd sql.NullString
+	PeriodStart        sql.NullInt16
+	PeriodEnd          sql.NullInt16
+	ID                 uint64
+}
+
+// ============================================
+// Revisions: approval, rejection, rebase and revert (D9, D10, D14, D15)
+//
+// The approval writer replaces an entity's row and child rows with its approved document: the entity row is
+// updated in place, its own child rows deleted and inserted again (the import's inserts), its links upserted by
+// normalized URL and its link attachments and owned performances replaced (D16, D17). A links row is never
+// deleted, and its system and moderator state (is_hidden, liveness, last_checked_at, archived_url) is never
+// written, so approving cannot un-hide a link or undo a liveness check.
+// ============================================
+func (q *Queries) UpdatePieceFromDocument(ctx context.Context, arg UpdatePieceFromDocumentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updatePieceFromDocument,
+		arg.Title,
+		arg.SortTitle,
+		arg.SortLetter,
+		arg.Kind,
+		arg.ConservationStatus,
+		arg.IsStub,
+		arg.NotesMd,
+		arg.VersionNotesMd,
+		arg.LicensingNotesMd,
+		arg.LicensingStatus,
+		arg.Licence,
+		arg.HistoricalSourceMd,
+		arg.PeriodStart,
+		arg.PeriodEnd,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateTermFromDocument = `-- name: UpdateTermFromDocument :execrows
+UPDATE terms
+SET facet = ?, name = ?, display_name = ?, parent_id = ?, related_affiliation_id = ?, description_md = ?,
+    position = ?
+WHERE id = ?
+`
+
+type UpdateTermFromDocumentParams struct {
+	Facet                TermsFacet
+	Name                 string
+	DisplayName          string
+	ParentID             sql.NullInt64
+	RelatedAffiliationID sql.NullInt64
+	DescriptionMd        sql.NullString
+	Position             int32
+	ID                   uint64
+}
+
+func (q *Queries) UpdateTermFromDocument(ctx context.Context, arg UpdateTermFromDocumentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateTermFromDocument,
+		arg.Facet,
+		arg.Name,
+		arg.DisplayName,
+		arg.ParentID,
+		arg.RelatedAffiliationID,
+		arg.DescriptionMd,
+		arg.Position,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const upsertLink = `-- name: UpsertLink :execlastid
+
+INSERT INTO links (url, normalized_url, title, description, platform, place_type, collection_id, locator)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+`
+
+type UpsertLinkParams struct {
+	Url           string
+	NormalizedUrl string
+	Title         sql.NullString
+	Description   sql.NullString
+	Platform      sql.NullString
+	PlaceType     NullLinksPlaceType
+	CollectionID  sql.NullInt64
+	Locator       sql.NullString
+}
+
+// The links row of a normalized URL, inserted with the document's fields if there is none: either way the row is
+// locked and its ID returned (LAST_INSERT_ID), and its fields are then written by the link write rule (D17).
+func (q *Queries) UpsertLink(ctx context.Context, arg UpsertLinkParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, upsertLink,
+		arg.Url,
+		arg.NormalizedUrl,
+		arg.Title,
+		arg.Description,
+		arg.Platform,
+		arg.PlaceType,
+		arg.CollectionID,
+		arg.Locator,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 const withdrawRevision = `-- name: WithdrawRevision :execrows

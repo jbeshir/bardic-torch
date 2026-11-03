@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -90,27 +91,38 @@ func (c *catalogueReader) entityRow(ctx context.Context, entityType domain.Entit
 	return row, nil
 }
 
-// lockReferencedEntities locks the rows of the entities refs references FOR SHARE, and the row of the entity own
-// (if its ID is not 0) FOR UPDATE, in the global lock order, so that what they are cannot change until the
-// transaction ends (D15). It returns the own entity's row, and datasources.ErrEntityGone if it no longer exists.
-func (c *catalogueReader) lockReferencedEntities(
-	ctx context.Context, own domain.EntityRef, refs domain.SnapshotReferences,
-) (entityRow, error) {
+// lockEntities locks, in the global lock order (D15), the rows of the entities written FOR UPDATE, and the rows of
+// the entities refs references FOR SHARE, so that what they are cannot change until the transaction ends. Within
+// an entity type the written rows are locked first. It returns the rows of the written entities that exist.
+func (c *catalogueReader) lockEntities(
+	ctx context.Context, written []domain.EntityRef, refs domain.SnapshotReferences,
+) (map[domain.EntityRef]entityRow, error) {
 	ids := map[domain.EntityType][]int64{
 		domain.EntityTypePiece: refs.PieceIDs, domain.EntityTypePerson: refs.PersonIDs,
 		domain.EntityTypeTerm: refs.TermIDs, domain.EntityTypeCollection: refs.CollectionIDs,
 		domain.EntityTypeEvent: refs.EventIDs,
 	}
-	var ownRow entityRow
+	rows := map[domain.EntityRef]entityRow{}
 	for _, entityType := range entityLockOrder {
-		if own.ID != 0 && own.Type == entityType {
-			row, err := c.entityRow(ctx, entityType, own.ID, true)
-			if err != nil {
-				return entityRow{}, fmt.Errorf("%w: %w", datasources.ErrEntityGone, err)
+		var own []int64
+		for _, e := range written {
+			if e.Type == entityType && e.ID != 0 {
+				own = append(own, e.ID)
 			}
-			ownRow = row
 		}
-		shared := slices.Compact(slices.Sorted(slices.Values(unsignedIDs(ids[entityType]))))
+		for _, id := range slices.Compact(slices.Sorted(slices.Values(own))) {
+			row, err := c.entityRow(ctx, entityType, id, true)
+			if errors.Is(err, datasources.ErrNotFound) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			rows[domain.EntityRef{Type: entityType, ID: id}] = row
+		}
+		ownKeys := unsignedIDs(own)
+		shared := slices.DeleteFunc(slices.Compact(slices.Sorted(slices.Values(unsignedIDs(ids[entityType])))),
+			func(id uint64) bool { return slices.Contains(ownKeys, id) })
 		if len(shared) == 0 {
 			continue
 		}
@@ -119,11 +131,32 @@ func (c *catalogueReader) lockReferencedEntities(
 		list(&s, shared)
 		s.write(") ORDER BY id FOR SHARE")
 		if err := c.run(ctx, &s, func(func(dest ...any) error) error { return nil }); err != nil {
-			return entityRow{}, fmt.Errorf("locking referenced %s rows: %w", entityType, err)
+			return nil, fmt.Errorf("locking referenced %s rows: %w", entityType, err)
 		}
 	}
 
-	return ownRow, nil
+	return rows, nil
+}
+
+// lockOwnEntity is lockEntities for the one entity own written, returning its row, or datasources.ErrEntityGone
+// if it no longer exists.
+func (c *catalogueReader) lockOwnEntity(
+	ctx context.Context, own domain.EntityRef, refs domain.SnapshotReferences,
+) (entityRow, error) {
+	var written []domain.EntityRef
+	if own.ID != 0 {
+		written = append(written, own)
+	}
+	rows, err := c.lockEntities(ctx, written, refs)
+	if err != nil {
+		return entityRow{}, err
+	}
+	row, ok := rows[own]
+	if own.ID != 0 && !ok {
+		return entityRow{}, fmt.Errorf("%s [%d]: %w", own.Type, own.ID, datasources.ErrEntityGone)
+	}
+
+	return row, nil
 }
 
 // deletePlaceholder deletes the placeholder of the pending new entity e, if it still is one, with its child rows

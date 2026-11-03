@@ -678,8 +678,8 @@ FOR UPDATE;
 
 -- name: GetRevision :one
 SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.submitted_base_revision_id, r.author_user_id, r.source,
-    r.status, r.snapshot_json, r.submitted_snapshot_json, r.received_keys_json, r.summary, r.reviewed_at,
-    r.review_note, r.created_at, r.updated_at, r.submitted_at, u.display_name AS author_display_name,
+    r.status, r.snapshot_json, r.submitted_snapshot_json, r.flags_json, r.received_keys_json, r.summary,
+    r.reviewed_at, r.review_note, r.created_at, r.updated_at, r.submitted_at, u.display_name AS author_display_name,
     u.role AS author_role
 FROM revisions r
 LEFT JOIN users u ON u.id = r.author_user_id
@@ -981,3 +981,251 @@ DELETE FROM collections WHERE id = ? AND current_revision_id IS NULL;
 
 -- name: DeleteEventPlaceholder :exec
 DELETE FROM events WHERE id = ? AND current_revision_id IS NULL;
+
+-- ============================================
+-- Revisions: approval, rejection, rebase and revert (D9, D10, D14, D15)
+--
+-- The approval writer replaces an entity's row and child rows with its approved document: the entity row is
+-- updated in place, its own child rows deleted and inserted again (the import's inserts), its links upserted by
+-- normalized URL and its link attachments and owned performances replaced (D16, D17). A links row is never
+-- deleted, and its system and moderator state (is_hidden, liveness, last_checked_at, archived_url) is never
+-- written, so approving cannot un-hide a link or undo a liveness check.
+-- ============================================
+
+-- name: UpdatePieceFromDocument :execrows
+UPDATE pieces
+SET title = ?, sort_title = ?, sort_letter = ?, kind = ?, conservation_status = ?, is_stub = ?, notes_md = ?,
+    version_notes_md = ?, licensing_notes_md = ?, licensing_status = ?, licence = ?, historical_source_md = ?,
+    period_start = ?, period_end = ?
+WHERE id = ?;
+
+-- name: UpdatePersonFromDocument :execrows
+UPDATE persons
+SET name = ?, sort_name = ?, sort_letter = ?, kind = ?, status = ?, status_date = ?, status_source_url = ?,
+    pronouns = ?, notes_md = ?, licensing_notes_md = ?, licensing_status = ?, is_stub = ?
+WHERE id = ?;
+
+-- name: UpdateTermFromDocument :execrows
+UPDATE terms
+SET facet = ?, name = ?, display_name = ?, parent_id = ?, related_affiliation_id = ?, description_md = ?,
+    position = ?
+WHERE id = ?;
+
+-- name: UpdateCollectionFromDocument :execrows
+UPDATE collections
+SET name = ?, sort_name = ?, sort_letter = ?, url = ?, kind = ?, description_md = ?, region_term_id = ?,
+    parent_id = ?, is_bardic_resource = ?, enumerable = ?
+WHERE id = ?;
+
+-- name: UpdateEventFromDocument :execrows
+UPDATE events
+SET name = ?, kind = ?, description_md = ?
+WHERE id = ?;
+
+-- A new entity's slug is allocated at its first approval by trying candidates until one is not taken (error 1062
+-- on idx_slug, which rolls back only the statement), and never changes after.
+
+-- name: TrySetSlugPiece :exec
+UPDATE pieces SET slug = ? WHERE id = ?;
+
+-- name: TrySetSlugPerson :exec
+UPDATE persons SET slug = ? WHERE id = ?;
+
+-- name: TrySetSlugTerm :exec
+UPDATE terms SET slug = ? WHERE id = ?;
+
+-- name: TrySetSlugEvent :exec
+UPDATE events SET slug = ? WHERE id = ?;
+
+-- name: SetCurrentRevisionPiece :execrows
+UPDATE pieces SET current_revision_id = ? WHERE id = ?;
+
+-- name: SetCurrentRevisionPerson :execrows
+UPDATE persons SET current_revision_id = ? WHERE id = ?;
+
+-- name: SetCurrentRevisionTerm :execrows
+UPDATE terms SET current_revision_id = ? WHERE id = ?;
+
+-- name: SetCurrentRevisionCollection :execrows
+UPDATE collections SET current_revision_id = ? WHERE id = ?;
+
+-- name: SetCurrentRevisionEvent :execrows
+UPDATE events SET current_revision_id = ? WHERE id = ?;
+
+-- name: DeletePieceSecondaryKinds :exec
+DELETE FROM piece_secondary_kinds WHERE piece_id = ?;
+
+-- name: DeletePieceAliases :exec
+DELETE FROM piece_aliases WHERE piece_id = ?;
+
+-- name: DeletePieceTerms :exec
+DELETE FROM piece_terms WHERE piece_id = ?;
+
+-- name: DeletePieceRelations :exec
+DELETE FROM piece_relations WHERE from_piece_id = ?;
+
+-- name: DeletePieceCredits :exec
+DELETE FROM piece_credits WHERE piece_id = ?;
+
+-- name: DeletePiecePreferences :exec
+DELETE FROM piece_preferences WHERE piece_id = ?;
+
+-- name: DeletePersonAliases :exec
+DELETE FROM person_aliases WHERE person_id = ?;
+
+-- name: DeletePersonRoles :exec
+DELETE FROM person_roles WHERE person_id = ?;
+
+-- name: DeletePersonAffiliations :exec
+DELETE FROM person_affiliations WHERE person_id = ?;
+
+-- name: DeletePersonRelations :exec
+DELETE FROM person_relations WHERE from_person_id = ?;
+
+-- name: DeletePersonPreferences :exec
+DELETE FROM person_preferences WHERE person_id = ?;
+
+-- name: DeleteTermAliases :exec
+DELETE FROM term_aliases WHERE term_id = ?;
+
+-- name: DeleteLinkAttachmentsOfPiece :exec
+DELETE FROM link_attachments WHERE piece_id = ?;
+
+-- name: DeleteLinkAttachmentsOfPerson :exec
+DELETE FROM link_attachments WHERE person_id = ?;
+
+-- name: DeletePerformancesOwnedByPiece :exec
+DELETE FROM performances WHERE owner_piece_id = ?;
+
+-- name: DeletePerformancesOwnedByPerson :exec
+DELETE FROM performances WHERE owner_person_id = ?;
+
+-- The links row of a normalized URL, inserted with the document's fields if there is none: either way the row is
+-- locked and its ID returned (LAST_INSERT_ID), and its fields are then written by the link write rule (D17).
+
+-- name: UpsertLink :execlastid
+INSERT INTO links (url, normalized_url, title, description, platform, place_type, collection_id, locator)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+
+-- name: GetLinkFields :one
+SELECT url, title, description, platform, place_type, collection_id, locator
+FROM links
+WHERE id = ?;
+
+-- name: UpdateLinkFields :exec
+UPDATE links
+SET url = ?, title = ?, description = ?, platform = ?, place_type = ?, collection_id = ?, locator = ?
+WHERE id = ?;
+
+-- Every term of a facet, locked, for rebuilding its closure (D15 step 5).
+
+-- name: LockTermsOfFacet :many
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ id, parent_id
+FROM terms
+WHERE facet = ?
+ORDER BY id
+FOR UPDATE;
+
+-- name: DeleteFacetClosure :exec
+DELETE FROM term_ancestors
+WHERE descendant_id IN (sqlc.slice('ids'));
+
+-- An approved revision is dated by its approval (created_at = reviewed_at, D1), so that history, ordered by
+-- created_at, lists the current revision first.
+
+-- name: ApproveRevisionRow :execrows
+UPDATE revisions
+SET status = 'approved', snapshot_json = sqlc.arg(snapshot_json), base_revision_id = sqlc.arg(base_revision_id),
+    summary = sqlc.arg(summary), reviewer_user_id = sqlc.arg(reviewer_user_id), created_at = sqlc.arg(approved_at),
+    reviewed_at = created_at, review_note = sqlc.arg(review_note)
+WHERE id = sqlc.arg(id) AND status = 'pending';
+
+-- name: RejectRevisionRow :execrows
+UPDATE revisions
+SET status = 'rejected', reviewer_user_id = ?, reviewed_at = ?, review_note = ?
+WHERE id = ? AND status = 'pending';
+
+-- name: RebaseRevisionRow :execrows
+UPDATE revisions
+SET snapshot_json = ?, base_revision_id = ?, summary = ?, rebased_by_user_id = ?, rebased_at = ?
+WHERE id = ? AND status = 'pending';
+
+-- A revert is a new pending revision on the current revision, holding its author's document (the projection of
+-- the revert) beside the full document (D10).
+
+-- name: InsertRevertRevision :execlastid
+INSERT INTO revisions (entity_type, entity_id, base_revision_id, submitted_base_revision_id, author_user_id, source,
+    status, snapshot_json, submitted_snapshot_json, flags_json, received_keys_json, summary, created_at, updated_at,
+    submitted_at)
+VALUES (sqlc.arg(entity_type), sqlc.arg(entity_id), sqlc.arg(base_revision_id), sqlc.arg(base_revision_id),
+    sqlc.arg(author_user_id), 'user', 'pending', sqlc.arg(snapshot_json), sqlc.arg(submitted_snapshot_json),
+    sqlc.arg(flags_json), sqlc.arg(received_keys_json), sqlc.arg(summary), sqlc.arg(created_at), sqlc.arg(submitted_at),
+    sqlc.arg(submitted_at));
+
+-- ============================================
+-- Moderation reads
+--
+-- Moderator views (D8): the queue of pending revisions, a revision of any status but draft with every document in
+-- full, and a link with every entity it is attached to. User IDs are served here, so that moderators can block.
+-- ============================================
+
+-- The pending revisions, oldest first: of one entity type or author if set, submitted at or before
+-- submitted_before and at or after submitted_after if set, and of blocked authors only with include_blocked.
+
+-- name: ListModerationQueue :many
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.snapshot_json, r.flags_json, r.summary,
+    r.submitted_at, u.id AS author_id, u.display_name AS author_display_name, u.role AS author_role,
+    u.blocked_at AS author_blocked_at
+FROM revisions r
+JOIN users u ON u.id = r.author_user_id
+WHERE r.status = 'pending'
+    AND (sqlc.narg(entity_type) IS NULL OR r.entity_type = sqlc.narg(entity_type))
+    AND (sqlc.narg(author_user_id) IS NULL OR r.author_user_id = sqlc.narg(author_user_id))
+    AND (sqlc.narg(submitted_before) IS NULL OR r.submitted_at <= sqlc.narg(submitted_before))
+    AND (sqlc.narg(submitted_after) IS NULL OR r.submitted_at >= sqlc.narg(submitted_after))
+    AND (u.blocked_at IS NULL OR sqlc.arg(include_blocked))
+ORDER BY r.submitted_at, r.id
+LIMIT ? OFFSET ?;
+
+-- name: CountModerationQueue :one
+SELECT COUNT(*)
+FROM revisions r
+JOIN users u ON u.id = r.author_user_id
+WHERE r.status = 'pending'
+    AND (sqlc.narg(entity_type) IS NULL OR r.entity_type = sqlc.narg(entity_type))
+    AND (sqlc.narg(author_user_id) IS NULL OR r.author_user_id = sqlc.narg(author_user_id))
+    AND (sqlc.narg(submitted_before) IS NULL OR r.submitted_at <= sqlc.narg(submitted_before))
+    AND (sqlc.narg(submitted_after) IS NULL OR r.submitted_at >= sqlc.narg(submitted_after))
+    AND (u.blocked_at IS NULL OR sqlc.arg(include_blocked));
+
+-- name: GetModerationRevision :one
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.submitted_base_revision_id, r.source, r.status,
+    r.snapshot_json, r.submitted_snapshot_json, r.flags_json, r.summary, r.review_note, r.created_at,
+    r.submitted_at, r.reviewed_at, r.rebased_at, r.author_user_id, a.display_name AS author_display_name,
+    a.role AS author_role, a.blocked_at AS author_blocked_at, r.reviewer_user_id,
+    v.display_name AS reviewer_display_name, v.role AS reviewer_role, v.blocked_at AS reviewer_blocked_at
+FROM revisions r
+LEFT JOIN users a ON a.id = r.author_user_id
+LEFT JOIN users v ON v.id = r.reviewer_user_id
+WHERE r.id = ? AND r.status <> 'draft';
+
+-- name: GetModerationLink :one
+SELECT l.id, l.url, l.title, l.description, l.platform, l.place_type, l.collection_id,
+    c.name AS collection_name, l.locator, l.liveness, l.is_hidden,
+    (SELECT COUNT(*) FROM link_reports lr WHERE lr.link_id = l.id AND lr.status = 'open') AS open_report_count
+FROM links l
+LEFT JOIN collections c ON c.id = l.collection_id
+WHERE l.normalized_url = ?;
+
+-- A link's attachments, pieces first, then persons, each by ID, and each entity's roles in attachment order.
+
+-- name: ListModerationLinkAttachments :many
+SELECT a.piece_id, a.person_id, a.role, pc.slug AS piece_slug, pc.title AS piece_title,
+    pc.current_revision_id IS NOT NULL AS piece_public, ps.slug AS person_slug, ps.name AS person_name,
+    ps.current_revision_id IS NOT NULL AS person_public
+FROM link_attachments a
+LEFT JOIN pieces pc ON pc.id = a.piece_id
+LEFT JOIN persons ps ON ps.id = a.person_id
+WHERE a.link_id = ?
+ORDER BY a.piece_id IS NULL, a.piece_id, a.person_id, a.id;

@@ -102,6 +102,20 @@ func DefaultPersonDocument() PersonDocument {
 	}
 }
 
+// DefaultDocument is what a new entity's document of type D is compared with: DefaultPieceDocument,
+// DefaultPersonDocument, or the empty document of the other types.
+func DefaultDocument[D Document]() D {
+	var doc D
+	switch any(doc).(type) {
+	case PieceDocument:
+		return any(DefaultPieceDocument()).(D)
+	case PersonDocument:
+		return any(DefaultPersonDocument()).(D)
+	}
+
+	return doc
+}
+
 // ValidateSubmission validates a contributor's submission in two phases (D12), so that validation is never an
 // oracle for what the contributor could not see:
 //  1. editor, the document as submitted (before restore), compared with editorPrevious, the projection of the

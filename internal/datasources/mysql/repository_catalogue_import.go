@@ -64,10 +64,6 @@ func withoutServerMessage(step string, err error) error {
 	return fmt.Errorf("%s: %w", step, err)
 }
 
-// errImportOutOfRange is returned, wrapped, when an import's value does not fit its column's type, which
-// CatalogueImport.Validate rules out.
-var errImportOutOfRange = errors.New("value out of range for its column")
-
 // errImportUnknownLink is returned, wrapped, when a document's link has no links row in the import, which
 // CatalogueImport.Validate rules out.
 var errImportUnknownLink = errors.New("link has no links row in the import")
@@ -117,9 +113,13 @@ func (r *Repository) importInTransaction(ctx context.Context, conn *sql.Conn, im
 	if err := requireEmptyCatalogue(ctx, tx); err != nil {
 		return err
 	}
-	w := &importWriter{ctx: ctx, q: r.queries.WithTx(tx)}
+	w := &importWriter{entityWriter: entityWriter{ctx: ctx, q: r.queries.WithTx(tx)}}
 	w.write(imp)
 	if w.err != nil {
+		var writeErr *writeError
+		if errors.As(w.err, &writeErr) {
+			return fmt.Errorf("importing catalogue: %w", withoutServerMessage("writing "+writeErr.table, writeErr.err))
+		}
 		return fmt.Errorf("importing catalogue: %w", w.err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -149,15 +149,14 @@ func requireEmptyCatalogue(ctx context.Context, tx *sql.Tx) error {
 }
 
 // importWriter inserts an import's rows. The first error stops it: every later insert is skipped, and err holds
-// the error.
+// importWriter inserts an import's rows, table by table. The first error stops it: every later insert is skipped,
+// and err holds the error, a *writeError for a refused row.
 type importWriter struct {
-	ctx context.Context
-	q   *queries.Queries
-	err error
+	entityWriter
 	// linkIDs are the IDs of the links rows, by normalised URL.
 	linkIDs map[string]int64
-	// performers are the performers of each performance inserted, in order.
-	performers []importedPerformers
+	// performerLists are the performers of each performance inserted, in order.
+	performerLists []importedPerformers
 }
 
 // importedPerformers are the performers, in order, of a performance the writer inserted.
@@ -176,34 +175,6 @@ func (w *importWriter) write(imp domain.CatalogueImport) {
 	w.links(imp)
 }
 
-// insert runs one insert into table, unless an earlier error stopped the writer. A MySQL error becomes an
-// ImportDatabaseError, without its message.
-func (w *importWriter) insert(table string, run func() error) {
-	if w.err != nil {
-		return
-	}
-	if err := run(); err != nil {
-		w.err = withoutServerMessage("writing "+table, err)
-	}
-}
-
-// fail stops the writer with err, unless an earlier error stopped it.
-func (w *importWriter) fail(err error) {
-	if w.err == nil {
-		w.err = err
-	}
-}
-
-// id returns an ID as the type of the ID columns.
-func (w *importWriter) id(id int64) uint64 {
-	if id < 1 {
-		w.fail(fmt.Errorf("ID [%d]: %w", id, errImportOutOfRange))
-		return 0
-	}
-
-	return uint64(id)
-}
-
 // nullableID returns an optional ID as the type of the nullable ID columns.
 func nullableID(id *int64) sql.NullInt64 {
 	if id == nil {
@@ -213,23 +184,13 @@ func nullableID(id *int64) sql.NullInt64 {
 	return sql.NullInt64{Int64: *id, Valid: true}
 }
 
-// position returns a list index as the type of the position columns.
-func (w *importWriter) position(k int) uint16 {
-	if k < 0 || k > math.MaxUint16 {
-		w.fail(fmt.Errorf("position [%d]: %w", k, errImportOutOfRange))
-		return 0
-	}
-
-	return uint16(k)
-}
-
 // legacyPageID returns a legacy page's ID as the type of the legacy_wiki_pageid columns, NULL for none.
 func (w *importWriter) legacyPageID(p *domain.LegacyPage) sql.NullInt32 {
 	if p == nil || p.PageID == nil {
 		return sql.NullInt32{}
 	}
 	if *p.PageID > math.MaxInt32 {
-		w.fail(fmt.Errorf("legacy page ID [%d]: %w", *p.PageID, errImportOutOfRange))
+		w.fail(fmt.Errorf("legacy page ID [%d]: %w", *p.PageID, errOutOfRange))
 		return sql.NullInt32{}
 	}
 
@@ -299,13 +260,13 @@ func (w *importWriter) revisions(imp domain.CatalogueImport) {
 		p := queries.InsertImportedRevisionParams{ID: w.id(r.rev.ID),
 			EntityType: queries.RevisionsEntityType(r.entityType), EntityID: nullableID(&r.entityID),
 			SnapshotJson: snapshot, Summary: r.rev.Summary, CreatedAt: r.rev.CreatedAt}
-		w.insert("revisions", func() error { return w.q.InsertImportedRevision(w.ctx, p) })
+		w.exec("revisions", func() error { return w.q.InsertImportedRevision(w.ctx, p) })
 	}
 	for _, r := range all {
 		for k, name := range r.rev.Contributors {
 			p := queries.InsertRevisionContributorParams{RevisionID: w.id(r.rev.ID), Position: w.position(k),
 				Name: name}
-			w.insert("revision_contributors", func() error { return w.q.InsertRevisionContributor(w.ctx, p) })
+			w.exec("revision_contributors", func() error { return w.q.InsertRevisionContributor(w.ctx, p) })
 		}
 	}
 }
@@ -318,13 +279,10 @@ func (w *importWriter) terms(imp domain.CatalogueImport) {
 			RelatedAffiliationID: nullableID(d.RelatedAffiliationID), DescriptionMd: nullString(d.DescriptionMD),
 			Position: d.Position, CurrentRevisionID: revisionID(t.Revision),
 			LegacyWikiPageid: w.legacyPageID(t.Legacy), LegacyTitle: legacyTitle(t.Legacy)}
-		w.insert("terms", func() error { return w.q.InsertImportedTerm(w.ctx, p) })
+		w.exec("terms", func() error { return w.q.InsertImportedTerm(w.ctx, p) })
 	}
 	for _, t := range imp.Terms {
-		for _, alias := range t.Doc.Aliases {
-			p := queries.InsertTermAliasParams{TermID: w.id(t.ID), Name: alias}
-			w.insert("term_aliases", func() error { return w.q.InsertTermAlias(w.ctx, p) })
-		}
+		w.termAliases(t.ID, t.Doc.Aliases)
 	}
 	ancestors, err := imp.TermAncestors()
 	if err != nil {
@@ -332,15 +290,7 @@ func (w *importWriter) terms(imp domain.CatalogueImport) {
 
 		return
 	}
-	for _, a := range ancestors {
-		if a.Depth < 0 || a.Depth > math.MaxUint8 {
-			w.fail(fmt.Errorf("term depth [%d]: %w", a.Depth, errImportOutOfRange))
-			return
-		}
-		p := queries.InsertTermAncestorParams{AncestorID: w.id(a.AncestorID), DescendantID: w.id(a.DescendantID),
-			Depth: uint8(a.Depth)}
-		w.insert("term_ancestors", func() error { return w.q.InsertTermAncestor(w.ctx, p) })
-	}
+	w.termAncestors(ancestors)
 }
 
 func (w *importWriter) collections(collections []domain.ImportedCollection) {
@@ -351,7 +301,7 @@ func (w *importWriter) collections(collections []domain.ImportedCollection) {
 			DescriptionMd: nullString(d.DescriptionMD), RegionTermID: nullableID(d.RegionTermID),
 			ParentID: nullableID(d.ParentID), IsBardicResource: d.IsBardicResource,
 			Enumerable: queries.CollectionsEnumerable(d.Enumerable), CurrentRevisionID: revisionID(c.Revision)}
-		w.insert("collections", func() error { return w.q.InsertImportedCollection(w.ctx, p) })
+		w.exec("collections", func() error { return w.q.InsertImportedCollection(w.ctx, p) })
 	}
 }
 
@@ -361,7 +311,7 @@ func (w *importWriter) events(events []domain.ImportedEvent) {
 			Kind: queries.EventsKind(e.Doc.Kind), DescriptionMd: nullString(e.Doc.DescriptionMD),
 			CurrentRevisionID: revisionID(e.Revision), LegacyWikiPageid: w.legacyPageID(e.Legacy),
 			LegacyTitle: legacyTitle(e.Legacy)}
-		w.insert("events", func() error { return w.q.InsertImportedEvent(w.ctx, p) })
+		w.exec("events", func() error { return w.q.InsertImportedEvent(w.ctx, p) })
 	}
 }
 
@@ -380,45 +330,22 @@ func (w *importWriter) persons(persons []domain.ImportedPerson) {
 			LicensingStatus: queries.PersonsLicensingStatus(d.LicensingStatus), IsStub: d.IsStub,
 			CurrentRevisionID: revisionID(person.Revision), LegacyWikiPageid: w.legacyPageID(person.Legacy),
 			LegacyTitle: legacyTitle(person.Legacy)}
-		w.insert("persons", func() error { return w.q.InsertImportedPerson(w.ctx, p) })
+		w.exec("persons", func() error { return w.q.InsertImportedPerson(w.ctx, p) })
 	}
 	for _, person := range persons {
-		for _, a := range person.Doc.Aliases {
-			p := queries.InsertPersonAliasParams{PersonID: w.id(person.ID), Name: a.Name,
-				Kind: queries.PersonAliasesKind(a.Kind), IsPublic: a.IsPublic}
-			w.insert("person_aliases", func() error { return w.q.InsertPersonAlias(w.ctx, p) })
-		}
+		w.personAliases(person.ID, person.Doc.Aliases)
 	}
 	for _, person := range persons {
-		for _, role := range person.Doc.Roles {
-			p := queries.InsertPersonRoleParams{PersonID: w.id(person.ID), Role: queries.PersonRolesRole(role)}
-			w.insert("person_roles", func() error { return w.q.InsertPersonRole(w.ctx, p) })
-		}
+		w.personRoles(person.ID, person.Doc.Roles)
 	}
 	for _, person := range persons {
-		for _, termID := range person.Doc.AffiliationIDs {
-			p := queries.InsertPersonAffiliationParams{PersonID: w.id(person.ID), TermID: w.id(termID)}
-			w.insert("person_affiliations", func() error { return w.q.InsertPersonAffiliation(w.ctx, p) })
-		}
-	}
-	w.personRelationsAndPreferences(persons)
-}
-
-func (w *importWriter) personRelationsAndPreferences(persons []domain.ImportedPerson) {
-	for _, person := range persons {
-		for _, rel := range person.Doc.Relations {
-			p := queries.InsertPersonRelationParams{FromPersonID: w.id(person.ID), ToPersonID: w.id(rel.ToPersonID),
-				Type: queries.PersonRelationsType(rel.Type)}
-			w.insert("person_relations", func() error { return w.q.InsertPersonRelation(w.ctx, p) })
-		}
+		w.personAffiliations(person.ID, person.Doc.AffiliationIDs)
 	}
 	for _, person := range persons {
-		for _, pref := range person.Doc.Preferences {
-			p := queries.InsertPersonPreferenceParams{PersonID: w.id(person.ID),
-				Dimension: queries.PersonPreferencesDimension(pref.Dimension), ValueJson: pref.Value,
-				SourceUrl: pref.SourceURL}
-			w.insert("person_preferences", func() error { return w.q.InsertPersonPreference(w.ctx, p) })
-		}
+		w.personRelations(person.ID, person.Doc.Relations)
+	}
+	for _, person := range persons {
+		w.personPreferences(person.ID, person.Doc.Preferences)
 	}
 }
 
@@ -439,76 +366,32 @@ func (w *importWriter) pieces(pieces []domain.ImportedPiece) {
 			PeriodEnd: nullInt16(d.PeriodEnd), LegacyHadInlineLyrics: piece.LegacyHadInlineLyrics,
 			CurrentRevisionID: revisionID(piece.Revision), LegacyWikiPageid: w.legacyPageID(piece.Legacy),
 			LegacyTitle: legacyTitle(piece.Legacy)}
-		w.insert("pieces", func() error { return w.q.InsertImportedPiece(w.ctx, p) })
+		w.exec("pieces", func() error { return w.q.InsertImportedPiece(w.ctx, p) })
 	}
 	for _, piece := range pieces {
-		for _, kind := range piece.Doc.SecondaryKinds {
-			p := queries.InsertPieceSecondaryKindParams{PieceID: w.id(piece.ID),
-				Kind: queries.PieceSecondaryKindsKind(kind)}
-			w.insert("piece_secondary_kinds", func() error { return w.q.InsertPieceSecondaryKind(w.ctx, p) })
-		}
+		w.pieceSecondaryKinds(piece.ID, piece.Doc.SecondaryKinds)
 	}
 	for _, piece := range pieces {
-		for _, a := range piece.Doc.Aliases {
-			p := queries.InsertPieceAliasParams{PieceID: w.id(piece.ID), Text: a.Text,
-				Kind: queries.PieceAliasesKind(a.Kind)}
-			w.insert("piece_aliases", func() error { return w.q.InsertPieceAlias(w.ctx, p) })
-		}
+		w.pieceAliases(piece.ID, piece.Doc.Aliases)
 	}
-	w.pieceTermsAndRelations(pieces)
-	w.pieceCredits(pieces)
-	w.piecePreferencesAndConservation(pieces)
+	for _, piece := range pieces {
+		w.pieceTerms(piece.ID, piece.Doc.Terms)
+	}
+	for _, piece := range pieces {
+		w.pieceRelations(piece.ID, piece.Doc.Relations)
+	}
+	for _, piece := range pieces {
+		w.pieceCredits(piece.ID, piece.Doc.Credits)
+	}
+	for _, piece := range pieces {
+		w.piecePreferences(piece.ID, piece.Doc.Preferences)
+	}
+	w.conservation(pieces)
 }
 
-func (w *importWriter) pieceTermsAndRelations(pieces []domain.ImportedPiece) {
-	for _, piece := range pieces {
-		for k, term := range piece.Doc.Terms {
-			var part queries.NullPieceTermsPart
-			if term.Part != nil {
-				part = queries.NullPieceTermsPart{PieceTermsPart: queries.PieceTermsPart(*term.Part), Valid: true}
-			}
-			p := queries.InsertPieceTermParams{PieceID: w.id(piece.ID), TermID: w.id(term.TermID),
-				IsPrimary: term.IsPrimary, Part: part, Position: w.position(k)}
-			w.insert("piece_terms", func() error { return w.q.InsertPieceTerm(w.ctx, p) })
-		}
-	}
-	for _, piece := range pieces {
-		for _, rel := range piece.Doc.Relations {
-			p := queries.InsertPieceRelationParams{FromPieceID: w.id(piece.ID), ToPieceID: w.id(rel.ToPieceID),
-				Type: queries.PieceRelationsType(rel.Type)}
-			w.insert("piece_relations", func() error { return w.q.InsertPieceRelation(w.ctx, p) })
-		}
-	}
-}
-
-func (w *importWriter) pieceCredits(pieces []domain.ImportedPiece) {
-	for _, piece := range pieces {
-		for k, credit := range piece.Doc.Credits {
-			var part queries.NullPieceCreditsPart
-			if credit.Part != nil {
-				part = queries.NullPieceCreditsPart{PieceCreditsPart: queries.PieceCreditsPart(*credit.Part),
-					Valid: true}
-			}
-			p := queries.InsertPieceCreditParams{PieceID: w.id(piece.ID), PersonID: nullableID(credit.PersonID),
-				Role: queries.PieceCreditsRole(credit.Role), Attribution: queries.PieceCreditsAttribution(credit.Attribution),
-				Certainty: queries.PieceCreditsCertainty(credit.Certainty), Part: part, Note: nullString(credit.Note),
-				Position: w.position(k)}
-			w.insert("piece_credits", func() error { return w.q.InsertPieceCredit(w.ctx, p) })
-		}
-	}
-}
-
-// piecePreferencesAndConservation inserts the pieces' preferences, and the conservation history row of each
-// piece whose status is assessed: at its revision, with ImportConservationReason and the document's source.
-func (w *importWriter) piecePreferencesAndConservation(pieces []domain.ImportedPiece) {
-	for _, piece := range pieces {
-		for _, pref := range piece.Doc.Preferences {
-			p := queries.InsertPiecePreferenceParams{PieceID: w.id(piece.ID),
-				Dimension: queries.PiecePreferencesDimension(pref.Dimension), ValueJson: pref.Value,
-				SourceUrl: pref.SourceURL}
-			w.insert("piece_preferences", func() error { return w.q.InsertPiecePreference(w.ctx, p) })
-		}
-	}
+// conservation inserts the conservation history row of each piece whose status is assessed: at its revision,
+// with ImportConservationReason and the document's source.
+func (w *importWriter) conservation(pieces []domain.ImportedPiece) {
 	for _, piece := range pieces {
 		c := piece.Doc.Conservation
 		if c.Status == domain.ConservationStatusUnassessed {
@@ -518,7 +401,7 @@ func (w *importWriter) piecePreferencesAndConservation(pieces []domain.ImportedP
 			Status: queries.ConservationHistoryStatus(c.Status), Reason: domain.ImportConservationReason,
 			SourceUrl: nullString(c.SourceURL), RevisionID: revisionID(piece.Revision),
 			At: piece.Revision.CreatedAt}
-		w.insert("conservation_history", func() error { return w.q.InsertConservationHistory(w.ctx, p) })
+		w.exec("conservation_history", func() error { return w.q.InsertConservationHistory(w.ctx, p) })
 	}
 }
 
@@ -541,25 +424,21 @@ func (w *importWriter) links(imp domain.CatalogueImport) {
 			Title: nullString(l.Title), Description: nullString(l.Description), Platform: nullString(l.Platform),
 			PlaceType: placeType, CollectionID: nullableID(l.CollectionID), Locator: nullString(l.Locator),
 			IsHidden: row.IsHidden}
-		w.insert("links", func() error { return w.q.InsertImportedLink(w.ctx, p) })
+		w.exec("links", func() error { return w.q.InsertImportedLink(w.ctx, p) })
 	}
 	for _, piece := range imp.Pieces {
 		for k, l := range piece.Doc.Links {
-			w.attachments(l.DocLink, k, sql.NullInt64{Int64: piece.ID, Valid: true}, sql.NullInt64{})
+			w.linkAttachments(w.linkID(l.URL), l.Roles, k, w.nullID(piece.ID), sql.NullInt64{})
 		}
 	}
 	for _, person := range imp.Persons {
 		for k, l := range person.Doc.Links {
-			w.attachments(l.DocLink, k, sql.NullInt64{}, sql.NullInt64{Int64: person.ID, Valid: true})
+			w.linkAttachments(w.linkID(l.URL), l.Roles, k, sql.NullInt64{}, w.nullID(person.ID))
 		}
 	}
 	w.performances(imp)
-	for _, perf := range w.performers {
-		for k, personID := range perf.personIDs {
-			p := queries.InsertPerformancePerformerParams{PerformanceID: w.id(perf.performanceID),
-				PersonID: w.id(personID), Position: w.position(k)}
-			w.insert("performance_performers", func() error { return w.q.InsertPerformancePerformer(w.ctx, p) })
-		}
+	for _, perf := range w.performerLists {
+		w.performers(perf.performanceID, perf.personIDs)
 	}
 }
 
@@ -575,50 +454,30 @@ func (w *importWriter) linkID(url string) uint64 {
 	return w.id(id)
 }
 
-// attachments inserts the attachments of the link at position k of a piece's or a person's document, one per
-// role.
-func (w *importWriter) attachments(l domain.DocLink, k int, pieceID, personID sql.NullInt64) {
-	for _, role := range l.Roles {
-		p := queries.InsertLinkAttachmentParams{LinkID: w.linkID(l.URL), PieceID: pieceID, PersonID: personID,
-			Role: queries.LinkAttachmentsRole(role), Position: w.position(k)}
-		w.insert("link_attachments", func() error { return w.q.InsertLinkAttachment(w.ctx, p) })
-	}
-}
-
 // performances inserts the performances of the documents' links, those of a piece's links being owned by the piece,
-// those of a person's links being owned by the person, and records their performers.
+// those of a person's links being owned by the person, and records their performers, which are inserted after
+// every performance.
 func (w *importWriter) performances(imp domain.CatalogueImport) {
 	for _, piece := range imp.Pieces {
 		for _, l := range piece.Doc.Links {
 			for _, perf := range l.Performances {
-				w.performance(l.URL, &piece.ID, perf, &piece.ID, nil)
+				w.importPerformance(w.performance(w.linkID(l.URL), &piece.ID, perf, &piece.ID, nil), perf)
 			}
 		}
 	}
 	for _, person := range imp.Persons {
 		for _, l := range person.Doc.Links {
 			for _, perf := range l.Performances {
-				w.performance(l.URL, perf.PieceID, perf.DocPerformance, nil, &person.ID)
+				w.importPerformance(w.performance(w.linkID(l.URL), perf.PieceID, perf.DocPerformance, nil, &person.ID),
+					perf.DocPerformance)
 			}
 		}
 	}
 }
 
-// performance inserts a performance of the link with URL url, of the piece pieceID if not nil, owned by the piece
-// ownerPieceID or the person ownerPersonID (the document whose link lists it), one of which is not nil.
-func (w *importWriter) performance(
-	url string, pieceID *int64, perf domain.DocPerformance, ownerPieceID, ownerPersonID *int64,
-) {
-	p := queries.InsertPerformanceParams{LinkID: w.linkID(url), PieceID: nullableID(pieceID),
-		EventID: nullableID(perf.EventID), Year: nullInt16(perf.Year), Uploader: nullString(perf.Uploader),
-		DescriptionVerbatim: perf.DescriptionVerbatim, OwnerPieceID: nullableID(ownerPieceID),
-		OwnerPersonID: nullableID(ownerPersonID)}
-	w.insert("performances", func() error {
-		id, err := w.q.InsertPerformance(w.ctx, p)
-		if err == nil {
-			w.performers = append(w.performers, importedPerformers{performanceID: id, personIDs: perf.PerformerIDs})
-		}
-
-		return err
-	})
+// importPerformance records the performers of the performance perf inserted as id, unless the writer has stopped.
+func (w *importWriter) importPerformance(id int64, perf domain.DocPerformance) {
+	if w.err == nil {
+		w.performerLists = append(w.performerLists, importedPerformers{performanceID: id, personIDs: perf.PerformerIDs})
+	}
 }

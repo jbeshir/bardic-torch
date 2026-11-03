@@ -256,3 +256,14 @@ func newPieceDocument(title string) domain.PieceDocument {
 func newEventDocument(name string) domain.EventDocument {
 	return domain.EventDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: domain.EventKindEvent}
 }
+
+// The statuses of revisions rows, and paths the tests' documents' problems name.
+const (
+	statusDraft     = "draft"
+	statusPending   = "pending"
+	statusApproved  = "approved"
+	statusRejected  = "rejected"
+	statusWithdrawn = "withdrawn"
+	pathSecondTerm  = "/terms/1/term"
+	shantiesAlias   = "Shanties"
+)

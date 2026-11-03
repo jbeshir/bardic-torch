@@ -15,13 +15,14 @@ import (
 
 var _ datasources.EditorRefResolver = (*Repository)(nil)
 
-// pendingNewEntity is a pending new entity, its placeholder, with its author and the document of the revision
-// creating it. Slug is the placeholder's (empty for a collection).
+// pendingNewEntity is a pending new entity, its placeholder, with its author and the revision creating it and its
+// document. Slug is the placeholder's (empty for a collection).
 type pendingNewEntity struct {
-	entity   domain.EntityRef
-	authorID string
-	slug     string
-	doc      domain.AnyDocument
+	entity     domain.EntityRef
+	authorID   string
+	slug       string
+	revisionID uint64
+	doc        domain.AnyDocument
 }
 
 // pendingNewEntities returns the pending new entities created by userID's revisions, or with anyAuthor by anyone's.
@@ -50,7 +51,7 @@ func (c *catalogueReader) pendingNewEntities(ctx context.Context, userID string,
 		}
 		entities = append(entities, pendingNewEntity{
 			entity:   domain.EntityRef{Type: entityType, ID: row.EntityID.Int64},
-			authorID: row.AuthorUserID.String, slug: slug.String, doc: doc,
+			authorID: row.AuthorUserID.String, slug: slug.String, revisionID: row.ID, doc: doc,
 		})
 	}
 

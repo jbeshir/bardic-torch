@@ -373,17 +373,10 @@ func (c *catalogueReader) draft(
 func (c *catalogueReader) revisionEntity(
 	ctx context.Context, entityType domain.EntityType, entityID sql.NullInt64,
 ) (int64, *domain.RevisionEntity, error) {
-	if !entityID.Valid {
-		return 0, nil, nil
-	}
-	row, err := c.entityRow(ctx, entityType, entityID.Int64, false)
-	if errors.Is(err, datasources.ErrNotFound) {
-		return entityID.Int64, nil, nil
-	}
+	entity, _, err := c.entityAndCurrent(ctx, entityType, entityID)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	return entityID.Int64, &domain.RevisionEntity{Type: entityType, ID: entityID.Int64, Slug: row.slug,
-		IsNew: row.currentRevision == nil}, nil
+	return entityID.Int64, entity, nil
 }

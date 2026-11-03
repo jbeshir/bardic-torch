@@ -4,7 +4,6 @@ package mysql_test
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -289,20 +288,6 @@ func TestRepository_SubmitDraft_ReferencesOwnPending(t *testing.T) {
 		DraftID: f.saveDraft(t, actorAsh, nil, doc).Draft.ID, Now: f.tick()})
 	var docErr *domain.DocumentError
 	require.ErrorAs(t, err, &docErr)
-}
-
-func TestRepository_SubmitDraft_InteractiveModerator(t *testing.T) {
-	t.Parallel()
-	f := newEditingFixture(t)
-	draft := f.saveDraft(t, actorRowan, nil, newPieceDocument("Rowan's Song"))
-
-	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan, DraftID: draft.Draft.ID,
-		Now: f.tick()})
-	require.ErrorIs(t, err, errors.ErrUnsupported, "approved inline by the approval writer, which comes later")
-	assert.Equal(t, "draft", f.stored(t, draft.Draft.ID).status)
-
-	result := f.submit(t, actorRowanToken, draft.Draft.ID)
-	assert.Equal(t, domain.RevisionStatusPending, result.Status, "an API-token moderator's submission is pending")
 }
 
 func TestRepository_SubmitDraft_EntityGone(t *testing.T) {

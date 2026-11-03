@@ -95,11 +95,16 @@ type DraftDiscarder interface {
 	DiscardDraft(ctx context.Context, actor domain.Actor, id int64) error
 }
 
-// SubmitRequest is a submission of the draft DraftID.
+// SubmitRequest is a submission of the draft DraftID. Duplicates are the entities a draft of a new entity may
+// duplicate, as DuplicateFinder found them (D13): any match is stored as a possible_duplicate flag, and for an
+// interactive moderator, whose submission is approved at once, they are the approval's (ApproveRequest).
+// AcknowledgedFlags are an interactive moderator's acknowledgements of their submission's flags (D3).
 type SubmitRequest struct {
-	Actor   domain.Actor
-	DraftID int64
-	Now     time.Time
+	Actor             domain.Actor
+	DraftID           int64
+	Duplicates        []domain.DuplicateMatch
+	AcknowledgedFlags []domain.FlagCode
+	Now               time.Time
 }
 
 // SubmitResult is the revision a submission leaves: Replayed is set when the draft had already been submitted, and
@@ -115,7 +120,8 @@ type SubmitResult struct {
 // as pending, superseding the author's pending revision of the entity. A new entity gets its placeholder row
 // (D14). It returns ErrNotFound unless the draft is the actor's, domain.ErrNotDraft for a rejected or withdrawn
 // revision, a *domain.DocumentError, ErrPendingLimitReached and ErrEntityGone. An interactive moderator's
-// submission is approved at once by the approval writer.
+// submission is approved at once, inline (D3): a stale one is merged, and the approval's errors are its errors
+// (RevisionApprover), the draft staying a draft.
 type RevisionSubmitter interface {
 	SubmitDraft(ctx context.Context, req SubmitRequest) (SubmitResult, error)
 }
