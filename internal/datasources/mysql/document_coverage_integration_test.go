@@ -49,6 +49,8 @@ performances.event_id                  = links.performances.event_id
 performances.year                      = links.performances.year
 performances.uploader                  = links.performances.uploader
 performances.description_verbatim      = links.performances.description_verbatim
+performances.owner_piece_id           ! which document owns the row; set by the writer from the document being written
+performances.owner_person_id          ! which document owns the row; set by the writer from the document being written
 performance_performers.performance_id  ! the performance of the links[].performances[] element
 performance_performers.person_id       = links.performances.performer_ids
 performance_performers.position        ! the element's index in its document list
@@ -203,6 +205,8 @@ users                  ! accounts
 api_tokens             ! accounts
 revisions              ! the revision workflow that stores the documents
 revision_contributors  ! the revision workflow that stores the documents
+link_reports           ! moderation of links, outside the documents
+contact_requests       ! messages to the moderators, outside the documents
 term_ancestors         ! derived from terms.parent_id by the importer and when a term revision is approved
 conservation_history   ! written by the importer, and appended when a revision changing a piece's status is approved
 `

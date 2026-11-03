@@ -23,6 +23,10 @@ func TestConnect_SelectTimeLimit(t *testing.T) {
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT @@SESSION.max_execution_time").Scan(&limit))
 	assert.Equal(t, int64(2000), limit)
 
+	var lockWait int64
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT @@SESSION.innodb_lock_wait_timeout").Scan(&lockWait))
+	assert.Equal(t, int64(3), lockWait)
+
 	start := time.Now()
 	var interrupted int64
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT SLEEP(5)").Scan(&interrupted))

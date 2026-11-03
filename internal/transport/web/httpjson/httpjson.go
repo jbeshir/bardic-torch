@@ -15,8 +15,16 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// MaxBodyBytes is the largest request body DecodeJSONBody accepts.
-const MaxBodyBytes = 16 << 10
+// The largest request bodies the endpoints accept: MaxBodyBytes for DecodeJSONBody, and for the endpoints that
+// carry more, the limit they pass to DecodeJSONBodyLimit.
+const (
+	MaxBodyBytes = 16 << 10
+	// MaxDocumentBodyBytes is the limit for bodies carrying a document, whose element caps would otherwise allow
+	// more bytes than a request should hold.
+	MaxDocumentBodyBytes = 1 << 20
+	// MaxContactBodyBytes is the limit for the contact form, whose message can reach 20-30 KB once escaped.
+	MaxContactBodyBytes = 64 << 10
+)
 
 var errMultipleValues = errors.New("body contains more than one JSON value")
 
@@ -63,10 +71,15 @@ func WriteError(ctx context.Context, w http.ResponseWriter, status int, code Err
 	WriteJSON(ctx, w, status, errorBody{Code: code, Message: message})
 }
 
-// DecodeJSONBody decodes the request body, which must be a single JSON object of at most MaxBodyBytes sent as
-// application/json, into dst, rejecting unknown fields. If the body is unacceptable it writes the matching
-// error response (415, 413 or 400) and returns false; the caller should then return without writing.
+// DecodeJSONBody is DecodeJSONBodyLimit with the limit MaxBodyBytes.
 func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	return DecodeJSONBodyLimit(w, r, dst, MaxBodyBytes)
+}
+
+// DecodeJSONBodyLimit decodes the request body, which must be a single JSON object of at most limit bytes sent
+// as application/json, into dst, rejecting unknown fields. If the body is unacceptable it writes the matching
+// error response (415, 413 or 400) and returns false; the caller should then return without writing.
+func DecodeJSONBodyLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
 	ctx := r.Context()
 
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -76,7 +89,7 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 		return false
 	}
 
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 
 	var raw json.RawMessage
 	if err := dec.Decode(&raw); err != nil {

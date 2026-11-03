@@ -10,6 +10,9 @@ import (
 )
 
 const (
+	// WriteTimeout is how long the server gives a response to be written, from the end of the request headers.
+	// Work behind a request must end before it, or the client sees a dropped connection.
+	WriteTimeout    = 15 * time.Second
 	shutdownTimeout = 10 * time.Second
 	// maxHeaderBytes bounds the request line and headers; the largest legitimate header is an Auth0 access token
 	// of a few KiB. Larger requests get 431.
@@ -30,7 +33,7 @@ func (s *Server) Run(ctx context.Context) error {
 		ReadHeaderTimeout: 5 * time.Second,
 		MaxHeaderBytes:    maxHeaderBytes,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		WriteTimeout:      WriteTimeout,
 		IdleTimeout:       60 * time.Second,
 		// Requests inherit ctx's values, such as the logger, but are not cancelled with it, so that they
 		// can complete during graceful shutdown.

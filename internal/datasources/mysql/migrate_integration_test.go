@@ -4,13 +4,18 @@ package mysql_test
 
 import (
 	"database/sql"
+	"io/fs"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
+	"github.com/jbeshir/bardic-torch/migrations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +30,7 @@ var migratedTables = []string{
 	"pieces", "piece_secondary_kinds", "piece_aliases", "piece_terms", "piece_relations", "piece_credits",
 	"conservation_history", "piece_preferences",
 	"links", "link_attachments", "performances", "performance_performers",
+	"link_reports", "contact_requests",
 }
 
 // migratedViews are the views the migrations create.
@@ -110,24 +116,29 @@ const (
 
 // identifierCollations lists every collated column that does not use textCollation.
 var identifierCollations = map[string]string{
-	"users.id":                   binaryCollation,
-	"api_tokens.id":              asciiBinaryCollation,
-	"api_tokens.user_id":         binaryCollation,
-	"api_tokens.token_hash":      asciiBinaryCollation,
-	"api_tokens.token_prefix":    asciiBinaryCollation,
-	"revisions.author_user_id":   binaryCollation,
-	"revisions.reviewer_user_id": binaryCollation,
-	"terms.slug":                 asciiBinaryCollation,
-	"collections.sort_letter":    asciiBinaryCollation,
-	"events.slug":                asciiBinaryCollation,
-	"persons.slug":               asciiBinaryCollation,
-	"persons.sort_letter":        asciiBinaryCollation,
-	"persons.claimed_by_user_id": binaryCollation,
-	"pieces.slug":                asciiBinaryCollation,
-	"pieces.sort_letter":         asciiBinaryCollation,
-	"links.url":                  binaryCollation,
-	"links.normalized_url":       asciiBinaryCollation,
-	"links.platform":             asciiBinaryCollation,
+	"users.id":                             binaryCollation,
+	"api_tokens.id":                        asciiBinaryCollation,
+	"api_tokens.user_id":                   binaryCollation,
+	"api_tokens.token_hash":                asciiBinaryCollation,
+	"api_tokens.token_prefix":              asciiBinaryCollation,
+	"revisions.author_user_id":             binaryCollation,
+	"revisions.reviewer_user_id":           binaryCollation,
+	"terms.slug":                           asciiBinaryCollation,
+	"collections.sort_letter":              asciiBinaryCollation,
+	"events.slug":                          asciiBinaryCollation,
+	"persons.slug":                         asciiBinaryCollation,
+	"persons.sort_letter":                  asciiBinaryCollation,
+	"persons.claimed_by_user_id":           binaryCollation,
+	"pieces.slug":                          asciiBinaryCollation,
+	"pieces.sort_letter":                   asciiBinaryCollation,
+	"links.url":                            binaryCollation,
+	"links.normalized_url":                 asciiBinaryCollation,
+	"links.platform":                       asciiBinaryCollation,
+	"revisions.rebased_by_user_id":         binaryCollation,
+	"users.display_name_key":               binaryCollation,
+	"link_reports.reporter_user_id":        binaryCollation,
+	"link_reports.resolved_by_user_id":     binaryCollation,
+	"contact_requests.resolved_by_user_id": binaryCollation,
 }
 
 // textColumns spot-checks that text whose comparison users see is case- and accent-insensitive; every collated
@@ -224,4 +235,76 @@ func TestMigrations_DroppedViewColumnBreaksReads(t *testing.T) {
 
 	_, err = db.ExecContext(t.Context(), viewReads["listed_persons"])
 	require.ErrorContains(t, err, "1356")
+}
+
+// performanceOwners returns every performance's owners, by performance ID: the piece, then the person.
+func performanceOwners(t *testing.T, db *sql.DB) map[int64][2]sql.NullInt64 {
+	t.Helper()
+
+	rows, err := db.QueryContext(t.Context(), "SELECT id, owner_piece_id, owner_person_id FROM performances")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = rows.Close() })
+
+	owners := map[int64][2]sql.NullInt64{}
+	for rows.Next() {
+		var id int64
+		var owner [2]sql.NullInt64
+		require.NoError(t, rows.Scan(&id, &owner[0], &owner[1]))
+		owners[id] = owner
+	}
+	require.NoError(t, rows.Err())
+
+	return owners
+}
+
+// ownerBackfillStatements returns the statements of migration 010 that set performance owners, read from the
+// migration file so that the test runs the statements the migration does.
+func ownerBackfillStatements(t *testing.T) []string {
+	t.Helper()
+
+	script, err := fs.ReadFile(migrations.FS, "010_moderation.up.sql")
+	require.NoError(t, err)
+
+	var code strings.Builder
+	for line := range strings.Lines(string(script)) {
+		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+			code.WriteString(line)
+		}
+	}
+
+	var statements []string
+	for statement := range strings.SplitSeq(code.String(), ";") {
+		if statement = strings.TrimSpace(statement); strings.HasPrefix(statement, "UPDATE `performances`") {
+			statements = append(statements, statement)
+		}
+	}
+
+	return statements
+}
+
+// TestMigration010_BackfillsPerformanceOwners requires the backfill of migration 010 to give the performances of
+// a BE3 import, which set no owners, the owners the import writer gives them.
+func TestMigration010_BackfillsPerformanceOwners(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	imp, _ := importtest.Scrubbed(t)
+	catalogtest.New(t, db).Import(imp)
+	want := performanceOwners(t, db)
+	require.NotEmpty(t, want)
+
+	_, err := db.ExecContext(t.Context(), "UPDATE performances SET owner_piece_id = NULL, owner_person_id = NULL")
+	require.NoError(t, err)
+	for _, owner := range performanceOwners(t, db) {
+		require.False(t, owner[0].Valid || owner[1].Valid)
+	}
+
+	statements := ownerBackfillStatements(t)
+	require.Len(t, statements, 2)
+	for _, statement := range statements {
+		_, err := db.ExecContext(t.Context(), statement)
+		require.NoError(t, err)
+	}
+
+	assert.Equal(t, want, performanceOwners(t, db))
 }

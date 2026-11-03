@@ -152,3 +152,51 @@ func TestDecodeJSONBody_LogsDecodeErrorAtDebug(t *testing.T) {
 		assert.Contains(t, entry["error"], "json: ", body)
 	}
 }
+
+func TestDecodeJSONBodyLimit(t *testing.T) {
+	t.Parallel()
+
+	const limit = 100
+	pad := func(n int) string { return `{"name":"` + strings.Repeat("a", n-len(`{"name":""}`)) + `"}` }
+
+	cases := []struct {
+		name       string
+		limit      int64
+		body       string
+		wantStatus int
+	}{
+		{name: "at_limit", limit: limit, body: pad(limit)},
+		{name: "one_byte_over_limit", limit: limit, body: pad(limit + 1), wantStatus: http.StatusRequestEntityTooLarge},
+		{name: "default_limit_is_not_used", limit: MaxBodyBytes + 1, body: pad(MaxBodyBytes + 1)},
+		{name: "document_limit", limit: MaxDocumentBodyBytes, body: pad(MaxDocumentBodyBytes)},
+		{name: "over_document_limit", limit: MaxDocumentBodyBytes, body: pad(MaxDocumentBodyBytes + 1), wantStatus: http.StatusRequestEntityTooLarge},
+		{name: "contact_limit", limit: MaxContactBodyBytes, body: pad(MaxContactBodyBytes)},
+		{name: "over_contact_limit", limit: MaxContactBodyBytes, body: pad(MaxContactBodyBytes + 1), wantStatus: http.StatusRequestEntityTooLarge},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", mediaType)
+			rec := httptest.NewRecorder()
+
+			var got testBody
+			ok := DecodeJSONBodyLimit(rec, req, &got, tc.limit)
+
+			if tc.wantStatus == 0 {
+				require.True(t, ok, "unexpected error response: %s", rec.Body.String())
+				assert.Len(t, tc.body, len(`{"name":""}`)+len(got.Name))
+				assert.Empty(t, rec.Body.String())
+				return
+			}
+
+			require.False(t, ok)
+			assert.Equal(t, tc.wantStatus, rec.Code)
+			var body errorBody
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, CodeRequestTooLarge, body.Code)
+		})
+	}
+}

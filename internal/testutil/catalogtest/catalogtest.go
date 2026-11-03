@@ -218,7 +218,7 @@ func (c *Catalog) Person(f Person) Ref {
 					linkID, ref.ID, role, position)
 			}
 			for _, perf := range link.Performances {
-				w.performance(linkID, perf.PieceID, perf.DocPerformance)
+				w.performance(linkID, perf.PieceID, perf.DocPerformance, nil, &ref.ID)
 			}
 		}
 		ref.RevisionID = w.approve(domain.EntityTypePerson, ref.ID, doc, f.Unapproved)
@@ -285,7 +285,7 @@ func (c *Catalog) Piece(f Piece) Ref {
 					linkID, ref.ID, role, position)
 			}
 			for _, perf := range link.Performances {
-				w.performance(linkID, &ref.ID, perf)
+				w.performance(linkID, &ref.ID, perf, &ref.ID, nil)
 			}
 		}
 		ref.RevisionID = w.approve(domain.EntityTypePiece, ref.ID, doc, f.Unapproved)
@@ -424,11 +424,12 @@ func (w writer) link(l domain.DocLink) int64 {
 		l.URL, w.c.normalizeURL(l.URL), l.Title, l.Description, l.Platform, l.PlaceType, l.CollectionID, l.Locator)
 }
 
-// performance inserts a performance recorded by the link linkID, of the piece pieceID if not nil, with its
-// performers in order.
-func (w writer) performance(linkID int64, pieceID *int64, p domain.DocPerformance) {
-	id := w.exec("INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim) "+
-		"VALUES (?, ?, ?, ?, ?, ?)", linkID, pieceID, p.EventID, p.Year, p.Uploader, p.DescriptionVerbatim)
+// performance inserts a performance recorded by the link linkID, of the piece pieceID if not nil, owned by the piece
+// ownerPieceID or the person ownerPersonID (the document whose link lists it), with its performers in order.
+func (w writer) performance(linkID int64, pieceID *int64, p domain.DocPerformance, ownerPieceID, ownerPersonID *int64) {
+	id := w.exec("INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim, "+
+		"owner_piece_id, owner_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		linkID, pieceID, p.EventID, p.Year, p.Uploader, p.DescriptionVerbatim, ownerPieceID, ownerPersonID)
 	for position, personID := range p.PerformerIDs {
 		w.exec("INSERT INTO performance_performers (performance_id, person_id, position) VALUES (?, ?, ?)",
 			id, personID, position)

@@ -33,6 +33,10 @@ var (
 		RevisionStatusDraft, RevisionStatusPending, RevisionStatusApproved, RevisionStatusRejected,
 		RevisionStatusWithdrawn,
 	}
+	revisionActionValues = []RevisionAction{
+		RevisionActionSaveDraft, RevisionActionDiscardDraft, RevisionActionSubmit, RevisionActionApprove,
+		RevisionActionReject, RevisionActionWithdraw, RevisionActionRebase, RevisionActionRevert,
+	}
 	facetValues = []Facet{
 		FacetMood, FacetTopic, FacetCulture, FacetLanguage, FacetLegendaria, FacetForm, FacetOrigin, FacetOther,
 		FacetAffiliation,
@@ -118,6 +122,20 @@ var (
 		LinkRoleOfficial, LinkRoleLyrics, LinkRoleText, LinkRoleSheetMusic, LinkRoleDanceInstructions,
 		LinkRoleTextSource, LinkRoleTranslation, LinkRolePerformance, LinkRoleLicensingSource, LinkRoleWebsite,
 		LinkRoleExternalProfile, LinkRoleOther,
+	}
+	linkReportReasonValues = []LinkReportReason{
+		LinkReportReasonBroken, LinkReportReasonWrongLink, LinkReportReasonPrivacy, LinkReportReasonCopyright,
+		LinkReportReasonLyrics, LinkReportReasonOther,
+	}
+	linkReportStatusValues = []LinkReportStatus{
+		LinkReportStatusOpen, LinkReportStatusResolved, LinkReportStatusDismissed,
+	}
+	contactRequestKindValues = []ContactRequestKind{
+		ContactRequestKindTakedown, ContactRequestKindOptOut, ContactRequestKindCorrection,
+		ContactRequestKindGeneral,
+	}
+	contactRequestStatusValues = []ContactRequestStatus{
+		ContactRequestStatusOpen, ContactRequestStatusResolved, ContactRequestStatusDismissed,
 	}
 	pieceSortValues = []PieceSort{
 		PieceSortTitle, PieceSortRelevance,
@@ -213,3 +231,18 @@ func (p PieceSort) Valid() bool { return slices.Contains(pieceSortValues, p) }
 
 // Valid reports whether p is a known PersonSort.
 func (p PersonSort) Valid() bool { return slices.Contains(personSortValues, p) }
+
+// Valid reports whether r is a known RevisionAction.
+func (r RevisionAction) Valid() bool { return slices.Contains(revisionActionValues, r) }
+
+// Valid reports whether l is a known LinkReportReason.
+func (l LinkReportReason) Valid() bool { return slices.Contains(linkReportReasonValues, l) }
+
+// Valid reports whether l is a known LinkReportStatus.
+func (l LinkReportStatus) Valid() bool { return slices.Contains(linkReportStatusValues, l) }
+
+// Valid reports whether c is a known ContactRequestKind.
+func (c ContactRequestKind) Valid() bool { return slices.Contains(contactRequestKindValues, c) }
+
+// Valid reports whether c is a known ContactRequestStatus.
+func (c ContactRequestStatus) Valid() bool { return slices.Contains(contactRequestStatusValues, c) }

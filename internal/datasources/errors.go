@@ -20,3 +20,8 @@ type UnknownTermError struct {
 func (e *UnknownTermError) Error() string {
 	return "unknown term [" + e.Slug + "]"
 }
+
+// ErrUnavailable is returned, wrapped, when a write could not finish in time: its transaction was still hitting
+// lock waits or deadlocks after its retries, or ran past its deadline. The write did not happen, and trying
+// again later may work.
+var ErrUnavailable = errors.New("database busy")

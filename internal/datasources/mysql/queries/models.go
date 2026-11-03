@@ -201,6 +201,114 @@ func (e ConservationHistoryStatus) Valid() bool {
 	return false
 }
 
+type ContactRequestsKind string
+
+const (
+	ContactRequestsKindTakedown   ContactRequestsKind = "takedown"
+	ContactRequestsKindOptOut     ContactRequestsKind = "opt_out"
+	ContactRequestsKindCorrection ContactRequestsKind = "correction"
+	ContactRequestsKindGeneral    ContactRequestsKind = "general"
+)
+
+func (e *ContactRequestsKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContactRequestsKind(s)
+	case string:
+		*e = ContactRequestsKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContactRequestsKind: %T", src)
+	}
+	return nil
+}
+
+type NullContactRequestsKind struct {
+	ContactRequestsKind ContactRequestsKind
+	Valid               bool // Valid is true if ContactRequestsKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContactRequestsKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContactRequestsKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContactRequestsKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContactRequestsKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContactRequestsKind), nil
+}
+
+func (e ContactRequestsKind) Valid() bool {
+	switch e {
+	case ContactRequestsKindTakedown,
+		ContactRequestsKindOptOut,
+		ContactRequestsKindCorrection,
+		ContactRequestsKindGeneral:
+		return true
+	}
+	return false
+}
+
+type ContactRequestsStatus string
+
+const (
+	ContactRequestsStatusOpen      ContactRequestsStatus = "open"
+	ContactRequestsStatusResolved  ContactRequestsStatus = "resolved"
+	ContactRequestsStatusDismissed ContactRequestsStatus = "dismissed"
+)
+
+func (e *ContactRequestsStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContactRequestsStatus(s)
+	case string:
+		*e = ContactRequestsStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContactRequestsStatus: %T", src)
+	}
+	return nil
+}
+
+type NullContactRequestsStatus struct {
+	ContactRequestsStatus ContactRequestsStatus
+	Valid                 bool // Valid is true if ContactRequestsStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContactRequestsStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContactRequestsStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContactRequestsStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContactRequestsStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContactRequestsStatus), nil
+}
+
+func (e ContactRequestsStatus) Valid() bool {
+	switch e {
+	case ContactRequestsStatusOpen,
+		ContactRequestsStatusResolved,
+		ContactRequestsStatusDismissed:
+		return true
+	}
+	return false
+}
+
 type EventsKind string
 
 const (
@@ -318,6 +426,118 @@ func (e LinkAttachmentsRole) Valid() bool {
 		LinkAttachmentsRoleWebsite,
 		LinkAttachmentsRoleExternalProfile,
 		LinkAttachmentsRoleOther:
+		return true
+	}
+	return false
+}
+
+type LinkReportsReason string
+
+const (
+	LinkReportsReasonBroken    LinkReportsReason = "broken"
+	LinkReportsReasonWrongLink LinkReportsReason = "wrong_link"
+	LinkReportsReasonPrivacy   LinkReportsReason = "privacy"
+	LinkReportsReasonCopyright LinkReportsReason = "copyright"
+	LinkReportsReasonLyrics    LinkReportsReason = "lyrics"
+	LinkReportsReasonOther     LinkReportsReason = "other"
+)
+
+func (e *LinkReportsReason) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = LinkReportsReason(s)
+	case string:
+		*e = LinkReportsReason(s)
+	default:
+		return fmt.Errorf("unsupported scan type for LinkReportsReason: %T", src)
+	}
+	return nil
+}
+
+type NullLinkReportsReason struct {
+	LinkReportsReason LinkReportsReason
+	Valid             bool // Valid is true if LinkReportsReason is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullLinkReportsReason) Scan(value interface{}) error {
+	if value == nil {
+		ns.LinkReportsReason, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.LinkReportsReason.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullLinkReportsReason) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.LinkReportsReason), nil
+}
+
+func (e LinkReportsReason) Valid() bool {
+	switch e {
+	case LinkReportsReasonBroken,
+		LinkReportsReasonWrongLink,
+		LinkReportsReasonPrivacy,
+		LinkReportsReasonCopyright,
+		LinkReportsReasonLyrics,
+		LinkReportsReasonOther:
+		return true
+	}
+	return false
+}
+
+type LinkReportsStatus string
+
+const (
+	LinkReportsStatusOpen      LinkReportsStatus = "open"
+	LinkReportsStatusResolved  LinkReportsStatus = "resolved"
+	LinkReportsStatusDismissed LinkReportsStatus = "dismissed"
+)
+
+func (e *LinkReportsStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = LinkReportsStatus(s)
+	case string:
+		*e = LinkReportsStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for LinkReportsStatus: %T", src)
+	}
+	return nil
+}
+
+type NullLinkReportsStatus struct {
+	LinkReportsStatus LinkReportsStatus
+	Valid             bool // Valid is true if LinkReportsStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullLinkReportsStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.LinkReportsStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.LinkReportsStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullLinkReportsStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.LinkReportsStatus), nil
+}
+
+func (e LinkReportsStatus) Valid() bool {
+	switch e {
+	case LinkReportsStatusOpen,
+		LinkReportsStatusResolved,
+		LinkReportsStatusDismissed:
 		return true
 	}
 	return false
@@ -1906,6 +2126,21 @@ type ConservationHistory struct {
 	At         time.Time
 }
 
+type ContactRequest struct {
+	ID               uint64
+	Kind             ContactRequestsKind
+	Name             sql.NullString
+	Email            sql.NullString
+	Message          sql.NullString
+	Url              sql.NullString
+	Status           ContactRequestsStatus
+	CreatedAt        time.Time
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+	PurgedAt         sql.NullTime
+}
+
 type Event struct {
 	ID                uint64
 	Slug              string
@@ -1942,6 +2177,19 @@ type LinkAttachment struct {
 	Position uint16
 }
 
+type LinkReport struct {
+	ID               uint64
+	LinkID           uint64
+	ReporterUserID   string
+	Reason           LinkReportsReason
+	Message          sql.NullString
+	Status           LinkReportsStatus
+	CreatedAt        time.Time
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+}
+
 type ListedPerson struct {
 	ID                uint64
 	Slug              string
@@ -1971,6 +2219,8 @@ type Performance struct {
 	Year                sql.NullInt16
 	Uploader            sql.NullString
 	DescriptionVerbatim string
+	OwnerPieceID        sql.NullInt64
+	OwnerPersonID       sql.NullInt64
 }
 
 type PerformancePerformer struct {
@@ -2124,19 +2374,27 @@ type PublicTerm struct {
 }
 
 type Revision struct {
-	ID             uint64
-	EntityType     RevisionsEntityType
-	EntityID       uint64
-	BaseRevisionID sql.NullInt64
-	AuthorUserID   sql.NullString
-	Source         RevisionsSource
-	Status         RevisionsStatus
-	SnapshotJson   json.RawMessage
-	Summary        string
-	ReviewerUserID sql.NullString
-	ReviewedAt     sql.NullTime
-	ReviewNote     sql.NullString
-	CreatedAt      time.Time
+	ID                      uint64
+	EntityType              RevisionsEntityType
+	BaseRevisionID          sql.NullInt64
+	AuthorUserID            sql.NullString
+	Source                  RevisionsSource
+	Status                  RevisionsStatus
+	SnapshotJson            json.RawMessage
+	Summary                 string
+	ReviewerUserID          sql.NullString
+	ReviewedAt              sql.NullTime
+	ReviewNote              sql.NullString
+	CreatedAt               time.Time
+	EntityID                sql.NullInt64
+	SubmittedSnapshotJson   json.RawMessage
+	FlagsJson               json.RawMessage
+	ReceivedKeysJson        json.RawMessage
+	SubmittedBaseRevisionID sql.NullInt64
+	UpdatedAt               sql.NullTime
+	SubmittedAt             sql.NullTime
+	RebasedByUserID         sql.NullString
+	RebasedAt               sql.NullTime
 }
 
 type RevisionContributor struct {
@@ -2173,9 +2431,10 @@ type TermAncestor struct {
 }
 
 type User struct {
-	ID          string
-	DisplayName string
-	Role        UsersRole
-	CreatedAt   time.Time
-	BlockedAt   sql.NullTime
+	ID             string
+	DisplayName    string
+	Role           UsersRole
+	CreatedAt      time.Time
+	BlockedAt      sql.NullTime
+	DisplayNameKey sql.NullString
 }

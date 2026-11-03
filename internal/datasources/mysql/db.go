@@ -27,6 +27,14 @@ const (
 	maxExecutionTimeMillis = "2000"
 )
 
+// lockWaitTimeoutParam is the session variable limiting how long a statement waits for a row lock, in seconds, and
+// lockWaitTimeoutSeconds the limit every connection ConfigFromURL describes sets. It is far below InnoDB's 50
+// seconds, so that a write transaction (withWriteTx) fails and retries well within the server's write timeout.
+const (
+	lockWaitTimeoutParam   = "innodb_lock_wait_timeout"
+	lockWaitTimeoutSeconds = "3"
+)
+
 // ConfigFromURL parses a database URL of the form mysql://user:password@host[:port]/database, as provided by
 // the dokku mysql plugin, into a driver config. The user and password are URL-decoded and the port defaults to
 // 3306.
@@ -36,7 +44,8 @@ const (
 // the server stop any SELECT that runs longer than maxExecutionTimeMillis (error 3024, datasources.ErrQueryTimeout).
 // The limit applies to every SELECT, locking reads and GET_LOCK waits included, but not to INSERT, UPDATE, DELETE
 // or DDL statements, nor to a SELECT within them: a connection that must wait longer sets max_execution_time
-// itself, as the migrator does.
+// itself, as the migrator does. Every statement waits at most lockWaitTimeoutSeconds
+// for a row lock (error 1205), so that write transactions fail and retry within the server's write timeout.
 //
 // Errors never quote the URL or a part of it, which may be the password: url.Parse's errors do ("invalid port"
 // quotes what follows the last colon of a password holding "/"), so they are replaced by ErrMalformedDatabaseURL.
@@ -75,7 +84,11 @@ func ConfigFromURL(rawURL string) (*mysqldriver.Config, error) {
 	cfg.ParseTime = true
 	cfg.Loc = time.UTC
 	cfg.ClientFoundRows = true
-	cfg.Params = map[string]string{"time_zone": "'+00:00'", maxExecutionTimeParam: maxExecutionTimeMillis}
+	cfg.Params = map[string]string{
+		"time_zone":           "'+00:00'",
+		maxExecutionTimeParam: maxExecutionTimeMillis,
+		lockWaitTimeoutParam:  lockWaitTimeoutSeconds,
+	}
 
 	return cfg, nil
 }

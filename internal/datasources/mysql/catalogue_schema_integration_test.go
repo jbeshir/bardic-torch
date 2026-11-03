@@ -91,6 +91,15 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		domain.LinkPlaceTypeOralTradition, domain.LinkPlaceTypeOther)
 	liveness := enumColumnType(domain.LivenessUnknown, domain.LivenessOK, domain.LivenessDead,
 		domain.LivenessBlocked)
+	linkReportReasons := enumColumnType(domain.LinkReportReasonBroken, domain.LinkReportReasonWrongLink,
+		domain.LinkReportReasonPrivacy, domain.LinkReportReasonCopyright, domain.LinkReportReasonLyrics,
+		domain.LinkReportReasonOther)
+	linkReportStatuses := enumColumnType(domain.LinkReportStatusOpen, domain.LinkReportStatusResolved,
+		domain.LinkReportStatusDismissed)
+	contactRequestKinds := enumColumnType(domain.ContactRequestKindTakedown, domain.ContactRequestKindOptOut,
+		domain.ContactRequestKindCorrection, domain.ContactRequestKindGeneral)
+	contactRequestStatuses := enumColumnType(domain.ContactRequestStatusOpen, domain.ContactRequestStatusResolved,
+		domain.ContactRequestStatusDismissed)
 	linkRoles := enumColumnType(domain.LinkRoleOfficial, domain.LinkRoleLyrics, domain.LinkRoleText,
 		domain.LinkRoleSheetMusic, domain.LinkRoleDanceInstructions, domain.LinkRoleTextSource,
 		domain.LinkRoleTranslation, domain.LinkRolePerformance, domain.LinkRoleLicensingSource,
@@ -129,6 +138,10 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		"links.place_type":             placeTypes,
 		"links.liveness":               liveness,
 		"link_attachments.role":        linkRoles,
+		"link_reports.reason":          linkReportReasons,
+		"link_reports.status":          linkReportStatuses,
+		"contact_requests.kind":        contactRequestKinds,
+		"contact_requests.status":      contactRequestStatuses,
 	}
 
 	db := mysqltest.NewDatabase(t)
@@ -438,4 +451,102 @@ func TestMigrations_PersonAliasHiddenByDefault(t *testing.T) {
 	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT is_public FROM person_aliases WHERE id = ?", id).
 		Scan(&isPublic))
 	assert.False(t, isPublic)
+}
+
+// TestMigrations_ModerationConstraints requires the constraints of the moderation tables and columns to refuse
+// the rows they describe, and to accept the rows they allow.
+func TestMigrations_ModerationConstraints(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	r := seedCatalogue(t, db)
+	insertRow(t, db, "INSERT INTO users (id, display_name, role, created_at, display_name_key) "+
+		"VALUES ('auth0|wren', 'Wren Placeholder', 'contributor', '2026-01-01 00:00:00', 'wren placeholder')")
+	insertRow(t, db, "INSERT INTO users (id, display_name, role, created_at) "+
+		"VALUES ('auth0|morwen', 'Morwen Placeholder', 'contributor', '2026-01-01 00:00:00')")
+
+	const insertRevision = "INSERT INTO revisions (entity_type, entity_id, source, status, snapshot_json, created_at) " +
+		"VALUES ('piece', ?, 'user', ?, '{}', '2026-01-01 00:00:00')"
+
+	cases := []struct {
+		name  string
+		query string
+		args  []any
+		want  uint16
+	}{
+		{name: "pending revision without an entity", query: insertRevision, args: []any{nil, "pending"},
+			want: errCheckConstraintViolated},
+		{name: "approved revision without an entity", query: insertRevision, args: []any{nil, "approved"},
+			want: errCheckConstraintViolated},
+		{
+			name: "revision submitted from a missing revision",
+			query: "INSERT INTO revisions (entity_type, entity_id, submitted_base_revision_id, source, status, " +
+				"snapshot_json, created_at) VALUES ('piece', ?, 999999, 'user', 'pending', '{}', '2026-01-01 00:00:00')",
+			args: []any{r.piece},
+			want: errNoReferencedRow,
+		},
+		{
+			name: "revision rebased by a missing user",
+			query: "INSERT INTO revisions (entity_type, entity_id, rebased_by_user_id, source, status, " +
+				"snapshot_json, created_at) VALUES ('piece', ?, 'auth0|nobody', 'user', 'pending', '{}', " +
+				"'2026-01-01 00:00:00')",
+			args: []any{r.piece},
+			want: errNoReferencedRow,
+		},
+		{
+			name:  "performance owned by a piece and a person",
+			query: "UPDATE performances SET owner_piece_id = ?, owner_person_id = ? WHERE id = ?",
+			args:  []any{r.piece, r.person, r.performance},
+			want:  errCheckConstraintViolated,
+		},
+		{
+			name:  "performance owned by a missing piece",
+			query: "UPDATE performances SET owner_piece_id = ? WHERE id = ?",
+			args:  []any{r.piece + 1000, r.performance},
+			want:  errNoReferencedRow,
+		},
+		{
+			name: "report of a missing link",
+			query: "INSERT INTO link_reports (link_id, reporter_user_id, reason, created_at) " +
+				"VALUES (?, 'auth0|wren', 'broken', '2026-01-01 00:00:00')",
+			args: []any{r.link + 1000},
+			want: errNoReferencedRow,
+		},
+		{
+			name: "report by a missing user",
+			query: "INSERT INTO link_reports (link_id, reporter_user_id, reason, created_at) " +
+				"VALUES (?, 'auth0|nobody', 'broken', '2026-01-01 00:00:00')",
+			args: []any{r.link},
+			want: errNoReferencedRow,
+		},
+		{
+			name:  "display name key taken",
+			query: "UPDATE users SET display_name_key = 'wren placeholder' WHERE id = 'auth0|morwen'",
+			want:  errDuplicateEntry,
+		},
+		{
+			name:  "display name key differing only in case",
+			query: "UPDATE users SET display_name_key = 'WREN PLACEHOLDER' WHERE id = 'auth0|morwen'",
+		},
+		{
+			name:  "display name key of 255 characters",
+			query: "UPDATE users SET display_name_key = ? WHERE id = 'auth0|morwen'",
+			args:  []any{strings.Repeat("k", 255)},
+		},
+		{name: "draft without an entity", query: insertRevision, args: []any{nil, "draft"}},
+		{name: "owned by a piece", query: "UPDATE performances SET owner_piece_id = ? WHERE id = ?",
+			args: []any{r.piece, r.performance}},
+	}
+
+	// The cases run in order: those accepting a row come after the cases refusing rows that they would change.
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := db.ExecContext(t.Context(), tc.query, tc.args...)
+			if tc.want == 0 {
+				require.NoError(t, err)
+				return
+			}
+			requireMySQLError(t, err, tc.want)
+		})
+	}
 }

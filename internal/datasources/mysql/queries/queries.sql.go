@@ -40,7 +40,7 @@ WHERE entity_type = ? AND entity_id = ? AND status = 'approved'
 
 type CountApprovedRevisionsParams struct {
 	EntityType RevisionsEntityType
-	EntityID   uint64
+	EntityID   sql.NullInt64
 }
 
 func (q *Queries) CountApprovedRevisions(ctx context.Context, arg CountApprovedRevisionsParams) (int64, error) {
@@ -240,7 +240,7 @@ WHERE r.id = ? AND r.status = 'approved'
 type GetApprovedRevisionRow struct {
 	ID                uint64
 	EntityType        RevisionsEntityType
-	EntityID          uint64
+	EntityID          sql.NullInt64
 	Source            RevisionsSource
 	Summary           string
 	CreatedAt         time.Time
@@ -547,12 +547,20 @@ FROM users
 WHERE id = ?
 `
 
+type GetUserRow struct {
+	ID          string
+	DisplayName string
+	Role        UsersRole
+	CreatedAt   time.Time
+	BlockedAt   sql.NullTime
+}
+
 // ============================================
 // Users
 // ============================================
-func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
+func (q *Queries) GetUser(ctx context.Context, id string) (GetUserRow, error) {
 	row := q.db.QueryRowContext(ctx, getUser, id)
-	var i User
+	var i GetUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.DisplayName,
@@ -807,7 +815,7 @@ VALUES (?, ?, ?, 'import', 'approved', ?, ?, ?)
 type InsertImportedRevisionParams struct {
 	ID           uint64
 	EntityType   RevisionsEntityType
-	EntityID     uint64
+	EntityID     sql.NullInt64
 	SnapshotJson json.RawMessage
 	Summary      string
 	CreatedAt    time.Time
@@ -897,8 +905,9 @@ func (q *Queries) InsertLinkAttachment(ctx context.Context, arg InsertLinkAttach
 }
 
 const insertPerformance = `-- name: InsertPerformance :execlastid
-INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim, owner_piece_id,
+                          owner_person_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertPerformanceParams struct {
@@ -908,6 +917,8 @@ type InsertPerformanceParams struct {
 	Year                sql.NullInt16
 	Uploader            sql.NullString
 	DescriptionVerbatim string
+	OwnerPieceID        sql.NullInt64
+	OwnerPersonID       sql.NullInt64
 }
 
 func (q *Queries) InsertPerformance(ctx context.Context, arg InsertPerformanceParams) (int64, error) {
@@ -918,6 +929,8 @@ func (q *Queries) InsertPerformance(ctx context.Context, arg InsertPerformancePa
 		arg.Year,
 		arg.Uploader,
 		arg.DescriptionVerbatim,
+		arg.OwnerPieceID,
+		arg.OwnerPersonID,
 	)
 	if err != nil {
 		return 0, err
@@ -1229,7 +1242,7 @@ LIMIT ? OFFSET ?
 
 type ListApprovedRevisionsParams struct {
 	EntityType RevisionsEntityType
-	EntityID   uint64
+	EntityID   sql.NullInt64
 	Limit      int32
 	Offset     int32
 }

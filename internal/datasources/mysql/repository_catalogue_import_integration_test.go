@@ -134,12 +134,16 @@ func emptyCounts(rows map[string]int) map[string]int {
 	return n
 }
 
+// nonCatalogueTables are the tables that are not catalogue tables, because the import needs neither empty: accounts,
+// and the reports and requests that moderators handle.
+var nonCatalogueTables = []string{"users", "api_tokens", "link_reports", "contact_requests"}
+
 func TestRepository_ImportCatalogue_CatalogueTablesAreEveryCatalogueTable(t *testing.T) {
 	t.Parallel()
 
 	var tables []string
 	for table := range tableColumns(t, mysqltest.NewDatabase(t)) {
-		if table != "users" && table != "api_tokens" {
+		if !slices.Contains(nonCatalogueTables, table) {
 			tables = append(tables, table)
 		}
 	}
@@ -413,4 +417,45 @@ func TestRepository_ImportCatalogue_ConcurrentImports(t *testing.T) {
 
 	// The lock was released: a third import gets past it to the emptiness check.
 	require.ErrorIs(t, mysql.New(db).ImportCatalogue(t.Context(), imp), datasources.ErrCatalogueNotEmpty)
+}
+
+// TestRepository_ImportCatalogue_PerformanceOwners requires every performance to have exactly one owner, the
+// entity whose current document lists it: its link is attached to that entity.
+func TestRepository_ImportCatalogue_PerformanceOwners(t *testing.T) {
+	t.Parallel()
+
+	db, imp := imported.Get(t)
+	ctx := t.Context()
+
+	count := func(query string) int {
+		var n int
+		require.NoError(t, db.QueryRowContext(ctx, query).Scan(&n))
+
+		return n
+	}
+
+	var wantPieceOwned, wantPersonOwned int
+	for _, p := range imp.Pieces {
+		for _, l := range p.Doc.Links {
+			wantPieceOwned += len(l.Performances)
+		}
+	}
+	for _, p := range imp.Persons {
+		for _, l := range p.Doc.Links {
+			wantPersonOwned += len(l.Performances)
+		}
+	}
+	require.Positive(t, wantPieceOwned, "the scrubbed import has performances listed by pieces")
+	require.Positive(t, wantPersonOwned, "the scrubbed import has performances listed by persons")
+
+	assert.Zero(t, count("SELECT COUNT(*) FROM performances WHERE (owner_piece_id IS NULL) = (owner_person_id IS NULL)"),
+		"every performance has exactly one owner")
+	assert.Equal(t, wantPieceOwned, count("SELECT COUNT(*) FROM performances WHERE owner_piece_id IS NOT NULL"))
+	assert.Equal(t, wantPersonOwned, count("SELECT COUNT(*) FROM performances WHERE owner_person_id IS NOT NULL"))
+	assert.Zero(t, count("SELECT COUNT(*) FROM performances p WHERE p.owner_piece_id IS NOT NULL AND NOT EXISTS "+
+		"(SELECT 1 FROM link_attachments a WHERE a.link_id = p.link_id AND a.piece_id = p.owner_piece_id)"),
+		"a piece owns only performances of its own links")
+	assert.Zero(t, count("SELECT COUNT(*) FROM performances p WHERE p.owner_person_id IS NOT NULL AND NOT EXISTS "+
+		"(SELECT 1 FROM link_attachments a WHERE a.link_id = p.link_id AND a.person_id = p.owner_person_id)"),
+		"a person owns only performances of their own links")
 }

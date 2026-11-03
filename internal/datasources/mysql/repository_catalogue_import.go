@@ -36,7 +36,7 @@ const importLockName = "LEFT(CONCAT('bardic-torch-import:', DATABASE()), 64)"
 
 // lockWaitMillis is the execution time limit of the import's locking reads, overriding the session's
 // (maxExecutionTimeMillis), which would stop a read waiting for a row lock that a running write holds. It is
-// above InnoDB's default lock wait timeout (50 s), which bounds the wait instead.
+// above the session's innodb_lock_wait_timeout (lockWaitTimeoutSeconds), which bounds the wait instead.
 const lockWaitMillis = 60000
 
 // ImportDatabaseError is returned, wrapped, for every MySQL error of an import (a refused row, a failed lock or
@@ -297,7 +297,7 @@ func (w *importWriter) revisions(imp domain.CatalogueImport) {
 			w.fail(fmt.Errorf("encoding the snapshot of %s [%d]: %w", r.entityType, r.entityID, err))
 		}
 		p := queries.InsertImportedRevisionParams{ID: w.id(r.rev.ID),
-			EntityType: queries.RevisionsEntityType(r.entityType), EntityID: w.id(r.entityID),
+			EntityType: queries.RevisionsEntityType(r.entityType), EntityID: nullableID(&r.entityID),
 			SnapshotJson: snapshot, Summary: r.rev.Summary, CreatedAt: r.rev.CreatedAt}
 		w.insert("revisions", func() error { return w.q.InsertImportedRevision(w.ctx, p) })
 	}
@@ -585,29 +585,34 @@ func (w *importWriter) attachments(l domain.DocLink, k int, pieceID, personID sq
 	}
 }
 
-// performances inserts the performances of the documents' links, those of a piece's links being of the piece,
-// and records their performers.
+// performances inserts the performances of the documents' links, those of a piece's links being owned by the piece,
+// those of a person's links being owned by the person, and records their performers.
 func (w *importWriter) performances(imp domain.CatalogueImport) {
 	for _, piece := range imp.Pieces {
 		for _, l := range piece.Doc.Links {
 			for _, perf := range l.Performances {
-				w.performance(l.URL, &piece.ID, perf)
+				w.performance(l.URL, &piece.ID, perf, &piece.ID, nil)
 			}
 		}
 	}
 	for _, person := range imp.Persons {
 		for _, l := range person.Doc.Links {
 			for _, perf := range l.Performances {
-				w.performance(l.URL, perf.PieceID, perf.DocPerformance)
+				w.performance(l.URL, perf.PieceID, perf.DocPerformance, nil, &person.ID)
 			}
 		}
 	}
 }
 
-func (w *importWriter) performance(url string, pieceID *int64, perf domain.DocPerformance) {
+// performance inserts a performance of the link with URL url, of the piece pieceID if not nil, owned by the piece
+// ownerPieceID or the person ownerPersonID (the document whose link lists it), one of which is not nil.
+func (w *importWriter) performance(
+	url string, pieceID *int64, perf domain.DocPerformance, ownerPieceID, ownerPersonID *int64,
+) {
 	p := queries.InsertPerformanceParams{LinkID: w.linkID(url), PieceID: nullableID(pieceID),
 		EventID: nullableID(perf.EventID), Year: nullInt16(perf.Year), Uploader: nullString(perf.Uploader),
-		DescriptionVerbatim: perf.DescriptionVerbatim}
+		DescriptionVerbatim: perf.DescriptionVerbatim, OwnerPieceID: nullableID(ownerPieceID),
+		OwnerPersonID: nullableID(ownerPersonID)}
 	w.insert("performances", func() error {
 		id, err := w.q.InsertPerformance(w.ctx, p)
 		if err == nil {

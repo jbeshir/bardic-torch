@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
+	"github.com/jbeshir/bardic-torch/internal/transport/web/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,4 +29,12 @@ func TestSetup_InvalidDatabaseURL(t *testing.T) {
 
 	require.ErrorContains(t, err, "parsing DATABASE_URL: database URL scheme must be mysql, got [postgres]")
 	assert.Nil(t, components)
+}
+
+// TestWriteTxBudget requires a write transaction, retries included, to end before the server stops writing the
+// response, so that a client sees a 503 and not a dropped connection while the transaction may still commit.
+func TestWriteTxBudget(t *testing.T) {
+	t.Parallel()
+
+	assert.Less(t, mysql.WriteTxDeadline, server.WriteTimeout)
 }

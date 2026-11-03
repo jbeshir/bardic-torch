@@ -646,8 +646,9 @@ INSERT INTO link_attachments (link_id, piece_id, person_id, role, position)
 VALUES (?, ?, ?, ?, ?);
 
 -- name: InsertPerformance :execlastid
-INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim, owner_piece_id,
+                          owner_person_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPerformancePerformer :exec
 INSERT INTO performance_performers (performance_id, person_id, position)

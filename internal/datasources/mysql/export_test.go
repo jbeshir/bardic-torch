@@ -23,3 +23,8 @@ func RunSlowStatementWithHint(ctx context.Context, db *sql.DB) error {
 		return scan(&n)
 	})
 }
+
+// WithWriteTx runs fn with withWriteTx, for the external tests.
+func (r *Repository) WithWriteTx(ctx context.Context, fn func(ctx context.Context, tx *sql.Tx) error) error {
+	return r.withWriteTx(ctx, fn)
+}

@@ -100,7 +100,7 @@ func (r *Repository) UnblockUser(ctx context.Context, userID string) error {
 	return nil
 }
 
-func convertUser(row queries.User) (domain.User, error) {
+func convertUser(row queries.GetUserRow) (domain.User, error) {
 	role, err := domain.ParseRole(string(row.Role))
 	if err != nil {
 		return domain.User{}, fmt.Errorf("user [%s]: %w", row.ID, err)
