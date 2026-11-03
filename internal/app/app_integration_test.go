@@ -88,7 +88,7 @@ func TestSetup_BootstrapsModeratorsAndServes(t *testing.T) {
 	// With an empty TURNSTILE_SECRET_KEY the contact form answers 503 and stores nothing.
 	req, err = http.NewRequestWithContext(t.Context(), http.MethodPost,
 		"http://"+httpServer.Listener.Addr().String()+"/v1/contact", strings.NewReader(
-			`{"kind":"general","email":"wren@example.org","message":"Hello.","turnstile_token":"XXXX.DUMMY.TOKEN.XXXX"}`))
+			`{"kind":"general","email":"wren@example.org","message":"Hello.","turnstile_token":"`+testTurnstileToken+`"}`))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 	res, err = http.DefaultClient.Do(req)

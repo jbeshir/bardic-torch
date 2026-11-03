@@ -479,6 +479,35 @@ before it:
   once the migration ran. A migration that drops or renames such a column must recreate the views without it in
   the same migration. `TestMigrations_UpDownUp` reads every view after migrating up.
 
+### Migration 010 (moderation)
+
+Migration 010 (BE4) adds the draft, submission, flag and rebase columns of `revisions`, the performance owners, the
+display-name key, and the `link_reports` and `contact_requests` tables. It follows the rules above, so the BE3
+release keeps serving while it runs and after a rollback:
+
+- `revisions.entity_id` becomes nullable, for drafts of new entities only (a CHECK). BE3 reads `entity_id` only of
+  approved revisions, which always have one, and never inserts NULL.
+- BE3 inserts performances without owners, but only its one-shot import does; the migration backfills the owners
+  of existing rows (a piece's performances on a link attached to that piece, else the lowest person attached).
+- BE3 never reads the new tables. Its display-name update leaves `display_name_key` stale; BE4's startup backfill
+  corrects it.
+- BE4 sets an approved revision's `created_at` to its approval time, which is what BE3's history orders by, so
+  history stays in order under either release.
+- Adding foreign keys and a CHECK to `revisions` and `performances` makes MySQL rebuild them with
+  `ALGORITHM=COPY`, which blocks writes to those tables while it copies. They hold hundreds of rows, so this takes
+  seconds; deploy outside a busy moment.
+- `idx_author_updated` makes the older `idx_author_status` a redundant prefix. It is kept so that the down
+  migration and a BE3 rollback are unchanged; a later migration may drop it.
+- The down migration deletes drafts of new entities (the only rows with a NULL `entity_id`) before restoring
+  `NOT NULL`, and drops the two tables with their reports and contact requests.
+
+BE4's write transactions (drafts, submit, approval, reports, contact) run at READ COMMITTED, which needs
+`binlog_format=ROW`, the MySQL 8.4 default; do not change it. Each connection also sets the session
+`innodb_lock_wait_timeout` to 3 seconds, and each write transaction has an 11-second deadline, under the server's
+15-second write timeout: a transaction that waits on locks too long is retried at most twice (for a deadlock or a
+lock-wait timeout), then answers 503 `unavailable` and writes nothing. A client may retry it: a repeated submit,
+revert or link report answers with what the first one created. Nothing needs configuring on the server.
+
 ### The normalized URL invariant
 
 Every row of `links` has `normalized_url = domain.NormalizeURL(url)`. The importer and every later writer keep
@@ -559,6 +588,12 @@ Down migrations can drop data; check the `.down.sql` file first.
 Moderators are named in `BOOTSTRAP_MODERATOR_USER_IDS`. At every start, the API promotes each listed user to
 moderator and unblocks them, creating users who have never logged in. It never demotes anyone.
 
+Moderation (the queue, approve, reject and rebase, hiding links, the link-report and contact-request inboxes, and
+blocking) needs an interactive Auth0 session: a moderator's API token gets 403 `api_token_not_allowed`, and acts
+everywhere else with a contributor's powers, so its edits go to the queue like anyone's. A leaked token therefore
+cannot approve edits, un-hide links or read contact requests. The moderation queue and views show each author's
+user ID, which `PUT /v1/users/{user_id}/blocked` takes.
+
 ### Add a moderator
 
 1. The person logs in once (through the FE, or **Try Connection** in Auth0), so that Auth0 has a user for them.
@@ -591,6 +626,36 @@ Promotion also unblocks: if a blocked contributor is listed in `BOOTSTRAP_MODERA
 makes them an unblocked moderator. Listing an ID means trusting that person, and a blocked moderator could not be
 unblocked through the API, because moderators cannot be blocked or unblocked. To block someone who is a
 moderator, demote them first as above, then block them through `PUT /v1/users/{user_id}/blocked`.
+
+A blocked user's drafts and pending revisions are kept, since blocking can be undone. The moderation queue hides
+the pending revisions of blocked authors unless it is asked for them (`include_blocked=true`), and moderators may
+still approve or reject them.
+
+### Reserved display names
+
+Users cannot choose a display name that claims a role (`moderator`, `mod`, `admin`, `administrator`,
+`bardictorch`, `system`, `import`, `wiki`, `anonymous`, `unknown`, `traditional`), or one shaped like another
+user's default name (`Bard` and eight hex digits), in any spelling: the API compares a key of only the letters and
+digits, folded (`display_name_key`). Users who already held such a name before BE4 are not renamed. After the
+first BE4 start, which fills in every user's key, list them:
+
+```
+dokku mysql:connect bardic-torch-db
+```
+
+```sql
+SELECT id, display_name FROM users
+WHERE display_name_key IN ('moderator', 'mod', 'admin', 'administrator', 'bardictorch', 'system', 'import',
+                           'wiki', 'anonymous', 'unknown', 'traditional')
+   OR (display_name_key REGEXP '^bard[0-9a-f]{8}$'
+       AND display_name_key <> CONCAT('bard', LEFT(SHA2(id, 256), 8)));
+```
+
+The second condition finds default-shaped names that are not the user's own default. Ask each user listed to choose
+another name, or rename them in SQL (`UPDATE users SET display_name = …, display_name_key = NULL WHERE id = …`; the
+next start sets the key again). Display names are also unique by that key: when the startup backfill finds two
+users whose names share a key, it leaves the later user's key empty and logs `display name key taken by an earlier user; left unset` with
+the user ID, and that user can keep their name until they change it.
 
 ### Contact requests
 

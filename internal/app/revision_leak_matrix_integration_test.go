@@ -143,14 +143,30 @@ func (l *logCapture) String() string {
 	return l.buf.String()
 }
 
+// newLogCapture returns a capture and a logger that writes every record to it, DEBUG included.
+func newLogCapture() (*logCapture, *slog.Logger) {
+	logs := &logCapture{}
+	return logs, slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+}
+
 // requireNoMarkedLogs checks that records were captured and that none of them holds a marked string.
 func (l *logCapture) requireNoMarkedLogs(t *testing.T) {
+	t.Helper()
+
+	l.requireNoneOf(t, []string{leakMarker})
+}
+
+// requireNoneOf checks that records were captured and that none of them holds any of private, compared
+// case-insensitively.
+func (l *logCapture) requireNoneOf(t *testing.T, private []string) {
 	t.Helper()
 
 	logs := l.String()
 	require.Contains(t, logs, "request completed", "no request was logged, so this check proves nothing")
 	for line := range strings.Lines(logs) {
-		assert.NotContains(t, strings.ToLower(line), leakMarker, "a log record holds a marked string")
+		for _, p := range private {
+			assert.NotContains(t, strings.ToLower(line), strings.ToLower(p), "a log record holds private data")
+		}
 	}
 }
 
@@ -159,12 +175,10 @@ func (l *logCapture) requireNoMarkedLogs(t *testing.T) {
 func newRevisionLeakWorld(t *testing.T) (revisionLeakWorld, revisionLeakFixture) {
 	t.Helper()
 
-	logs := &logCapture{}
+	logs, logger := newLogCapture()
 	w := revisionLeakWorld{
-		revisionWorld: newRevisionWorld(t,
-			slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
-			revisionLeakModeratorID),
-		logs: logs,
+		revisionWorld: newRevisionWorld(t, logger, revisionLeakModeratorID),
+		logs:          logs,
 	}
 	w.viewers = map[revisionViewer]string{
 		viewerAuthor: w.auth0(t, revisionLeakAuthorID), viewerOther: w.auth0(t, revisionLeakOtherID),

@@ -168,9 +168,6 @@ func expectModerationRevision(m handlerMocks, times int) {
 // matrixContactRequestID is the contact request the moderation operations act on.
 const matrixContactRequestID = 12
 
-// matrixTurnstileToken is the dummy token Cloudflare's test site keys produce.
-const matrixTurnstileToken = "XXXX.DUMMY.TOKEN.XXXX"
-
 var matrixContactRequest = domain.ContactRequest{
 	ID: matrixContactRequestID, Kind: domain.ContactRequestKindGeneral, Email: new("wren@example.org"),
 	Message: new("Hello."), Status: domain.ContactRequestStatusResolved, CreatedAt: handlerNow, ResolvedAt: &handlerNow,
@@ -184,10 +181,10 @@ func contactMatrix() map[openapitest.Operation]matrixRow {
 		{Method: http.MethodPost, Path: "/v1/contact"}: {
 			access: public,
 			body: `{"kind":"general","name":null,"email":"wren@example.org","message":"Hello.","url":null,` +
-				`"turnstile_token":"` + matrixTurnstileToken + `"}`,
+				`"turnstile_token":"` + testTurnstileToken + `"}`,
 			successStatus: http.StatusAccepted,
 			expectSuccess: func(m handlerMocks, _ string) {
-				m.turnstile.EXPECT().VerifyTurnstile(mock.Anything, matrixTurnstileToken).Return(nil).Once()
+				m.turnstile.EXPECT().VerifyTurnstile(mock.Anything, testTurnstileToken).Return(nil).Once()
 				m.contactCreator.EXPECT().CreateContactRequest(mock.Anything, datasources.NewContactRequest{
 					Kind: domain.ContactRequestKindGeneral, Email: "wren@example.org", Message: "Hello.", Now: handlerNow,
 				}).Return(matrixContactRequestID, nil).Once()

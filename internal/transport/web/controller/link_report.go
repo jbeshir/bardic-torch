@@ -12,9 +12,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
-// maxReportURLLength is the longest URL a link report may give, the width of the links' URL columns.
-const maxReportURLLength = 2048
-
 // linkNotFoundMessage is the message of a 404 for a link, the same whether the link is hidden or unknown.
 const linkNotFoundMessage = "link not found"
 
@@ -53,7 +50,7 @@ func (c LinkReportCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case body.URL == "":
 		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest, "url is required")
 		return
-	case !textOrBadRequest(w, r, "url", &body.URL, maxReportURLLength):
+	case !textOrBadRequest(w, r, "url", &body.URL, domain.MaxURLLength):
 		return
 	case !body.Reason.Valid():
 		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
@@ -195,7 +192,7 @@ func (c ModerationLinkGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"query parameter url is required")
 		return
 	}
-	if !textOrBadRequest(w, r, "url", &url, maxReportURLLength) {
+	if !textOrBadRequest(w, r, "url", &url, domain.MaxURLLength) {
 		return
 	}
 

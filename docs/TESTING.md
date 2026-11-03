@@ -48,9 +48,10 @@ with `go tool`, so nothing needs installing.
   whatever its length, the flag counts lines per section, the prose rule of Lyrics/Text sections, lines joined by
   `<br>` counting as lines (`TestTextLines`, `TestInlineLyricsBlocks_LinesJoinedByBreaks`), spans stay
   offsets into the original text with a comment before the poem); the alias classifier, which fails closed
-  (`TestClassifyPersonAlias`, `TestBardAliases_*`, `TestFoldName_*`); `NameMatcher` (`names_test.go`: case,
-  accents, apostrophes, `_`/`-`/`.` and concatenated forms, first and last word, and phrases found only as their
-  words in order); `ParsePerformanceText`,
+  (`TestClassifyPersonAlias`, `TestBardAliases_*`); `NameMatcher` and `FoldName`, which live in `internal/domain`
+  since BE4 so the importer, the scrubber and the moderation flags share one matcher (`domain/names_test.go`:
+  case, accents, apostrophes, `_`/`-`/`.` and concatenated forms, first and last word, and phrases found only as
+  their words in order; `domain/fold_test.go`); `ParsePerformanceText`,
   `PersonNameCandidates` and `RepairMarkup`/`FindMarkupIssues`. `FuzzFindTemplates`, `FuzzParseValue`,
   `FuzzSections` and `FuzzInlineLyricsBlocks` check that nothing panics, spans are in bounds and in order, and no
   `<poem` tag survives `WithoutInlineLyrics`; `FuzzWikitextToMarkdown` that the Markdown holds no image, raw HTML
@@ -216,6 +217,41 @@ with `go tool`, so nothing needs installing.
   of them in the copy; `TestScrubPreservesResearchCounts`
   compares page types, bards, inline-lyrics pieces, redirects, categories and members, sections, links, templates,
   infoboxes, Collections page URLs and performance items with performers, per page and in total.
+- **Revision engine** (`internal/domain`, pure functions over hand-built documents and visibilities; the test IDs
+  are those of the BE4 plan's tables):
+  - the state machine: `TestCheckTransition` (one subtest per transition row, T01–T54) and
+    `TestCheckTransition_Exhaustive` (every role × author × status × action against an independent legal list);
+  - document validation: `Test<Type>Document_Validate` per type (every row also checks that no problem holds a
+    document value), `TestValidate_*` (problems never hold values; unchanged no-page credits and relations stay
+    editable, added ones are refused; restored references need only exist), `TestSourcedFields` (SF01–SF15, each as
+    contributor and moderator × a present, absent and each invalid source URL), `TestDraftProblems` (the structural
+    checks of a draft) and `TestValidateSubmission_*` (two-phase validation: a rename to a hidden alias answers as
+    a rename to a fresh name and only flags it, caps count visible elements, a hidden licensing source never
+    satisfies a contributor, editor paths);
+  - withhold and restore: `TestEditable` (W rows), `TestEditable_NeverHoldsWithheld`, `TestRestore`,
+    `TestRestore_RoundTrip` (restore of an untouched projection is the base, for every type and both roles) and
+    `TestRestore_PreferencesEveryActor`; the author's view: `TestAuthorView` (typed values kept, received ones
+    redacted by the current state, inputs unchanged);
+  - diff and merge: `TestMerge` (R rows), `TestMerge_Properties`, `TestDiffDocuments` and
+    `TestMergeFields_CoverEveryDocumentField` (every document field is in a merge table, so a new field fails
+    until it is classified);
+  - planning: `TestPlanSubmit`, `TestPlanApproval` (R01–R52), `TestPlanApproval_Terms`, `TestPlanApproval_FlagsGate`,
+    `TestPlanRebase`, `TestPlanRevert`, `TestRevertDocument`, `TestCheckReviewNote` and `TestLinkRowUpdate` (each
+    row of the link write rule);
+  - duplicates and display names: `TestDuplicateKey` (apostrophes, ł/ø/æ/ß, NFC/NFD), `TestFindDuplicates`,
+    `TestDisplayNameKey` and `TestCheckDisplayNameReserved`.
+
+  `FuzzMergePiece` and `FuzzRestorePerson` (`revision_fuzz_test.go`) are seeded with every piece and person of the
+  scrubbed import (`importtest.Scrubbed`), so plain runs check every imported document: the merge never panics, is
+  deterministic, never invents a link and is idempotent when clean; restore of any contributor edit keeps every
+  hidden alias and hidden link of the base (by key) and its preferences, an untouched projection restores the
+  base, and the next projection still withholds them. `go test -fuzz FuzzRestorePerson ./internal/domain/`
+  explores further.
+- **Write transactions** (`internal/datasources/mysql`): `TestWithWriteTx_*` (unit: a deadlock or lock-wait timeout
+  is retried at most twice, then `ErrUnavailable`; other errors are not retried; the deadline), `TestWriteTxBudget`
+  (`internal/app`: `WriteTxDeadline` stays under the server's `WriteTimeout`) and
+  `TestQueries_LockingReadsCarryTheHint` (every `FOR UPDATE`/`FOR SHARE` in `queries.sql` carries
+  `MAX_EXECUTION_TIME`).
 - **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list
   statements (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are
   built in Go, so a fake `statementRunner` records each statement. The tests pin the round trips (at most three for a
@@ -235,7 +271,23 @@ with `go tool`, so nothing needs installing.
   `TestCreateAPIToken_InvalidNames` (the length limit and the character rule),
   `TestSetUserBlocked_RetriesContributorCreatedDuringUpdate` (a contributor created between the update and the
   lookup is updated by one retry) and `TestSetUserBlocked_ContributorNeverMatchingFails` (an internal error, not
-  `ErrModeratorNotBlockable`).
+  `ErrModeratorNotBlockable`). The revision commands act as the principal's effective role
+  (`TestReadCommands_ActAsTheEffectiveRole`, `TestSubmitRevision_ActsAsTheEffectiveRole`: an API token is a
+  contributor), contributors never see flags (`TestSubmitRevision_ContributorNeverSeesFlags`), and
+  `TestModeratorCommands_RequireAnInteractiveModerator` refuses every moderator command to a contributor and to a
+  moderator's API token. The contact commands verify before storing and never put personal data in an error
+  (`TestSubmitContactRequest_*`), and list and resolve purge expired requests (`TestListContactRequests_*`,
+  `TestResolveContactRequest_*`).
+- **Turnstile verifier** (`internal/datasources/turnstile`): every test answers from a loopback `httptest`
+  siteverify keyed by the `secret` it receives, using Cloudflare's documented test secrets (`1x…AA` passes, `2x…AA`
+  fails, `3x…AA` reports a spent token). `TestVerifyTurnstile_Outcomes` covers each error-code class (user-side
+  codes → rejected, server-side and unknown codes → unavailable at error level), both allowlisted hostnames, an
+  empty allowlist, a foreign hostname, a wrong or missing action and malformed JSON, and checks that neither the
+  token nor the secret is in the logs or the error; `_SendsOnlySecretAndResponse`,
+  `_TransportFailuresAreUnavailable` (non-200 statuses, an oversized body, a timeout), `_UnreachableIsUnavailable`
+  and `_ConcurrencyLimit` (the ninth concurrent call is unavailable at once). **No test reaches the network:**
+  command and controller tests use the `mocks.TurnstileVerifier` mock, the HTTP integration tests a passing fake
+  verifier (`passingTurnstile`), and Setup's tests run with empty Turnstile variables.
 - **Middleware and validators** (`internal/transport/web/router`): `TestAuthMiddleware_*`, `TestRequireAuth_*`,
   `TestRequireNonAPIToken_*`, `TestRequireModerator_*`, `TestCORSMiddleware_*`, `TestSecurityHeaders_*`,
   `TestRequestLogger_*`, `TestAPITokenValidator_*` (mocks) and `TestAuth0Validator_*`, which validate real RS256
@@ -265,7 +317,11 @@ with `go tool`, so nothing needs installing.
   `TestDecodeJSONBody_LogsDecodeErrorAtDebug`, `TestNewHTTPHandler_UnroutedRequests` (JSON 404 for an unknown
   path, 405 with `Allow` for a wrong method, neither authenticating) and `TestNewHTTPHandler_PreflightToUnknownPath`,
   `TestAuth0IssuerURL`, `TestAuthValidatorsFromEnv_*`, `TestStoredTime_UTCWholeSeconds` and
-  `TestSetup_InvalidDatabaseURL`.
+  `TestSetup_InvalidDatabaseURL`. `TestContactVerifierFromEnv_*` read the Turnstile variables (an empty secret
+  disables the form). `TestContactSubmit_NeverLogsPII` sends contact requests through the production handler, with
+  the real verifier calling a loopback siteverify, for every outcome (success, each invalid field, malformed JSON,
+  an unknown field, 413, each Turnstile failure, disabled, the cap, a busy and a failing database) and captures
+  slog at DEBUG: no record and no response holds the name, email, message, URL or token.
 - **Deployment files** (`internal/app/deploy_files_test.go`): `TestEnvDistListsEveryEnvVar` parses the non-test
   Go code under `cmd/` and `internal/` (except `internal/testutil`) and fails unless `.env.dist` lists exactly
   the environment variables it reads. `TestAppJSON`, `TestProcfile` and `TestDockerfile_MatchesDokkuConfiguration`
@@ -352,6 +408,27 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   IDs, trailing-space-significant user IDs (`TestRepository_UserIDsTrailingSpacesAreSignificant`), idempotent
   revoke/block, FK cascade, FK and unique-hash violations asserted by MySQL error number (1452/1062), a 4-byte
   UTF-8 round trip (`TestRepository_EnsureUser_StoresFourByteCharacters`), throttled last-used updates.
+- **Revisions and moderation** (`internal/datasources/mysql`, on `newEditingFixture`, a writable database with
+  catalogtest's import revisions as bases): drafts (`TestRepository_SaveDraft_*`, `TestRepository_Drafts_*`),
+  submit and withdraw (`TestRepository_SubmitDraft_*`, `TestRepository_WithdrawRevision_*`: placeholders with no
+  content, deleted with their children), the author's reads (`TestRepository_GetMyRevision_*`,
+  `TestRepository_GetEditable_*`), duplicates (`TestRepository_FindDuplicates*`), the approval writer
+  (`TestEntityWriter_RoundTrip`: a public read equals the public view of the document written), approval
+  (`TestRepository_ApproveRevision_*`: stale merges, pending references approved alongside, slugs, history order,
+  links never deleted and never un-hidden, performances by owner, flags, the 1452 → `ErrEntityGone` mapping,
+  search after commit), reject, rebase and revert, link reports (`TestRepository_LinkReports`), contact requests
+  (`TestRepository_ContactRequests*`: the cap, and the purge with the clock passed in) and display-name keys
+  (`TestRepository_UpdateDisplayName_KeyUnique`). The races run goroutines released together and assert outcomes
+  only, never timing: `TestRepository_ApproveRevision_ConcurrentDoubleApprove`, `_ConcurrentSameEntity` (no lost
+  update), `_WithdrawRace`, `_SupersedeRace`, `_CrossingApprovals` (both always succeed, deadlocks retried),
+  `_ApproveVersusModeratorEdit` and `_ConcurrentOptOut`, `TestRepository_RevertTo_ConcurrentSubmit` and
+  `_ConcurrentApprove`, `TestRepository_SaveDraft_Concurrent` and `TestRepository_LinkHideResolveRace`. They are
+  only meaningful under `-race`, so a milestone's final gate includes `GOTESTFLAGS=-race make
+  test-integration-external` (CI's integration job).
+- **Migration 010**: `TestMigrations_ModerationConstraints` (its CHECKs, foreign keys and unique key by MySQL error
+  number) and `TestMigration010_BackfillsPerformanceOwners`, which writes the scrubbed import with BE3's
+  performance insert (no owners), runs the migration's backfill statements and checks that every performance is
+  owned by the entity whose current document lists it.
 - **Migrate command** (`cmd/migrate/main_integration_test.go`): `TestMigrateRun_UpVersionDown` (up, version and
   down through `run`), `TestMigrateRun_UpWithNewerSchemaIsNoChange` (up on a clean schema newer than every
   embedded migration, as when rolling back a release, succeeds and applies nothing) and
@@ -369,8 +446,22 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   ID does not demote them, and bootstrapping the blocked contributor makes them an unblocked moderator. It also
   asserts that a token's `created_at` from create equals the listed one. Every response goes through the contract
   helper.
+- **Revision end to end** (`revision_end_to_end_integration_test.go`): `TestHTTP_RevisionEndToEnd` runs a
+  contributor's whole flow, as an Auth0 user and again with an API token: the editable document withholds an
+  imported hidden alias, draft, submit and `…/pending` (the public read still shows the approved version),
+  withdraw and resubmit, the pending starting point on its submitted base, a moderator's edit approved at once,
+  and a superseding submit whose approval keeps the moderator's change. A blocked contributor gets 403 throughout.
+- **Moderation end to end** (`http_handler_moderation_integration_test.go`): `TestHTTP_ModerationEndToEnd`, on the
+  scrubbed import, through the contract helper: a stale approval rebased automatically, a conflict resolved with
+  `…/rebase`, a pending term approved with the piece that references it, a link reported, hidden and kept hidden
+  by a revert, a rejected new person whose placeholder is gone, search finding an approved title, a moderator's
+  API token acting as a contributor (403 `api_token_not_allowed` on the queue, approve and the contact inbox), the
+  contact inbox, a rename to a hidden alias answered as a fresh rename and refused at approval, and a blocked
+  author. Its handler logs at DEBUG to a capture, and no record holds a hidden alias of the import, the report's
+  message or the contact request's personal data (`logCapture.requireNoneOf`).
 - **Setup** (`internal/app/app_integration_test.go`): `TestSetup_BootstrapsModeratorsAndServes` (Setup from the
-  environment bootstraps the moderators, serves `/readyz` on a real listener and returns after cancel),
+  environment bootstraps the moderators, serves `/readyz` on a real listener and returns after cancel, purges
+  expired contact requests at startup and answers 503 on `/v1/contact` with an empty Turnstile secret),
   `TestSetup_BootstrapFailureFailsStartup` and `TestStoredTime_RoundTripsThroughDatabase` (a clock with a
   fractional second stores and returns the same whole-second `created_at`).
 
@@ -447,8 +538,9 @@ Under `-race` on a default-settings server this cut `internal/datasources/mysql`
     independent fixture, because counts that several features assert on break when anyone adds data.
   - **`TestMain` is required**: a package that uses `Shared` must have `func TestMain(m *testing.M) {
     catalogtest.Main(m) }`, which drops the shared databases after `m.Run`; `Get` fails without it.
-  - Tests that write, or that need statistics a shared fixture would disturb (FULLTEXT scoring, `ALTER TABLE`),
-    use `mysqltest.NewDatabase(t)` and `catalogtest.New`.
+  - Tests that write, or that need statistics a shared fixture would disturb (FULLTEXT scoring), use
+    `catalogtest.Writable(t)` and `catalogtest.New`; tests that change the schema (`ALTER TABLE`) or a global
+    setting, or close the pool, use `mysqltest.NewDatabase(t)` (see above).
 - **Search integration** (`search_integration_test.go`, `search_text_integration_test.go`): the semantics against
   hand-computed sets on a shared `searches` fixture: facet OR/AND and descendants, disjunctive counts (two cases
   where each selected facet has a piece that only its own selection keeps out, so conjunctive counting fails them),
@@ -535,6 +627,47 @@ catalogue data. Every spec operation must be in exactly one of them, and a publi
 4. Check the test can fail: remove the visibility filter from the query under test and confirm the matrix
    reports it.
 
+The shared `leakCatalogue` also holds BE4's hidden data that public reads must never show: a rejected revision's
+review note, a rebased revision's original document (only in `submitted_snapshot_json`), a link report's message
+and an open contact request's name, email, message and URL, each checked as stored by `requireLeakMarkersStored`.
+
+### Revision leak matrix
+
+`TestHTTP_RevisionLeakMatrix` (`internal/app/revision_leak_matrix_integration_test.go`) does the same for the
+**authenticated** reads, on a private database whose contributor revisions are all written over HTTP as their
+authors would write them. The viewers are the author A, another contributor B, an interactive moderator M, M's API token MT, and a blocked user (403 `user_blocked`, the Error body only, on every
+row). Each row names its viewer, path, status and reveals, and the scan is the public matrix's:
+
+- **contributor reads** (editable, pending, drafts with `preview` and `references`, `me/revisions`, reference
+  labels, the no-page person): A sees their own data and no `leakmark`; B gets 404 for A's draft and revisions;
+  MT gets the contributor projection with `link_states: []`; M gets the full document with `link_states`
+  (`full` rows assert the hidden data is there instead of scanning);
+- **provenance**: what A typed is present in A's pending view, and a link A received that was hidden since is
+  absent;
+- **validation oracle**: A's rename to a hidden alias and to a fresh name give byte-equal responses once the names
+  are masked;
+- **moderator-only reads** (`moderatorOnly`: the queue, the moderation view, both inboxes, the link lookup): A and B
+  get 403 `moderator_required`, MT 403 `api_token_not_allowed`, each with the Error body only, and M's row asserts
+  the moderator data (the `hidden_data_conflict` flag, the report message, the contact request's personal data, a
+  hidden link) is present;
+- a report of a hidden link gets a 404 byte-equal to an unknown URL's.
+
+The handler logs at DEBUG to a capture (`logCapture`), and no record of the whole test may hold `leakmark`, which
+covers the contact request's personal data the test sends. Two self-tests keep it honest:
+`TestHTTP_RevisionLeakMatrix_PlantedLeakFails` (a hidden alias planted in a copy of an editable document is
+reported, and a typed value removed from a pending view fails the provenance check) and
+`TestHTTP_RevisionLeakMatrix_EveryAuthenticatedReadHasARow` (every authenticated GET in the spec has a row, or a
+listed exemption with a reason).
+
+### Log capture
+
+The privacy rule covers logs too: no hidden alias, hidden link, legal name, contact request field or Turnstile
+token may reach a log record at any level. Three tests capture slog at DEBUG through the production handler:
+`TestHTTP_RevisionLeakMatrix` (every authenticated read, no `leakmark`), `TestHTTP_ModerationEndToEnd` (the whole
+moderation flow on the scrubbed import: no hidden alias of the import, report message or contact field) and
+`TestContactSubmit_NeverLogsPII` (every contact outcome). Controllers log IDs and kinds only; a test that adds a
+log line with request data must extend one of them.
+
 ### Catalogue end to end
 
 `TestHTTP_CatalogueEndToEnd` (`internal/app/http_handler_catalogue_integration_test.go`) builds the production
@@ -566,8 +699,11 @@ person's page shows it and the scan reports it, as it reports each planted place
    authorisation rule gets a new `access` table listing every principal.
    A public catalogue read (`security: []`, a route-table entry without `authenticated`, like the existing ones)
    also needs a **leak-matrix row** (see "Leak matrix"): requests that reach every list it shows, with
-   `reveals` for anything it may legitimately show. Any other operation goes in `leakExempt` with a reason. List
-   endpoints also need their query-parameter cases (invalid, repeated, out-of-range) as `ServeResponseOnly` tests.
+   `reveals` for anything it may legitimately show. An authenticated read needs a **revision-leak-matrix row**
+   for every viewer (see "Revision leak matrix"). Any other operation goes in `leakExempt` with a reason. A
+   moderator operation uses `requireInteractiveModerator` and the `interactiveModerator` access, so API tokens get
+   403 `api_token_not_allowed`. List endpoints also need their query-parameter cases (invalid, repeated,
+   out-of-range) as `ServeResponseOnly` tests.
 4. **Per-status tests**: a contract-validated controller test case for every documented status the controller
    produces (`Serve`, or `ServeResponseOnly` for deliberately invalid requests). Middleware statuses (401, 403,
    500 from a failed credential check or user lookup) are covered by the matrix.

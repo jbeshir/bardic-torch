@@ -22,11 +22,6 @@ const (
 	RevisionActionRevert RevisionAction = "revert"
 )
 
-// ParseRevisionAction returns the RevisionAction named by s, or an error if s is not a known action.
-func ParseRevisionAction(s string) (RevisionAction, error) {
-	return parseEnum[RevisionAction](s, "revision action")
-}
-
 // LinkReportReason is why a user reported a link.
 type LinkReportReason string
 
@@ -44,11 +39,6 @@ const (
 	// LinkReportReasonOther is any other reason.
 	LinkReportReasonOther LinkReportReason = "other"
 )
-
-// ParseLinkReportReason returns the LinkReportReason named by s, or an error if s is not a known reason.
-func ParseLinkReportReason(s string) (LinkReportReason, error) {
-	return parseEnum[LinkReportReason](s, "link report reason")
-}
 
 // LinkReportStatus is where a link report is in moderation.
 type LinkReportStatus string

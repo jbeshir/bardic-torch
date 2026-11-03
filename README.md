@@ -1,7 +1,7 @@
 # Bardic Torch API
 
 A Go REST API for Bardic Torch, a public, community-edited index of SCA bardic pieces and the bards who wrote or
-perform them. The Remix frontend (bardic-torch-fe) calls it server-side; it stores users, roles and personal API
+perform them. The React Router frontend (bardic-torch-fe) calls it server-side; it stores users, roles and personal API
 tokens in MySQL and authenticates users through Auth0 (Google and Facebook login). [docs/PLAN.md](docs/PLAN.md) is
 the product and implementation plan.
 
@@ -18,7 +18,8 @@ the product and implementation plan.
 - **Principal** -- The authenticated user and how they authenticated (Auth0 or API token), resolved once per
   request by the auth middleware before any authorisation check.
 - **API Token** -- A user-created bearer token (`user_api|…`) for programmatic access, stored as a SHA-256 hash, at
-  most 10 active per user. Tokens cannot manage tokens; only Auth0 sessions can.
+  most 10 active per user. Tokens cannot manage tokens; only Auth0 sessions can. A token has a contributor's powers
+  only, so a moderator's token cannot moderate.
 - **Piece** -- A bardic song, poem, story, dance tune, instrumental or comedy piece, addressed by slug. It has a
   primary kind plus optional secondary kinds, a conservation status, licensing information, aliases (other titles),
   credits, relations to other pieces, links and term tags. A stub is a piece with little recorded yet.
@@ -39,6 +40,15 @@ the product and implementation plan.
   has an approved current revision (a term also needs every ancestor approved); anything else, and anything unknown,
   gets the same 404. Only approved revisions appear in the public history, as redacted views using current
   visibility, with the fields that changed.
+- **Draft, pending revision and moderation** -- Contributors edit an *editable document*, which withholds every
+  piece of hidden data; the server restores it when the edit is submitted. A draft is private to its author;
+  submitting it makes a pending revision, which a moderator approves (merging it if the entity changed meanwhile),
+  rejects or rebases. A moderator's own edits in an Auth0 session are approved at once. New entities are invisible
+  placeholders until approved. Problems caused by data a contributor cannot see are flags for the moderator, never
+  errors the contributor sees (PLAN §5.1).
+- **Link report and contact request** -- Signed-in users report a link by its URL; anyone may send a contact
+  request (takedown, opt-out, correction) through a Cloudflare Turnstile check. Moderators work both inboxes.
+  Contact requests' personal data is never logged and is purged 180 days after resolution.
 - **Hidden alias** -- A person alias marked non-public (such as a legal name). It appears in no read, search match or
   revision view.
 - **Null Auth** -- With `AUTH_DRIVERS` empty, every request is anonymous, so the API runs locally without Auth0.
@@ -55,7 +65,7 @@ validates the import and applies it through the `ApplyCatalogueImport` command, 
 
 ```mermaid
 graph TD
-    FE[Remix FE server]
+    FE[FE server]
     MW[Middleware<br/>CORS, auth, require role]
     CTRL[Controllers]
     CMD[Commands<br/>Business rules]
@@ -139,8 +149,9 @@ run` applies the migrations and starts the API on port 5000 with null auth, so `
 
 | Service | Purpose | Required |
 |---|---|---|
-| MySQL 8.4 | Users, roles, API tokens and the catalogue (pieces, persons, terms, collections, events, links, revisions) | Yes |
+| MySQL 8.4 | Users, roles, API tokens, the catalogue (pieces, persons, terms, collections, events, links), revisions and drafts, link reports and contact requests | Yes |
 | Auth0 | Verifies the FE's access tokens (Google and Facebook login) | No (`AUTH_DRIVERS=` for null auth) |
+| Cloudflare Turnstile | Verifies the contact form's tokens (siteverify) | No (an empty `TURNSTILE_SECRET_KEY` disables the contact form) |
 
 Production runs on dokku with the dokku mysql plugin; [docs/DEPLOY.md](docs/DEPLOY.md) covers setup, Auth0,
 deploys, migrations and moderators.
@@ -170,9 +181,29 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `GET` | `/v1/events/{slug}/history` | No | An event's approved revisions |
 | `GET` | `/v1/revisions/{revision_id}` | No | An approved revision: redacted snapshot, base snapshot and changed fields |
 | `GET` | `/v1/needs-work` | No | Stub, unassessed, unknown-licensing and dead-link pieces and persons, with a count per reason |
+| `POST` | `/v1/contact` | No | Send the moderators a takedown, opt-out, correction or general request (Cloudflare Turnstile token required) |
 | `GET` | `/v1/me` | Required | The caller's user |
-| `PATCH` | `/v1/me` | Required | Change the caller's display name |
-| `PUT` | `/v1/users/{user_id}/blocked` | Moderator | Block or unblock a contributor |
+| `PATCH` | `/v1/me` | Required | Change the caller's display name (unique; reserved names refused) |
+| `GET` | `/v1/{pieces,persons,terms,events}/{slug}/editable`, `/v1/collections/{collection_id}/editable` | Required | The caller's editable document of an entity, without hidden data |
+| `GET` | `/v1/{pieces,persons,terms,events}/{slug}/pending`, `/v1/collections/{collection_id}/pending` | Required | The caller's pending revision of an entity, as they see it |
+| `POST` | `/v1/drafts` | Required | Save a draft of an entity, or of a new one |
+| `GET`, `PUT`, `DELETE` | `/v1/drafts/{draft_id}` | Required | Read, replace or discard the caller's draft |
+| `POST` | `/v1/revisions` | Required | Submit a draft: pending, or approved at once for a moderator in an Auth0 session |
+| `POST` | `/v1/revisions/{revision_id}/withdraw` | Required | Withdraw the caller's pending revision |
+| `POST` | `/v1/revisions/{revision_id}/revert` | Required | Revert an entity to an earlier approved revision |
+| `GET` | `/v1/me/revisions` | Required | The caller's drafts and revisions |
+| `GET` | `/v1/me/revisions/{revision_id}` | Required | One of the caller's revisions, as they see it |
+| `POST` | `/v1/link-reports` | Required | Report a link by its URL |
+| `GET` | `/v1/moderation/queue` | Moderator, Auth0 only | Pending revisions, oldest first |
+| `GET` | `/v1/moderation/revisions/{revision_id}` | Moderator, Auth0 only | A revision in full: documents, rebase preview, flags, duplicates |
+| `POST` | `/v1/revisions/{revision_id}/approve`, `…/reject`, `…/rebase` | Moderator, Auth0 only | Approve, reject or rebase a pending revision |
+| `GET` | `/v1/moderation/link-reports` | Moderator, Auth0 only | The link-report inbox |
+| `POST` | `/v1/moderation/link-reports/{report_id}` | Moderator, Auth0 only | Resolve or dismiss a link report, optionally hiding the link |
+| `GET` | `/v1/moderation/links?url=` | Moderator, Auth0 only | A link's ID, state and attachments, by URL |
+| `PUT` | `/v1/links/{link_id}/hidden` | Moderator, Auth0 only | Hide or un-hide a link |
+| `GET` | `/v1/moderation/contact-requests` | Moderator, Auth0 only | The contact-request inbox |
+| `POST` | `/v1/moderation/contact-requests/{request_id}` | Moderator, Auth0 only | Resolve or dismiss a contact request |
+| `PUT` | `/v1/users/{user_id}/blocked` | Moderator, Auth0 only | Block or unblock a contributor |
 | `GET` | `/v1/tokens` | Auth0 only | List the caller's active API tokens |
 | `POST` | `/v1/tokens` | Auth0 only | Create an API token (max 10 active) |
 | `DELETE` | `/v1/tokens/{token_id}` | Auth0 only | Revoke an API token |
@@ -193,4 +224,4 @@ Two authentication methods are supported, identified by the bearer token prefix:
 
 - **Auth0:** `Authorization: Bearer auth0|<access_token>`, an Auth0 access token for the audience
   `https://api.bardictorch.org`. Can access every endpoint the user's role allows.
-- **API Token:** `Authorization: Bearer user_api|<token>`. Cannot manage tokens.
+- **API Token:** `Authorization: Bearer user_api|<token>`. Cannot manage tokens, and acts with a contributor's powers only: a moderator's token cannot moderate (403 `api_token_not_allowed`).

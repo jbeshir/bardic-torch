@@ -34,18 +34,19 @@ func TestEnums_ModerationVocabularies(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name    string
-		values  []string
-		valid   func(string) bool
+		name   string
+		values []string
+		valid  func(string) bool
+		// parse is nil for a vocabulary that is only ever decoded from JSON and checked with Valid.
 		parse   func(string) (string, error)
 		unknown string
 	}{
 		{"revision action", strs(revisionActionValues),
 			func(s string) bool { return RevisionAction(s).Valid() },
-			func(s string) (string, error) { v, err := ParseRevisionAction(s); return string(v), err }, "publish"},
+			nil, "publish"},
 		{"link report reason", strs(linkReportReasonValues),
 			func(s string) bool { return LinkReportReason(s).Valid() },
-			func(s string) (string, error) { v, err := ParseLinkReportReason(s); return string(v), err }, "spam"},
+			nil, "spam"},
 		{"link report status", strs(linkReportStatusValues),
 			func(s string) bool { return LinkReportStatus(s).Valid() },
 			func(s string) (string, error) { v, err := ParseLinkReportStatus(s); return string(v), err }, "closed"},
@@ -63,7 +64,7 @@ func TestEnums_ModerationVocabularies(t *testing.T) {
 			func(s string) (string, error) { v, err := ParseRevisionStatus(s); return string(v), err }, "deleted"},
 		{"flag code", strs(flagCodeValues),
 			func(s string) bool { return FlagCode(s).Valid() },
-			func(s string) (string, error) { v, err := ParseFlagCode(s); return string(v), err }, "suspicious"},
+			nil, "suspicious"},
 	}
 
 	for _, tc := range cases {
@@ -73,13 +74,18 @@ func TestEnums_ModerationVocabularies(t *testing.T) {
 			require.NotEmpty(t, tc.values)
 			for _, value := range tc.values {
 				assert.True(t, tc.valid(value), value)
-				parsed, err := tc.parse(value)
-				require.NoError(t, err)
-				assert.Equal(t, value, parsed)
 			}
 			assert.False(t, tc.valid(tc.unknown))
 			assert.False(t, tc.valid(""))
 			assert.False(t, tc.valid(strings.ToUpper(tc.values[0])), "values are case-sensitive")
+			if tc.parse == nil {
+				return
+			}
+			for _, value := range tc.values {
+				parsed, err := tc.parse(value)
+				require.NoError(t, err)
+				assert.Equal(t, value, parsed)
+			}
 			_, err := tc.parse(tc.unknown)
 			require.EqualError(t, err, "unknown "+tc.name+" ["+tc.unknown+"]")
 		})

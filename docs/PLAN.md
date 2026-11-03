@@ -88,7 +88,8 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 **Removed from the feed skeleton:** Pinecone, VoyageAI, recommendations and clustering, RSS, chat, D1 and MiniMax.
 
 **Kept and reused:**
-- the multi-validator auth middleware (Auth0 JWT plus `user_api|` tokens), for future MCP and bulk entry
+- the multi-validator auth middleware (Auth0 JWT plus `user_api|` tokens), for future MCP and bulk entry. A
+  `user_api|` token acts with contributor powers only (§5.1 "API tokens")
 - the null-driver pattern
 - the API token endpoints
 
@@ -117,16 +118,20 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 - **`collections`**: `name`, `sort_name`, `url`, `kind`, `description_md`, `region_term_id`, `parent_id`, `is_bardic_resource`, `enumerable`.
 - **`links`**: `url`, `normalized_url` (unique; tracking parameters stripped), `title`, `description`, `platform`, `place_type`, `collection_id`, `locator`, `liveness` (unknown / ok / dead / blocked), `last_checked_at`, `archived_url`, `is_hidden` (moderator takedown, R-11).
   - `link_attachments(link_id, piece_id | person_id, role, position)`. The roles are official, lyrics, text, sheet_music, dance_instructions, text_source, translation, performance, licensing_source, website, external_profile, other. One link can carry several roles (R-21, R-14).
-  - `performances(link_id, piece_id, event_id, year, uploader, description_verbatim)`, plus `performance_performers(person_id)`.
+  - `performances(link_id, piece_id, event_id, year, uploader, description_verbatim, owner_piece_id | owner_person_id)`, plus `performance_performers(person_id)`. The owner (BE4, migration 010) is the entity whose document lists the performance: a piece document owns its performances and a person document its own, so approving a document replaces exactly the rows it owns.
 - **`events`**: name, kind (venue / event), description. Seeded with Green Dragon and with events parsed from performance descriptions.
 
 **Workflow tables:**
-- **`revisions`**: `id`, `entity_type`, `entity_id`, `base_revision_id`, `author_user_id`, `source` (user / import / mcp), `status` (draft / pending / approved / rejected / withdrawn), `snapshot_json`, `summary`, `reviewer_user_id`, `reviewed_at`, `review_note`, `created_at`.
+- **`revisions`**: `id`, `entity_type`, `entity_id`, `base_revision_id`, `author_user_id`, `source` (user / import / mcp), `status` (draft / pending / approved / rejected / withdrawn), `snapshot_json`, `summary`, `reviewer_user_id`, `reviewed_at`, `review_note`, `created_at`, and from BE4 (migration 010) `submitted_snapshot_json`, `submitted_base_revision_id`, `received_keys_json`, `flags_json`, `updated_at`, `submitted_at`, `rebased_by_user_id` and `rebased_at`.
   - The snapshot is the full document, including owned child rows. Links appear inline by URL as entered (the normalized URL is derived; §4.1).
-- **`users`**: Auth0 user ID, `display_name`, `role` (contributor / moderator), `created_at`, `blocked_at`. Moderators are not seeded by migration, and no user IDs live in migrations. At startup the API promotes the users listed in `BOOTSTRAP_MODERATOR_USER_IDS`, creating any who have not signed in yet. Promotion also unblocks a blocked user: listing an ID trusts that user, and moderators cannot be blocked or unblocked. This is promote-only and idempotent: removing an ID never demotes the user, and demotion is done in SQL until a moderation endpoint exists.
+  - Drafts are revisions with `status = draft` (§5.1). `entity_id` is NULL only for a draft of a new entity (a CHECK).
+  - `submitted_snapshot_json` is the author's document as submitted, `submitted_base_revision_id` the base they edited from (never changed, unlike `base_revision_id`, which a rebase moves), and `received_keys_json` the element keys of the editable projection the author was given. Together they build the author's views (§5.1). They are NULL for imported and interactive-moderator revisions.
+  - `flags_json` holds a submission's moderator flags (§5.1). `submitted_at` is what queue age is measured from, and `updated_at` is the last draft save.
+  - `created_at` of an approved revision is its **approval time** (= `reviewed_at`), so history (`created_at DESC, id DESC`) always lists the current revision first.
+- **`users`**: Auth0 user ID, `display_name`, `display_name_key` (BE4: the folded display name, unique; §5.1 "Display names"), `role` (contributor / moderator), `created_at`, `blocked_at`. Moderators are not seeded by migration, and no user IDs live in migrations. At startup the API promotes the users listed in `BOOTSTRAP_MODERATOR_USER_IDS`, creating any who have not signed in yet. Promotion also unblocks a blocked user: listing an ID trusts that user, and moderators cannot be blocked or unblocked. This is promote-only and idempotent: removing an ID never demotes the user, and demotion is done in SQL until a moderation endpoint exists.
 - **`repertoire`**: user_id, piece_id, notes, visibility (private / public), added_at.
-- **`link_reports`**: for removal requests (R-11).
-- **`contact_requests`**: kind (takedown / opt_out / correction / general), name, email, message, url, status. These need no account and are protected by Cloudflare Turnstile (R-13).
+- **`link_reports`**: for removal requests (R-11): `link_id`, `reporter_user_id`, `reason` (broken / wrong_link / privacy / copyright / lyrics / other), `message`, `status` (open / resolved / dismissed), `created_at`, `resolved_by_user_id`, `resolved_at`, `resolution_note`.
+- **`contact_requests`**: `kind` (takedown / opt_out / correction / general), `name`, `email`, `message`, `url`, `status` (open / resolved / dismissed), `created_at`, `resolved_by_user_id`, `resolved_at`, `resolution_note`, `purged_at`. These need no account and are protected by Cloudflare Turnstile (R-13). `name`, `email`, `message` and `url` are personal data, set to NULL 180 days after resolution (§5.1).
 - **`api_tokens`**: kept from the feed.
 
 ### 4.1 Catalogue decisions refined in BE2
@@ -136,8 +141,15 @@ the DDL is in `migrations/003`–`009`.
 
 - **Visibility is approval.** An entity is public exactly when `current_revision_id IS NOT NULL`; a term also needs
   every ancestor approved. The `terms.status` column was dropped as redundant: a pending suggestion is a term with
-  no approved revision (BE4 deletes rejected new-entity rows, or adds a column). References from a public entity to
-  a non-public one are omitted from every read, and an unknown slug and a non-public slug answer identically.
+  no approved revision. References from a public entity to a non-public one are omitted from every read, and an
+  unknown slug and a non-public slug answer identically. BE4 keeps this without a status column (§5.1 "New
+  entities"):
+  - a new entity is a **placeholder** row created at submit, holding no document content (a `pending-<type>-<hex>`
+    slug and empty names; a term also gets its self closure row, so `public_terms` never lists it);
+  - a placeholder is deleted when its last pending revision is rejected or withdrawn;
+  - only new terms and persons may be referenced while pending (term suggestions, red-link persons);
+  - no approved row references an unapproved entity: approval approves the referenced pending terms and persons
+    alongside, or refuses.
   The shared rules are defined once, as views (migration 009) that queries join instead of restating them:
   `public_terms` (approved, with every ancestor approved), `listed_persons` (public persons with a page) and
   `public_link_attachments` (attachments to a public piece or a public person with a page).
@@ -195,7 +207,9 @@ the DDL is in `migrations/003`–`009`.
   draft words shift public results' scores and order, though never which results match. Scoring these indexes 0,
   as is done for person aliases, would remove relevance ranking entirely, and InnoDB cannot narrow a FULLTEXT
   index's statistics to some of its rows, so this is accepted. It reveals at most that words occur in drafts,
-  not hidden names. Revisit it if BE4 creates drafts in volume.
+  not hidden names. BE4's drafts and placeholders hold no words in these tables (drafts are revision rows, and
+  placeholders have empty names), so editing does not shift the statistics; only imported or approved entities
+  that are no longer public would.
 - **Snapshots** hold only editor-owned fields. Left out:
   - IDs, `current_revision_id`, `legacy_*`, `claimed_by_user_id` and sort keys;
   - `conservation_history`, which is appended on approval from the document's `conservation {status,
@@ -214,7 +228,9 @@ the DDL is in `migrations/003`–`009`.
     old revisions;
   - `changed_fields` (the diff) is computed on the redacted views.
 
-  Only approved revisions are public until BE4. Authors show only a display name, and imports list the wiki
+  Only approved revisions are ever public. A contributor's views of their own drafts and pending, rejected or
+  withdrawn revisions (§5.1 "Author's view") and the moderators' views are authenticated endpoints. Authors show
+  only a display name, and imports list the wiki
   contributors (`revision_contributors`).
 
   In detail (`domain.New*Snapshot`, given a `SnapshotVisibility` the repository loads for exactly what the
@@ -307,20 +323,172 @@ the DDL is in `migrations/003`–`009`.
 3. Write the snapshot into the entity and its child tables: upsert links by `normalized_url`, rebuild `term_ancestors` if a term changed, append to `conservation_history` if the status changed.
 4. Point `current_revision_id` at the approved revision.
 
+BE4's transaction (lock order, pending references, links, performances, retries) is in §5.1 "Approval".
+
 **Stale revisions** are rebased automatically onto the current version when the two edits touched different fields. Otherwise the moderator sees a three-way view and resolves it.
 
 **Edit rules:**
-- **Contributors:** edits go to `pending`. Contributors see their own pending version across the site, with a banner. They may have at most 30 open pending revisions.
-- **Moderators:** edits are approved as they are saved, but still recorded as revisions.
+- **Contributors:** edits go to `pending`. Contributors see their own pending version on the entity's own page, its history and "my contributions", with a banner, through the authenticated `…/pending` and `/v1/me/revisions` endpoints. Public reads (lists, search, facets, counts, needs-work) stay credential-free and approved-only. Contributors may have at most 30 open pending revisions.
+- **Moderators:** edits made in an interactive (Auth0) session are approved as they are saved, but still recorded as revisions. An API token's edits are a contributor's (§5.1 "API tokens").
 - **Sourced fields** (licensing notes, licence, preferences, person status, conservation status) are rejected at validation without a source URL. The rule applies to moderators too (R-12).
 - **New entities**, whether created by hand or as term suggestions, exist with `current_revision_id = NULL` and are invisible to the public until approved. When a moderator reviews a piece, any pending terms it references are shown and approved alongside it.
 
 **Roles and blocking:** every user starts as a contributor. The moderator role is granted only through `BOOTSTRAP_MODERATOR_USER_IDS` (§4). Moderators block and unblock contributors, but not other moderators or themselves. A blocked user gets 403 on every authenticated endpoint.
 - **Duplicate check on create:** normalised titles, names and aliases are compared, with apostrophes and case folded, Unicode NFC applied and accents stripped for matching only (R-17).
 
-**Revert** creates a new revision copying an older snapshot.
+**Revert** creates a new revision copying an older snapshot (§5.1 "Revert").
 
 **History:** every entity has a public history list, and each revision a diff view. Wiki contributors are credited on imported revisions.
+
+### 5.1 Revision and moderation decisions refined in BE4
+
+BE4 built the revision engine and the moderation, link-report and contact endpoints (migration 010). These
+decisions refine §4, §5 and §6. Two rules hold throughout:
+- **Validation is never an oracle for hidden data.** A problem caused by data the caller could not see is a
+  moderator flag, never a contributor error.
+- **Reference rules apply only to references an edit adds or changes.** Unchanged or restored references are
+  checked only for existence, so a person opting out of a page never makes other entities uneditable.
+
+- **Drafts** are `revisions` rows with `status = draft`, private to their author (moderators do not see them).
+  `POST /v1/drafts` creates one, and `GET|PUT|DELETE /v1/drafts/{draft_id}` reads, replaces and discards it; a
+  draft has its own ID because slug `new` is a valid piece slug, and the ID becomes the pending revision's ID on
+  submit. One draft per author and existing entity: creating another replaces it (200, ID and base kept), under a
+  lock on the author's `users` row. New-entity drafts (`entity_id` NULL) may be several. At most 50 drafts per
+  user. The draft's base is an approved revision of the entity (default: current; none for a new entity). Drafts
+  are checked only structurally (vocabulary values, NFC, control characters, references that resolve), since they
+  may be incomplete; full validation runs at submit.
+- **State machine** (`domain.CheckTransition`, called by the repository on the status it read `FOR UPDATE`):
+  draft → pending (contributor or API-token submit) or approved (interactive moderator submit); pending →
+  approved, rejected, withdrawn (by its author, or superseded by the author's next submit of that entity) or
+  pending (rebase). Approved, rejected and withdrawn are final. Another user's draft or revision is 404; one's own
+  that is no longer a draft is 409 `not_draft`; an action on a revision that is not pending is 409
+  `not_pending`. A replayed submit of a submitted draft answers 200 with the revision.
+- **The editor format.** Editable documents reference pieces, persons, terms and events by slug (collections by
+  ID), never by internal ID, and have no `schema_version` or preferences. An unresolvable or forbidden slug is the
+  same 422 `unknown_reference`.
+- **Editable projection** (`GET /v1/{type}/{key}/editable`): the current document minus every **withheld
+  element** for a contributor or API token: hidden aliases, hidden links (by normalized URL, failing closed),
+  credits, performers and relations of persons not public with a page, references to non-public entities (but the
+  caller's own pending terms and persons), preferences (until BE5), and a no-page person's whole profile but its
+  identity. If the caller has a pending revision of the entity, the projection starts from it instead
+  (`starting_point: pending`, on its submitted base). An interactive moderator gets the full document with
+  `link_states` (link ID, hidden, liveness); others get `[]`.
+- **Restore on submit**, for every actor: each withheld element of the draft's base is put back (keyed lists after
+  their nearest preceding surviving element, sets unioned, nulled references restored unless replaced, the no-page
+  profile and preferences copied whole), as is every base element the author never received (not in
+  `received_keys_json`). A submitted element whose key equals a withheld one (a public alias equal to a hidden
+  alias, a link URL of a hidden link) is kept, and the collision is a moderator flag; the contributor is told
+  nothing. **A contributor submit never merges**: it is stored on the draft's own base, and stale handling is
+  approval's. Contributors cannot add a hidden alias other than a `legal` one, every `legal` alias they add is
+  hidden, and they cannot make a hidden alias public.
+- **Two-phase validation** of a contributor or API-token submit or revert: phase 1 validates the editor
+  document as sent, against the projection of its base (caps count what the caller sees, sourced-field rules see
+  visible links only, paths are editor paths). Only phase-1 problems are ever shown to a contributor (422
+  `invalid_document`, problems with a path and code, never a value). Phase 2 validates the restored document
+  against the full base; a problem only it finds becomes the flag `hidden_data_conflict`, and the response is the
+  same as without it. Approval refuses that flag (409 `hidden_data_conflict`).
+- **Author's view** (`…/pending`, `/v1/me/revisions[/{revision_id}]`, a draft's `preview`) is defined by
+  provenance: elements the author typed are kept whatever their hidden state, and elements they received are
+  redacted by the current state, through the public `New*Snapshot` views extended with their own pending terms
+  and persons, their typed links and public aliases and their pending rename. A typed `legal` alias is never shown.
+  The base view and `changed_fields` use `submitted_base_revision_id`. An approved revision's view is its public
+  view.
+- **Fields and merge.** A field is a top-level document key, with groups (piece `licensing`, `period`,
+  `conservation`; person `status`, `licensing`) so a sourced value is never merged apart from its source, keyed
+  lists merged per element (aliases, terms, relations, links by normalized URL, preferences), sets (secondary
+  kinds, roles, affiliations, term aliases) and credits as one unit. The three-way merge (base, revision, current)
+  takes one-sided changes, equal changes once, and makes every other overlap a conflict, served only in moderator
+  views.
+- **Sourced fields** (R-12, R-15, also for moderators), compared with the base at submit and with current at
+  approval: changed licensing notes, licence or a licensing status of known need a link with role
+  `licensing_source`; a person status other than active, and any status change, needs `status_source_url`; a
+  conservation status other than unassessed needs its `source_url`, and a change also a non-empty summary (the
+  history reason); a changed preference needs its `source_url`. A source is an http(s) URL `NormalizeURL`
+  accepts, at most 2048 characters. Imported documents satisfy the absolute rules, and the others trigger only
+  on change.
+- **Validation** (`Validate` per document type) shares its width, character and uniqueness checks with
+  `CatalogueImport.Validate`: column widths, NFC, no control characters, non-blank names, element caps (aliases,
+  terms, credits and relations ≤100, links ≤200, performances per link ≤200, performers ≤50), the credit and
+  facet CHECKs, one primary term per facet, term depth ≤3 without cycles and an immutable facet, collection
+  parents without cycles, and a term name unique in its facet (422 `duplicate` against a public term at submit;
+  409 `duplicate_name` at approval).
+- **Duplicate check** (R-17) on new-entity drafts, submits and the moderation view: titles, names and aliases
+  compared by `domain.DuplicateKey` (NFC, apostrophes removed, `FoldName`) against whole name sets of public
+  entities, in Go. Contributor checks **never** compare hidden aliases. A match on a no-page person's name blocks a
+  new person (422 `duplicate_blocked`; at approval also on its hidden aliases), and other matches need
+  `acknowledge_duplicates` (409 `possible_duplicate`); moderators get the `possible_duplicate` flag.
+- **New entities** are placeholder rows created at submit with no document content (§4.1). At first approval the
+  writer allocates the real slug (`Slugify`, then `-2`, `-3`…), fixed thereafter, and the sort keys. A rejected
+  or withdrawn new entity's placeholder is deleted with its children when no other pending revision has it; its
+  revision rows stay. Term suggestions are term drafts submitted like any other and referenced by placeholder slug.
+- **Approval** is one READ COMMITTED transaction in `withWriteTx`:
+  - every BE4 write takes locks in one global order: `users` rows, `revisions` rows by ascending ID, entity rows
+    by (type, ID), the term rows of a rebuilt facet, `links` rows by normalized URL, then `link_reports` rows. Rows
+    discovered later, and the S-locks foreign-key checks take on parent rows, can still deadlock: a deadlock
+    (1213) or lock-wait timeout (1205) is retried at most twice;
+  - referenced public entities are locked `FOR SHARE`, so a concurrent opt-out or placeholder delete waits or is
+    seen; a vanished parent (1452) is 409 `entity_gone`;
+  - stale revisions are merged; a conflict is 409 `rebase_required`, and the moderator resolves it with
+    `…/rebase` (`current_revision_id` must still be current, else 409 `stale`);
+  - pending terms and persons the document references (recursively) are approved alongside, parents first, only
+    when they carry no flag of their own; otherwise 409 `pending_reference_flagged`, and the moderator handles
+    that revision first;
+  - the entity's own child rows are deleted and reinserted from the document by the writer the importer shares;
+    the facet's closure is rebuilt when a term is new or moved; conservation history is appended;
+  - links are upserted by normalized URL; the shared fields are written only where this editor changed them, or
+    where the row's value is NULL for a link newly attached; `is_hidden` and liveness are never written, and links
+    rows are never deleted, so a taken-down URL stays hidden when re-added;
+  - performances are replaced by owner (§4);
+  - the revision's `created_at` becomes the approval time;
+  - search happens only after commit;
+  - the session `innodb_lock_wait_timeout` is 3 s, locking reads carry `MAX_EXECUTION_TIME(4000)`, and the
+    transaction's 11 s deadline (`WriteTxDeadline`) stays under the server's 15 s `WriteTimeout`; past it, or after
+    the retries, the answer is 503 `unavailable`.
+- **Flags** (stored in `flags_json`, recomputed in the moderation view and at approval; never shown to
+  contributors): `hidden_alias_in_summary` (review C10), `hidden_alias_in_text`, `hidden_alias_in_review_note`,
+  `hidden_alias_collision`, `hidden_link_collision`, `hidden_link_attached`, `hidden_data_conflict`,
+  `possible_duplicate`, `references_pending`. Hidden aliases are found by `domain.NameMatcher` (the importer's),
+  in every form the importer withholds. At approval `hidden_alias_collision` and `hidden_data_conflict` refuse
+  (409 `hidden_data_conflict`); every other flag but `references_pending` must be acknowledged (409
+  `unacknowledged_flags`), and a flagged summary also needs a clean replacement. A review note is checked the
+  same way at approve and reject, as it reaches the author.
+- **Revert** (`POST /v1/revisions/{revision_id}/revert`) builds the target's document with every alias hidden in
+  current or in the target still hidden and current preferences, on base = current read under the entity lock (so
+  never stale), with the default summary `Revert to revision <id>.`. A contributor's is pending (capped,
+  superseding), a moderator's approved. A replay answers 200 with the revision it already created.
+- **Moderation views** (`GET /v1/moderation/queue`, `GET /v1/moderation/revisions/{revision_id}`) show the full
+  documents (revision, submitted, base, current, merged), link states, conflicts, pending references, flags,
+  duplicates and the author with user ID, role and blocked state (null for imported revisions, whose wiki
+  contributors are listed). The queue is oldest first and hides blocked authors' revisions unless
+  `include_blocked=true`.
+- **Link reports** address a link by the URL the page shows (link IDs are not public): `POST /v1/link-reports`
+  with a reason and message. Only a visible link can be reported; a hidden and an unknown URL are the same 404.
+  One open report per reporter and link (a repeat answers 200 with it), at most 20 open per reporter. Hiding a
+  link (`PUT /v1/links/{link_id}/hidden`, or resolving a report with `hide_link`) resolves its open reports.
+  `GET /v1/moderation/links?url=` finds any link's ID, state and attachments.
+- **Contact requests** (`POST /v1/contact`, no account): kind, name, email, message, URL and a Turnstile token;
+  202 with no ID. Turnstile is verified server-side with siteverify: `success`, a hostname in
+  `TURNSTILE_HOSTNAMES` (bardictorch.org and preview.bardictorch.org) and the action `contact` must all hold. Only
+  user-side token failures are 400 `turnstile_failed`; Cloudflare-side failures, misconfiguration, an empty secret
+  (contact disabled), more than 8 verifications at once and 1000 open requests are 503. The name, email, message
+  and URL are returned only by the moderators' inbox and never logged, and are purged 180 days after a request is
+  resolved or dismissed (at startup, after each resolution and before each inbox list); open requests are kept.
+- **API tokens** (a decision BE5 may revisit): a `user_api|` token acts as its user with **contributor powers
+  only**: drafts, submit, withdraw, revert, their own revisions and link reports, with every submit pending and
+  the contributor projection. Every moderator operation, the link-report inbox and the contact-request inbox
+  answer 403 `api_token_not_allowed` to a moderator's token, because moderation and contact PII need an
+  interactive Auth0 session; `setUserBlocked` follows the same rule. BE5's MCP work may widen this, for example
+  with read-only queue access, by editing this paragraph.
+- **Display names** (impersonation controls): `display_name_key` is the display name folded like duplicates with
+  only letters and digits kept, unique, so `Mor.wen` and `MORWEN` collide (409 `display_name_taken`; this reveals
+  that someone holds the name, which is public anyway). Names whose key is reserved (`moderator`, `mod`, `admin`,
+  `administrator`, `bardictorch`, `system`, `import`, `wiki`, `anonymous`, `unknown`, `traditional`) or shaped like
+  another user's default name (`bard` + 8 hex digits) are 422 `display_name_reserved`. Existing holders are not
+  renamed (DEPLOY.md lists them), and a startup backfill sets missing or stale keys. Authenticated author objects
+  carry the `role`, so the FE can badge moderators.
+- **Body sizes:** document bodies up to 1 MiB, `/v1/contact` up to 64 KiB, everything else 16 KiB (413).
+- **No public schema or document schema change:** BE4 adds no field to an existing response, and
+  `DocumentSchemaVersion` stays 1.
 
 ## 6. API surface (all specified in OpenAPI; the FE never calls the API directly from the browser)
 
@@ -343,20 +511,22 @@ the DDL is in `migrations/003`–`009`.
   - Lists page with `limit` (at most 100) and `offset` (at most 10000), and every ordering ends with the ID, so pages are stable. Nested lists that grow with data are capped at 200 entries, each with a `*_total` field.
 - **Authenticated:**
   - `GET /v1/me`, and `PATCH /v1/me` to set the display name
-  - drafts: `PUT /v1/drafts/{entity}/{id|new}`, and `POST /v1/revisions` to submit
-  - `POST /v1/revisions/{id}/withdraw`
-  - `GET /v1/me/revisions`
-  - `GET|PUT|DELETE /v1/me/repertoire/{piece}`
-  - `GET /v1/users/{id}/repertoire`: public lists
-  - `POST /v1/links/{id}/report`
+  - `GET /v1/{pieces|persons|terms|events}/{slug}/editable|pending` and `GET /v1/collections/{collection_id}/editable|pending`: the caller's editable document, and their pending revision of the entity (a placeholder slug addresses their own pending new entity)
+  - drafts: `POST /v1/drafts`, `GET|PUT|DELETE /v1/drafts/{draft_id}` (a draft has its own ID, since slug `new` is a valid piece slug)
+  - `POST /v1/revisions` to submit a draft, `POST /v1/revisions/{id}/withdraw` and `…/revert`
+  - `GET /v1/me/revisions` and `GET /v1/me/revisions/{id}`: the caller's drafts and revisions, in the author's view
+  - `GET|PUT|DELETE /v1/me/repertoire/{piece}` (BE5)
+  - `GET /v1/users/{id}/repertoire`: public lists (BE5)
+  - `POST /v1/link-reports`: report a link by its URL (link IDs are not public)
   - suggestions for new terms are submitted as term revisions
-- **Moderator:**
-  - `GET /v1/moderation/queue` (filters by type, author and age)
+- **Moderator** (an interactive Auth0 session; API tokens get 403 `api_token_not_allowed`, §5.1):
+  - `GET /v1/moderation/queue` (filters by type, author, age and `include_blocked`) and `GET /v1/moderation/revisions/{id}`
   - `POST /v1/revisions/{id}/approve`, `…/reject`, `…/rebase`
-  - `GET|POST /v1/moderation/link-reports`, `GET|POST /v1/moderation/contact-requests`
+  - `GET /v1/moderation/link-reports` and `POST /v1/moderation/link-reports/{id}` (resolve or dismiss); `GET /v1/moderation/links?url=`
+  - `GET /v1/moderation/contact-requests` and `POST /v1/moderation/contact-requests/{id}` (resolve or dismiss)
   - `PUT /v1/links/{id}/hidden`
-  - `PUT /v1/users/{id}/blocked`: block or unblock a contributor. Until the BE4 moderation endpoints show author IDs, moderators take IDs from Auth0 or the database.
-- **No account needed:** `POST /v1/contact`, verified with Turnstile.
+  - `PUT /v1/users/{id}/blocked`: block or unblock a contributor. Author IDs are shown in the moderation queue, the moderation revision view and the inboxes.
+- **No account needed:** `POST /v1/contact`, verified server-side with Turnstile: `success`, a hostname in the allowlist (`TURNSTILE_HOSTNAMES`: bardictorch.org and preview.bardictorch.org) and the fixed action `contact` must all hold. Cloudflare-side failures and misconfiguration are 503, and only user-side token failures are 400.
 - **Health checks** (no authentication): `GET /healthz` (liveness) and `GET /readyz` (the database answers; dokku's startup check).
 - **Kept from the feed:** `/v1/tokens`.
 
@@ -478,10 +648,15 @@ the DDL is in `migrations/003`–`009`.
   quotes values; a malformed `DATABASE_URL` is reported without the URL, which holds the password.
 - Write documents with editor-owned fields only. Write the link system state directly: `is_hidden` for a link whose
   URL holds a private name, and liveness left at the column default (`unknown`; the wiki records none).
+- Write every performance with its owner (`owner_piece_id` for a piece document's, `owner_person_id` for a person
+  document's; migration 010 backfilled BE3's rows), and the import and the approval writer share one entity writer.
+  After the import, approvals write a links row's shared fields only where the approving editor changed them, or
+  where the row is NULL (§5.1 "Approval"). Per-attachment titles and locators (backlog 10) are deferred to after
+  BE5: they need new columns and every link read to change.
 - Write revision `summary` text from a fixed set of neutral templates ("Imported from the wiki (page revision N).",
   "… as a stub.", "… Collections page.", "… categories.", "… performance listings."): a summary is free text shown on
   every approved revision, including those of persons without a page, and nothing checks it against hidden
-  aliases. BE4 should flag editor summaries that contain a hidden alias.
+  aliases. BE4 flags editor summaries that contain a hidden alias (§5.1 "Flags").
 - Write every link's `normalized_url` as `domain.NormalizeURL(url)`, and drop (listing it in `import-review.md`) a
   URL that does not normalize. Hidden-link redaction relies on this invariant (§4.1 "Hidden links"; DEPLOY.md
   "The normalized URL invariant"): it normalises each document URL and looks it up by `normalized_url` only, so
@@ -553,7 +728,7 @@ then `--apply` once against the empty production database.
 
 **BE:**
 - Unit tests for domain and commands, using mockery mocks. The revision engine gets table-driven tests for every state transition, stale/rebase case and sourced-field rule.
-- Repository tests against **real MySQL 8.4**. BE1's spike succeeded, so they run in the sandbox (`make test-integration-local`, a conda-forge mysqld), on the host (`make test-integration`, podman) and in CI (`make test-integration-external` against a `mysql:8.4` service, under `-race`).
+- Repository tests against **real MySQL 8.4**. BE1's spike succeeded, so they run in the sandbox (`make test-integration-local`, a conda-forge mysqld), on the host (`make test-integration`, podman) and in CI (`make test-integration-external` against a `mysql:8.4` service, under `-race`). A milestone's final gate includes `GOTESTFLAGS=-race make test-integration-external`, since the approval races are only meaningful under the race detector.
 - HTTP tests for every route, checking authentication, authorisation by role (anonymous, contributor, moderator, API token) and status codes, against the OpenAPI spec using kin-openapi response validation.
 - Catalogue reads: exact-struct repository tests on shared fixtures built to tell the behaviours apart, an HTTP leak matrix that proves no hidden string reaches any public response, and parity tests between the database ENUMs, the domain vocabularies and the OpenAPI enum schemas (docs/TESTING.md).
 - Importer golden tests (§7).
@@ -607,7 +782,7 @@ Each pipeline has the same internal shape:
 | BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search, A–Z and needs-work. The revisions table exists but only stores import data. Decisions refined in BE2 are in §4.1. |
 | BE3 | importer | BE | BE2 | Everything in §7 (reading a live crawl directly is deferred). A dry-run report is produced for John and Fabian to read. |
 | FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8 (including the read-only history and diff pages), the licensing card (licensing status and sourced notes) and conservation badge, the mobile facet drawer, and SEO. |
-| BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report and contact (Turnstile) endpoints. (needs-work, a public read, moved to BE2.) |
+| BE4 | revisions and moderation | BE | BE3 | Everything in §5 (§5.1 records the decisions), migration 010, and these endpoints: the editable and pending reads of each entity type, drafts (`POST /v1/drafts`, `GET|PUT|DELETE /v1/drafts/{id}`), submit, withdraw and revert, `GET /v1/me/revisions[/{id}]`, link reports by URL, the moderation queue and revision view, approve, reject and rebase, the link-report and contact-request inboxes, the moderator link lookup and `PUT /v1/links/{id}/hidden`, and the public contact form (Turnstile). Also the display-name impersonation controls (backlog 2). (needs-work, a public read, moved to BE2; repertoire is BE5's.) |
 | FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, revert, and the pending-version diff. (The read-only history and diff pages are FE2's.) |
 | BE5 | contributor extras | BE | BE4 | Repertoire, preference profiles and their validation, conservation suggestions, the `check-links` cron with Wayback lookup, API-token MCP tools, and rate limits. |
 | FE4 | moderation and extras UI | FE | BE5 spec, FE3 | The moderation queue, diff and three-way review, the inboxes, repertoire, the etiquette card (preference profiles with piece-level overrides, once BE5 exposes them), the preference-profile editor, the needs-work dashboard, and the contact form. |

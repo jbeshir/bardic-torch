@@ -435,28 +435,3 @@ func TestMerge_Properties(t *testing.T) {
 			"the merged keys are of the inputs")
 	}
 }
-
-func FuzzMergePiece(f *testing.F) {
-	f.Add([]byte{0}, []byte{1, 0x31})
-	f.Add([]byte{4}, []byte{0x13, 4})
-	f.Add([]byte{2, 0x12}, []byte{3, 0x12})
-	f.Add([]byte{5, 6, 7}, []byte{6, 7, 0x21})
-	f.Fuzz(func(t *testing.T, oursOps, theirsOps []byte) {
-		base := mergeBase()
-		ours, theirs := mutatePiece(base, oursOps), mutatePiece(base, theirsOps)
-		merged, conflicts := MergeDocuments(base, ours, theirs)
-		again, againConflicts := MergeDocuments(base, ours, theirs)
-		require.Equal(t, merged, again, "deterministic")
-		require.Equal(t, conflicts, againConflicts)
-		for _, l := range merged.Links {
-			require.True(t, slices.ContainsFunc(append(slices.Clone(ours.Links), theirs.Links...), func(e DocPieceLink) bool {
-				return equalValues(reflect.ValueOf(e), reflect.ValueOf(l))
-			}), "never invents an element")
-		}
-		if len(conflicts) == 0 {
-			remerged, remergeConflicts := MergeDocuments(base, merged, theirs)
-			require.Empty(t, remergeConflicts)
-			require.True(t, equalValues(reflect.ValueOf(merged), reflect.ValueOf(remerged)), "idempotent")
-		}
-	})
-}

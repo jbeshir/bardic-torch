@@ -21,7 +21,9 @@ const (
 	// The JSON values of contactBody's message, URL and token.
 	contactMessage   = `"The second verse is credited to the wrong person."`
 	contactURL       = `"https://example.org/the-copper-kettle"`
-	contactTurnstile = `"XXXX.DUMMY.TOKEN.XXXX"`
+	contactTurnstile = `"` + dummyTurnstileToken + `"`
+	// dummyTurnstileToken is the dummy token Cloudflare's test site keys produce.
+	dummyTurnstileToken = "XXXX.DUMMY.TOKEN.XXXX"
 	// receivedBody is the answer to a stored contact request.
 	receivedBody        = `{"status":"received"}`
 	contactRequestsPath = "/v1/moderation/contact-requests"
@@ -123,7 +125,7 @@ func TestContactSubmit_ServeHTTP(t *testing.T) {
 					assert.Equal(t, command.ContactSubmission{Kind: domain.ContactRequestKindCorrection,
 						Name: new("Wren Placeholder"), Email: "wren@example.org",
 						Message: "The second verse is credited to the wrong person.",
-						URL:     new("https://example.org/the-copper-kettle"), TurnstileToken: "XXXX.DUMMY.TOKEN.XXXX"},
+						URL:     new("https://example.org/the-copper-kettle"), TurnstileToken: dummyTurnstileToken},
 						req)
 				}
 				return 12, tc.err

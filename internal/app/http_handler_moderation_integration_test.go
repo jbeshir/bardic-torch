@@ -46,6 +46,10 @@ type moderationWorld struct {
 	pieces       []domain.ImportedPiece
 	renamed      domain.ImportedPerson
 	renamedAlias string
+	// hiddenAliases are the names of every hidden alias of the import, which no log record may hold.
+	hiddenAliases []string
+	// logs captures every record the handler writes, DEBUG included.
+	logs *logCapture
 }
 
 // newModerationWorld applies the scrubbed import to a fresh database whose moderator is bootstrapped, and picks
@@ -54,8 +58,10 @@ type moderationWorld struct {
 func newModerationWorld(t *testing.T) moderationWorld {
 	t.Helper()
 
-	w := moderationWorld{revisionWorld: newRevisionWorld(t, nil, moderationE2EModeratorID)}
+	logs, logger := newLogCapture()
+	w := moderationWorld{revisionWorld: newRevisionWorld(t, logger, moderationE2EModeratorID), logs: logs}
 	imp, _ := importtest.Scrubbed(t)
+	w.hiddenAliases = hiddenAliases(imp)
 	catalogtest.New(t, w.db).Import(imp)
 	w.a, w.b = w.auth0(t, moderationE2EAuthorID), w.auth0(t, moderationE2EOtherID)
 	w.moderator = w.auth0(t, moderationE2EModeratorID)
@@ -231,6 +237,11 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 		titleWord    = "Lanternwick"
 		termName     = "Moderation Lantern Topic"
 		newTitle     = "Moderation Lantern Ballad"
+		// The contact request of step 9: personal data, which no log record may hold.
+		senderName    = "Wren Placeholder"
+		senderEmail   = "wren@example.org"
+		senderMessage = "Please correct the second verse."
+		reportText    = "The page is gone."
 	)
 
 	t.Run("1_2_stale_approve_rebases", func(t *testing.T) {
@@ -326,7 +337,7 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 		reported, ok := links[0].(jsonObject)[urlField].(string)
 		require.True(t, ok, "the piece's first link has a URL")
 		require.NotEqual(t, addedLinkURL, reported)
-		body := encodeJSON(t, jsonObject{urlField: reported, "reason": "broken", "message": "The page is gone."})
+		body := encodeJSON(t, jsonObject{urlField: reported, "reason": "broken", "message": reportText})
 		receipt := sendOK[jsonObject](t, w.e, http.MethodPost, reportLinkPath, w.a, body, http.StatusCreated)
 		assert.Equal(t, "open", receipt["status"])
 		again := sendOK[jsonObject](t, w.e, http.MethodPost, reportLinkPath, w.a, body, http.StatusOK)
@@ -396,14 +407,13 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 			`{"acknowledged_flags":[]}`, http.StatusForbidden, httpjson.CodeAPIAuthNotAllowed)
 
 		// The contact inbox holds personal data, which only an interactive session may read or act on.
-		const message = "Please correct the second verse."
-		sendContact(t, w.e, contactBody("correction", "Wren Placeholder", "wren@example.org", message))
+		sendContact(t, w.e, contactBody("correction", senderName, senderEmail, senderMessage))
 		sendRejected(t, w.e, http.MethodGet, contactRequestsPath, w.modToken, "", http.StatusForbidden,
 			httpjson.CodeAPIAuthNotAllowed)
 		inbox := sendOK[jsonObject](t, w.e, http.MethodGet, contactRequestsPath+"?status=open", w.moderator, "",
 			http.StatusOK)
-		request := contactRequestWith(t, inbox, message)
-		assert.Equal(t, "wren@example.org", request["email"])
+		request := contactRequestWith(t, inbox, senderMessage)
+		assert.Equal(t, senderEmail, request["email"])
 		resolvePath := idPath(contactRequestsPath+"/", objectID(t, request, "id"))
 		sendRejected(t, w.e, http.MethodPost, resolvePath, w.modToken, `{"status":"resolved"}`,
 			http.StatusForbidden, httpjson.CodeAPIAuthNotAllowed)
@@ -463,4 +473,9 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 			sendRejected(t, w.e, req.method, req.path, w.a, req.body, http.StatusForbidden, httpjson.CodeUserBlocked)
 		}
 	})
+
+	// No record the flow logged, at any level, holds a hidden alias of the import, the hidden alias A renamed the
+	// person to, a link report's message or the contact request's personal data.
+	w.logs.requireNoneOf(t, append([]string{w.renamedAlias, reportText, senderName, senderEmail, senderMessage},
+		w.hiddenAliases...))
 }

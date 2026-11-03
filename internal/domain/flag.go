@@ -46,8 +46,3 @@ var flagCodeValues = []FlagCode{
 
 // Valid reports whether f is a known FlagCode.
 func (f FlagCode) Valid() bool { return slices.Contains(flagCodeValues, f) }
-
-// ParseFlagCode returns the FlagCode named by s, or an error if s is not a known flag code.
-func ParseFlagCode(s string) (FlagCode, error) {
-	return parseEnum[FlagCode](s, "flag code")
-}

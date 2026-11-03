@@ -27,7 +27,7 @@ func (passingTurnstile) VerifyTurnstile(context.Context, string) error { return 
 // dummy token Cloudflare's test site keys produce.
 func contactBody(kind, name, email, message string) string {
 	return `{"kind":"` + kind + `","name":"` + name + `","email":"` + email + `","message":"` + message +
-		`","url":null,"turnstile_token":"XXXX.DUMMY.TOKEN.XXXX"}`
+		`","url":null,"turnstile_token":"` + testTurnstileToken + `"}`
 }
 
 // sendContact sends a contact request anonymously and requires it to be received.
