@@ -65,6 +65,8 @@ type SubmitState[D Document] struct {
 	HiddenAliases []string
 	Summary       string
 	Today         Date
+	// Keys issues the keys of the submission's new performances.
+	Keys KeySource
 }
 
 // SubmitPlan is the planned outcome of a submission: the full document to store, and the flags, which only
@@ -81,7 +83,7 @@ type SubmitPlan[D Document] struct {
 // only ones returned, as a *DocumentError; those only the restored document has become hidden_data_conflict
 // flags, with the restore's collisions and the flags of the restored document's content.
 func PlanSubmit[D Document](s SubmitState[D]) (SubmitPlan[D], error) {
-	restored, flags := RestoreDocument(s.ID, s.Submitted, s.Base, s.Received, s.Visibility)
+	restored, flags := RestoreDocument(s.ID, s.Submitted, s.Base, s.Received, s.Visibility, s.Keys)
 	restored = CanonicalDocument(restored)
 	if s.Visibility.Role == RoleModerator {
 		return SubmitPlan[D]{Document: restored}, nil

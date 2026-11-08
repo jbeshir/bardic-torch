@@ -37,7 +37,7 @@ func TestRepository_SubmitDraft_Pending(t *testing.T) {
 	require.NoError(t, err)
 	wantSubmitted := withheldSong(f)
 	wantSubmitted.NotesMD = new(editedNotes)
-	assert.Equal(t, wantSubmitted, submitted, "the author's document as submitted")
+	assert.Equal(t, any(wantSubmitted), withoutKeys(t, submitted), "the author's document as submitted")
 	assert.Equal(t, f.song.RevisionID, stored.base.Int64)
 	assert.Equal(t, f.song.RevisionID, stored.submittedBase.Int64)
 	assert.JSONEq(t, `[]`, stored.flags)
@@ -75,11 +75,11 @@ func TestRepository_SubmitDraft_Replay(t *testing.T) {
 	assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM pieces WHERE current_revision_id IS NULL"),
 		"one placeholder")
 
-	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorAsh, DraftID: draft.Draft.ID,
+	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorAsh, DraftID: draft.Draft.ID,
 		Now: f.tick()})
 	require.ErrorIs(t, err, datasources.ErrNotFound, "another user's revision")
 	require.NoError(t, f.repo.WithdrawRevision(t.Context(), actorWren, first.RevisionID))
-	_, err = f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorWren, DraftID: draft.Draft.ID,
+	_, err = f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorWren, DraftID: draft.Draft.ID,
 		Now: f.tick()})
 	require.ErrorIs(t, err, domain.ErrNotDraft, "a withdrawn revision")
 }
@@ -167,7 +167,7 @@ func TestRepository_SubmitDraft_BaseNotApproved(t *testing.T) {
 		Snapshot: songDocument(f), Status: domain.RevisionStatusRejected, Source: domain.RevisionSourceUser})
 	f.c.Exec("UPDATE revisions SET base_revision_id = ? WHERE id = ?", pending, draft.Draft.ID)
 
-	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorWren, DraftID: draft.Draft.ID,
+	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorWren, DraftID: draft.Draft.ID,
 		Now: f.tick()})
 
 	require.Error(t, err)
@@ -298,7 +298,7 @@ func TestRepository_SubmitDraft_EntityGone(t *testing.T) {
 	f.c.Exec("UPDATE revisions SET status = 'rejected' WHERE id = ?", piece.ID)
 	f.c.Exec("DELETE FROM pieces WHERE id = ?", piece.Entity.ID)
 
-	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorWren, DraftID: draft.Draft.ID,
+	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorWren, DraftID: draft.Draft.ID,
 		Now: f.tick()})
 	require.ErrorIs(t, err, datasources.ErrEntityGone)
 }
@@ -377,9 +377,9 @@ func TestRepository_WithdrawRevision_PromotedAuthor(t *testing.T) {
 }
 
 // TestRepository_SubmitDraft_EditedPerformanceKeepsHiddenPerformer checks that a contributor's edit of a
-// performance's year, which changes the key the restore matches performances by, never silently removes the
-// performer withheld from them: the submission is flagged hidden_data_conflict, approval refuses it, and the
-// moderator rebases it with the performer kept.
+// performance's year with a client that sends no performance keys, so that the restore matches performances by
+// content and finds none, never silently removes the performer withheld from them: the submission is flagged
+// hidden_data_conflict, approval refuses it, and the moderator rebases it with the performer kept.
 func TestRepository_SubmitDraft_EditedPerformanceKeepsHiddenPerformer(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -390,6 +390,7 @@ func TestRepository_SubmitDraft_EditedPerformanceKeepsHiddenPerformer(t *testing
 	require.Equal(t, 1, performers())
 	result := editAndSubmit(t, f, actorWren, key, func(d *domain.PieceDocument) {
 		require.Equal(t, []int64{f.morwen.ID}, d.Links[0].Performances[0].PerformerIDs, "the performer is withheld")
+		d.Links[0].Performances[0].Key = ""
 		d.Links[0].Performances[0].Year = new(int16(2002))
 	})
 	assert.Contains(t, f.stored(t, result.RevisionID).flags, string(domain.FlagHiddenDataConflict))

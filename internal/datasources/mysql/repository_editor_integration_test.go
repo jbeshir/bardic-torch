@@ -114,7 +114,7 @@ func TestRepository_GetEditable_Contributor(t *testing.T) {
 	f := newEditingFixture(t)
 
 	song := f.editable(t, actorWren, *pieceKey(f.song.Slug))
-	assert.Equal(t, withheldSong(f), song.Document,
+	assert.Equal(t, withheldSong(f), withoutKeys(t, song.Document),
 		"the import snapshot minus the withheld elements")
 	assert.Equal(t, domain.StartingPointCurrent, song.StartingPoint)
 	assert.Equal(t, &f.song.RevisionID, song.BaseRevisionID)
@@ -149,7 +149,7 @@ func TestRepository_GetEditable_Moderator(t *testing.T) {
 	f := newEditingFixture(t)
 
 	song := f.editable(t, actorRowan, *pieceKey(f.song.Slug))
-	assert.Equal(t, songDocument(f), song.Document, "everything")
+	assert.Equal(t, songDocument(f), withoutKeys(t, song.Document), "everything")
 	require.Len(t, song.LinkStates, 2)
 	assert.Equal(t, songLyricsURL, song.LinkStates[0].URL)
 	assert.False(t, song.LinkStates[0].IsHidden)
@@ -163,7 +163,7 @@ func TestRepository_GetEditable_Moderator(t *testing.T) {
 	assert.Len(t, morwen.Aliases, 2)
 
 	token := f.editable(t, actorRowanToken, *pieceKey(f.song.Slug))
-	assert.Equal(t, withheldSong(f), token.Document, "an API-token moderator gets the contributor projection")
+	assert.Equal(t, withheldSong(f), withoutKeys(t, token.Document), "an API-token moderator gets the contributor projection")
 	assert.Empty(t, token.LinkStates)
 }
 

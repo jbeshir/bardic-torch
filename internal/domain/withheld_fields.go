@@ -49,8 +49,8 @@ type listField[D, E any] struct {
 type elementParts[E any] struct {
 	// project withholds the parts of an element the projector withholds.
 	project func(*projector, E) E
-	// restore puts back into an element sub the parts of base, its element in the base, in the restore set. It
-	// reports whether a part it could not put back was dropped.
+	// restore puts back into an element sub the parts of base, its element in the base (the zero element if the base
+	// has none), in the restore set. It reports whether a part it could not put back was dropped.
 	restore func(p *projector, sub, base E) (E, bool)
 	// droppedPath is the path, under the element, of the hidden_data_conflict flag of a dropped part.
 	droppedPath string
@@ -77,10 +77,8 @@ func (f listField[D, E]) restore(p *projector, out *D, base D) []Flag {
 	if f.parts != nil {
 		byKey := keyedBy(baseList, f.keys)
 		for i, key := range f.keys(restored) {
-			b, ok := byKey[key]
-			if !ok {
-				continue
-			}
+			// An element base does not have is restored onto the zero element: nothing is put back.
+			b := byKey[key]
 			var dropped bool
 			restored[i], dropped = f.parts.restore(p, restored[i], b)
 			if dropped {

@@ -71,6 +71,8 @@ type RebaseRequest struct {
 	Sent              domain.EditorFieldsSent
 	Summary           *string
 	Now               time.Time
+	// Keys issues the keys of the resolved document's new performances.
+	Keys domain.KeySource
 }
 
 // RevisionRebaser rebases a pending revision: it stores the resolved document, validated against the current

@@ -99,6 +99,7 @@ func (c *docCheck) links(links []DocLink) {
 
 // performance checks a performance at path.
 func (c *docCheck) performance(p DocPerformance, path string) {
+	c.check(p.Key == "" || validPerformanceKey(p.Key), path+"/key", ProblemOutOfRange)
 	c.check(p.DescriptionVerbatim != "", path+"/description_verbatim", ProblemRequired)
 	c.check(len(p.DescriptionVerbatim) <= maxTextBytes, path+"/description_verbatim", ProblemTooLong)
 	c.check(p.Year == nil || *p.Year >= 0 && *p.Year <= maxYear, path+"/year", ProblemOutOfRange)

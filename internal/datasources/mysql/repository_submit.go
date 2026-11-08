@@ -313,7 +313,7 @@ func (c *catalogueReader) planSubmission(
 
 	return docs.kind.planSubmit(submitState{
 		id: docs.entity.ID, submitted: docs.submitted, base: docs.base, received: received, vis: vis, refs: index,
-		hiddenAliases: hidden, summary: draft.Summary, today: dateOf(req.Now),
+		hiddenAliases: hidden, summary: draft.Summary, today: dateOf(req.Now), keys: req.Keys,
 	})
 }
 

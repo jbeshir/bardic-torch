@@ -41,6 +41,8 @@ type projector struct {
 	vis      EditorVisibility
 	withheld func(key string, hiddenNow bool) bool
 	kept     ElementKeySet
+	// keys issues the keys of new performances when restoring; nil when projecting.
+	keys KeySource
 }
 
 // hidden is whether the current state withholds from the caller what cond describes: never from a moderator.
@@ -289,12 +291,71 @@ func (p *projector) person(d PersonDocument) PersonDocument {
 
 // EditableDocument returns the document of entity id (0 for a new one) as the caller may edit it: without every
 // element the current state withholds from them (hidden aliases and links, preferences whose source is a hidden
-// link, references to entities they may not see, a no-page person's profile). It also returns the keys of the
-// elements it shows, the received keys of a draft made from it.
+// link, references to entities they may not see, a no-page person's profile), each performance with its key, derived
+// for one stored without (key_source.go). It also returns the keys of the elements it shows, the received keys of a
+// draft made from it.
 func EditableDocument[D Document](id int64, doc D, vis EditorVisibility) (D, ElementKeySet) {
 	p := &projector{id: id, vis: vis, kept: ElementKeySet{},
 		withheld: func(_ string, hiddenNow bool) bool { return hiddenNow }}
-	out := projectDocument(p, doc)
+	out := withPerformanceKeys(p, projectDocument(p, doc))
 
 	return out, p.kept
+}
+
+// effectiveKey is the key of a performance of the link with URL url, of piece pieceID if not nil, as the projector's
+// caller is given it: its own, or for a performance stored without one, its derived key over what they are shown.
+func (p *projector) effectiveKey(url string, perf DocPerformance, pieceID *int64) string {
+	if perf.Key != "" {
+		return perf.Key
+	}
+
+	return derivedPerformanceKey(url, perf, p.shownPiece(pieceID))
+}
+
+// shownPiece is pieceID if the caller is shown that piece, else 0.
+func (p *projector) shownPiece(pieceID *int64) *int64 {
+	if pieceID == nil || !p.hidden(!p.pieceVisible(*pieceID)) {
+		return pieceID
+	}
+
+	return new(int64)
+}
+
+// withPerformanceKeys is doc with each performance's effective key (effectiveKey).
+func withPerformanceKeys[D Document](p *projector, doc D) D {
+	return mapPerformances(doc, func(l DocLink, perf DocPerformance, pieceID *int64) DocPerformance {
+		perf.Key = p.effectiveKey(l.URL, perf, pieceID)
+
+		return perf
+	})
+}
+
+// mapPerformances is doc with f of each performance of its links, given its link and its piece (nil for a link of a
+// piece); a document without links is doc.
+func mapPerformances[D Document](doc D, f func(l DocLink, perf DocPerformance, pieceID *int64) DocPerformance) D {
+	var out any = doc
+	switch d := any(doc).(type) {
+	case PieceDocument:
+		d.Links = mapList(d.Links, func(l DocPieceLink) DocPieceLink {
+			l.Performances = mapList(l.Performances, func(perf DocPerformance) DocPerformance {
+				return f(l.DocLink, perf, nil)
+			})
+
+			return l
+		})
+		out = d
+	case PersonDocument:
+		d.Links = mapList(d.Links, func(l DocPersonLink) DocPersonLink {
+			l.Performances = mapList(l.Performances, func(perf DocPersonPerformance) DocPersonPerformance {
+				perf.DocPerformance = f(l.DocLink, perf.DocPerformance, perf.PieceID)
+
+				return perf
+			})
+
+			return l
+		})
+		out = d
+	}
+
+	return out.(D)
 }

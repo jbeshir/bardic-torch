@@ -6924,10 +6924,24 @@ components:
 
     EditorPerformance:
       type: object
-      description: A performance a link records, with its event and performers by slug.
+      description: >-
+        A performance a link records, with its event and performers by slug, and its key.
       additionalProperties: false
       required: [event, year, uploader, description_verbatim, performers]
       properties:
+        key:
+          type: [string, "null"]
+          description: >-
+            The performance's opaque, stable identity, issued by the server. Responses always carry the property; an
+            editable document of the current revision gives every performance its key (one starting from the
+            caller's pending revision, and a draft, hold the keys as sent). Send back
+            the key a performance was received with, so the server matches it to the performance it edits even
+            when its description or year changed, and puts back what was withheld of it; send null (or omit it) for
+            a new performance, which the server gives a fresh key on submission. A request without keys matches
+            performances by their description, year and piece. Never shown outside the editor.
+          pattern: "^[0-9a-f]{16}$"
+          examples:
+            - 3f9a0c4e7b21d856
         event:
           oneOf:
             - $ref: "#/components/schemas/EditorSlug"
@@ -6955,7 +6969,8 @@ components:
           items:
             $ref: "#/components/schemas/EditorSlug"
       examples:
-        - event: midwinter-revel
+        - key: 3f9a0c4e7b21d856
+          event: midwinter-revel
           year: 2019
           uploader: null
           description_verbatim: Sung at Midwinter Revel by Morwen.
@@ -7416,6 +7431,8 @@ components:
                 oneOf:
                   - $ref: "#/components/schemas/EditorSlug"
                   - type: "null"
+              key:
+                $ref: "#/components/schemas/EditorPerformance/properties/key"
               event:
                 $ref: "#/components/schemas/EditorPerformance/properties/event"
               year:

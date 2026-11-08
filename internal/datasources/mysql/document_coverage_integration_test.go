@@ -217,6 +217,13 @@ conservation_history   ! written by the importer, and appended when a revision c
 // schemaVersionField is the field every document has and no column stores: it describes the stored snapshot.
 const schemaVersionField = "schema_version"
 
+// performanceKeyField is the editor's identity of a performance, which only the revision documents hold: no read of the
+// tables shows it, and the editor reads it from the current revision's document.
+const (
+	performanceKeyField     = "links.performances.key"
+	performanceKeyElsewhere = "the revision documents only: an editor-owned identity, never shown in a view"
+)
+
 type documentCoverage struct {
 	doc     any
 	columns string
@@ -227,8 +234,11 @@ type documentCoverage struct {
 var documentCoverages = []documentCoverage{
 	{doc: domain.PieceDocument{}, columns: pieceColumns, elsewhere: map[string]string{
 		"conservation.source_url": "conservation_history.source_url, appended when a status change is approved",
+		performanceKeyField:       performanceKeyElsewhere,
 	}},
-	{doc: domain.PersonDocument{}, columns: personColumns},
+	{doc: domain.PersonDocument{}, columns: personColumns, elsewhere: map[string]string{
+		performanceKeyField: performanceKeyElsewhere,
+	}},
 	{doc: domain.TermDocument{}, columns: termColumns},
 	{doc: domain.CollectionDocument{}, columns: collectionColumns},
 	{doc: domain.EventDocument{}, columns: eventColumns},

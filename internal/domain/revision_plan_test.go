@@ -473,7 +473,7 @@ func TestCheckReviewNote(t *testing.T) {
 func submitState[D Document](t *testing.T, id int64, submitted D, base *D, received ElementKeySet) SubmitState[D] {
 	t.Helper()
 
-	return SubmitState[D]{ID: id, Submitted: submitted, Base: base, Received: received,
+	return SubmitState[D]{ID: id, Keys: countingKeys(), Submitted: submitted, Base: base, Received: received,
 		Visibility: editorVisibility(t, RoleContributor), Refs: testRefs(), HiddenAliases: []string{legalName},
 		Summary: testSummary, Today: validToday}
 }
@@ -601,8 +601,15 @@ func TestPlanSubmit(t *testing.T) {
 		editor.Links[0].Performances = slices.Clone(editor.Links[0].Performances)
 		editor.Links[0].Performances[0].Year = ptr(int16(2002))
 		plan, err = PlanSubmit(submitState(t, pieceID, editor, &base, keys))
+		require.NoError(t, err)
+		assert.Equal(t, []int64{refPerson, refNoPagePerson}, plan.Document.Links[0].Performances[0].PerformerIDs,
+			"matched by its key: the withheld performer is restored")
+		assert.Empty(t, plan.Flags)
+		editor.Links[0].Performances[0].Key = ""
+		plan, err = PlanSubmit(submitState(t, pieceID, editor, &base, keys))
 		require.NoError(t, err, "the contributor is told nothing")
-		assert.Equal(t, editor.Links[0].Performances, plan.Document.Links[0].Performances, "kept as submitted")
+		assert.Equal(t, editor.Links[0].Performances[0].PerformerIDs, plan.Document.Links[0].Performances[0].PerformerIDs,
+			"without a key it is matched by content, so kept as submitted")
 		assert.Equal(t, []Flag{{Code: FlagHiddenDataConflict, Path: pathFirstLinkPerformances}}, plan.Flags)
 	})
 	t.Run("link_collision_flag", func(t *testing.T) {

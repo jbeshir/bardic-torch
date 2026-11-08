@@ -13,6 +13,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -623,7 +624,7 @@ func TestRepository_ApproveRevision_RebasedWhileWaiting(t *testing.T) {
 	resolved.NotesMD = new("Notes as the moderator rebased them.")
 
 	holder := holdRows(t, f.db, "SELECT id FROM revisions WHERE id = ? FOR UPDATE", pending.RevisionID)
-	require.NoError(t, f.repo.RebaseRevisionInTx(t.Context(), holder.tx, datasources.RebaseRequest{Actor: actorRowan,
+	require.NoError(t, f.repo.RebaseRevisionInTx(t.Context(), holder.tx, datasources.RebaseRequest{Keys: domaintest.Keys(), Actor: actorRowan,
 		RevisionID: pending.RevisionID, CurrentRevisionID: &f.song.RevisionID, Document: resolved, Now: f.tick()}))
 	done := started(t.Context(), func(ctx context.Context) error { return f.repo.ApproveRevision(ctx, req) })
 	waitUntilBlocked(t, f.db, 1)

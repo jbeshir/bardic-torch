@@ -75,7 +75,7 @@ func fullPiece() PieceDocument {
 	}
 	wren := d.Links[0]
 	wren.Performances = []DocPerformance{
-		{EventID: ptr(refEvent), Year: ptr(int16(2001)), DescriptionVerbatim: "Sung at the revel",
+		{EventID: ptr(refEvent), Year: ptr(int16(2001)), DescriptionVerbatim: revelPerformance,
 			PerformerIDs: []int64{refPerson, refNoPagePerson}},
 		{EventID: ptr(refPendingEvent), DescriptionVerbatim: feastPerformance, PerformerIDs: []int64{refPerson}},
 	}
@@ -159,7 +159,7 @@ func TestEditable(t *testing.T) {
 		{id: "hidden_alias_absent", got: first(EditableDocument(personID, fullPerson(), contributor)).Aliases,
 			want: personProjection().Aliases},
 		{id: "moderator_sees_hidden_alias", got: first(EditableDocument(personID, fullPerson(), moderator)),
-			want: fullPerson()},
+			want: withKeys(moderator, fullPerson())},
 		{id: "hidden_link_absent", got: linkURLs(first(EditableDocument(pieceID, fullPiece(), contributor))),
 			want: []string{validPiece().Links[0].URL, songbookPageURL}},
 		{id: "no_page_credit_absent", got: first(EditableDocument(pieceID, fullPiece(), contributor)).Credits,
@@ -187,9 +187,11 @@ func TestEditable(t *testing.T) {
 				func(c DocCredit) bool { return c.PersonID != nil && *c.PersonID == refOwnPerson }), want: true},
 		{id: "api_token_moderator_is_contributor",
 			got:  first(EditableDocument(pieceID, fullPiece(), editorVisibility(t, RoleContributor))),
-			want: pieceProjection()},
-		{id: "Piece", got: first(EditableDocument(pieceID, fullPiece(), contributor)), want: pieceProjection()},
-		{id: "Person", got: first(EditableDocument(personID, fullPerson(), contributor)), want: personProjection()},
+			want: withKeys(contributor, pieceProjection())},
+		{id: "Piece", got: first(EditableDocument(pieceID, fullPiece(), contributor)),
+			want: withKeys(contributor, pieceProjection())},
+		{id: "Person", got: first(EditableDocument(personID, fullPerson(), contributor)),
+			want: withKeys(contributor, personProjection())},
 		{id: "TermReferences", got: first(EditableDocument(termID, termReferencing(refOthersTerm, refOwnTerm), contributor)),
 			want: termReferencing(0, refOwnTerm)},
 		{id: "CollectionReferences",
@@ -206,6 +208,11 @@ func TestEditable(t *testing.T) {
 }
 
 func first[A, B any](a A, _ B) A { return a }
+
+// withKeys is doc with each performance's key as a caller with visibility vis is given it.
+func withKeys[D Document](vis EditorVisibility, doc D) D {
+	return withPerformanceKeys(&projector{vis: vis}, doc)
+}
 
 // termReferencing is validTerm with the parent and related affiliation given, 0 for none.
 func termReferencing(parent, related int64) TermDocument {
@@ -278,14 +285,14 @@ func TestRestore(t *testing.T) {
 		edit(&sub)
 		base := fullPiece()
 
-		return RestoreDocument(pieceID, sub, &base, pieceKeys, vis)
+		return RestoreDocument(pieceID, sub, &base, pieceKeys, vis, countingKeys())
 	}
 	restorePerson := func(edit func(*PersonDocument)) (PersonDocument, []Flag) {
 		sub := person
 		edit(&sub)
 		base := fullPerson()
 
-		return RestoreDocument(personID, sub, &base, personKeys, vis)
+		return RestoreDocument(personID, sub, &base, personKeys, vis, countingKeys())
 	}
 	aliasNames := func(d PersonDocument) []string {
 		var names []string
@@ -343,12 +350,13 @@ func TestRestore(t *testing.T) {
 		assert.Equal(t, []int64{refPerson, refNoPagePerson}, got.Links[0].Performances[0].PerformerIDs)
 		assert.Equal(t, ptr(refPendingEvent), got.Links[0].Performances[1].EventID, "the nulled event is restored")
 	})
-	t.Run("PerformanceKeyChanged", func(t *testing.T) {
+	t.Run("PerformanceEditedWithoutKey", func(t *testing.T) {
 		t.Parallel()
 		editPerformance := func(edit func(*DocPerformance)) func(*PieceDocument) {
 			return func(d *PieceDocument) {
 				d.Links = slices.Clone(d.Links)
 				d.Links[0].Performances = slices.Clone(d.Links[0].Performances)
+				d.Links[0].Performances[0].Key = ""
 				edit(&d.Links[0].Performances[0])
 			}
 		}
@@ -379,14 +387,14 @@ func TestRestore(t *testing.T) {
 		sub.Links = slices.Clone(sub.Links)
 		sub.Links[0].Performances = slices.Clone(sub.Links[0].Performances)
 		sub.Links[0].Performances[1].Year = ptr(int16(1999))
-		got, flags := RestoreDocument(pieceID, sub, &base, keys, vis)
+		got, flags := RestoreDocument(pieceID, sub, &base, keys, vis, countingKeys())
 		assert.Empty(t, flags, "an edited performance with nothing withheld is no conflict")
 		assert.Equal(t, ptr(int16(1999)), got.Links[0].Performances[1].Year)
 		sub.Links[0].Performances = sub.Links[0].Performances[:1]
-		_, flags = RestoreDocument(pieceID, sub, &base, keys, vis)
+		_, flags = RestoreDocument(pieceID, sub, &base, keys, vis, countingKeys())
 		assert.Empty(t, flags, "nor is a deleted one")
 	})
-	t.Run("PersonPerformanceKeyChanged", func(t *testing.T) {
+	t.Run("PersonPerformanceEditedWithoutKey", func(t *testing.T) {
 		t.Parallel()
 		base := fullPerson()
 		base.Links = slices.Clone(base.Links)
@@ -398,9 +406,10 @@ func TestRestore(t *testing.T) {
 			sub := projection
 			sub.Links = slices.Clone(sub.Links)
 			sub.Links[0].Performances = slices.Clone(sub.Links[0].Performances)
+			sub.Links[0].Performances[0].Key = ""
 			edit(&sub.Links[0].Performances[0])
 
-			return RestoreDocument(personID, sub, &base, keys, vis)
+			return RestoreDocument(personID, sub, &base, keys, vis, countingKeys())
 		}
 		got, flags := restoreEdited(func(*DocPersonPerformance) {})
 		assert.Equal(t, base, got, "unchanged: the withheld event and performer are restored")
@@ -421,7 +430,7 @@ func TestRestore(t *testing.T) {
 		base := noPagePerson()
 		sub, keys := EditableDocument(refNoPagePerson, base, vis)
 		sub.NotesMD = ptr("Typed notes.")
-		got, flags := RestoreDocument(refNoPagePerson, sub, &base, keys, vis)
+		got, flags := RestoreDocument(refNoPagePerson, sub, &base, keys, vis, countingKeys())
 		assert.Equal(t, base, got, "the profile is the base's, the notes ignored")
 		assert.Empty(t, flags)
 	})
@@ -430,7 +439,7 @@ func TestRestore(t *testing.T) {
 		base := noPagePerson()
 		sub, keys := EditableDocument(refNoPagePerson, base, vis)
 		sub.Status, sub.StatusSourceURL = PersonStatusActive, ptr("https://example.org/opt-in")
-		got, _ := RestoreDocument(refNoPagePerson, sub, &base, keys, vis)
+		got, _ := RestoreDocument(refNoPagePerson, sub, &base, keys, vis, countingKeys())
 		want := base
 		want.Status, want.StatusSourceURL = sub.Status, sub.StatusSourceURL
 		assert.Equal(t, want, got, "the identity is the contributor's")
@@ -472,24 +481,29 @@ func TestRestore(t *testing.T) {
 		now := vis
 		now.HiddenLinkURLs = nil
 		base := fullPiece()
-		got, _ := RestoreDocument(pieceID, piece, &base, pieceKeys, now)
+		got, _ := RestoreDocument(pieceID, piece, &base, pieceKeys, now, countingKeys())
 		assert.Contains(t, linkURLs(got), hiddenLinkURL, "not received, so restored rather than deleted")
 	})
 	t.Run("NewEntity", func(t *testing.T) {
 		t.Parallel()
-		got, flags := RestoreDocument(0, validPiece(), nil, ElementKeySet{}, vis)
-		assert.Equal(t, validPiece(), got)
+		got, flags := RestoreDocument(0, validPiece(), nil, ElementKeySet{}, vis, countingKeys())
+		issued := countingKeys()
+		assert.Equal(t, mapPerformances(validPiece(), func(_ DocLink, perf DocPerformance, _ *int64) DocPerformance {
+			perf.Key = issued()
+
+			return perf
+		}), got, "every performance of a new entity gets a fresh key")
 		assert.Empty(t, flags)
 	})
 	t.Run("References", func(t *testing.T) {
 		t.Parallel()
 		term := termReferencing(refOthersTerm, refOwnTerm)
 		sub, keys := EditableDocument(termID, term, vis)
-		got, _ := RestoreDocument(termID, sub, &term, keys, vis)
+		got, _ := RestoreDocument(termID, sub, &term, keys, vis, countingKeys())
 		assert.Equal(t, term, got)
 		collection := collectionReferencing(refOthersTerm, refHiddenColl)
 		subColl, keys := EditableDocument(collectionID, collection, vis)
-		gotColl, _ := RestoreDocument(collectionID, subColl, &collection, keys, vis)
+		gotColl, _ := RestoreDocument(collectionID, subColl, &collection, keys, vis, countingKeys())
 		assert.Equal(t, collection, gotColl)
 	})
 }
@@ -513,7 +527,7 @@ func TestRestore_RoundTrip(t *testing.T) {
 func roundTrip[D Document](t *testing.T, id int64, doc D, vis EditorVisibility) {
 	t.Helper()
 	editable, keys := EditableDocument(id, doc, vis)
-	got, flags := RestoreDocument(id, editable, &doc, keys, vis)
+	got, flags := RestoreDocument(id, editable, &doc, keys, vis, countingKeys())
 	assert.Equal(t, doc, got, "%T as %s", doc, vis.Role)
 	assert.Empty(t, flags)
 }

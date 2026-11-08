@@ -36,7 +36,7 @@ func TestPlanRebase(t *testing.T) {
 	resolved, _ := EditableDocument(personID, person, vis)
 	resolved.NotesMD = ptr("Resolved.")
 	state := func(current *PersonDocument) RebaseState[PersonDocument] {
-		return RebaseState[PersonDocument]{ID: personID, Resolved: resolved, Sent: AllEditorFieldsSent,
+		return RebaseState[PersonDocument]{ID: personID, Keys: countingKeys(), Resolved: resolved, Sent: AllEditorFieldsSent,
 			Revision: person, Current: current, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
 			Summary: testSummary, Today: validToday}
 	}
@@ -78,7 +78,7 @@ func TestPlanRebase_PreferencesFromDocument(t *testing.T) {
 		preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceNoRecording,
 			PreferenceChoiceOralOnly),
 	}
-	doc, err := PlanRebase(RebaseState[PersonDocument]{ID: personID, Resolved: resolved, Sent: AllEditorFieldsSent,
+	doc, err := PlanRebase(RebaseState[PersonDocument]{ID: personID, Keys: countingKeys(), Resolved: resolved, Sent: AllEditorFieldsSent,
 		Revision: planPerson(), Current: &current, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
 		Summary: testSummary, Today: validToday})
 	require.NoError(t, err, "%v", problemsOrNil(err))
@@ -99,7 +99,7 @@ func TestPlanRebase_AbsentPreferencesKeepCurrent(t *testing.T) {
 	resolved := planPerson()
 	resolved.Preferences = nil // a client built before preferences existed sends none
 	state := func(current *PersonDocument) RebaseState[PersonDocument] {
-		return RebaseState[PersonDocument]{ID: personID, Resolved: resolved, Sent: EditorFieldsSent{},
+		return RebaseState[PersonDocument]{ID: personID, Keys: countingKeys(), Resolved: resolved, Sent: EditorFieldsSent{},
 			Revision: revision, Current: current, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
 			Summary: testSummary, Today: validToday}
 	}

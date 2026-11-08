@@ -42,6 +42,8 @@ type SubmitRevision struct {
 	Submitter  datasources.RevisionSubmitter
 	Revisions  datasources.MyRevisionGetter
 	Now        func() time.Time
+	// Keys issues the keys of new performances.
+	Keys domain.KeySource
 }
 
 // Execute submits the principal's draft req.DraftID and returns the revision it leaves, as they see it; a draft
@@ -62,7 +64,7 @@ func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest)
 		}
 		result, err = c.Submitter.SubmitDraft(ctx, datasources.SubmitRequest{
 			Actor: actor, DraftID: req.DraftID, Duplicates: duplicates,
-			AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(),
+			AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(), Keys: c.Keys,
 		})
 		if actor.Role == domain.RoleModerator && isNameDuplicate(err) {
 			return ErrDuplicateName

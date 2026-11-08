@@ -179,7 +179,7 @@ func (f *editingFixture) submit(t *testing.T, actor domain.Actor, id int64) data
 func (f *editingFixture) submitRequest(t *testing.T, actor domain.Actor, id int64) datasources.SubmitRequest {
 	t.Helper()
 
-	return datasources.SubmitRequest{Actor: actor, DraftID: id, Duplicates: f.duplicateCheck(t, actor, id),
+	return datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actor, DraftID: id, Duplicates: f.duplicateCheck(t, actor, id),
 		Now: f.tick()}
 }
 

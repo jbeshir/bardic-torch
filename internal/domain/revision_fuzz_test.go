@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
 	"github.com/stretchr/testify/require"
 )
@@ -75,8 +76,8 @@ func FuzzRestorePerson(f *testing.F) {
 		base := person.Doc
 		projection, received := domain.EditableDocument(person.ID, base, vis)
 		submitted := mutateProjection(projection, base, vis, ops)
-		restored, flags := domain.RestoreDocument(person.ID, submitted, &base, received, vis)
-		again, againFlags := domain.RestoreDocument(person.ID, submitted, &base, received, vis)
+		restored, flags := domain.RestoreDocument(person.ID, submitted, &base, received, vis, domaintest.Keys())
+		again, againFlags := domain.RestoreDocument(person.ID, submitted, &base, received, vis, domaintest.Keys())
 		require.Equal(t, restored, again, "deterministic")
 		require.Equal(t, flags, againFlags)
 		if len(ops) == 0 {

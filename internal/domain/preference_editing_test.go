@@ -116,7 +116,7 @@ func TestRestore_Preferences(t *testing.T) {
 				keys = tt.received(keys)
 			}
 			sub.Preferences = tt.submitted
-			got, flags := RestoreDocument(personID, sub, &base, keys, vis)
+			got, flags := RestoreDocument(personID, sub, &base, keys, vis, countingKeys())
 			assert.Equal(t, tt.want, CanonicalisePreferences(got.Preferences))
 			assert.Empty(t, flags)
 		})
@@ -127,7 +127,7 @@ func TestRestore_Preferences(t *testing.T) {
 		base := noPagePerson()
 		sub, keys := EditableDocument(refNoPagePerson, base, vis)
 		sub.Preferences = []DocPreference{licensing}
-		got, _ := RestoreDocument(refNoPagePerson, sub, &base, keys, vis)
+		got, _ := RestoreDocument(refNoPagePerson, sub, &base, keys, vis, countingKeys())
 		assert.Equal(t, base.Preferences, got.Preferences, "the base's profile, what was sent ignored")
 	})
 }
@@ -145,14 +145,14 @@ func TestRestore_PreferenceWithHiddenSourceRestored(t *testing.T) {
 			sub, keys := EditableDocument(pieceID, base, vis)
 			require.Equal(t, shownPreferences(), sub.Preferences)
 
-			got, flags := RestoreDocument(pieceID, sub, &base, keys, vis)
+			got, flags := RestoreDocument(pieceID, sub, &base, keys, vis, countingKeys())
 			assert.Equal(t, base.Preferences, got.Preferences, "the withheld preference is put back")
 			assert.Empty(t, flags)
 
 			sub.Preferences = []DocPreference{
 				preference(PreferenceDimensionAttribution, preferenceSource, PreferenceChoiceStageName),
 			}
-			got, flags = RestoreDocument(pieceID, sub, &base, keys, vis)
+			got, flags = RestoreDocument(pieceID, sub, &base, keys, vis, countingKeys())
 			assert.Equal(t, sub.Preferences, got.Preferences,
 				"a submitted preference of the withheld one's dimension replaces it, and the received one deleted stays so")
 			assert.Empty(t, flags)
@@ -175,7 +175,7 @@ func TestSubmit_AbsentPreferencesKeepBase(t *testing.T) {
 			sub, keys := EditableDocument(personID, base, vis)
 			sub.Preferences = nil
 			sub.NotesMD = ptr("Edited by an older client.")
-			plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Submitted: sub, Base: &base,
+			plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Keys: countingKeys(), Submitted: sub, Base: &base,
 				Received: EditorFieldsSent{}.ReceivedKeys(keys), Visibility: vis, Refs: testRefs(),
 				Summary: testSummary, Today: validToday})
 			require.NoError(t, err, "%v", problemsOrNil(err))
@@ -228,7 +228,7 @@ func TestPlanSubmit_PreferenceFlags(t *testing.T) {
 			base.Preferences = shownPreferences()
 			sub, keys := EditableDocument(personID, base, vis)
 			tt.edit(&sub)
-			plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Submitted: sub, Base: &base,
+			plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Keys: countingKeys(), Submitted: sub, Base: &base,
 				Received: keys, Visibility: vis, Refs: testRefs(), HiddenAliases: []string{legalName},
 				Summary: testSummary, Today: validToday})
 			require.NoError(t, err, "%v", problemsOrNil(err))
@@ -241,7 +241,7 @@ func TestPlanSubmit_PreferenceFlags(t *testing.T) {
 		base := planPerson()
 		base.Preferences = testPreferences()
 		sub, keys := EditableDocument(personID, base, vis)
-		plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Submitted: sub, Base: &base,
+		plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Keys: countingKeys(), Submitted: sub, Base: &base,
 			Received: keys, Visibility: vis, Refs: testRefs(), Summary: testSummary, Today: validToday})
 		require.NoError(t, err, "%v", problemsOrNil(err))
 		assert.Equal(t, testPreferences(), plan.Document.Preferences, "restored")

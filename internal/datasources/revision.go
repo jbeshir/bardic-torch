@@ -116,6 +116,8 @@ type SubmitRequest struct {
 	Duplicates        DuplicateCheck
 	AcknowledgedFlags []domain.FlagCode
 	Now               time.Time
+	// Keys issues the keys of the submission's new performances.
+	Keys domain.KeySource
 }
 
 // SubmitResult is the revision a submission leaves: Replayed is set when the draft had already been submitted, and

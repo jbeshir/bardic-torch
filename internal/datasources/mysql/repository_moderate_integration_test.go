@@ -10,6 +10,7 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,7 +82,7 @@ func TestRepository_SubmitDraft_ModeratorStale(t *testing.T) {
 	conflict := f.saveDraft(t, actorRowan, &key, conflictDoc)
 	theirs := editAndSubmit(t, f, actorWren, key, func(d *domain.PieceDocument) { d.Title = "Another Title" })
 	f.mustApprove(t, theirs.RevisionID)
-	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan,
+	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorRowan,
 		DraftID: conflict.Draft.ID, Now: f.tick()})
 	require.ErrorIs(t, err, domain.ErrRebaseRequired)
 	assert.Equal(t, statusDraft, f.stored(t, conflict.Draft.ID).status, "the draft is still a draft")
@@ -110,7 +111,7 @@ func TestRepository_SubmitDraft_ModeratorRules(t *testing.T) {
 	doc := f.editable(t, actorRowan, key).Document.(domain.PersonDocument)
 	doc.Status = domain.PersonStatusDeceased
 	draft := f.saveDraft(t, actorRowan, &key, doc)
-	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan, DraftID: draft.Draft.ID,
+	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorRowan, DraftID: draft.Draft.ID,
 		Now: f.tick()})
 	var problems *domain.DocumentError
 	require.ErrorAs(t, err, &problems)
@@ -121,14 +122,14 @@ func TestRepository_SubmitDraft_ModeratorRules(t *testing.T) {
 	doc = f.editable(t, actorRowan, key).Document.(domain.PersonDocument)
 	doc.NotesMD = new("Plays with " + morwenLegal + ".")
 	draft = f.saveDraft(t, actorRowan, &key, doc)
-	_, err = f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan, DraftID: draft.Draft.ID,
+	_, err = f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorRowan, DraftID: draft.Draft.ID,
 		Now: f.tick()})
 	var unacknowledged *domain.UnacknowledgedFlagsError
 	require.ErrorAs(t, err, &unacknowledged)
 	assert.Equal(t, domain.FlagHiddenAliasInText, unacknowledged.Flags[0].Code)
 	assert.Equal(t, statusDraft, f.stored(t, draft.Draft.ID).status)
 
-	result, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan,
+	result, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorRowan,
 		DraftID: draft.Draft.ID, AcknowledgedFlags: []domain.FlagCode{domain.FlagHiddenAliasInText}, Now: f.tick()})
 	require.NoError(t, err)
 	assert.Equal(t, domain.RevisionStatusApproved, result.Status)
@@ -145,7 +146,7 @@ func TestRepository_SubmitDraft_ModeratorOthersPendingTerm(t *testing.T) {
 	doc.Terms = append(slices.Clone(doc.Terms), domain.DocPieceTerm{TermID: term.Entity.ID})
 	draft := f.saveDraft(t, actorRowan, &key, doc)
 
-	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan, DraftID: draft.Draft.ID,
+	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Keys: domaintest.Keys(), Actor: actorRowan, DraftID: draft.Draft.ID,
 		Now: f.tick()})
 	var problems *domain.DocumentError
 	require.ErrorAs(t, err, &problems)
@@ -211,7 +212,7 @@ func (f *editingFixture) rebase(
 ) error {
 	t.Helper()
 
-	return f.repo.RebaseRevision(t.Context(), datasources.RebaseRequest{Actor: actorRowan, RevisionID: id,
+	return f.repo.RebaseRevision(t.Context(), datasources.RebaseRequest{Keys: domaintest.Keys(), Actor: actorRowan, RevisionID: id,
 		CurrentRevisionID: current, Document: doc, Sent: domain.AllEditorFieldsSent, Summary: summary,
 		Now: f.tick()})
 }

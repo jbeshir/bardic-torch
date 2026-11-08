@@ -114,7 +114,7 @@ func validPiece() PieceDocument {
 			DocLink: DocLink{URL: "https://example.org/wren", Title: ptr("The Wren's Song"),
 				CollectionID: ptr(refCollection), Roles: []LinkRole{LinkRoleLyrics}},
 			Performances: []DocPerformance{{EventID: ptr(refEvent), Year: ptr(int16(2001)),
-				DescriptionVerbatim: "Sung at the revel", PerformerIDs: []int64{refPerson}}},
+				DescriptionVerbatim: revelPerformance, PerformerIDs: []int64{refPerson}}},
 		}},
 	}
 }
@@ -339,6 +339,12 @@ func TestPieceDocument_Validate(t *testing.T) {
 		}, "", "/links/0/performances/0/description_verbatim", ProblemRequired},
 		{"performance year", func(d *PieceDocument) { d.Links[0].Performances[0].Year = ptr(int16(2101)) }, "",
 			"/links/0/performances/0/year", ProblemOutOfRange},
+		{"performance key issued", func(d *PieceDocument) { d.Links[0].Performances[0].Key = "0123456789abcdef" }, "",
+			"", ""},
+		{"performance key not hex", func(d *PieceDocument) { d.Links[0].Performances[0].Key = "0123456789ABCDEF" }, "",
+			"/links/0/performances/0/key", ProblemOutOfRange},
+		{"performance key too short", func(d *PieceDocument) { d.Links[0].Performances[0].Key = "c0ffee" }, "",
+			"/links/0/performances/0/key", ProblemOutOfRange},
 		{"performance at an event that is not public", func(d *PieceDocument) {
 			d.Links[0].Performances[0].EventID = ptr(refPendingEvent)
 		}, "", pathFirstPerformanceEvent, ProblemUnknownReference},

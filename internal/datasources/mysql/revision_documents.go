@@ -55,6 +55,7 @@ type submitState struct {
 	hiddenAliases []string
 	summary       string
 	today         domain.Date
+	keys          domain.KeySource
 }
 
 // editorDocument is a document type, which is also an AnyDocument.
@@ -130,7 +131,7 @@ func (k kindOf[D, S]) viewOf(id int64, d D, vis domain.SnapshotVisibility) (doma
 
 func (k kindOf[D, S]) planSubmit(s submitState) (domain.AnyDocument, []domain.Flag, error) {
 	state := domain.SubmitState[D]{ID: s.id, Submitted: s.submitted.(D), Received: s.received, Visibility: s.vis,
-		Refs: s.refs, HiddenAliases: s.hiddenAliases, Summary: s.summary, Today: s.today}
+		Refs: s.refs, HiddenAliases: s.hiddenAliases, Summary: s.summary, Today: s.today, Keys: s.keys}
 	if s.base != nil {
 		base := s.base.(D)
 		state.Base = &base
@@ -306,6 +307,7 @@ type rebaseState struct {
 	refs    domain.ReferenceIndex
 	summary string
 	today   domain.Date
+	keys    domain.KeySource
 }
 
 // revertState is domain.RevertState for documents of a kind known at run time.
@@ -379,7 +381,7 @@ func (k kindOf[D, S]) planApproval(s approvalState, opts domain.ApprovalOptions)
 func (k kindOf[D, S]) planRebase(s rebaseState) (domain.AnyDocument, error) {
 	doc, err := domain.PlanRebase(domain.RebaseState[D]{ID: s.id, Resolved: s.resolved.(D), Sent: s.sent,
 		Revision: s.revision.(D), Current: optional[D](s.current),
-		Author: s.author, Visibility: s.vis, Refs: s.refs, Summary: s.summary, Today: s.today})
+		Author: s.author, Visibility: s.vis, Refs: s.refs, Summary: s.summary, Today: s.today, Keys: s.keys})
 	if err != nil {
 		return nil, err
 	}

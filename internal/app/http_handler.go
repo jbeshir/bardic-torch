@@ -6,6 +6,7 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 )
 
@@ -123,7 +124,7 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		DiscardDraft: &command.DiscardDraft{Discarder: deps.DraftDiscarder},
 		SubmitRevision: &command.SubmitRevision{
 			Drafts: deps.DraftGetter, Duplicates: deps.DuplicateFinder, Submitter: deps.RevisionSubmitter,
-			Revisions: deps.MyRevisionGetter, Now: deps.Now,
+			Revisions: deps.MyRevisionGetter, Now: deps.Now, Keys: domain.RandomPerformanceKey,
 		},
 		WithdrawRevision: &command.WithdrawRevision{
 			Withdrawer: deps.RevisionWithdrawer, Revisions: deps.MyRevisionGetter,
@@ -145,7 +146,7 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		},
 		RebaseRevision: &command.RebaseRevision{
 			Resolver: deps.EditorRefResolver, Revisions: deps.ModerationRevisionGetter, Rebaser: deps.RevisionRebaser,
-			Now: deps.Now,
+			Now: deps.Now, Keys: domain.RandomPerformanceKey,
 		},
 		ListLinkReports:   &command.ListLinkReports{Lister: deps.LinkReportLister},
 		ResolveLinkReport: &command.ResolveLinkReport{Resolver: deps.LinkReportResolver, Now: deps.Now},

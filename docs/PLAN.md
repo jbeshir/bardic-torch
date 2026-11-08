@@ -221,8 +221,9 @@ the DDL is in `migrations/003`–`009`.
   So approving an old snapshot cannot un-hide a link or undo a liveness check. Links are inline by URL, documents
   own only their outgoing relations, and other entities are referenced by ID. A list's order is its rows'
   `position`. Piece and person documents include their preference profiles (`dimension`, `value` `{choices, notes}`,
-  `source_url`; "Preference profiles" below). A coverage test fails
-  when a column is added without being classified as document-owned or system-owned.
+  `source_url`; "Preference profiles" below). Each performance holds its `key`, the editor's opaque identity of it
+  ("Restore on submit"): it is editor-owned, held only by the stored documents (no column), and never shown in a
+  view. A coverage test fails when a column is added without being classified as document-owned or system-owned.
 - **Public revision views** never serve stored documents raw:
   - references are resolved to public summaries, or omitted;
   - redaction applies the *current* alias, person and link visibility, so hiding an alias later also hides it in
@@ -414,7 +415,10 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   `invalid_request`, but a field added after a client was built (`preferences`) may be left out of a request (or
   sent as null): the document then keeps the base's value, as the author is treated as never having received it
   (its received keys are dropped from the draft, and only ever shrink), and a rebase document that leaves it out
-  keeps current's. Responses always carry it.
+  keeps current's. Responses always carry it. Each performance has a `key` (16 hex digits) the server issues:
+  an editable document of the current revision gives every performance one (one stored without gets a key derived
+  from what the caller is shown of it; one starting from the caller's pending revision holds the keys as they
+  submitted them), a client sends it back unchanged, and sends null (or leaves it out) for a new performance.
 - **Editable projection** (`GET /v1/{type}/{key}/editable`): the current document minus every **withheld
   element** for a contributor or API token: hidden aliases, hidden links (by normalized URL, failing closed),
   credits, performers and relations of persons not public with a page, references to non-public entities (but the
@@ -429,9 +433,14 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   preference of its dimension replaces it), as is every base element the author never received (not in
   `received_keys_json`). A submitted element whose key equals a withheld one (a public alias equal to a hidden
   alias, a link URL of a hidden link) is kept, and the collision is a moderator flag; the contributor is told
-  nothing. A performance is matched by its year, description and piece: a base performance with withheld
-  performers or event that no submitted performance matches (edited or deleted) is the flag `hidden_data_conflict`,
-  never a silent removal. **A contributor submit never merges**: it is stored on the draft's own base, and stale
+  nothing. A submitted performance is matched to the base performance it edits by its `key` first, so it keeps its
+  withheld performers and event whatever the author edited: a key only one base performance has matches it (the
+  first submitted performance with it; a repeated key is a new performance), and a key the base does not have is a
+  new performance. A performance without a key, or with a derived key two base performances share, is matched by
+  its year, description and piece instead. A matched performance keeps the base's key; every other gets a fresh
+  random one. Derived keys hash only what the caller is shown (a piece they may not see counts as none), so a key
+  never reveals hidden data. A base performance with withheld performers or event that no submitted performance
+  matches (deleted, or edited without its key) is the flag `hidden_data_conflict`, never a silent removal. **A contributor submit never merges**: it is stored on the draft's own base, and stale
   handling is approval's. Contributors cannot add a hidden alias other than a `legal` one, every `legal` alias they
   add is hidden, and they cannot make a hidden alias public.
 - **Two-phase validation** of a contributor or API-token submit or revert: phase 1 validates the editor

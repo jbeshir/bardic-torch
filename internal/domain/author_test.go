@@ -165,7 +165,7 @@ func TestAuthorView(t *testing.T) {
 		draft := withLink(respelled)
 		preview := pieceView(draft, pieceKeys, vis, public)
 		base := fullPiece()
-		restored, _ := RestoreDocument(pieceID, draft, &base, pieceKeys, vis)
+		restored, _ := RestoreDocument(pieceID, draft, &base, pieceKeys, vis, countingKeys())
 		assert.Equal(t, preview, pieceView(draft, pieceKeys, vis, public), "one construction")
 		assert.Contains(t, viewLinkURLs(preview), respelled)
 		assert.NotContains(t, viewLinkURLs(NewPieceSnapshot(restored, public)), respelled, "the public view never")

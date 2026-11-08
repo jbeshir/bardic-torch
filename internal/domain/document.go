@@ -268,8 +268,10 @@ type DocPersonLink struct {
 	Performances []DocPersonPerformance `json:"performances"`
 }
 
-// DocPerformance is a performance recorded by a link.
+// DocPerformance is a performance recorded by a link. Key is its opaque identity for the editor (key_source.go),
+// empty for a performance stored before keys were issued; it is never shown in a view.
 type DocPerformance struct {
+	Key                 string  `json:"key,omitempty"`
 	EventID             *int64  `json:"event_id" editor:"event"`
 	Year                *int16  `json:"year"`
 	Uploader            *string `json:"uploader"`

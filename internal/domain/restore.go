@@ -21,17 +21,23 @@ import (
 //
 // A submitted element whose key equals a withheld one is kept, and the withheld one not put back; for an alias or
 // a link this is returned as a hidden_alias_collision or hidden_link_collision flag at the element's path. A
-// performance is matched by its description, year and piece: a performance of base with withheld parts (an event
-// or performers) that no submitted performance matches, because the author edited or removed it, is returned as a
+// submitted performance is matched to the base performance it edits by its key, then by its description, year and
+// piece (matchPerformances): a matched one keeps the base performance's key, and every other gets a fresh one from
+// keys. A performance of base with withheld parts (an event or performers) that no submitted performance matches,
+// because the author removed it, or edited it with a client that sends no keys, is returned as a
 // hidden_data_conflict flag at its link's performances, and its withheld parts are not put back. Only moderators
 // see the flags.
-func RestoreDocument[D Document](id int64, submitted D, base *D, received ElementKeySet, vis EditorVisibility) (
-	D, []Flag,
-) {
+func RestoreDocument[D Document](id int64, submitted D, base *D, received ElementKeySet, vis EditorVisibility,
+	keys KeySource,
+) (D, []Flag) {
 	if base == nil {
-		return submitted, nil
+		return mapPerformances(submitted, func(_ DocLink, perf DocPerformance, _ *int64) DocPerformance {
+			perf.Key = keys()
+
+			return perf
+		}), nil
 	}
-	p := &projector{id: id, vis: vis, kept: ElementKeySet{},
+	p := &projector{id: id, vis: vis, kept: ElementKeySet{}, keys: keys,
 		withheld: func(key string, hiddenNow bool) bool { return hiddenNow || !received[key] }}
 	var out any
 	var flags []Flag
@@ -118,20 +124,6 @@ func keyedBy[E any](list []E, keys func([]E) []string) map[string]E {
 	return byKey
 }
 
-// dropsWithheld is whether an element of base with withheld parts has a key none of list has: the author removed it
-// or changed what its key is made of, and the restore cannot tell which, so cannot put its withheld parts back.
-// project is the projection of such an element.
-func dropsWithheld[E any](p *projector, base, list []E, keys func([]E) []string, project func(*projector, E) E) bool {
-	kept := keys(list)
-	for i, key := range keys(base) {
-		if !slices.Contains(kept, key) && holdsWithheld(p, base[i], project) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // holdsWithheld is whether the restore set holds a part of e, an element of the base: its projection changes it.
 func holdsWithheld[E any](p *projector, e E, project func(*projector, E) E) bool {
 	probe := *p
@@ -143,40 +135,143 @@ func holdsWithheld[E any](p *projector, e E, project func(*projector, E) E) bool
 // restorePieceLink restores the parts of a link of a piece, and reports whether a performance of base with
 // withheld parts matches none of sub's.
 func (p *projector) restorePieceLink(sub, base DocPieceLink) (DocPieceLink, bool) {
-	keys := elementKeys(func(perf DocPerformance) string { return performanceKey(base.URL, perf, nil) })
-	basePerformances := keyedBy(base.Performances, keys)
-	dropped := dropsWithheld(p, base.Performances, sub.Performances, keys,
+	performances, dropped := restorePerformances(p, base.URL, sub.Performances, base.Performances,
+		func(*DocPerformance) bool { return true }, func(perf *DocPerformance) *DocPerformance { return perf },
+		func(*DocPerformance) *int64 { return nil },
 		func(q *projector, perf DocPerformance) DocPerformance { return q.performance(base.URL, perf, nil) })
 
-	return DocPieceLink{DocLink: p.restoreLinkFields(sub.DocLink, base.DocLink), Performances: mapList(sub.Performances,
-		func(perf DocPerformance) DocPerformance {
-			if b, ok := basePerformances[performanceKey(base.URL, perf, nil)]; ok {
-				return p.restorePerformance(base.URL, perf, b, nil)
-			}
-
-			return perf
-		})}, dropped
+	return DocPieceLink{DocLink: p.restoreLinkFields(sub.DocLink, base.DocLink), Performances: performances}, dropped
 }
 
 // restorePersonLink restores the parts of a link of a person and its withheld performances, and reports whether a
-// performance of base with withheld parts matches none of sub's.
+// performance of base with withheld parts matches none of sub's. A performance of base in the restore set (of a
+// piece that is not public) is put back whole, and is not one a submitted performance can match.
 func (p *projector) restorePersonLink(sub, base DocPersonLink) (DocPersonLink, bool) {
 	keys := personPerformanceKeys(base.URL)
-	performances, _ := restoreList(p, sub.Performances, base.Performances, keys, p.performancePieceHidden)
-	basePerformances := keyedBy(base.Performances, keys)
-	dropped := dropsWithheld(p, base.Performances, performances, keys,
+	performances, dropped := restorePerformances(p, base.URL, sub.Performances, base.Performances,
+		func(perf *DocPersonPerformance) bool {
+			return !p.withheld(performanceKey(base.URL, perf.DocPerformance, perf.PieceID),
+				p.hidden(p.performancePieceHidden(*perf)))
+		},
+		func(perf *DocPersonPerformance) *DocPerformance { return &perf.DocPerformance },
+		func(perf *DocPersonPerformance) *int64 { return perf.PieceID },
 		func(q *projector, perf DocPersonPerformance) DocPersonPerformance {
 			return q.personPerformance(base.URL, perf)
 		})
+	performances, _ = restoreList(p, performances, base.Performances, keys, p.performancePieceHidden)
 
-	return DocPersonLink{DocLink: p.restoreLinkFields(sub.DocLink, base.DocLink), Performances: mapList(performances,
-		func(perf DocPersonPerformance) DocPersonPerformance {
-			if b, ok := basePerformances[performanceKey(base.URL, perf.DocPerformance, perf.PieceID)]; ok {
-				perf.DocPerformance = p.restorePerformance(base.URL, perf.DocPerformance, b.DocPerformance, perf.PieceID)
-			}
+	return DocPersonLink{DocLink: p.restoreLinkFields(sub.DocLink, base.DocLink), Performances: performances}, dropped
+}
 
-			return perf
-		})}, dropped
+// restorePerformances restores the submitted performances sub of the link with URL url onto base's, of which
+// candidate tells those a submitted performance may match (matchPerformances). A submitted performance matching
+// one gets back its withheld event and performers and keeps its key; any other is new and gets a fresh key. perf
+// is an element's performance and pieceID its piece. It also reports whether a candidate with withheld parts
+// (which project changes) matches none of sub, whose withheld parts are then dropped.
+func restorePerformances[E any](p *projector, url string, sub, base []E, candidate func(*E) bool,
+	perf func(*E) *DocPerformance, pieceID func(*E) *int64, project func(*projector, E) E,
+) ([]E, bool) {
+	ref := func(e *E, key string) performanceRef {
+		return performanceRef{key: key, content: performanceKey(url, *perf(e), pieceID(e))}
+	}
+	subRefs := make([]performanceRef, 0, len(sub))
+	for i := range sub {
+		subRefs = append(subRefs, ref(&sub[i], perf(&sub[i]).Key))
+	}
+	baseRefs := make([]performanceRef, 0, len(base))
+	candidates := make([]bool, 0, len(base))
+	for i := range base {
+		b := &base[i]
+		baseRefs = append(baseRefs, ref(b, p.effectiveKey(url, *perf(b), pieceID(b))))
+		candidates = append(candidates, candidate(b))
+	}
+	matches := matchPerformances(subRefs, baseRefs, candidates)
+	matched := make([]bool, len(base))
+	out := mapIndexed(sub, func(i int, e E) E {
+		restored := perf(&e)
+		j := matches[i]
+		if j < 0 {
+			restored.Key = p.keys()
+
+			return e
+		}
+		matched[j] = true
+		b := &base[j]
+		*restored = p.restorePerformance(url, *restored, *perf(b), pieceID(b))
+		restored.Key = perf(b).Key
+
+		return e
+	})
+	for j := range base {
+		if candidates[j] && !matched[j] && holdsWithheld(p, base[j], project) {
+			return out, true
+		}
+	}
+
+	return out, false
+}
+
+// performanceRef is what a performance is matched by: its key, and its content (performanceKey).
+type performanceRef struct {
+	key, content string
+}
+
+// matchPerformances returns, for each submitted performance of sub, the index in base of the performance it edits,
+// or -1 for a new one; candidates says which of base may be matched, each at most once. A submitted key that one
+// candidate has matches it, and is new if that candidate is already matched (a repeated key); a key no candidate
+// has is new. One without a key, or with a key two candidates share, matches the first unmatched candidate with
+// its content, as before keys existed: a client that does not round-trip keys edits by content.
+func matchPerformances(sub, base []performanceRef, candidates []bool) []int {
+	byKey := map[string][]int{}
+	for j, b := range base {
+		if candidates[j] {
+			byKey[b.key] = append(byKey[b.key], j)
+		}
+	}
+	matches := make([]int, len(sub))
+	taken := make([]bool, len(base))
+	var byContent []int
+	for i, s := range sub {
+		matches[i] = -1
+		js := byKey[s.key]
+		switch {
+		case s.key == "" || len(js) > 1:
+			byContent = append(byContent, i)
+		case len(js) == 1 && !taken[js[0]]:
+			matches[i], taken[js[0]] = js[0], true
+		}
+	}
+	for _, i := range byContent {
+		if j := firstByContent(sub[i], base, candidates, taken); j >= 0 {
+			matches[i], taken[j] = j, true
+		}
+	}
+
+	return matches
+}
+
+// firstByContent is the index of the first candidate of base not taken with s's content, or -1 for none.
+func firstByContent(s performanceRef, base []performanceRef, candidates, taken []bool) int {
+	for j, b := range base {
+		if candidates[j] && !taken[j] && b.content == s.content {
+			return j
+		}
+	}
+
+	return -1
+}
+
+// mapIndexed returns f of each element of list and its index, nil for nil.
+func mapIndexed[E any](list []E, f func(int, E) E) []E {
+	if list == nil {
+		return nil
+	}
+	out := make([]E, 0, len(list))
+	for i, e := range list {
+		out = append(out, f(i, e))
+	}
+
+	return out
 }
 
 // restoreLinkFields restores the collection of a link.
@@ -188,7 +283,8 @@ func (p *projector) restoreLinkFields(sub, base DocLink) DocLink {
 	return out
 }
 
-// restorePerformance restores the event and performers of a performance of the link with URL url.
+// restorePerformance restores the event and performers of a performance of the link with URL url, onto base, its
+// performance in the base, of piece pieceID.
 func (p *projector) restorePerformance(url string, sub, base DocPerformance, pieceID *int64) DocPerformance {
 	out := sub
 	out.EventID = p.restoreRef(sub.EventID, base.EventID,

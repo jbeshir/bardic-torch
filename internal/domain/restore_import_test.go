@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
 	"github.com/stretchr/testify/assert"
 )
@@ -55,7 +56,7 @@ func TestRestore_RoundTripScrubbedImport(t *testing.T) {
 func importRoundTrip[D domain.Document](t *testing.T, id int64, doc D, vis domain.EditorVisibility) int {
 	t.Helper()
 	editable, received := domain.EditableDocument(id, doc, vis)
-	got, flags := domain.RestoreDocument(id, editable, &doc, received, vis)
+	got, flags := domain.RestoreDocument(id, editable, &doc, received, vis, domaintest.Keys())
 	label := fmt.Sprintf("%T %d", doc, id)
 	assert.Equal(t, doc, got, label)
 	assert.Empty(t, flags, label)

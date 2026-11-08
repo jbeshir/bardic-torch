@@ -68,8 +68,10 @@ type EditorPieceLink struct {
 	Performances []EditorPerformance `json:"performances"`
 }
 
-// EditorPerformance is a DocPerformance with the event and performers by slug.
+// EditorPerformance is a DocPerformance with the event and performers by slug. Key is the performance's key, null
+// for a new performance or one sent by a client that does not round-trip it.
 type EditorPerformance struct {
+	Key                 *string  `json:"key"`
 	Event               *string  `json:"event"`
 	Year                *int16   `json:"year"`
 	Uploader            *string  `json:"uploader"`
@@ -254,8 +256,9 @@ func (s SlugMap) link(l DocLink) DocLink {
 }
 
 func (s SlugMap) performance(p DocPerformance) EditorPerformance {
-	return EditorPerformance{Event: editorSlugs(s.Events).ref(p.EventID), Year: p.Year, Uploader: p.Uploader,
-		DescriptionVerbatim: p.DescriptionVerbatim, Performers: editorSlugs(s.Persons).list(p.PerformerIDs)}
+	return EditorPerformance{Key: optionalKey(p.Key), Event: editorSlugs(s.Events).ref(p.EventID), Year: p.Year,
+		Uploader: p.Uploader, DescriptionVerbatim: p.DescriptionVerbatim,
+		Performers: editorSlugs(s.Persons).list(p.PerformerIDs)}
 }
 
 // ToEditorPiece returns d in the editor format.
@@ -427,6 +430,7 @@ func (r *refResolver) link(l DocLink, path string) DocLink {
 
 func (r *refResolver) performance(p EditorPerformance, path string) DocPerformance {
 	return DocPerformance{
+		Key:     derefKey(p.Key),
 		EventID: r.optional(r.refs.Events, p.Event, path+"/event"), Year: p.Year, Uploader: p.Uploader,
 		DescriptionVerbatim: p.DescriptionVerbatim,
 		PerformerIDs:        r.list(r.refs.Persons, p.Performers, path+"/performers"),
@@ -662,4 +666,22 @@ func FromEditor(e AnyEditorDocument, refs RefMap) (AnyDocument, []DocumentProble
 	default:
 		return nil, nil, fmt.Errorf("%w [%T]", ErrUnknownDocumentType, e)
 	}
+}
+
+// optionalKey is a performance key in the editor format: null for none.
+func optionalKey(key string) *string {
+	if key == "" {
+		return nil
+	}
+
+	return &key
+}
+
+// derefKey is a performance key from the editor format: empty for null.
+func derefKey(key *string) string {
+	if key == nil {
+		return ""
+	}
+
+	return *key
 }

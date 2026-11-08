@@ -221,6 +221,8 @@ type RebaseRevision struct {
 	Revisions datasources.ModerationRevisionGetter
 	Rebaser   datasources.RevisionRebaser
 	Now       func() time.Time
+	// Keys issues the keys of new performances.
+	Keys domain.KeySource
 }
 
 // Execute converts req.Document from the editor format, failing with a *domain.DocumentError for references it
@@ -241,7 +243,7 @@ func (c *RebaseRevision) Execute(ctx context.Context, req RebaseRevisionRequest)
 	}
 	err = c.Rebaser.RebaseRevision(ctx, datasources.RebaseRequest{
 		Actor: actor, RevisionID: req.RevisionID, CurrentRevisionID: req.CurrentRevisionID, Document: doc,
-		Sent: req.Sent, Summary: req.Summary, Now: c.Now(),
+		Sent: req.Sent, Summary: req.Summary, Now: c.Now(), Keys: c.Keys,
 	})
 	if err != nil {
 		return domain.ModerationRevision{}, fmt.Errorf("rebasing revision [%d]: %w", req.RevisionID, err)

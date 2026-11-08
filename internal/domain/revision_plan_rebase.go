@@ -20,6 +20,8 @@ type RebaseState[D Document] struct {
 	Refs       ReferenceIndex
 	Summary    string
 	Today      Date
+	// Keys issues the keys of the resolved document's new performances.
+	Keys KeySource
 }
 
 // PlanRebase plans a rebase: the resolved document with the fields it did not carry (Sent) restored from the
@@ -32,7 +34,7 @@ func PlanRebase[D Document](s RebaseState[D]) (D, error) {
 		from = *s.Current
 	}
 	_, received := EditableDocument(s.ID, from, s.Visibility)
-	doc, _ := RestoreDocument(s.ID, s.Resolved, &from, s.Sent.ReceivedKeys(received), s.Visibility)
+	doc, _ := RestoreDocument(s.ID, s.Resolved, &from, s.Sent.ReceivedKeys(received), s.Visibility, s.Keys)
 	v := ValidationContext[D]{Author: s.Author, ID: s.ID, Previous: s.Current, Refs: s.Refs, Summary: s.Summary,
 		Today: s.Today}
 	if problems := validateDocument(doc, v); len(problems) > 0 {
