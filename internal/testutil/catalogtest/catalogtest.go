@@ -209,7 +209,7 @@ func (c *Catalog) Person(f Person) Ref {
 		}
 		for _, pref := range doc.Preferences {
 			w.exec("INSERT INTO person_preferences (person_id, dimension, value_json, source_url) "+
-				"VALUES (?, ?, ?, ?)", ref.ID, pref.Dimension, string(pref.Value), pref.SourceURL)
+				"VALUES (?, ?, ?, ?)", ref.ID, pref.Dimension, w.preferenceValue(pref), pref.SourceURL)
 		}
 		for position, link := range doc.Links {
 			linkID := w.link(link.DocLink)
@@ -271,7 +271,7 @@ func (c *Catalog) Piece(f Piece) Ref {
 		}
 		for _, pref := range doc.Preferences {
 			w.exec("INSERT INTO piece_preferences (piece_id, dimension, value_json, source_url) VALUES (?, ?, ?, ?)",
-				ref.ID, pref.Dimension, string(pref.Value), pref.SourceURL)
+				ref.ID, pref.Dimension, w.preferenceValue(pref), pref.SourceURL)
 		}
 		for _, entry := range f.ConservationHistory {
 			w.exec("INSERT INTO conservation_history (piece_id, status, reason, source_url, at) "+
@@ -413,6 +413,18 @@ func (w writer) exec(query string, args ...any) int64 {
 	}
 
 	return id
+}
+
+// preferenceValue is the value_json of a preference: its value as JSON.
+func (w writer) preferenceValue(pref domain.DocPreference) string {
+	w.c.t.Helper()
+
+	value, err := json.Marshal(pref.Value)
+	if err != nil {
+		w.c.t.Fatalf("catalogtest: encoding a preference value: %v", err)
+	}
+
+	return string(value)
 }
 
 // link inserts the link with url, or finds the one with the same normalized URL seeded before, whose URL as

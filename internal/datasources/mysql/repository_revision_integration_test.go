@@ -11,6 +11,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -103,8 +104,7 @@ func harvestDocument(fx revisionFixture) domain.PieceDocument {
 			{DocLink: domain.DocLink{URL: harvestTakenDown, CollectionID: &fx.archive.ID,
 				Roles: []domain.LinkRole{domain.LinkRolePerformance}}},
 		},
-		Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-			Value: json.RawMessage(`{"allowed": false}`), SourceURL: "https://example.org/harvest/preferences"}},
+		Preferences: []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, "https://example.org/harvest/preferences", domain.PreferenceChoiceNoRecording)},
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -213,8 +214,7 @@ func TestCatalog_PieceAndPersonRows(t *testing.T) {
 			AffiliationIDs: []int64{northmarch.ID},
 			Relations:      []domain.DocPersonRelation{{ToPersonID: singers.ID, Type: domain.PersonRelationTypeMemberOf}},
 			Links:          []domain.DocPersonLink{{DocLink: shared}},
-			Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-				Value: json.RawMessage(`{"allowed": false}`), SourceURL: "https://example.org/wren-prefs"}},
+			Preferences:    []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, "https://example.org/wren-prefs", domain.PreferenceChoiceNoRecording)},
 		},
 		SortLetter: "W",
 	})

@@ -24,7 +24,7 @@ func (d PieceDocument) Validate(v ValidationContext[PieceDocument]) []DocumentPr
 	c.credits(d.Credits)
 	c.links(c.piecePerformances(d.Links))
 	c.pieceSources(d, prev, v.Summary)
-	c.preferences(d.Preferences, prev.Preferences)
+	c.preferences(d.Preferences, EntityTypePiece)
 	c.references(documentReferences(d))
 
 	return c.problems

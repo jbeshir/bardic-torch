@@ -12,6 +12,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -579,15 +580,13 @@ func TestRepository_SubmitDraft_SourcedFields(t *testing.T) {
 		{name: "preference_change_without_source", want: sourceRequired("/preferences/0/source_url"),
 			run: func(t *testing.T, f *editingFixture) error {
 				return submitEdit(t, f, actorWren, *pieceKey(f.song.Slug), draftSummary, func(d *domain.PieceDocument) {
-					d.Preferences = []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-						Value: json.RawMessage(`{"allowed": true}`)}}
+					d.Preferences = []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, "", domain.PreferenceChoiceUploadsAllowed)}
 				}, nil)
 			}},
 		{name: "preference_change_with_source",
 			run: func(t *testing.T, f *editingFixture) error {
 				return submitEdit(t, f, actorWren, *pieceKey(f.song.Slug), draftSummary, func(d *domain.PieceDocument) {
-					d.Preferences = []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-						Value: json.RawMessage(`{"allowed": true}`), SourceURL: preferencesURL}}
+					d.Preferences = []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, preferencesURL, domain.PreferenceChoiceUploadsAllowed)}
 				}, nil)
 			}},
 		{name: "conservation_change_without_summary_on_stale_base",
@@ -630,8 +629,7 @@ func TestRepository_SubmitDraft_ModeratorPreferenceChangeIsNotApplied(t *testing
 	f := newEditingFixture(t)
 
 	err := submitEdit(t, f, actorRowan, *pieceKey(f.song.Slug), draftSummary, func(d *domain.PieceDocument) {
-		d.Preferences = []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-			Value: json.RawMessage(`{"allowed": true}`)}}
+		d.Preferences = []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, "", domain.PreferenceChoiceUploadsAllowed)}
 	}, nil)
 
 	require.NoError(t, err)

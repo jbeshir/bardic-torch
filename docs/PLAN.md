@@ -220,8 +220,8 @@ the DDL is in `migrations/003`–`009`.
 
   So approving an old snapshot cannot un-hide a link or undo a liveness check. Links are inline by URL, documents
   own only their outgoing relations, and other entities are referenced by ID. A list's order is its rows'
-  `position`. Piece and person documents already include their preference profiles (`dimension`, raw JSON
-  `value`, `source_url`), so BE5 needs no schema-version bump; they stay unexposed until then. A coverage test fails
+  `position`. Piece and person documents include their preference profiles (`dimension`, `value` `{choices, notes}`,
+  `source_url`; "Preference profiles" below). A coverage test fails
   when a column is added without being classified as document-owned or system-owned.
 - **Public revision views** never serve stored documents raw:
   - references are resolved to public summaries, or omitted;
@@ -262,10 +262,51 @@ the DDL is in `migrations/003`–`009`.
   (pieces), of unknown licensing (pieces, and community bards) or with a visible dead link; restricted pieces only
   for being stubs. Pieces come first, then persons, each by sort key. `counts` has every reason, whatever the
   `reason` filter.
-- **Preference profiles** (`person_preferences`, `piece_preferences`) exist as tables but are not exposed until BE5
-  defines and validates their `value_json` shapes. Until then the only etiquette data in the API is
-  `licensing_status` and `licensing_notes_md` on pieces and person profiles, so FE2 builds a licensing card from
-  those, and the full etiquette card (profile with piece-level overrides) waits for FE4 (§10).
+- **Preference profiles** (`person_preferences`, `piece_preferences`) state, per dimension of the Bard Preference
+  Checklist, what a creator allows. A preference is `{dimension, value, source_url}` and its `value` is the closed
+  shape `{choices, notes}`: `choices` are codes from the dimension's vocabulary (`internal/domain/preference.go`),
+  `notes` (null or text) say what the codes cannot ("specify" items of the checklist). Each dimension groups its
+  codes, and each group allows exactly one, at most one, at least one or any number of its codes:
+  - *licensing* (persons only): one licence, whose codes are the `licence` values (`pd`, `cc_by`, …, `arr`,
+    `other`) plus `varies_by_work`;
+  - *performance_permission*: one permission (not given, ask first, ask a representative, group members, given)
+    and at most one informing choice (inform required, welcome, not needed, not wanted);
+  - *adaptations*: one permission (encouraged, allowed, allowed with conditions, ask first, live only, not allowed),
+    any conditions, at most one informing choice, and any allowed kinds (`allow_*`) and refused kinds (their
+    `refuse_*` twins);
+  - *attribution*: at least one name to credit (`legal_name` names the kind of name, never the name), at most one
+    timing, any extras;
+  - *commercial_use*: one stance (non-commercial only, allowed, allowed with conditions, ask first, not allowed),
+    any allowed uses, any conditions;
+  - *recording*: at most one writing choice and at most one recording choice;
+  - *performance_etiquette*: at most one choice each for singing along, competitions, circles and learning;
+  - *objectionable_use*: at least one scope (purposes, contexts, content), any purposes, contexts, content and
+    extras.
+
+  The rules (422 `invalid_document`, each at its path, never quoting a value; moderators too):
+  - each dimension at most once; a piece may not have the licensing dimension (`dimension_not_allowed`): a piece's
+    licence is its `licensing_status`, `licence` and `licensing_notes_md`, and its other seven dimensions are
+    piece-level overrides of the credited person's profile, which the FE combines (a piece's dimension replaces the
+    person's);
+  - `value` and `choices` are present; each choice is a code of the dimension (`out_of_range`), at most once
+    (`duplicate`), and each group has as many as it allows (`required`, `too_many`); a dimension whose groups all
+    allow none needs a choice or notes (`required`);
+  - choices that contradict each other are `choice_conflict`: informing when permission is not given; an allowed
+    kind with its refused twin; allowed kinds when adaptations are not allowed; adaptation conditions without
+    "allowed with conditions" or "ask first"; allowed uses when commercial use is not allowed; commercial
+    conditions without "allowed with conditions" or "ask first"; a list of objectionable purposes, contexts or
+    content without the scope that names it;
+  - `group_members` needs `notes` naming the group; `notes` are not blank, at most 2000 code points, NFC, with no
+    control characters (document text, §5.1 "Line breaks"); hidden aliases in them are flagged like other text;
+  - every preference needs its `source_url` (§5 "Sourced fields").
+
+  Drafts get only the vocabulary and character rules. Choices are stored in canonical order (dimensions in their
+  order, each value's choices in vocabulary order), so reordering is never a change; problems name the order the
+  client sent. A code may be added like an ENUM value (§4.1); renaming or removing one is free until the first
+  preference is stored, and needs a document migration after. The profiles are not yet editable or exposed: until
+  they are, the only etiquette data in the API is `licensing_status` and `licensing_notes_md` on pieces and person
+  profiles, so FE2 builds a licensing card from those, and the full etiquette card (profile with piece-level
+  overrides) waits for FE4 (§10).
 - **Public reads ignore credentials.** The catalogue reads are served outside the authentication middleware, like
   the health checks: invalid, expired or uncheckable credentials and blocked users get the same answer as an
   anonymous request, and no user is looked up or created. A person's page lists the performances recorded by
@@ -409,7 +450,7 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   approval: changed licensing notes, licence or a licensing status of known need a link with role
   `licensing_source`; a person status other than active, and any status change, needs `status_source_url`; a
   conservation status other than unassessed needs its `source_url`, and a change also a non-empty summary (the
-  history reason); a changed preference needs its `source_url`. A source is an http(s) URL `NormalizeURL`
+  history reason); every preference needs its `source_url`, changed or not. A source is an http(s) URL `NormalizeURL`
   accepts, at most 2048 characters. Imported documents satisfy the absolute rules, and the others trigger only
   on change.
 - **Validation** (`Validate` per document type) shares its width, character and uniqueness checks with
@@ -524,8 +565,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     summary is then checked with the document, so a control character, a non-NFC string or more than 500
     characters is 422 `invalid_document` at `/summary`.
   - *Document text* (every string of a draft's or rebase's document) is not normalised: a CR there is a control
-    character, 422 `invalid_document` `invalid_characters` at its path. The FE converts line breaks to LF and
-    NFC-normalises before it sends a document.
+    character, 422 `invalid_document` `invalid_characters` at its path, preference notes included. The FE converts
+    CRLF and CR to LF and NFC-normalises before it sends a document; the server never rewrites document text.
   - *Single-line fields* (the contact form's name, email, URL and Turnstile token, a link report's URL) are not
     normalised: a CR, like any control character, is 400 `invalid_request`.
 - **Contact requests** (`POST /v1/contact`, no account): kind, name, email, message, URL and a Turnstile token;

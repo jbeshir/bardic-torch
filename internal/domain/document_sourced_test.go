@@ -175,15 +175,13 @@ func TestSourcedFields(t *testing.T) {
 		{id: "piece_preference_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, pieceWith(func(d *PieceDocument) {
-				d.Preferences = []DocPreference{{Dimension: PreferenceDimensionRecording, Value: []byte(`{}`),
-					SourceURL: deref(s)}}
+				d.Preferences = []DocPreference{preference(PreferenceDimensionRecording, deref(s), PreferenceChoiceOralOnly)}
 			}), a, "")
 		}, path: pathPreferenceSource, code: ProblemSourceRequired, invalidPath: pathPreferenceSource},
 		{id: "person_preference_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, personWith(func(d *PersonDocument) {
-				d.Preferences = []DocPreference{{Dimension: PreferenceDimensionLicensing, Value: []byte(`{}`),
-					SourceURL: deref(s)}}
+				d.Preferences = []DocPreference{preference(PreferenceDimensionLicensing, deref(s), PreferenceChoiceCCBY)}
 			}), a)
 		}, path: pathPreferenceSource, code: ProblemSourceRequired, invalidPath: pathPreferenceSource},
 		{id: "unchanged_status_source_not_required", validate: func(a Role, s *string) []DocumentProblem {

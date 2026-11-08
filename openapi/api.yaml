@@ -9275,6 +9275,8 @@ components:
                   - alias_visibility
                   - withheld_placeholder
                   - withheld_field_changed
+                  - choice_conflict
+                  - dimension_not_allowed
                 examples:
                   - blank
       examples:

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -58,6 +57,8 @@ const (
 	ProblemAliasVisibility        ProblemCode = "alias_visibility"
 	ProblemWithheldPlaceholder    ProblemCode = "withheld_placeholder"
 	ProblemWithheldFieldChanged   ProblemCode = "withheld_field_changed"
+	ProblemChoiceConflict         ProblemCode = "choice_conflict"
+	ProblemDimensionNotAllowed    ProblemCode = "dimension_not_allowed"
 )
 
 // DocumentProblem is one problem with a document: the code, at the JSON-pointer-like path of the field ("/title",
@@ -169,15 +170,15 @@ func (c fieldCheck) strings(v reflect.Value, path string) {
 	})
 }
 
-// walkStrings calls visit with every string-kinded value in v and its path, descending into pointers, slices
-// (other than raw JSON), arrays and the exported fields of structs, in order.
+// walkStrings calls visit with every string-kinded value in v and its path, descending into pointers, slices,
+// arrays and the exported fields of structs, in order.
 func walkStrings(v reflect.Value, path string, paths pathStyle, visit func(path string, v reflect.Value)) {
 	switch kind := v.Kind(); {
 	case kind == reflect.Pointer:
 		if !v.IsNil() {
 			walkStrings(v.Elem(), path, paths, visit)
 		}
-	case (kind == reflect.Slice && v.Type() != reflect.TypeFor[json.RawMessage]()) || kind == reflect.Array:
+	case isList(kind):
 		for i := range v.Len() {
 			walkStrings(v.Index(i), paths.index(path, i), paths, visit)
 		}
@@ -190,4 +191,9 @@ func walkStrings(v reflect.Value, path string, paths pathStyle, visit func(path 
 	case kind == reflect.String:
 		visit(path, v)
 	}
+}
+
+// isList reports whether values of kind are lists, slices or arrays, whose elements the walks visit.
+func isList(kind reflect.Kind) bool {
+	return kind == reflect.Slice || kind == reflect.Array
 }

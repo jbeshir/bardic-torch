@@ -51,7 +51,7 @@ func (d PersonDocument) Validate(v ValidationContext[PersonDocument]) []Document
 	c.licensingSources(d.LicensingNotesMD, prev.LicensingNotesMD, d.LicensingStatus, prev.LicensingStatus,
 		hasLicensingSource(links))
 	c.personStatus(d, prev, v.Today)
-	c.preferences(d.Preferences, prev.Preferences)
+	c.preferences(d.Preferences, EntityTypePerson)
 	c.references(documentReferences(d))
 	if v.Author == RoleContributor && !v.editor && v.Previous != nil &&
 		(prev.Status == PersonStatusPrefersNoPage || v.Refs.Persons[v.ID].PrefersNoPage) {
@@ -105,19 +105,4 @@ func (c *docCheck) identityOnly(d, prev PersonDocument) {
 			c.report(documentPaths.field("", f), ProblemWithheldFieldChanged)
 		}
 	}
-}
-
-// preferences checks preference profiles: each dimension once, and each added or changed one sourced.
-func (c *docCheck) preferences(prefs, prev []DocPreference) {
-	dims := make([]string, 0, len(prefs))
-	for k, p := range prefs {
-		path := fmt.Sprintf("/preferences/%d/source_url", k)
-		dims = append(dims, string(p.Dimension))
-		if p.SourceURL != "" {
-			c.sourceURL(&p.SourceURL, path)
-		}
-		unchanged := slices.ContainsFunc(prev, func(q DocPreference) bool { return reflect.DeepEqual(p, q) })
-		c.check(unchanged || p.SourceURL != "", path, ProblemSourceRequired)
-	}
-	c.unique(dims, "/preferences")
 }

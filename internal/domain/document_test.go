@@ -9,11 +9,19 @@ import (
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func ptr[T any](v T) *T { return &v }
+
+// withNotes is p with notes.
+func withNotes(p domain.DocPreference, notes string) domain.DocPreference {
+	p.Value = &domain.PreferenceValue{Choices: p.Value.Choices, Notes: &notes}
+
+	return p
+}
 
 func fullPieceDocument() domain.PieceDocument {
 	return domain.PieceDocument{
@@ -57,10 +65,9 @@ func fullPieceDocument() domain.PieceDocument {
 				DescriptionVerbatim: "Sung at the revel", PerformerIDs: []int64{5, 6},
 			}},
 		}},
-		Preferences: []domain.DocPreference{{
-			Dimension: domain.PreferenceDimensionRecording, Value: json.RawMessage(`{"allowed":true}`),
-			SourceURL: "https://example.org/prefs",
-		}},
+		Preferences: []domain.DocPreference{withNotes(domaintest.Preference(domain.PreferenceDimensionRecording,
+			"https://example.org/prefs", domain.PreferenceChoiceOralOnly, domain.PreferenceChoiceNoRecording),
+			"Ask at the event.")},
 	}
 }
 
@@ -91,10 +98,8 @@ func fullPersonDocument() domain.PersonDocument {
 				DocPerformance: domain.DocPerformance{DescriptionVerbatim: "Live set", PerformerIDs: []int64{5}},
 			}},
 		}},
-		Preferences: []domain.DocPreference{{
-			Dimension: domain.PreferenceDimensionAttribution, Value: json.RawMessage(`"name me"`),
-			SourceURL: "https://example.org/wren-prefs",
-		}},
+		Preferences: []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionAttribution,
+			"https://example.org/wren-prefs", domain.PreferenceChoiceSCAName)},
 	}
 }
 
@@ -269,8 +274,9 @@ func TestDecodeDocument_UnknownFields(t *testing.T) {
 // decode with ErrUnknownEnumValue, wherever it is in the document, as one in a column fails a read.
 // unknownValue is a value of no vocabulary, and kindField the field most documents hold their kind in.
 const (
-	unknownValue = "bogus"
-	kindField    = "kind"
+	unknownValue          = "bogus"
+	kindField             = "kind"
+	firstPreferenceChoice = "preferences.0.value.choices.0"
 )
 
 func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
@@ -280,6 +286,7 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 		kindField, "secondary_kinds.0", "conservation.status", "licensing_status", "licence", "aliases.0.kind",
 		"terms.0.part", "relations.0.type", "credits.0.role", "credits.0.attribution", "credits.0.certainty",
 		"credits.0.part", "links.0.place_type", "links.0.roles.1", "preferences.0.dimension",
+		"preferences.0.value.choices.1",
 	}
 	for _, field := range pieceFields {
 		t.Run("piece."+field, func(t *testing.T) {
@@ -292,7 +299,7 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 
 	personFields := []string{
 		kindField, "status", "licensing_status", "aliases.1.kind", "roles.0", "relations.0.type", "links.0.roles.0",
-		"links.0.place_type", "preferences.0.dimension",
+		"links.0.place_type", "preferences.0.dimension", firstPreferenceChoice,
 	}
 	for _, field := range personFields {
 		t.Run("person."+field, func(t *testing.T) {
@@ -331,6 +338,30 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 	})
 }
 
+// TestDecodeDocument_UnknownPreferenceChoiceIs500 checks that a stored preference holding a choice this release
+// does not know fails the decode with ErrUnknownEnumValue, so a read of it is an internal error (500) rather than
+// a profile shown without it, while a known choice of another dimension decodes: only validation knows which
+// dimension has which choices.
+func TestDecodeDocument_UnknownPreferenceChoiceIs500(t *testing.T) {
+	t.Parallel()
+
+	for name, choice := range map[string]string{"unknown": "maybe", "blank_code": ""} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := domain.DecodeDocument[domain.PieceDocument](
+				withValues(t, fullPieceDocument(), map[string]any{firstPreferenceChoice: choice}))
+			require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
+		})
+	}
+	t.Run("other_dimension", func(t *testing.T) {
+		t.Parallel()
+		got, err := domain.DecodeDocument[domain.PersonDocument](withValues(t, fullPersonDocument(),
+			map[string]any{firstPreferenceChoice: string(domain.PreferenceChoiceCCBY)}))
+		require.NoError(t, err)
+		assert.Equal(t, []domain.PreferenceChoice{domain.PreferenceChoiceCCBY}, got.Preferences[0].Value.Choices)
+	})
+}
+
 // TestDocuments_EnumFieldsAreValidated checks that every field of a document whose type is one of the domain's
 // named string types is a vocabulary with a Valid method, which DecodeDocument checks. It looks through pointers,
 // slices, arrays and map keys and values, as DecodeDocument does (TestValidateEnums_MapsAndArrays).
@@ -362,7 +393,7 @@ func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
 		domain.CollectionDocument{}, domain.EventDocument{}} {
 		visit(reflect.TypeOf(doc), reflect.TypeOf(doc).Name())
 	}
-	assert.Len(t, seen, 22, "the vocabularies documents use")
+	assert.Len(t, seen, 23, "the vocabularies documents use")
 }
 
 func TestDecodeDocument_StatusDate(t *testing.T) {

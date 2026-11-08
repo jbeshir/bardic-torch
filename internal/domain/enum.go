@@ -79,6 +79,71 @@ var (
 		PreferenceDimensionAttribution, PreferenceDimensionCommercialUse, PreferenceDimensionRecording,
 		PreferenceDimensionPerformanceEtiquette, PreferenceDimensionObjectionableUse,
 	}
+	preferenceChoiceValues = []PreferenceChoice{
+		PreferenceChoicePD, PreferenceChoiceCCBY, PreferenceChoiceCCBYSA, PreferenceChoiceCCBYNC,
+		PreferenceChoiceCCBYNCSA, PreferenceChoiceCCBYND, PreferenceChoiceCCBYNCND, PreferenceChoiceARR,
+		PreferenceChoiceOther, PreferenceChoiceVariesByWork,
+		PreferenceChoiceNotGiven, PreferenceChoiceAskFirst, PreferenceChoiceAskRepresentative,
+		PreferenceChoiceGroupMembers, PreferenceChoiceGiven,
+		PreferenceChoiceInformRequired, PreferenceChoiceInformWelcome, PreferenceChoiceInformNotNeeded,
+		PreferenceChoiceInformNotWanted,
+		PreferenceChoiceEncouraged, PreferenceChoiceAllowed, PreferenceChoiceAllowedWithConditions,
+		PreferenceChoiceLiveOnly, PreferenceChoiceNotAllowed,
+		PreferenceChoiceFairUseOnly, PreferenceChoiceSeriousOnly, PreferenceChoiceRespectfulOnly,
+		PreferenceChoiceMinorChangesOnly, PreferenceChoiceShowBeforePerforming,
+		PreferenceChoiceAllowNewWords, PreferenceChoiceAllowFanVideos, PreferenceChoiceAllowStoryChanges,
+		PreferenceChoiceAllowShortening, PreferenceChoiceAllowExtending, PreferenceChoiceAllowImprovements,
+		PreferenceChoiceAllowMusicalSetting, PreferenceChoiceAllowOwnVersion, PreferenceChoiceAllowStageUse,
+		PreferenceChoiceRefuseNewWords, PreferenceChoiceRefuseFanVideos, PreferenceChoiceRefuseStoryChanges,
+		PreferenceChoiceRefuseShortening, PreferenceChoiceRefuseExtending, PreferenceChoiceRefuseImprovements,
+		PreferenceChoiceRefuseMusicalSetting, PreferenceChoiceRefuseOwnVersion, PreferenceChoiceRefuseStageUse,
+		PreferenceChoiceStageName, PreferenceChoiceSCAName, PreferenceChoiceLegalName,
+		PreferenceChoicePersonaAndLegalName, PreferenceChoiceKnownName, PreferenceChoiceNameWithAffiliation,
+		PreferenceChoiceCreditBefore, PreferenceChoiceCreditAfter, PreferenceChoiceCreditBeforeAndAfter,
+		PreferenceChoiceCreditOncePerSet, PreferenceChoiceCreditAnyTime, PreferenceChoiceCreditWhenAsked,
+		PreferenceChoiceMentionWebsite, PreferenceChoiceMentionSource, PreferenceChoiceMentionShop,
+		PreferenceChoiceMentionPerformance, PreferenceChoiceLinkToCreator, PreferenceChoiceWrittenCredit,
+		PreferenceChoiceQRCode,
+		PreferenceChoiceNonCommercialOnly,
+		PreferenceChoiceTipsAndPrizes, PreferenceChoicePaidPerformance, PreferenceChoiceTicketedPerformance,
+		PreferenceChoiceThirdPartyCommercial, PreferenceChoiceMonetisedUploads, PreferenceChoicePaidRecording,
+		PreferenceChoiceStreamingIncome, PreferenceChoiceSellDownloads, PreferenceChoiceSellPhysicalRecordings,
+		PreferenceChoiceSellPrint, PreferenceChoiceResellCreatorCopies, PreferenceChoiceMerchandise,
+		PreferenceChoiceAdvertising,
+		PreferenceChoiceWithPermission, PreferenceChoiceWithAttribution, PreferenceChoiceWithNotification,
+		PreferenceChoiceCreatorFirst, PreferenceChoiceProfitShare, PreferenceChoiceIndividualsOnly,
+		PreferenceChoiceStandaloneSingle, PreferenceChoiceCompilationOnly, PreferenceChoiceIncomeCap,
+		PreferenceChoiceAmateursOnly,
+		PreferenceChoiceNoWriting, PreferenceChoiceOralOnly, PreferenceChoiceTrustedAudiencesOnly,
+		PreferenceChoicePrivateNotebook, PreferenceChoiceSmallPrintOnly, PreferenceChoiceShareInPerson,
+		PreferenceChoiceLyricsOnline, PreferenceChoiceUploadsAllowed,
+		PreferenceChoiceNoRecording, PreferenceChoiceNotifyAfter, PreferenceChoiceAskBeforeUpload,
+		PreferenceChoiceAskBeforeRecording, PreferenceChoiceSelectiveRecording, PreferenceChoiceFormalOnly,
+		PreferenceChoiceSingAlongWelcome, PreferenceChoiceJoinInAnyWay, PreferenceChoiceSingAlongFine,
+		PreferenceChoiceNoSingAlong, PreferenceChoiceOtherJammingOnly, PreferenceChoiceUnisonOnly,
+		PreferenceChoiceNoPercussion, PreferenceChoiceChorusOnly,
+		PreferenceChoiceNoCompetition, PreferenceChoiceCompeteUnlessCreatorCompeting,
+		PreferenceChoiceCompeteAfterChecking, PreferenceChoiceNotAgainstCreator,
+		PreferenceChoiceCircleFine, PreferenceChoiceCircleAskBeforehand, PreferenceChoiceCircleQuickAsk,
+		PreferenceChoiceCirclePermissionNeeded, PreferenceChoiceCircleNotAllowed,
+		PreferenceChoicePerformFreely, PreferenceChoiceMemorise, PreferenceChoicePractiseThoroughly,
+		PreferenceChoiceNoObjectionablePurposes, PreferenceChoiceNoObjectionableContexts,
+		PreferenceChoiceNoObjectionableContent,
+		PreferenceChoiceProselytising, PreferenceChoiceAnyPolitics, PreferenceChoicePartisanPolitics,
+		PreferenceChoiceHateGroups, PreferenceChoicePrejudice, PreferenceChoiceIllegalActivity,
+		PreferenceChoiceReligiousOrPoliticalAdvertising, PreferenceChoiceCorporateAdvertising,
+		PreferenceChoiceRestrictedGoodsAdvertising, PreferenceChoiceViolence, PreferenceChoiceGraphicViolence,
+		PreferenceChoiceReligiousConflict, PreferenceChoiceMockingCreator, PreferenceChoiceMockingOthers,
+		PreferenceChoicePoliticalEvents, PreferenceChoicePartisanEvents, PreferenceChoiceReligiousEvents,
+		PreferenceChoiceHateGroupEvents, PreferenceChoiceEventsIncludingHateGroups, PreferenceChoiceViolentEvents,
+		PreferenceChoiceAlcoholEvents, PreferenceChoiceAdultEvents,
+		PreferenceChoiceNSFW, PreferenceChoiceNotChildSafe, PreferenceChoiceProfanity,
+		PreferenceChoiceSexualContent, PreferenceChoicePornography, PreferenceChoiceCorporateRisk,
+		PreferenceChoiceLegalDrugs, PreferenceChoiceIllegalDrugs, PreferenceChoiceReligiousContent,
+		PreferenceChoiceOffensiveContent,
+		PreferenceChoiceAskIfUnsure, PreferenceChoiceReservesRight, PreferenceChoicePrivateUseOK,
+		PreferenceChoiceReportSightings, PreferenceChoiceMayIntervene, PreferenceChoiceLetCreatorDecide,
+	}
 	pieceKindValues = []PieceKind{
 		PieceKindSong, PieceKindPoem, PieceKindStory, PieceKindDanceMusic, PieceKindInstrumental, PieceKindComedy,
 	}
@@ -195,6 +260,9 @@ func (p PersonRelationType) Valid() bool { return slices.Contains(personRelation
 // Valid reports whether p is a known PreferenceDimension.
 func (p PreferenceDimension) Valid() bool { return slices.Contains(preferenceDimensionValues, p) }
 
+// Valid reports whether p is a known PreferenceChoice, of any dimension.
+func (p PreferenceChoice) Valid() bool { return slices.Contains(preferenceChoiceValues, p) }
+
 // Valid reports whether p is a known PieceKind.
 func (p PieceKind) Valid() bool { return slices.Contains(pieceKindValues, p) }
 
@@ -268,7 +336,7 @@ func ProblemCodeValues() []ProblemCode {
 		ProblemLicenceNeedsKnown, ProblemDateNeedsStatus, ProblemNamedNeedsPerson, ProblemPersonNeedsNamed,
 		ProblemCreditToNoPagePerson, ProblemRelationToNoPagePerson, ProblemSecondPrimaryTerm, ProblemPartNotAllowed,
 		ProblemOutOfRange, ProblemTooMany, ProblemAliasVisibility, ProblemWithheldPlaceholder,
-		ProblemWithheldFieldChanged,
+		ProblemWithheldFieldChanged, ProblemChoiceConflict, ProblemDimensionNotAllowed,
 	}
 }
 

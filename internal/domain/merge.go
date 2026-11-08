@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -404,7 +403,7 @@ func newConflict(path FieldPath, base, revision, current any) RebaseConflict {
 		Current: conflictJSON(current)}
 }
 
-// conflictJSON is the JSON of v, or null if it has none (a document whose raw preference value is not JSON).
+// conflictJSON is the JSON of v, or null if it has none.
 func conflictJSON(v any) json.RawMessage {
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -442,15 +441,9 @@ func intersect(a, b []string) []string {
 	return keys
 }
 
-// rawMessageType is the type of raw JSON, which equalValues compares as bytes.
-var rawMessageType = reflect.TypeFor[json.RawMessage]()
-
 // equalValues reports whether a and b are deeply equal, an empty list being equal to none: the values encode to the
 // same JSON but for an empty list encoding as [] or null.
 func equalValues(a, b reflect.Value) bool {
-	if a.Type() == rawMessageType {
-		return bytes.Equal(a.Bytes(), b.Bytes())
-	}
 	if a.Kind() == reflect.Slice {
 		return equalLists(a, b)
 	}

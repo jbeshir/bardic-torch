@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -130,7 +131,7 @@ func (w *entityWriter) personRelations(personID int64, relations []domain.DocPer
 func (w *entityWriter) personPreferences(personID int64, preferences []domain.DocPreference) {
 	for _, pref := range preferences {
 		p := queries.InsertPersonPreferenceParams{PersonID: w.id(personID),
-			Dimension: queries.PersonPreferencesDimension(pref.Dimension), ValueJson: pref.Value,
+			Dimension: queries.PersonPreferencesDimension(pref.Dimension), ValueJson: w.preferenceValue(pref),
 			SourceUrl: pref.SourceURL}
 		w.exec("person_preferences", func() error { return w.q.InsertPersonPreference(w.ctx, p) })
 	}
@@ -187,7 +188,7 @@ func (w *entityWriter) pieceCredits(pieceID int64, credits []domain.DocCredit) {
 func (w *entityWriter) piecePreferences(pieceID int64, preferences []domain.DocPreference) {
 	for _, pref := range preferences {
 		p := queries.InsertPiecePreferenceParams{PieceID: w.id(pieceID),
-			Dimension: queries.PiecePreferencesDimension(pref.Dimension), ValueJson: pref.Value,
+			Dimension: queries.PiecePreferencesDimension(pref.Dimension), ValueJson: w.preferenceValue(pref),
 			SourceUrl: pref.SourceURL}
 		w.exec("piece_preferences", func() error { return w.q.InsertPiecePreference(w.ctx, p) })
 	}
@@ -562,4 +563,14 @@ func (w *entityWriter) conservationChange(pieceID int64, c domain.ConservationCh
 		Status: queries.ConservationHistoryStatus(c.Status), Reason: c.Reason, SourceUrl: nullString(c.SourceURL),
 		RevisionID: w.nullID(revisionID), At: at}
 	w.exec("conservation_history", func() error { return w.q.InsertConservationHistory(w.ctx, p) })
+}
+
+// preferenceValue is the value_json of a preference: its value as JSON.
+func (w *entityWriter) preferenceValue(pref domain.DocPreference) json.RawMessage {
+	value, err := json.Marshal(pref.Value)
+	if err != nil {
+		w.fail(fmt.Errorf("encoding a preference value: %w", err))
+	}
+
+	return value
 }

@@ -4,7 +4,6 @@ package mysql_test
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -135,8 +135,7 @@ func songDocument(f *editingFixture) domain.PieceDocument {
 			},
 			{DocLink: domain.DocLink{URL: songHiddenURL, Roles: []domain.LinkRole{domain.LinkRolePerformance}}},
 		},
-		Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-			Value: json.RawMessage(`{"allowed": false}`), SourceURL: preferencesURL}},
+		Preferences: []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, preferencesURL, domain.PreferenceChoiceNoRecording)},
 	}
 }
 

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -122,8 +121,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 			{DocLink: DocLink{URL: deletedURL, Title: new("Deleted")}},
 			{DocLink: DocLink{URL: recasedURL, Title: new("Recased")}},
 		},
-		Preferences: []DocPreference{{Dimension: PreferenceDimensionLicensing, Value: json.RawMessage(`{}`),
-			SourceURL: "https://example.org/prefs"}},
+		Preferences: []DocPreference{preference(PreferenceDimensionLicensing, "https://example.org/prefs", PreferenceChoiceCCBY)},
 	}
 
 	assert.Equal(t, PieceSnapshot{
@@ -213,8 +211,7 @@ func personDocument() PersonDocument {
 				},
 			},
 		},
-		Preferences: []DocPreference{{Dimension: PreferenceDimensionRecording, Value: json.RawMessage(`"no"`),
-			SourceURL: "https://example.org/prefs"}},
+		Preferences: []DocPreference{preference(PreferenceDimensionRecording, "https://example.org/prefs", PreferenceChoiceNoRecording)},
 	}
 }
 

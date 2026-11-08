@@ -3,11 +3,11 @@
 package mysql_test
 
 import (
-	"encoding/json"
 	"slices"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,8 +64,7 @@ func fullNewPiece(f *editingFixture) domain.PieceDocument {
 				Uploader: new("Ash"), DescriptionVerbatim: "At the fair", PerformerIDs: []int64{f.morwen.ID, f.ash.ID}}}},
 		{DocLink: domain.DocLink{URL: "https://example.org/kestrel/tune", Roles: []domain.LinkRole{domain.LinkRoleOther}}},
 	}
-	doc.Preferences = []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-		Value: json.RawMessage(`{"allowed": true}`), SourceURL: preferencesURL}}
+	doc.Preferences = []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, preferencesURL, domain.PreferenceChoiceUploadsAllowed)}
 
 	return doc
 }

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"reflect"
 	"slices"
 	"strings"
@@ -26,8 +25,7 @@ const (
 func mergeBase() PieceDocument {
 	d := validPiece()
 	d.Links = []DocPieceLink{pieceLink(linkA, "A"), pieceLink(linkB, "B"), pieceLink(linkC, "C")}
-	d.Preferences = []DocPreference{{Dimension: PreferenceDimensionRecording, Value: json.RawMessage(`"ask"`),
-		SourceURL: preferenceSource}}
+	d.Preferences = []DocPreference{preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording)}
 
 	return d
 }

@@ -50,8 +50,7 @@ func editorVisibility(t *testing.T, role Role) EditorVisibility {
 }
 
 func testPreferences() []DocPreference {
-	return []DocPreference{{Dimension: PreferenceDimensionRecording, Value: json.RawMessage(`"ask"`),
-		SourceURL: preferenceSource}}
+	return []DocPreference{preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording)}
 }
 
 // fullPiece is a piece holding every kind of element a contributor may be withheld.

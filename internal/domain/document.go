@@ -94,7 +94,7 @@ func validateEnums(v reflect.Value, path string) error {
 			return nil
 		}
 		return validateEnums(v.Elem(), path)
-	case (kind == reflect.Slice && v.Type() != reflect.TypeFor[json.RawMessage]()) || kind == reflect.Array:
+	case isList(kind):
 		return validateListEnums(v, path)
 	case kind == reflect.Map:
 		return validateMapEnums(v, path)
@@ -236,11 +236,11 @@ type DocCredit struct {
 	Note        *string     `json:"note"`
 }
 
-// DocPreference is one dimension of a stated preference profile. Value's shape per dimension is defined, and
-// validated, with the preference profiles; until then it is carried as raw JSON.
+// DocPreference is one dimension of a stated preference profile: what it states (Value, never nil in a valid
+// document) and the source it is stated in.
 type DocPreference struct {
 	Dimension PreferenceDimension `json:"dimension"`
-	Value     json.RawMessage     `json:"value"`
+	Value     *PreferenceValue    `json:"value"`
 	SourceURL string              `json:"source_url"`
 }
 

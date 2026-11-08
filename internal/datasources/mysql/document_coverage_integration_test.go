@@ -275,9 +275,12 @@ func parseClasses(t *testing.T, spec string) map[string]map[string]columnClass {
 	return classes
 }
 
+// jsonColumnTypes are the document structs stored whole in one JSON column: a preference value in value_json.
+var jsonColumnTypes = map[reflect.Type]bool{reflect.TypeFor[domain.PreferenceValue](): true}
+
 // documentFieldPaths returns the leaf field paths of a document type: JSON names joined by ".", descending into
 // structs and lists of structs, and flattening embedded structs as encoding/json does. A struct with its own JSON
-// encoding, such as domain.Date, is a leaf.
+// encoding, such as domain.Date, is a leaf, as is a struct stored whole in one JSON column (jsonColumnTypes).
 func documentFieldPaths(typ reflect.Type, prefix string) []string {
 	var paths []string
 	for i := range typ.NumField() {
@@ -290,10 +293,11 @@ func documentFieldPaths(typ reflect.Type, prefix string) []string {
 		}
 		path := prefix + name
 		elem := field.Type
-		for elem.Kind() == reflect.Pointer || (elem.Kind() == reflect.Slice && elem != reflect.TypeFor[json.RawMessage]()) {
+		for elem.Kind() == reflect.Pointer || elem.Kind() == reflect.Slice {
 			elem = elem.Elem()
 		}
-		if elem.Kind() == reflect.Struct && !reflect.PointerTo(elem).Implements(reflect.TypeFor[json.Unmarshaler]()) {
+		if elem.Kind() == reflect.Struct && !jsonColumnTypes[elem] &&
+			!reflect.PointerTo(elem).Implements(reflect.TypeFor[json.Unmarshaler]()) {
 			paths = append(paths, documentFieldPaths(elem, path+".")...)
 		} else {
 			paths = append(paths, path)
@@ -331,7 +335,7 @@ func TestDocumentFieldPaths(t *testing.T) {
 	assert.Contains(t, paths, "links.performances.performer_ids", "descends into lists of structs")
 	assert.Contains(t, paths, "links.performances.piece_id", "flattens embedded structs")
 	assert.Contains(t, paths, "links.url", "flattens embedded structs")
-	assert.Contains(t, paths, "preferences.value", "keeps raw JSON as one field")
+	assert.Contains(t, paths, "preferences.value", "keeps a value stored in one JSON column as one field")
 	assert.Contains(t, paths, "roles", "keeps lists of scalars as one field")
 	assert.NotContains(t, paths, "links.performances", "lists of structs are not leaves")
 }

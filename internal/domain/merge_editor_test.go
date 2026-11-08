@@ -152,12 +152,12 @@ func TestEditorConflicts(t *testing.T) {
 		base := validPiece()
 		ours, theirs := base, base
 		ours.Preferences = []DocPreference{
-			{Dimension: PreferenceDimensionRecording, Value: json.RawMessage(`"ask"`), SourceURL: preferenceSource},
-			{Dimension: PreferenceDimensionAdaptations, Value: json.RawMessage(`"ask"`), SourceURL: preferenceSource},
+			preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording),
+			preference(PreferenceDimensionAdaptations, preferenceSource, PreferenceChoiceAskFirst),
 		}
 		theirs.Preferences = []DocPreference{
-			{Dimension: PreferenceDimensionRecording, Value: json.RawMessage(`"no"`), SourceURL: preferenceSource},
-			{Dimension: PreferenceDimensionAdaptations, Value: json.RawMessage(`"no"`), SourceURL: preferenceSource},
+			preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceNoRecording),
+			preference(PreferenceDimensionAdaptations, preferenceSource, PreferenceChoiceNotAllowed),
 		}
 		_, conflicts := MergeDocuments(base, ours, theirs)
 		require.Len(t, conflicts, 2)
@@ -206,8 +206,8 @@ func TestEditorFieldPaths(t *testing.T) {
 	doc.AffiliationIDs = []int64{conflictTermID}
 	doc.Relations = []DocPersonRelation{{ToPersonID: conflictPersonID, Type: PersonRelationTypeMemberOf}}
 	doc.Preferences = []DocPreference{
-		{Dimension: PreferenceDimensionRecording, Value: json.RawMessage(`"ask"`), SourceURL: preferenceSource},
-		{Dimension: PreferenceDimensionAdaptations, Value: json.RawMessage(`"ask"`), SourceURL: preferenceSource},
+		preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording),
+		preference(PreferenceDimensionAdaptations, preferenceSource, PreferenceChoiceAskFirst),
 	}
 	stored := DiffDocuments(base, doc)
 	require.Contains(t, stored, FieldPath("affiliation_ids[12]"), "stored format inside")
