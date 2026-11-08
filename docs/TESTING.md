@@ -451,6 +451,43 @@ Rate limits (docs/PLAN.md §5.1 "Rate limits") are tested without real time or r
   `repositoryHTTPDependencies`, or set `HTTPDependencies.RateLimits`) and in package `router`. A handler built
   without them panics on the first limited request, which is how a missing one shows up.
 
+### check-links tests
+
+The link checker (docs/PLAN.md §3, "cmd/check-links") never touches the network in a test. Its sites and the
+Wayback Machine are `httptest` servers on loopback. The checker reaches them only through its address allowlist
+hook. `linkcheck.Config` takes the `AllowAddress` allowlist, a `Resolver` and a `Dial` function, and all three are
+always set. A test keeps the production allowlist (`linkcheck.PublicAddress`) and gives a fake resolver that
+returns a public address such as `93.184.215.14`, plus a fake dialer that connects that address to the
+`httptest` listener. So the guard under test is the real one, and a test cannot reach anything else.
+`wayback.New(Config, *http.Client)` takes its base URL in `Config`, so a test points it at an `httptest` server.
+
+- **Unit** (`internal/linkcheck`, `internal/datasources/wayback`, `internal/command`, `cmd/check-links`):
+  - `TestPublicAddress` and `TestSafeDialer_RefusesInternalAddresses` cover the special-purpose ranges, IPv4-mapped,
+    NAT64 and 6to4 forms, and ports other than 80 and 443; nothing is dialled.
+  - `TestSafeDialer_DialsTheCheckedAddress` covers DNS rebinding: the dialled IP is the checked one.
+  - `TestGuardedDial_ChecksTheSocketAddress` covers the production dialer's `Control` check against a loopback
+    listener.
+  - `TestClassify` and `TestChecker_Probe` cover statuses, redirects (to loopback, to port 3306, to `file:`, with
+    credentials), loops and NXDOMAIN.
+  - The checker's request tests are `TestChecker_HeadNon2xxRetriedWithGet`, `TestChecker_RedirectChainDeadline`
+    (one deadline for the whole chain), `TestChecker_DiscardsBodyAfterLimit` (an endless body),
+    `TestChecker_SendsNoCookies` and `TestChecker_SpacesRequestsToAHost`.
+  - `TestWayback_Available` covers which archived copies are accepted, and errors that never quote the URL.
+  - `TestCheckLinks` covers the liveness and failure-count rules, using an in-memory store with compare-and-set
+    semantics and a fake prober.
+  - The run's other rules are `TestCheckLinks_OutageAbort`, `TestCheckLinks_MaxDurationStops`,
+    `TestCheckLinks_LockLostStops`, `TestCheckLinks_ArchiveLookupForDeadLinks`, `TestCheckLinks_ArchiveOutageStops`
+    and `TestCheckLinks_LogsNoURL` (every outcome at debug; logs hold `link_id` only).
+- **Integration** (`internal/command/check_links_integration_test.go`, its own test binary with `catalogtest.Main`
+  and `catalogtest.Writable`, so its pools have `mysqltest.Pool`'s limits):
+  - `TestCheckLinks_EndToEnd` runs a real `Repository`, checker and Wayback client against the `httptest` site.
+  - `TestCheckLinks_SecondRunExitsOnTheLock` and `TestCheckLinks_LockHeldOnPinnedConn` cover the lock: it stays
+    on one connection while the pool's others are discarded, a killed connection makes `Ping` fail, and `Release`
+    frees it.
+  - `TestCheckLinks_ConcurrentRunsCountOnce` makes two runs bypass the lock over one due set; the compare-and-set
+    counts each failure once.
+  - `TestCheckLinks_HiddenAfterSelectionNotWritten` and `TestCheckLinks_SkipsHiddenLinks` cover hidden links.
+
 ### Integration tests (`//go:build integration`)
 
 Run against real MySQL 8.4 by the `test-integration*` targets:

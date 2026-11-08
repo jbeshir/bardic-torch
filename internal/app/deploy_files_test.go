@@ -224,7 +224,8 @@ func nonCommentLines(t *testing.T, root fs.FS, name string) []string {
 
 // dokkuAppJSON is the part of the app.json schema that dokku reads.
 type dokkuAppJSON struct {
-	Name    string `json:"name"`
+	Name    string           `json:"name"`
+	Cron    []dokkuCronEntry `json:"cron"`
 	Scripts struct {
 		Dokku struct {
 			Predeploy string `json:"predeploy"`
@@ -233,6 +234,12 @@ type dokkuAppJSON struct {
 	Healthchecks struct {
 		Web []dokkuHealthcheck `json:"web"`
 	} `json:"healthchecks"`
+}
+
+// dokkuCronEntry is a scheduled command of app.json's cron list.
+type dokkuCronEntry struct {
+	Command  string `json:"command"`
+	Schedule string `json:"schedule"`
 }
 
 type dokkuHealthcheck struct {
@@ -251,8 +258,7 @@ func TestAppJSON(t *testing.T) {
 	src, err := fs.ReadFile(repositoryRoot(), "app.json")
 	require.NoError(t, err)
 
-	// Unknown fields fail decoding, so a misspelt key, or a cron entry (none until cmd/check-links exists),
-	// cannot slip in.
+	// Unknown fields fail decoding, so a misspelt key cannot slip in.
 	decoder := json.NewDecoder(bytes.NewReader(src))
 	decoder.DisallowUnknownFields()
 	var appJSON dokkuAppJSON
@@ -260,6 +266,8 @@ func TestAppJSON(t *testing.T) {
 
 	assert.Equal(t, "bardic-torch-api", appJSON.Name)
 	assert.Equal(t, "/app/migrate up", appJSON.Scripts.Dokku.Predeploy)
+	assert.Equal(t, []dokkuCronEntry{{Command: "/app/check-links", Schedule: "23 3 * * *"}}, appJSON.Cron,
+		"check-links runs daily at 03:23 UTC (docs/DEPLOY.md, \"Link checks (cron)\")")
 	assert.Equal(t, []dokkuHealthcheck{{
 		Type:        "startup",
 		Name:        "readyz",
@@ -303,6 +311,15 @@ func TestDockerfile_MatchesDokkuConfiguration(t *testing.T) {
 	assert.Equal(t, []string{`["/app/bardic-torch"]`}, instructions["CMD"])
 	assert.Equal(t, []string{"10001:10001"}, instructions["USER"])
 	assert.Contains(t, instructions["COPY"], "Procfile app.json /app/")
+	// Every command the Procfile, app.json and docs/DEPLOY.md run is built and copied into /app.
+	assert.Contains(t, instructions["COPY"],
+		"--from=builder /out/bardic-torch /out/migrate /out/import-mediawiki /out/check-links /app/")
+	src, err := fs.ReadFile(repositoryRoot(), "Dockerfile")
+	require.NoError(t, err)
+	for _, binary := range []string{"bardic-torch ./cmd/app", "migrate ./cmd/migrate",
+		"import-mediawiki ./cmd/import-mediawiki", "check-links ./cmd/check-links"} {
+		assert.Contains(t, string(src), "go build -trimpath -o /out/"+binary)
+	}
 	require.NotEmpty(t, instructions["WORKDIR"])
 	assert.Equal(t, "/app", instructions["WORKDIR"][len(instructions["WORKDIR"])-1])
 }

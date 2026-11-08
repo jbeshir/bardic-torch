@@ -1,5 +1,11 @@
 {
   "name": "bardic-torch-api",
+  "cron": [
+    {
+      "command": "/app/check-links",
+      "schedule": "23 3 * * *"
+    }
+  ],
   "scripts": {
     "dokku": {
       "predeploy": "/app/migrate up"

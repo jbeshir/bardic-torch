@@ -282,7 +282,8 @@ wait for a running write. Nothing needs configuring on the server.
 The API's connection pool (`mysql.ProductionPool`) opens at most 10 connections, keeps up to 10 idle for at most 5
 minutes, and replaces each after 30 minutes. The service's server is the stock image, so `max_connections` is 151;
 the most that connect at once are the old and new containers during a deploy, the predeploy `migrate` (one
-connection), an `import-mediawiki --apply` (also 10) and a `mysql:connect` session, about 32. A server that is out
+connection), an `import-mediawiki --apply` (also 10), a `check-links` run (3, see [Link checks (cron)](#link-checks-cron))
+and a `mysql:connect` session, about 35. A server that is out
 of connections anyway (`Error 1040: Too many connections`) makes requests answer 503 `unavailable`, like one that
 cannot be reached, and `/readyz` fails. Scaling `web` beyond one process adds 10 per process; keep the total well
 under 151, or raise `max_connections` on the service.
@@ -757,3 +758,51 @@ closed. To clear a flood, a moderator dismisses up to 100 requests at a time wit
 only). Each open request named is dismissed as a single dismissal would be, so its personal data is purged 180 days
 later; IDs already resolved, dismissed or unknown come back in `not_open` and are left alone. Page through the
 inbox with `status=open` and repeat until the flood is gone.
+
+## Link checks (cron)
+
+`/app/check-links` checks whether the catalogue's visible links still work and looks up archived copies in the
+Wayback Machine. The rules are in docs/PLAN.md §3, "cmd/check-links". dokku runs it from `app.json`'s `cron` entry
+every day at 03:23 UTC (`23 3 * * *`), in a one-off container of the deployed image. That container has the app's
+configuration, so the command needs no variable of its own: it reads `DATABASE_URL` and `LOG_LEVEL`. dokku
+registers the entry on each deploy.
+
+- **List and run.** `dokku cron:list bardic-torch-api` shows the entry and its ID. `dokku cron:run
+  bardic-torch-api <ID>` runs it now, for example after a deploy or to try different flags. A one-off run with
+  flags is `dokku run bardic-torch-api /app/check-links --limit 50 --max-duration 5m`. Flags:
+  - `--limit` is the most links checked (default 400, 1–10000);
+  - `--archive-limit` is the most archive lookups (default 200, 0–10000);
+  - `--max-duration` is how long the run checks and looks up (default `20m`, `1m`–`6h`).
+- **Logs.** A cron run's output goes to the app's logs (`dokku logs bardic-torch-api`), as JSON lines:
+  - each link is named by `link_id` only, never by URL;
+  - a guard refusal is a warning;
+  - the run ends with an info line, `link check finished`, which counts the outcomes (`checked`), the writes
+    skipped (`not_recorded`), the archive lookups and the copies found.
+
+  To see a link's URL, look up its ID in the database.
+- **The lock.** One run at a time holds the database's lock, `GET_LOCK('bardic-torch-check-links:<database>')`,
+  on a connection it keeps for the whole run. A run started while another holds the lock logs `another link check
+  holds the lock` and exits 0. The lock is released when the run ends, or when its connection drops (a crash, a
+  restarted MySQL container). A run that loses it stops and exits 1. Every write is also a compare-and-set, so even
+  overlapping runs count a failure once, and never write a link hidden since it was selected.
+- **What `dead` means.** A link becomes `dead` after three checks in a row that found it gone: a 404, a 410, or a
+  host name that does not exist. Checks are at least 7 days apart, so that takes about three weeks. One success
+  resets it to `ok`.
+  - Server errors, timeouts and connection failures change nothing.
+  - 401, 403, 429, LinkedIn's 999, other statuses and redirect loops mark the link `blocked`, which says nothing
+    about whether it works.
+  - So does a link the guard refuses (not `http`/`https`, credentials in the URL, a port other than 80 or 443,
+    or a host that is not a public address, on any redirect).
+- **Outage abort.** If more than half of the first 20 checks fail transiently, the server's network or DNS is
+  taken to be down. The run records none of them, logs an error and exits 1. A run with fewer than 20 links due
+  is never aborted. The same applies when the first
+  archive lookups mostly fail (the Wayback Machine is down); the checks already recorded stay. The next day's run
+  tries again. A repeated outage abort is worth checking from the server, for example
+  `dokku run bardic-torch-api wget -q -O /dev/null https://archive.org`.
+- **Wayback.** For visible links with no archived copy that were not looked up in the last 30 days, dead links
+  first, the run asks `https://archive.org/wayback/available`, one request a second. It stores an available copy
+  on `web.archive.org` as `archived_url`, which the public link objects show, and stamps `archive_checked_at`
+  either way. A copy is never cleared, and nothing is ever submitted to the archive (no Save Page Now).
+- **Connections.** A run's pool has 3 connections: the lock's and two for its reads and writes. They are kept for
+  the run (`mysql.LinkCheckPool`), so add 3 to the arithmetic under [App and database](#app-and-database). Do not
+  set `--max-duration` past the next scheduled run.

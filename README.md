@@ -102,13 +102,14 @@ express optional filters) and use InnoDB FULLTEXT for `q`. Every `SELECT` the AP
 is capped by a session `max_execution_time` of 2 s (see [docs/DEPLOY.md](docs/DEPLOY.md)); a list the server
 stops for that answers 500 `internal`.
 
-Four entrypoints share the internal packages:
+Five entrypoints share the internal packages:
 
 | Entrypoint | Purpose |
 |---|---|
 | `cmd/app/` | HTTP API server. At startup it promotes the bootstrap moderators. |
 | `cmd/migrate/` | Applies (`up`), rolls back (`down N`) or reports (`version`) the embedded schema migrations; dokku runs `migrate up` before every deploy, which applies nothing on a clean schema newer than its migrations (a rollback) |
 | `cmd/import-mediawiki/` | Imports the crawl of the legacy wiki (PLAN §7): `--dry-run` builds the import and the moderators' private review without a database; `--apply` writes it, once, into the empty catalogue at `DATABASE_URL` in one transaction. `--review PATH`, outside the repository, is required ([docs/DEPLOY.md](docs/DEPLOY.md), "Importing the legacy wiki") |
+| `cmd/check-links/` | Checks the visible links' liveness and looks up Wayback Machine copies, daily from dokku cron (`app.json`). One run at a time holds a database lock. Every request is guarded: public addresses on ports 80 and 443 only, including on redirects. `--limit`, `--archive-limit` and `--max-duration` tune a run. Logs hold link IDs only ([docs/DEPLOY.md](docs/DEPLOY.md), "Link checks (cron)") |
 | `cmd/scrub-dump/` | Regenerates the scrubbed copy of the crawl committed under `testdata/wiki-dump/`, which the importer's tests read ([docs/TESTING.md](docs/TESTING.md)) |
 
 ## Getting Started

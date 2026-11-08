@@ -83,7 +83,42 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
     - `cmd/app`: the API server
     - `cmd/migrate`: applies the embedded migrations; dokku runs `migrate up` as the predeploy step
     - `cmd/import-mediawiki`: the one-shot importer
-    - `cmd/check-links`: link liveness checks, run by dokku cron
+    - `cmd/check-links`: link liveness checks with a Wayback Machine lookup, run daily by dokku cron (`app.json`,
+      03:23 UTC). It takes these steps:
+      - **Lock.** It takes `GET_LOCK('bardic-torch-check-links:<database>', 0)` on a connection of its own and
+        holds that connection for the whole run, checking every minute that the lock is still held. A run that
+        finds the lock held exits 0; a run that loses the lock stops and exits 1. Its pool has 3 connections, kept
+        longer than the run.
+      - **Select.** It selects up to `--limit` (400) visible links never checked or last checked over 7 days ago:
+        the never checked first, then the oldest.
+      - **Check.** It checks 4 at a time, at most one request per host per second, with one 15 s deadline per link
+        covering every request and redirect (at most 5).
+      - **Write.** Each result is written as a compare-and-set on the `last_checked_at` it read and on
+        `is_hidden = FALSE`. So a link hidden or checked since selection is never written, and two runs count a
+        failure once.
+      - **Archive.** For up to `--archive-limit` (200) visible links with no `archived_url` that were never looked
+        up, or not for 30 days, it asks the Wayback Machine's availability API, dead links first, one a second. A
+        copy counts only if it is available, archived with status 200 and on `web.archive.org`; it is stored as
+        https and is at most 2048 bytes. A found copy is set, and is never cleared. A failed lookup is not
+        recorded.
+      - **Stop.** The run stops at `--max-duration` (20 min), recording only checks it finished.
+      - **Outage abort.** If more than half of the first 20 checks fail transiently, the network is taken to be
+        down: the run records none of them and exits 1. A run with fewer than 20 checks is never aborted. The
+        archive lookups follow the same rule.
+      - **Classification.** HEAD first, and GET if HEAD does not answer 2xx. A final 2xx is `ok` and resets
+        `liveness_failures`. 404, 410 and NXDOMAIN are definite failures: each adds one, and the third in a row
+        makes the link `dead`; until then its liveness is kept. 5xx, timeouts and connection failures are
+        transient and change nothing but `last_checked_at`. 401, 403, 429, 999, every other status and a redirect
+        loop are `blocked`, keeping the count.
+      - **Guard.** A link is followed only over `http` or `https`, without credentials, to port 80 or 443. The
+        address must be global unicast and outside the special-purpose ranges (private, shared, loopback, link
+        local, documentation, benchmarking, reserved, multicast). IPv4-mapped, NAT64 and 6to4 addresses are judged
+        by the IPv4 address they hold. The guard checks every redirect and the address actually dialled; it
+        resolves a host once and dials the address it checked. A refused link is `blocked`, keeping the count, and
+        gets a warning.
+      - **Requests.** No proxy, no cookies, at most 64 KiB of a body read, and the user agent
+        `BardicTorchLinkChecker/1.0 (+https://bardictorch.org)`.
+      - **Logs.** Logs name links by ID only, never by URL. The command reads only `DATABASE_URL` and `LOG_LEVEL`.
   - `cmd/mcp` (an MCP server) comes later.
   - The OpenAPI spec (`openapi/api.yaml`) is **the contract** with the FE.
 - **`bardic-torch-fe`** (React Router 8 framework mode on Cloudflare Workers)
