@@ -95,7 +95,7 @@ func (c *catalogueReader) eventPerformances(
 			slugs = append(slugs, row.PieceSlug.String)
 		}
 	}
-	kinds := c.secondaryKinds(ctx, slugs)
+	details := c.pieceDetails(ctx, slugs)
 	performers := c.performers(ctx, ids)
 
 	performances := make([]domain.EventPerformance, 0, len(rows))
@@ -108,7 +108,7 @@ func (c *catalogueReader) eventPerformances(
 			DescriptionVerbatim: row.DescriptionVerbatim,
 		}
 		if row.PieceSlug.Valid {
-			piece := c.pieceSummary(kinds, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
+			piece := c.pieceSummary(details, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
 				row.PieceConservationStatus.PiecesConservationStatus, row.PieceIsStub.Bool)
 			performance.Piece = &piece
 		}

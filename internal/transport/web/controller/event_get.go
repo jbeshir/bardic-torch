@@ -56,18 +56,20 @@ func (c EventGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func eventFromDomain(e domain.Event) Event {
 	return Event{
-		EventSummary:  eventSummaryFromDomain(e.EventSummary),
-		DescriptionMD: e.DescriptionMD,
-		UpdatedAt:     e.UpdatedAt,
-		Performances: mapSlice(e.Performances, func(p domain.EventPerformance) EventPerformance {
-			return EventPerformance{
-				Piece:               optional(p.Piece, pieceSummaryFromDomain),
-				Link:                performanceLinkFromDomain(p.Link),
-				Year:                p.Year,
-				Performers:          mapSlice(p.Performers, personSummaryFromDomain),
-				DescriptionVerbatim: p.DescriptionVerbatim,
-			}
-		}),
+		EventSummary:      eventSummaryFromDomain(e.EventSummary),
+		DescriptionMD:     e.DescriptionMD,
+		UpdatedAt:         e.UpdatedAt,
+		Performances:      mapSlice(e.Performances, eventPerformanceFromDomain),
 		PerformancesTotal: e.PerformancesTotal,
+	}
+}
+
+func eventPerformanceFromDomain(p domain.EventPerformance) EventPerformance {
+	return EventPerformance{
+		Piece:               optional(p.Piece, pieceSummaryFromDomain),
+		Link:                performanceLinkFromDomain(p.Link),
+		Year:                p.Year,
+		Performers:          mapSlice(p.Performers, personSummaryFromDomain),
+		DescriptionVerbatim: p.DescriptionVerbatim,
 	}
 }

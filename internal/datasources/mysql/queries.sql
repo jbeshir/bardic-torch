@@ -284,7 +284,7 @@ WHERE NOT l.is_hidden
             WHERE a.link_id = perf.link_id AND a.person_id = sqlc.arg(attached_person_id))
     )
 ORDER BY perf.year IS NULL, perf.year DESC, perf.id
-LIMIT ?;
+LIMIT ? OFFSET ?;
 
 -- name: CountPublicPersonPerformances :one
 SELECT COUNT(*)
@@ -419,7 +419,7 @@ LEFT JOIN pieces p ON p.id = a.piece_id
 LEFT JOIN persons pe ON pe.id = a.person_id
 WHERE l.collection_id = ? AND NOT l.is_hidden
 ORDER BY sort_key, l.id, a.piece_id, a.person_id
-LIMIT ?;
+LIMIT ? OFFSET ?;
 
 -- name: CountPublicCollectionCitations :one
 SELECT COUNT(*)
@@ -469,7 +469,7 @@ WHERE perf.event_id = sqlc.arg(event_id) AND NOT l.is_hidden
     AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
     AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = perf.link_id)
 ORDER BY perf.year IS NULL, perf.year DESC, perf.id
-LIMIT ?;
+LIMIT ? OFFSET ?;
 
 -- name: CountPublicEventPerformances :one
 SELECT COUNT(*)
@@ -491,6 +491,9 @@ SELECT id FROM pieces WHERE slug = ? AND current_revision_id IS NOT NULL;
 
 -- name: GetPublicPersonID :one
 SELECT id FROM persons WHERE slug = ? AND current_revision_id IS NOT NULL;
+
+-- name: GetPublicPersonStatus :one
+SELECT id, status FROM persons WHERE slug = ? AND current_revision_id IS NOT NULL;
 
 -- name: GetPublicTermID :one
 SELECT t.id

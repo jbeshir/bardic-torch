@@ -13,60 +13,63 @@ import (
 // HTTPDependencies are what the HTTP handler is built from: the datasources, the validators that authenticate
 // requests, the contact form's Turnstile verifier, and the clock.
 type HTTPDependencies struct {
-	Pinger                        datasources.Pinger
-	AuthValidators                []router.AuthValidator
-	UserGetter                    datasources.UserGetter
-	UserEnsurer                   datasources.UserEnsurer
-	DisplayNameUpdater            datasources.DisplayNameUpdater
-	UserBlocker                   datasources.UserBlocker
-	UserUnblocker                 datasources.UserUnblocker
-	APITokenCreator               datasources.APITokenCreator
-	ActiveAPITokenCounter         datasources.ActiveAPITokenCounter
-	ActiveAPITokenLister          datasources.ActiveAPITokenLister
-	APITokenRevoker               datasources.APITokenRevoker
-	PublicPieceLister             datasources.PublicPieceLister
-	PublicPieceGetter             datasources.PublicPieceGetter
-	PublicPersonLister            datasources.PublicPersonLister
-	PublicPersonGetter            datasources.PublicPersonGetter
-	PublicTermLister              datasources.PublicTermLister
-	PublicTermGetter              datasources.PublicTermGetter
-	PublicCollectionLister        datasources.PublicCollectionLister
-	PublicCollectionGetter        datasources.PublicCollectionGetter
-	PublicEventLister             datasources.PublicEventLister
-	PublicEventGetter             datasources.PublicEventGetter
-	PublicHistoryLister           datasources.PublicHistoryLister
-	PublicCollectionHistoryLister datasources.PublicCollectionHistoryLister
-	PublicRevisionGetter          datasources.PublicRevisionGetter
-	PublicNeedsWorkLister         datasources.PublicNeedsWorkLister
-	EditorRefResolver             datasources.EditorRefResolver
-	EditableDocumentGetter        datasources.EditableDocumentGetter
-	DraftSaver                    datasources.DraftSaver
-	DraftUpdater                  datasources.DraftUpdater
-	DraftGetter                   datasources.DraftGetter
-	DraftDiscarder                datasources.DraftDiscarder
-	DuplicateFinder               datasources.DuplicateFinder
-	RevisionSubmitter             datasources.RevisionSubmitter
-	RevisionWithdrawer            datasources.RevisionWithdrawer
-	RevisionReverter              datasources.RevisionReverter
-	MyRevisionLister              datasources.MyRevisionLister
-	MyRevisionGetter              datasources.MyRevisionGetter
-	PendingVersionGetter          datasources.PendingVersionGetter
-	ModerationQueueLister         datasources.ModerationQueueLister
-	ModerationRevisionGetter      datasources.ModerationRevisionGetter
-	ModerationLinkGetter          datasources.ModerationLinkGetter
-	RevisionApprover              datasources.RevisionApprover
-	RevisionRejecter              datasources.RevisionRejecter
-	RevisionRebaser               datasources.RevisionRebaser
-	LinkReporter                  datasources.LinkReporter
-	LinkReportLister              datasources.LinkReportLister
-	LinkReportResolver            datasources.LinkReportResolver
-	LinkHiddenSetter              datasources.LinkHiddenSetter
-	ContactRequestCreator         datasources.ContactRequestCreator
-	ContactRequestLister          datasources.ContactRequestLister
-	ContactRequestResolver        datasources.ContactRequestResolver
-	ContactRequestPurger          datasources.ContactRequestPurger
-	TurnstileVerifier             datasources.TurnstileVerifier
-	Now                           func() time.Time
+	Pinger                         datasources.Pinger
+	AuthValidators                 []router.AuthValidator
+	UserGetter                     datasources.UserGetter
+	UserEnsurer                    datasources.UserEnsurer
+	DisplayNameUpdater             datasources.DisplayNameUpdater
+	UserBlocker                    datasources.UserBlocker
+	UserUnblocker                  datasources.UserUnblocker
+	APITokenCreator                datasources.APITokenCreator
+	ActiveAPITokenCounter          datasources.ActiveAPITokenCounter
+	ActiveAPITokenLister           datasources.ActiveAPITokenLister
+	APITokenRevoker                datasources.APITokenRevoker
+	PublicPieceLister              datasources.PublicPieceLister
+	PublicPieceGetter              datasources.PublicPieceGetter
+	PublicPersonLister             datasources.PublicPersonLister
+	PublicPersonGetter             datasources.PublicPersonGetter
+	PublicTermLister               datasources.PublicTermLister
+	PublicTermGetter               datasources.PublicTermGetter
+	PublicCollectionLister         datasources.PublicCollectionLister
+	PublicCollectionGetter         datasources.PublicCollectionGetter
+	PublicEventLister              datasources.PublicEventLister
+	PublicEventGetter              datasources.PublicEventGetter
+	PublicHistoryLister            datasources.PublicHistoryLister
+	PublicCollectionHistoryLister  datasources.PublicCollectionHistoryLister
+	PublicRevisionGetter           datasources.PublicRevisionGetter
+	PublicNeedsWorkLister          datasources.PublicNeedsWorkLister
+	PublicPersonPerformanceLister  datasources.PublicPersonPerformanceLister
+	PublicCollectionCitationLister datasources.PublicCollectionCitationLister
+	PublicEventPerformanceLister   datasources.PublicEventPerformanceLister
+	EditorRefResolver              datasources.EditorRefResolver
+	EditableDocumentGetter         datasources.EditableDocumentGetter
+	DraftSaver                     datasources.DraftSaver
+	DraftUpdater                   datasources.DraftUpdater
+	DraftGetter                    datasources.DraftGetter
+	DraftDiscarder                 datasources.DraftDiscarder
+	DuplicateFinder                datasources.DuplicateFinder
+	RevisionSubmitter              datasources.RevisionSubmitter
+	RevisionWithdrawer             datasources.RevisionWithdrawer
+	RevisionReverter               datasources.RevisionReverter
+	MyRevisionLister               datasources.MyRevisionLister
+	MyRevisionGetter               datasources.MyRevisionGetter
+	PendingVersionGetter           datasources.PendingVersionGetter
+	ModerationQueueLister          datasources.ModerationQueueLister
+	ModerationRevisionGetter       datasources.ModerationRevisionGetter
+	ModerationLinkGetter           datasources.ModerationLinkGetter
+	RevisionApprover               datasources.RevisionApprover
+	RevisionRejecter               datasources.RevisionRejecter
+	RevisionRebaser                datasources.RevisionRebaser
+	LinkReporter                   datasources.LinkReporter
+	LinkReportLister               datasources.LinkReportLister
+	LinkReportResolver             datasources.LinkReportResolver
+	LinkHiddenSetter               datasources.LinkHiddenSetter
+	ContactRequestCreator          datasources.ContactRequestCreator
+	ContactRequestLister           datasources.ContactRequestLister
+	ContactRequestResolver         datasources.ContactRequestResolver
+	ContactRequestPurger           datasources.ContactRequestPurger
+	TurnstileVerifier              datasources.TurnstileVerifier
+	Now                            func() time.Time
 }
 
 // NewHTTPHandler builds the production HTTP handler from deps. Setup and tests both use it, so tests exercise
@@ -95,24 +98,27 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 			Creator: deps.APITokenCreator,
 			Now:     deps.Now,
 		},
-		APITokenLister:                deps.ActiveAPITokenLister,
-		APITokenRevoker:               deps.APITokenRevoker,
-		PublicPieceLister:             deps.PublicPieceLister,
-		PublicPieceGetter:             deps.PublicPieceGetter,
-		PublicPersonLister:            deps.PublicPersonLister,
-		PublicPersonGetter:            deps.PublicPersonGetter,
-		PublicTermLister:              deps.PublicTermLister,
-		PublicTermGetter:              deps.PublicTermGetter,
-		PublicCollectionLister:        deps.PublicCollectionLister,
-		PublicCollectionGetter:        deps.PublicCollectionGetter,
-		PublicEventLister:             deps.PublicEventLister,
-		PublicEventGetter:             deps.PublicEventGetter,
-		PublicHistoryLister:           deps.PublicHistoryLister,
-		PublicCollectionHistoryLister: deps.PublicCollectionHistoryLister,
-		PublicRevisionGetter:          deps.PublicRevisionGetter,
-		PublicNeedsWorkLister:         deps.PublicNeedsWorkLister,
-		GetEditable:                   &command.GetEditable{Getter: deps.EditableDocumentGetter},
-		GetPendingVersion:             &command.GetPendingVersion{Getter: deps.PendingVersionGetter},
+		APITokenLister:                 deps.ActiveAPITokenLister,
+		APITokenRevoker:                deps.APITokenRevoker,
+		PublicPieceLister:              deps.PublicPieceLister,
+		PublicPieceGetter:              deps.PublicPieceGetter,
+		PublicPersonLister:             deps.PublicPersonLister,
+		PublicPersonGetter:             deps.PublicPersonGetter,
+		PublicTermLister:               deps.PublicTermLister,
+		PublicTermGetter:               deps.PublicTermGetter,
+		PublicCollectionLister:         deps.PublicCollectionLister,
+		PublicCollectionGetter:         deps.PublicCollectionGetter,
+		PublicEventLister:              deps.PublicEventLister,
+		PublicEventGetter:              deps.PublicEventGetter,
+		PublicHistoryLister:            deps.PublicHistoryLister,
+		PublicCollectionHistoryLister:  deps.PublicCollectionHistoryLister,
+		PublicRevisionGetter:           deps.PublicRevisionGetter,
+		PublicNeedsWorkLister:          deps.PublicNeedsWorkLister,
+		PublicPersonPerformanceLister:  deps.PublicPersonPerformanceLister,
+		PublicCollectionCitationLister: deps.PublicCollectionCitationLister,
+		PublicEventPerformanceLister:   deps.PublicEventPerformanceLister,
+		GetEditable:                    &command.GetEditable{Getter: deps.EditableDocumentGetter},
+		GetPendingVersion:              &command.GetPendingVersion{Getter: deps.PendingVersionGetter},
 		SaveDraft: &command.SaveDraft{
 			Resolver: deps.EditorRefResolver, Saver: deps.DraftSaver, Duplicates: deps.DuplicateFinder, Now: deps.Now,
 		},

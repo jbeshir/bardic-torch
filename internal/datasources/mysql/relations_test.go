@@ -83,7 +83,7 @@ func TestPieceRelations_SymmetricPairListedOnce(t *testing.T) {
 				from = append(from, queries.ListPublicPieceRelationsFromRow(row(r)))
 			}
 
-			got := c.pieceRelations(nil, to, from)
+			got := c.pieceRelations(pieceDetails{}, to, from)
 
 			require.NoError(t, c.err)
 			assert.Equal(t, tt.want, got)

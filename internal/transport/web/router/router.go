@@ -15,52 +15,55 @@ import (
 type Dependencies struct {
 	Pinger datasources.Pinger
 	// AuthValidators authenticate requests to authenticated routes; with none, every request is anonymous.
-	AuthValidators                []AuthValidator
-	ResolveUser                   command.Command[string, domain.User]
-	UpdateDisplayName             command.Command[command.UpdateDisplayNameRequest, domain.User]
-	SetUserBlocked                command.Command[command.SetUserBlockedRequest, domain.User]
-	CreateAPIToken                command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
-	APITokenLister                datasources.ActiveAPITokenLister
-	APITokenRevoker               datasources.APITokenRevoker
-	PublicPieceLister             datasources.PublicPieceLister
-	PublicPieceGetter             datasources.PublicPieceGetter
-	PublicPersonLister            datasources.PublicPersonLister
-	PublicPersonGetter            datasources.PublicPersonGetter
-	PublicTermLister              datasources.PublicTermLister
-	PublicTermGetter              datasources.PublicTermGetter
-	PublicCollectionLister        datasources.PublicCollectionLister
-	PublicCollectionGetter        datasources.PublicCollectionGetter
-	PublicEventLister             datasources.PublicEventLister
-	PublicEventGetter             datasources.PublicEventGetter
-	PublicHistoryLister           datasources.PublicHistoryLister
-	PublicCollectionHistoryLister datasources.PublicCollectionHistoryLister
-	PublicRevisionGetter          datasources.PublicRevisionGetter
-	PublicNeedsWorkLister         datasources.PublicNeedsWorkLister
-	GetEditable                   command.Command[command.EntityRequest, domain.Editable]
-	GetPendingVersion             command.Command[command.EntityRequest, domain.MyRevision]
-	SaveDraft                     command.Command[command.SaveDraftRequest, command.SavedDraft]
-	UpdateDraft                   command.Command[command.UpdateDraftRequest, command.DraftResult]
-	GetDraft                      command.Command[command.RevisionRequest, command.DraftResult]
-	DiscardDraft                  command.Command[command.RevisionRequest, command.Empty]
-	SubmitRevision                command.Command[command.SubmitRevisionRequest, command.SubmittedRevision]
-	WithdrawRevision              command.Command[command.RevisionRequest, domain.MyRevision]
-	RevertTo                      command.Command[command.RevertRequest, command.SubmittedRevision]
-	ListMyRevisions               command.Command[command.ListMyRevisionsRequest, domain.MyRevisionList]
-	GetMyRevision                 command.Command[command.RevisionRequest, domain.MyRevision]
-	ReportLink                    command.Command[command.ReportLinkRequest, command.ReportedLink]
-	ListModerationQueue           command.Command[command.ModerationQueueRequest, domain.ModerationQueue]
-	GetModerationRevision         command.Command[command.RevisionRequest, domain.ModerationRevision]
-	ApproveRevision               command.Command[command.ApproveRevisionRequest, domain.ModerationRevision]
-	RejectRevision                command.Command[command.RejectRevisionRequest, domain.ModerationRevision]
-	RebaseRevision                command.Command[command.RebaseRevisionRequest, domain.ModerationRevision]
-	ListLinkReports               command.Command[command.LinkReportListRequest, domain.LinkReportList]
-	ResolveLinkReport             command.Command[command.ResolveLinkReportRequest, domain.LinkReport]
-	GetModerationLink             command.Command[command.ModerationLinkRequest, domain.ModerationLink]
-	SetLinkHidden                 command.Command[command.SetLinkHiddenRequest, domain.ModerationLink]
-	SubmitContactRequest          command.Command[command.ContactSubmission, int64]
-	ListContactRequests           command.Command[command.ContactRequestListRequest, domain.ContactRequestList]
-	ResolveContactRequest         command.Command[command.ResolveContactRequestRequest, domain.ContactRequest]
-	Now                           func() time.Time
+	AuthValidators                 []AuthValidator
+	ResolveUser                    command.Command[string, domain.User]
+	UpdateDisplayName              command.Command[command.UpdateDisplayNameRequest, domain.User]
+	SetUserBlocked                 command.Command[command.SetUserBlockedRequest, domain.User]
+	CreateAPIToken                 command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
+	APITokenLister                 datasources.ActiveAPITokenLister
+	APITokenRevoker                datasources.APITokenRevoker
+	PublicPieceLister              datasources.PublicPieceLister
+	PublicPieceGetter              datasources.PublicPieceGetter
+	PublicPersonLister             datasources.PublicPersonLister
+	PublicPersonGetter             datasources.PublicPersonGetter
+	PublicTermLister               datasources.PublicTermLister
+	PublicTermGetter               datasources.PublicTermGetter
+	PublicCollectionLister         datasources.PublicCollectionLister
+	PublicCollectionGetter         datasources.PublicCollectionGetter
+	PublicEventLister              datasources.PublicEventLister
+	PublicEventGetter              datasources.PublicEventGetter
+	PublicHistoryLister            datasources.PublicHistoryLister
+	PublicCollectionHistoryLister  datasources.PublicCollectionHistoryLister
+	PublicRevisionGetter           datasources.PublicRevisionGetter
+	PublicNeedsWorkLister          datasources.PublicNeedsWorkLister
+	PublicPersonPerformanceLister  datasources.PublicPersonPerformanceLister
+	PublicCollectionCitationLister datasources.PublicCollectionCitationLister
+	PublicEventPerformanceLister   datasources.PublicEventPerformanceLister
+	GetEditable                    command.Command[command.EntityRequest, domain.Editable]
+	GetPendingVersion              command.Command[command.EntityRequest, domain.MyRevision]
+	SaveDraft                      command.Command[command.SaveDraftRequest, command.SavedDraft]
+	UpdateDraft                    command.Command[command.UpdateDraftRequest, command.DraftResult]
+	GetDraft                       command.Command[command.RevisionRequest, command.DraftResult]
+	DiscardDraft                   command.Command[command.RevisionRequest, command.Empty]
+	SubmitRevision                 command.Command[command.SubmitRevisionRequest, command.SubmittedRevision]
+	WithdrawRevision               command.Command[command.RevisionRequest, domain.MyRevision]
+	RevertTo                       command.Command[command.RevertRequest, command.SubmittedRevision]
+	ListMyRevisions                command.Command[command.ListMyRevisionsRequest, domain.MyRevisionList]
+	GetMyRevision                  command.Command[command.RevisionRequest, domain.MyRevision]
+	ReportLink                     command.Command[command.ReportLinkRequest, command.ReportedLink]
+	ListModerationQueue            command.Command[command.ModerationQueueRequest, domain.ModerationQueue]
+	GetModerationRevision          command.Command[command.RevisionRequest, domain.ModerationRevision]
+	ApproveRevision                command.Command[command.ApproveRevisionRequest, domain.ModerationRevision]
+	RejectRevision                 command.Command[command.RejectRevisionRequest, domain.ModerationRevision]
+	RebaseRevision                 command.Command[command.RebaseRevisionRequest, domain.ModerationRevision]
+	ListLinkReports                command.Command[command.LinkReportListRequest, domain.LinkReportList]
+	ResolveLinkReport              command.Command[command.ResolveLinkReportRequest, domain.LinkReport]
+	GetModerationLink              command.Command[command.ModerationLinkRequest, domain.ModerationLink]
+	SetLinkHidden                  command.Command[command.SetLinkHiddenRequest, domain.ModerationLink]
+	SubmitContactRequest           command.Command[command.ContactSubmission, int64]
+	ListContactRequests            command.Command[command.ContactRequestListRequest, domain.ContactRequestList]
+	ResolveContactRequest          command.Command[command.ResolveContactRequestRequest, domain.ContactRequest]
+	Now                            func() time.Time
 }
 
 // route is one operation the router serves.
@@ -117,6 +120,13 @@ func routes(deps Dependencies) []route {
 		}},
 		{method: http.MethodGet, path: "/v1/collections/{collection_id}/history",
 			handler: controller.CollectionHistoryGet{Lister: deps.PublicCollectionHistoryLister}},
+		// The paged lists of what the pages above cap.
+		{method: http.MethodGet, path: "/v1/persons/{slug}/performances",
+			handler: controller.PersonPerformancesGet{Lister: deps.PublicPersonPerformanceLister}},
+		{method: http.MethodGet, path: "/v1/collections/{collection_id}/citations",
+			handler: controller.CollectionCitationsGet{Lister: deps.PublicCollectionCitationLister}},
+		{method: http.MethodGet, path: "/v1/events/{slug}/performances",
+			handler: controller.EventPerformancesGet{Lister: deps.PublicEventPerformanceLister}},
 		{method: http.MethodGet, path: "/v1/revisions/{revision_id}",
 			handler: controller.RevisionGet{Getter: deps.PublicRevisionGetter}},
 		{method: http.MethodGet, path: "/v1/needs-work",

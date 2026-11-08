@@ -14,10 +14,12 @@ import (
 var _ datasources.PublicPieceLister = (*Repository)(nil)
 
 // ListPublicPieces searches the public pieces, returning one page of them with the total and the facet counts.
-// A term slug that no public piece term has gives a datasources.UnknownTermError.
+// A term slug that no public piece term has gives a datasources.UnknownTermError, and a person slug that no public
+// person with a page has a datasources.UnknownPersonError.
 //
-// It runs at most three statements in one read-only transaction: the term slugs' resolution (only if the
-// search has terms), the page of pieces, and every count in one statement. See pieceSearch.
+// It runs at most four statements in one read-only transaction: the resolution of the term and person slugs
+// (only if the search has either), the page of pieces, every count in one statement, and the page's credit lines
+// (only if the page has pieces). See pieceSearch.
 func (r *Repository) ListPublicPieces(ctx context.Context, query datasources.PieceQuery) (domain.PieceList, error) {
 	var list domain.PieceList
 	err := r.readOnly(ctx, func(c *catalogueReader) error {
@@ -37,26 +39,31 @@ func (c *catalogueReader) pieceList(ctx context.Context, query datasources.Piece
 		return domain.PieceList{}
 	}
 
-	search := pieceSearch{query: query, groups: c.termGroups(ctx, query.TermSlugs, pieceTermFacets)}
+	groups, personID := c.pieceFilters(ctx, query)
 	if c.err != nil {
 		return domain.PieceList{}
 	}
-	list := domain.PieceList{Pieces: c.pieceSearchItems(ctx, search.itemsStatement())}
+	search := pieceSearch{query: query, groups: groups, personID: personID}
+	items := c.pieceSearchItems(ctx, search.itemsStatement())
+	var list domain.PieceList
 	list.Total, list.Facets = c.pieceSearchCounts(ctx, search.countsStatement())
+	list.Pieces = c.pieceSearchSummaries(ctx, items)
 
 	return list
 }
 
-// pieceSearch builds the statements of a piece search whose terms are resolved to groups.
+// pieceSearch builds the statements of a piece search whose terms are resolved to groups, and its person, if it
+// has one, to personID.
 //
 // Both statements start with the same WITH clause. If the search has a query, matched(piece_id, score) holds
 // every piece whose title and notes, or an alias, match it, with the best score of those matches. candidates
-// holds every public piece (matched, if there is a query, and with the stub filter applied), with a boolean
-// column per other filter set: facet_<facet> for each facet's terms, kind_match, status_match and
+// holds every public piece (matched, if there is a query, and with the stub and person filters applied), with a
+// boolean column per other filter set: facet_<facet> for each facet's terms, kind_match, status_match and
 // letter_match. Each count then needs only a different set of those columns.
 type pieceSearch struct {
-	query  datasources.PieceQuery
-	groups []termGroup
+	query    datasources.PieceQuery
+	groups   []termGroup
+	personID *uint64
 }
 
 // Fragments of the piece search statements.
@@ -70,6 +77,9 @@ const (
 	pieceTagged sqlFragment = ", EXISTS (SELECT 1 FROM piece_terms pt " +
 		"JOIN term_ancestors ta ON ta.descendant_id = pt.term_id" + publicDescendantJoin +
 		" WHERE pt.piece_id = p.id AND ta.ancestor_id IN ("
+	// piecePersonCredited is the condition, closed by a ")" after its argument, that p has a credit to a person.
+	piecePersonCredited sqlFragment = " AND EXISTS (SELECT 1 FROM piece_credits pc WHERE pc.piece_id = p.id AND " +
+		"pc.person_id = "
 	pieceKindMatch   sqlFragment = "kind_match"
 	pieceStatusMatch sqlFragment = "status_match"
 	pieceItemsSelect sqlFragment = " SELECT " + executionTimeHint +
@@ -191,6 +201,11 @@ func (ps pieceSearch) writeWith(s *statement) {
 		s.write(" AND p.is_stub = ")
 		s.arg(*q.Stub)
 	}
+	if ps.personID != nil {
+		s.write(piecePersonCredited)
+		s.arg(*ps.personID)
+		s.write(")")
+	}
 	s.write(")")
 }
 
@@ -255,6 +270,8 @@ func (ps pieceSearch) countsStatement() *statement {
 	return s
 }
 
+// pieceSearchItems runs the items statement, returning the page's summaries without their credit lines, which
+// pieceSearchSummaries adds.
 func (c *catalogueReader) pieceSearchItems(ctx context.Context, s *statement) []domain.PieceSummary {
 	pieces := []domain.PieceSummary{}
 	c.query(ctx, "pieces", s, func(scan func(dest ...any) error) error {
@@ -273,12 +290,29 @@ func (c *catalogueReader) pieceSearchItems(ctx context.Context, s *statement) []
 				kinds = append(kinds, enumOf[domain.PieceKind](c, queries.PiecesKind(k)))
 			}
 		}
-		pieces = append(pieces, c.pieceSummary(map[string][]domain.PieceKind{slug: kinds}, slug, title, kind, status,
-			isStub))
+		pieces = append(pieces, c.pieceSummary(pieceDetails{kinds: map[string][]domain.PieceKind{slug: kinds}},
+			slug, title, kind, status, isStub))
 		return nil
 	})
 
 	return pieces
+}
+
+// pieceSearchSummaries returns items with their credit lines.
+func (c *catalogueReader) pieceSearchSummaries(ctx context.Context, items []domain.PieceSummary) []domain.PieceSummary {
+	slugs := make([]string, 0, len(items))
+	for _, item := range items {
+		slugs = append(slugs, item.Slug)
+	}
+	names := c.creditNames(ctx, slugs)
+
+	summaries := make([]domain.PieceSummary, 0, len(items))
+	for _, item := range items {
+		item.CreditNames = names[item.Slug]
+		summaries = append(summaries, item)
+	}
+
+	return summaries
 }
 
 func (c *catalogueReader) pieceSearchCounts(ctx context.Context, s *statement) (int64, domain.PieceFacets) {

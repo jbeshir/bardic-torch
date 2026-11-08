@@ -84,19 +84,21 @@ func collectionFromDomain(c domain.Collection) Collection {
 		Region:            optional(c.Region, termSummaryFromDomain),
 		Parent:            optional(c.Parent, collectionSummaryFromDomain),
 		Children:          mapSlice(c.Children, collectionSummaryFromDomain),
-		Citations: mapSlice(c.Citations, func(citation domain.Citation) Citation {
-			return Citation{
-				Piece:         optional(citation.Piece, pieceSummaryFromDomain),
-				Person:        optional(citation.Person, personSummaryFromDomain),
-				URL:           citation.URL,
-				Title:         citation.Title,
-				Locator:       citation.Locator,
-				Liveness:      citation.Liveness,
-				LastCheckedAt: citation.LastCheckedAt,
-				ArchivedURL:   citation.ArchivedURL,
-				Roles:         nonNil(citation.Roles),
-			}
-		}),
-		CitationsTotal: c.CitationsTotal,
+		Citations:         mapSlice(c.Citations, citationFromDomain),
+		CitationsTotal:    c.CitationsTotal,
+	}
+}
+
+func citationFromDomain(c domain.Citation) Citation {
+	return Citation{
+		Piece:         optional(c.Piece, pieceSummaryFromDomain),
+		Person:        optional(c.Person, personSummaryFromDomain),
+		URL:           c.URL,
+		Title:         c.Title,
+		Locator:       c.Locator,
+		Liveness:      c.Liveness,
+		LastCheckedAt: c.LastCheckedAt,
+		ArchivedURL:   c.ArchivedURL,
+		Roles:         nonNil(c.Roles),
 	}
 }

@@ -82,7 +82,7 @@ func TestCollectionGet_ServeHTTP(t *testing.T) {
 					"url": null, "is_bardic_resource": false}],
 				"citations": [
 					{"piece": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
-						"secondary_kinds": [], "conservation_status": "low_risk", "is_stub": false},
+						"secondary_kinds": [], "conservation_status": "low_risk", "is_stub": false, "credit_names": []},
 						"person": null, "url": "https://example.org/songbook.pdf",
 						"title": "The Northmarch Songbook", "locator": "p. 12", "liveness": "ok",
 						"last_checked_at": "2026-10-01T09:00:00Z", "archived_url": "https://archive.example.org/songbook", "roles": ["lyrics", "sheet_music"]},

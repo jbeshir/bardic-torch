@@ -391,6 +391,33 @@ var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(),
 			}}, nil)
 		},
 	},
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/performances"}: {
+		access:        public,
+		pathParams:    map[string]string{slugParam: matrixSlug},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.personPerformances.EXPECT().ListPublicPersonPerformances(mock.Anything, matrixSlug, matrixPage).
+				Return(domain.PersonPerformanceList{}, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/citations"}: {
+		access:        public,
+		pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.collectionCitations.EXPECT().ListPublicCollectionCitations(mock.Anything, int64(matrixCollectionID),
+				matrixPage).Return(domain.CitationList{}, nil)
+		},
+	},
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/performances"}: {
+		access:        public,
+		pathParams:    map[string]string{slugParam: matrixSlug},
+		successStatus: http.StatusOK,
+		expectSuccess: func(m handlerMocks, _ string) {
+			m.eventPerformances.EXPECT().ListPublicEventPerformances(mock.Anything, matrixSlug, matrixPage).
+				Return(domain.EventPerformanceList{}, nil)
+		},
+	},
 	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: {
 		access:        public,
 		pathParams:    map[string]string{revisionIDParam: strconv.Itoa(matrixRevisionID)},

@@ -1333,6 +1333,22 @@ func (q *Queries) GetPublicPersonID(ctx context.Context, slug string) (uint64, e
 	return id, err
 }
 
+const getPublicPersonStatus = `-- name: GetPublicPersonStatus :one
+SELECT id, status FROM persons WHERE slug = ? AND current_revision_id IS NOT NULL
+`
+
+type GetPublicPersonStatusRow struct {
+	ID     uint64
+	Status PersonsStatus
+}
+
+func (q *Queries) GetPublicPersonStatus(ctx context.Context, slug string) (GetPublicPersonStatusRow, error) {
+	row := q.db.QueryRowContext(ctx, getPublicPersonStatus, slug)
+	var i GetPublicPersonStatusRow
+	err := row.Scan(&i.ID, &i.Status)
+	return i, err
+}
+
 const getPublicPiece = `-- name: GetPublicPiece :one
 
 
@@ -4527,12 +4543,13 @@ LEFT JOIN pieces p ON p.id = a.piece_id
 LEFT JOIN persons pe ON pe.id = a.person_id
 WHERE l.collection_id = ? AND NOT l.is_hidden
 ORDER BY sort_key, l.id, a.piece_id, a.person_id
-LIMIT ?
+LIMIT ? OFFSET ?
 `
 
 type ListPublicCollectionCitationsParams struct {
 	CollectionID sql.NullInt64
 	Limit        int32
+	Offset       int32
 }
 
 type ListPublicCollectionCitationsRow struct {
@@ -4560,7 +4577,7 @@ type ListPublicCollectionCitationsRow struct {
 // A collection's citations are its visible links, once per public piece or public person with a page that each
 // is attached to, whatever roles it is attached with.
 func (q *Queries) ListPublicCollectionCitations(ctx context.Context, arg ListPublicCollectionCitationsParams) ([]ListPublicCollectionCitationsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPublicCollectionCitations, arg.CollectionID, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, listPublicCollectionCitations, arg.CollectionID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -4667,12 +4684,13 @@ WHERE perf.event_id = ? AND NOT l.is_hidden
     AND (perf.piece_id IS NULL OR p.current_revision_id IS NOT NULL)
     AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = perf.link_id)
 ORDER BY perf.year IS NULL, perf.year DESC, perf.id
-LIMIT ?
+LIMIT ? OFFSET ?
 `
 
 type ListPublicEventPerformancesParams struct {
 	EventID sql.NullInt64
 	Limit   int32
+	Offset  int32
 }
 
 type ListPublicEventPerformancesRow struct {
@@ -4696,7 +4714,7 @@ type ListPublicEventPerformancesRow struct {
 // a performance only an unapproved or no-page entity's links record may name them. A performance of a piece
 // that is not public is left out entirely, as on a person's page.
 func (q *Queries) ListPublicEventPerformances(ctx context.Context, arg ListPublicEventPerformancesParams) ([]ListPublicEventPerformancesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPublicEventPerformances, arg.EventID, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, listPublicEventPerformances, arg.EventID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -5044,13 +5062,14 @@ WHERE NOT l.is_hidden
             WHERE a.link_id = perf.link_id AND a.person_id = ?)
     )
 ORDER BY perf.year IS NULL, perf.year DESC, perf.id
-LIMIT ?
+LIMIT ? OFFSET ?
 `
 
 type ListPublicPersonPerformancesParams struct {
 	PerformerID      uint64
 	AttachedPersonID sql.NullInt64
 	Limit            int32
+	Offset           int32
 }
 
 type ListPublicPersonPerformancesRow struct {
@@ -5076,7 +5095,12 @@ type ListPublicPersonPerformancesRow struct {
 // a public attachment, as a performance only an unapproved or no-page entity's links record may name them. A
 // performance of a piece that is not public is left out entirely, as its description may name the piece.
 func (q *Queries) ListPublicPersonPerformances(ctx context.Context, arg ListPublicPersonPerformancesParams) ([]ListPublicPersonPerformancesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPublicPersonPerformances, arg.PerformerID, arg.AttachedPersonID, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, listPublicPersonPerformances,
+		arg.PerformerID,
+		arg.AttachedPersonID,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}

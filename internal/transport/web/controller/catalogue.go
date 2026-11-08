@@ -21,6 +21,7 @@ type PieceSummary struct {
 	SecondaryKinds     []domain.PieceKind        `json:"secondary_kinds"`
 	ConservationStatus domain.ConservationStatus `json:"conservation_status"`
 	IsStub             bool                      `json:"is_stub"`
+	CreditNames        []string                  `json:"credit_names"`
 }
 
 // PersonSummary is the JSON representation of a person another entity refers to.
@@ -104,6 +105,7 @@ func pieceSummaryFromDomain(s domain.PieceSummary) PieceSummary {
 		SecondaryKinds:     nonNil(s.SecondaryKinds),
 		ConservationStatus: s.ConservationStatus,
 		IsStub:             s.IsStub,
+		CreditNames:        nonNil(s.CreditNames),
 	}
 }
 

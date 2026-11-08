@@ -21,6 +21,18 @@ func (e *UnknownTermError) Error() string {
 	return "unknown term [" + e.Slug + "]"
 }
 
+// UnknownPersonError is returned, possibly wrapped, when a search filters on a person slug that no public person
+// with a page has. Unknown and unapproved persons and persons who prefer no page give the same error, so that the
+// error does not reveal which of them a slug is.
+type UnknownPersonError struct {
+	// Slug is the slug as the search gave it.
+	Slug string
+}
+
+func (e *UnknownPersonError) Error() string {
+	return "unknown person [" + e.Slug + "]"
+}
+
 // ErrDocumentChanged is returned, wrapped, by a write given a duplicate check (DuplicateCheck) of other names than
 // its locked document's, or none for a new entity it would write: the document changed after the caller checked
 // it. The write did not happen; the caller checks the document again and retries.

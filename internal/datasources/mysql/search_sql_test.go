@@ -100,6 +100,39 @@ func pieceQueries() map[string]datasources.PieceQuery {
 		"prefix_search": {Search: &theSearch, Sort: domain.PieceSortTitle, Page: page},
 		"kinds":         {Kinds: []domain.PieceKind{domain.PieceKindStory}, Sort: domain.PieceSortTitle, Page: page},
 		dimensionLetter: {Letter: &letterB, Sort: domain.PieceSortTitle, Page: page},
+		personCase:      {PersonSlug: &wrenSlug, Sort: domain.PieceSortTitle, Page: page},
+		"person_and_terms": {PersonSlug: &wrenSlug, TermSlugs: []string{testWar, testSwords, testWarlike},
+			Sort: domain.PieceSortTitle, Page: page},
+	}
+}
+
+// wrenSlug is the slug of the person piece searches filter on, and wrenID their ID.
+var wrenSlug = "wren-of-the-vale"
+
+const (
+	wrenID     = uint64(7)
+	personCase = "person"
+	// testAshGrove and testWrenName are a piece of the search rows and a name of its credit line.
+	testAshGrove  = "ash-grove"
+	testWildHeron = "the-wild-heron"
+	testWrenName  = "Wren of the Vale"
+)
+
+// pieceFilterResults answers the resolution of the filters of pieceQueries' query: the terms as
+// pieceTermResults does, and with a person, the person first and the terms with their facet's ordinal.
+func pieceFilterResults(query datasources.PieceQuery) [][][]any {
+	switch {
+	case query.PersonSlug != nil:
+		rows := [][]any{{wrenID, wrenSlug, nil, int64(0)}}
+		if len(query.TermSlugs) > 0 {
+			rows = append(rows, []any{uint64(3), testWarlike, string(domain.FacetMood), int64(1)}, []any{uint64(1), testWar, topic, int64(2)},
+				[]any{uint64(2), testSwords, topic, int64(2)})
+		}
+		return [][][]any{rows}
+	case len(query.TermSlugs) > 0:
+		return [][][]any{pieceTermResults}
+	default:
+		return nil
 	}
 }
 
@@ -118,17 +151,15 @@ func TestPieceSearch_Statements(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			runner := &fakeRunner{}
-			if len(query.TermSlugs) > 0 {
-				runner.results = [][][]any{pieceTermResults}
-			}
+			runner := &fakeRunner{results: pieceFilterResults(query)}
 			c := runner.reader()
 			c.pieceList(t.Context(), query)
 			require.NoError(t, c.err)
 
-			// At most three round trips: term resolution if there are terms, the items, and every count.
+			// At most three round trips for a page without pieces: one resolving the terms and the person if
+			// there are any, the items, and every count. The credit lines are read only for pieces.
 			want := 2
-			if len(query.TermSlugs) > 0 {
+			if len(query.TermSlugs) > 0 || query.PersonSlug != nil {
 				want = 3
 			}
 			require.Len(t, runner.statements, want)
@@ -234,13 +265,122 @@ func TestPieceSearch_UnknownTerm(t *testing.T) {
 	assert.Len(t, runner.statements, 1)
 }
 
+func TestPieceSearch_PersonFilter(t *testing.T) {
+	t.Parallel()
+
+	query := pieceQueries()["person_and_terms"]
+	runner := &fakeRunner{results: pieceFilterResults(query)}
+	c := runner.reader()
+	c.pieceList(t.Context(), query)
+	require.NoError(t, c.err)
+	require.Len(t, runner.statements, 3, "the person and the terms are resolved in one round trip")
+	filters, items, counts := runner.statements[0], runner.statements[1], runner.statements[2]
+
+	// The person, then the terms, in one statement whose rows say which is which.
+	assert.Equal(t, "SELECT "+string(executionTimeHint)+" lp.id, lp.slug, NULL AS facet, 0 AS ordinal "+
+		"FROM listed_persons lp WHERE lp.slug = ? UNION ALL SELECT t.id, t.slug, t.facet, t.facet + 0 "+
+		"FROM public_terms t WHERE t.slug IN (?, ?, ?) AND t.facet <> ? ORDER BY ordinal, id", filters.String())
+	assert.Equal(t, []any{wrenSlug, testWar, testSwords, testWarlike, string(domain.FacetAffiliation)}, filters.args)
+
+	// The person filters the candidates, so the page and every count, by the resolved ID; the terms are
+	// grouped by facet as without a person.
+	personFilter := " AND EXISTS (SELECT 1 FROM piece_credits pc WHERE pc.piece_id = p.id AND pc.person_id = ?))"
+	for _, s := range []*statement{items, counts} {
+		assert.Contains(t, s.String(), " WHERE p.current_revision_id IS NOT NULL"+personFilter)
+		assert.Contains(t, s.args, wrenID)
+		assert.NotContains(t, s.args, wrenSlug)
+		assert.Contains(t, s.String(), "AS facet_mood, EXISTS")
+		assert.Contains(t, s.String(), "AS facet_topic")
+	}
+	assert.Equal(t, []any{uint64(3), uint64(1), uint64(2), wrenID, int32(10), int32(20)}, items.args)
+
+	// Without terms, the person alone.
+	query = pieceQueries()[personCase]
+	runner = &fakeRunner{results: pieceFilterResults(query)}
+	c = runner.reader()
+	c.pieceList(t.Context(), query)
+	require.NoError(t, c.err)
+	require.Len(t, runner.statements, 3)
+	assert.Equal(t, "SELECT "+string(executionTimeHint)+" lp.id, lp.slug, NULL AS facet, 0 AS ordinal "+
+		"FROM listed_persons lp WHERE lp.slug = ? ORDER BY ordinal, id", runner.statements[0].String())
+	assert.Equal(t, []any{wrenID, int32(10), int32(20)}, runner.statements[1].args)
+}
+
+func TestPieceSearch_UnknownPerson(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		query   datasources.PieceQuery
+		results [][][]any
+		// wantTerm is the unknown term reported, if a term is unknown; otherwise the person is.
+		wantTerm string
+	}{
+		// Unknown, unapproved and no-page persons alike: listed_persons has none of them.
+		"person": {query: datasources.PieceQuery{PersonSlug: &wrenSlug, Sort: domain.PieceSortTitle}},
+		"person_with_terms": {
+			query: datasources.PieceQuery{PersonSlug: &wrenSlug, TermSlugs: []string{testWar},
+				Sort: domain.PieceSortTitle},
+			results: [][][]any{{{uint64(1), testWar, topic, int64(2)}}},
+		},
+		// A term that is unknown is reported first, as without a person.
+		"term_and_person": {
+			query: datasources.PieceQuery{PersonSlug: &wrenSlug, TermSlugs: []string{testWar, testSwords},
+				Sort: domain.PieceSortTitle},
+			results:  [][][]any{{{uint64(1), testWar, topic, int64(2)}}},
+			wantTerm: testSwords,
+		},
+		"term_with_known_person": {
+			query: datasources.PieceQuery{PersonSlug: &wrenSlug, TermSlugs: []string{testSwords},
+				Sort: domain.PieceSortTitle},
+			results:  [][][]any{{{wrenID, wrenSlug, nil, int64(0)}}},
+			wantTerm: testSwords,
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			runner := &fakeRunner{results: tc.results}
+			c := runner.reader()
+			c.pieceList(t.Context(), tc.query)
+
+			if tc.wantTerm != "" {
+				var unknown *datasources.UnknownTermError
+				require.ErrorAs(t, c.err, &unknown)
+				assert.Equal(t, tc.wantTerm, unknown.Slug)
+			} else {
+				var unknown *datasources.UnknownPersonError
+				require.ErrorAs(t, c.err, &unknown)
+				assert.Equal(t, wrenSlug, unknown.Slug)
+			}
+			assert.Len(t, runner.statements, 1, "nothing runs after the resolution")
+		})
+	}
+}
+
+func TestCreditNamesStatement(t *testing.T) {
+	t.Parallel()
+
+	s := creditNamesStatement([]string{testWildHeron, testAshGrove})
+	requireWellFormed(t, s)
+	assert.Equal(t, "SELECT "+string(executionTimeHint)+" pi.slug, lp.id, lp.name FROM piece_credits pc "+
+		"JOIN pieces pi ON pi.id = pc.piece_id JOIN listed_persons lp ON lp.id = pc.person_id "+
+		"WHERE pi.slug IN (?, ?) ORDER BY pi.slug, pc.position, pc.id", s.String())
+	assert.Equal(t, []any{testWildHeron, testAshGrove}, s.args)
+
+	// No pieces, no statement.
+	runner := &fakeRunner{}
+	assert.Empty(t, runner.reader().creditNames(t.Context(), nil))
+	assert.Empty(t, runner.statements)
+}
+
 func TestPieceSearch_Rows(t *testing.T) {
 	t.Parallel()
 
 	runner := &fakeRunner{results: [][][]any{
 		{
-			{"the-wild-heron", "The Wild Heron", song, "endangered", false, "poem,story"},
-			{"ash-grove", "Ash Grove", "poem", "unassessed", true, nil},
+			{testWildHeron, "The Wild Heron", song, "endangered", false, "poem,story"},
+			{testAshGrove, "Ash Grove", "poem", "unassessed", true, nil},
 		},
 		{
 			{dimensionConservationStatus, "endangered", int64(1)},
@@ -251,18 +391,30 @@ func TestPieceSearch_Rows(t *testing.T) {
 			{"term", testWar, int64(2)},
 			{dimensionTotal, "", int64(2)},
 		},
+		// The credit lines, by slug, then credit order: a person credited twice is named once.
+		{
+			{testAshGrove, uint64(9), "Ash Tallow"},
+			{testWildHeron, wrenID, testWrenName},
+			{testWildHeron, uint64(8), "Rook Hallow"},
+			{testWildHeron, wrenID, testWrenName},
+		},
 	}}
 	c := runner.reader()
 	list := c.pieceList(t.Context(), datasources.PieceQuery{Sort: domain.PieceSortTitle})
 	require.NoError(t, c.err)
+	require.Len(t, runner.statements, 3)
+	assert.Equal(t, []any{testWildHeron, testAshGrove}, runner.statements[2].args)
+	requireWellFormed(t, runner.statements[2])
 
 	assert.Equal(t, domain.PieceList{
 		Pieces: []domain.PieceSummary{
-			{Slug: "the-wild-heron", Title: "The Wild Heron", Kind: domain.PieceKindSong,
+			{Slug: testWildHeron, Title: "The Wild Heron", Kind: domain.PieceKindSong,
 				SecondaryKinds:     []domain.PieceKind{domain.PieceKindPoem, domain.PieceKindStory},
-				ConservationStatus: domain.ConservationStatusEndangered},
-			{Slug: "ash-grove", Title: "Ash Grove", Kind: domain.PieceKindPoem,
-				ConservationStatus: domain.ConservationStatusUnassessed, IsStub: true},
+				ConservationStatus: domain.ConservationStatusEndangered,
+				CreditNames:        []string{testWrenName, "Rook Hallow"}},
+			{Slug: testAshGrove, Title: "Ash Grove", Kind: domain.PieceKindPoem,
+				ConservationStatus: domain.ConservationStatusUnassessed, IsStub: true,
+				CreditNames: []string{"Ash Tallow"}},
 		},
 		Total: 2,
 		Facets: domain.PieceFacets{

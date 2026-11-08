@@ -32,6 +32,7 @@ func testPiece() domain.Piece {
 			Kind:               domain.PieceKindSong,
 			SecondaryKinds:     []domain.PieceKind{domain.PieceKindDanceMusic},
 			ConservationStatus: domain.ConservationStatusEndangered,
+			CreditNames:        []string{testPersonName},
 		},
 		UpdatedAt:          testRevisionCreatedAt,
 		NotesMD:            new("A drinking song."),
@@ -113,7 +114,7 @@ func testPiece() domain.Piece {
 
 const testPieceBody = `{
 	"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song", "secondary_kinds": ["dance_music"],
-	"conservation_status": "endangered", "is_stub": false,
+	"conservation_status": "endangered", "is_stub": false, "credit_names": ["Wren of the Vale"],
 	"updated_at": "2026-10-01T09:00:00Z", "notes_md": "A drinking song.", "version_notes_md": "Two verses.", "licensing_status": "known",
 	"licensing_notes_md": "Free with credit.", "licence": "cc_by_sa", "licence_version": "4.0",
 	"historical_source_md": "A broadside.",
@@ -133,7 +134,7 @@ const testPieceBody = `{
 	],
 	"relations": [{"type": "variant_of", "direction": "incoming", "piece": {"slug": "the-brass-kettle",
 		"title": "The Brass Kettle", "kind": "poem", "secondary_kinds": [], "conservation_status": "low_risk",
-		"is_stub": true}}],
+		"is_stub": true, "credit_names": []}}],
 	"links": [
 		{"url": "https://video.example.org/watch/kettle", "title": "At the revel", "description": "A recording.",
 			"platform": "video.example.org", "place_type": "recording_platform",
@@ -162,7 +163,7 @@ const testPieceBody = `{
 // emptyPieceBody is a piece with only its required scalars set: every list is [] and every nullable field null.
 const emptyPieceBody = `{
 	"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "story", "secondary_kinds": [],
-	"conservation_status": "unassessed", "is_stub": true, "updated_at": "2026-10-01T09:00:00Z",
+	"conservation_status": "unassessed", "is_stub": true, "credit_names": [], "updated_at": "2026-10-01T09:00:00Z",
 	"notes_md": null, "version_notes_md": null, "licensing_status": "unknown", "licensing_notes_md": null,
 	"licence": null, "licence_version": null, "historical_source_md": null,
 	"period_start": null, "period_end": null, "aliases": [], "terms": [], "credits": [], "relations": [],

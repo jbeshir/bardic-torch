@@ -53,7 +53,8 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 			want: defaultPieceQuery,
 			list: domain.PieceList{
 				Pieces: []domain.PieceSummary{{Slug: "the-wild-heron", Title: "The Wild Heron", Kind: domain.PieceKindSong,
-					SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusEndangered}},
+					SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusEndangered,
+					CreditNames: []string{"Wren of the Vale", "Ash Tallow"}}},
 				Total: 61,
 				Facets: domain.PieceFacets{
 					Terms: []domain.TermCount{{Slug: testTermSlug, Count: 4}},
@@ -66,7 +67,8 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 			},
 			wantStatus: http.StatusOK,
 			wantBody: `{"data": [{"slug": "the-wild-heron", "title": "The Wild Heron", "kind": "song",
-					"secondary_kinds": ["poem"], "conservation_status": "endangered", "is_stub": false}],
+					"secondary_kinds": ["poem"], "conservation_status": "endangered", "is_stub": false,
+					"credit_names": ["Wren of the Vale", "Ash Tallow"]}],
 				"total": 61,
 				"facets": {
 					"terms": [{"slug": "war", "count": 4}],
@@ -86,13 +88,14 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 			// Repeated terms count once, in the order first given; a search defaults to relevance.
 			name: everyParameterCase,
 			query: "?term=war&term=warlike&term=war&kind=song&kind=poem&conservation_status=endangered" +
-				"&stub=false&q=the+wild&letter=W&limit=100&offset=10000",
+				"&stub=false&q=the+wild&letter=W&person=wren-of-the-vale&limit=100&offset=10000",
 			want: datasources.PieceQuery{
 				TermSlugs:            []string{testTermSlug, "warlike"},
 				Kinds:                []domain.PieceKind{domain.PieceKindSong, domain.PieceKindPoem},
 				ConservationStatuses: []domain.ConservationStatus{domain.ConservationStatusEndangered},
 				Stub:                 &stub, Search: &wild, Letter: &letterW,
-				Sort: domain.PieceSortRelevance, Page: widestPage,
+				PersonSlug: new("wren-of-the-vale"),
+				Sort:       domain.PieceSortRelevance, Page: widestPage,
 			},
 			wantStatus: http.StatusOK,
 			wantBody:   emptyPieceListBody,
@@ -128,6 +131,15 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 			wantBody:   `{"code": "invalid_request", "message": "unknown term: spears"}`,
 		},
 		{
+			// Unknown and unapproved persons and persons who prefer no page give the same body.
+			name:       "unknown_person",
+			query:      "?person=hollis-fenn",
+			want:       datasources.PieceQuery{PersonSlug: new("hollis-fenn"), Sort: domain.PieceSortTitle, Page: defaultPieceQuery.Page},
+			listErr:    fmt.Errorf("listing: %w", &datasources.UnknownPersonError{Slug: "hollis-fenn"}),
+			wantStatus: http.StatusBadRequest,
+			wantBody:   `{"code": "invalid_request", "message": "unknown person: hollis-fenn"}`,
+		},
+		{
 			name:       listFailureCase,
 			want:       defaultPieceQuery,
 			listErr:    errors.New("connection refused"),
@@ -160,6 +172,7 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 	twentyOne := "term=" + strings.Join(append(twenty, "one-more"), "&term=")
 	invalidTermBody := `{"code":"invalid_request","message":"invalid term: must be lowercase ASCII letters and ` +
 		`digits, in runs joined by single hyphens, at most 191 characters"}`
+	invalidPersonBody := strings.Replace(invalidTermBody, "invalid term", "invalid person", 1)
 	invalid := append([]invalidQueryCase{
 		{name: "too_many_terms", query: twentyOne,
 			wantBody: `{"code":"invalid_request","message":"query parameter term must be given at most 20 times"}`},
@@ -184,6 +197,11 @@ func TestPieceListGet_ServeHTTP(t *testing.T) {
 			wantBody: `{"code":"invalid_request","message":"invalid sort: relevance needs a search query q"}`},
 		{name: "unknown_sort", query: "sort=name&q=wild",
 			wantBody: `{"code":"invalid_request","message":"invalid sort: not one of its allowed values"}`},
+		{name: "person_not_slug", query: "person=Wren", wantBody: invalidPersonBody},
+		{name: "person_empty", query: "person=", wantBody: invalidPersonBody},
+		{name: "person_injection", query: "person=wren%27%3B+DROP+TABLE+persons", wantBody: invalidPersonBody},
+		{name: "person_repeated", query: "person=wren&person=wren",
+			wantBody: `{"code":"invalid_request","message":"query parameter person must be given at most once"}`},
 	}, append(invalidSearchCases, invalidPageCases...)...)
 	for _, tc := range invalid {
 		t.Run(tc.name, func(t *testing.T) {

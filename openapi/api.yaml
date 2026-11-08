@@ -1115,6 +1115,7 @@ paths:
         Every filter given must match. `term`s are grouped by their facet: a piece matches a facet if it is
         tagged with any of its terms or any of their descendants, and must match every facet given. `kind`,
         `conservation_status` and their values work the same way, as two more facets.
+        `stub` and `person` are not facets: they filter the pieces that every count counts.
 
         Facet counts are disjunctive: a value's count is how many pieces match every filter except the values
         selected in its own facet, and match the value (a term with its descendants, each piece counted once).
@@ -1174,11 +1175,25 @@ paths:
           schema:
             type: boolean
         - $ref: "#/components/parameters/Search"
+        - name: person
+          in: query
+          required: false
+          description: |
+            The slug of a public person with a page: only list pieces with a credit naming them. This lists all of a
+            person's works, which their page caps at 200. The same `unknown person` error answers a slug that no
+            person has, an unapproved person's, and a person's who prefers not to have a page.
+          schema:
+            type: string
+            pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+            maxLength: 191
+            examples:
+              - wren-of-the-vale
         - $ref: "#/components/parameters/Letter"
         - name: sort
           in: query
           required: false
           description: |
+            The order: by sort title, or by `relevance` to `q`|
             The order: by sort title, or by `relevance` to `q` (best first, then by sort title). Defaults to
             `relevance` with `q` and `title` without; `relevance` needs `q`. Ties are broken by an internal ID, so
             pages are stable.
@@ -1197,7 +1212,9 @@ paths:
           description: |
             A parameter is invalid: a `term` that is not a slug, more than 20 `term`s, or a slug that no public
             piece term has (the same `unknown term` error whether the term does not exist, is not approved, or is
-            an affiliation); a `kind` or `conservation_status` that is not one of its values or is repeated; a
+            an affiliation); a `person` that is not a slug, or that no public person with a page has (the same
+            `unknown person` error whether the person does not exist, is not approved, or prefers not to have a
+            page); a `kind` or `conservation_status` that is not one of its values or is repeated; a
             `stub` that is not `true` or `false`; a `q` that is blank, longer than 200 characters or not valid
             UTF-8; a `letter` that is not A to Z or 0; `sort=relevance` without `q`; `limit` or `offset` out of
             range; a scalar parameter given more than once; or a query string that is not validly
@@ -1212,6 +1229,11 @@ paths:
                   value:
                     code: invalid_request
                     message: "unknown term: swords"
+                unknownPerson:
+                  summary: No public person with a page has the slug
+                  value:
+                    code: invalid_request
+                    message: "unknown person: wren-of-the-vale"
                 invalidKind:
                   summary: A kind that is not a piece kind
                   value:
@@ -1359,8 +1381,9 @@ paths:
         Returns a public person. A person who prefers not to have a page is shown by identity only: name, kind,
         status and its source, with `is_stub` true and `profile` null. Otherwise the profile has their public
         aliases (hidden aliases never appear), roles, affiliations, relations to other public persons, links,
-        works and performances. Works and performances are capped at 200 each, with totals. An unapproved person
-        is not found, exactly like an unknown one. Credentials are ignored.
+        works and performances. Works and performances are capped at 200 each, with totals; every work is listed
+        by `GET /v1/pieces?person=`, and every performance by `GET /v1/persons/{slug}/performances`. An
+        unapproved person is not found, exactly like an unknown one. Credentials are ignored.
       operationId: getPerson
       security: []
       parameters:
@@ -1409,6 +1432,7 @@ paths:
                             secondary_kinds: []
                             conservation_status: low_risk
                             is_stub: false
+                            credit_names: [Wren of the Vale]
                           role: lyrics
                           certainty: certain
                           part: null
@@ -1610,8 +1634,9 @@ paths:
         Returns a public collection with its public region, parent and children, and its citations: each
         visible link in the collection, once for each public piece, or public person with a page, it is attached
         to, with the roles it is attached with. Citations are ordered by the piece's sort title or the person's
-        sort name and capped at 200, with a total. Hidden links never appear. An unapproved collection is not
-        found, exactly like an unknown one. Credentials are ignored.
+        sort name and capped at 200, with a total; `GET /v1/collections/{collection_id}/citations` pages through
+        them all. Hidden links never appear. An unapproved collection is not found, exactly like an unknown one.
+        Credentials are ignored.
       operationId: getCollection
       security: []
       parameters:
@@ -1696,10 +1721,10 @@ paths:
       summary: Get an event
       description: |
         Returns a public event or venue with the performances recorded at it, newest year first (unknown years
-        last), capped at 200, with a total. Performances on hidden links, of unapproved pieces, or recorded only
-        by links of entities that are unapproved or prefer not to have a page are left out, as are performers who
-        are unapproved or prefer not to have a page. An unapproved event is not found, exactly like an unknown
-        one. Credentials are ignored.
+        last), capped at 200, with a total; `GET /v1/events/{slug}/performances` pages through them all.
+        Performances on hidden links, of unapproved pieces, or recorded only by links of entities that are
+        unapproved or prefer not to have a page are left out, as are performers who are unapproved or prefer not to
+        have a page. An unapproved event is not found, exactly like an unknown one. Credentials are ignored.
       operationId: getEvent
       security: []
       parameters:
@@ -1915,6 +1940,124 @@ paths:
         "404":
           description: |
             No public event has this address, so there is no history to show; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: event not found
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
+
+  /v1/persons/{slug}/performances:
+    get:
+      tags:
+        - Catalogue
+      summary: List a person's performances
+      description: |
+        Lists one page of a public person's performances, in the order of their page's `performances` (newest
+        year first, unknown years last, then by an internal ID, so pages are stable), with how many there are in
+        all. The page caps its list at 200; the first 200 here are that list. A person who prefers not to have a
+        page has no performances listed (`total` 0), as their page shows none. An unapproved person is not found,
+        exactly like an unknown one. Credentials are ignored.
+      operationId: listPersonPerformances
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the person's performances.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonPerformanceList"
+        "400":
+          $ref: "#/components/responses/InvalidHistoryRequest"
+        "404":
+          description: No public person has this slug; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: person not found
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
+
+  /v1/collections/{collection_id}/citations:
+    get:
+      tags:
+        - Catalogue
+      summary: List a collection's citations
+      description: |
+        Lists one page of a public collection's citations, in the order of its page's `citations` (by the piece's
+        sort title or the person's sort name, then by internal IDs, so pages are stable), with how many there are
+        in all. The page caps its list at 200; the first 200 here are that list. An unapproved collection is not
+        found, exactly like an unknown one. Credentials are ignored.
+      operationId: listCollectionCitations
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CollectionID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the collection's citations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionCitationList"
+        "400":
+          $ref: "#/components/responses/InvalidCollectionHistoryRequest"
+        "404":
+          description: No public collection has this ID; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: collection not found
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
+
+  /v1/events/{slug}/performances:
+    get:
+      tags:
+        - Catalogue
+      summary: List an event's performances
+      description: |
+        Lists one page of the performances recorded at a public event or venue, in the order of its page's
+        `performances` (newest year first, unknown years last, then by an internal ID, so pages are stable), with
+        how many there are in all. The page caps its list at 200; the first 200 here are that list. An unapproved
+        event is not found, exactly like an unknown one. Credentials are ignored.
+      operationId: listEventPerformances
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the event's performances.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPerformanceList"
+        "400":
+          $ref: "#/components/responses/InvalidHistoryRequest"
+        "404":
+          description: No public event has this slug; the error code is `not_found`.
           content:
             application/json:
               schema:
@@ -3961,6 +4104,7 @@ components:
               secondary_kinds: [dance_music]
               conservation_status: endangered
               is_stub: false
+              credit_names: [Wren of the Vale]
           total: 1
           facets:
             terms:
@@ -4146,7 +4290,7 @@ components:
       type: object
       description: A public piece, as other entities refer to it.
       additionalProperties: false
-      required: [slug, title, kind, secondary_kinds, conservation_status, is_stub]
+      required: [slug, title, kind, secondary_kinds, conservation_status, is_stub, credit_names]
       properties:
         slug:
           type: string
@@ -4171,6 +4315,18 @@ components:
           description: Whether the piece's page is only a stub that needs filling in.
           examples:
             - false
+        credit_names:
+          type: array
+          description: |
+            The piece's credit line: the names of the first five distinct persons credited by name on the piece, in
+            credit order, each once. Persons who are unapproved or prefer not to have a page are left out, as they
+            are from the piece's credits. A name is the person's public name, never an alias. Empty if no credit
+            names a public person with a page.
+          maxItems: 5
+          items:
+            type: string
+          examples:
+            - [Wren of the Vale]
       examples:
         - slug: the-copper-kettle
           title: The Copper Kettle
@@ -4178,6 +4334,7 @@ components:
           secondary_kinds: [dance_music]
           conservation_status: endangered
           is_stub: false
+          credit_names: [Wren of the Vale]
 
     PersonSummary:
       type: object
@@ -4286,6 +4443,7 @@ components:
         - secondary_kinds
         - conservation_status
         - is_stub
+        - credit_names
         - notes_md
         - updated_at
         - version_notes_md
@@ -4317,6 +4475,8 @@ components:
           $ref: "#/components/schemas/ConservationStatus"
         is_stub:
           $ref: "#/components/schemas/PieceSummary/properties/is_stub"
+        credit_names:
+          $ref: "#/components/schemas/PieceSummary/properties/credit_names"
         notes_md:
           type: [string, "null"]
           description: Notes about the piece, in Markdown.
@@ -4429,6 +4589,7 @@ components:
           secondary_kinds: []
           conservation_status: endangered
           is_stub: false
+          credit_names: [Wren of the Vale]
           notes_md: A drinking song from the northern marches.
           updated_at: "2026-10-01T09:00:00Z"
           version_notes_md: null
@@ -4613,6 +4774,7 @@ components:
             secondary_kinds: []
             conservation_status: low_risk
             is_stub: false
+            credit_names: []
 
     PersonLink:
       type: object
@@ -5086,6 +5248,7 @@ components:
             secondary_kinds: []
             conservation_status: endangered
             is_stub: false
+            credit_names: [Wren of the Vale]
           role: lyrics
           certainty: certain
           part: null
@@ -5325,6 +5488,7 @@ components:
               secondary_kinds: []
               conservation_status: endangered
               is_stub: false
+              credit_names: [Wren of the Vale]
           persons: []
 
     TermChild:
@@ -5465,6 +5629,7 @@ components:
                 secondary_kinds: []
                 conservation_status: endangered
                 is_stub: false
+                credit_names: [Wren of the Vale]
               person: null
               url: https://example.org/songbook.pdf
               title: The Northmarch Songbook
@@ -5547,6 +5712,114 @@ components:
             - slug: midwinter-revel
               name: Midwinter Revel
               kind: event
+          total: 1
+
+    PersonPerformanceList:
+      type: object
+      description: One page of a public person's performances, in their page's order.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonPerformance"
+        total:
+          type: integer
+          format: int64
+          maximum: 9007199254740991
+          minimum: 0
+          description: How many performances the person has, over every page; 0 for a person without a page.
+          examples:
+            - 1
+      examples:
+        - data:
+            - piece: null
+              link:
+                url: https://video.example.org/watch/revel
+                title: Midwinter Revel 2025
+                platform: video.example.org
+                liveness: ok
+                last_checked_at: "2026-10-01T09:00:00Z"
+                archived_url: null
+              year: 2025
+              event: null
+              description_verbatim: Wren opens the evening
+          total: 1
+
+    CollectionCitationList:
+      type: object
+      description: One page of a public collection's citations, in its page's order.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CollectionCitation"
+        total:
+          type: integer
+          format: int64
+          maximum: 9007199254740991
+          minimum: 0
+          description: How many citations the collection has, over every page.
+          examples:
+            - 1
+      examples:
+        - data:
+            - piece:
+                slug: the-copper-kettle
+                title: The Copper Kettle
+                kind: song
+                secondary_kinds: []
+                conservation_status: endangered
+                is_stub: false
+                credit_names: [Wren of the Vale]
+              person: null
+              url: https://example.org/songbook.pdf
+              title: The Northmarch Songbook
+              locator: page 12
+              liveness: ok
+              last_checked_at: null
+              archived_url: null
+              roles: [text]
+          total: 1
+
+    EventPerformanceList:
+      type: object
+      description: One page of the performances at a public event or venue, in its page's order.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventPerformance"
+        total:
+          type: integer
+          format: int64
+          maximum: 9007199254740991
+          minimum: 0
+          description: How many performances the event has, over every page.
+          examples:
+            - 1
+      examples:
+        - data:
+            - piece: null
+              link:
+                url: https://video.example.org/watch/revel
+                title: Midwinter Revel 2025
+                platform: video.example.org
+                liveness: ok
+                last_checked_at: "2026-10-01T09:00:00Z"
+                archived_url: null
+              year: 2025
+              performers:
+                - slug: wren-of-the-vale
+                  name: Wren of the Vale
+                  kind: community_bard
+                  is_stub: false
+              description_verbatim: Wren opens the evening
           total: 1
 
     Event:
@@ -6129,6 +6402,7 @@ components:
             secondary_kinds: []
             conservation_status: endangered
             is_stub: false
+            credit_names: [Wren of the Vale]
           base_revision_id: 41
           source: user
           summary: Credit the tune.
@@ -6641,6 +6915,7 @@ components:
             secondary_kinds: []
             conservation_status: low_risk
             is_stub: false
+            credit_names: []
 
     SnapshotPieceLink:
       type: object

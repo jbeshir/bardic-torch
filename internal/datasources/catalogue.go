@@ -36,6 +36,24 @@ type PublicCollectionGetter interface {
 	GetPublicCollection(ctx context.Context, id int64) (domain.Collection, error)
 }
 
+// PublicPersonPerformanceLister lists the performances of public persons beyond the first a person's page shows.
+type PublicPersonPerformanceLister interface {
+	// ListPublicPersonPerformances lists one page of the performances of the public person with slug, as their
+	// profile lists them, with how many there are in all. A person who prefers no page has none. It returns
+	// ErrNotFound if no public person has the slug.
+	ListPublicPersonPerformances(
+		ctx context.Context, slug string, page domain.Page,
+	) (domain.PersonPerformanceList, error)
+}
+
+// PublicCollectionCitationLister lists the citations of public collections beyond the first a collection's page
+// shows.
+type PublicCollectionCitationLister interface {
+	// ListPublicCollectionCitations lists one page of the citations of the public collection with id, as its page
+	// lists them, with how many there are in all. It returns ErrNotFound if no public collection has the ID.
+	ListPublicCollectionCitations(ctx context.Context, id int64, page domain.Page) (domain.CitationList, error)
+}
+
 // PublicEventLister lists one page of the public events and venues, of one kind or (with a nil kind) both.
 type PublicEventLister interface {
 	ListPublicEvents(ctx context.Context, kind *domain.EventKind, page domain.Page) (domain.EventList, error)
@@ -45,6 +63,15 @@ type PublicEventLister interface {
 // slug.
 type PublicEventGetter interface {
 	GetPublicEvent(ctx context.Context, slug string) (domain.Event, error)
+}
+
+// PublicEventPerformanceLister lists the performances at public events beyond the first an event's page shows.
+type PublicEventPerformanceLister interface {
+	// ListPublicEventPerformances lists one page of the performances at the public event or venue with slug, as
+	// its page lists them, with how many there are in all. It returns ErrNotFound if no public event has the slug.
+	ListPublicEventPerformances(
+		ctx context.Context, slug string, page domain.Page,
+	) (domain.EventPerformanceList, error)
 }
 
 // MaxPieceQueryTerms is the most distinct terms a piece search may filter on.
@@ -64,6 +91,9 @@ type PieceQuery struct {
 	Stub *bool
 	// Search, if set, matches pieces whose title, notes or an alias contain it.
 	Search *domain.SearchQuery
+	// PersonSlug, if set, is the slug of a public person with a page matching the pieces with a named credit to
+	// them.
+	PersonSlug *string
 	// Letter, if set, matches pieces whose sort title sorts under it.
 	Letter *domain.Letter
 	// Sort is the order of the pieces; PieceSortRelevance needs a Search.
@@ -72,7 +102,8 @@ type PieceQuery struct {
 }
 
 // PublicPieceLister searches the public pieces, returning one page of them with the total and facet counts. A
-// term slug that is unknown, not public, or of the affiliation facet gives an UnknownTermError.
+// term slug that is unknown, not public, or of the affiliation facet gives an UnknownTermError; a person slug
+// that is unknown, not public, or of a person who prefers no page gives an UnknownPersonError.
 type PublicPieceLister interface {
 	ListPublicPieces(ctx context.Context, query PieceQuery) (domain.PieceList, error)
 }

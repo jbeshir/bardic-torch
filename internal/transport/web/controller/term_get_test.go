@@ -75,7 +75,7 @@ func TestTermGet_ServeHTTP(t *testing.T) {
 				"related_affiliation": {"slug": "northmarch", "facet": "affiliation", "display_name": "Northmarch"},
 				"piece_count": 7, "person_count": 1,
 				"pieces": [{"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
-					"secondary_kinds": ["poem"], "conservation_status": "endangered", "is_stub": false}],
+					"secondary_kinds": ["poem"], "conservation_status": "endangered", "is_stub": false, "credit_names": []}],
 				"persons": []
 			}`,
 		},

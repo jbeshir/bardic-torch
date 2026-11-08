@@ -244,7 +244,16 @@ type termGroup struct {
 // in the ENUM's order, then ID.
 func publicTermsStatement(slugs []string, facets termFacets) *statement {
 	s := &statement{}
-	s.write("SELECT ", executionTimeHint, " t.id, t.slug, t.facet FROM public_terms t WHERE t.slug IN (")
+	s.write("SELECT ", executionTimeHint, " t.id, t.slug, t.facet FROM public_terms t WHERE ")
+	writePublicTermsCondition(s, slugs, facets)
+	s.write(" ORDER BY t.facet, t.id")
+
+	return s
+}
+
+// writePublicTermsCondition writes the condition that a public term t is of facets and has one of slugs.
+func writePublicTermsCondition(s *statement, slugs []string, facets termFacets) {
+	s.write("t.slug IN (")
 	list(s, slugs)
 	s.write(") AND t.facet ")
 	switch facets {
@@ -254,9 +263,60 @@ func publicTermsStatement(slugs []string, facets termFacets) *statement {
 		s.write("= ")
 	}
 	s.arg(string(domain.FacetAffiliation))
-	s.write(" ORDER BY t.facet, t.id")
+}
+
+// pieceFiltersStatement selects, for a piece search filtering on the person with personSlug and on the piece
+// terms with termSlugs (if any), rows (ID, slug, facet, ordinal): the public person with a page who has the slug,
+// with a NULL facet and ordinal 0, then each public piece term with one of termSlugs, by facet in the ENUM's
+// order (its ordinal, from 1), then ID. One statement resolves both, so that a search with a person and terms
+// still needs only one round trip before its items.
+func pieceFiltersStatement(personSlug string, termSlugs []string) *statement {
+	s := &statement{}
+	s.write("SELECT ", executionTimeHint, " lp.id, lp.slug, NULL AS facet, 0 AS ordinal FROM listed_persons lp "+
+		"WHERE lp.slug = ")
+	s.arg(personSlug)
+	if len(termSlugs) > 0 {
+		s.write(" UNION ALL SELECT t.id, t.slug, t.facet, t.facet + 0 FROM public_terms t WHERE ")
+		writePublicTermsCondition(s, termSlugs, pieceTermFacets)
+	}
+	s.write(" ORDER BY ordinal, id")
 
 	return s
+}
+
+// termResolution collects the public terms a search's term slugs resolve to, in facet order.
+type termResolution struct {
+	groups []termGroup
+	found  map[string]bool
+}
+
+// add adds the term with id and slug, of facet, which must not come before the last term added's facet.
+func (r *termResolution) add(c *catalogueReader, id uint64, slug, facet string) {
+	if r.found == nil {
+		r.found = make(map[string]bool)
+	}
+	r.found[slug] = true
+	f := enumOf[domain.Facet](c, queries.TermsFacet(facet))
+	if len(r.groups) == 0 || r.groups[len(r.groups)-1].facet != f {
+		r.groups = append(r.groups, termGroup{facet: f})
+	}
+	r.groups[len(r.groups)-1].ids = append(r.groups[len(r.groups)-1].ids, id)
+}
+
+// resolved returns the groups, or fails the reader with an UnknownTermError for the first of slugs, in slugs'
+// order, that no term added has.
+func (r *termResolution) resolved(c *catalogueReader, slugs []string) []termGroup {
+	if c.err != nil {
+		return nil
+	}
+	for _, slug := range slugs {
+		if !r.found[slug] {
+			c.fail(&datasources.UnknownTermError{Slug: slug})
+			return nil
+		}
+	}
+
+	return r.groups
 }
 
 // termGroups resolves slugs to the public terms of facets they name, grouped by facet in the ENUM's order. If a
@@ -267,34 +327,56 @@ func (c *catalogueReader) termGroups(ctx context.Context, slugs []string, facets
 		return nil
 	}
 
-	var groups []termGroup
-	found := make(map[string]bool, len(slugs))
+	var terms termResolution
 	c.query(ctx, "terms", publicTermsStatement(slugs, facets), func(scan func(dest ...any) error) error {
 		var id uint64
 		var slug, facet string
 		if err := scan(&id, &slug, &facet); err != nil {
 			return err
 		}
-		found[slug] = true
-		f := enumOf[domain.Facet](c, queries.TermsFacet(facet))
-		if len(groups) == 0 || groups[len(groups)-1].facet != f {
-			groups = append(groups, termGroup{facet: f})
-		}
-		groups[len(groups)-1].ids = append(groups[len(groups)-1].ids, id)
+		terms.add(c, id, slug, facet)
 		return nil
 	})
-	if c.err != nil {
-		return nil
+
+	return terms.resolved(c, slugs)
+}
+
+// pieceFilters resolves the term and person slugs of a piece search: the groups of termGroups, and the ID of the
+// public person with a page whose slug the search has, if it has one. A term slug that names no public piece term
+// fails the reader with an UnknownTermError, as termGroups does; then a person slug that names no public person
+// with a page, with an UnknownPersonError. It runs at most one statement.
+func (c *catalogueReader) pieceFilters(ctx context.Context, query datasources.PieceQuery) ([]termGroup, *uint64) {
+	if query.PersonSlug == nil {
+		return c.termGroups(ctx, query.TermSlugs, pieceTermFacets), nil
 	}
 
-	for _, slug := range slugs {
-		if !found[slug] {
-			c.fail(&datasources.UnknownTermError{Slug: slug})
+	var terms termResolution
+	var person *uint64
+	c.query(ctx, "search filters", pieceFiltersStatement(*query.PersonSlug, query.TermSlugs),
+		func(scan func(dest ...any) error) error {
+			var id uint64
+			var slug string
+			var facet sql.NullString
+			var ordinal int64
+			if err := scan(&id, &slug, &facet, &ordinal); err != nil {
+				return err
+			}
+			if !facet.Valid {
+				person = &id
+				return nil
+			}
+			terms.add(c, id, slug, facet.String)
 			return nil
-		}
+		})
+	groups := terms.resolved(c, query.TermSlugs)
+	if c.err == nil && person == nil {
+		c.fail(&datasources.UnknownPersonError{Slug: *query.PersonSlug})
+	}
+	if c.err != nil {
+		return nil, nil
 	}
 
-	return groups
+	return groups, person
 }
 
 // booleanQuery returns the FULLTEXT boolean-mode query matching text with a word starting with each of tokens.

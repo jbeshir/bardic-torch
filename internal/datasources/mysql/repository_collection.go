@@ -100,7 +100,7 @@ func (c *catalogueReader) citations(
 			slugs = append(slugs, row.PieceSlug.String)
 		}
 	}
-	kinds := c.secondaryKinds(ctx, slugs)
+	details := c.pieceDetails(ctx, slugs)
 
 	roles := make(map[attachmentKey][]domain.LinkRole)
 	if len(linkIDs) > 0 {
@@ -122,7 +122,7 @@ func (c *catalogueReader) citations(
 			Roles:         roles[attachmentKey{linkID: row.LinkID, pieceID: row.PieceID, personID: row.PersonID}],
 		}
 		if row.PieceSlug.Valid {
-			piece := c.pieceSummary(kinds, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
+			piece := c.pieceSummary(details, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
 				row.PieceConservationStatus.PiecesConservationStatus, row.PieceIsStub.Bool)
 			citation.Piece = &piece
 		} else {

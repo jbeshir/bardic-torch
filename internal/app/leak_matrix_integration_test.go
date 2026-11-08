@@ -45,6 +45,8 @@ type leakFixture struct {
 	moot, unapprovedEvent catalogtest.Ref
 	// renamed and renamedNoPage were renamed since their first revision; their former names are hidden aliases.
 	renamed, renamedNoPage catalogtest.Ref
+	// renamedBallad credits renamedNoPage, then renamed: its credit line shows renamed's name alone.
+	renamedBallad catalogtest.Ref
 	// ember is a public piece whose first revision holds links that are no visible link's now.
 	ember catalogtest.Ref
 	// turned chose not to have a page after their revisions were written.
@@ -156,6 +158,13 @@ const (
 const (
 	enteredLinkURL    = "https://example.org/leakmark-normalized?utm_source=x"
 	normalizedLinkURL = "https://example.org/leakmark-normalized"
+)
+
+// The renamed persons' names now, unmarked: a credit line may show the first, as their page does, and never the
+// second, who prefers no page.
+const (
+	renamedName       = "Ashen Wren"
+	renamedNoPageName = "Quiet Fen"
 )
 
 // The former names of renamed persons, now hidden legal aliases of theirs.
@@ -380,7 +389,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	// and one without, whose identity their revisions show.
 	renamedDoc := domain.PersonDocument{
 		SchemaVersion:   domain.DocumentSchemaVersion,
-		Name:            "Ashen Wren",
+		Name:            renamedName,
 		Kind:            domain.PersonKindCommunityBard,
 		Status:          domain.PersonStatusActive,
 		LicensingStatus: domain.LicensingStatusUnknown,
@@ -388,11 +397,14 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	}
 	renamed := c.Person(catalogtest.Person{Doc: renamedDoc})
 	renamedNoPageDoc := renamedDoc
-	renamedNoPageDoc.Name = "Quiet Fen"
+	renamedNoPageDoc.Name = renamedNoPageName
 	renamedNoPageDoc.Status = domain.PersonStatusPrefersNoPage
 	renamedNoPageDoc.Aliases = []domain.DocPersonAlias{{Name: renamedNoPageFormerName,
 		Kind: domain.PersonAliasKindLegal}}
 	renamedNoPage := c.Person(catalogtest.Person{Doc: renamedNoPageDoc})
+	renamedBallad := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Renamed Ballad",
+		Credits: []domain.DocCredit{namedCredit(renamedNoPage.ID, domain.CreditRoleTune, nil),
+			namedCredit(renamed.ID, domain.CreditRoleLyrics, nil)}}})
 	formerly := func(ref catalogtest.Ref, doc domain.PersonDocument, formerName string) (int64, int64) {
 		former := doc
 		former.Name, former.Aliases = formerName, nil
@@ -514,7 +526,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		lanterns: lanterns, westmarch: westmarch, unapprovedTerm: unapprovedTerm, underUnapproved: underUnapproved,
 		unapprovedChild: unapprovedChild, unapprovedAffiliation: unapprovedAffiliation,
 		archive: archive, unapprovedCollection: unapprovedCollection, moot: moot, unapprovedEvent: unapprovedEvent,
-		turned: turned, renamed: renamed, renamedNoPage: renamedNoPage, ember: ember, revisions: revisions,
+		turned: turned, renamed: renamed, renamedNoPage: renamedNoPage, renamedBallad: renamedBallad, ember: ember, revisions: revisions,
 		unpublished: unpublished,
 	}
 })
@@ -586,6 +598,8 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: "/v1/pieces/" + fx.unapprovedEcho.Slug, status: http.StatusNotFound},
 			// A pending new piece's placeholder.
 			{path: "/v1/pieces/" + fx.unpublished.pieceSlug, status: http.StatusNotFound},
+			// Its credit line names the renamed person, never their former name, and not the no-page person.
+			{path: "/v1/pieces/" + fx.renamedBallad.Slug, status: http.StatusOK, absent: []string{renamedNoPageName}},
 		}
 	},
 	{Method: http.MethodGet, Path: "/v1/persons/{slug}"}: func(fx leakFixture) []leakRequest {
@@ -608,9 +622,32 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			return leakRequest{path: piecesPath + "?term=" + term.Slug, status: http.StatusBadRequest,
 				reveals: []string{"unknown term: " + term.Slug}}
 		}
+		// The no-page persons' names, which no credit line shows; the unmarked one is checked by name.
+		noCreditNames := append([]string{noPageName, renamedNoPageName}, placeholders...)
+		unknownPerson := func(person catalogtest.Ref) leakRequest {
+			return leakRequest{path: piecesPath + "?person=" + person.Slug, status: http.StatusBadRequest,
+				reveals: []string{"unknown person: " + person.Slug}}
+		}
 		return []leakRequest{
-			// Facet counts must not list unapproved terms, or terms under them, nor count unapproved pieces.
-			{path: piecesPath, status: http.StatusOK, absent: placeholders},
+			// Facet counts must not list unapproved terms, or terms under them, nor count unapproved pieces; credit
+			// lines must not name no-page or unapproved persons, or a hidden alias.
+			{path: piecesPath, status: http.StatusOK, absent: noCreditNames},
+			{path: piecesPath + "?limit=1&offset=1", status: http.StatusOK, absent: noCreditNames},
+			// A person's works: public pieces only, with the same credit lines; the unapproved echo credits Rowan.
+			{path: piecesPath + "?person=" + fx.person.Slug, status: http.StatusOK,
+				absent: append([]string{fx.unapprovedEcho.Slug}, noCreditNames...), total: new(1)},
+			{path: piecesPath + "?person=" + fx.person.Slug + "&term=" + fx.lanterns.Slug, status: http.StatusOK,
+				absent: noCreditNames, total: new(1)},
+			{path: piecesPath + "?person=" + fx.renamed.Slug, status: http.StatusOK, absent: noCreditNames,
+				total: new(1)},
+			// Persons who prefer no page, now or since their credits, and unapproved persons: the 400 names the slug
+			// as given, and nothing else.
+			unknownPerson(fx.noPage),
+			unknownPerson(fx.turned),
+			unknownPerson(fx.renamedNoPage),
+			unknownPerson(fx.unapprovedPerson),
+			{path: piecesPath + "?person=" + fx.unpublished.personSlug, status: http.StatusBadRequest,
+				reveals: []string{"unknown person: " + fx.unpublished.personSlug}},
 			{path: piecesPath + "?term=" + fx.lanterns.Slug, status: http.StatusOK},
 			// Pending new pieces, pending edits and drafts hold marked titles and notes.
 			{path: piecesPath + "?q=leakmark", status: http.StatusOK, absent: placeholders},
@@ -727,6 +764,40 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: historyPath("events", fx.unapprovedEvent.Slug), status: http.StatusNotFound},
 		}
 	},
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/performances"}: func(fx leakFixture) []leakRequest {
+		list := func(slug string) string { return "/v1/persons/" + slug + "/performances" }
+		none := func(slug string) leakRequest {
+			return leakRequest{path: list(slug), status: http.StatusOK, total: new(0)}
+		}
+		notFound := func(slug string) leakRequest {
+			return leakRequest{path: list(slug), status: http.StatusNotFound, sameBodyAs: list("no-such-person")}
+		}
+		// What the person's page shows, a page at a time: performances on links attached only to no-page or
+		// unapproved persons, of unapproved pieces, and on the hidden link are left out.
+		requests := pagesOf(list(fx.person.Slug), 4)
+		return append(requests,
+			leakRequest{path: list(fx.renamed.Slug), status: http.StatusOK},
+			leakRequest{path: list(fx.group.Slug), status: http.StatusOK},
+			// Persons who prefer no page have none, like their page; the no-page busker's link records Rowan.
+			none(fx.noPage.Slug), none(fx.noPageBusker.Slug), none(fx.turned.Slug), none(fx.renamedNoPage.Slug),
+			notFound(fx.unapprovedPerson.Slug),
+			notFound(fx.unpublished.personSlug),
+		)
+	},
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/citations"}: func(fx leakFixture) []leakRequest {
+		list := func(id int64) string { return "/v1/collections/" + strconv.FormatInt(id, 10) + "/citations" }
+		// Citations of public pieces only, on visible links, without the hidden link's archive.
+		return append(pagesOf(list(fx.archive.ID), 3),
+			leakRequest{path: list(fx.unapprovedCollection.ID), status: http.StatusNotFound,
+				sameBodyAs: list(999999999)})
+	},
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/performances"}: func(fx leakFixture) []leakRequest {
+		list := func(slug string) string { return "/v1/events/" + slug + "/performances" }
+		// Performances of public pieces on visible links, with public performers only, a page at a time.
+		return append(pagesOf(list(fx.moot.Slug), 6),
+			leakRequest{path: list(fx.unapprovedEvent.Slug), status: http.StatusNotFound,
+				sameBodyAs: list("no-such-event")})
+	},
 	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: func(fx leakFixture) []leakRequest {
 		revision := func(id int64, status int, reveals ...string) leakRequest {
 			return leakRequest{path: "/v1/revisions/" + strconv.FormatInt(id, 10), status: status, reveals: reveals}
@@ -804,6 +875,17 @@ const unknownRevisionPath = "/v1/revisions/999999999"
 
 // placeholders are what no public list may show of a placeholder (a pending new entity): its slug's prefix.
 var placeholders = []string{"pending-"}
+
+// pagesOf returns requests for a paged list at path: the default page, and its first n items one page each.
+func pagesOf(path string, n int) []leakRequest {
+	requests := []leakRequest{{path: path, status: http.StatusOK}}
+	for offset := range n {
+		requests = append(requests, leakRequest{path: path + "?limit=1&offset=" + strconv.Itoa(offset),
+			status: http.StatusOK})
+	}
+
+	return requests
+}
 
 // historyPath is the path of the history of the entity of collection with address.
 func historyPath(collection, address string) string {

@@ -164,21 +164,24 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 |---|---|---|---|
 | `GET` | `/healthz` | No | Liveness |
 | `GET` | `/readyz` | No | Readiness: the database answers |
-| `GET` | `/v1/pieces` | No | Faceted piece search: `term`, `kind`, `conservation_status`, `stub`, `q`, `letter`, `sort`, with facet and A-Z counts |
+| `GET` | `/v1/pieces` | No | Faceted piece search: `term`, `kind`, `conservation_status`, `stub`, `person`, `q`, `letter`, `sort`, with facet and A-Z counts; each piece has a credit line (`credit_names`) |
 | `GET` | `/v1/pieces/{slug}` | No | A piece |
 | `GET` | `/v1/pieces/{slug}/history` | No | A piece's approved revisions, newest first |
 | `GET` | `/v1/persons` | No | Persons: `kind`, `role`, `affiliation`, `q`, `letter`, `sort` |
 | `GET` | `/v1/persons/{slug}` | No | A person |
 | `GET` | `/v1/persons/{slug}/history` | No | A person's approved revisions |
+| `GET` | `/v1/persons/{slug}/performances` | No | A page of a person's performances (their page shows the first 200) |
 | `GET` | `/v1/terms` | No | The term tree with piece and person counts (`facet` filter) |
 | `GET` | `/v1/terms/{slug}` | No | A term with its ancestors, children and a page of its pieces or persons |
 | `GET` | `/v1/terms/{slug}/history` | No | A term's approved revisions |
 | `GET` | `/v1/collections` | No | Collections: `kind`, `letter` |
 | `GET` | `/v1/collections/{collection_id}` | No | A collection with its children and citations |
 | `GET` | `/v1/collections/{collection_id}/history` | No | A collection's approved revisions |
+| `GET` | `/v1/collections/{collection_id}/citations` | No | A page of a collection's citations (its page shows the first 200) |
 | `GET` | `/v1/events` | No | Events and venues |
 | `GET` | `/v1/events/{slug}` | No | An event with its performances |
 | `GET` | `/v1/events/{slug}/history` | No | An event's approved revisions |
+| `GET` | `/v1/events/{slug}/performances` | No | A page of an event's performances (its page shows the first 200) |
 | `GET` | `/v1/revisions/{revision_id}` | No | An approved revision: redacted snapshot, base snapshot and changed fields |
 | `GET` | `/v1/needs-work` | No | Stub, unassessed, unknown-licensing and dead-link pieces and persons, with a count per reason |
 | `POST` | `/v1/contact` | No | Send the moderators a takedown, opt-out, correction or general request (Cloudflare Turnstile token required) |

@@ -139,20 +139,22 @@ func personProfileFromDomain(p domain.PersonProfile) PersonProfile {
 		Works: mapSlice(p.Works, func(w domain.PersonWork) PersonWork {
 			return PersonWork{Piece: pieceSummaryFromDomain(w.Piece), Role: w.Role, Certainty: w.Certainty, Part: w.Part}
 		}),
-		WorksTotal: p.WorksTotal,
-		Performances: mapSlice(p.Performances, func(pp domain.PersonPerformance) PersonPerformance {
-			return PersonPerformance{
-				Piece:               optional(pp.Piece, pieceSummaryFromDomain),
-				Link:                performanceLinkFromDomain(pp.Link),
-				Year:                pp.Year,
-				Event:               optional(pp.Event, eventSummaryFromDomain),
-				DescriptionVerbatim: pp.DescriptionVerbatim,
-			}
-		}),
+		WorksTotal:        p.WorksTotal,
+		Performances:      mapSlice(p.Performances, personPerformanceFromDomain),
 		PerformancesTotal: p.PerformancesTotal,
 		Preferences:       mapSlice(p.Preferences, preferenceEntryFromDomain),
 	}
 }
+func personPerformanceFromDomain(p domain.PersonPerformance) PersonPerformance {
+	return PersonPerformance{
+		Piece:               optional(p.Piece, pieceSummaryFromDomain),
+		Link:                performanceLinkFromDomain(p.Link),
+		Year:                p.Year,
+		Event:               optional(p.Event, eventSummaryFromDomain),
+		DescriptionVerbatim: p.DescriptionVerbatim,
+	}
+}
+
 func personAliasFromDomain(a domain.PersonAlias) PersonAlias {
 	return PersonAlias{Name: a.Name, Kind: a.Kind}
 }

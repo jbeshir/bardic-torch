@@ -15,6 +15,37 @@ type PieceSummary struct {
 	SecondaryKinds     []PieceKind
 	ConservationStatus ConservationStatus
 	IsStub             bool
+	// CreditNames are the names of the first MaxCreditNames distinct persons credited by name on the piece, in
+	// credit order (CreditNames). Persons who are not public or prefer no page are left out.
+	CreditNames []string
+}
+
+// MaxCreditNames is the most names a piece summary's credit line shows.
+const MaxCreditNames = 5
+
+// CreditedPerson is a person credited by name on a piece, as a credit line lists them.
+type CreditedPerson struct {
+	ID   int64
+	Name string
+}
+
+// CreditNames returns the credit line of a piece whose credits name persons, in credit order: each person's name
+// once, at their first credit, and at most MaxCreditNames names.
+func CreditNames(persons []CreditedPerson) []string {
+	var names []string
+	seen := make(map[int64]bool, len(persons))
+	for _, p := range persons {
+		if seen[p.ID] {
+			continue
+		}
+		seen[p.ID] = true
+		names = append(names, p.Name)
+		if len(names) == MaxCreditNames {
+			break
+		}
+	}
+
+	return names
 }
 
 // PersonSummary is how a public person is shown where another entity refers to it.
@@ -448,4 +479,25 @@ type CollectionList struct {
 	Collections []CollectionSummary
 	Total       int64
 	Letters     []LetterCount
+}
+
+// PersonPerformanceList is one page of a public person's performances, in the order of a profile's Performances,
+// with how many there are in all. A person who prefers no page has none: their profile is not shown.
+type PersonPerformanceList struct {
+	Performances []PersonPerformance
+	Total        int64
+}
+
+// CitationList is one page of a public collection's citations, in the order of the collection's Citations, with
+// how many there are in all.
+type CitationList struct {
+	Citations []Citation
+	Total     int64
+}
+
+// EventPerformanceList is one page of a public event's performances, in the order of the event's Performances,
+// with how many there are in all.
+type EventPerformanceList struct {
+	Performances []EventPerformance
+	Total        int64
 }

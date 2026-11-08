@@ -136,6 +136,24 @@ func unavailableCatalogueRows() []unavailableRow {
 				Return(domain.RevisionHistory{}, errDatabaseUnavailable)
 			return CollectionHistoryGet{Lister: l}
 		}},
+		{op: op(http.MethodGet, "/v1/persons/{slug}/performances"), handler: func(t *testing.T) http.Handler {
+			l := mocks.NewPublicPersonPerformanceLister(t)
+			l.EXPECT().ListPublicPersonPerformances(mock.Anything, mock.Anything, mock.Anything).
+				Return(domain.PersonPerformanceList{}, errDatabaseUnavailable)
+			return PersonPerformancesGet{Lister: l}
+		}},
+		{op: op(http.MethodGet, "/v1/collections/{collection_id}/citations"), handler: func(t *testing.T) http.Handler {
+			l := mocks.NewPublicCollectionCitationLister(t)
+			l.EXPECT().ListPublicCollectionCitations(mock.Anything, mock.Anything, mock.Anything).
+				Return(domain.CitationList{}, errDatabaseUnavailable)
+			return CollectionCitationsGet{Lister: l}
+		}},
+		{op: op(http.MethodGet, "/v1/events/{slug}/performances"), handler: func(t *testing.T) http.Handler {
+			l := mocks.NewPublicEventPerformanceLister(t)
+			l.EXPECT().ListPublicEventPerformances(mock.Anything, mock.Anything, mock.Anything).
+				Return(domain.EventPerformanceList{}, errDatabaseUnavailable)
+			return EventPerformancesGet{Lister: l}
+		}},
 		{op: op(http.MethodGet, "/v1/revisions/{revision_id}"), handler: func(t *testing.T) http.Handler {
 			g := mocks.NewPublicRevisionGetter(t)
 			g.EXPECT().GetPublicRevision(mock.Anything, mock.Anything).Return(nil, errDatabaseUnavailable)

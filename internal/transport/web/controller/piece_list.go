@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"slices"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -64,10 +65,16 @@ func (c PieceListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	list, err := c.Lister.ListPublicPieces(ctx, query)
 	var unknown *datasources.UnknownTermError
+	var unknownPerson *datasources.UnknownPersonError
 	switch {
 	case errors.As(err, &unknown):
 		// The slug is the client's own, checked to be a slug; unknown and unapproved terms give the same body.
 		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest, "unknown term: "+unknown.Slug)
+		return
+	case errors.As(err, &unknownPerson):
+		// Likewise: unknown and unapproved persons and persons who prefer no page give the same body.
+		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
+			"unknown person: "+unknownPerson.Slug)
 		return
 	case err != nil:
 		writeSearchError(w, r, "unable to list pieces", err)
@@ -102,15 +109,8 @@ func (PieceListGet) pieceQuery(w http.ResponseWriter, r *http.Request) (datasour
 	}
 
 	var q datasources.PieceQuery
-	terms, ok := listOrBadRequest(w, r, query, "term", datasources.MaxPieceQueryTerms, slugValue, slugRule)
-	if !ok {
+	if q.TermSlugs, ok = termSlugsOrBadRequest(w, r, query); !ok {
 		return datasources.PieceQuery{}, false
-	}
-	// Repeated terms are one filter; order is kept, so an unknown term is reported as the first one given.
-	for _, term := range terms {
-		if !slices.Contains(q.TermSlugs, term) {
-			q.TermSlugs = append(q.TermSlugs, term)
-		}
 	}
 	if q.Kinds, ok = enumListOrBadRequest(w, r, query, "kind", domain.ParsePieceKind); !ok {
 		return datasources.PieceQuery{}, false
@@ -128,6 +128,9 @@ func (PieceListGet) pieceQuery(w http.ResponseWriter, r *http.Request) (datasour
 	if q.Letter, ok = enumOrBadRequest(w, r, query, "letter", domain.ParseLetter); !ok {
 		return datasources.PieceQuery{}, false
 	}
+	if q.PersonSlug, ok = slugParamOrBadRequest(w, r, query, "person"); !ok {
+		return datasources.PieceQuery{}, false
+	}
 	if q.Sort, ok = sortOrBadRequest(w, r, query, q.Search, domain.ParsePieceSort, domain.PieceSortTitle,
 		domain.PieceSortRelevance); !ok {
 		return datasources.PieceQuery{}, false
@@ -137,6 +140,24 @@ func (PieceListGet) pieceQuery(w http.ResponseWriter, r *http.Request) (datasour
 	}
 
 	return q, true
+}
+
+// termSlugsOrBadRequest returns the distinct term slugs of a piece search. Repeated terms are one filter; order is
+// kept, so an unknown term is reported as the first one given. If they are invalid it writes 400 invalid_request
+// and returns false; the caller should then return without writing.
+func termSlugsOrBadRequest(w http.ResponseWriter, r *http.Request, query url.Values) ([]string, bool) {
+	terms, ok := listOrBadRequest(w, r, query, "term", datasources.MaxPieceQueryTerms, slugValue, slugRule)
+	if !ok {
+		return nil, false
+	}
+	var distinct []string
+	for _, term := range terms {
+		if !slices.Contains(distinct, term) {
+			distinct = append(distinct, term)
+		}
+	}
+
+	return distinct, true
 }
 
 func letterCountFromDomain(l domain.LetterCount) LetterCount {

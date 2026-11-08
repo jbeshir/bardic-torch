@@ -148,7 +148,7 @@ func subSchemas(location string, schema *openapi3.Schema) map[string]*openapi3.S
 func revisionBody(entityType string) string {
 	return `{"entity_type": "` + entityType + `", "id": 42,
 		"entity": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song", "secondary_kinds": [],
-			"conservation_status": "endangered", "is_stub": false},
+			"conservation_status": "endangered", "is_stub": false, "credit_names": []},
 		"base_revision_id": null, "source": "import", "summary": "", "author": null, "contributors": ["Archivist"],
 		"created_at": "2026-01-01T00:00:00Z",
 		"snapshot": {"title": "The Copper Kettle", "kind": "song", "secondary_kinds": [],

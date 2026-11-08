@@ -334,8 +334,8 @@ the DDL is in `migrations/003`–`009`.
   visible link and public piece or person (not no-page) it is attached to, with that attachment's roles. An
   event's performances leave out those of non-public pieces, as on a person's page, and those whose link is
   attached to no public piece and no public person with a page, since only a hidden entity's document records
-  them. Collection citations and event performances are capped at 200 with totals; collection children are not
-  capped. Every query parameter is single-valued unless documented as repeatable: a repeated one, or a query
+  them. Collection citations and event performances are capped at 200 with totals (BE5 pages through them all,
+  §6); collection children are not capped. Every query parameter is single-valued unless documented as repeatable: a repeated one, or a query
   string that is not validly percent-encoded, is a 400.
 - **Faceted search and A–Z lists** (`GET /v1/pieces`, `/v1/persons`, `/v1/collections`).
   - Piece `term`s are grouped by facet: OR within a facet, AND across facets, each term matching its descendants.
@@ -648,7 +648,7 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
 
 - **Public reads** (built in BE2; `openapi/api.yaml` is the exact contract):
   - `GET /v1/pieces`: faceted search.
-    - Filters: `term` (repeatable slugs), `kind`, `conservation_status`, `stub`, `q`, `letter` (`A`–`Z` or `0`), `sort` (`title` / `relevance`), `limit` and `offset`.
+    - Filters: `term` (repeatable slugs), `kind`, `conservation_status`, `stub`, `q`, `letter` (`A`–`Z` or `0`), `person` (BE5: a slug; the pieces with a credit naming that public person with a page, which pages through every work their page caps at 200; an unknown, unapproved or no-page person is one 400 `unknown person: <slug>`), `sort` (`title` / `relevance`), `limit` and `offset`. `stub` and `person` filter every count; they are not facets.
     - Terms combine with OR within a facet and AND across facets, and a term matches its descendants (closure table). `kind` and `conservation_status` act as two more facets.
     - `q` is FULLTEXT over title, aliases and notes (§4.1).
     - Facet counts are disjunctive: each facet's counts ignore that facet's own selection. Letter counts are returned for the A–Z bar.
@@ -659,10 +659,11 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   - `GET /v1/terms/{slug}`, with its pieces or persons (paginated, including descendants)
   - `GET /v1/collections`, `GET /v1/collections/{collection_id}`
   - `GET /v1/events` (added in BE2) and `GET /v1/events/{slug}`
+  - the paged lists of what a page caps at 200 (BE5): `GET /v1/persons/{slug}/performances`, `GET /v1/collections/{collection_id}/citations` and `GET /v1/events/{slug}/performances`, with `limit`/`offset`, each `{data, total}` in its page's order (each runs the page's own query with the window, so the first 200 are the page's list). A person who prefers no page has none (`total` 0), as their page has no profile; an entity that is not public is the 404 of an unknown one.
   - history:
     - `GET /v1/{pieces|persons|terms|events}/{slug}/history` and `GET /v1/collections/{collection_id}/history`
     - `GET /v1/revisions/{revision_id}`: the redacted snapshot view, its base and the changed fields
-  - From BE5 (`info.version` 1.1.0, all additive): every entity page carries `updated_at`, when its current revision was approved (the revision's `created_at`); a history carries `entity`, the public entity it belongs to (`entity_type`, `slug` or `collection_id`, `name`); the links of a performance (on a person's or an event's page) and the citations of a collection carry `liveness`, `last_checked_at` and `archived_url`, as a piece's and a person's links do (a hidden link is shown nowhere, so neither is its archive); a piece and its snapshots carry `licence_version`, null unless `licence` is a `cc_*` code (a Creative Commons licence's URL is derived from the two, not stored); and a symmetric relation (`same_text_other_form` between pieces, `same_as` between persons) stored on both entities is listed once, as outgoing. Every one of them is data of a public entity, so the 404 of an entity that is not public is unchanged.
+  - From BE5 (`info.version` 1.1.0, all additive): every entity page carries `updated_at`, when its current revision was approved (the revision's `created_at`); a history carries `entity`, the public entity it belongs to (`entity_type`, `slug` or `collection_id`, `name`); the links of a performance (on a person's or an event's page) and the citations of a collection carry `liveness`, `last_checked_at` and `archived_url`, as a piece's and a person's links do (a hidden link is shown nowhere, so neither is its archive); a piece and its snapshots carry `licence_version`, null unless `licence` is a `cc_*` code (a Creative Commons licence's URL is derived from the two, not stored); and a symmetric relation (`same_text_other_form` between pieces, `same_as` between persons) stored on both entities is listed once, as outgoing. Every piece summary, and a piece's page, carries `credit_names`: the names of the first five distinct persons credited by name, in credit order, leaving out unapproved and no-page persons as the piece's credits do; a name is a person's public name, never an alias. Every one of them is data of a public entity, so the 404 of an entity that is not public is unchanged.
   - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18). Restricted pieces appear only as stubs, and `prefers_no_page` persons never appear.
   - Lists page with `limit` (at most 100) and `offset` (at most 10000), and every ordering ends with the ID, so pages are stable. Nested lists that grow with data are capped at 200 entries, each with a `*_total` field.
   - A database outage is 503 `unavailable`, as on every operation that reads the database (all but `/healthz`; for an authenticated operation also when the caller's user cannot be looked up). A query that fails for another reason is 500 `internal`.

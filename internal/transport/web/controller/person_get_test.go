@@ -107,16 +107,16 @@ const testPersonBody = `{
 			"roles": ["website"]}],
 		"works": [
 			{"piece": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
-				"secondary_kinds": ["comedy"], "conservation_status": "low_risk", "is_stub": false},
+				"secondary_kinds": ["comedy"], "conservation_status": "low_risk", "is_stub": false, "credit_names": []},
 				"role": "lyrics", "certainty": "probable", "part": null},
 			{"piece": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
-				"secondary_kinds": ["comedy"], "conservation_status": "low_risk", "is_stub": false},
+				"secondary_kinds": ["comedy"], "conservation_status": "low_risk", "is_stub": false, "credit_names": []},
 				"role": "tune", "certainty": "certain", "part": "chorus"}
 		],
 		"works_total": 250,
 		"performances": [
 			{"piece": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
-				"secondary_kinds": ["comedy"], "conservation_status": "low_risk", "is_stub": false},
+				"secondary_kinds": ["comedy"], "conservation_status": "low_risk", "is_stub": false, "credit_names": []},
 				"link": {"url": "https://video.example.org/watch/kettle", "title": "At the revel",
 					"platform": "video.example.org", "liveness": "blocked",
 					"last_checked_at": "2026-10-01T09:00:00Z", "archived_url": "https://archive.example.org/kettle"},

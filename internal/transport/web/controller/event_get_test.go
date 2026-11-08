@@ -65,7 +65,7 @@ func TestEventGet_ServeHTTP(t *testing.T) {
 				"updated_at": "2026-10-01T09:00:00Z", "description_md": "A winter gathering.",
 				"performances": [
 					{"piece": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
-						"secondary_kinds": [], "conservation_status": "unassessed", "is_stub": true},
+						"secondary_kinds": [], "conservation_status": "unassessed", "is_stub": true, "credit_names": []},
 						"link": {"url": "https://video.example.org/watch/kettle", "title": "At the revel",
 							"platform": "video.example.org", "liveness": "ok",
 							"last_checked_at": "2026-10-01T09:00:00Z", "archived_url": "https://archive.example.org/kettle"},

@@ -320,10 +320,13 @@ var (
 		Slug: "the-copper-kettle", Title: kettleTitle, Kind: domain.PieceKindSong,
 		SecondaryKinds:     []domain.PieceKind{domain.PieceKindDanceMusic, domain.PieceKindComedy},
 		ConservationStatus: domain.ConservationStatusEndangered, IsStub: true,
+		// The kettle also credits a no-page and an unapproved person, whom its credit line leaves out.
+		CreditNames: []string{wrenName},
 	}
 	brassSummary = domain.PieceSummary{
 		Slug: "the-brass-kettle", Title: "The Brass Kettle", Kind: domain.PieceKindPoem,
 		SecondaryKinds: []domain.PieceKind{domain.PieceKindStory}, ConservationStatus: domain.ConservationStatusLowRisk,
+		CreditNames: []string{wrenName},
 	}
 )
 
@@ -546,7 +549,7 @@ func TestRepository_GetPublicPerson_NotFound(t *testing.T) {
 	t.Parallel()
 
 	repo, fx := detailRepository(t)
-	for _, slug := range []string{fx.pendingWren.Slug, "no-such-person"} {
+	for _, slug := range []string{fx.pendingWren.Slug, unknownPersonSlug} {
 		_, err := repo.GetPublicPerson(t.Context(), slug)
 		require.ErrorIs(t, err, datasources.ErrNotFound, slug)
 	}

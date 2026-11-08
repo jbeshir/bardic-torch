@@ -172,11 +172,11 @@ func (c *catalogueReader) termPieces(
 	for _, row := range rows {
 		slugs = append(slugs, row.Slug)
 	}
-	kinds := c.secondaryKinds(ctx, slugs)
+	details := c.pieceDetails(ctx, slugs)
 
 	pieces := make([]domain.PieceSummary, 0, len(rows))
 	for _, row := range rows {
-		pieces = append(pieces, c.pieceSummary(kinds, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub))
+		pieces = append(pieces, c.pieceSummary(details, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub))
 	}
 
 	return pieces

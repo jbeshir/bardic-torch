@@ -169,6 +169,15 @@ var publicRows = []routeRow{
 	{path: "/v1/collections/" + routingCatalogueID + "/history", allow: http.MethodGet, routed: map[string]routingCase{
 		http.MethodGet: catalogueNotFound(routingCollectionHistory, "collection", routingCatalogueID),
 	}},
+	{path: "/v1/persons/" + routingSlug + "/performances", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/persons/{slug}/performances", "person", routingSlug),
+	}},
+	{path: "/v1/collections/" + routingCatalogueID + "/citations", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/collections/{collection_id}/citations", "collection", routingCatalogueID),
+	}},
+	{path: "/v1/events/" + routingSlug + "/performances", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/events/{slug}/performances", "event", routingSlug),
+	}},
 	{path: routingRevisionPath, allow: http.MethodGet, routed: map[string]routingCase{
 		http.MethodGet: catalogueNotFound(routingRevisionTemplate, "revision", routingCatalogueID),
 	}},
@@ -366,6 +375,27 @@ func (f *routingFixture) ListPublicCollectionHistory(
 	return domain.RevisionHistory{}, datasources.ErrNotFound
 }
 
+func (f *routingFixture) ListPublicPersonPerformances(
+	_ context.Context, slug string, _ domain.Page,
+) (domain.PersonPerformanceList, error) {
+	f.recordPathValue(slug)
+	return domain.PersonPerformanceList{}, datasources.ErrNotFound
+}
+
+func (f *routingFixture) ListPublicCollectionCitations(
+	_ context.Context, id int64, _ domain.Page,
+) (domain.CitationList, error) {
+	f.recordPathValue(strconv.FormatInt(id, 10))
+	return domain.CitationList{}, datasources.ErrNotFound
+}
+
+func (f *routingFixture) ListPublicEventPerformances(
+	_ context.Context, slug string, _ domain.Page,
+) (domain.EventPerformanceList, error) {
+	f.recordPathValue(slug)
+	return domain.EventPerformanceList{}, datasources.ErrNotFound
+}
+
 func (*routingFixture) ListPublicPieces(context.Context, datasources.PieceQuery) (domain.PieceList, error) {
 	return domain.PieceList{}, errRoutingList
 }
@@ -437,31 +467,34 @@ func (f *routingFixture) dependencies() Dependencies {
 	moderator := testUser
 	moderator.ID, moderator.Role = routingModeratorID, domain.RoleModerator
 	return Dependencies{
-		Pinger:                        f,
-		AuthValidators:                []AuthValidator{f.validate},
-		ResolveUser:                   resolveTo(moderator),
-		SetUserBlocked:                f,
-		APITokenRevoker:               f,
-		PublicPieceLister:             f,
-		PublicPieceGetter:             f,
-		PublicPersonLister:            f,
-		PublicPersonGetter:            f,
-		PublicTermLister:              f,
-		PublicTermGetter:              f,
-		PublicCollectionLister:        f,
-		PublicCollectionGetter:        f,
-		PublicEventLister:             f,
-		PublicEventGetter:             f,
-		PublicHistoryLister:           f,
-		PublicCollectionHistoryLister: f,
-		PublicRevisionGetter:          f,
-		PublicNeedsWorkLister:         f,
-		GetEditable:                   routingEditable{f},
-		GetPendingVersion:             routingPending{f},
-		WithdrawRevision:              routingRevision{f},
-		GetDraft:                      routingDraft{f},
-		GetModerationRevision:         routingModerationRevision{f},
-		Now:                           func() time.Time { return testNow },
+		Pinger:                         f,
+		AuthValidators:                 []AuthValidator{f.validate},
+		ResolveUser:                    resolveTo(moderator),
+		SetUserBlocked:                 f,
+		APITokenRevoker:                f,
+		PublicPieceLister:              f,
+		PublicPieceGetter:              f,
+		PublicPersonLister:             f,
+		PublicPersonGetter:             f,
+		PublicTermLister:               f,
+		PublicTermGetter:               f,
+		PublicCollectionLister:         f,
+		PublicCollectionGetter:         f,
+		PublicEventLister:              f,
+		PublicEventGetter:              f,
+		PublicHistoryLister:            f,
+		PublicCollectionHistoryLister:  f,
+		PublicRevisionGetter:           f,
+		PublicNeedsWorkLister:          f,
+		PublicPersonPerformanceLister:  f,
+		PublicCollectionCitationLister: f,
+		PublicEventPerformanceLister:   f,
+		GetEditable:                    routingEditable{f},
+		GetPendingVersion:              routingPending{f},
+		WithdrawRevision:               routingRevision{f},
+		GetDraft:                       routingDraft{f},
+		GetModerationRevision:          routingModerationRevision{f},
+		Now:                            func() time.Time { return testNow },
 	}
 }
 

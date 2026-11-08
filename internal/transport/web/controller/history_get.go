@@ -38,7 +38,7 @@ func (c HistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	page, ok := historyPageOrBadRequest(w, r)
+	page, ok := requestPageOrBadRequest(w, r)
 	if !ok {
 		return
 	}
@@ -59,7 +59,7 @@ func (c CollectionHistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	page, ok := historyPageOrBadRequest(w, r)
+	page, ok := requestPageOrBadRequest(w, r)
 	if !ok {
 		return
 	}
@@ -68,9 +68,10 @@ func (c CollectionHistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	writeHistory(w, r, string(domain.EntityTypeCollection), history, err)
 }
 
-// historyPageOrBadRequest returns the page of history the request asks for. If its query is invalid it writes
-// 400 invalid_request and returns false; the caller should then return without writing.
-func historyPageOrBadRequest(w http.ResponseWriter, r *http.Request) (domain.Page, bool) {
+// requestPageOrBadRequest returns the page the request's limit and offset ask for, for a request with no other
+// query parameters. If its query is invalid it writes 400 invalid_request and returns false; the caller should
+// then return without writing.
+func requestPageOrBadRequest(w http.ResponseWriter, r *http.Request) (domain.Page, bool) {
 	query, ok := queryOrBadRequest(w, r)
 	if !ok {
 		return domain.Page{}, false
