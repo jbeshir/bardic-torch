@@ -377,11 +377,13 @@ func TestRepository_ApproveRevision_Performances(t *testing.T) {
 		})
 	})
 	f.mustApprove(t, person.RevisionID)
-	piece := editAndSubmit(t, f, actorRowanToken, *pieceKey(f.song.Slug), func(d *domain.PieceDocument) {
+	// An interactive moderator, who sees the performer withheld from contributors: a contributor's removal of that
+	// performance would be flagged hidden_data_conflict.
+	piece := editAndSubmit(t, f, actorRowan, *pieceKey(f.song.Slug), func(d *domain.PieceDocument) {
 		d.Links[0].Performances = []domain.DocPerformance{{DescriptionVerbatim: "Sung again",
 			PerformerIDs: []int64{f.morwen.ID}}}
 	})
-	f.mustApprove(t, piece.RevisionID)
+	require.Equal(t, domain.RevisionStatusApproved, piece.Status)
 
 	rows := func(query string, id int64) []string {
 		r, err := f.db.QueryContext(t.Context(), query, id)

@@ -149,7 +149,9 @@ func (c *catalogueReader) replaceDraft(
 }
 
 // draftBase returns the base of a new draft of target and the keys of what its author received of it. The
-// request's base must be an approved revision of the entity.
+// request's base must be an approved revision of the entity. Without one, the base is that of the document the
+// editor serves (docs/PLAN.md §5.1, "Drafts"): the submitted base of the author's pending revision of the entity if
+// they have one, else the current revision.
 func (c *catalogueReader) draftBase(
 	ctx context.Context, req datasources.SaveDraftRequest, kind documentKind, target editTarget,
 	pending []pendingNewEntity,
@@ -159,6 +161,9 @@ func (c *catalogueReader) draftBase(
 		return nil, nil, err
 	}
 	base := req.BaseRevisionID
+	if base == nil && start != nil {
+		base = start.base
+	}
 	if base == nil {
 		base = target.currentRevision
 	}

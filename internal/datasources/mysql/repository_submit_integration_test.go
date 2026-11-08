@@ -375,3 +375,32 @@ func TestRepository_WithdrawRevision_PromotedAuthor(t *testing.T) {
 	require.NoError(t, f.repo.WithdrawRevision(t.Context(), promoted, result.RevisionID))
 	assert.Equal(t, "withdrawn", f.stored(t, result.RevisionID).status)
 }
+
+// TestRepository_SubmitDraft_EditedPerformanceKeepsHiddenPerformer checks that a contributor's edit of a
+// performance's year, which changes the key the restore matches performances by, never silently removes the
+// performer withheld from them: the submission is flagged hidden_data_conflict, approval refuses it, and the
+// moderator rebases it with the performer kept.
+func TestRepository_SubmitDraft_EditedPerformanceKeepsHiddenPerformer(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	key := *pieceKey(f.song.Slug)
+	performers := func() int {
+		return f.count(t, "SELECT COUNT(*) FROM performance_performers WHERE person_id = ?", f.quiet.ID)
+	}
+	require.Equal(t, 1, performers())
+	result := editAndSubmit(t, f, actorWren, key, func(d *domain.PieceDocument) {
+		require.Equal(t, []int64{f.morwen.ID}, d.Links[0].Performances[0].PerformerIDs, "the performer is withheld")
+		d.Links[0].Performances[0].Year = new(int16(2002))
+	})
+	assert.Contains(t, f.stored(t, result.RevisionID).flags, string(domain.FlagHiddenDataConflict))
+	require.ErrorIs(t, f.approve(t, result.RevisionID, domain.ApprovalOptions{}), domain.ErrHiddenDataConflict)
+
+	resolved := f.editable(t, actorRowan, key).Document.(domain.PieceDocument)
+	require.Equal(t, []int64{f.morwen.ID, f.quiet.ID}, resolved.Links[0].Performances[0].PerformerIDs)
+	resolved.Links[0].Performances[0].Year = new(int16(2002))
+	require.NoError(t, f.rebase(t, result.RevisionID, &f.song.RevisionID, resolved, nil))
+	f.mustApprove(t, result.RevisionID)
+
+	assert.Equal(t, 1, performers(), "the hidden performer is kept")
+	assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM performances WHERE year = 2002"))
+}

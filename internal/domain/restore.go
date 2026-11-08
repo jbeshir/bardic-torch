@@ -2,13 +2,15 @@ package domain
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 )
 
-// RestoreDocument puts back into a submitted document of entity id what was withheld from its author (D5). base is
-// the full document of the draft's own base revision, nil for a new entity, and received the keys of the
-// projection the author was given. The restore set is every element of base the current state withholds from the
-// author, and every one whose key the author did not receive (it was withheld when the draft was made):
+// RestoreDocument puts back into a submitted document of entity id what was withheld from its author
+// (docs/PLAN.md §5.1, "Restore on submit"). base is the full document of the draft's own base revision, nil for a
+// new entity, and received the keys of the projection the author was given. The restore set is every element of
+// base the current state withholds from the author, and every one whose key the author did not receive (it was
+// withheld when the draft was made):
 //   - an element of a list is put back after its nearest preceding base element the result holds, or first; an
 //     element the author removed after receiving it stays removed, unless it is withheld now;
 //   - a reference set to null in the projection is restored if the submitted value is still null: an author who
@@ -17,8 +19,11 @@ import (
 //   - preferences are copied whole from base, for every actor, since no editor document holds them.
 //
 // A submitted element whose key equals a withheld one is kept, and the withheld one not put back; for an alias or
-// a link this is returned as a hidden_alias_collision or hidden_link_collision flag at the element's path, which
-// only moderators see.
+// a link this is returned as a hidden_alias_collision or hidden_link_collision flag at the element's path. A
+// performance is matched by its description, year and piece: a performance of base with withheld parts (an event
+// or performers) that no submitted performance matches, because the author edited or removed it, is returned as a
+// hidden_data_conflict flag at its link's performances, and its withheld parts are not put back. Only moderators
+// see the flags.
 func RestoreDocument[D Document](id int64, submitted D, base *D, received ElementKeySet, vis EditorVisibility) (
 	D, []Flag,
 ) {
@@ -31,18 +36,31 @@ func RestoreDocument[D Document](id int64, submitted D, base *D, received Elemen
 	var flags []Flag
 	switch d := any(submitted).(type) {
 	case PieceDocument:
-		out, flags = p.restorePiece(d, any(*base).(PieceDocument))
+		b := any(*base).(PieceDocument)
+		piece, pieceFlags := pieceWithheld.restore(p, d, b)
+		piece.Preferences = b.Preferences
+		out, flags = piece, pieceFlags
 	case PersonDocument:
 		out, flags = p.restorePerson(d, any(*base).(PersonDocument))
 	case TermDocument:
-		out = p.restoreTerm(d, any(*base).(TermDocument))
+		out, flags = termWithheld.restore(p, d, any(*base).(TermDocument))
 	case CollectionDocument:
-		out = p.restoreCollection(d, any(*base).(CollectionDocument))
+		out, flags = collectionWithheld.restore(p, d, any(*base).(CollectionDocument))
 	case EventDocument:
-		out = d
+		out, flags = eventWithheld.restore(p, d, any(*base).(EventDocument))
 	}
 
 	return out.(D), flags
+}
+
+func (p *projector) restorePerson(sub, base PersonDocument) (PersonDocument, []Flag) {
+	if p.withheld(profileKey, p.hidden(p.noPage(base))) {
+		return withIdentity(base, sub), nil
+	}
+	out, flags := personWithheld.restore(p, sub, base)
+	out.Preferences = base.Preferences
+
+	return out, flags
 }
 
 // restoreList puts back into sub each element of base in the restore set, of which hidden tells whether the
@@ -92,29 +110,6 @@ func (p *projector) restoreRef(sub, base *int64, key func(int64) string, visible
 	return sub
 }
 
-func (p *projector) restorePiece(sub, base PieceDocument) (PieceDocument, []Flag) {
-	out := sub
-	out.Preferences = base.Preferences
-	out.Terms, _ = restoreList(p, sub.Terms, base.Terms, elementKeys(termElementKey),
-		func(t DocPieceTerm) bool { return !p.termVisible(t.TermID) })
-	out.Relations, _ = restoreList(p, sub.Relations, base.Relations, elementKeys(pieceRelationKey),
-		func(r DocPieceRelation) bool { return !p.pieceVisible(r.ToPieceID) })
-	out.Credits, _ = restoreList(p, sub.Credits, base.Credits, creditKeys,
-		p.creditHidden)
-	linkKeys := elementKeys(func(l DocPieceLink) string { return linkElementKey(l.URL) })
-	links, collided := restoreList(p, sub.Links, base.Links, linkKeys,
-		func(l DocPieceLink) bool { return p.linkHidden(l.URL) })
-	baseLinks := keyedBy(base.Links, linkKeys)
-	for i, l := range links {
-		if b, ok := baseLinks[linkElementKey(l.URL)]; ok {
-			links[i] = p.restorePieceLink(l, b)
-		}
-	}
-	out.Links = links
-
-	return out, collisionFlags(FlagHiddenLinkCollision, "/links", collided)
-}
-
 // keyedBy is the first element of list with each key.
 func keyedBy[E any](list []E, keys func([]E) []string) map[string]E {
 	byKey := map[string]E{}
@@ -127,9 +122,35 @@ func keyedBy[E any](list []E, keys func([]E) []string) map[string]E {
 	return byKey
 }
 
-func (p *projector) restorePieceLink(sub, base DocPieceLink) DocPieceLink {
-	performanceKeys := elementKeys(func(perf DocPerformance) string { return performanceKey(base.URL, perf, nil) })
-	basePerformances := keyedBy(base.Performances, performanceKeys)
+// dropsWithheld is whether an element of base with withheld parts has a key none of list has: the author removed it
+// or changed what its key is made of, and the restore cannot tell which, so cannot put its withheld parts back.
+// project is the projection of such an element.
+func dropsWithheld[E any](p *projector, base, list []E, keys func([]E) []string, project func(*projector, E) E) bool {
+	kept := keys(list)
+	for i, key := range keys(base) {
+		if !slices.Contains(kept, key) && holdsWithheld(p, base[i], project) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// holdsWithheld is whether the restore set holds a part of e, an element of the base: its projection changes it.
+func holdsWithheld[E any](p *projector, e E, project func(*projector, E) E) bool {
+	probe := *p
+	probe.kept = ElementKeySet{}
+
+	return !reflect.DeepEqual(project(&probe, e), e)
+}
+
+// restorePieceLink restores the parts of a link of a piece, and reports whether a performance of base with
+// withheld parts matches none of sub's.
+func (p *projector) restorePieceLink(sub, base DocPieceLink) (DocPieceLink, bool) {
+	keys := elementKeys(func(perf DocPerformance) string { return performanceKey(base.URL, perf, nil) })
+	basePerformances := keyedBy(base.Performances, keys)
+	dropped := dropsWithheld(p, base.Performances, sub.Performances, keys,
+		func(q *projector, perf DocPerformance) DocPerformance { return q.performance(base.URL, perf, nil) })
 
 	return DocPieceLink{DocLink: p.restoreLinkFields(sub.DocLink, base.DocLink), Performances: mapList(sub.Performances,
 		func(perf DocPerformance) DocPerformance {
@@ -138,7 +159,28 @@ func (p *projector) restorePieceLink(sub, base DocPieceLink) DocPieceLink {
 			}
 
 			return perf
-		})}
+		})}, dropped
+}
+
+// restorePersonLink restores the parts of a link of a person and its withheld performances, and reports whether a
+// performance of base with withheld parts matches none of sub's.
+func (p *projector) restorePersonLink(sub, base DocPersonLink) (DocPersonLink, bool) {
+	keys := personPerformanceKeys(base.URL)
+	performances, _ := restoreList(p, sub.Performances, base.Performances, keys, p.performancePieceHidden)
+	basePerformances := keyedBy(base.Performances, keys)
+	dropped := dropsWithheld(p, base.Performances, performances, keys,
+		func(q *projector, perf DocPersonPerformance) DocPersonPerformance {
+			return q.personPerformance(base.URL, perf)
+		})
+
+	return DocPersonLink{DocLink: p.restoreLinkFields(sub.DocLink, base.DocLink), Performances: mapList(performances,
+		func(perf DocPersonPerformance) DocPersonPerformance {
+			if b, ok := basePerformances[performanceKey(base.URL, perf.DocPerformance, perf.PieceID)]; ok {
+				perf.DocPerformance = p.restorePerformance(base.URL, perf.DocPerformance, b.DocPerformance, perf.PieceID)
+			}
+
+			return perf
+		})}, dropped
 }
 
 // restoreLinkFields restores the collection of a link.
@@ -157,70 +199,6 @@ func (p *projector) restorePerformance(url string, sub, base DocPerformance, pie
 		func(id int64) string { return eventKey(url, base, pieceID, id) }, p.eventVisible)
 	out.PerformerIDs, _ = restoreList(p, sub.PerformerIDs, base.PerformerIDs, performerKeys(url, base, pieceID),
 		func(id int64) bool { return !p.personVisible(id) })
-
-	return out
-}
-
-func (p *projector) restorePerson(sub, base PersonDocument) (PersonDocument, []Flag) {
-	if p.withheld(profileKey, p.hidden(p.noPage(base))) {
-		return withIdentity(base, sub), nil
-	}
-	out := sub
-	out.Preferences = base.Preferences
-	aliases, aliasCollisions := restoreList(p, sub.Aliases, base.Aliases,
-		elementKeys(func(a DocPersonAlias) string { return aliasElementKey(a.Name) }),
-		func(a DocPersonAlias) bool { return !a.IsPublic })
-	out.Aliases = aliases
-	out.AffiliationIDs, _ = restoreList(p, sub.AffiliationIDs, base.AffiliationIDs, elementKeys(affiliationElementKey),
-		func(id int64) bool { return !p.termVisible(id) })
-	out.Relations, _ = restoreList(p, sub.Relations, base.Relations, elementKeys(personRelationKey),
-		func(r DocPersonRelation) bool { return !p.personVisible(r.ToPersonID) })
-	linkKeys := elementKeys(func(l DocPersonLink) string { return linkElementKey(l.URL) })
-	links, linkCollisions := restoreList(p, sub.Links, base.Links, linkKeys,
-		func(l DocPersonLink) bool { return p.linkHidden(l.URL) })
-	baseLinks := keyedBy(base.Links, linkKeys)
-	for i, l := range links {
-		if b, ok := baseLinks[linkElementKey(l.URL)]; ok {
-			links[i] = p.restorePersonLink(l, b)
-		}
-	}
-	out.Links = links
-
-	return out, append(collisionFlags(FlagHiddenAliasCollision, "/aliases", aliasCollisions),
-		collisionFlags(FlagHiddenLinkCollision, "/links", linkCollisions)...)
-}
-
-func (p *projector) restorePersonLink(sub, base DocPersonLink) DocPersonLink {
-	keys := personPerformanceKeys(base.URL)
-	performances, _ := restoreList(p, sub.Performances, base.Performances, keys, p.performancePieceHidden)
-	basePerformances := keyedBy(base.Performances, keys)
-
-	return DocPersonLink{DocLink: p.restoreLinkFields(sub.DocLink, base.DocLink), Performances: mapList(performances,
-		func(perf DocPersonPerformance) DocPersonPerformance {
-			if b, ok := basePerformances[performanceKey(base.URL, perf.DocPerformance, perf.PieceID)]; ok {
-				perf.DocPerformance = p.restorePerformance(base.URL, perf.DocPerformance, b.DocPerformance, perf.PieceID)
-			}
-
-			return perf
-		})}
-}
-
-func (p *projector) restoreTerm(sub, base TermDocument) TermDocument {
-	out := sub
-	out.ParentID = p.restoreRef(sub.ParentID, base.ParentID,
-		func(id int64) string { return elementKey("parent", id) }, p.termVisible)
-	out.RelatedAffiliationID = p.restoreRef(sub.RelatedAffiliationID, base.RelatedAffiliationID,
-		func(id int64) string { return elementKey("related_affiliation", id) }, p.termVisible)
-
-	return out
-}
-
-func (p *projector) restoreCollection(sub, base CollectionDocument) CollectionDocument {
-	out := sub
-	out.RegionTermID = p.restoreRef(sub.RegionTermID, base.RegionTermID,
-		func(id int64) string { return elementKey("region", id) }, p.termVisible)
-	out.ParentID = p.restoreRef(sub.ParentID, base.ParentID,
-		func(id int64) string { return elementKey("collection_parent", id) }, p.collectionVisible)
 
 	return out
 }

@@ -228,9 +228,15 @@ with `go tool`, so nothing needs installing.
     checks of a draft) and `TestValidateSubmission_*` (two-phase validation: a rename to a hidden alias answers as
     a rename to a fresh name and only flags it, caps count visible elements, a hidden licensing source never
     satisfies a contributor, editor paths);
-  - withhold and restore: `TestEditable` (W rows), `TestEditable_NeverHoldsWithheld`, `TestRestore`,
-    `TestRestore_RoundTrip` (restore of an untouched projection is the base, for every type and both roles) and
-    `TestRestore_PreferencesEveryActor`; the author's view: `TestAuthorView` (typed values kept, received ones
+  - withhold and restore: `TestEditable` (W rows), `TestEditable_NeverHoldsWithheld`, `TestRestore` (with an
+    edited or deleted performance holding withheld parts flagged, never dropped silently), `TestRestore_RoundTrip`
+    (restore of an untouched projection is the base, for every type and both roles),
+    `TestRestore_RoundTripScrubbedImport` (the same for every document of the scrubbed import, as a contributor, a
+    moderator and a contributor who may see no event or collection) and `TestRestore_PreferencesEveryActor`; the
+    withheld-fields tables that projection and restore both walk (`withheld_fields.go`):
+    `TestWithheldFields_CoverEveryField` (every list and reference field of every document type and its links is
+    in a table or classified with a reason, so a new field fails until it is) and
+    `TestIdentityFields_MatchWithIdentity`; the author's view: `TestAuthorView` (typed values kept, received ones
     redacted by the current state, inputs unchanged);
   - diff and merge: `TestMerge` (R rows), `TestMerge_Properties`, `TestDiffDocuments` and
     `TestMergeFields_CoverEveryDocumentField` (every document field is in a merge table, so a new field fails
@@ -416,7 +422,8 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   (`TestEntityWriter_RoundTrip`: a public read equals the public view of the document written), approval
   (`TestRepository_ApproveRevision_*`: stale merges, pending references approved alongside, slugs, history order,
   links never deleted and never un-hidden, performances by owner, flags, the 1452 → `ErrEntityGone` mapping,
-  search after commit), reject, rebase and revert, link reports (`TestRepository_LinkReports`), contact requests
+  search after commit), reject, rebase (`TestRepository_RebaseRevision_*`: a rebase clears the
+  submission's restore flags, so a revision refused with `hidden_data_conflict` can then be approved) and revert, link reports (`TestRepository_LinkReports`), contact requests
   (`TestRepository_ContactRequests*`: the cap, and the purge with the clock passed in) and display-name keys
   (`TestRepository_UpdateDisplayName_KeyUnique`). The races run goroutines released together and assert outcomes
   only, never timing: `TestRepository_ApproveRevision_ConcurrentDoubleApprove`, `_ConcurrentSameEntity` (no lost

@@ -405,7 +405,7 @@ paths:
             The approval is refused: the revision is not pending (`not_pending`); it is stale and its changes
             conflict with the current version (`rebase_required`); its entity, or an entity it references, no
             longer exists (`entity_gone`); it carries hidden data a contributor could not see
-            (`hidden_data_conflict`); a pending new term or person it references carries flags
+            (`hidden_data_conflict`; rebase it to clear); a pending new term or person it references carries flags
             (`pending_reference_flagged`, with that revision's flags); its flags are not acknowledged
             (`unacknowledged_flags`, with the flags); or another term of its facet has taken the term's name
             (`duplicate_name`).
@@ -536,9 +536,10 @@ paths:
       summary: Rebase a pending revision
       description: |
         Replaces a pending revision's document with one the moderator resolved against the entity's current
-        revision, which becomes its base. The revision stays pending; what its author submitted, and the base
-        they edited from, are kept. The document is validated against the current version with its author's
-        rules. Requires an interactive moderator session.
+        revision, which becomes its base. The revision stays pending and loses the flags only its submission
+        could find (`hidden_alias_collision`, `hidden_link_collision`, `hidden_data_conflict`), so it can then be
+        approved; what its author submitted, and the base they edited from, are kept. The document is validated
+        against the current version with its author's rules. Requires an interactive moderator session.
       operationId: rebaseRevision
       parameters:
         - $ref: "#/components/parameters/RevisionID"
@@ -7498,7 +7499,9 @@ components:
       type: object
       description: |
         A draft to save: of the entity `entity`, or of a new entity of `entity_type` if it is null, on the base
-        `base_revision_id`, the one `Editable` gave, or the entity's current revision if it is null.
+        `base_revision_id`, the one `Editable` gave. If it is null, the base is that of the document `Editable`
+        serves: the submitted base of the caller's pending revision of the entity if they have one, else the
+        entity's current revision.
       additionalProperties: false
       required: [entity_type, entity, base_revision_id, document, summary]
       properties:

@@ -13,13 +13,14 @@ import (
 
 // The fixtures of the withhold and restore tests.
 const (
-	hiddenLinkURL           = "https://example.org/hidden-recording"
-	songbookPageURL         = "https://example.org/songbook-page"
-	refHiddenColl     int64 = 32
-	privateNotes            = "Private profile notes."
-	preferenceSource        = "https://example.org/preference-source"
-	feastPerformance        = "Sung at the feast"
-	secretPerformance       = "At the secret revel"
+	hiddenLinkURL                   = "https://example.org/hidden-recording"
+	songbookPageURL                 = "https://example.org/songbook-page"
+	refHiddenColl             int64 = 32
+	privateNotes                    = "Private profile notes."
+	preferenceSource                = "https://example.org/preference-source"
+	feastPerformance                = "Sung at the feast"
+	secretPerformance               = "At the secret revel"
+	pathFirstLinkPerformances       = "/links/0/performances"
 )
 
 // editorVisibility is what the fixtures' caller sees, as role: public entities, their own pending term and person,
@@ -340,14 +341,78 @@ func TestRestore(t *testing.T) {
 		assert.Equal(t, []int64{refPerson, refNoPagePerson}, got.Links[0].Performances[0].PerformerIDs)
 		assert.Equal(t, ptr(refPendingEvent), got.Links[0].Performances[1].EventID, "the nulled event is restored")
 	})
-	t.Run("W12b_PerformanceKeyChanged", func(t *testing.T) {
+	t.Run("PerformanceKeyChanged", func(t *testing.T) {
 		t.Parallel()
-		got, _ := restorePiece(func(d *PieceDocument) {
+		editPerformance := func(edit func(*DocPerformance)) func(*PieceDocument) {
+			return func(d *PieceDocument) {
+				d.Links = slices.Clone(d.Links)
+				d.Links[0].Performances = slices.Clone(d.Links[0].Performances)
+				edit(&d.Links[0].Performances[0])
+			}
+		}
+		conflict := []Flag{{Code: FlagHiddenDataConflict, Path: pathFirstLinkPerformances}}
+		for name, edit := range map[string]func(*PieceDocument){
+			"Year":        editPerformance(func(p *DocPerformance) { p.Year = ptr(int16(2002)) }),
+			"Description": editPerformance(func(p *DocPerformance) { p.DescriptionVerbatim = "Sung at another revel" }),
+		} {
+			got, flags := restorePiece(edit)
+			assert.Equal(t, []int64{refPerson}, got.Links[0].Performances[0].PerformerIDs,
+				"%s: the submitted performance is kept as sent", name)
+			assert.Equal(t, conflict, flags, "%s: the withheld performer is never silently removed", name)
+		}
+		got, flags := restorePiece(func(d *PieceDocument) {
 			d.Links = slices.Clone(d.Links)
-			d.Links[0].Performances = slices.Clone(d.Links[0].Performances)
-			d.Links[0].Performances[0].DescriptionVerbatim = "Sung at another revel"
+			d.Links[0].Performances = d.Links[0].Performances[:1]
 		})
-		assert.Equal(t, []int64{refPerson}, got.Links[0].Performances[0].PerformerIDs, "dropped")
+		assert.Len(t, got.Links[0].Performances, 1, "the deleted performance stays deleted")
+		assert.Equal(t, conflict, flags, "deleting a performance with a withheld event is flagged")
+	})
+	t.Run("PerformanceWithoutWithheldParts", func(t *testing.T) {
+		t.Parallel()
+		base := fullPiece()
+		base.Links = slices.Clone(base.Links)
+		base.Links[0].Performances = slices.Clone(base.Links[0].Performances)
+		base.Links[0].Performances[1].EventID = ptr(refEvent)
+		sub, keys := EditableDocument(pieceID, base, vis)
+		sub.Links = slices.Clone(sub.Links)
+		sub.Links[0].Performances = slices.Clone(sub.Links[0].Performances)
+		sub.Links[0].Performances[1].Year = ptr(int16(1999))
+		got, flags := RestoreDocument(pieceID, sub, &base, keys, vis)
+		assert.Empty(t, flags, "an edited performance with nothing withheld is no conflict")
+		assert.Equal(t, ptr(int16(1999)), got.Links[0].Performances[1].Year)
+		sub.Links[0].Performances = sub.Links[0].Performances[:1]
+		_, flags = RestoreDocument(pieceID, sub, &base, keys, vis)
+		assert.Empty(t, flags, "nor is a deleted one")
+	})
+	t.Run("PersonPerformanceKeyChanged", func(t *testing.T) {
+		t.Parallel()
+		base := fullPerson()
+		base.Links = slices.Clone(base.Links)
+		base.Links[0].Performances = slices.Clone(base.Links[0].Performances)
+		base.Links[0].Performances[0].EventID = ptr(refPendingEvent)
+		base.Links[0].Performances[0].PerformerIDs = []int64{refPerson, refNoPagePerson}
+		projection, keys := EditableDocument(personID, base, vis)
+		restoreEdited := func(edit func(*DocPersonPerformance)) (PersonDocument, []Flag) {
+			sub := projection
+			sub.Links = slices.Clone(sub.Links)
+			sub.Links[0].Performances = slices.Clone(sub.Links[0].Performances)
+			edit(&sub.Links[0].Performances[0])
+
+			return RestoreDocument(personID, sub, &base, keys, vis)
+		}
+		got, flags := restoreEdited(func(*DocPersonPerformance) {})
+		assert.Equal(t, base, got, "unchanged: the withheld event and performer are restored")
+		assert.Empty(t, flags)
+		for name, edit := range map[string]func(*DocPersonPerformance){
+			"Year":        func(p *DocPersonPerformance) { p.Year = ptr(int16(2002)) },
+			"Description": func(p *DocPersonPerformance) { p.DescriptionVerbatim = "At the winter revel" },
+		} {
+			got, flags := restoreEdited(edit)
+			edited := got.Links[0].Performances[1]
+			assert.Equal(t, []int64{refPerson}, edited.PerformerIDs, "%s: kept as sent", name)
+			assert.Nil(t, edited.EventID, name)
+			assert.Equal(t, []Flag{{Code: FlagHiddenDataConflict, Path: pathFirstLinkPerformances}}, flags, name)
+		}
 	})
 	t.Run("W14_NoPageProfileFromBase", func(t *testing.T) {
 		t.Parallel()

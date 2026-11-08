@@ -390,6 +390,12 @@ func TestPlanApproval_FlagsGate(t *testing.T) {
 		{name: "HiddenLinkCollisionAcknowledged", state: state(func(s *ApprovalState[PieceDocument]) {
 			s.StoredFlags = []Flag{{Code: FlagHiddenLinkCollision, Path: pathThirdLink}}
 		}), opts: ApprovalOptions{AcknowledgedFlags: []FlagCode{FlagHiddenLinkCollision}}},
+		{name: "HiddenDataConflictRefuses", state: state(func(s *ApprovalState[PieceDocument]) {
+			s.StoredFlags = []Flag{{Code: FlagHiddenDataConflict, Path: pathNotes}}
+		}), err: ErrHiddenDataConflict},
+		{name: "HiddenDataConflictClearedByRebase", state: state(func(s *ApprovalState[PieceDocument]) {
+			s.StoredFlags = FlagsAfterRebase([]Flag{{Code: FlagHiddenDataConflict, Path: pathNotes}})
+		})},
 		{name: "StoredContentFlagsAreFoundAgain", state: state(func(s *ApprovalState[PieceDocument]) {
 			s.StoredFlags = []Flag{{Code: FlagHiddenAliasInSummary, Path: pathSummary}}
 		})},
@@ -568,6 +574,26 @@ func TestPlanSubmit(t *testing.T) {
 		assert.Equal(t, base.Credits, plan.Document.Credits)
 		assert.Empty(t, plan.Flags)
 	})
+	t.Run("EditedPerformanceWithWithheldPerformer", func(t *testing.T) {
+		t.Parallel()
+		base := edit(validPiece(), func(d *PieceDocument) {
+			d.Links = slices.Clone(d.Links)
+			d.Links[0].Performances = []DocPerformance{{Year: ptr(int16(2001)), DescriptionVerbatim: "Live",
+				PerformerIDs: []int64{refPerson, refNoPagePerson}}}
+		})
+		editor, keys := EditableDocument(pieceID, base, editorVisibility(t, RoleContributor))
+		plan, err := PlanSubmit(submitState(t, pieceID, editor, &base, keys))
+		require.NoError(t, err)
+		assert.Equal(t, base, plan.Document, "unchanged: the withheld performer is restored")
+		assert.Empty(t, plan.Flags)
+		editor.Links = slices.Clone(editor.Links)
+		editor.Links[0].Performances = slices.Clone(editor.Links[0].Performances)
+		editor.Links[0].Performances[0].Year = ptr(int16(2002))
+		plan, err = PlanSubmit(submitState(t, pieceID, editor, &base, keys))
+		require.NoError(t, err, "the contributor is told nothing")
+		assert.Equal(t, editor.Links[0].Performances, plan.Document.Links[0].Performances, "kept as submitted")
+		assert.Equal(t, []Flag{{Code: FlagHiddenDataConflict, Path: pathFirstLinkPerformances}}, plan.Flags)
+	})
 	t.Run("W10_LinkCollisionFlag", func(t *testing.T) {
 		t.Parallel()
 		base := addLink(validPiece(), pieceLink(hiddenLinkURL, "Hidden"))
@@ -607,4 +633,19 @@ func TestPlanSubmit_StaleBaseNoMerge(t *testing.T) {
 	plan, err := PlanSubmit(submitState(t, pieceID, withNotes(editor), &base, keys))
 	require.NoError(t, err)
 	assert.Equal(t, withNotes(base), plan.Document, "R48: planned on the draft's own base, whatever is current")
+}
+
+func TestFlagsAfterRebase(t *testing.T) {
+	t.Parallel()
+
+	stored := []Flag{
+		{Code: FlagHiddenAliasCollision, Path: "/aliases/2"}, {Code: FlagHiddenAliasInText, Path: pathNotes},
+		{Code: FlagHiddenLinkCollision, Path: pathThirdLink}, {Code: FlagHiddenDataConflict, Path: pathName},
+		{Code: FlagPossibleDuplicate}, {Code: FlagReferencesPending, Path: pathNewTerm},
+	}
+	kept := FlagsAfterRebase(stored)
+	assert.Equal(t, []Flag{{Code: FlagHiddenAliasInText, Path: pathNotes}, {Code: FlagPossibleDuplicate},
+		{Code: FlagReferencesPending, Path: pathNewTerm}}, kept, "only the submission's restore flags are cleared")
+	assert.Len(t, stored, 6, "stored is not changed")
+	assert.NotNil(t, FlagsAfterRebase(nil), "stored as an empty list")
 }

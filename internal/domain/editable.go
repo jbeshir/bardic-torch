@@ -2,15 +2,15 @@ package domain
 
 import "fmt"
 
-// The editable document (D5): a contributor never receives hidden data, and the server puts it back when their
-// document returns. EditableDocument withholds from a document every element the caller may not see; the keys of
-// what it shows are the received keys of a draft made from it. RestoreDocument puts back into a submitted document
-// what was withheld from its base. AuthorDocument (author.go) shows the author what they submitted: what they typed,
-// and what they received as far as the current state still shows it.
+// The editable document (docs/PLAN.md §5.1, "Editable projection"): a contributor never receives hidden data, and
+// the server puts it back when their document returns. EditableDocument withholds from a document every element
+// the caller may not see; the keys of what it shows are the received keys of a draft made from it. RestoreDocument
+// puts back into a submitted document what was withheld from its base. AuthorDocument (author.go) shows the author
+// what they submitted: what they typed, and what they received as far as the current state still shows it.
 
 // EditorVisibility is what decides what a caller sees of a document: the current visibility of the entities and
 // links it references, the caller's own pending new terms and persons, the hidden links among its links and the
-// caller's effective role (D25). An interactive moderator sees everything but preferences.
+// caller's effective role. An interactive moderator sees everything but preferences.
 type EditorVisibility struct {
 	SnapshotVisibility
 	OwnPending OwnPendingRefs
@@ -19,7 +19,7 @@ type EditorVisibility struct {
 	Role           Role
 }
 
-// OwnPendingRefs are the caller's pending new terms and persons, which they may see and reference (D5), as their
+// OwnPendingRefs are the caller's pending new terms and persons, which they may see and reference, as their
 // views show them: under their placeholder slugs, with the names of their pending documents.
 type OwnPendingRefs struct {
 	Terms   map[int64]TermSummary
@@ -184,30 +184,10 @@ func (p *projector) ref(id *int64, key string, visible bool) *int64 {
 	return id
 }
 
-func (p *projector) termRef(field string, id *int64) *int64 {
-	if id == nil {
-		return nil
-	}
-
-	return p.ref(id, elementKey(field, *id), p.termVisible(*id))
-}
-
-func (p *projector) piece(d PieceDocument) PieceDocument {
-	out := d
-	out.Preferences = nil
-	out.Terms = project(p, d.Terms, elementKeys(termElementKey),
-		func(t DocPieceTerm) bool { return !p.termVisible(t.TermID) })
-	out.Relations = project(p, d.Relations, elementKeys(pieceRelationKey),
-		func(r DocPieceRelation) bool { return !p.pieceVisible(r.ToPieceID) })
-	out.Credits = project(p, d.Credits, creditKeys, p.creditHidden)
-	out.Links = project(p, d.Links, elementKeys(func(l DocPieceLink) string { return linkElementKey(l.URL) }),
-		func(l DocPieceLink) bool { return p.linkHidden(l.URL) })
-	out.Links = mapList(out.Links, func(l DocPieceLink) DocPieceLink {
-		return DocPieceLink{DocLink: p.link(l.DocLink), Performances: mapList(l.Performances,
-			func(perf DocPerformance) DocPerformance { return p.performance(l.URL, perf, nil) })}
-	})
-
-	return out
+// pieceLink is the projection of a link of a piece the projector shows.
+func (p *projector) pieceLink(l DocPieceLink) DocPieceLink {
+	return DocPieceLink{DocLink: p.link(l.DocLink), Performances: mapList(l.Performances,
+		func(perf DocPerformance) DocPerformance { return p.performance(l.URL, perf, nil) })}
 }
 
 // link is the projection of a link the projector shows: its collection withheld if the caller may not see it.
@@ -244,32 +224,19 @@ func (p *projector) performance(url string, perf DocPerformance, pieceID *int64)
 	return out
 }
 
-func (p *projector) person(d PersonDocument) PersonDocument {
-	if p.withheld(profileKey, p.hidden(p.noPage(d))) {
-		return identityOnly(d)
-	}
-	p.kept[profileKey] = true
-	out := d
-	out.Preferences = nil
-	out.Aliases = project(p, d.Aliases, elementKeys(func(a DocPersonAlias) string { return aliasElementKey(a.Name) }),
-		func(a DocPersonAlias) bool { return !a.IsPublic })
-	out.AffiliationIDs = project(p, d.AffiliationIDs, elementKeys(affiliationElementKey),
-		func(id int64) bool { return !p.termVisible(id) })
-	out.Relations = project(p, d.Relations, elementKeys(personRelationKey),
-		func(r DocPersonRelation) bool { return !p.personVisible(r.ToPersonID) })
-	out.Links = project(p, d.Links, elementKeys(func(l DocPersonLink) string { return linkElementKey(l.URL) }),
-		func(l DocPersonLink) bool { return p.linkHidden(l.URL) })
-	out.Links = mapList(out.Links, func(l DocPersonLink) DocPersonLink {
-		performances := project(p, l.Performances, personPerformanceKeys(l.URL), p.performancePieceHidden)
+// personLink is the projection of a link of a person the projector shows: its performances of pieces that are not
+// public withheld, and the parts of the others the caller may not see.
+func (p *projector) personLink(l DocPersonLink) DocPersonLink {
+	performances := project(p, l.Performances, personPerformanceKeys(l.URL), p.performancePieceHidden)
 
-		return DocPersonLink{DocLink: p.link(l.DocLink), Performances: mapList(performances,
-			func(perf DocPersonPerformance) DocPersonPerformance {
-				return DocPersonPerformance{PieceID: perf.PieceID,
-					DocPerformance: p.performance(l.URL, perf.DocPerformance, perf.PieceID)}
-			})}
-	})
+	return DocPersonLink{DocLink: p.link(l.DocLink), Performances: mapList(performances,
+		func(perf DocPersonPerformance) DocPersonPerformance { return p.personPerformance(l.URL, perf) })}
+}
 
-	return out
+// personPerformance is the projection of a performance of a person's link with URL url the projector shows.
+func (p *projector) personPerformance(url string, perf DocPersonPerformance) DocPersonPerformance {
+	return DocPersonPerformance{PieceID: perf.PieceID,
+		DocPerformance: p.performance(url, perf.DocPerformance, perf.PieceID)}
 }
 
 func personPerformanceKeys(url string) func([]DocPersonPerformance) []string {
@@ -290,56 +257,44 @@ func identityOnly(d PersonDocument) PersonDocument {
 	return withIdentity(DefaultPersonDocument(), d)
 }
 
-// withIdentity is profile with the identity of the person of document identity: name, kind, status and stub.
-func withIdentity(profile, d PersonDocument) PersonDocument {
-	out := profile
-	out.SchemaVersion, out.Name, out.Kind, out.IsStub = d.SchemaVersion, d.Name, d.Kind, d.IsStub
-	out.Status, out.StatusDate, out.StatusSourceURL = d.Status, d.StatusDate, d.StatusSourceURL
-
-	return out
-}
-
-func (p *projector) term(d TermDocument) TermDocument {
-	out := d
-	out.ParentID = p.termRef("parent", d.ParentID)
-	out.RelatedAffiliationID = p.termRef("related_affiliation", d.RelatedAffiliationID)
-
-	return out
-}
-
-func (p *projector) collection(d CollectionDocument) CollectionDocument {
-	out := d
-	out.RegionTermID = p.termRef("region", d.RegionTermID)
-	if d.ParentID != nil {
-		out.ParentID = p.ref(d.ParentID, elementKey("collection_parent", *d.ParentID), p.collectionVisible(*d.ParentID))
-	}
-
-	return out
-}
-
-// projectDocument is the projector's projection of doc.
+// projectDocument is the projector's projection of doc: the fields of its type's table withheld (withheld_fields.go),
+// and the preferences, which no one edits; a no-page person's profile is withheld whole.
 func projectDocument[D Document](p *projector, doc D) D {
 	var out any
 	switch d := any(doc).(type) {
 	case PieceDocument:
-		out = p.piece(d)
+		piece := pieceWithheld.project(p, d)
+		piece.Preferences = nil
+		out = piece
 	case PersonDocument:
 		out = p.person(d)
 	case TermDocument:
-		out = p.term(d)
+		out = termWithheld.project(p, d)
 	case CollectionDocument:
-		out = p.collection(d)
+		out = collectionWithheld.project(p, d)
 	case EventDocument:
-		out = d
+		out = eventWithheld.project(p, d)
 	}
 
 	return out.(D)
 }
 
-// EditableDocument returns the document of entity id (0 for a new one) as the caller may edit it (D5): without
-// every element the current state withholds from them (hidden aliases and links, references to entities they may
-// not see, a no-page person's profile) and without preferences, which no one edits until their shape is defined.
-// It also returns the keys of the elements it shows, the received keys of a draft made from it.
+// person is the projection of a person: their identity only if the caller may not see their profile.
+func (p *projector) person(d PersonDocument) PersonDocument {
+	if p.withheld(profileKey, p.hidden(p.noPage(d))) {
+		return identityOnly(d)
+	}
+	p.kept[profileKey] = true
+	out := personWithheld.project(p, d)
+	out.Preferences = nil
+
+	return out
+}
+
+// EditableDocument returns the document of entity id (0 for a new one) as the caller may edit it: without every
+// element the current state withholds from them (hidden aliases and links, references to entities they may not
+// see, a no-page person's profile) and without preferences, which no one edits until their shape is defined. It
+// also returns the keys of the elements it shows, the received keys of a draft made from it.
 func EditableDocument[D Document](id int64, doc D, vis EditorVisibility) (D, ElementKeySet) {
 	p := &projector{id: id, vis: vis, kept: ElementKeySet{},
 		withheld: func(_ string, hiddenNow bool) bool { return hiddenNow }}

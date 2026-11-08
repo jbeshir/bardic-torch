@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"strings"
 )
 
 // FieldPath names what a diff found changed, or where a merge found a conflict (D9): a field by its JSON name
@@ -378,7 +377,7 @@ func fieldByJSON(doc reflect.Value, name string) reflect.Value {
 // jsonFieldIndex is the index of the field of the struct type t whose JSON name is name, or nil if it has none.
 func jsonFieldIndex(t reflect.Type, name string) []int {
 	for i := range t.NumField() {
-		if tag, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ","); tag == name {
+		if jsonFieldName(t.Field(i)) == name {
 			return t.Field(i).Index
 		}
 	}

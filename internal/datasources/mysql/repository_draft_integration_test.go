@@ -5,6 +5,7 @@ package mysql_test
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -214,4 +215,33 @@ func TestRepository_Drafts_UpdateGetDiscard(t *testing.T) {
 	require.NoError(t, f.repo.DiscardDraft(t.Context(), actorWren, draft.Draft.ID))
 	_, err = f.repo.GetDraft(t.Context(), actorWren, draft.Draft.ID)
 	require.ErrorIs(t, err, datasources.ErrNotFound)
+}
+
+// TestRepository_SaveDraft_DefaultBaseIsPendingStart checks that a draft saved without a base, from the editor's
+// pending starting point, is based on the pending revision's submitted base, not on current: an alias someone else
+// added meanwhile was never shown to the author, so it is neither received nor removed by their edit.
+func TestRepository_SaveDraft_DefaultBaseIsPendingStart(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	key := personKey(f.morwen.Slug)
+	const added = "Morwen the Bold"
+	editAndSubmit(t, f, actorWren, *key, func(d *domain.PersonDocument) { d.NotesMD = new("Wren's notes.") })
+	theirs := editAndSubmit(t, f, actorAsh, *key, func(d *domain.PersonDocument) {
+		d.Aliases = append(slices.Clone(d.Aliases), domain.DocPersonAlias{Name: added, Kind: domain.PersonAliasKindStage,
+			IsPublic: true})
+	})
+	f.mustApprove(t, theirs.RevisionID)
+
+	editable := f.editable(t, actorWren, *key)
+	require.Equal(t, domain.StartingPointPending, editable.StartingPoint)
+	draft := f.saveDraft(t, actorWren, key, editable.Document)
+	stored := f.stored(t, draft.Draft.ID)
+	assert.Equal(t, f.morwen.RevisionID, stored.base.Int64, "the pending start's submitted base")
+	assert.NotContains(t, stored.receivedKeys, strings.ToLower(added), "the added alias was never received")
+
+	f.mustApprove(t, f.submit(t, actorWren, draft.Draft.ID).RevisionID)
+	current := f.editable(t, actorRowan, *key).Document.(domain.PersonDocument)
+	assert.True(t, slices.ContainsFunc(current.Aliases, func(a domain.DocPersonAlias) bool { return a.Name == added }),
+		"Ash's alias survives Wren's edit")
+	assert.Equal(t, "Wren's notes.", *current.NotesMD)
 }

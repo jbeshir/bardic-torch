@@ -547,18 +547,13 @@ func (c *docCheck) personAliases(d, prev PersonDocument, author Role) {
 	c.unique(keys, "/aliases")
 }
 
-// identityFields are the fields of a person document that a person who prefers no page has: everything else of
-// their profile is withheld from contributors, and restored from the base (D5).
-var identityFields = []string{"schema_version", "name", "kind", "status", "status_date", "status_source_url", "is_stub"}
-
 // identityOnly checks that a contributor's document of a person who prefers no page differs from the comparison
 // document in the identity fields only. Restore makes any other difference impossible; this is defence in depth.
 func (c *docCheck) identityOnly(d, prev PersonDocument) {
 	dv, pv := reflect.ValueOf(d), reflect.ValueOf(prev)
 	for i := range dv.NumField() {
 		f := dv.Type().Field(i)
-		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
-		if !slices.Contains(identityFields, name) && !sameValue(dv.Field(i), pv.Field(i)) {
+		if !slices.Contains(identityFields, jsonFieldName(f)) && !sameValue(dv.Field(i), pv.Field(i)) {
 			c.report(documentPaths.field("", f), ProblemWithheldFieldChanged)
 		}
 	}

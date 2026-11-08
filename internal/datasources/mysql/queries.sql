@@ -1166,7 +1166,7 @@ WHERE id = ? AND status = 'pending';
 
 -- name: RebaseRevisionRow :execrows
 UPDATE revisions
-SET snapshot_json = ?, base_revision_id = ?, summary = ?, rebased_by_user_id = ?, rebased_at = ?
+SET snapshot_json = ?, base_revision_id = ?, summary = ?, flags_json = ?, rebased_by_user_id = ?, rebased_at = ?
 WHERE id = ? AND status = 'pending';
 
 -- A revert is a new pending revision on the current revision, holding its author's document (the projection of

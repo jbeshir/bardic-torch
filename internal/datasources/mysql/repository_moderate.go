@@ -50,10 +50,11 @@ func (r *Repository) RejectRevision(ctx context.Context, req datasources.RejectR
 	return nil
 }
 
-// RebaseRevision rebases a pending revision onto its entity's current revision (D9): under the revision's lock and
-// its entity row's, the moderator's resolved document must be against the current revision, is validated against
-// the current document with the revision author's role (domain.PlanRebase), and replaces the revision's document,
-// which stays pending; what its author submitted, and the base they edited from, are kept.
+// RebaseRevision rebases a pending revision onto its entity's current revision (docs/PLAN.md §5.1): under the
+// revision's lock and its entity row's, the moderator's resolved document must be against the current revision, is
+// validated against the current document with the revision author's role (domain.PlanRebase), and replaces the
+// revision's document, which stays pending. Its stored flags lose those only the submission could find
+// (domain.FlagsAfterRebase); what its author submitted, and the base they edited from, are kept.
 func (r *Repository) RebaseRevision(ctx context.Context, req datasources.RebaseRequest) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		c := r.txReader(tx)
@@ -114,8 +115,12 @@ func (c *catalogueReader) rebase(ctx context.Context, req datasources.RebaseRequ
 	if err != nil {
 		return err
 	}
+	flags, err := encodeJSON(domain.FlagsAfterRebase(in.storedFlags))
+	if err != nil {
+		return err
+	}
 	err = requireMatched(c.q.RebaseRevisionRow(ctx, queries.RebaseRevisionRowParams{SnapshotJson: snapshot,
-		BaseRevisionID: nullableID(own.currentRevision), Summary: summary,
+		BaseRevisionID: nullableID(own.currentRevision), Summary: summary, FlagsJson: flags,
 		RebasedByUserID: sql.NullString{String: req.Actor.UserID, Valid: true}, RebasedAt: nullTime(req.Now),
 		ID: in.revisionID}))
 	if err != nil {

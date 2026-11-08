@@ -3,6 +3,7 @@
 package mysql_test
 
 import (
+	"encoding/json"
 	"slices"
 	"strconv"
 	"testing"
@@ -394,4 +395,54 @@ func TestRepository_RevertTo_ReasonRequired(t *testing.T) {
 	result, err := f.revert(t, actorWren, endangered.RevisionID, "Endangered again.")
 	require.NoError(t, err)
 	assert.Equal(t, domain.RevisionStatusPending, result.Status)
+}
+
+// storedFlags are the flags stored with the revision id.
+func (f *editingFixture) storedFlags(t *testing.T, id int64) []domain.Flag {
+	t.Helper()
+	var flags []domain.Flag
+	require.NoError(t, json.Unmarshal([]byte(f.stored(t, id).flags), &flags))
+
+	return flags
+}
+
+// TestRepository_RebaseRevision_ClearsRestoreFlags checks that a revision whose submission found hidden data in the
+// way (a rename to a hidden alias, a public alias equal to a hidden one) can be approved once a moderator rebases
+// it: the rebase clears the submission's restore flags, and the hidden alias stays hidden.
+func TestRepository_RebaseRevision_ClearsRestoreFlags(t *testing.T) {
+	t.Parallel()
+	for name, tt := range map[string]struct {
+		edit func(*domain.PersonDocument)
+		flag domain.FlagCode
+	}{
+		"RenameToHiddenAlias": {edit: func(d *domain.PersonDocument) { d.Name = morwenLegal },
+			flag: domain.FlagHiddenDataConflict},
+		"PublicAliasCollision": {edit: func(d *domain.PersonDocument) {
+			d.Aliases = append(slices.Clone(d.Aliases), domain.DocPersonAlias{Name: morwenLegal,
+				Kind: domain.PersonAliasKindStage, IsPublic: true})
+		}, flag: domain.FlagHiddenAliasCollision},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := newEditingFixture(t)
+			key := *personKey(f.morwen.Slug)
+			result := editAndSubmit(t, f, actorWren, key, tt.edit)
+			stored := f.storedFlags(t, result.RevisionID)
+			require.True(t, slices.ContainsFunc(stored, func(fl domain.Flag) bool { return fl.Code == tt.flag }))
+			require.ErrorIs(t, f.approve(t, result.RevisionID, domain.ApprovalOptions{}), domain.ErrHiddenDataConflict)
+
+			resolved := f.editable(t, actorRowan, key).Document.(domain.PersonDocument)
+			resolved.Name = "Morwen Renamed"
+			require.NoError(t, f.rebase(t, result.RevisionID, &f.morwen.RevisionID, resolved, nil))
+			assert.Equal(t, domain.FlagsAfterRebase(stored), f.storedFlags(t, result.RevisionID),
+				"the restore's flags are cleared, the others kept")
+
+			f.mustApprove(t, result.RevisionID)
+			person, err := f.repo.GetPublicPerson(t.Context(), f.morwen.Slug)
+			require.NoError(t, err)
+			assert.Equal(t, "Morwen Renamed", person.Name)
+			current := f.editable(t, actorRowan, key).Document.(domain.PersonDocument)
+			assert.Equal(t, morwenDocument(f).Aliases, current.Aliases, "the hidden alias is still hidden, once")
+		})
+	}
 }

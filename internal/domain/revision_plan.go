@@ -175,10 +175,26 @@ type ApprovalPlan[D Document] struct {
 	TermFacetRebuild *Facet
 }
 
-// submitFlags are the flags only a submission can find, which an approval keeps from StoredFlags; the others it
-// finds again in the document it approves.
+// submitFlags are the flags only a submission can find, the restore's collisions and the problems only the
+// restored document has, which an approval keeps from StoredFlags; the others it finds again in the document it
+// approves. A rebase clears them (FlagsAfterRebase).
 var submitFlags = map[FlagCode]bool{
 	FlagHiddenAliasCollision: true, FlagHiddenLinkCollision: true, FlagHiddenDataConflict: true,
+}
+
+// FlagsAfterRebase are the flags a pending revision keeps when a moderator rebases it, of stored, the flags stored
+// with it: all but those only a submission can find (submitFlags). The rebased document is the one the
+// moderator resolved from their full view, and the rebase validated it against the full current document, so the
+// submission's findings no longer describe it. The other flags are found again at approval. It is never nil.
+func FlagsAfterRebase(stored []Flag) []Flag {
+	kept := make([]Flag, 0, len(stored))
+	for _, f := range stored {
+		if !submitFlags[f.Code] {
+			kept = append(kept, f)
+		}
+	}
+
+	return kept
 }
 
 // PlanApproval plans an approval (D9, D15, D19). A stale revision is merged with the current document, and a

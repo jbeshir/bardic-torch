@@ -86,7 +86,7 @@ var documentPaths = pathStyle{
 		if name, ok := f.Tag.Lookup("editor"); ok {
 			return parent + "/" + name
 		}
-		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		name := jsonFieldName(f)
 		if f.Anonymous && name == "" {
 			return parent
 		}

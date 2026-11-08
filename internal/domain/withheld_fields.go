@@ -1,0 +1,242 @@
+package domain
+
+import (
+	"fmt"
+	"reflect"
+	"slices"
+	"strings"
+)
+
+// The fields of each document type a projection may withhold from a caller, declared once: EditableDocument walks
+// these tables to withhold, and RestoreDocument walks the same tables to put back what was withheld, so a field is
+// always withheld and restored by the same keys and the same rule (docs/PLAN.md §5.1, "Editable projection" and
+// "Restore on submit"). Two things are handled outside the tables: preferences, which are withheld from everyone,
+// and a no-page person's profile, which is withheld whole (identityOnly).
+
+// withheldFields are the fields of a document of type D a projection may withhold: lists, whose elements it may
+// withhold, and references, which it may set to null.
+type withheldFields[D any] struct {
+	lists []withheldList[D]
+	refs  []refField[D]
+}
+
+// withheldList is a list field of a document of type D, whatever its element type.
+type withheldList[D any] interface {
+	// jsonName is the field's JSON name.
+	jsonName() string
+	// project withholds the field's elements the projector withholds from out.
+	project(p *projector, out *D)
+	// restore puts back into out the field's elements of base in the restore set, and returns the flags of what
+	// it could not put back.
+	restore(p *projector, out *D, base D) []Flag
+}
+
+// listField is a list field of a document of type D with elements of type E.
+type listField[D, E any] struct {
+	name string
+	list func(*D) *[]E
+	keys func([]E) []string
+	// hidden is whether the current state withholds an element from the caller.
+	hidden func(*projector, E) bool
+	// collision is the flag of a submitted element whose key equals that of a withheld element, which the restore
+	// keeps instead of the withheld one; empty for none.
+	collision FlagCode
+	// parts are the withholdable parts of the elements, nil if they have none.
+	parts *elementParts[E]
+}
+
+// elementParts are the parts of a list's elements a projection may withhold from an element it shows.
+type elementParts[E any] struct {
+	// project withholds the parts of an element the projector withholds.
+	project func(*projector, E) E
+	// restore puts back into an element sub the parts of base, its element in the base, in the restore set. It
+	// reports whether a part it could not put back was dropped.
+	restore func(p *projector, sub, base E) (E, bool)
+	// droppedPath is the path, under the element, of the hidden_data_conflict flag of a dropped part.
+	droppedPath string
+}
+
+func (f listField[D, E]) jsonName() string { return f.name }
+
+func (f listField[D, E]) project(p *projector, out *D) {
+	list := f.list(out)
+	*list = project(p, *list, f.keys, func(e E) bool { return f.hidden(p, e) })
+	if f.parts != nil {
+		*list = mapList(*list, func(e E) E { return f.parts.project(p, e) })
+	}
+}
+
+func (f listField[D, E]) restore(p *projector, out *D, base D) []Flag {
+	list, baseList := f.list(out), *f.list(&base)
+	restored, collided := restoreList(p, *list, baseList, f.keys, func(e E) bool { return f.hidden(p, e) })
+	path := "/" + f.name
+	var flags []Flag
+	if f.collision != "" {
+		flags = collisionFlags(f.collision, path, collided)
+	}
+	if f.parts != nil {
+		byKey := keyedBy(baseList, f.keys)
+		for i, key := range f.keys(restored) {
+			b, ok := byKey[key]
+			if !ok {
+				continue
+			}
+			var dropped bool
+			restored[i], dropped = f.parts.restore(p, restored[i], b)
+			if dropped {
+				flags = append(flags, Flag{Code: FlagHiddenDataConflict,
+					Path: fmt.Sprintf("%s/%d/%s", path, i, f.parts.droppedPath)})
+			}
+		}
+	}
+	*list = restored
+
+	return flags
+}
+
+// refField is a reference field of a document of type D, to an entity of ID id, with the element key
+// elementKey(key, id).
+type refField[D any] struct {
+	name string
+	key  string
+	ref  func(*D) **int64
+	// visible is whether the caller may see the referenced entity now.
+	visible func(*projector, int64) bool
+}
+
+func (f refField[D]) elementKey(id int64) string { return elementKey(f.key, id) }
+
+func (f refField[D]) project(p *projector, out *D) {
+	ref := f.ref(out)
+	if *ref != nil {
+		*ref = p.ref(*ref, f.elementKey(**ref), f.visible(p, **ref))
+	}
+}
+
+func (f refField[D]) restore(p *projector, out *D, base D) {
+	ref := f.ref(out)
+	*ref = p.restoreRef(*ref, *f.ref(&base), f.elementKey, func(id int64) bool { return f.visible(p, id) })
+}
+
+// project withholds from d every field the projector withholds.
+func (fs withheldFields[D]) project(p *projector, d D) D {
+	out := d
+	for _, f := range fs.lists {
+		f.project(p, &out)
+	}
+	for _, f := range fs.refs {
+		f.project(p, &out)
+	}
+
+	return out
+}
+
+// restore puts back into sub every field of base in the restore set, and returns the restore's flags.
+func (fs withheldFields[D]) restore(p *projector, sub, base D) (D, []Flag) {
+	out := sub
+	var flags []Flag
+	for _, f := range fs.lists {
+		flags = append(flags, f.restore(p, &out, base)...)
+	}
+	for _, f := range fs.refs {
+		f.restore(p, &out, base)
+	}
+
+	return out, flags
+}
+
+// names are the JSON names of the fields.
+func (fs withheldFields[D]) names() []string {
+	var names []string
+	for _, f := range fs.lists {
+		names = append(names, f.jsonName())
+	}
+	for _, f := range fs.refs {
+		names = append(names, f.name)
+	}
+
+	return names
+}
+
+// linkField is the links field of a document whose links of type L have the URL url: a link is withheld if it is
+// hidden, a submitted link with a hidden link's URL is a hidden_link_collision, and the parts of a link it shows
+// (its collection and its performances' events and performers) are withheld by project and restored by restore.
+func linkField[D, L any](list func(*D) *[]L, url func(L) string, project func(*projector, L) L,
+	restore func(p *projector, sub, base L) (L, bool),
+) listField[D, L] {
+	return listField[D, L]{name: "links", list: list,
+		keys:      elementKeys(func(l L) string { return linkElementKey(url(l)) }),
+		hidden:    func(p *projector, l L) bool { return p.linkHidden(url(l)) },
+		collision: FlagHiddenLinkCollision,
+		parts:     &elementParts[L]{project: project, restore: restore, droppedPath: "performances"}}
+}
+
+var pieceWithheld = withheldFields[PieceDocument]{lists: []withheldList[PieceDocument]{
+	listField[PieceDocument, DocPieceTerm]{name: "terms",
+		list: func(d *PieceDocument) *[]DocPieceTerm { return &d.Terms }, keys: elementKeys(termElementKey),
+		hidden: func(p *projector, t DocPieceTerm) bool { return !p.termVisible(t.TermID) }},
+	listField[PieceDocument, DocPieceRelation]{name: "relations",
+		list: func(d *PieceDocument) *[]DocPieceRelation { return &d.Relations }, keys: elementKeys(pieceRelationKey),
+		hidden: func(p *projector, r DocPieceRelation) bool { return !p.pieceVisible(r.ToPieceID) }},
+	listField[PieceDocument, DocCredit]{name: "credits",
+		list: func(d *PieceDocument) *[]DocCredit { return &d.Credits }, keys: creditKeys,
+		hidden: (*projector).creditHidden},
+	linkField(func(d *PieceDocument) *[]DocPieceLink { return &d.Links }, func(l DocPieceLink) string { return l.URL },
+		(*projector).pieceLink, (*projector).restorePieceLink),
+}}
+
+var personWithheld = withheldFields[PersonDocument]{lists: []withheldList[PersonDocument]{
+	listField[PersonDocument, DocPersonAlias]{name: "aliases",
+		list:   func(d *PersonDocument) *[]DocPersonAlias { return &d.Aliases },
+		keys:   elementKeys(func(a DocPersonAlias) string { return aliasElementKey(a.Name) }),
+		hidden: func(_ *projector, a DocPersonAlias) bool { return !a.IsPublic }, collision: FlagHiddenAliasCollision},
+	listField[PersonDocument, int64]{name: "affiliation_ids",
+		list: func(d *PersonDocument) *[]int64 { return &d.AffiliationIDs }, keys: elementKeys(affiliationElementKey),
+		hidden: func(p *projector, id int64) bool { return !p.termVisible(id) }},
+	listField[PersonDocument, DocPersonRelation]{name: "relations",
+		list: func(d *PersonDocument) *[]DocPersonRelation { return &d.Relations }, keys: elementKeys(personRelationKey),
+		hidden: func(p *projector, r DocPersonRelation) bool { return !p.personVisible(r.ToPersonID) }},
+	linkField(func(d *PersonDocument) *[]DocPersonLink { return &d.Links }, func(l DocPersonLink) string { return l.URL },
+		(*projector).personLink, (*projector).restorePersonLink),
+}}
+
+var termWithheld = withheldFields[TermDocument]{refs: []refField[TermDocument]{
+	{name: "parent_id", key: "parent", ref: func(d *TermDocument) **int64 { return &d.ParentID },
+		visible: (*projector).termVisible},
+	{name: "related_affiliation_id", key: "related_affiliation",
+		ref: func(d *TermDocument) **int64 { return &d.RelatedAffiliationID }, visible: (*projector).termVisible},
+}}
+
+var collectionWithheld = withheldFields[CollectionDocument]{refs: []refField[CollectionDocument]{
+	{name: "region_term_id", key: "region", ref: func(d *CollectionDocument) **int64 { return &d.RegionTermID },
+		visible: (*projector).termVisible},
+	{name: "parent_id", key: "collection_parent", ref: func(d *CollectionDocument) **int64 { return &d.ParentID },
+		visible: (*projector).collectionVisible},
+}}
+
+// eventWithheld is empty: an event document references nothing a projection withholds.
+var eventWithheld = withheldFields[EventDocument]{}
+
+// identityFields are the JSON names of the fields of a person document that a person who prefers no page has:
+// everything else of their profile is withheld from contributors, and restored from the base.
+var identityFields = []string{"schema_version", "name", "kind", "status", "status_date", "status_source_url", "is_stub"}
+
+// withIdentity is profile with the identity fields of d.
+func withIdentity(profile, d PersonDocument) PersonDocument {
+	out := profile
+	ov, dv := reflect.ValueOf(&out).Elem(), reflect.ValueOf(d)
+	for i := range dv.NumField() {
+		if slices.Contains(identityFields, jsonFieldName(dv.Type().Field(i))) {
+			ov.Field(i).Set(dv.Field(i))
+		}
+	}
+
+	return out
+}
+
+// jsonFieldName is the JSON name of a struct field.
+func jsonFieldName(f reflect.StructField) string {
+	name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+
+	return name
+}

@@ -354,9 +354,10 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   draft has its own ID because slug `new` is a valid piece slug, and the ID becomes the pending revision's ID on
   submit. One draft per author and existing entity: creating another replaces it (200, ID and base kept), under a
   lock on the author's `users` row. New-entity drafts (`entity_id` NULL) may be several. At most 50 drafts per
-  user. The draft's base is an approved revision of the entity (default: current; none for a new entity). Drafts
-  are checked only structurally (vocabulary values, NFC, control characters, references that resolve), since they
-  may be incomplete; full validation runs at submit.
+  user. The draft's base is an approved revision of the entity (default: the base of the document the editor
+  serves: the pending start's submitted base if the author has a pending revision of the entity, else current;
+  none for a new entity). Drafts are checked only structurally (vocabulary values, NFC, control characters,
+  references that resolve), since they may be incomplete; full validation runs at submit.
 - **State machine** (`domain.CheckTransition`, called by the repository on the status it read `FOR UPDATE`):
   draft → pending (contributor or API-token submit) or approved (interactive moderator submit); pending →
   approved, rejected, withdrawn (by its author, or superseded by the author's next submit of that entity) or
@@ -378,15 +379,17 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   profile and preferences copied whole), as is every base element the author never received (not in
   `received_keys_json`). A submitted element whose key equals a withheld one (a public alias equal to a hidden
   alias, a link URL of a hidden link) is kept, and the collision is a moderator flag; the contributor is told
-  nothing. **A contributor submit never merges**: it is stored on the draft's own base, and stale handling is
-  approval's. Contributors cannot add a hidden alias other than a `legal` one, every `legal` alias they add is
-  hidden, and they cannot make a hidden alias public.
+  nothing. A performance is matched by its year, description and piece: a base performance with withheld
+  performers or event that no submitted performance matches (edited or deleted) is the flag `hidden_data_conflict`,
+  never a silent removal. **A contributor submit never merges**: it is stored on the draft's own base, and stale
+  handling is approval's. Contributors cannot add a hidden alias other than a `legal` one, every `legal` alias they
+  add is hidden, and they cannot make a hidden alias public.
 - **Two-phase validation** of a contributor or API-token submit or revert: phase 1 validates the editor
   document as sent, against the projection of its base (caps count what the caller sees, sourced-field rules see
   visible links only, paths are editor paths). Only phase-1 problems are ever shown to a contributor (422
   `invalid_document`, problems with a path and code, never a value). Phase 2 validates the restored document
   against the full base; a problem only it finds becomes the flag `hidden_data_conflict`, and the response is the
-  same as without it. Approval refuses that flag (409 `hidden_data_conflict`).
+  same as without it. Approval refuses that flag (409 `hidden_data_conflict`) until a rebase clears it.
 - **Author's view** (`…/pending`, `/v1/me/revisions[/{revision_id}]`, a draft's `preview`) is defined by
   provenance: elements the author typed are kept whatever their hidden state, and elements they received are
   redacted by the current state, through the public `New*Snapshot` views extended with their own pending terms
@@ -449,9 +452,11 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   `hidden_alias_collision`, `hidden_link_collision`, `hidden_link_attached`, `hidden_data_conflict`,
   `possible_duplicate`, `references_pending`. Hidden aliases are found by `domain.NameMatcher` (the importer's),
   in every form the importer withholds. At approval `hidden_alias_collision` and `hidden_data_conflict` refuse
-  (409 `hidden_data_conflict`); every other flag but `references_pending` must be acknowledged (409
-  `unacknowledged_flags`), and a flagged summary also needs a clean replacement. A review note is checked the
-  same way at approve and reject, as it reaches the author.
+  (409 `hidden_data_conflict`) until the moderator rebases the revision, which clears the flags only the
+  submission could find (`hidden_alias_collision`, `hidden_link_collision`, `hidden_data_conflict`; the others are
+  found again at approval), or rejects it; every other flag but `references_pending` must be acknowledged (409
+  `unacknowledged_flags`), and a flagged summary also needs a clean replacement. A review note is checked the same
+  way at approve and reject, as it reaches the author.
 - **Revert** (`POST /v1/revisions/{revision_id}/revert`) builds the target's document with every alias hidden in
   current or in the target still hidden and current preferences, on base = current read under the entity lock (so
   never stale), with the default summary `Revert to revision <id>.`. A contributor's is pending (capped,
