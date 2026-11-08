@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
@@ -28,7 +29,7 @@ func (c DraftUpdate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := c.Command.Execute(r.Context(), command.UpdateDraftRequest{
-		Principal: req.Principal, ID: req.ID, Document: doc, Summary: body.Summary,
+		Principal: req.Principal, ID: req.ID, Document: doc, Summary: domain.WithLineBreaksNormalized(body.Summary),
 	})
 	if err != nil {
 		writeRevisionError(w, r, "draft", err)

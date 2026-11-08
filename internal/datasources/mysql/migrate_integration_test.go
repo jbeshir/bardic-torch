@@ -4,10 +4,8 @@ package mysql_test
 
 import (
 	"database/sql"
-	"io/fs"
 	"maps"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -15,7 +13,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
-	"github.com/jbeshir/bardic-torch/migrations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -257,34 +254,9 @@ func performanceOwners(t *testing.T, db *sql.DB) map[int64][2]sql.NullInt64 {
 	return owners
 }
 
-// ownerBackfillStatements returns the statements of migration 010 that set performance owners, read from the
-// migration file so that the test runs the statements the migration does.
-func ownerBackfillStatements(t *testing.T) []string {
-	t.Helper()
-
-	script, err := fs.ReadFile(migrations.FS, "010_moderation.up.sql")
-	require.NoError(t, err)
-
-	var code strings.Builder
-	for line := range strings.Lines(string(script)) {
-		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
-			code.WriteString(line)
-		}
-	}
-
-	var statements []string
-	for statement := range strings.SplitSeq(code.String(), ";") {
-		if statement = strings.TrimSpace(statement); strings.HasPrefix(statement, "UPDATE `performances`") {
-			statements = append(statements, statement)
-		}
-	}
-
-	return statements
-}
-
-// TestMigration010_BackfillsPerformanceOwners requires the backfill of migration 010 to give the performances of
-// a BE3 import, which set no owners, the owners the import writer gives them.
-func TestMigration010_BackfillsPerformanceOwners(t *testing.T) {
+// TestRepository_BackfillPerformanceOwners_Import requires the startup backfill to give the performances of a BE3
+// import, which set no owners, the owners the import writer gives them.
+func TestRepository_BackfillPerformanceOwners_Import(t *testing.T) {
 	t.Parallel()
 
 	db := catalogtest.Writable(t)
@@ -299,12 +271,15 @@ func TestMigration010_BackfillsPerformanceOwners(t *testing.T) {
 		require.False(t, owner[0].Valid || owner[1].Valid)
 	}
 
-	statements := ownerBackfillStatements(t)
-	require.Len(t, statements, 2)
-	for _, statement := range statements {
-		_, err := db.ExecContext(t.Context(), statement)
-		require.NoError(t, err)
-	}
+	backfilled, err := mysql.New(db).BackfillPerformanceOwners(t.Context())
+	require.NoError(t, err)
 
+	owned := 0
+	for _, owner := range want {
+		if owner[0].Valid || owner[1].Valid {
+			owned++
+		}
+	}
+	assert.Equal(t, int64(owned), backfilled)
 	assert.Equal(t, want, performanceOwners(t, db))
 }

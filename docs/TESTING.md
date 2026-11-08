@@ -490,9 +490,9 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   Integration tests that submit or approve through the repository pass the duplicate checks the commands make
   (`editingFixture.submitRequest`, `approvalChecks`): a new entity's write without one is refused.
 - **Migration 010**: `TestMigrations_ModerationConstraints` (its CHECKs, foreign keys and unique key by MySQL error
-  number) and `TestMigration010_BackfillsPerformanceOwners`, which writes the scrubbed import with BE3's
-  performance insert (no owners), runs the migration's backfill statements and checks that every performance is
-  owned by the entity whose current document lists it.
+  number). Migration 010 only adds the performance owner columns: `TestRepository_BackfillPerformanceOwners_Import`
+  writes the scrubbed import with BE3's performance insert (no owners), runs the startup backfill and checks that
+  every performance is owned by the entity whose current document lists it.
 - **Migrate command** (`cmd/migrate/main_integration_test.go`): `TestMigrateRun_UpVersionDown` (up, version and
   down through `run`), `TestMigrateRun_UpWithNewerSchemaIsNoChange` (up on a clean schema newer than every
   embedded migration, as when rolling back a release, succeeds and applies nothing) and

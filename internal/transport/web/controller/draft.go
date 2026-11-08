@@ -78,7 +78,8 @@ func writeDraft(w http.ResponseWriter, r *http.Request, status int, result comma
 }
 
 // DraftUpdateRequest is the JSON body of a request replacing a draft's document and summary: Document is in the
-// editor format of EntityType, which must be the draft's.
+// editor format of EntityType, which must be the draft's. Summary's CRLF and lone CR are replaced by LF; the
+// document's text is taken as sent.
 type DraftUpdateRequest struct {
 	EntityType domain.EntityType `json:"entity_type"`
 	Document   json.RawMessage   `json:"document"`

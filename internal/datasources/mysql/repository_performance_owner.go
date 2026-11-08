@@ -10,8 +10,8 @@ import (
 
 var _ datasources.PerformanceOwnerBackfiller = (*Repository)(nil)
 
-// BackfillPerformanceOwners gives the performances with no owner their owner, in one short write. The statements
-// are those of migration 010, which gave the performances of the time their owners.
+// BackfillPerformanceOwners gives the performances with no owner their owner, in one short write: those an earlier
+// release stored, before migration 010 added the owner columns or after it. app.Setup runs it before serving.
 func (r *Repository) BackfillPerformanceOwners(ctx context.Context) (int64, error) {
 	var owned int64
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {

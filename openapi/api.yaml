@@ -471,8 +471,8 @@ paths:
                     code: invalid_document
                     message: the document is invalid
                     problems:
-                      - path: /summary
-                        problem: too_long
+                      - path: /terms/1/is_primary
+                        problem: second_primary_term
                 duplicateBlocked:
                   summary: The new person matches a person who has asked not to have a page
                   value:
@@ -581,7 +581,9 @@ paths:
         "400":
           description: |
             The `revision_id` is not a positive integer, the request body is malformed, its `summary` is longer
-            than 500 characters or holds a control character (as for `review_note`), or its document is not a
+            than 500 characters or holds a control character (a C0 or C1 control other than tab and line feed, or a
+            bidirectional embedding, override or isolate; CRLF and a lone carriage return are first replaced by LF
+            before the length is counted, which is how the summary is stored), or its document is not a
             document of its `entity_type` or of the revision's; the error code is `invalid_request`.
           content:
             application/json:
@@ -703,7 +705,7 @@ paths:
           description: |
             The `report_id` is not a positive integer, or the request body is malformed or invalid: for example
             `note` is longer than 2000 characters or holds a control character (a C0 or C1 control other than tab
-            and line feed, or a bidirectional override; CRLF and a lone carriage return are first replaced by LF,
+            and line feed, or a bidirectional embedding, override or isolate; CRLF and a lone carriage return are first replaced by LF before the length is counted,
             which is how the note is stored). The message names the field, never its value; the error code is
             `invalid_request`.
           content:
@@ -936,7 +938,7 @@ paths:
           description: |
             The `request_id` is not a positive integer, or the request body is malformed or invalid: for example
             `note` is longer than 2000 characters or holds a control character (a C0 or C1 control other than tab
-            and line feed, or a bidirectional override; CRLF and a lone carriage return are first replaced by LF,
+            and line feed, or a bidirectional embedding, override or isolate; CRLF and a lone carriage return are first replaced by LF before the length is counted,
             which is how the note is stored). The message names the field, never its value; the error code is
             `invalid_request`.
           content:
@@ -1622,7 +1624,7 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 code: invalid_request
-                message: "invalid collection_id: must be an integer from 1 to 9223372036854775807"
+                message: "invalid collection_id: must be an integer from 1 to 9007199254740991"
         "404":
           description: No public collection has this ID; the error code is `not_found`.
           content:
@@ -1954,7 +1956,7 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 code: invalid_request
-                message: "invalid revision_id: must be an integer from 1 to 9223372036854775807"
+                message: "invalid revision_id: must be an integer from 1 to 9007199254740991"
         "404":
           description: No public revision has this ID; the error code is `not_found`.
           content:
@@ -2047,8 +2049,8 @@ paths:
         "400":
           description: |
             The request body is malformed or invalid, for example a field is too long or holds a control character
-            (a C0 or C1 control other than tab and line feed, or a bidirectional override; in `message`, CRLF and a
-            lone carriage return are first replaced by LF, which is how the message is stored), or
+            (a C0 or C1 control other than tab and line feed, or a bidirectional embedding, override or isolate; in `message`, CRLF and a
+            lone carriage return are first replaced by LF before the length is counted, which is how the message is stored), or
             `turnstile_token` is missing (`invalid_request`; the message names the field, never its
             value); or the Turnstile token did not pass: it is invalid, expired or already used, or was minted for another hostname or action (`turnstile_failed`). Nothing is stored.
           content:
@@ -2880,8 +2882,8 @@ paths:
           description: |
             The request body is malformed or invalid: for example `url` is missing or longer than 2048 characters,
             or `message` is longer than 2000 characters or holds a control character (a C0 or C1 control other
-            than tab and line feed, or a bidirectional override; CRLF and a lone carriage return are first replaced
-            by LF, which is how the message is stored). The message names the field, never its value; the error code
+            than tab and line feed, or a bidirectional embedding, override or isolate; CRLF and a lone carriage return are first replaced
+            by LF before the length is counted, which is how the message is stored). The message names the field, never its value; the error code
             is `invalid_request`.
           content:
             application/json:
@@ -3277,7 +3279,7 @@ components:
             $ref: "#/components/schemas/Error"
           example:
             code: invalid_request
-            message: "invalid collection_id: must be an integer from 1 to 9223372036854775807"
+            message: "invalid collection_id: must be an integer from 1 to 9007199254740991"
     InvalidRequest:
       description: |
         The request body is malformed or invalid; the error code is `invalid_request`.
@@ -3379,8 +3381,8 @@ components:
         The `revision_id` is not a positive integer, or the request body is malformed or invalid: for example
         `acknowledged_flags` is missing, holds an unknown flag or repeats one, `review_note` is longer than 2000
         characters, the approval's `summary` is longer than 500, or either holds a control character (a C0 or C1
-        control other than tab and line feed, or a bidirectional override; CRLF and a lone carriage return are
-        first replaced by LF, which is how they are stored). The message names the field, never its value; the error code is
+        control other than tab and line feed, or a bidirectional embedding, override or isolate; CRLF and a lone carriage return are
+        first replaced by LF before the length is counted, which is how they are stored). The message names the field, never its value; the error code is
         `invalid_request`.
       content:
         application/json:
@@ -3479,7 +3481,7 @@ components:
             $ref: "#/components/schemas/Error"
           example:
             code: invalid_request
-            message: "invalid collection_id: must be an integer from 1 to 9223372036854775807"
+            message: "invalid collection_id: must be an integer from 1 to 9007199254740991"
     InvalidDraftID:
       description: The `draft_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
       content:
@@ -3488,7 +3490,7 @@ components:
             $ref: "#/components/schemas/Error"
           example:
             code: invalid_request
-            message: "invalid draft_id: must be an integer from 1 to 9223372036854775807"
+            message: "invalid draft_id: must be an integer from 1 to 9007199254740991"
     InvalidRevisionID:
       description: |
         The `revision_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
@@ -3498,7 +3500,7 @@ components:
             $ref: "#/components/schemas/Error"
           example:
             code: invalid_request
-            message: "invalid revision_id: must be an integer from 1 to 9223372036854775807"
+            message: "invalid revision_id: must be an integer from 1 to 9007199254740991"
     InvalidDocumentRequest:
       description: |
         The request body is malformed, its `entity` does not address an entity of its `entity_type` (a collection
@@ -3514,8 +3516,10 @@ components:
     InvalidDraftDocument:
       description: |
         The document references an entity the caller may not reference, whether it does not exist or is not
-        public, or holds an unknown value, a string that is not valid UTF-8 in NFC or holds control characters,
-        or a summary longer than 500 characters; or `base_revision_id` is not an approved revision of the entity
+        public, or holds an unknown value, or a string that is not valid UTF-8 in NFC or holds control characters
+        (document text is taken as sent, so a carriage return in it is `invalid_characters`); or the summary is
+        longer than 500 characters, not in NFC or holds a control character (its CRLF and lone carriage returns are
+        first replaced by LF, so they are not); or `base_revision_id` is not an approved revision of the entity
         (`/base_revision_id`, `unknown_reference`). The error code is `invalid_document`. A draft may otherwise be
         incomplete.
       content:
@@ -7493,6 +7497,8 @@ components:
     EditorDocument:
       description: |
         A document in the editor format, in the shape of the `entity_type` beside it in the enclosing object.
+        Its strings are taken as sent, without normalisation: send line breaks as LF and text in NFC, since a
+        carriage return or another control character is 422 `invalid_document` `invalid_characters`.
       oneOf:
         - $ref: "#/components/schemas/EditorPieceDocument"
         - $ref: "#/components/schemas/EditorPersonDocument"
@@ -7797,7 +7803,10 @@ components:
 
     RevisionSummaryText:
       type: string
-      description: What the edit changes, in its author's words; may be empty. At most 500 characters.
+      description: |
+        What the edit changes, in its author's words; may be empty. At most 500 characters. In a request, CRLF and a
+        lone carriage return are replaced by LF before the summary is checked and stored; any other control
+        character, or a string not in NFC, is 422 `invalid_document` at `/summary`.
       maxLength: 500
       examples:
         - Describe the revel.

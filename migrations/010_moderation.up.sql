@@ -17,7 +17,8 @@ ALTER TABLE `revisions`
         REFERENCES `revisions` (`id`),
     ADD CONSTRAINT `chk_revisions_entity_unless_draft` CHECK (`entity_id` IS NOT NULL OR `status` = 'draft');
 
--- Which document owns each performance: the piece's or the person's.
+-- Which document owns each performance: the piece's or the person's. The rows of earlier releases are given their
+-- owners at startup (BackfillPerformanceOwners), which also covers rows such a release writes after this migration.
 ALTER TABLE `performances`
     ADD COLUMN `owner_piece_id` BIGINT UNSIGNED NULL,
     ADD COLUMN `owner_person_id` BIGINT UNSIGNED NULL,
@@ -28,18 +29,6 @@ ALTER TABLE `performances`
     ADD CONSTRAINT `fk_performances_owner_person_id` FOREIGN KEY (`owner_person_id`) REFERENCES `persons` (`id`)
         ON DELETE CASCADE,
     ADD CONSTRAINT `chk_performances_one_owner` CHECK (`owner_piece_id` IS NULL OR `owner_person_id` IS NULL);
-
-UPDATE `performances` perf
-SET perf.`owner_piece_id` = perf.`piece_id`
-WHERE perf.`piece_id` IS NOT NULL AND EXISTS (
-    SELECT 1 FROM `link_attachments` a WHERE a.`link_id` = perf.`link_id` AND a.`piece_id` = perf.`piece_id`);
-
-UPDATE `performances` perf
-JOIN (SELECT `link_id`, MIN(`person_id`) AS `person_id`
-      FROM `link_attachments` WHERE `person_id` IS NOT NULL GROUP BY `link_id`) owner
-    ON owner.`link_id` = perf.`link_id`
-SET perf.`owner_person_id` = owner.`person_id`
-WHERE perf.`owner_piece_id` IS NULL;
 
 -- Display-name impersonation control: the folded key, unique; NULL until written.
 ALTER TABLE `users`

@@ -255,7 +255,7 @@ func TestHTTP_RevisionEndToEnd(t *testing.T) {
 
 // contributeToPerson runs a contributor's revision flow on person, imported with the hidden legal alias
 // hiddenAlias: editable (the alias withheld), draft, submit, pending; withdraw and submit again; a superseding
-// submit on the old base after a moderator renamed the person; and its approval, which keeps the rename (M6).
+// submit on the old base after a moderator renamed the person; and its approval, which keeps the moderator's rename.
 func contributeToPerson(
 	t *testing.T, w revisionWorld, contributor, moderator string, person catalogtest.Ref, hiddenAlias string,
 ) {

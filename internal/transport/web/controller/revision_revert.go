@@ -9,7 +9,7 @@ import (
 )
 
 // RevisionRevertRequest is the JSON body of a request reverting an entity to one of its approved revisions, with
-// an optional summary; AcknowledgedFlags are a moderator's.
+// an optional summary, whose CRLF and lone CR are replaced by LF; AcknowledgedFlags are a moderator's.
 type RevisionRevertRequest struct {
 	Summary           *string           `json:"summary"`
 	AcknowledgedFlags []domain.FlagCode `json:"acknowledged_flags"`
@@ -36,7 +36,7 @@ func (c RevisionRevert) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := c.Command.Execute(r.Context(), command.RevertRequest{
-		Principal: req.Principal, RevisionID: req.ID, Summary: valueOrEmpty(body.Summary),
+		Principal: req.Principal, RevisionID: req.ID, Summary: domain.WithLineBreaksNormalized(valueOrEmpty(body.Summary)),
 		AcknowledgedFlags: body.AcknowledgedFlags,
 	})
 	if err != nil {

@@ -360,7 +360,7 @@ func requireFlagStored(t *testing.T, w revisionLeakWorld, revisionID int64, code
 	require.True(t, flagged, "revision %d is not flagged %s", revisionID, code)
 }
 
-// validationOracle is the B1 row: A renames wren to its hidden alias, and (after withdrawing that) to a fresh
+// validationOracle is the validation-oracle row: A renames wren to its hidden alias, and (after withdrawing that) to a fresh
 // name. The two submits' responses and author views are byte-equal once the typed name, IDs and times are masked,
 // and neither shows hidden_data_conflict, though the first is flagged with it. It returns both revisions' IDs.
 func (w revisionLeakWorld) validationOracle(t *testing.T, fx revisionLeakFixture) (int64, int64) {

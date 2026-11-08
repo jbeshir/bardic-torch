@@ -507,14 +507,24 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   One open report per reporter and link (a repeat answers 200 with it), at most 20 open per reporter. Hiding a
   link (`PUT /v1/links/{link_id}/hidden`, or resolving a report with `hide_link`) resolves its open reports.
   `GET /v1/moderation/links?url=` finds any link's ID, state and attachments.
-- **Moderation free text** (a link report's `message`, a `review_note`, and the `note` resolving a link report or a
-  contact request, like every free-text field of the contact form) is 400 `invalid_request`, naming the field and
-  never its value, if it holds a control character: a C0 or C1 control other than tab and line feed, or a
-  bidirectional embedding, override or isolate, which could rewrite how a moderator's screen shows the text after
-  it. CRLF and a lone carriage return (what a browser sends for a textarea line break without JavaScript) are
-  first replaced by LF, before the length and control-character checks and before storage, so the stored and
-  forwarded text holds LF only. The contact form's name, email, URL and token are single-line and keep the
-  strict rule.
+- **Line breaks and control characters in text.** A control character is a C0 or C1 control other than tab and
+  line feed, or a bidirectional embedding, override or isolate (U+202A–U+202E, U+2066–U+2069), which could rewrite
+  how a moderator's screen shows the text after it. CRLF and a lone carriage return are what a browser sends for a
+  textarea line break without JavaScript. The rule depends on the field's class:
+  - *Moderation and contact free text*: a link report's `message`, a `review_note`, the approve and rebase
+    `summary`, the `note` resolving a link report or a contact request, and the contact form's `message`. CRLF and
+    a lone CR are first replaced by LF; the length (counted on the replaced text, so a spec `maxLength` is the
+    limit on the stored text) and the control characters are then checked, and a failure is 400
+    `invalid_request`, naming the field and never its value. The stored and forwarded text holds LF only.
+  - *Revision summaries* of drafts and reverts (`summary` of `POST /v1/drafts`, `PUT /v1/drafts/{draft_id}` and
+    `POST /v1/revisions/{revision_id}/revert`): CRLF and a lone CR are replaced by LF in the same way, and the
+    summary is then checked with the document, so a control character, a non-NFC string or more than 500
+    characters is 422 `invalid_document` at `/summary`.
+  - *Document text* (every string of a draft's or rebase's document) is not normalised: a CR there is a control
+    character, 422 `invalid_document` `invalid_characters` at its path. The FE converts line breaks to LF and
+    NFC-normalises before it sends a document.
+  - *Single-line fields* (the contact form's name, email, URL and Turnstile token, a link report's URL) are not
+    normalised: a CR, like any control character, is 400 `invalid_request`.
 - **Contact requests** (`POST /v1/contact`, no account): kind, name, email, message, URL and a Turnstile token;
   202 with no ID. Turnstile is verified server-side with siteverify: `success`, a hostname in
   `TURNSTILE_HOSTNAMES` (bardictorch.org and preview.bardictorch.org, compared case-insensitively; empty disables
@@ -712,7 +722,7 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
 - Write documents with editor-owned fields only. Write the link system state directly: `is_hidden` for a link whose
   URL holds a private name, and liveness left at the column default (`unknown`; the wiki records none).
 - Write every performance with its owner (`owner_piece_id` for a piece document's, `owner_person_id` for a person
-  document's; migration 010 backfilled BE3's rows), and the import and the approval writer share one entity writer.
+  document's; the startup backfill owns BE3's rows), and the import and the approval writer share one entity writer.
   After the import, approvals write a links row's shared fields only where the approving editor changed them, or
   where the row is NULL (§5.1 "Approval"). Per-attachment titles and locators (backlog 10) are deferred to after
   BE5: they need new columns and every link read to change.

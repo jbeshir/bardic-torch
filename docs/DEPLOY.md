@@ -488,12 +488,12 @@ release keeps serving while it runs and after a rollback:
 
 - `revisions.entity_id` becomes nullable, for drafts of new entities only (a CHECK). BE3 reads `entity_id` only of
   approved revisions, which always have one, and never inserts NULL.
-- BE3 inserts performances without owners, but only its one-shot import does; the migration backfills the owners
-  of existing rows (a piece's performances on a link attached to that piece, else the lowest person attached).
-  A BE3 import run after the migration (for example after a rollback) leaves ownerless performances again, so
-  BE4 repeats the same two updates at every startup (the log line `gave performances their owners` gives the row
-  count): rolling forward after a BE3 import re-owns those performances, and an approval then replaces them
-  instead of writing a second copy beside them.
+- BE3 inserts performances without owners, but only its one-shot import does. The migration only adds the
+  nullable owner columns; BE4 gives ownerless performances their owners at every startup, before serving (a
+  piece's performances on a link attached to that piece, else the lowest person attached). That covers the rows
+  that existed before the migration and those a BE3 import writes after it (for example after a rollback); the
+  log line `gave performances their owners` gives the row count. Rolling forward after a BE3 import so re-owns
+  those performances, and an approval then replaces them instead of writing a second copy beside them.
 - BE3 never reads the new tables. Its display-name update leaves `display_name_key` stale; BE4's startup backfill
   corrects it.
 - BE4 sets an approved revision's `created_at` to its approval time, which is what BE3's history orders by, so

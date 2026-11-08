@@ -308,15 +308,37 @@ func TestDockerfile_MatchesDokkuConfiguration(t *testing.T) {
 }
 
 // planIDPattern matches the IDs of the implementation plan's rows (decisions D1 to D25, transitions T01, rules R01,
-// writer rows W01, sourced-field rules SF01), which the repository cannot resolve: a comment or test name states the
-// rule itself, or refers to a docs/PLAN.md section.
-var planIDPattern = regexp.MustCompile(`(?:^|[^A-Za-z0-9])(?:D[0-9]{1,2}|[TRW][0-9]{2}[a-z]?|SF[0-9]{2}[a-z]?)(?:$|[^A-Za-z0-9])`)
+// writer rows W01, sourced-field rules SF01) and of its review findings, cited as "(M6)", "(B1, M3)" or "the B1
+// row", which the repository cannot resolve: a comment or test name states the rule itself, or refers to a
+// docs/PLAN.md section. A finding ID has a single letter, so milestone names such as "(BE4)", which docs/PLAN.md
+// defines, do not match.
+var planIDPattern = regexp.MustCompile(
+	`(?:^|[^A-Za-z0-9])(?:D[0-9]{1,2}|[TRW][0-9]{2}[a-z]?|SF[0-9]{2}[a-z]?)(?:$|[^A-Za-z0-9])` +
+		`|\([A-Z][0-9]{1,2}[a-z]?(?:[,/ ]+[A-Z][0-9]{1,2}[a-z]?)*\)` +
+		`|\b[A-Z][0-9]{1,2} row\b`)
 
 // notPlanIDs are the lines that match planIDPattern and are something else, by file and the text that matches.
 // This file is not scanned: it holds the pattern and this table.
 var notPlanIDs = []struct{ file, text, reason string }{
 	{"docs/PLAN.md", "D1 and MiniMax", "Cloudflare D1, a product removed from the feed skeleton"},
 	{"internal/domain/text_test.go", "R2-D2", "a droid's name, as an example of text with letters and digits"},
+}
+
+func TestPlanIDPattern(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"decided by D15.", "the T36_revert row", "(W12) backfill", "SF01 applies",
+		"which keeps the rename (M6).", "as agreed (B1, M3)", "(M2/M3)", "the B1 row: a rename",
+	} {
+		assert.NotEmptyf(t, planIDPattern.FindString(line), "%q cites a plan ID", line)
+	}
+	for _, line := range []string{
+		"migration 010 (BE4) adds", "FE3 builds the UI", "M2 (another moderator, interactive)", "UTF-8 (NFC)",
+		"U+202A (LRE)", "a row of the table", "H1 headings", "(plan §6.1)", "sha256 (SHA2)",
+	} {
+		assert.Emptyf(t, planIDPattern.FindString(line), "%q cites no plan ID", line)
+	}
 }
 
 func TestNoUnresolvablePlanIDs(t *testing.T) {

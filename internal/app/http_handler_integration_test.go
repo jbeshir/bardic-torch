@@ -144,6 +144,20 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	assert.Equal(t, "Morwen", renamed.DisplayName)
 	assert.Equal(t, renamed, sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK))
 
+	// With "Morwen" taken, the name is refused to another user, and so is the name with a blank letter appended,
+	// which looks the same: that is an invalid name, and the message does not quote it.
+	sendRejected(t, e, http.MethodPatch, "/v1/me", moderator, `{"display_name":"Morwen"}`,
+		http.StatusConflict, httpjson.CodeDisplayNameTaken)
+	rec := e.send(t, http.MethodPatch, "/v1/me", moderator, `{"display_name":"Morwen\u3164"}`)
+	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	var blankLetter struct {
+		Code    httpjson.ErrorCode `json:"code"`
+		Message string             `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &blankLetter))
+	assert.Equal(t, httpjson.CodeInvalidRequest, blankLetter.Code)
+	assert.NotContains(t, blankLetter.Message, "Morwen")
+
 	// The contributor creates an API token, which authenticates as them but cannot manage tokens.
 	created := sendOK[controller.CreatedAPIToken](t, e, http.MethodPost, "/v1/tokens", contributor,
 		`{"name":"CI runner"}`, http.StatusCreated)

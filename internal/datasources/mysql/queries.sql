@@ -1402,7 +1402,7 @@ WHERE status IN ('resolved', 'dismissed') AND resolved_at < sqlc.arg(cutoff) AND
 
 -- A performance with neither owner was stored by a release that does not set them. A performance of a piece's own
 -- link is owned by the piece; every other one by the person whose document lists the link, the lowest-ID person if
--- more than one does. These are the statements of migration 010.
+-- more than one does. They run at every startup (BackfillPerformanceOwners).
 
 -- name: BackfillPerformanceOwnersOfPieces :execrows
 UPDATE performances perf

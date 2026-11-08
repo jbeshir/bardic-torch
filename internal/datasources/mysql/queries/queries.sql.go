@@ -81,7 +81,7 @@ WHERE perf.owner_piece_id IS NULL AND perf.owner_person_id IS NULL AND perf.piec
 // ============================================
 // A performance with neither owner was stored by a release that does not set them. A performance of a piece's own
 // link is owned by the piece; every other one by the person whose document lists the link, the lowest-ID person if
-// more than one does. These are the statements of migration 010.
+// more than one does. They run at every startup (BackfillPerformanceOwners).
 func (q *Queries) BackfillPerformanceOwnersOfPieces(ctx context.Context) (int64, error) {
 	result, err := q.db.ExecContext(ctx, backfillPerformanceOwnersOfPieces)
 	if err != nil {
