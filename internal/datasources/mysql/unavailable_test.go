@@ -12,6 +12,7 @@ import (
 
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
+	"github.com/jbeshir/bardic-torch/internal/testutil/refusingmysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +35,10 @@ func TestUnavailableIfDisconnected(t *testing.T) {
 		{name: "invalid_connection", err: fmt.Errorf("query: %w", mysqldriver.ErrInvalidConn), wantUnavailable: true},
 		{name: "canceled_dial", err: &net.OpError{Op: "dial", Net: tcp, Err: context.Canceled}},
 		{name: "canceled", err: fmt.Errorf("query: %w", context.Canceled)},
+		{name: "too_many_connections", err: fmt.Errorf("beginning read-only transaction: %w",
+			&mysqldriver.MySQLError{Number: 1040, Message: "Too many connections"}), wantUnavailable: true},
+		{name: "too_many_user_connections", err: &mysqldriver.MySQLError{Number: 1203}, wantUnavailable: true},
+		{name: "server_shutdown", err: &mysqldriver.MySQLError{Number: 1053}, wantUnavailable: true},
 		{name: "query_error", err: &mysqldriver.MySQLError{Number: 1146, Message: "no such table"}},
 		{name: "no_rows", err: sql.ErrNoRows},
 	} {
@@ -65,6 +70,13 @@ func closedPortRepository(t *testing.T) *Repository {
 	addr := listener.Addr().String()
 	require.NoError(t, listener.Close())
 
+	return repositoryAt(t, addr)
+}
+
+// repositoryAt is a Repository whose database is the server at addr.
+func repositoryAt(t *testing.T, addr string) *Repository {
+	t.Helper()
+
 	cfg := mysqldriver.NewConfig()
 	cfg.Net, cfg.Addr, cfg.DBName, cfg.Timeout = tcp, addr, "bardic_torch", 2*time.Second
 	connector, err := mysqldriver.NewConnector(cfg)
@@ -89,4 +101,44 @@ func TestRepository_ReadOnly_DatabaseDownIsUnavailable(t *testing.T) {
 	require.ErrorIs(t, err, datasources.ErrUnavailable, "the API token lookup of the auth middleware")
 	err = repo.withWriteTx(t.Context(), func(context.Context, *sql.Tx) error { return nil })
 	require.ErrorIs(t, err, datasources.ErrUnavailable, "a write transaction")
+}
+
+// TestDatabaseError_KeepsUnavailable checks that a write's MySQL error that is datasources.ErrUnavailable stays so
+// once databaseError has replaced it by its number, and that any other MySQL error does not become so.
+func TestDatabaseError_KeepsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	refused := databaseError("approving revision [1]",
+		unavailableIfDisconnected(&mysqldriver.MySQLError{Number: 1040, Message: "Too many connections"}))
+	require.ErrorIs(t, refused, datasources.ErrUnavailable)
+	var dbErr *DatabaseError
+	require.ErrorAs(t, refused, &dbErr)
+	assert.Equal(t, &DatabaseError{Step: "approving revision [1]", Number: 1040}, dbErr)
+	assert.NotContains(t, refused.Error(), "Too many connections", "the server's message is not kept")
+
+	duplicate := databaseError("saving draft of piece",
+		unavailableIfDisconnected(&mysqldriver.MySQLError{Number: 1062, Message: "Duplicate entry 'x'"}))
+	require.NotErrorIs(t, duplicate, datasources.ErrUnavailable)
+	assert.Equal(t, &DatabaseError{Step: "saving draft of piece", Number: 1062}, duplicate)
+}
+
+// TestRepository_TooManyConnectionsIsUnavailable checks that reads, writes and the direct queries of a repository
+// whose server turns every connection away with "Error 1040: Too many connections", as a MySQL server at
+// max_connections does, fail with datasources.ErrUnavailable, as for a server that cannot be reached.
+func TestRepository_TooManyConnectionsIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	repo := repositoryAt(t, refusingmysql.Listen(t))
+
+	_, err := repo.GetPublicPiece(t.Context(), "the-copper-kettle")
+	require.ErrorIs(t, err, datasources.ErrUnavailable, "a read in a read-only transaction")
+	var mysqlErr *mysqldriver.MySQLError
+	require.ErrorAs(t, err, &mysqlErr, "the cause is the server's error, not a network failure")
+	assert.Equal(t, &mysqldriver.MySQLError{Number: refusingmysql.ErConCount, Message: refusingmysql.Message}, mysqlErr)
+	_, err = repo.GetUser(t.Context(), "google-oauth2|123")
+	require.ErrorIs(t, err, datasources.ErrUnavailable, "the user lookup of the auth middleware")
+	_, err = repo.GetAPITokenByHash(t.Context(), "00")
+	require.ErrorIs(t, err, datasources.ErrUnavailable, "the API token lookup of the auth middleware")
+	err = repo.ApproveRevision(t.Context(), datasources.ApproveRequest{RevisionID: 1})
+	require.ErrorIs(t, err, datasources.ErrUnavailable, "a write transaction, through databaseError")
 }

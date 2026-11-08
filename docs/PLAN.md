@@ -474,7 +474,9 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     commit (`PostCommitReserve`), so work before it (the pre-reads, a Turnstile verification) shortens the
     transaction, not the request. With under 500 ms left the write is not tried. Past the deadline, or after the
     retries, the answer is 503 `unavailable`. A database that cannot be reached is 503 `unavailable` too, on
-    every operation (§6); a query that fails for any other reason stays 500 `internal`.
+    every operation (§6), as is one that turns the connection away (`Too many connections`, 1040; the
+    account's `max_user_connections`, 1203; shutting down, 1053); a query that fails for any other reason stays
+    500 `internal`.
 - **Flags** (stored in `flags_json`, recomputed in the moderation view and at approval; never shown to
   contributors): `hidden_alias_in_summary` (review C10), `hidden_alias_in_text`, `hidden_alias_in_review_note`,
   `hidden_alias_collision`, `hidden_link_collision`, `hidden_link_attached`, `hidden_data_conflict`,
