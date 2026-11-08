@@ -531,3 +531,31 @@ func orderOf(i int, known bool) int {
 
 	return i
 }
+
+// CanonicalDocument returns doc with its preferences, if it has any, in canonical order (CanonicalisePreferences):
+// the order a document is stored in once it is saved.
+func CanonicalDocument[D Document](doc D) D {
+	var out any = doc
+	switch d := out.(type) {
+	case PieceDocument:
+		d.Preferences = CanonicalisePreferences(d.Preferences)
+		out = d
+	case PersonDocument:
+		d.Preferences = CanonicalisePreferences(d.Preferences)
+		out = d
+	}
+
+	return out.(D)
+}
+
+// CanonicalAnyDocument is CanonicalDocument for a document whose type is known only at run time.
+func CanonicalAnyDocument(doc AnyDocument) AnyDocument {
+	switch d := doc.(type) {
+	case PieceDocument:
+		return CanonicalDocument(d)
+	case PersonDocument:
+		return CanonicalDocument(d)
+	}
+
+	return doc
+}

@@ -64,7 +64,9 @@ func specEnums() map[string][]string {
 		"DuplicateField": strs([]DuplicateField{
 			DuplicateFieldTitle, DuplicateFieldAlias, DuplicateFieldName, DuplicateFieldURL,
 		}),
-		"Letter": letters,
+		"PreferenceDimension": strs(preferenceDimensionValues),
+		"PreferenceChoice":    strs(preferenceChoiceValues),
+		"Letter":              letters,
 	}
 }
 

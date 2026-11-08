@@ -20,11 +20,9 @@ var notInTables = map[reflect.Type]map[string]string{
 	reflect.TypeFor[PieceDocument](): {
 		"secondary_kinds": reasonVocabulary,
 		"aliases":         "piece aliases are always public",
-		"preferences":     "withheld from everyone and copied whole from the base, outside the table",
 	},
 	reflect.TypeFor[PersonDocument](): {
-		"roles":       reasonVocabulary,
-		"preferences": "withheld from everyone and copied whole from the base, outside the table",
+		"roles": reasonVocabulary,
 	},
 	reflect.TypeFor[TermDocument](): {
 		"aliases": "term aliases are always public",

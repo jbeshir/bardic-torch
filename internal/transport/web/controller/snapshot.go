@@ -33,6 +33,7 @@ type PieceSnapshot struct {
 	Credits               []PieceCredit             `json:"credits"`
 	Relations             []SnapshotPieceRelation   `json:"relations"`
 	Links                 []SnapshotPieceLink       `json:"links"`
+	Preferences           []PreferenceEntry         `json:"preferences"`
 }
 
 // SnapshotPieceRelation is the JSON representation of a piece snapshot's relation to another piece.
@@ -95,6 +96,7 @@ type PersonSnapshotProfile struct {
 	Affiliations     []TermSummary            `json:"affiliations"`
 	Relations        []SnapshotPersonRelation `json:"relations"`
 	Links            []SnapshotPersonLink     `json:"links"`
+	Preferences      []PreferenceEntry        `json:"preferences"`
 }
 
 // SnapshotPersonRelation is the JSON representation of a person snapshot's relation to another person.
@@ -162,6 +164,7 @@ func pieceSnapshotFromDomain(s domain.PieceSnapshot) PieceSnapshot {
 				Performances: mapSlice(l.Performances, piecePerformanceFromDomain),
 			}
 		}),
+		Preferences: mapSlice(s.Preferences, preferenceEntryFromDomain),
 	}
 }
 
@@ -218,6 +221,7 @@ func personSnapshotProfileFromDomain(p domain.PersonSnapshotProfile) PersonSnaps
 				}),
 			}
 		}),
+		Preferences: mapSlice(p.Preferences, preferenceEntryFromDomain),
 	}
 }
 

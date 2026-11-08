@@ -159,7 +159,8 @@ func (f *editingFixture) saveDraft(
 ) datasources.SavedDraft {
 	t.Helper()
 	saved, err := f.repo.SaveDraft(t.Context(), datasources.SaveDraftRequest{Actor: actor,
-		EntityType: doc.EntityType(), Entity: key, Document: doc, Summary: draftSummary, Now: f.tick()})
+		EntityType: doc.EntityType(), Entity: key, Document: doc, Sent: domain.AllEditorFieldsSent,
+		Summary: draftSummary, Now: f.tick()})
 	require.NoError(t, err)
 
 	return saved

@@ -446,3 +446,53 @@ func TestMerge_Properties(t *testing.T) {
 			"the merged keys are of the inputs")
 	}
 }
+
+// TestMerge_PreferencesPerDimension checks that preferences merge dimension by dimension: edits of different
+// dimensions merge clean, edits of the same one conflict at preferences[<dimension>], and a reordering of the
+// choices, which a save stores in canonical order, is no change.
+func TestMerge_PreferencesPerDimension(t *testing.T) {
+	t.Parallel()
+
+	given := preference(PreferenceDimensionPerformancePermission, preferenceSource, PreferenceChoiceGiven,
+		PreferenceChoiceInformWelcome)
+	recording := preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording)
+	saved := func(prefs ...DocPreference) []DocPreference { return CanonicalisePreferences(prefs) }
+	tests := []struct {
+		name               string
+		base, ours, theirs []DocPreference
+		want               []DocPreference
+		conflicts          []FieldPath
+	}{
+		{name: "different dimensions", base: saved(given),
+			ours:   saved(noted(given, "Ask at the event.")),
+			theirs: saved(given, recording),
+			want:   saved(noted(given, "Ask at the event."), recording)},
+		{name: "same dimension", base: saved(given),
+			ours:      saved(preference(PreferenceDimensionPerformancePermission, preferenceSource, PreferenceChoiceAskFirst)),
+			theirs:    saved(preference(PreferenceDimensionPerformancePermission, preferenceSource, PreferenceChoiceNotGiven)),
+			conflicts: []FieldPath{"preferences[performance_permission]"}},
+		{name: "one side deletes, the other keeps", base: saved(given, recording),
+			ours: saved(given), theirs: saved(given, recording), want: saved(given)},
+		{name: "reordered choices are no change", base: saved(given),
+			ours: saved(preference(PreferenceDimensionPerformancePermission, preferenceSource,
+				PreferenceChoiceInformWelcome, PreferenceChoiceGiven)),
+			theirs: saved(noted(given, "Ask at the event.")),
+			want:   saved(noted(given, "Ask at the event."))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			base, ours, theirs := validPerson(), validPerson(), validPerson()
+			base.Preferences, ours.Preferences, theirs.Preferences = tt.base, tt.ours, tt.theirs
+			merged, conflicts := MergeDocuments(base, ours, theirs)
+			var paths []FieldPath
+			for _, c := range conflicts {
+				paths = append(paths, c.Path)
+			}
+			assert.Equal(t, tt.conflicts, paths)
+			if tt.conflicts == nil {
+				assert.Equal(t, tt.want, merged.Preferences)
+			}
+		})
+	}
+}

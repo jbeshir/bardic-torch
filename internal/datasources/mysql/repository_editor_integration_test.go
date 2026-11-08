@@ -105,7 +105,6 @@ func withheldSong(f *editingFixture) domain.PieceDocument {
 	doc.Credits = doc.Credits[:1]
 	doc.Links = doc.Links[:1]
 	doc.Links[0].Performances[0].PerformerIDs = []int64{f.morwen.ID}
-	doc.Preferences = nil
 
 	return doc
 }
@@ -150,9 +149,7 @@ func TestRepository_GetEditable_Moderator(t *testing.T) {
 	f := newEditingFixture(t)
 
 	song := f.editable(t, actorRowan, *pieceKey(f.song.Slug))
-	full := songDocument(f)
-	full.Preferences = nil
-	assert.Equal(t, full, song.Document, "everything but preferences")
+	assert.Equal(t, songDocument(f), song.Document, "everything")
 	require.Len(t, song.LinkStates, 2)
 	assert.Equal(t, songLyricsURL, song.LinkStates[0].URL)
 	assert.False(t, song.LinkStates[0].IsHidden)

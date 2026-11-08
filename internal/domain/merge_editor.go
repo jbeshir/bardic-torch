@@ -14,38 +14,23 @@ import (
 // Moderation views show them in the editor format of their documents instead (docs/PLAN.md §5.1 "Moderation
 // views"): each field by its editor name ("term", "parent", "affiliations"), each element of a list keyed by a
 // reference with the reference's slug ("terms[drinking-songs]", "relations[the-copper-kettle:sibling]") and each
-// value as the editor format has it. A reference the slugs cannot name is shown as pending-<type>-<id>. The editor
-// format has no preferences, so a change or conflict there is the path "preferences" with no values.
-
-// preferencesPath is the path of every change and conflict in a document's preferences, in the editor format.
-const preferencesPath = "preferences"
+// value as the editor format has it. A reference the slugs cannot name is shown as pending-<type>-<id>.
 
 // ErrUnknownFieldPath is a field path that names no field of its document type.
 var ErrUnknownFieldPath = errors.New("unknown field path")
 
 // EditorConflicts returns conflicts, between documents of entity type t, in the editor format with the slugs s: the
-// path in editor vocabulary, and each value converted as it is in an editor document of that type. The
-// preferences conflicts become one conflict with no values.
+// path in editor vocabulary, and each value converted as it is in an editor document of that type.
 func EditorConflicts(t EntityType, conflicts []RebaseConflict, s SlugMap) ([]RebaseConflict, error) {
 	v, err := vocabularyFor(t)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]RebaseConflict, 0, len(conflicts))
-	preferences := false
 	for _, c := range conflicts {
 		p, err := v.parse(c.Path)
 		if err != nil {
 			return nil, err
-		}
-		if p.field.path == preferencesPath {
-			if !preferences {
-				preferences = true
-				out = append(out, RebaseConflict{Path: preferencesPath, Base: json.RawMessage("null"),
-					Revision: json.RawMessage("null"), Current: json.RawMessage("null")})
-			}
-
-			continue
 		}
 		conflict := RebaseConflict{Path: v.editorPath(p, s)}
 		for _, value := range []struct {
@@ -62,8 +47,7 @@ func EditorConflicts(t EntityType, conflicts []RebaseConflict, s SlugMap) ([]Reb
 	return out, nil
 }
 
-// EditorFieldPaths returns paths, of documents of entity type t, in the editor format with the slugs s, each once:
-// the preferences paths are the one path "preferences".
+// EditorFieldPaths returns paths, of documents of entity type t, in the editor format with the slugs s, each once.
 func EditorFieldPaths(t EntityType, paths []FieldPath, s SlugMap) ([]FieldPath, error) {
 	v, err := vocabularyFor(t)
 	if err != nil {
@@ -76,10 +60,7 @@ func EditorFieldPaths(t EntityType, paths []FieldPath, s SlugMap) ([]FieldPath, 
 		if err != nil {
 			return nil, err
 		}
-		editor := FieldPath(preferencesPath)
-		if p.field.path != preferencesPath {
-			editor = v.editorPath(p, s)
-		}
+		editor := v.editorPath(p, s)
 		if !seen[editor] {
 			seen[editor] = true
 			out = append(out, editor)

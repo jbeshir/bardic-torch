@@ -31,7 +31,7 @@ func TestRepository_SubmitDraft_Pending(t *testing.T) {
 	require.NoError(t, err)
 	want := songDocument(f)
 	want.NotesMD = new(editedNotes)
-	assert.Equal(t, want, full, "the full document: the withheld credit, performer, link and preferences restored")
+	assert.Equal(t, want, full, "the full document: the withheld credit, performer and link restored")
 
 	submitted, err := domain.DecodeDocument[domain.PieceDocument]([]byte(stored.submitted))
 	require.NoError(t, err)
@@ -479,7 +479,8 @@ func submitEdit[D domain.Document](
 	doc := f.editable(t, actor, key).Document.(D)
 	change(&doc)
 	draft, err := f.repo.SaveDraft(t.Context(), datasources.SaveDraftRequest{Actor: actor, EntityType: key.Type,
-		Entity: &key, Document: any(doc).(domain.AnyDocument), Summary: summary, Now: f.tick()})
+		Entity: &key, Document: any(doc).(domain.AnyDocument), Sent: domain.AllEditorFieldsSent, Summary: summary,
+		Now: f.tick()})
 	require.NoError(t, err)
 	if between != nil {
 		between()
@@ -619,20 +620,4 @@ func TestRepository_SubmitDraft_SourcedFields(t *testing.T) {
 			assert.Contains(t, docErr.Problems, *row.want)
 		})
 	}
-}
-
-// TestRepository_SubmitDraft_ModeratorPreferenceChangeIsNotApplied checks that preferences, which no editable
-// document holds for anyone, cannot be changed through a submission: a moderator's changed preference is approved
-// without replacing the base's preferences in the stored document.
-func TestRepository_SubmitDraft_ModeratorPreferenceChangeIsNotApplied(t *testing.T) {
-	t.Parallel()
-	f := newEditingFixture(t)
-
-	err := submitEdit(t, f, actorRowan, *pieceKey(f.song.Slug), draftSummary, func(d *domain.PieceDocument) {
-		d.Preferences = []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, "", domain.PreferenceChoiceUploadsAllowed)}
-	}, nil)
-
-	require.NoError(t, err)
-	id := int64(f.count(t, "SELECT MAX(id) FROM revisions WHERE entity_id = ?", f.song.ID))
-	assert.Equal(t, songDocument(f).Preferences, f.storedPiece(t, id).Preferences)
 }

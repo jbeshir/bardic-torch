@@ -373,6 +373,7 @@ func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotRe
 		Collections:   make(map[int64]domain.CollectionSummary),
 		Events:        make(map[int64]domain.EventSummary),
 		VisibleLinks:  make(map[string]string),
+		HiddenSources: make(map[string]bool),
 	}
 
 	if ids := unsignedIDs(refs.PieceIDs); len(ids) > 0 {
@@ -395,6 +396,9 @@ func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotRe
 	}
 	if len(refs.LinkURLs) > 0 {
 		c.linkVisibility(ctx, refs.LinkURLs, &vis)
+	}
+	if len(refs.SourceURLs) > 0 {
+		vis.HiddenSources = c.hiddenLinkURLs(ctx, domain.SnapshotReferences{SourceURLs: refs.SourceURLs})
 	}
 
 	return vis

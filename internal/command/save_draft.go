@@ -12,13 +12,16 @@ import (
 var _ Command[SaveDraftRequest, SavedDraft] = (*SaveDraft)(nil)
 
 // SaveDraftRequest is a draft Principal saves: of the entity Entity (nil for a new entity of Document's type), on
-// the base BaseRevisionID (nil for the entity's current revision), holding Document in the editor format.
+// the base BaseRevisionID (nil for the entity's current revision), holding Document in the editor format, stored in
+// canonical order (domain.CanonicalAnyDocument).
 type SaveDraftRequest struct {
 	Principal      domain.Principal
 	Entity         *domain.EntityKey
 	BaseRevisionID *int64
 	Document       domain.AnyEditorDocument
-	Summary        string
+	// Sent says which editor fields Document carried: one it did not keeps the base's when the draft is submitted.
+	Sent    domain.EditorFieldsSent
+	Summary string
 }
 
 // SavedDraft is a saved draft, and whether saving created it rather than replacing the principal's draft of the
@@ -49,7 +52,8 @@ func (c *SaveDraft) Execute(ctx context.Context, req SaveDraftRequest) (SavedDra
 
 	saved, err := c.Saver.SaveDraft(ctx, datasources.SaveDraftRequest{
 		Actor: actor, EntityType: doc.EntityType(), Entity: req.Entity, BaseRevisionID: req.BaseRevisionID,
-		Document: doc, Summary: req.Summary, Now: c.Now(),
+		Document: domain.CanonicalAnyDocument(doc), Sent: req.Sent, Summary: req.Summary,
+		Now: c.Now(),
 	})
 	if err != nil {
 		return SavedDraft{}, fmt.Errorf("saving draft: %w", err)

@@ -7,9 +7,9 @@ import (
 )
 
 // The editor format is how documents are edited through the API: each stored document's fields, except
-// schema_version and preferences (which no one edits until their shape is defined), with references to pieces,
-// persons, terms and events by slug instead of internal ID. Collections are referenced by ID, as they are
-// addressed. A pending new term or person of the caller's is referenced by its placeholder slug.
+// schema_version, with references to pieces, persons, terms and events by slug instead of internal ID. Collections
+// are referenced by ID, as they are addressed. A pending new term or person of the caller's is referenced by its
+// placeholder slug.
 //
 // ToEditor* converts a document to the editor format with the slugs the caller may see (SlugMap); FromEditor*
 // converts back with the references the caller may make (RefMap), giving an unknown_reference problem at the
@@ -35,6 +35,7 @@ type EditorPieceDocument struct {
 	Relations          []EditorPieceRelation `json:"relations"`
 	Credits            []EditorCredit        `json:"credits"`
 	Links              []EditorPieceLink     `json:"links"`
+	Preferences        []DocPreference       `json:"preferences"`
 }
 
 // EditorPieceTerm is a DocPieceTerm with the term by slug.
@@ -93,6 +94,7 @@ type EditorPersonDocument struct {
 	Affiliations     []string               `json:"affiliations"`
 	Relations        []EditorPersonRelation `json:"relations"`
 	Links            []EditorPersonLink     `json:"links"`
+	Preferences      []DocPreference        `json:"preferences"`
 }
 
 // EditorPersonRelation is a DocPersonRelation with the other person by slug.
@@ -264,7 +266,7 @@ func ToEditorPiece(d PieceDocument, s SlugMap) EditorPieceDocument {
 		LicensingNotesMD: d.LicensingNotesMD, Licence: d.Licence, HistoricalSourceMD: d.HistoricalSourceMD,
 		PeriodStart: d.PeriodStart, PeriodEnd: d.PeriodEnd, Aliases: nonNilClone(d.Aliases),
 		Terms: []EditorPieceTerm{}, Relations: []EditorPieceRelation{}, Credits: []EditorCredit{},
-		Links: []EditorPieceLink{},
+		Links: []EditorPieceLink{}, Preferences: nonNilClone(d.Preferences),
 	}
 	for _, t := range d.Terms {
 		if slug, ok := s.Terms[t.TermID]; ok {
@@ -302,7 +304,7 @@ func ToEditorPerson(d PersonDocument, s SlugMap) EditorPersonDocument {
 		Pronouns: d.Pronouns, NotesMD: d.NotesMD, LicensingStatus: d.LicensingStatus,
 		LicensingNotesMD: d.LicensingNotesMD, IsStub: d.IsStub, Aliases: nonNilClone(d.Aliases),
 		Roles: nonNilClone(d.Roles), Affiliations: editorSlugs(s.Terms).list(d.AffiliationIDs),
-		Relations: []EditorPersonRelation{}, Links: []EditorPersonLink{},
+		Relations: []EditorPersonRelation{}, Links: []EditorPersonLink{}, Preferences: nonNilClone(d.Preferences),
 	}
 	for _, r := range d.Relations {
 		if slug, ok := s.Persons[r.ToPersonID]; ok {
@@ -440,6 +442,7 @@ func FromEditorPiece(e EditorPieceDocument, refs RefMap) (PieceDocument, []Docum
 		NotesMD: e.NotesMD, VersionNotesMD: e.VersionNotesMD, LicensingStatus: e.LicensingStatus,
 		LicensingNotesMD: e.LicensingNotesMD, Licence: e.Licence, HistoricalSourceMD: e.HistoricalSourceMD,
 		PeriodStart: e.PeriodStart, PeriodEnd: e.PeriodEnd, Aliases: slices.Clone(e.Aliases),
+		Preferences: slices.Clone(e.Preferences),
 	}
 	for i, t := range e.Terms {
 		if id, ok := r.id(refs.Terms, t.Term, fmt.Sprintf("/terms/%d/term", i)); ok {
@@ -480,6 +483,7 @@ func FromEditorPerson(e EditorPersonDocument, refs RefMap) (PersonDocument, []Do
 		LicensingStatus: e.LicensingStatus, LicensingNotesMD: e.LicensingNotesMD, IsStub: e.IsStub,
 		Aliases: slices.Clone(e.Aliases), Roles: slices.Clone(e.Roles),
 		AffiliationIDs: r.list(refs.Terms, e.Affiliations, "/affiliations"),
+		Preferences:    slices.Clone(e.Preferences),
 	}
 	for i, rel := range e.Relations {
 		if id, ok := r.id(refs.Persons, rel.Person, fmt.Sprintf("/relations/%d/person", i)); ok {

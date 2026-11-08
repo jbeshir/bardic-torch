@@ -8,11 +8,12 @@ import (
 
 // Snapshot views are what the public API shows of a stored snapshot document. A document is never served as
 // stored: it references other entities by internal ID and may hold what a public read must not show. A view
-// holds the document's editor-owned fields, except preference profiles (which nothing exposes yet), with:
+// holds the document's editor-owned fields, with:
 //   - each reference resolved to the entity's summary as it is now, or left out if the entity is not public now;
 //   - each link shown by URL, and only if its normalized URL (NormalizeURL) is that of a link that is not hidden
 //     now, and of no hidden link: a link since hidden, deleted, or given a URL that normalizes otherwise is left
 //     out, and so is a URL that does not normalize;
+//   - a preference shown only if its source normalizes and is no hidden link's now (fail closed);
 //   - a person's alias shown only if it is public in the document and is now a public alias of the person;
 //   - a person's name shown only if it is their name now or one of their public alias names now, and their
 //     current name otherwise, so that a former name that is now a hidden alias never shows;
@@ -32,6 +33,8 @@ type SnapshotReferences struct {
 	CollectionIDs []int64
 	EventIDs      []int64
 	LinkURLs      []string
+	// SourceURLs are the URLs the documents cite as sources outside their links: their preferences' sources.
+	SourceURLs []string
 	// AliasPersonIDs are the persons whose public alias names a view needs: the person a document is of, who is
 	// among PersonIDs too.
 	AliasPersonIDs []int64
@@ -59,6 +62,8 @@ type SnapshotVisibility struct {
 	// not hidden, and of no hidden link, to that link's URL: the only links a view shows, each under the link's
 	// URL rather than the document's spelling of it.
 	VisibleLinks map[string]string
+	// HiddenSources are the normalized URLs of the referenced sources (SourceURLs) that are a hidden link's.
+	HiddenSources map[string]bool
 }
 
 // PieceSnapshot is the public view of a PieceDocument.
@@ -86,6 +91,8 @@ type PieceSnapshot struct {
 	Relations []SnapshotPieceRelation
 	// Links are the visible links, in the document's order.
 	Links []SnapshotPieceLink
+	// Preferences are those whose source a view shows, in the document's order.
+	Preferences []DocPreference
 }
 
 // SnapshotPieceRelation is a relation of the snapshot's piece to another public piece.
@@ -152,6 +159,8 @@ type PersonSnapshotProfile struct {
 	// only.
 	Relations []SnapshotPersonRelation
 	Links     []SnapshotPersonLink
+	// Preferences are those whose source a view shows, in the document's order.
+	Preferences []DocPreference
 }
 
 // SnapshotPersonRelation is a relation of the snapshot's person to another public person with a page.
@@ -214,6 +223,7 @@ func (d PieceDocument) AddReferences(refs *SnapshotReferences) {
 			performance.addReferences(refs)
 		}
 	}
+	refs.addSources(d.Preferences)
 }
 
 // AddReferences adds what the document of the person personID references to refs, including the person.
@@ -233,6 +243,7 @@ func (d PersonDocument) AddReferences(personID int64, refs *SnapshotReferences) 
 			performance.addReferences(refs)
 		}
 	}
+	refs.addSources(d.Preferences)
 }
 
 // AddReferences adds what the document references to refs.
@@ -255,6 +266,13 @@ func (l DocLink) addReferences(refs *SnapshotReferences) {
 func (p DocPerformance) addReferences(refs *SnapshotReferences) {
 	refs.EventIDs = appendID(refs.EventIDs, p.EventID)
 	refs.PersonIDs = append(refs.PersonIDs, p.PerformerIDs...)
+}
+
+// addSources adds the sources of prefs.
+func (r *SnapshotReferences) addSources(prefs []DocPreference) {
+	for _, p := range prefs {
+		r.SourceURLs = append(r.SourceURLs, p.SourceURL)
+	}
 }
 
 // appendID appends *id to ids if id is not nil.
@@ -313,6 +331,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		}
 		snapshot.Links = append(snapshot.Links, pieceLink)
 	}
+	snapshot.Preferences = vis.preferences(d.Preferences)
 
 	return snapshot
 }
@@ -449,6 +468,7 @@ func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisi
 		}
 		profile.Links = append(profile.Links, personLink)
 	}
+	profile.Preferences = vis.preferences(d.Preferences)
 
 	return profile
 }
@@ -524,4 +544,17 @@ func (v SnapshotVisibility) visibleLinkURL(url string) (string, bool) {
 	visible, ok := v.VisibleLinks[normalized]
 
 	return visible, ok
+}
+
+// preferences returns the preferences of prefs a view shows: those whose source normalizes to a URL that is no
+// hidden link's now. A source that does not normalize fails closed.
+func (v SnapshotVisibility) preferences(prefs []DocPreference) []DocPreference {
+	var out []DocPreference
+	for _, p := range prefs {
+		if normalized, err := NormalizeURL(p.SourceURL); err == nil && !v.HiddenSources[normalized] {
+			out = append(out, p)
+		}
+	}
+
+	return out
 }

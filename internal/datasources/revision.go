@@ -51,8 +51,11 @@ type SaveDraftRequest struct {
 	Entity         *domain.EntityKey
 	BaseRevisionID *int64
 	Document       domain.AnyDocument
-	Summary        string
-	Now            time.Time
+	// Sent says which editor fields the document carried: the keys of the elements of one it did not are not the
+	// draft's received keys (UpdateDraftRequest), so its submission keeps the base's.
+	Sent    domain.EditorFieldsSent
+	Summary string
+	Now     time.Time
 }
 
 // SavedDraft is a saved draft, and whether saving created it rather than replacing the author's draft of the
@@ -75,8 +78,11 @@ type UpdateDraftRequest struct {
 	Actor    domain.Actor
 	ID       int64
 	Document domain.AnyDocument
-	Summary  string
-	Now      time.Time
+	// Sent says which editor fields the document carried: the draft's received keys of the elements of one it did
+	// not are removed, so its submission keeps the base's. Received keys only ever shrink.
+	Sent    domain.EditorFieldsSent
+	Summary string
+	Now     time.Time
 }
 
 // DraftUpdater replaces a draft's document and summary, keeping its base. It returns ErrNotFound unless the draft

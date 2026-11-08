@@ -17,7 +17,7 @@ var _ datasources.EditableDocumentGetter = (*Repository)(nil)
 // GetEditable returns the document the actor starts an edit of the entity key addresses from: the author
 // document of their pending revision of it on that revision's submitted base, or else the projection of its
 // current document on the current revision. Either is without what the actor may not see; an interactive
-// moderator sees everything but preferences, with the links' states.
+// moderator sees everything, with the links' states.
 func (r *Repository) GetEditable(
 	ctx context.Context, actor domain.Actor, key domain.EntityKey,
 ) (domain.Editable, error) {

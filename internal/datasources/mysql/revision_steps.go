@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
@@ -60,10 +61,10 @@ func (c *catalogueReader) userPendingFor(
 	return pending, true, nil
 }
 
-// hiddenLinkURLs returns the normalized URLs of the hidden links among those refs references.
+// hiddenLinkURLs returns the normalized URLs of the hidden links among the links and sources refs references.
 func (c *catalogueReader) hiddenLinkURLs(ctx context.Context, refs domain.SnapshotReferences) map[string]bool {
 	hidden := map[string]bool{}
-	for _, state := range c.linkStates(ctx, refs.LinkURLs) {
+	for _, state := range c.linkStates(ctx, slices.Concat(refs.LinkURLs, refs.SourceURLs)) {
 		if state.isHidden {
 			hidden[state.normalizedURL] = true
 		}

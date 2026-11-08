@@ -747,7 +747,9 @@ matrix's:
 - **contributor reads** (editable, pending, drafts with `preview` and `references`, `me/revisions`, reference
   labels, the no-page person): A sees their own data and no `leakmark`; B and MT get 404 for A's drafts,
   revisions, pending versions and placeholders; MT gets the contributor projection with `link_states: []`; M gets the full document with `link_states`
-  (`full` rows assert the hidden data is there instead of scanning);
+  (`full` rows assert the hidden data is there instead of scanning). The fixture's person and piece hold a preference
+  whose source is the hidden link (respelled for the person) with marked notes: A's, AT's, B's and MT's editable
+  documents of both are scanned without it (B's shows the person's other preference), and M's show it;
 - **a rejected revision**: M rebases one of A's edits of wren (marked notes of M's) and rejects it with a clean
   review note; A's view shows what A submitted, the note and `reviewed_at`, and none of M's notes, the hidden
   aliases or link A received, or a flag code; `requireRevisionLeakMarkersStored` and the seed check that the

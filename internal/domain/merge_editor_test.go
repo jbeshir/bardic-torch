@@ -147,28 +147,6 @@ func TestEditorConflicts(t *testing.T) {
 		assert.JSONEq(t, string(conflicts[0].Revision), string(editor[0].Revision), "no reference to convert")
 	})
 
-	t.Run("preferences_conflicts", func(t *testing.T) {
-		t.Parallel()
-		base := validPiece()
-		ours, theirs := base, base
-		ours.Preferences = []DocPreference{
-			preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording),
-			preference(PreferenceDimensionAdaptations, preferenceSource, PreferenceChoiceAskFirst),
-		}
-		theirs.Preferences = []DocPreference{
-			preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceNoRecording),
-			preference(PreferenceDimensionAdaptations, preferenceSource, PreferenceChoiceNotAllowed),
-		}
-		_, conflicts := MergeDocuments(base, ours, theirs)
-		require.Len(t, conflicts, 2)
-
-		editor, err := EditorConflicts(EntityTypePiece, conflicts, editorConflictSlugs())
-		require.NoError(t, err)
-		null := json.RawMessage("null")
-		assert.Equal(t, []RebaseConflict{{Path: preferencesPath, Base: null, Revision: null, Current: null}}, editor,
-			"one conflict, with no values: the editor format has no preferences")
-	})
-
 	t.Run("unknown_type", func(t *testing.T) {
 		t.Parallel()
 		_, err := EditorConflicts("song", nil, editorConflictSlugs())
@@ -215,6 +193,38 @@ func TestEditorFieldPaths(t *testing.T) {
 	paths, err := EditorFieldPaths(EntityTypePerson, stored, editorConflictSlugs())
 	require.NoError(t, err)
 	assert.Equal(t, []FieldPath{"affiliations[" + drinkingSongs + "]",
-		"relations[" + editorPersonTwo + ":member_of]", preferencesPath}, paths)
+		"relations[" + editorPersonTwo + ":member_of]", "preferences[recording]", "preferences[adaptations]"}, paths)
 	assert.False(t, slices.ContainsFunc(paths, func(p FieldPath) bool { return strings.Contains(string(p), "_id") }))
+}
+
+// TestEditorMerge_PreferencesPath checks that a preference change or conflict is named by its dimension in the
+// editor format, with the preferences as the editor list holds them.
+func TestEditorMerge_PreferencesPath(t *testing.T) {
+	t.Parallel()
+	base := validPiece()
+	ours, theirs := base, base
+	ours.Preferences = []DocPreference{
+		preference(PreferenceDimensionAdaptations, preferenceSource, PreferenceChoiceAskFirst),
+		preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording),
+	}
+	theirs.Preferences = []DocPreference{
+		preference(PreferenceDimensionAdaptations, preferenceSource, PreferenceChoiceNotAllowed),
+		preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceNoRecording),
+	}
+	_, conflicts := MergeDocuments(base, ours, theirs)
+	require.Len(t, conflicts, 2)
+
+	editor, err := EditorConflicts(EntityTypePiece, conflicts, editorConflictSlugs())
+	require.NoError(t, err)
+	require.Len(t, editor, 2)
+	for i, path := range []FieldPath{"preferences[adaptations]", "preferences[recording]"} {
+		assert.Equal(t, path, editor[i].Path)
+		assert.JSONEq(t, "null", string(editor[i].Base), "the base has no such preference")
+		wantOurs, err := json.Marshal(ours.Preferences[i])
+		require.NoError(t, err)
+		wantTheirs, err := json.Marshal(theirs.Preferences[i])
+		require.NoError(t, err)
+		assert.JSONEq(t, string(wantOurs), string(editor[i].Revision))
+		assert.JSONEq(t, string(wantTheirs), string(editor[i].Current))
+	}
 }

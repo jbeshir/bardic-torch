@@ -210,7 +210,9 @@ type RebaseRevisionRequest struct {
 	RevisionID        int64
 	CurrentRevisionID *int64
 	Document          domain.AnyEditorDocument
-	Summary           *string
+	// Sent says which editor fields Document carried: one it did not keeps the current document's.
+	Sent    domain.EditorFieldsSent
+	Summary *string
 }
 
 // RebaseRevision rebases a pending revision and returns it as moderators then see it.
@@ -239,7 +241,7 @@ func (c *RebaseRevision) Execute(ctx context.Context, req RebaseRevisionRequest)
 	}
 	err = c.Rebaser.RebaseRevision(ctx, datasources.RebaseRequest{
 		Actor: actor, RevisionID: req.RevisionID, CurrentRevisionID: req.CurrentRevisionID, Document: doc,
-		Summary: req.Summary, Now: c.Now(),
+		Sent: req.Sent, Summary: req.Summary, Now: c.Now(),
 	})
 	if err != nil {
 		return domain.ModerationRevision{}, fmt.Errorf("rebasing revision [%d]: %w", req.RevisionID, err)

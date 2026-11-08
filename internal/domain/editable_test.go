@@ -49,9 +49,17 @@ func editorVisibility(t *testing.T, role Role) EditorVisibility {
 	}
 }
 
+// testPreferences are a preference whose source is the hidden link, which a contributor is withheld, and one
+// whose source is not a link.
 func testPreferences() []DocPreference {
-	return []DocPreference{preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording)}
+	return []DocPreference{
+		preference(PreferenceDimensionPerformancePermission, hiddenLinkURL, PreferenceChoiceGiven),
+		preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceAskBeforeRecording),
+	}
 }
+
+// shownPreferences are the testPreferences a contributor is shown.
+func shownPreferences() []DocPreference { return testPreferences()[1:] }
 
 // fullPiece is a piece holding every kind of element a contributor may be withheld.
 func fullPiece() PieceDocument {
@@ -93,7 +101,7 @@ func pieceProjection() PieceDocument {
 	songbook := d.Links[2]
 	songbook.CollectionID = nil
 	d.Links = []DocPieceLink{wren, songbook}
-	d.Preferences = nil
+	d.Preferences = shownPreferences()
 
 	return d
 }
@@ -122,7 +130,7 @@ func personProjection() PersonDocument {
 	morwen := d.Links[0]
 	morwen.Performances = morwen.Performances[:1]
 	d.Links = []DocPersonLink{morwen}
-	d.Preferences = nil
+	d.Preferences = shownPreferences()
 
 	return d
 }
@@ -143,11 +151,6 @@ func TestEditable(t *testing.T) {
 
 	contributor := editorVisibility(t, RoleContributor)
 	moderator := editorVisibility(t, RoleModerator)
-	withoutPreferences := func(d PersonDocument) PersonDocument {
-		d.Preferences = nil
-
-		return d
-	}
 	tests := []struct {
 		id   string
 		got  any
@@ -156,7 +159,7 @@ func TestEditable(t *testing.T) {
 		{id: "hidden_alias_absent", got: first(EditableDocument(personID, fullPerson(), contributor)).Aliases,
 			want: personProjection().Aliases},
 		{id: "moderator_sees_hidden_alias", got: first(EditableDocument(personID, fullPerson(), moderator)),
-			want: withoutPreferences(fullPerson())},
+			want: fullPerson()},
 		{id: "hidden_link_absent", got: linkURLs(first(EditableDocument(pieceID, fullPiece(), contributor))),
 			want: []string{validPiece().Links[0].URL, songbookPageURL}},
 		{id: "no_page_credit_absent", got: first(EditableDocument(pieceID, fullPiece(), contributor)).Credits,
@@ -168,8 +171,8 @@ func TestEditable(t *testing.T) {
 			want: identityOnly(noPagePerson())},
 		{id: "no_page_now_identity_only", got: first(EditableDocument(refNoPagePerson, validPerson(), contributor)),
 			want: identityOnly(validPerson())},
-		{id: "preferences_absent_for_everyone",
-			got: first(EditableDocument(pieceID, fullPiece(), moderator)).Preferences, want: []DocPreference(nil)},
+		{id: "moderator_sees_hidden_source_preference",
+			got: first(EditableDocument(pieceID, fullPiece(), moderator)).Preferences, want: testPreferences()},
 		{id: "others_pending_term_absent", got: first(EditableDocument(pieceID, fullPiece(), contributor)).Terms,
 			want: pieceProjection().Terms},
 		{id: "own_pending_term_present",
@@ -244,7 +247,7 @@ func TestEditable_NeverHoldsWithheld(t *testing.T) {
 	t.Parallel()
 
 	vis := editorVisibility(t, RoleContributor)
-	withheld := []string{legalName, hiddenLinkURL, privateNotes, "they/them", preferenceSource, secretPerformance}
+	withheld := []string{legalName, hiddenLinkURL, privateNotes, "they/them", secretPerformance}
 	check := func(t *testing.T, doc any) {
 		t.Helper()
 		walkStrings(reflect.ValueOf(doc), "", documentPaths, func(path string, v reflect.Value) {
@@ -432,13 +435,6 @@ func TestRestore(t *testing.T) {
 		want.Status, want.StatusSourceURL = sub.Status, sub.StatusSourceURL
 		assert.Equal(t, want, got, "the identity is the contributor's")
 	})
-	t.Run("preferences_restored", func(t *testing.T) {
-		t.Parallel()
-		got, _ := restorePiece(func(d *PieceDocument) {
-			d.Preferences = []DocPreference{{Dimension: PreferenceDimensionLicensing, SourceURL: linkA}}
-		})
-		assert.Equal(t, testPreferences(), got.Preferences, "copied whole from the base")
-	})
 	t.Run("others_pending_term_restored", func(t *testing.T) {
 		t.Parallel()
 		got, _ := restorePiece(func(*PieceDocument) {})
@@ -520,18 +516,6 @@ func roundTrip[D Document](t *testing.T, id int64, doc D, vis EditorVisibility) 
 	got, flags := RestoreDocument(id, editable, &doc, keys, vis)
 	assert.Equal(t, doc, got, "%T as %s", doc, vis.Role)
 	assert.Empty(t, flags)
-}
-
-func TestRestore_PreferencesEveryActor(t *testing.T) {
-	t.Parallel()
-
-	vis := editorVisibility(t, RoleModerator)
-	base := fullPiece()
-	editable, keys := EditableDocument(pieceID, base, vis)
-	editable.NotesMD = ptr("A moderator's edit.")
-	got, _ := RestoreDocument(pieceID, editable, &base, keys, vis)
-	assert.Equal(t, testPreferences(), got.Preferences, "preferences restored for a moderator too")
-	assert.Equal(t, base.Links, got.Links, "a moderator is withheld nothing else")
 }
 
 // TestDocReferences_KeysMatchRestoreKeys checks that the key of each reference of a full piece and a full person is

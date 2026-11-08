@@ -60,6 +60,9 @@ func editorPieceDocument() PieceDocument {
 			Performances: []DocPerformance{{EventID: new(editorEventID), DescriptionVerbatim: "At the fair",
 				PerformerIDs: []int64{editorPersonID}}},
 		}},
+		Preferences: []DocPreference{
+			preference(PreferenceDimensionRecording, "https://example.org/linnet-prefs", PreferenceChoiceAskBeforeRecording),
+		},
 	}
 }
 
@@ -76,6 +79,9 @@ func editorPersonDocument() PersonDocument {
 			Performances: []DocPersonPerformance{{PieceID: new(editorPieceID),
 				DocPerformance: DocPerformance{DescriptionVerbatim: "A song", PerformerIDs: []int64{editorPersonID}}}},
 		}},
+		Preferences: []DocPreference{
+			preference(PreferenceDimensionRecording, "https://example.org/linnet-prefs", PreferenceChoiceAskBeforeRecording),
+		},
 	}
 }
 
@@ -113,17 +119,6 @@ func TestEditorDocuments_RoundTrip(t *testing.T) {
 
 	event := EventDocument{SchemaVersion: DocumentSchemaVersion, Name: linnetRevel, Kind: EventKindEvent}
 	assert.Equal(t, event, FromEditorEvent(ToEditorEvent(event)))
-}
-
-func TestEditorDocuments_NoPreferences(t *testing.T) {
-	t.Parallel()
-	fx := newEditorRefFixture()
-	piece := editorPieceDocument()
-	piece.Preferences = []DocPreference{{Dimension: PreferenceDimensionRecording, SourceURL: "https://example.org/p"}}
-
-	back, _ := FromEditorPiece(ToEditorPiece(piece, fx.slugs), fx.refs)
-
-	assert.Nil(t, back.Preferences)
 }
 
 // TestToEditor_ReferencesWithoutSlugAreLeftOut checks that a reference the caller may not see, which a projection
@@ -289,4 +284,24 @@ func TestDraftProblems(t *testing.T) {
 		{Path: "/aliases/0/name", Code: ProblemNotNFC},
 		{Path: "/summary", Code: ProblemTooLong},
 	}, problems)
+}
+
+// TestEditorDocuments_PreferencesRoundTrip checks that the editor format holds the preferences as stored, and a
+// document without them as an empty list.
+func TestEditorDocuments_PreferencesRoundTrip(t *testing.T) {
+	t.Parallel()
+	fx := newEditorRefFixture()
+
+	piece := editorPieceDocument()
+	editorPiece := ToEditorPiece(piece, fx.slugs)
+	assert.Equal(t, piece.Preferences, editorPiece.Preferences)
+	piece.Preferences = nil
+	assert.Equal(t, []DocPreference{}, ToEditorPiece(piece, fx.slugs).Preferences)
+
+	person := editorPersonDocument()
+	editorPerson := ToEditorPerson(person, fx.slugs)
+	assert.Equal(t, person.Preferences, editorPerson.Preferences)
+	back, problems := FromEditorPerson(editorPerson, fx.refs)
+	assert.Empty(t, problems)
+	assert.Equal(t, person.Preferences, back.Preferences)
 }

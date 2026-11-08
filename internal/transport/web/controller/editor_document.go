@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,9 +33,23 @@ type EditorReference struct {
 	IsPending    bool              `json:"is_pending"`
 }
 
-// editorDocumentToDomain decodes raw, the field document of a request, as an editor document of entityType. If it
-// is not one, it writes 400 invalid_request and returns false; the caller should then return without writing.
+// editorDocumentToDomain decodes raw, the field document of a request, as an editor document of entityType, with
+// the editor fields it carried (editorFieldsSent). If it is not one, it writes 400 invalid_request and returns
+// false; the caller should then return without writing. A field the document does not have is invalid, but one
+// added after a client was built may be left out (docs/PLAN.md §5.1, "Editor format").
 func editorDocumentToDomain(
+	ctx context.Context, w http.ResponseWriter, entityType domain.EntityType, raw json.RawMessage,
+) (domain.AnyEditorDocument, domain.EditorFieldsSent, bool) {
+	doc, ok := decodeEditorDocumentOf(ctx, w, entityType, raw)
+	if !ok {
+		return nil, domain.EditorFieldsSent{}, false
+	}
+
+	return doc, editorFieldsSent(entityType, raw), true
+}
+
+// decodeEditorDocumentOf decodes raw as an editor document of entityType, as editorDocumentToDomain does.
+func decodeEditorDocumentOf(
 	ctx context.Context, w http.ResponseWriter, entityType domain.EntityType, raw json.RawMessage,
 ) (domain.AnyEditorDocument, bool) {
 	switch entityType {
@@ -64,6 +79,22 @@ func decodeEditorDocument[D domain.AnyEditorDocument](
 	}
 
 	return doc, true
+}
+
+// editorFieldsSent returns which of the editor fields added after a client may have been built raw, a valid editor
+// document of entityType, carries: a field is carried if its key is present with a value other than null. A
+// document type without such a field carries them all.
+func editorFieldsSent(entityType domain.EntityType, raw json.RawMessage) domain.EditorFieldsSent {
+	if entityType != domain.EntityTypePiece && entityType != domain.EntityTypePerson {
+		return domain.AllEditorFieldsSent
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return domain.EditorFieldsSent{}
+	}
+	preferences, ok := fields["preferences"]
+
+	return domain.EditorFieldsSent{Preferences: ok && string(bytes.TrimSpace(preferences)) != "null"}
 }
 
 // editorDocumentFromDomain returns doc in the editor format, with the slugs of refs, the references the caller

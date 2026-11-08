@@ -61,13 +61,14 @@ type RevisionRejecter interface {
 
 // RebaseRequest is a moderator's rebase of the pending revision RevisionID onto CurrentRevisionID, the entity's
 // current revision the moderator resolved against (nil for a new entity), with Document, the resolved document
-// (the moderator's editable view of it: the preferences withheld). Summary, if not nil, replaces the revision's
-// summary.
+// (edited from the moderator's editable view of it), which carried the editor fields Sent: one it did not keeps the
+// current document's. Summary, if not nil, replaces the revision's summary.
 type RebaseRequest struct {
 	Actor             domain.Actor
 	RevisionID        int64
 	CurrentRevisionID *int64
 	Document          domain.AnyDocument
+	Sent              domain.EditorFieldsSent
 	Summary           *string
 	Now               time.Time
 }

@@ -102,7 +102,7 @@ func (c *catalogueReader) saveEntityDraft(
 	}
 	draft.EntityID, draft.BaseRevisionID = nullableID(&target.entity.ID), nullableID(base)
 
-	return c.insertDraft(ctx, req.Actor, draft, received, pending)
+	return c.insertDraft(ctx, req.Actor, draft, req.Sent.ReceivedKeys(received), pending)
 }
 
 // insertDraft inserts a new draft, which received received, unless its author holds domain.MaxDrafts drafts.
@@ -133,7 +133,8 @@ func (c *catalogueReader) insertDraft(
 	return datasources.SavedDraft{Draft: saved, Created: true}, err
 }
 
-// replaceDraft replaces the document and summary of the author's draft id of the entity, keeping its base.
+// replaceDraft replaces the document and summary of the author's draft id of the entity, keeping its base, and
+// gives up the received keys of the fields the document did not carry.
 func (c *catalogueReader) replaceDraft(
 	ctx context.Context, req datasources.SaveDraftRequest, id uint64, snapshot []byte, pending []pendingNewEntity,
 ) (datasources.SavedDraft, error) {
@@ -142,6 +143,9 @@ func (c *catalogueReader) replaceDraft(
 	}))
 	if err != nil {
 		return datasources.SavedDraft{}, fmt.Errorf("replacing draft [%d]: %w", id, err)
+	}
+	if err := c.shrinkReceivedKeys(ctx, id, req.Sent); err != nil {
+		return datasources.SavedDraft{}, err
 	}
 	draft, err := c.draft(ctx, req.Actor, id, pending)
 
@@ -190,6 +194,34 @@ func (c *catalogueReader) draftBase(
 	return base, received, c.err
 }
 
+// shrinkReceivedKeys removes from the received keys of the draft id the keys of the elements of the fields its
+// document did not carry (domain.EditorFieldsSent.ReceivedKeys), so that its submission keeps the base's.
+func (c *catalogueReader) shrinkReceivedKeys(ctx context.Context, id uint64, sent domain.EditorFieldsSent) error {
+	if sent == domain.AllEditorFieldsSent {
+		return nil
+	}
+	row, err := c.q.GetRevision(ctx, id)
+	if err != nil {
+		return fmt.Errorf("fetching draft: %w", err)
+	}
+	received, err := decodeJSONColumn[domain.ElementKeySet]("received keys", row.ReceivedKeysJson)
+	if err != nil {
+		return err
+	}
+	data, err := encodeJSON(sent.ReceivedKeys(received))
+	if err != nil {
+		return err
+	}
+	err = requireMatched(c.q.UpdateDraftReceivedKeys(ctx, queries.UpdateDraftReceivedKeysParams{
+		ReceivedKeysJson: data, ID: id,
+	}))
+	if err != nil {
+		return fmt.Errorf("updating received keys: %w", err)
+	}
+
+	return nil
+}
+
 // baseProblem is the error for a draft base that is not an approved revision of the entity.
 func baseProblem() error {
 	return &domain.DocumentError{Problems: []domain.DocumentProblem{
@@ -197,7 +229,8 @@ func baseProblem() error {
 	}}
 }
 
-// UpdateDraft replaces the document and summary of one of the actor's drafts, keeping its base.
+// UpdateDraft replaces the document and summary of one of the actor's drafts, keeping its base, and gives up the
+// received keys of the fields the document did not carry.
 func (r *Repository) UpdateDraft(ctx context.Context, req datasources.UpdateDraftRequest) (domain.Draft, error) {
 	var draft domain.Draft
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -218,6 +251,9 @@ func (r *Repository) UpdateDraft(ctx context.Context, req datasources.UpdateDraf
 		}))
 		if err != nil {
 			return fmt.Errorf("updating draft: %w", err)
+		}
+		if err := c.shrinkReceivedKeys(ctx, row.ID, req.Sent); err != nil {
+			return err
 		}
 		draft, err = c.draft(ctx, req.Actor, row.ID, c.referencedPending(ctx, req.Actor))
 		return err

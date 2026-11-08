@@ -95,7 +95,7 @@ func testPieceSnapshotJSON(title, credits string) string {
 			"performances": [{"year": 2025, "uploader": "Northmarch Bards", "description_verbatim": "Sung at the revel",
 				"event": {"slug": "midwinter-revel", "name": "Midwinter Revel", "kind": "event"},
 				"performers": [{"slug": "wren-of-the-vale", "name": "Wren of the Vale", "kind": "community_bard",
-					"is_stub": false}]}]}]}`, title, credits)
+					"is_stub": false}]}]}], "preferences": []}`, title, credits)
 }
 
 func TestRevisionGet_ServeHTTP(t *testing.T) {
@@ -123,6 +123,9 @@ func TestRevisionGet_ServeHTTP(t *testing.T) {
 					{PiecePerformance: domain.PiecePerformance{DescriptionVerbatim: "A tale"}},
 				},
 			}},
+			Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
+				Value:     &domain.PreferenceValue{Choices: []domain.PreferenceChoice{domain.PreferenceChoiceAskBeforeRecording}},
+				SourceURL: "https://example.org/wren/prefs"}},
 		},
 	}
 	statusDate := domain.Date{Time: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)}
@@ -187,7 +190,9 @@ func TestRevisionGet_ServeHTTP(t *testing.T) {
 									"year": null, "uploader": null, "description_verbatim": "The Kettle",
 									"event": null, "performers": []},
 								{"piece": null, "year": null, "uploader": null, "description_verbatim": "A tale",
-									"event": null, "performers": []}]}]}},
+									"event": null, "performers": []}]}],
+						"preferences": [{"dimension": "recording", "value": {"choices": ["ask_before_recording"], "notes": null},
+							"source_url": "https://example.org/wren/prefs"}]}},
 				"base_snapshot": null,
 				"changed_fields": ["kind", "name", "profile", "status"]}`,
 		},

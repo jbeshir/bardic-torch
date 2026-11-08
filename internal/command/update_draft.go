@@ -16,7 +16,9 @@ type UpdateDraftRequest struct {
 	Principal domain.Principal
 	ID        int64
 	Document  domain.AnyEditorDocument
-	Summary   string
+	// Sent says which editor fields Document carried: one it did not keeps the base's when the draft is submitted.
+	Sent    domain.EditorFieldsSent
+	Summary string
 }
 
 // UpdateDraft replaces one of the principal's drafts' document and summary, keeping its base.
@@ -37,7 +39,8 @@ func (c *UpdateDraft) Execute(ctx context.Context, req UpdateDraftRequest) (Draf
 	}
 
 	draft, err := c.Updater.UpdateDraft(ctx, datasources.UpdateDraftRequest{
-		Actor: actor, ID: req.ID, Document: doc, Summary: req.Summary, Now: c.Now(),
+		Actor: actor, ID: req.ID, Document: domain.CanonicalAnyDocument(doc), Sent: req.Sent, Summary: req.Summary,
+		Now: c.Now(),
 	})
 	if err != nil {
 		return DraftResult{}, fmt.Errorf("updating draft: %w", err)

@@ -82,6 +82,7 @@ type SubmitPlan[D Document] struct {
 // flags, with the restore's collisions and the flags of the restored document's content.
 func PlanSubmit[D Document](s SubmitState[D]) (SubmitPlan[D], error) {
 	restored, flags := RestoreDocument(s.ID, s.Submitted, s.Base, s.Received, s.Visibility)
+	restored = CanonicalDocument(restored)
 	if s.Visibility.Role == RoleModerator {
 		return SubmitPlan[D]{Document: restored}, nil
 	}
@@ -278,7 +279,7 @@ func approvalDocument[D Document](s ApprovalState[D]) (D, bool, error) {
 		return s.Revision, false, ErrRebaseRequired
 	}
 
-	return merged, true, nil
+	return CanonicalDocument(merged), true, nil
 }
 
 // approvalSummary checks flags against the moderator's acknowledgements and returns the summary to publish: the
@@ -344,8 +345,8 @@ func documentChanges[D Document](doc D, current *D, summary string) (*Conservati
 }
 
 // contentFlags are the flags of a revision's content, its document doc compared with prev (nil for a new entity):
-// its summary holding a hidden alias, each string it changed holding one, each hidden link it attaches and each
-// pending new entity it references.
+// its summary holding a hidden alias, each string it changed holding one, each hidden link it attaches (as a link
+// or as a preference's source) and each pending new entity it references.
 func contentFlags[D Document](doc D, prev *D, summary string, refs ReferenceIndex, hiddenLinks map[string]bool,
 	matcher NameMatcher,
 ) []Flag {
@@ -372,6 +373,7 @@ func contentFlags[D Document](doc D, prev *D, summary string, refs ReferenceInde
 			flags = append(flags, Flag{Code: FlagHiddenLinkAttached, Path: fmt.Sprintf("/links/%d", i)})
 		}
 	}
+	flags = append(flags, preferenceSourceFlags(doc, prev, hiddenLinks)...)
 	for _, r := range documentReferences(doc) {
 		if refs.ownPending(r) {
 			flags = append(flags, Flag{Code: FlagReferencesPending, Path: r.Path})
@@ -408,4 +410,36 @@ func uniqueFlags(flags []Flag) []Flag {
 	}
 
 	return out
+}
+
+// preferenceSourceFlags are the hidden_link_attached flags of doc's preferences whose source is a hidden link,
+// unless prev (nil for a new entity) has the preference of that dimension with that source already.
+func preferenceSourceFlags[D Document](doc D, prev *D, hiddenLinks map[string]bool) []Flag {
+	before := map[PreferenceDimension]string{}
+	if prev != nil {
+		for _, p := range documentPreferences(*prev) {
+			before[p.Dimension] = linkKey(p.SourceURL)
+		}
+	}
+	var flags []Flag
+	for i, p := range documentPreferences(doc) {
+		key := linkKey(p.SourceURL)
+		if hiddenLinks[key] && before[p.Dimension] != key {
+			flags = append(flags, Flag{Code: FlagHiddenLinkAttached, Path: fmt.Sprintf("/preferences/%d/source_url", i)})
+		}
+	}
+
+	return flags
+}
+
+// documentPreferences are a document's preferences: none for a document type without them.
+func documentPreferences[D Document](doc D) []DocPreference {
+	switch d := any(doc).(type) {
+	case PieceDocument:
+		return d.Preferences
+	case PersonDocument:
+		return d.Preferences
+	}
+
+	return nil
 }

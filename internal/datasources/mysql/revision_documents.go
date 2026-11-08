@@ -298,6 +298,7 @@ type approvalPlan struct {
 type rebaseState struct {
 	id                 int64
 	resolved, revision domain.AnyDocument
+	sent               domain.EditorFieldsSent
 	// current is nil for a new entity.
 	current domain.AnyDocument
 	author  domain.Role
@@ -376,9 +377,9 @@ func (k kindOf[D, S]) planApproval(s approvalState, opts domain.ApprovalOptions)
 }
 
 func (k kindOf[D, S]) planRebase(s rebaseState) (domain.AnyDocument, error) {
-	doc, err := domain.PlanRebase(domain.RebaseState[D]{ID: s.id, Resolved: s.resolved.(D), Revision: s.revision.(D),
-		Current: optional[D](s.current),
-		Author:  s.author, Visibility: s.vis, Refs: s.refs, Summary: s.summary, Today: s.today})
+	doc, err := domain.PlanRebase(domain.RebaseState[D]{ID: s.id, Resolved: s.resolved.(D), Sent: s.sent,
+		Revision: s.revision.(D), Current: optional[D](s.current),
+		Author: s.author, Visibility: s.vis, Refs: s.refs, Summary: s.summary, Today: s.today})
 	if err != nil {
 		return nil, err
 	}

@@ -38,7 +38,7 @@ func (c DraftCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !httpjson.DecodeJSONBodyLimit(w, r, &body, httpjson.MaxDocumentBodyBytes) {
 		return
 	}
-	doc, ok := body.documentOrBadRequest(w, r)
+	doc, sent, ok := body.documentOrBadRequest(w, r)
 	if !ok {
 		return
 	}
@@ -49,7 +49,7 @@ func (c DraftCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	saved, err := c.Command.Execute(r.Context(), command.SaveDraftRequest{
 		Principal: principal, Entity: entity, BaseRevisionID: body.BaseRevisionID, Document: doc,
-		Summary: domain.WithLineBreaksNormalized(body.Summary),
+		Sent: sent, Summary: domain.WithLineBreaksNormalized(body.Summary),
 	})
 	if err != nil {
 		writeRevisionError(w, r, "entity", err)

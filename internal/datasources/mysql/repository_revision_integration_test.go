@@ -323,6 +323,8 @@ func harvestView() domain.PieceSnapshot {
 				{DescriptionVerbatim: pendingFairDesc},
 			},
 		}},
+		Preferences: []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording,
+			"https://example.org/harvest/preferences", domain.PreferenceChoiceNoRecording)},
 	}
 }
 
@@ -426,7 +428,7 @@ func TestRepository_ListPublicHistory_NotFound(t *testing.T) {
 
 // TestRepository_GetPublicRevision_Piece checks a piece revision's views: references to entities
 // that are not public now and links hidden now are left out of the snapshot and its base, with no system fields
-// or preferences.
+// and with the preferences.
 func TestRepository_GetPublicRevision_Piece(t *testing.T) {
 	t.Parallel()
 

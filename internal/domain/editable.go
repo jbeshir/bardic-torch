@@ -9,12 +9,12 @@ import "fmt"
 // what they submitted: what they typed, and what they received as far as the current state still shows it.
 
 // EditorVisibility is what decides what a caller sees of a document: the current visibility of the entities and
-// links it references, the caller's own pending new terms and persons, the hidden links among its links and the
-// caller's effective role. An interactive moderator sees everything but preferences.
+// links it references, the caller's own pending new terms and persons, the hidden links among its links and
+// sources, and the caller's effective role. An interactive moderator sees everything.
 type EditorVisibility struct {
 	SnapshotVisibility
 	OwnPending OwnPendingRefs
-	// HiddenLinkURLs are the normalized URLs of the hidden links among the document's links.
+	// HiddenLinkURLs are the normalized URLs of the hidden links among the document's links and sources.
 	HiddenLinkURLs map[string]bool
 	Role           Role
 }
@@ -257,15 +257,13 @@ func identityOnly(d PersonDocument) PersonDocument {
 	return withIdentity(DefaultPersonDocument(), d)
 }
 
-// projectDocument is the projector's projection of doc: the fields of its type's table withheld (withheld_fields.go),
-// and the preferences, which no one edits; a no-page person's profile is withheld whole.
+// projectDocument is the projector's projection of doc: the fields of its type's table withheld
+// (withheld_fields.go); a no-page person's profile is withheld whole.
 func projectDocument[D Document](p *projector, doc D) D {
 	var out any
 	switch d := any(doc).(type) {
 	case PieceDocument:
-		piece := pieceWithheld.project(p, d)
-		piece.Preferences = nil
-		out = piece
+		out = pieceWithheld.project(p, d)
 	case PersonDocument:
 		out = p.person(d)
 	case TermDocument:
@@ -285,16 +283,14 @@ func (p *projector) person(d PersonDocument) PersonDocument {
 		return identityOnly(d)
 	}
 	p.kept[profileKey] = true
-	out := personWithheld.project(p, d)
-	out.Preferences = nil
 
-	return out
+	return personWithheld.project(p, d)
 }
 
 // EditableDocument returns the document of entity id (0 for a new one) as the caller may edit it: without every
-// element the current state withholds from them (hidden aliases and links, references to entities they may not
-// see, a no-page person's profile) and without preferences, which no one edits until their shape is defined. It
-// also returns the keys of the elements it shows, the received keys of a draft made from it.
+// element the current state withholds from them (hidden aliases and links, preferences whose source is a hidden
+// link, references to entities they may not see, a no-page person's profile). It also returns the keys of the
+// elements it shows, the received keys of a draft made from it.
 func EditableDocument[D Document](id int64, doc D, vis EditorVisibility) (D, ElementKeySet) {
 	p := &projector{id: id, vis: vis, kept: ElementKeySet{},
 		withheld: func(_ string, hiddenNow bool) bool { return hiddenNow }}

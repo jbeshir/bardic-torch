@@ -5916,6 +5916,7 @@ components:
               - notes_md
               - period_end
               - period_start
+              - preferences
               - relations
               - secondary_kinds
               - terms
@@ -5964,6 +5965,7 @@ components:
                 person: null
             relations: []
             links: []
+            preferences: []
           base_snapshot:
             title: The Copper Kettle
             kind: song
@@ -5984,6 +5986,7 @@ components:
             credits: []
             relations: []
             links: []
+            preferences: []
           changed_fields: [credits]
 
     PersonRevision:
@@ -6325,6 +6328,7 @@ components:
         - credits
         - relations
         - links
+        - preferences
       properties:
         title:
           $ref: "#/components/schemas/PieceSummary/properties/title"
@@ -6381,6 +6385,14 @@ components:
           description: The snapshot's links that are not hidden now, in order, with no system state such as liveness.
           items:
             $ref: "#/components/schemas/SnapshotPieceLink"
+        preferences:
+          type: array
+          maxItems: 8
+          description: |
+            The snapshot's stated preferences, in dimension order, without those whose source is a link hidden for
+            privacy now (or does not parse as a URL).
+          items:
+            $ref: "#/components/schemas/PreferenceEntry"
       examples:
         - title: The Copper Kettle
           kind: song
@@ -6401,6 +6413,7 @@ components:
           credits: []
           relations: []
           links: []
+          preferences: []
 
     SnapshotPieceRelation:
       type: object
@@ -6578,6 +6591,7 @@ components:
         - affiliations
         - relations
         - links
+        - preferences
       properties:
         pronouns:
           $ref: "#/components/schemas/PersonProfile/properties/pronouns"
@@ -6614,6 +6628,14 @@ components:
           description: The snapshot's links that are not hidden now, in order.
           items:
             $ref: "#/components/schemas/SnapshotPersonLink"
+        preferences:
+          type: array
+          maxItems: 8
+          description: |
+            The snapshot's stated preferences, in dimension order, without those whose source is a link hidden for
+            privacy now (or does not parse as a URL).
+          items:
+            $ref: "#/components/schemas/PreferenceEntry"
       examples:
         - pronouns: null
           notes_md: null
@@ -6624,6 +6646,7 @@ components:
           affiliations: []
           relations: []
           links: []
+          preferences: []
 
     SnapshotPersonRelation:
       type: object
@@ -6938,11 +6961,12 @@ components:
           description_verbatim: Sung at Midwinter Revel by Morwen.
           performers: [morwen]
 
-    EditorPieceDocument:
+    EditorPieceDocumentRequest:
       type: object
       description: |
         A piece's document in the editor format: its editor-owned fields, with references by slug (collections by
-        ID). What the caller may not see is withheld from an editable document, and kept when it is submitted.
+        ID). What the caller may not see is withheld from an editable document, and kept when it is submitted. A
+        field added after a client was built may be left out of a request, and keeps the base's value.
       additionalProperties: false
       required:
         - title
@@ -7098,6 +7122,16 @@ components:
           maxItems: 200
           items:
             $ref: "#/components/schemas/EditorPieceLink"
+        preferences:
+          type: array
+          maxItems: 8
+          description: |
+            The stated preference profile, each dimension at most once. A preference whose source is a link hidden
+            for privacy is withheld from everyone but an interactive moderator, and kept when the document is
+            submitted. A client built before this field existed may leave it out: the document then keeps the
+            base's preferences (null means the same).
+          items:
+            $ref: "#/components/schemas/PreferenceEntry"
       examples:
         - title: The Copper Kettle
           kind: song
@@ -7125,6 +7159,14 @@ components:
               part: null
               note: null
           links: []
+
+    EditorPieceDocument:
+      description: |
+        A piece's document in the editor format, as the API returns it: `EditorPieceDocumentRequest` with
+        `preferences` always present.
+      allOf:
+        - $ref: "#/components/schemas/EditorPieceDocumentRequest"
+        - required: [preferences]
 
     EditorPieceLink:
       type: object
@@ -7201,11 +7243,12 @@ components:
               description_verbatim: Sung at Midwinter Revel by Morwen.
               performers: [morwen]
 
-    EditorPersonDocument:
+    EditorPersonDocumentRequest:
       type: object
       description: |
         A person's document in the editor format. Of a person who prefers not to have a page, only the identity
         (name, kind, status and its date and source) is editable; the rest is withheld.
+        A field added after a client was built may be left out of a request, and keeps the base's value.
       additionalProperties: false
       required:
         - name
@@ -7303,6 +7346,16 @@ components:
           maxItems: 200
           items:
             $ref: "#/components/schemas/EditorPersonLink"
+        preferences:
+          type: array
+          maxItems: 8
+          description: |
+            The stated preference profile, each dimension at most once. A preference whose source is a link hidden
+            for privacy is withheld from everyone but an interactive moderator, and kept when the document is
+            submitted. A client built before this field existed may leave it out: the document then keeps the
+            base's preferences (null means the same).
+          items:
+            $ref: "#/components/schemas/PreferenceEntry"
       examples:
         - name: Morwen
           kind: community_bard
@@ -7319,6 +7372,14 @@ components:
           affiliations: []
           relations: []
           links: []
+
+    EditorPersonDocument:
+      description: |
+        A person's document in the editor format, as the API returns it: `EditorPersonDocumentRequest` with
+        `preferences` always present.
+      allOf:
+        - $ref: "#/components/schemas/EditorPersonDocumentRequest"
+        - required: [preferences]
 
     EditorPersonLink:
       type: object
@@ -7494,6 +7555,315 @@ components:
           kind: event
           description_md: null
 
+    PreferenceEntry:
+      type: object
+      description: |
+        One dimension of a person's or piece's stated preference profile (the Bard Preference Checklist): what it
+        states and the source it is stated in. A profile holds each dimension at most once, in dimension order. A
+        piece's dimensions override the credited persons' (a piece never has `licensing`, which `licensing_status`,
+        `licence` and the other licensing fields describe). A preference whose source is a link hidden for privacy
+        is left out of every view but an interactive moderator's.
+      additionalProperties: false
+      required: [dimension, value, source_url]
+      properties:
+        dimension:
+          $ref: "#/components/schemas/PreferenceDimension"
+        value:
+          $ref: "#/components/schemas/PreferenceValue"
+        source_url:
+          type: string
+          maxLength: 2048
+          description: Where the preference is stated; every preference needs one.
+          examples:
+            - https://example.org/preferences
+      examples:
+        - dimension: recording
+          value:
+            choices: [ask_before_recording]
+            notes: null
+          source_url: https://example.org/preferences
+
+    PreferenceValue:
+      type: object
+      description: |
+        What a preference states: codes of its dimension's vocabulary (`PreferenceChoice`), in vocabulary order
+        (the server stores them so, so reordering is never a change), and free-text notes for what the codes do not
+        cover. Notes are document text: NFC, no control characters, at most 2000 characters.
+      additionalProperties: false
+      required: [choices, notes]
+      properties:
+        choices:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/PreferenceChoice"
+        notes:
+          type: [string, "null"]
+          maxLength: 2000
+          examples:
+            - Ask at the event.
+      examples:
+        - choices: [given, inform_welcome]
+          notes: null
+
+    PreferenceDimension:
+      type: string
+      description: One dimension of a preference profile; `licensing` is a person's only.
+      enum:
+        - licensing
+        - performance_permission
+        - adaptations
+        - attribution
+        - commercial_use
+        - recording
+        - performance_etiquette
+        - objectionable_use
+      examples:
+        - recording
+
+    PreferenceChoice:
+      type: string
+      description: |
+        A code of a preference dimension's vocabulary. Each dimension has groups of codes; a group takes exactly
+        one, at most one, at least one or any number of its codes, and a dimension whose groups are all optional
+        needs a code or notes. The groups, in vocabulary order:
+        - `licensing`:
+          - licence (exactly one): `pd`, `cc_by`, `cc_by_sa`, `cc_by_nc`, `cc_by_nc_sa`, `cc_by_nd`,
+            `cc_by_nc_nd`, `arr`, `other`, `varies_by_work`
+        - `performance_permission`:
+          - permission (exactly one): `not_given`, `ask_first`, `ask_representative`, `group_members`, `given`
+          - informing (at most one): `inform_required`, `inform_welcome`, `inform_not_needed`,
+            `inform_not_wanted`
+        - `adaptations`:
+          - permission (exactly one): `encouraged`, `allowed`, `allowed_with_conditions`, `ask_first`,
+            `live_only`, `not_allowed`
+          - conditions (any number): `fair_use_only`, `serious_only`, `respectful_only`, `minor_changes_only`,
+            `show_before_performing`
+          - informing (at most one): `inform_required`, `inform_welcome`, `inform_not_needed`,
+            `inform_not_wanted`
+          - allowed_kinds (any number): `allow_new_words`, `allow_fan_videos`, `allow_story_changes`,
+            `allow_shortening`, `allow_extending`, `allow_improvements`, `allow_musical_setting`,
+            `allow_own_version`, `allow_stage_use`
+          - refused_kinds (any number): `refuse_new_words`, `refuse_fan_videos`, `refuse_story_changes`,
+            `refuse_shortening`, `refuse_extending`, `refuse_improvements`, `refuse_musical_setting`,
+            `refuse_own_version`, `refuse_stage_use`
+        - `attribution`:
+          - name (at least one): `stage_name`, `sca_name`, `legal_name`, `persona_and_legal_name`,
+            `known_name`, `name_with_affiliation`
+          - timing (at most one): `credit_before`, `credit_after`, `credit_before_and_after`,
+            `credit_once_per_set`, `credit_any_time`, `credit_when_asked`
+          - extras (any number): `mention_website`, `mention_source`, `mention_shop`, `mention_performance`,
+            `link_to_creator`, `written_credit`, `qr_code`
+        - `commercial_use`:
+          - stance (exactly one): `non_commercial_only`, `allowed`, `allowed_with_conditions`, `ask_first`,
+            `not_allowed`
+          - allowed_uses (any number): `tips_and_prizes`, `paid_performance`, `ticketed_performance`,
+            `third_party_commercial`, `monetised_uploads`, `paid_recording`, `streaming_income`,
+            `sell_downloads`, `sell_physical_recordings`, `sell_print`, `resell_creator_copies`, `merchandise`,
+            `advertising`
+          - conditions (any number): `with_permission`, `with_attribution`, `with_notification`,
+            `creator_first`, `profit_share`, `individuals_only`, `standalone_single`, `compilation_only`,
+            `group_members`, `income_cap`, `amateurs_only`
+        - `recording`:
+          - writing (at most one): `no_writing`, `oral_only`, `trusted_audiences_only`, `private_notebook`,
+            `small_print_only`, `share_in_person`, `lyrics_online`, `uploads_allowed`
+          - recording_creator (at most one): `no_recording`, `notify_after`, `ask_before_upload`,
+            `ask_before_recording`, `selective_recording`, `formal_only`
+        - `performance_etiquette`:
+          - sing_along (at most one): `sing_along_welcome`, `join_in_any_way`, `sing_along_fine`,
+            `no_sing_along`, `other_jamming_only`, `unison_only`, `no_percussion`, `chorus_only`
+          - competition (at most one): `no_competition`, `compete_unless_creator_competing`,
+            `compete_after_checking`, `not_against_creator`
+          - circles (at most one): `circle_fine`, `circle_ask_beforehand`, `circle_quick_ask`,
+            `circle_permission_needed`, `circle_not_allowed`
+          - learning (at most one): `perform_freely`, `memorise`, `practise_thoroughly`
+        - `objectionable_use`:
+          - scope (at least one): `no_objectionable_purposes`, `no_objectionable_contexts`,
+            `no_objectionable_content`
+          - purposes (any number): `proselytising`, `any_politics`, `partisan_politics`, `hate_groups`,
+            `prejudice`, `illegal_activity`, `religious_or_political_advertising`, `corporate_advertising`,
+            `restricted_goods_advertising`, `violence`, `graphic_violence`, `religious_conflict`,
+            `mocking_creator`, `mocking_others`
+          - contexts (any number): `political_events`, `partisan_events`, `religious_events`,
+            `hate_group_events`, `events_including_hate_groups`, `violent_events`, `alcohol_events`,
+            `adult_events`
+          - content (any number): `nsfw`, `not_child_safe`, `profanity`, `sexual_content`, `pornography`,
+            `corporate_risk`, `legal_drugs`, `illegal_drugs`, `religious_content`, `offensive_content`
+          - extras (any number): `ask_if_unsure`, `reserves_right`, `private_use_ok`, `report_sightings`,
+            `may_intervene`, `let_creator_decide`
+
+        A code a dimension does not have is 422 `out_of_range`; codes that contradict each other (such as
+        `not_given` with an informing code, or an `allow_` code with its `refuse_` twin) are 422 `choice_conflict`;
+        `group_members` needs notes. The `licensing` codes are the `Licence` values plus `varies_by_work`.
+      enum:
+        - pd
+        - cc_by
+        - cc_by_sa
+        - cc_by_nc
+        - cc_by_nc_sa
+        - cc_by_nd
+        - cc_by_nc_nd
+        - arr
+        - other
+        - varies_by_work
+        - not_given
+        - ask_first
+        - ask_representative
+        - group_members
+        - given
+        - inform_required
+        - inform_welcome
+        - inform_not_needed
+        - inform_not_wanted
+        - encouraged
+        - allowed
+        - allowed_with_conditions
+        - live_only
+        - not_allowed
+        - fair_use_only
+        - serious_only
+        - respectful_only
+        - minor_changes_only
+        - show_before_performing
+        - allow_new_words
+        - allow_fan_videos
+        - allow_story_changes
+        - allow_shortening
+        - allow_extending
+        - allow_improvements
+        - allow_musical_setting
+        - allow_own_version
+        - allow_stage_use
+        - refuse_new_words
+        - refuse_fan_videos
+        - refuse_story_changes
+        - refuse_shortening
+        - refuse_extending
+        - refuse_improvements
+        - refuse_musical_setting
+        - refuse_own_version
+        - refuse_stage_use
+        - stage_name
+        - sca_name
+        - legal_name
+        - persona_and_legal_name
+        - known_name
+        - name_with_affiliation
+        - credit_before
+        - credit_after
+        - credit_before_and_after
+        - credit_once_per_set
+        - credit_any_time
+        - credit_when_asked
+        - mention_website
+        - mention_source
+        - mention_shop
+        - mention_performance
+        - link_to_creator
+        - written_credit
+        - qr_code
+        - non_commercial_only
+        - tips_and_prizes
+        - paid_performance
+        - ticketed_performance
+        - third_party_commercial
+        - monetised_uploads
+        - paid_recording
+        - streaming_income
+        - sell_downloads
+        - sell_physical_recordings
+        - sell_print
+        - resell_creator_copies
+        - merchandise
+        - advertising
+        - with_permission
+        - with_attribution
+        - with_notification
+        - creator_first
+        - profit_share
+        - individuals_only
+        - standalone_single
+        - compilation_only
+        - income_cap
+        - amateurs_only
+        - no_writing
+        - oral_only
+        - trusted_audiences_only
+        - private_notebook
+        - small_print_only
+        - share_in_person
+        - lyrics_online
+        - uploads_allowed
+        - no_recording
+        - notify_after
+        - ask_before_upload
+        - ask_before_recording
+        - selective_recording
+        - formal_only
+        - sing_along_welcome
+        - join_in_any_way
+        - sing_along_fine
+        - no_sing_along
+        - other_jamming_only
+        - unison_only
+        - no_percussion
+        - chorus_only
+        - no_competition
+        - compete_unless_creator_competing
+        - compete_after_checking
+        - not_against_creator
+        - circle_fine
+        - circle_ask_beforehand
+        - circle_quick_ask
+        - circle_permission_needed
+        - circle_not_allowed
+        - perform_freely
+        - memorise
+        - practise_thoroughly
+        - no_objectionable_purposes
+        - no_objectionable_contexts
+        - no_objectionable_content
+        - proselytising
+        - any_politics
+        - partisan_politics
+        - hate_groups
+        - prejudice
+        - illegal_activity
+        - religious_or_political_advertising
+        - corporate_advertising
+        - restricted_goods_advertising
+        - violence
+        - graphic_violence
+        - religious_conflict
+        - mocking_creator
+        - mocking_others
+        - political_events
+        - partisan_events
+        - religious_events
+        - hate_group_events
+        - events_including_hate_groups
+        - violent_events
+        - alcohol_events
+        - adult_events
+        - nsfw
+        - not_child_safe
+        - profanity
+        - sexual_content
+        - pornography
+        - corporate_risk
+        - legal_drugs
+        - illegal_drugs
+        - religious_content
+        - offensive_content
+        - ask_if_unsure
+        - reserves_right
+        - private_use_ok
+        - report_sightings
+        - may_intervene
+        - let_creator_decide
+      examples:
+        - ask_first
+
     EditorDocument:
       description: |
         A document in the editor format, in the shape of the `entity_type` beside it in the enclosing object.
@@ -7502,6 +7872,25 @@ components:
       oneOf:
         - $ref: "#/components/schemas/EditorPieceDocument"
         - $ref: "#/components/schemas/EditorPersonDocument"
+        - $ref: "#/components/schemas/EditorTermDocument"
+        - $ref: "#/components/schemas/EditorCollectionDocument"
+        - $ref: "#/components/schemas/EditorEventDocument"
+      examples:
+        - name: Midwinter Revel
+          kind: event
+          description_md: null
+
+    EditorDocumentRequest:
+      description: |
+        A document in the editor format as a request sends it, in the shape of the `entity_type` beside it in the
+        enclosing object: `EditorDocument`, except that a piece's or person's `preferences` may be left out by a
+        client built before the field existed, which keeps the base's. Every other field is required, and a field
+        the document type does not have is 400 `invalid_request`. Its strings are taken as sent, without
+        normalisation: send line breaks as LF and text in NFC, since a carriage return or another control character
+        is 422 `invalid_document` `invalid_characters`.
+      oneOf:
+        - $ref: "#/components/schemas/EditorPieceDocumentRequest"
+        - $ref: "#/components/schemas/EditorPersonDocumentRequest"
         - $ref: "#/components/schemas/EditorTermDocument"
         - $ref: "#/components/schemas/EditorCollectionDocument"
         - $ref: "#/components/schemas/EditorEventDocument"
@@ -7766,7 +8155,7 @@ components:
           examples:
             - 46
         document:
-          $ref: "#/components/schemas/EditorDocument"
+          $ref: "#/components/schemas/EditorDocumentRequest"
         summary:
           $ref: "#/components/schemas/RevisionSummaryText"
       examples:
@@ -7790,7 +8179,7 @@ components:
         entity_type:
           $ref: "#/components/schemas/EntityType"
         document:
-          $ref: "#/components/schemas/EditorDocument"
+          $ref: "#/components/schemas/EditorDocumentRequest"
         summary:
           $ref: "#/components/schemas/RevisionSummaryText"
       examples:
@@ -8717,7 +9106,7 @@ components:
           examples:
             - 47
         document:
-          $ref: "#/components/schemas/EditorDocument"
+          $ref: "#/components/schemas/EditorDocumentRequest"
         summary:
           type: [string, "null"]
           maxLength: 500

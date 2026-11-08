@@ -28,7 +28,10 @@ const (
 const (
 	visibleURL = "https://example.org/visible"
 	hiddenURL  = "https://example.org/hidden"
-	otherURL   = "https://example.org/other"
+	prefsURL   = "https://example.org/prefs"
+	// respelledHiddenURL normalizes to hiddenURL.
+	respelledHiddenURL = "HTTPS://Example.org/hidden?utm_source=x"
+	otherURL           = "https://example.org/other"
 	// deletedURL is no link's URL now, and recasedURL differs from visibleURL in case only: neither is visible.
 	deletedURL  = "https://example.org/deleted"
 	recasedURL  = "https://example.org/Visible"
@@ -62,6 +65,7 @@ func testVisibility() SnapshotVisibility {
 		Collections:   map[int64]CollectionSummary{publicCollectionID: songbook},
 		Events:        map[int64]EventSummary{publicEventID: revel},
 		VisibleLinks:  map[string]string{visibleURL: visibleURL, otherURL: otherURL},
+		HiddenSources: map[string]bool{hiddenURL: true},
 	}
 }
 
@@ -121,7 +125,11 @@ func TestNewPieceSnapshot(t *testing.T) {
 			{DocLink: DocLink{URL: deletedURL, Title: new("Deleted")}},
 			{DocLink: DocLink{URL: recasedURL, Title: new("Recased")}},
 		},
-		Preferences: []DocPreference{preference(PreferenceDimensionLicensing, "https://example.org/prefs", PreferenceChoiceCCBY)},
+		Preferences: []DocPreference{
+			preference(PreferenceDimensionPerformancePermission, hiddenURL, PreferenceChoiceGiven),
+			preference(PreferenceDimensionRecording, "https://exa mple.org/prefs", PreferenceChoiceNoRecording),
+			preference(PreferenceDimensionAttribution, prefsURL, PreferenceChoiceSCAName),
+		},
 	}
 
 	assert.Equal(t, PieceSnapshot{
@@ -157,6 +165,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 			},
 			{SnapshotLink: SnapshotLink{URL: otherURL}},
 		},
+		Preferences: []DocPreference{preference(PreferenceDimensionAttribution, prefsURL, PreferenceChoiceSCAName)},
 	}, NewPieceSnapshot(doc, testVisibility()))
 
 	var refs SnapshotReferences
@@ -169,6 +178,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 		CollectionIDs: []int64{publicCollectionID, hiddenCollectionID},
 		EventIDs:      []int64{publicEventID, hiddenEventID},
 		LinkURLs:      []string{hiddenURL, visibleURL, otherURL, deletedURL, recasedURL},
+		SourceURLs:    []string{hiddenURL, "https://exa mple.org/prefs", prefsURL},
 	}, refs)
 }
 
@@ -211,7 +221,10 @@ func personDocument() PersonDocument {
 				},
 			},
 		},
-		Preferences: []DocPreference{preference(PreferenceDimensionRecording, "https://example.org/prefs", PreferenceChoiceNoRecording)},
+		Preferences: []DocPreference{
+			preference(PreferenceDimensionPerformancePermission, respelledHiddenURL, PreferenceChoiceGiven),
+			preference(PreferenceDimensionRecording, prefsURL, PreferenceChoiceNoRecording),
+		},
 	}
 }
 
@@ -249,6 +262,7 @@ func TestNewPersonSnapshot(t *testing.T) {
 					{PiecePerformance: PiecePerformance{DescriptionVerbatim: "A tale"}},
 				},
 			}},
+			Preferences: []DocPreference{preference(PreferenceDimensionRecording, prefsURL, PreferenceChoiceNoRecording)},
 		},
 	}, snapshot)
 
@@ -262,6 +276,7 @@ func TestNewPersonSnapshot(t *testing.T) {
 		CollectionIDs:  []int64{hiddenCollectionID},
 		EventIDs:       []int64{publicEventID, hiddenEventID},
 		LinkURLs:       []string{hiddenURL, visibleURL},
+		SourceURLs:     []string{respelledHiddenURL, prefsURL},
 		AliasPersonIDs: []int64{subjectPersonID},
 	}, refs)
 }

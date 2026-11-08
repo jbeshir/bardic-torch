@@ -6840,6 +6840,27 @@ func (q *Queries) UpdateDraftDocument(ctx context.Context, arg UpdateDraftDocume
 	return result.RowsAffected()
 }
 
+const updateDraftReceivedKeys = `-- name: UpdateDraftReceivedKeys :execrows
+
+UPDATE revisions
+SET received_keys_json = ?
+WHERE id = ? AND status = 'draft'
+`
+
+type UpdateDraftReceivedKeysParams struct {
+	ReceivedKeysJson []byte
+	ID               uint64
+}
+
+// The received keys of a draft only ever shrink: a document that did not carry a field gives up its elements.
+func (q *Queries) UpdateDraftReceivedKeys(ctx context.Context, arg UpdateDraftReceivedKeysParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateDraftReceivedKeys, arg.ReceivedKeysJson, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateEventFromDocument = `-- name: UpdateEventFromDocument :execrows
 UPDATE events
 SET name = ?, kind = ?, description_md = ?

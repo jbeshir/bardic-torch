@@ -86,10 +86,10 @@ type DraftUpdateRequest struct {
 	Summary    string            `json:"summary"`
 }
 
-// documentOrBadRequest decodes the request's document. If it is invalid it writes 400 invalid_request and returns
-// false; the caller should then return without writing.
+// documentOrBadRequest decodes the request's document, with the editor fields it carried. If it is invalid it writes
+// 400 invalid_request and returns false; the caller should then return without writing.
 func (d DraftUpdateRequest) documentOrBadRequest(
 	w http.ResponseWriter, r *http.Request,
-) (domain.AnyEditorDocument, bool) {
+) (domain.AnyEditorDocument, domain.EditorFieldsSent, bool) {
 	return editorDocumentToDomain(r.Context(), w, d.EntityType, d.Document)
 }

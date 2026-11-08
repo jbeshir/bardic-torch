@@ -212,7 +212,8 @@ func (f *editingFixture) rebase(
 	t.Helper()
 
 	return f.repo.RebaseRevision(t.Context(), datasources.RebaseRequest{Actor: actorRowan, RevisionID: id,
-		CurrentRevisionID: current, Document: doc, Summary: summary, Now: f.tick()})
+		CurrentRevisionID: current, Document: doc, Sent: domain.AllEditorFieldsSent, Summary: summary,
+		Now: f.tick()})
 }
 
 // TestRepository_RebaseRevision covers a rebase then an approval, and that the rebase keeps what the author
@@ -229,7 +230,7 @@ func TestRepository_RebaseRevision(t *testing.T) {
 
 	resolved := f.editable(t, actorRowan, key).Document.(domain.PieceDocument)
 	resolved.Title = resolvedTitle
-	require.Empty(t, resolved.Preferences)
+	require.Equal(t, songDocument(f).Preferences, resolved.Preferences, "a moderator edits the preferences")
 	require.NoError(t, f.rebase(t, ours.RevisionID, &theirs.RevisionID, resolved, new("Resolved against Ash's.")))
 
 	after := f.stored(t, ours.RevisionID)
@@ -240,7 +241,7 @@ func TestRepository_RebaseRevision(t *testing.T) {
 	assert.JSONEq(t, before.submitted, after.submitted, "what the author submitted is kept")
 	rebased := f.storedPiece(t, ours.RevisionID)
 	assert.Equal(t, resolvedTitle, rebased.Title)
-	assert.Equal(t, songDocument(f).Preferences, rebased.Preferences, "the preferences come from current")
+	assert.Equal(t, songDocument(f).Preferences, rebased.Preferences, "the resolved document's preferences")
 	assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM revisions WHERE id = ? AND rebased_by_user_id = ? "+
 		"AND rebased_at IS NOT NULL", ours.RevisionID, rowanUserID))
 	view, err := f.repo.GetModerationRevision(t.Context(), ours.RevisionID)

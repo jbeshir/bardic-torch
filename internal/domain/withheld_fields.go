@@ -10,8 +10,8 @@ import (
 // The fields of each document type a projection may withhold from a caller, declared once: EditableDocument walks
 // these tables to withhold, and RestoreDocument walks the same tables to put back what was withheld, so a field is
 // always withheld and restored by the same keys and the same rule (docs/PLAN.md §5.1, "Editable projection" and
-// "Restore on submit"). Two things are handled outside the tables: preferences, which are withheld from everyone,
-// and a no-page person's profile, which is withheld whole (identityOnly).
+// "Restore on submit"). One thing is handled outside the tables: a no-page person's profile, which is withheld
+// whole (identityOnly).
 
 // withheldFields are the fields of a document of type D a projection may withhold: lists, whose elements it may
 // withhold, and references, which it may set to null.
@@ -171,6 +171,14 @@ func linkField[D, L any](list func(*D) *[]L, url func(L) string, project func(*p
 		parts:     &elementParts[L]{project: project, restore: restore, droppedPath: "performances"}}
 }
 
+// preferenceField is the preferences field of a document: a preference is withheld if its source is hidden now,
+// or does not normalize (fail closed), the rule links have, so that a hidden link never reaches a contributor as a
+// preference's source. A submitted preference of a withheld one's dimension replaces it.
+func preferenceField[D any](list func(*D) *[]DocPreference) listField[D, DocPreference] {
+	return listField[D, DocPreference]{name: "preferences", list: list, keys: elementKeys(preferenceElementKey),
+		hidden: func(p *projector, pref DocPreference) bool { return p.linkHidden(pref.SourceURL) }}
+}
+
 var pieceWithheld = withheldFields[PieceDocument]{lists: []withheldList[PieceDocument]{
 	listField[PieceDocument, DocPieceTerm]{name: "terms",
 		list: func(d *PieceDocument) *[]DocPieceTerm { return &d.Terms }, keys: elementKeys(termElementKey),
@@ -183,6 +191,7 @@ var pieceWithheld = withheldFields[PieceDocument]{lists: []withheldList[PieceDoc
 		hidden: (*projector).creditHidden},
 	linkField(func(d *PieceDocument) *[]DocPieceLink { return &d.Links }, func(l DocPieceLink) string { return l.URL },
 		(*projector).pieceLink, (*projector).restorePieceLink),
+	preferenceField(func(d *PieceDocument) *[]DocPreference { return &d.Preferences }),
 }}
 
 var personWithheld = withheldFields[PersonDocument]{lists: []withheldList[PersonDocument]{
@@ -198,6 +207,7 @@ var personWithheld = withheldFields[PersonDocument]{lists: []withheldList[Person
 		hidden: func(p *projector, r DocPersonRelation) bool { return !p.personVisible(r.ToPersonID) }},
 	linkField(func(d *PersonDocument) *[]DocPersonLink { return &d.Links }, func(l DocPersonLink) string { return l.URL },
 		(*projector).personLink, (*projector).restorePersonLink),
+	preferenceField(func(d *PersonDocument) *[]DocPreference { return &d.Preferences }),
 }}
 
 var termWithheld = withheldFields[TermDocument]{refs: []refField[TermDocument]{

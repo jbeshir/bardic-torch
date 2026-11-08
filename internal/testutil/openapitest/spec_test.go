@@ -155,7 +155,7 @@ func revisionBody(entityType string) string {
 			"conservation_status": "endangered", "conservation_source_url": null, "is_stub": false, "notes_md": null,
 			"version_notes_md": null, "licensing_status": "unknown", "licensing_notes_md": null, "licence": null,
 			"historical_source_md": null, "period_start": null, "period_end": null, "aliases": [], "terms": [],
-			"credits": [], "relations": [], "links": []},
+			"credits": [], "relations": [], "links": [], "preferences": []},
 		"base_snapshot": null, "changed_fields": ["conservation_status", "kind", "title"]}`
 }
 

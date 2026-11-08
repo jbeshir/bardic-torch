@@ -232,14 +232,14 @@ func (c RevisionRebase) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	doc, ok := editorDocumentToDomain(r.Context(), w, body.EntityType, body.Document)
+	doc, sent, ok := editorDocumentToDomain(r.Context(), w, body.EntityType, body.Document)
 	if !ok {
 		return
 	}
 
 	revision, err := c.Command.Execute(r.Context(), command.RebaseRevisionRequest{
 		Principal: req.Principal, RevisionID: req.ID, CurrentRevisionID: body.CurrentRevisionID, Document: doc,
-		Summary: summary,
+		Sent: sent, Summary: summary,
 	})
 	if err != nil {
 		writeRevisionError(w, r, "revision", err)

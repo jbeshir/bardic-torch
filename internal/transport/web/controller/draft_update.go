@@ -23,13 +23,14 @@ func (c DraftUpdate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !httpjson.DecodeJSONBodyLimit(w, r, &body, httpjson.MaxDocumentBodyBytes) {
 		return
 	}
-	doc, ok := body.documentOrBadRequest(w, r)
+	doc, sent, ok := body.documentOrBadRequest(w, r)
 	if !ok {
 		return
 	}
 
 	result, err := c.Command.Execute(r.Context(), command.UpdateDraftRequest{
-		Principal: req.Principal, ID: req.ID, Document: doc, Summary: domain.WithLineBreaksNormalized(body.Summary),
+		Principal: req.Principal, ID: req.ID, Document: doc, Sent: sent,
+		Summary: domain.WithLineBreaksNormalized(body.Summary),
 	})
 	if err != nil {
 		writeRevisionError(w, r, "draft", err)

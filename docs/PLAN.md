@@ -238,8 +238,8 @@ the DDL is in `migrations/003`–`009`.
   snapshot and its base reference):
   - A revision is public if it is approved and its entity is public now; anything else is the same 404. History
     lists approved revisions newest first (`created_at`, then ID).
-  - Views hold the document's editor-owned fields except preference profiles; links have no liveness or other
-    system state. A link is shown only if its normalized URL is now that of a link that is not hidden ("Hidden
+  - Views hold the document's editor-owned fields; links have no liveness or other system state. A preference is
+    shown only if its `source_url` normalizes and is no hidden link's now. A link is shown only if its normalized URL is now that of a link that is not hidden ("Hidden
     links" above).
   - An alias is shown only if public in the document and now a public alias of the person, by name. A person's
     name is shown only if it is their current name or a current public alias name, and is their current name
@@ -303,10 +303,11 @@ the DDL is in `migrations/003`–`009`.
   Drafts get only the vocabulary and character rules. Choices are stored in canonical order (dimensions in their
   order, each value's choices in vocabulary order), so reordering is never a change; problems name the order the
   client sent. A code may be added like an ENUM value (§4.1); renaming or removing one is free until the first
-  preference is stored, and needs a document migration after. The profiles are not yet editable or exposed: until
-  they are, the only etiquette data in the API is `licensing_status` and `licensing_notes_md` on pieces and person
-  profiles, so FE2 builds a licensing card from those, and the full etiquette card (profile with piece-level
-  overrides) waits for FE4 (§10).
+  preference is stored, and needs a document migration after. The profiles are edited in the editor format
+  (§5.1) and shown in snapshots; a preference whose source is a hidden link is withheld from contributors and left
+  out of every view. Until the public reads carry them, the only etiquette data on a page is `licensing_status`
+  and `licensing_notes_md`, so FE2 builds a licensing card from those, and the full etiquette card (profile with
+  piece-level overrides) waits for FE4 (§10).
 - **Public reads ignore credentials.** The catalogue reads are served outside the authentication middleware, like
   the health checks: invalid, expired or uncheckable credentials and blocked users get the same answer as an
   anonymous request, and no user is looked up or created. A person's page lists the performances recorded by
@@ -408,19 +409,24 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   `not_pending`. A replayed submit of a submitted draft answers 200 with the revision: a draft that is now pending
   or approved answers 200; one now rejected or withdrawn is 409 `not_draft`.
 - **The editor format.** Editable documents reference pieces, persons, terms and events by slug (collections by
-  ID), never by internal ID, and have no `schema_version` or preferences. An unresolvable or forbidden slug is the
-  same 422 `unknown_reference`.
+  ID), never by internal ID, and have no `schema_version`; they hold the preferences as stored. An unresolvable or
+  forbidden slug is the same 422 `unknown_reference`. A field the document type does not have is 400
+  `invalid_request`, but a field added after a client was built (`preferences`) may be left out of a request (or
+  sent as null): the document then keeps the base's value, as the author is treated as never having received it
+  (its received keys are dropped from the draft, and only ever shrink), and a rebase document that leaves it out
+  keeps current's. Responses always carry it.
 - **Editable projection** (`GET /v1/{type}/{key}/editable`): the current document minus every **withheld
   element** for a contributor or API token: hidden aliases, hidden links (by normalized URL, failing closed),
   credits, performers and relations of persons not public with a page, references to non-public entities (but the
-  caller's own pending terms and persons), preferences (until BE5), and a no-page person's whole profile but its
-  identity. A placeholder (pending new entity) is editable only by its author, even by a moderator (404
-  otherwise); moderators rebase its revision instead. If the caller has a pending revision of the entity, the
+  caller's own pending terms and persons), preferences whose `source_url` is a hidden link's (by normalized URL)
+  or does not normalize, and a no-page person's whole profile but its identity. A placeholder (pending new
+  entity) is editable only by its author, even by a moderator (404 otherwise); moderators rebase its revision instead. If the caller has a pending revision of the entity, the
   projection starts from it instead (`starting_point: pending`, on its submitted base). An interactive moderator gets the full document with
   `link_states` (link ID, hidden, liveness); others get `[]`.
 - **Restore on submit**, for every actor: each withheld element of the draft's base is put back (keyed lists after
   their nearest preceding surviving element, sets unioned, nulled references restored unless replaced, the no-page
-  profile and preferences copied whole), as is every base element the author never received (not in
+  profile copied whole; preferences are a keyed list by dimension, so a withheld one is put back, and a submitted
+  preference of its dimension replaces it), as is every base element the author never received (not in
   `received_keys_json`). A submitted element whose key equals a withheld one (a public alias equal to a hidden
   alias, a link URL of a hidden link) is kept, and the collision is a moderator flag; the contributor is told
   nothing. A performance is matched by its year, description and piece: a base performance with withheld
@@ -530,8 +536,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   `unacknowledged_flags`), and a flagged summary also needs a clean replacement. A review note is checked the same
   way at approve and reject, as it reaches the author.
 - **Revert** (`POST /v1/revisions/{revision_id}/revert`) builds the target's document with every alias hidden in
-  current or in the target still hidden and current preferences, on base = current read under the entity lock (so
-  never stale), with the default summary `Revert to revision <id>.`. Validation sees the request's summary, so a
+  current or in the target still hidden and the target's preferences, on base = current read under the entity lock
+  (so never stale), with the default summary `Revert to revision <id>.`. Validation sees the request's summary, so a
   revert across a conservation-status change needs an explicit `summary` (422 `reason_required`); the default
   summary is only stored. A contributor's is pending (capped,
   superseding), a moderator's approved. A replay answers 200 with the revision it already created.
@@ -542,10 +548,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   `include_blocked=true`. Conflicts and changed paths are in the editor format of the view's documents: fields
   by their editor names (`term`, `parent`, `affiliations`), list elements keyed by a reference by its slug
   (`terms[drinking-songs]`, `relations[the-copper-kettle:variant_of]`), and conflict values as
-  an editor document holds them. A reference the view cannot name is `pending-<type>-<id>`. The editor format has
-  no preferences, so a change or conflict there is the one path `preferences` with no values; a rebase keeps
-  current's preferences, so the only resolution of a preferences conflict is to keep current until preferences
-  become editable.
+  an editor document holds them. A reference the view cannot name is `pending-<type>-<id>`; a preference is named
+  by its dimension (`preferences[recording]`).
 - **Link reports** address a link by the URL the page shows (link IDs are not public): `POST /v1/link-reports`
   with a reason and message. Only a visible link can be reported; a hidden and an unknown URL are the same 404.
   One open report per reporter and link (a repeat answers 200 with it), at most 20 open per reporter. Hiding a

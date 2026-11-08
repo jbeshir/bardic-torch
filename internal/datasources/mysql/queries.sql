@@ -749,6 +749,13 @@ UPDATE revisions
 SET snapshot_json = ?, summary = ?, updated_at = ?
 WHERE id = ? AND status = 'draft';
 
+-- The received keys of a draft only ever shrink: a document that did not carry a field gives up its elements.
+
+-- name: UpdateDraftReceivedKeys :execrows
+UPDATE revisions
+SET received_keys_json = ?
+WHERE id = ? AND status = 'draft';
+
 -- name: DeleteDraft :execrows
 DELETE FROM revisions
 WHERE id = ? AND status = 'draft';

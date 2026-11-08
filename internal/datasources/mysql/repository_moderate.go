@@ -121,9 +121,9 @@ func (c *catalogueReader) rebase(ctx context.Context, req datasources.RebaseRequ
 	if c.err != nil {
 		return c.err
 	}
-	doc, err := in.kind.planRebase(rebaseState{id: in.entity.ID, resolved: req.Document, revision: in.doc,
-		current: current,
-		author:  in.author, vis: vis, refs: index, summary: summary, today: dateOf(req.Now)})
+	doc, err := in.kind.planRebase(rebaseState{id: in.entity.ID, resolved: req.Document, sent: req.Sent,
+		revision: in.doc, current: current,
+		author: in.author, vis: vis, refs: index, summary: summary, today: dateOf(req.Now)})
 	if err != nil {
 		return err
 	}

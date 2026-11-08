@@ -17,6 +17,7 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/controller"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
@@ -72,6 +73,13 @@ const (
 	pendingArchive = "leakmark-pending-archive"
 	// rejectedWrenNotes are the notes of A's edit of wren that the moderator rejects with rejectionNote.
 	rejectedWrenNotes = "leakmark-rejected-wren-notes"
+	// hiddenSourceNotes are the notes of wren's and the piece's preferences whose source is the hidden link (as
+	// respelledHiddenLinkURL for wren), which only an interactive moderator's editable document shows.
+	hiddenSourceNotes = "leakmark-hidden-source-preference"
+	// respelledHiddenLinkURL normalizes to hiddenLinkURL.
+	respelledHiddenLinkURL = "HTTPS://EXAMPLE.org/leakmark-hidden-link?utm_source=x"
+	// wrenPreferencesURL is the source of wren's preference everyone may see.
+	wrenPreferencesURL = "https://example.org/wren-preferences"
 	// flaggedSummary names a hidden alias, so the revision is flagged hidden_alias_in_summary.
 	flaggedSummary = "leakmark-flagged-summary, as " + wrenLegalAlias + " told me."
 )
@@ -237,6 +245,12 @@ func seedRevisionLeakCatalogue(t *testing.T, w revisionLeakWorld) revisionLeakFi
 			{Name: wrenLegalAlias, Kind: domain.PersonAliasKindLegal},
 			{Name: wrenSecondAlias, Kind: domain.PersonAliasKindLegal},
 		},
+		Preferences: []domain.DocPreference{
+			hiddenSourcePreference(domain.PreferenceDimensionPerformancePermission, respelledHiddenLinkURL,
+				domain.PreferenceChoiceGiven),
+			domaintest.Preference(domain.PreferenceDimensionRecording, wrenPreferencesURL,
+				domain.PreferenceChoiceAskBeforeRecording),
+		},
 		Links: []domain.DocPersonLink{
 			{DocLink: domain.DocLink{URL: "https://example.org/wren", Roles: []domain.LinkRole{domain.LinkRoleWebsite}}},
 			{DocLink: domain.DocLink{URL: hiddenLinkURL, Title: new("Leakmark Hidden Link"),
@@ -259,6 +273,9 @@ func seedRevisionLeakCatalogue(t *testing.T, w revisionLeakWorld) revisionLeakFi
 			namedCredit(wren.ID, domain.CreditRoleLyrics, nil),
 			namedCredit(noPage.ID, domain.CreditRoleTune, new("Leakmark nopage credit note")),
 		},
+		Preferences: []domain.DocPreference{
+			hiddenSourcePreference(domain.PreferenceDimensionAttribution, hiddenLinkURL, domain.PreferenceChoiceSCAName),
+		},
 		Links: []domain.DocPieceLink{
 			{DocLink: domain.DocLink{URL: "https://example.org/lantern", Roles: []domain.LinkRole{domain.LinkRoleText}}},
 			{DocLink: domain.DocLink{URL: hiddenLinkURL, Roles: []domain.LinkRole{domain.LinkRoleLyrics}},
@@ -270,6 +287,16 @@ func seedRevisionLeakCatalogue(t *testing.T, w revisionLeakWorld) revisionLeakFi
 
 	return revisionLeakFixture{wren: wren, noPage: noPage, piece: piece, westmarch: westmarch, archive: archive,
 		moot: moot}
+}
+
+// hiddenSourcePreference is a preference whose source is url, a spelling of the hidden link, with hiddenSourceNotes.
+func hiddenSourcePreference(dimension domain.PreferenceDimension, url string,
+	choice domain.PreferenceChoice,
+) domain.DocPreference {
+	p := domaintest.Preference(dimension, url, choice)
+	p.Value.Notes = new(hiddenSourceNotes)
+
+	return p
 }
 
 // seedAuthorRevisions writes A's revisions through the API: pending edits of the piece, the event and the term
@@ -578,6 +605,8 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 		return []revisionLeakRequest{
 			{viewer: viewerAuthor, path: path, status: http.StatusOK, reveals: []string{pendingNotes}, check: withheld},
 			{viewer: viewerOther, path: path, status: http.StatusOK, check: withheld},
+			{viewer: viewerModerator, path: path, status: http.StatusOK, full: true, check: hiddenSourceShown},
+			{viewer: viewerModeratorToken, path: path, status: http.StatusOK, check: withheld},
 		}
 	},
 	{Method: http.MethodGet, Path: "/v1/terms/{slug}/editable"}: func(fx revisionLeakFixture) []revisionLeakRequest {
@@ -785,7 +814,7 @@ func personEditableRows(fx revisionLeakFixture) []revisionLeakRequest {
 	return []revisionLeakRequest{
 		// A starts from their pending provenance revision.
 		{viewer: viewerAuthor, path: wren, status: http.StatusOK, reveals: typedByAuthor, check: requireTypedOnce},
-		{viewer: viewerOther, path: wren, status: http.StatusOK},
+		{viewer: viewerOther, path: wren, status: http.StatusOK, check: wrenPreferenceShown},
 		{viewer: viewerModerator, path: wren, status: http.StatusOK, full: true, check: moderatorSeesAll},
 		{viewer: viewerModeratorToken, path: wren, status: http.StatusOK, check: noLinkStates},
 		{viewer: viewerAuthor, path: noPage, status: http.StatusOK, reveals: identity},
@@ -794,11 +823,12 @@ func personEditableRows(fx revisionLeakFixture) []revisionLeakRequest {
 }
 
 // moderatorSeesAll checks that a moderator's editable document of wren is complete: the hidden aliases and links,
-// with their link states.
+// with their link states, and the preference whose source is hidden.
 func moderatorSeesAll(t *testing.T, body string) {
 	t.Helper()
 
-	for _, hidden := range []string{wrenLegalAlias, wrenSecondAlias, hiddenLinkURL, hiddenLaterURL} {
+	for _, hidden := range []string{wrenLegalAlias, wrenSecondAlias, hiddenLinkURL, hiddenLaterURL, hiddenSourceNotes,
+		respelledHiddenLinkURL} {
 		assert.Contains(t, body, `"`+hidden+`"`)
 	}
 	var editable struct {
@@ -814,6 +844,21 @@ func moderatorSeesAll(t *testing.T, body string) {
 	}
 	assert.Equal(t, map[string]bool{"https://example.org/wren": false, hiddenLinkURL: true, hiddenLaterURL: true},
 		hidden)
+}
+
+// hiddenSourceShown checks that a moderator's editable document shows the preference whose source is hidden.
+func hiddenSourceShown(t *testing.T, body string) {
+	t.Helper()
+
+	assert.Contains(t, body, `"`+hiddenSourceNotes+`"`)
+}
+
+// wrenPreferenceShown checks that a contributor's editable document of wren shows the preference whose source is
+// not hidden.
+func wrenPreferenceShown(t *testing.T, body string) {
+	t.Helper()
+
+	assert.Contains(t, body, `"source_url":"`+wrenPreferencesURL+`"`)
 }
 
 // noLinkStates checks that an editable document has an empty link_states, as every contributor's has.

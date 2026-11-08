@@ -85,10 +85,11 @@ func (r *Repository) submitDraft(
 }
 
 // submitApproved submits an interactive moderator's draft, which is approved at once: restored like any
-// submission (only the preferences were withheld), stored as pending, then approved inline by the approval writer,
-// the moderator its reviewer, in the same transaction, so that a refused approval leaves the draft a draft. The
-// pending cap does not apply: the revision does not stay pending. The duplicate check of a new entity's draft, which
-// submitDraft compared with the locked draft, is the approval's: restoring a moderator's draft adds no name.
+// submission (a moderator is withheld nothing, so only what their client did not send is put back), stored as
+// pending, then approved inline by the approval writer, the moderator its reviewer, in the same transaction, so that
+// a refused approval leaves the draft a draft. The pending cap does not apply: the revision does not stay pending.
+// The duplicate check of a new entity's draft, which submitDraft compared with the locked draft, is the
+// approval's: restoring a moderator's draft adds no name.
 func (c *catalogueReader) submitApproved(
 	ctx context.Context, req datasources.SubmitRequest, s submission, docs submissionDocuments,
 ) error {

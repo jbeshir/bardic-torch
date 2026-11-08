@@ -3,12 +3,14 @@ package domain
 import "slices"
 
 // RebaseState is what planning a moderator's rebase of a pending revision needs: the document the moderator
-// resolved the conflicts in, edited from their editable view (the preferences withheld), the revision's
-// document, and the entity's current document, which the rebase moves the revision onto, nil for a new entity.
+// resolved the conflicts in, edited from their editable view, the revision's document, and the entity's current
+// document, which the rebase moves the revision onto, nil for a new entity.
 type RebaseState[D Document] struct {
 	// ID is the entity's ID.
 	ID       int64
 	Resolved D
+	// Sent says which editor fields the resolved document carried: one it did not keeps the current document's.
+	Sent     EditorFieldsSent
 	Revision D
 	Current  *D
 	// Author is the role the revision was submitted with, for the contributor restrictions.
@@ -20,9 +22,9 @@ type RebaseState[D Document] struct {
 	Today      Date
 }
 
-// PlanRebase plans a rebase: the resolved document with what was withheld from the moderator (the
-// preferences) restored from the current document, or for a new entity from the revision's, validated against the
-// current document with the revision author's role for the contributor restrictions. Problems are a
+// PlanRebase plans a rebase: the resolved document with the fields it did not carry (Sent) restored from the
+// current document, or for a new entity from the revision's, validated against the current document with the
+// revision author's role for the contributor restrictions, then put in canonical order. Problems are a
 // *DocumentError, for the moderator.
 func PlanRebase[D Document](s RebaseState[D]) (D, error) {
 	from := s.Revision
@@ -30,7 +32,7 @@ func PlanRebase[D Document](s RebaseState[D]) (D, error) {
 		from = *s.Current
 	}
 	_, received := EditableDocument(s.ID, from, s.Visibility)
-	doc, _ := RestoreDocument(s.ID, s.Resolved, &from, received, s.Visibility)
+	doc, _ := RestoreDocument(s.ID, s.Resolved, &from, s.Sent.ReceivedKeys(received), s.Visibility)
 	v := ValidationContext[D]{Author: s.Author, ID: s.ID, Previous: s.Current, Refs: s.Refs, Summary: s.Summary,
 		Today: s.Today}
 	if problems := validateDocument(doc, v); len(problems) > 0 {
@@ -38,7 +40,7 @@ func PlanRebase[D Document](s RebaseState[D]) (D, error) {
 		return zero, &DocumentError{Problems: problems}
 	}
 
-	return doc, nil
+	return CanonicalDocument(doc), nil
 }
 
 // RevertState is what planning a revert of an entity to an earlier approved document of it needs.

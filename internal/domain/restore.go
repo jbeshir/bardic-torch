@@ -12,11 +12,12 @@ import (
 // base the current state withholds from the author, and every one whose key the author did not receive (it was
 // withheld when the draft was made):
 //   - an element of a list is put back after its nearest preceding base element the result holds, or first; an
-//     element the author removed after receiving it stays removed, unless it is withheld now;
+//     element the author removed after receiving it stays removed, unless it is withheld now (a preference is an
+//     element, keyed by dimension, so one whose source is a hidden link is put back, and so is every preference
+//     of a draft whose client never sent the preferences: EditorFieldsSent);
 //   - a reference set to null in the projection is restored if the submitted value is still null: an author who
 //     set it to something else replaced it;
-//   - a no-page person's profile is copied whole from base, ignoring what the author sent but their identity;
-//   - preferences are copied whole from base, for every actor, since no editor document holds them.
+//   - a no-page person's profile is copied whole from base, ignoring what the author sent but their identity.
 //
 // A submitted element whose key equals a withheld one is kept, and the withheld one not put back; for an alias or
 // a link this is returned as a hidden_alias_collision or hidden_link_collision flag at the element's path. A
@@ -36,10 +37,7 @@ func RestoreDocument[D Document](id int64, submitted D, base *D, received Elemen
 	var flags []Flag
 	switch d := any(submitted).(type) {
 	case PieceDocument:
-		b := any(*base).(PieceDocument)
-		piece, pieceFlags := pieceWithheld.restore(p, d, b)
-		piece.Preferences = b.Preferences
-		out, flags = piece, pieceFlags
+		out, flags = pieceWithheld.restore(p, d, any(*base).(PieceDocument))
 	case PersonDocument:
 		out, flags = p.restorePerson(d, any(*base).(PersonDocument))
 	case TermDocument:
@@ -57,10 +55,8 @@ func (p *projector) restorePerson(sub, base PersonDocument) (PersonDocument, []F
 	if p.withheld(profileKey, p.hidden(p.noPage(base))) {
 		return withIdentity(base, sub), nil
 	}
-	out, flags := personWithheld.restore(p, sub, base)
-	out.Preferences = base.Preferences
 
-	return out, flags
+	return personWithheld.restore(p, sub, base)
 }
 
 // restoreList puts back into sub each element of base in the restore set, of which hidden tells whether the
