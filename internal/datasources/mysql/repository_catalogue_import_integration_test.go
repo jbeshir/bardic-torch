@@ -134,8 +134,8 @@ func emptyCounts(rows map[string]int) map[string]int {
 }
 
 // nonCatalogueTables are the tables that are not catalogue tables, because the import needs neither empty: accounts,
-// and the reports and requests that moderators handle.
-var nonCatalogueTables = []string{"users", "api_tokens", "link_reports", "contact_requests"}
+// the repertoires users keep, and the reports and requests that moderators handle.
+var nonCatalogueTables = []string{"users", "api_tokens", "link_reports", "contact_requests", "repertoire"}
 
 func TestRepository_ImportCatalogue_CatalogueTablesAreEveryCatalogueTable(t *testing.T) {
 	t.Parallel()

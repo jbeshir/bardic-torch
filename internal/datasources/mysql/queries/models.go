@@ -1807,6 +1807,57 @@ func (e PiecesLicensingStatus) Valid() bool {
 	return false
 }
 
+type RepertoireVisibility string
+
+const (
+	RepertoireVisibilityPrivate RepertoireVisibility = "private"
+	RepertoireVisibilityPublic  RepertoireVisibility = "public"
+)
+
+func (e *RepertoireVisibility) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RepertoireVisibility(s)
+	case string:
+		*e = RepertoireVisibility(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RepertoireVisibility: %T", src)
+	}
+	return nil
+}
+
+type NullRepertoireVisibility struct {
+	RepertoireVisibility RepertoireVisibility
+	Valid                bool // Valid is true if RepertoireVisibility is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRepertoireVisibility) Scan(value interface{}) error {
+	if value == nil {
+		ns.RepertoireVisibility, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RepertoireVisibility.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRepertoireVisibility) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RepertoireVisibility), nil
+}
+
+func (e RepertoireVisibility) Valid() bool {
+	switch e {
+	case RepertoireVisibilityPrivate,
+		RepertoireVisibilityPublic:
+		return true
+	}
+	return false
+}
+
 type RevisionsEntityType string
 
 const (
@@ -2153,19 +2204,21 @@ type Event struct {
 }
 
 type Link struct {
-	ID            uint64
-	Url           string
-	NormalizedUrl string
-	Title         sql.NullString
-	Description   sql.NullString
-	Platform      sql.NullString
-	PlaceType     NullLinksPlaceType
-	CollectionID  sql.NullInt64
-	Locator       sql.NullString
-	Liveness      LinksLiveness
-	LastCheckedAt sql.NullTime
-	ArchivedUrl   sql.NullString
-	IsHidden      bool
+	ID               uint64
+	Url              string
+	NormalizedUrl    string
+	Title            sql.NullString
+	Description      sql.NullString
+	Platform         sql.NullString
+	PlaceType        NullLinksPlaceType
+	CollectionID     sql.NullInt64
+	Locator          sql.NullString
+	Liveness         LinksLiveness
+	LastCheckedAt    sql.NullTime
+	ArchivedUrl      sql.NullString
+	IsHidden         bool
+	LivenessFailures uint8
+	ArchiveCheckedAt sql.NullTime
 }
 
 type LinkAttachment struct {
@@ -2373,6 +2426,15 @@ type PublicTerm struct {
 	LegacyTitle          sql.NullString
 }
 
+type Repertoire struct {
+	UserID     string
+	PieceID    uint64
+	Notes      sql.NullString
+	Visibility RepertoireVisibility
+	AddedAt    time.Time
+	UpdatedAt  time.Time
+}
+
 type Revision struct {
 	ID                      uint64
 	EntityType              RevisionsEntityType
@@ -2437,4 +2499,5 @@ type User struct {
 	CreatedAt      time.Time
 	BlockedAt      sql.NullTime
 	DisplayNameKey sql.NullString
+	PublicID       sql.NullString
 }

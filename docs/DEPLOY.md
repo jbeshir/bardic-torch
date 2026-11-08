@@ -521,6 +521,20 @@ BE4's write transactions (drafts, submit, approval, reports, contact) run at REA
 lock-wait timeout), then answers 503 `unavailable` and writes nothing. A client may retry it: a repeated submit,
 revert or link report answers with what the first one created. Nothing needs configuring on the server.
 
+### Migration 011 (contributor extras)
+
+Migration 011 (BE5) adds `users.public_id`, the `repertoire` table, the link checker's columns of `links`
+(`liveness_failures`, `archive_checked_at`) and an index on `link_reports`. Every statement is additive, so the BE4
+release keeps serving while it runs and after a rollback, and ignores the new columns and table:
+
+- `users.public_id` is NULL until BE5 sets it: on a user's creation, and for every user without one by a backfill
+  at startup. A user BE4 creates after a rollback gets theirs at the next BE5 start.
+- BE4 never reads or writes `repertoire`. The down migration drops it with its entries.
+- BE4 never writes the link checker's columns. `liveness_failures` defaults to 0 and `archive_checked_at` to NULL,
+  so no link looks checked or archived that was not.
+- Adding the two `links` indexes and the `link_reports` index builds them in place; the tables hold hundreds of
+  rows.
+
 ### The normalized URL invariant
 
 Every row of `links` has `normalized_url = domain.NormalizeURL(url)`. The importer and every later writer keep

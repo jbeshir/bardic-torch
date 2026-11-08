@@ -96,6 +96,7 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		domain.LinkReportReasonOther)
 	linkReportStatuses := enumColumnType(domain.LinkReportStatusOpen, domain.LinkReportStatusResolved,
 		domain.LinkReportStatusDismissed)
+	repertoireVisibilities := enumColumnType(domain.RepertoireVisibilityPrivate, domain.RepertoireVisibilityPublic)
 	contactRequestKinds := enumColumnType(domain.ContactRequestKindTakedown, domain.ContactRequestKindOptOut,
 		domain.ContactRequestKindCorrection, domain.ContactRequestKindGeneral)
 	contactRequestStatuses := enumColumnType(domain.ContactRequestStatusOpen, domain.ContactRequestStatusResolved,
@@ -140,6 +141,7 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		"link_attachments.role":        linkRoles,
 		"link_reports.reason":          linkReportReasons,
 		"link_reports.status":          linkReportStatuses,
+		"repertoire.visibility":        repertoireVisibilities,
 		"contact_requests.kind":        contactRequestKinds,
 		"contact_requests.status":      contactRequestStatuses,
 	}
@@ -550,3 +552,87 @@ func TestMigrations_ModerationConstraints(t *testing.T) {
 		})
 	}
 }
+
+// TestMigrations_RepertoireConstraints requires the repertoire and the public ID of users to refuse the rows they
+// describe, and to cascade a deleted piece or user.
+func TestMigrations_RepertoireConstraints(t *testing.T) {
+	t.Parallel()
+
+	db := catalogtest.Writable(t)
+	r := seedCatalogue(t, db)
+	insertRow(t, db, "INSERT INTO users (id, display_name, role, created_at, public_id) "+
+		"VALUES (?, 'Bran Placeholder', 'contributor', '2026-01-01 00:00:00', 'abcdefghijklmnop')", repertoireOwnerID)
+	insertRow(t, db, "INSERT INTO users (id, display_name, role, created_at) "+
+		"VALUES ('auth0|morwen', 'Morwen Placeholder', 'contributor', '2026-01-01 00:00:00')")
+	insertRow(t, db, "INSERT INTO users (id, display_name, role, created_at) "+
+		"VALUES ('auth0|elric', 'Elric Placeholder', 'contributor', '2026-01-01 00:00:00')")
+
+	const insertEntry = "INSERT INTO repertoire (user_id, piece_id, added_at, updated_at) " +
+		"VALUES (?, ?, '2026-01-01 00:00:00', '2026-01-01 00:00:00')"
+	cases := []struct {
+		name  string
+		query string
+		args  []any
+		want  uint16
+	}{
+		{name: "entry", query: insertEntry, args: []any{repertoireOwnerID, r.piece}},
+		{name: "entry of the same user and piece", query: insertEntry, args: []any{repertoireOwnerID, r.piece},
+			want: errDuplicateEntry},
+		{name: "entry of the same piece by another user", query: insertEntry, args: []any{"auth0|morwen", r.piece}},
+		{name: "entry of a missing piece", query: insertEntry, args: []any{repertoireOwnerID, r.piece + 1000},
+			want: errNoReferencedRow},
+		{name: "entry of a missing user", query: insertEntry, args: []any{"auth0|nobody", r.otherPiece},
+			want: errNoReferencedRow},
+		{name: "user ID differing only in case", query: insertEntry, args: []any{"auth0|BRAN", r.otherPiece},
+			want: errNoReferencedRow},
+		{name: "public ID taken", query: "UPDATE users SET public_id = 'abcdefghijklmnop' WHERE id = 'auth0|morwen'",
+			want: errDuplicateEntry},
+		{name: "public ID differing only in case",
+			query: "UPDATE users SET public_id = 'ABCDEFGHIJKLMNOP' WHERE id = 'auth0|morwen'"},
+		{name: "users without a public ID", query: "UPDATE users SET public_id = NULL WHERE id = 'auth0|elric'"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := db.ExecContext(t.Context(), tc.query, tc.args...)
+			if tc.want == 0 {
+				require.NoError(t, err)
+				return
+			}
+			requireMySQLError(t, err, tc.want)
+		})
+	}
+
+	ctx := t.Context()
+	_, err := db.ExecContext(ctx, "DELETE FROM pieces WHERE id = ?", r.piece)
+	require.NoError(t, err)
+	var entries int
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM repertoire").Scan(&entries))
+	assert.Zero(t, entries, "deleting a piece deletes its entries")
+
+	insertRow(t, db, insertEntry, repertoireOwnerID, r.otherPiece)
+	_, err = db.ExecContext(ctx, "DELETE FROM users WHERE id = ?", repertoireOwnerID)
+	require.NoError(t, err)
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM repertoire").Scan(&entries))
+	assert.Zero(t, entries, "deleting a user deletes their entries")
+}
+
+// TestMigrations_RepertoireVisibilityPrivateByDefault requires an entry inserted without visibility to be private,
+// so that a writer that forgets the column never lists an entry publicly.
+func TestMigrations_RepertoireVisibilityPrivateByDefault(t *testing.T) {
+	t.Parallel()
+
+	db := catalogtest.Writable(t)
+	r := seedCatalogue(t, db)
+	insertRow(t, db, "INSERT INTO users (id, display_name, role, created_at) "+
+		"VALUES (?, 'Bran Placeholder', 'contributor', '2026-01-01 00:00:00')", repertoireOwnerID)
+	_, err := db.ExecContext(t.Context(), "INSERT INTO repertoire (user_id, piece_id, added_at, updated_at) "+
+		"VALUES (?, ?, '2026-01-01 00:00:00', '2026-01-01 00:00:00')", repertoireOwnerID, r.piece)
+	require.NoError(t, err)
+
+	var visibility string
+	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT visibility FROM repertoire").Scan(&visibility))
+	assert.Equal(t, string(domain.RepertoireVisibilityPrivate), visibility)
+}
+
+// repertoireOwnerID is the user whose repertoire the repertoire schema tests fill.
+const repertoireOwnerID = "auth0|bran"

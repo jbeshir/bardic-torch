@@ -1417,3 +1417,44 @@ JOIN (SELECT link_id, MIN(person_id) AS person_id
     ON owner.link_id = perf.link_id
 SET perf.owner_person_id = owner.person_id
 WHERE perf.owner_piece_id IS NULL AND perf.owner_person_id IS NULL;
+
+-- ============================================
+-- Link checks
+--
+-- The link checker (cmd/check-links) reads the links due for a check and writes each result back with a compare
+-- and set on last_checked_at, so a result computed from a stale read never overwrites another run's. A hidden link
+-- is neither read nor written: a takedown stops every outbound request for it.
+-- ============================================
+
+-- Links never checked come first, then the longest unchecked.
+
+-- name: ListLinksDueForCheck :many
+SELECT id, url, liveness, liveness_failures, last_checked_at
+FROM links
+WHERE is_hidden = FALSE AND (last_checked_at IS NULL OR last_checked_at < sqlc.arg(checked_before))
+ORDER BY last_checked_at IS NOT NULL, last_checked_at, id
+LIMIT ?;
+
+-- name: UpdateLinkCheck :execrows
+UPDATE links
+SET liveness = sqlc.arg(liveness), liveness_failures = sqlc.arg(liveness_failures),
+    last_checked_at = sqlc.arg(checked_at)
+WHERE id = sqlc.arg(id) AND last_checked_at <=> sqlc.arg(expected_last_checked_at) AND is_hidden = FALSE;
+
+-- Links with no archived copy whose archive was never looked up, or not since the cutoff: dead links first, because
+-- an archived copy is all that is left of them.
+
+-- name: ListLinksDueForArchive :many
+SELECT id, url
+FROM links
+WHERE is_hidden = FALSE AND archived_url IS NULL
+    AND (archive_checked_at IS NULL OR archive_checked_at < sqlc.arg(checked_before))
+ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id
+LIMIT ?;
+
+-- A NULL archived_url records a lookup that found nothing: it keeps the copy a link already has.
+
+-- name: UpdateLinkArchive :execrows
+UPDATE links
+SET archived_url = COALESCE(sqlc.narg(archived_url), archived_url), archive_checked_at = sqlc.arg(checked_at)
+WHERE id = sqlc.arg(id) AND is_hidden = FALSE;

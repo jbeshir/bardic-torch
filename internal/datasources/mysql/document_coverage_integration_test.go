@@ -36,8 +36,10 @@ links.place_type                       = links.place_type
 links.collection_id                    = links.collection_id
 links.locator                          = links.locator
 links.liveness                         ! link checker state
+links.liveness_failures                ! link checker state
 links.last_checked_at                  ! link checker state
 links.archived_url                     ! link checker state
+links.archive_checked_at               ! link checker state
 links.is_hidden                        ! moderator takedown state
 link_attachments.id                    ! the row's own ID
 link_attachments.link_id               ! the link of the links[] element
@@ -206,6 +208,7 @@ api_tokens             ! accounts
 revisions              ! the revision workflow that stores the documents
 revision_contributors  ! the revision workflow that stores the documents
 link_reports           ! moderation of links, outside the documents
+repertoire             ! a user's own list of pieces, outside the documents
 contact_requests       ! messages to the moderators, outside the documents
 term_ancestors         ! derived from terms.parent_id by the importer and when a term revision is approved
 conservation_history   ! written by the importer, and appended when a revision changing a piece's status is approved

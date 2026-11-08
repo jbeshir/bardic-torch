@@ -57,6 +57,21 @@ func ParseLinkReportStatus(s string) (LinkReportStatus, error) {
 	return parseEnum[LinkReportStatus](s, "link report status")
 }
 
+// RepertoireVisibility is who may see that a piece is in a user's repertoire.
+type RepertoireVisibility string
+
+const (
+	// RepertoireVisibilityPrivate is an entry only its owner sees.
+	RepertoireVisibilityPrivate RepertoireVisibility = "private"
+	// RepertoireVisibilityPublic is an entry listed on the owner's public repertoire.
+	RepertoireVisibilityPublic RepertoireVisibility = "public"
+)
+
+// ParseRepertoireVisibility returns the RepertoireVisibility named by s, or an error if s is not a known one.
+func ParseRepertoireVisibility(s string) (RepertoireVisibility, error) {
+	return parseEnum[RepertoireVisibility](s, "repertoire visibility")
+}
+
 // ContactRequestKind is what a contact request asks for.
 type ContactRequestKind string
 

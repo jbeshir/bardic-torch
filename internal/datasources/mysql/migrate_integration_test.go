@@ -27,7 +27,7 @@ var migratedTables = []string{
 	"pieces", "piece_secondary_kinds", "piece_aliases", "piece_terms", "piece_relations", "piece_credits",
 	"conservation_history", "piece_preferences",
 	"links", "link_attachments", "performances", "performance_performers",
-	"link_reports", "contact_requests",
+	"link_reports", "contact_requests", "repertoire",
 }
 
 // migratedViews are the views the migrations create.
@@ -134,6 +134,8 @@ var identifierCollations = map[string]string{
 	"links.platform":                       asciiBinaryCollation,
 	"revisions.rebased_by_user_id":         binaryCollation,
 	"users.display_name_key":               binaryCollation,
+	"users.public_id":                      asciiBinaryCollation,
+	"repertoire.user_id":                   binaryCollation,
 	"link_reports.reporter_user_id":        binaryCollation,
 	"link_reports.resolved_by_user_id":     binaryCollation,
 	"contact_requests.resolved_by_user_id": binaryCollation,

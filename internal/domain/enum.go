@@ -130,6 +130,9 @@ var (
 	linkReportStatusValues = []LinkReportStatus{
 		LinkReportStatusOpen, LinkReportStatusResolved, LinkReportStatusDismissed,
 	}
+	repertoireVisibilityValues = []RepertoireVisibility{
+		RepertoireVisibilityPrivate, RepertoireVisibilityPublic,
+	}
 	contactRequestKindValues = []ContactRequestKind{
 		ContactRequestKindTakedown, ContactRequestKindOptOut, ContactRequestKindCorrection,
 		ContactRequestKindGeneral,
@@ -245,6 +248,9 @@ func (l LinkReportReason) Valid() bool { return slices.Contains(linkReportReason
 
 // Valid reports whether l is a known LinkReportStatus.
 func (l LinkReportStatus) Valid() bool { return slices.Contains(linkReportStatusValues, l) }
+
+// Valid reports whether v is a known RepertoireVisibility.
+func (v RepertoireVisibility) Valid() bool { return slices.Contains(repertoireVisibilityValues, v) }
 
 // Valid reports whether c is a known ContactRequestKind.
 func (c ContactRequestKind) Valid() bool { return slices.Contains(contactRequestKindValues, c) }
