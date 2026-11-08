@@ -31,7 +31,9 @@ var errBaseNotApproved = errors.New("draft base is not an approved revision of i
 // in one pass. A draft already submitted is a replay, returned as it is. The submission is planned on the draft's own
 // base, never merged with the current document (domain.PlanSubmit), stored as pending with the author's document
 // kept beside it, and supersedes the author's pending revision of the entity. A new entity gets its placeholder.
-// An interactive moderator's submission is approved at once, in the same transaction.
+// An interactive moderator's submission is approved at once, in the same transaction, if their locked users row still
+// holds the moderator role; otherwise it is refused with datasources.ErrActorChanged, and a blocked author with
+// datasources.ErrUserBlocked.
 func (r *Repository) SubmitDraft(ctx context.Context, req datasources.SubmitRequest) (datasources.SubmitResult, error) {
 	var result datasources.SubmitResult
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -187,14 +189,15 @@ type submission struct {
 	result     datasources.SubmitResult
 }
 
-// lockSubmission takes the submission's first locks (docs/PLAN.md §5.1 "Approval"): the author's users row, then the
-// draft and the author's pending revision of its entity, if any, which the submission supersedes, by ascending ID.
-// That pending revision is found by an unlocked read and checked again once locked. The transition is checked on the
+// lockSubmission takes the submission's first locks (docs/PLAN.md §5.1 "Approval"): the author's users row
+// (lockAuthor, so the approve-at-once choice, made on the transition below, follows the locked role), then the draft
+// and the author's pending revision of its entity, if any, which the submission supersedes, by ascending ID. That
+// pending revision is found by an unlocked read and checked again once locked. The transition is checked on the
 // locked draft, one already submitted being a replay, and the draft is read again under its lock: the submission
 // stores what the draft holds once no other write can change it.
 func (c *catalogueReader) lockSubmission(ctx context.Context, actor domain.Actor, draftID int64) (submission, error) {
-	if _, err := c.q.LockUser(ctx, actor.UserID); err != nil {
-		return submission{}, fmt.Errorf("locking user: %w", lookupError("user", err))
+	if err := c.lockAuthor(ctx, actor); err != nil {
+		return submission{}, err
 	}
 	draft, err := c.ownRevision(ctx, actor, draftID)
 	if err != nil {

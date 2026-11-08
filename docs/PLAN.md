@@ -505,10 +505,17 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     (found from its draft's document) before any entity row, and takes their rows, its facet lock and its own entity
     row in one entity pass, as an approval does. The `links` rows of every document an approval writes, its own and
     its pending references', are upserted in one ascending pass by normalized URL;
+  - every write that locks a `users` row checks the row again under the lock, since the request was authenticated
+    before it: a user blocked since is refused with 403 `user_blocked`. Moderator-only writes (approve, reject,
+    rebase, hiding or showing a link, resolving or dismissing a link report, dismissing a contact request) lock the
+    acting moderator's row first, before any revision, and refuse a user no longer a moderator with 403
+    `moderator_required`, writing nothing. Whether a moderator's own submission or revert is approved at once follows
+    the role their locked row holds: if it no longer holds the moderator role, the transaction is refused and run
+    again once as a contributor's, which stays pending (fail closed); a role changed again on that attempt is 503
+    `unavailable`;
   - rows discovered later can still deadlock: the current document of an entity approved since it was read, and the
-    S-locks foreign-key checks take at the end of a transaction on `users` rows — the reviewer's on approve and reject, the author's on a
-    moderator's revert, and the resolver's on a link report. A deadlock (1213) or lock-wait timeout (1205) is
-    retried at most twice;
+    S-locks foreign-key checks take at the end of a transaction on `users` rows other than the actor's, which
+    those writes lock first. A deadlock (1213) or lock-wait timeout (1205) is retried at most twice;
   - referenced public entities are locked `FOR SHARE`, so a concurrent opt-out or placeholder delete waits or is
     seen; a vanished parent (1452) is 409 `entity_gone`;
   - stale revisions are merged; a conflict is 409 `rebase_required`, and the moderator resolves it with
@@ -534,7 +541,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     transaction gets at most 11 s of it (`WriteTxDeadline`), less a 1.5 s reserve for the response's reads after
     commit (`PostCommitReserve`), so work before it (the pre-reads, a Turnstile verification) shortens the
     transaction, not the request. With under 500 ms left the write is not tried. Past the deadline, or after the
-    retries, the answer is 503 `unavailable`. A database that cannot be reached is 503 `unavailable` too, on
+    retries, the answer is 503 `unavailable`, as it is for any request, read or write, whose budget ran out (an
+    error from its context's deadline passing). A database that cannot be reached is 503 `unavailable` too, on
     every operation (§6), as is one that turns the connection away (`Too many connections`, 1040; the
     account's `max_user_connections`, 1203; shutting down, 1053); a query that fails for any other reason stays
     500 `internal`.

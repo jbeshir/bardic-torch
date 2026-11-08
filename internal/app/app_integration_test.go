@@ -150,7 +150,7 @@ func seedContactRequests(t *testing.T, repository *mysql.Repository) (retained, 
 	t.Helper()
 
 	longAgo := storedTime(time.Now().Add(-domain.ContactRetention - 24*time.Hour))
-	_, err := repository.EnsureUser(t.Context(), datasources.NewUser{ID: "auth0|resolver", DisplayName: "Rowan",
+	err := repository.PromoteToModerator(t.Context(), datasources.NewUser{ID: "auth0|resolver", DisplayName: "Rowan",
 		CreatedAt: longAgo})
 	require.NoError(t, err)
 	request := datasources.NewContactRequest{Kind: domain.ContactRequestKindGeneral, Email: "wren@example.org",

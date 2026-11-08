@@ -210,7 +210,7 @@ func TestContactRequestResolve_ServeHTTP(t *testing.T) {
 			wantBody: `{"code":"not_found","message":"contact request not found"}`},
 		revisionCase{name: "not_open", err: datasources.ErrContactRequestNotOpen, wantStatus: http.StatusConflict,
 			wantBody: `{"code":"conflict","message":"the contact request is not open"}`},
-		moderatorRequiredCase, unavailableCase, internalCase)...)
+		moderatorRequiredCase, userBlockedCase, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return ContactRequestResolve{Command: commandFunc[command.ResolveContactRequestRequest, domain.ContactRequest](
 			func(_ context.Context, req command.ResolveContactRequestRequest) (domain.ContactRequest, error) {

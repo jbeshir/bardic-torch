@@ -682,7 +682,7 @@ VALUES (?, ?, ?);
 -- ============================================
 
 -- name: LockUser :one
-SELECT /*+ MAX_EXECUTION_TIME(4000) */ id
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ role, blocked_at
 FROM users
 WHERE id = ?
 FOR UPDATE;

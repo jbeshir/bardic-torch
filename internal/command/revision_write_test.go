@@ -1,6 +1,7 @@
 package command
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -515,4 +516,76 @@ func TestSubmitRevision_ContributorTermNameTakenIsInvalidDocument(t *testing.T) 
 	_, err := m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: contributor, DraftID: testDraftID})
 	require.ErrorIs(t, err, termNameTaken)
 	require.NotErrorIs(t, err, ErrDuplicateName)
+}
+
+// TestSubmitRevision_DemotedModeratorGoesPending requires an interactive moderator's submission refused because
+// their users row, once locked, no longer holds the moderator role to be made again as a contributor's, which stays
+// pending: their acknowledgements are dropped, and the duplicates looked for as for a contributor.
+func TestSubmitRevision_DemotedModeratorGoesPending(t *testing.T) {
+	t.Parallel()
+
+	moderator := interactiveMod.Actor()
+	demoted := domain.Actor{UserID: moderator.UserID, Role: domain.RoleContributor}
+	acknowledged := []domain.FlagCode{domain.FlagHiddenAliasInText}
+	m := newSubmitMocks(t)
+	m.drafts.EXPECT().GetDraft(mock.Anything, moderator, testDraftID).Return(testExisting, nil).Once()
+	m.drafts.EXPECT().GetDraft(mock.Anything, demoted, testDraftID).Return(testExisting, nil).Once()
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, datasources.SubmitRequest{Actor: moderator, DraftID: testDraftID,
+		AcknowledgedFlags: acknowledged, Now: fixedNow}).
+		Return(datasources.SubmitResult{}, fmt.Errorf("submitting: %w", datasources.ErrActorChanged)).Once()
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, datasources.SubmitRequest{Actor: demoted, DraftID: testDraftID,
+		Now: fixedNow}).
+		Return(datasources.SubmitResult{RevisionID: testDraftID, Status: domain.RevisionStatusPending}, nil).Once()
+	m.revisions.EXPECT().GetMyRevision(mock.Anything, demoted, testDraftID).Return(testRevision, nil)
+
+	got, err := m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: interactiveMod, DraftID: testDraftID,
+		AcknowledgedFlags: acknowledged})
+	require.NoError(t, err)
+	assert.Equal(t, SubmittedRevision{Revision: testRevision}, got)
+}
+
+// TestSubmitRevision_RoleChangedTwiceIs503 requires a submission refused for a changed role on its second attempt
+// too to fail with datasources.ErrUnavailable, not run a third time.
+func TestSubmitRevision_RoleChangedTwiceIs503(t *testing.T) {
+	t.Parallel()
+
+	m := newSubmitMocks(t)
+	m.drafts.EXPECT().GetDraft(mock.Anything, mock.Anything, testDraftID).Return(testExisting, nil).Twice()
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.Anything).
+		Return(datasources.SubmitResult{}, datasources.ErrActorChanged).Twice()
+
+	_, err := m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: interactiveMod, DraftID: testDraftID})
+	require.ErrorIs(t, err, datasources.ErrUnavailable)
+	require.ErrorIs(t, err, datasources.ErrActorChanged)
+}
+
+// TestRevertTo_DemotedModeratorGoesPending is TestSubmitRevision_DemotedModeratorGoesPending for a revert.
+func TestRevertTo_DemotedModeratorGoesPending(t *testing.T) {
+	t.Parallel()
+
+	moderator := interactiveMod.Actor()
+	demoted := domain.Actor{UserID: moderator.UserID, Role: domain.RoleContributor}
+	acknowledged := []domain.FlagCode{domain.FlagHiddenAliasInSummary}
+	reverter := mocks.NewRevisionReverter(t)
+	reverter.EXPECT().RevertTo(mock.Anything, datasources.RevertRequest{Actor: moderator, RevisionID: testRevisionID,
+		AcknowledgedFlags: acknowledged, Now: fixedNow}).
+		Return(datasources.SubmitResult{}, datasources.ErrActorChanged).Once()
+	reverter.EXPECT().RevertTo(mock.Anything, datasources.RevertRequest{Actor: demoted, RevisionID: testRevisionID,
+		Now: fixedNow}).
+		Return(datasources.SubmitResult{RevisionID: testRevisionID + 1, Status: domain.RevisionStatusPending}, nil).
+		Once()
+	revisions := mocks.NewMyRevisionGetter(t)
+	revisions.EXPECT().GetMyRevision(mock.Anything, demoted, testRevisionID+1).Return(testRevision, nil)
+
+	got, err := (&RevertTo{Reverter: reverter, Revisions: revisions, Now: fixedClock}).Execute(t.Context(),
+		RevertRequest{Principal: interactiveMod, RevisionID: testRevisionID, AcknowledgedFlags: acknowledged})
+	require.NoError(t, err)
+	assert.Equal(t, SubmittedRevision{Revision: testRevision}, got)
+
+	reverter = mocks.NewRevisionReverter(t)
+	reverter.EXPECT().RevertTo(mock.Anything, mock.Anything).
+		Return(datasources.SubmitResult{}, datasources.ErrActorChanged).Twice()
+	_, err = (&RevertTo{Reverter: reverter, Revisions: mocks.NewMyRevisionGetter(t), Now: fixedClock}).Execute(
+		t.Context(), RevertRequest{Principal: interactiveMod, RevisionID: testRevisionID})
+	require.ErrorIs(t, err, datasources.ErrUnavailable)
 }

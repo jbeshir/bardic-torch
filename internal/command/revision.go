@@ -112,3 +112,22 @@ func isNameDuplicate(err error) bool {
 
 	return slices.Equal(documentErr.Problems, []domain.DocumentProblem{{Path: "/name", Code: domain.ProblemDuplicate}})
 }
+
+// asLockedRole runs write, a submission or revert, as actor. An interactive moderator's is approved at once, so
+// its transaction refuses it with datasources.ErrActorChanged if the actor's users row, once locked, no longer
+// holds the moderator role; it is then run once more as a contributor, the only other role, and so stays pending
+// (docs/PLAN.md §5.1 "Approval"). A second refusal is also datasources.ErrUnavailable: the role kept changing, and
+// trying again later may work.
+func asLockedRole[T any](actor domain.Actor, write func(domain.Actor) (T, error)) (T, error) {
+	result, err := write(actor)
+	if !errors.Is(err, datasources.ErrActorChanged) {
+		return result, err
+	}
+	result, err = write(domain.Actor{UserID: actor.UserID, Role: domain.RoleContributor})
+	if errors.Is(err, datasources.ErrActorChanged) {
+		var none T
+		return none, fmt.Errorf("%w: %w", datasources.ErrUnavailable, err)
+	}
+
+	return result, err
+}

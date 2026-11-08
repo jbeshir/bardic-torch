@@ -6246,11 +6246,16 @@ func (q *Queries) LockTermsOfFacet(ctx context.Context, facet TermsFacet) ([]Loc
 
 const lockUser = `-- name: LockUser :one
 
-SELECT /*+ MAX_EXECUTION_TIME(4000) */ id
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ role, blocked_at
 FROM users
 WHERE id = ?
 FOR UPDATE
 `
+
+type LockUserRow struct {
+	Role      UsersRole
+	BlockedAt sql.NullTime
+}
 
 // ============================================
 // Revisions: editing, drafts and submissions
@@ -6260,11 +6265,11 @@ FOR UPDATE
 // moderators may reference or address it. Every locking read carries MAX_EXECUTION_TIME(4000), lockingReadMillis,
 // which overrides the session's two-second limit so that the lock wait timeout (1205) ends a wait first.
 // ============================================
-func (q *Queries) LockUser(ctx context.Context, id string) (string, error) {
+func (q *Queries) LockUser(ctx context.Context, id string) (LockUserRow, error) {
 	row := q.db.QueryRowContext(ctx, lockUser, id)
-	var id_2 string
-	err := row.Scan(&id_2)
-	return id_2, err
+	var i LockUserRow
+	err := row.Scan(&i.Role, &i.BlockedAt)
+	return i, err
 }
 
 const lockVisibleLink = `-- name: LockVisibleLink :one

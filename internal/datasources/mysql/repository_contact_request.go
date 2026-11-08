@@ -91,8 +91,9 @@ func (r *Repository) ListContactRequests(
 	return list, nil
 }
 
-// ResolveContactRequest resolves or dismisses an open contact request: it locks the request's row, checks
-// it is still open and updates it. It returns the request as the transaction leaves it.
+// ResolveContactRequest resolves or dismisses an open contact request: it locks the moderator's users row
+// (lockModerator), then the request's row, checks it is still open and updates it. It returns the request as the
+// transaction leaves it.
 func (r *Repository) ResolveContactRequest(
 	ctx context.Context, req datasources.ResolveContactRequestRequest,
 ) (domain.ContactRequest, error) {
@@ -102,6 +103,9 @@ func (r *Repository) ResolveContactRequest(
 		id, ok := positiveID(req.RequestID)
 		if !ok {
 			return datasources.ErrNotFound
+		}
+		if err := c.lockModerator(ctx, req.ModeratorUserID); err != nil {
+			return err
 		}
 		status, err := c.q.LockContactRequest(ctx, id)
 		if err != nil {

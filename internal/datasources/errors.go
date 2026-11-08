@@ -31,3 +31,12 @@ var ErrDocumentChanged = errors.New("the document changed since its duplicate ch
 // lock waits or deadlocks after its retries, or ran past its deadline). A write that fails so did not happen, but
 // for a connection that broke during its commit; trying again later may work.
 var ErrUnavailable = errors.New("database unavailable")
+
+// ErrUserBlocked is returned, wrapped, by a write whose actor was blocked after their request was authenticated:
+// every write that locks the actor's users row checks the block again under the lock. The write did not happen.
+var ErrUserBlocked = errors.New("user is blocked")
+
+// ErrActorChanged is returned, wrapped, by a submission or revert of an interactive moderator, which is approved at
+// once, whose users row, once locked, no longer holds the moderator role: their role changed after their request
+// was authenticated. The write did not happen; the caller runs it again with the role the row holds.
+var ErrActorChanged = errors.New("the actor's role changed since the request was authenticated")

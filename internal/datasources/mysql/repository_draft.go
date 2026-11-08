@@ -51,8 +51,8 @@ func (r *Repository) saveDraft(
 	if req.Document.EntityType() != req.EntityType || req.Entity != nil && req.Entity.Type != req.EntityType {
 		return datasources.SavedDraft{}, datasources.ErrDocumentType
 	}
-	if _, err := c.q.LockUser(ctx, req.Actor.UserID); err != nil {
-		return datasources.SavedDraft{}, fmt.Errorf("locking user: %w", lookupError("user", err))
+	if _, err := c.lockUser(ctx, req.Actor.UserID); err != nil {
+		return datasources.SavedDraft{}, err
 	}
 	pending := c.referencedPending(ctx, req.Actor)
 	if c.err != nil {

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -28,13 +29,14 @@ func principalOrUnauthenticated(w http.ResponseWriter, r *http.Request) (domain.
 const unavailableMessage = "the database is busy or cannot be reached; try again"
 
 // WriteInternalError writes the response to err, an error no more specific response covers, keeping the details
-// out of the response: 503 unavailable if err wraps datasources.ErrUnavailable (the database could not be reached,
-// or a write could not finish in time), logged with msg as a warning, and 500 internal otherwise, logged as an
-// error.
+// out of the response: 503 unavailable, logged with msg as a warning, if err wraps datasources.ErrUnavailable (the
+// database could not be reached, or a write could not finish in time) or is the request's budget running out
+// (context.DeadlineExceeded with the request's context done: docs/PLAN.md §5 request budget), and 500 internal
+// otherwise, logged as an error.
 func WriteInternalError(w http.ResponseWriter, r *http.Request, msg string, err error) {
 	ctx := r.Context()
 	logger := domain.LoggerFromContext(ctx)
-	if errors.Is(err, datasources.ErrUnavailable) {
+	if errors.Is(err, datasources.ErrUnavailable) || (errors.Is(err, context.DeadlineExceeded) && ctx.Err() != nil) {
 		logger.WarnContext(ctx, msg, "error", err)
 		httpjson.WriteError(ctx, w, http.StatusServiceUnavailable, httpjson.CodeUnavailable, unavailableMessage)
 

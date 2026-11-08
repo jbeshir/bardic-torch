@@ -185,8 +185,10 @@ func errorCases(base revisionCase, errs ...revisionCase) []revisionCase {
 
 // The answers to the revision errors every write may give.
 var (
-	internalCase        = revisionCase{name: "internal", err: errCommand, wantStatus: http.StatusInternalServerError, wantBody: internalErrorBody}
-	unavailableCase     = revisionCase{name: "unavailable", err: datasources.ErrUnavailable, wantStatus: http.StatusServiceUnavailable, wantBody: unavailableBody}
+	internalCase    = revisionCase{name: "internal", err: errCommand, wantStatus: http.StatusInternalServerError, wantBody: internalErrorBody}
+	unavailableCase = revisionCase{name: "unavailable", err: datasources.ErrUnavailable, wantStatus: http.StatusServiceUnavailable, wantBody: unavailableBody}
+	userBlockedCase = revisionCase{name: "user_blocked", err: datasources.ErrUserBlocked, wantStatus: http.StatusForbidden,
+		wantBody: `{"code":"user_blocked","message":"user is blocked"}`}
 	notDraftCase        = revisionCase{name: "not_draft", err: domain.ErrNotDraft, wantStatus: http.StatusConflict, wantBody: notDraftBody}
 	repeatedFlagCase    = "repeated_flag"
 	repeatedFlagMessage = "invalid acknowledged_flags: must not repeat a flag"
@@ -348,7 +350,7 @@ func TestDraftCreate_ServeHTTP(t *testing.T) {
 		revisionCase{name: "draft_limit_reached", err: datasources.ErrDraftLimitReached,
 			wantStatus: http.StatusConflict,
 			wantBody:   `{"code":"draft_limit_reached","message":"a user may hold at most 50 drafts"}`},
-		invalidDocument, unavailableCase, internalCase)...)
+		invalidDocument, userBlockedCase, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return DraftCreate{Command: returning[command.SaveDraftRequest](t, !tc.notCalled,
 			command.SavedDraft{DraftResult: command.DraftResult{Draft: testDraft}, Created: true}, tc.err)}
@@ -501,7 +503,7 @@ func TestRevisionSubmit_ServeHTTP(t *testing.T) {
 				`conflict: edit the current version"}`},
 		revisionCase{name: "duplicate_blocked", err: domain.ErrDuplicateBlocked, wantStatus: http.StatusUnprocessableEntity,
 			wantBody: `{"code":"duplicate_blocked","message":"a person with this name has asked not to have a page"}`},
-		duplicateNameCase, invalidDocument, unavailableCase, internalCase)...)
+		duplicateNameCase, invalidDocument, userBlockedCase, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return RevisionSubmit{Command: returning[command.SubmitRevisionRequest](t, !tc.notCalled,
 			command.SubmittedRevision{Revision: testMyRevision}, tc.err)}
@@ -579,7 +581,7 @@ func TestRevisionRevert_ServeHTTP(t *testing.T) {
 		revisionCase{name: "already_current", err: datasources.ErrAlreadyCurrent, wantStatus: http.StatusConflict,
 			wantBody: `{"code":"already_current","message":"the revision is already the entity's current revision"}`},
 		pendingLimit, entityGone, hiddenDataConflict, unacknowledgedFlags, pendingReferenceFlagged,
-		duplicateNameCase, invalidDocument, unavailableCase, internalCase)...)
+		duplicateNameCase, invalidDocument, userBlockedCase, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return RevisionRevert{Command: returning[command.RevertRequest](t, !tc.notCalled,
 			command.SubmittedRevision{Revision: testMyRevision}, tc.err)}

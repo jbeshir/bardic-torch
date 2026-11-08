@@ -36,8 +36,8 @@ func (r *Repository) InsertLinkReport(
 	)
 	err = r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		c := r.txReader(tx)
-		if _, err := c.q.LockUser(ctx, report.ReporterUserID); err != nil {
-			return lookupError("reporter", err)
+		if _, err := c.lockUser(ctx, report.ReporterUserID); err != nil {
+			return err
 		}
 		linkID, err := c.q.LockVisibleLink(ctx, normalized)
 		if err != nil {
@@ -110,9 +110,10 @@ func (r *Repository) ListLinkReports(
 	return list, nil
 }
 
-// ResolveLinkReport resolves or dismisses an open link report. It reads the report's link without a lock,
-// locks the link row, then the report row, and checks the report is still open; with HideLink it then hides the
-// link, resolving its other open reports. It returns the report as the transaction leaves it.
+// ResolveLinkReport resolves or dismisses an open link report. It locks the moderator's users row (lockModerator),
+// reads the report's link without a lock, locks the link row, then the report row, and checks the report is still
+// open; with HideLink it then hides the link, resolving its other open reports. It returns the report as the
+// transaction leaves it.
 func (r *Repository) ResolveLinkReport(
 	ctx context.Context, req datasources.ResolveLinkReportRequest,
 ) (domain.LinkReport, error) {
@@ -122,6 +123,9 @@ func (r *Repository) ResolveLinkReport(
 		id, ok := positiveID(req.ReportID)
 		if !ok {
 			return datasources.ErrNotFound
+		}
+		if err := c.lockModerator(ctx, req.ModeratorUserID); err != nil {
+			return err
 		}
 		linkID, err := c.q.GetLinkReportLinkID(ctx, id)
 		if err != nil {
@@ -159,8 +163,8 @@ func (r *Repository) ResolveLinkReport(
 	return report, nil
 }
 
-// SetLinkHidden hides or shows a link: it locks the link row, sets its hidden state and, when hiding it,
-// resolves its open reports. It returns the link as the transaction leaves it.
+// SetLinkHidden hides or shows a link: it locks the moderator's users row (lockModerator), then the link row, sets
+// its hidden state and, when hiding it, resolves its open reports. It returns the link as the transaction leaves it.
 func (r *Repository) SetLinkHidden(
 	ctx context.Context, req datasources.SetLinkHiddenRequest,
 ) (domain.ModerationLink, error) {
@@ -170,6 +174,9 @@ func (r *Repository) SetLinkHidden(
 		id, ok := positiveID(req.LinkID)
 		if !ok {
 			return datasources.ErrNotFound
+		}
+		if err := c.lockModerator(ctx, req.ModeratorUserID); err != nil {
+			return err
 		}
 		if _, err := c.q.LockLink(ctx, id); err != nil {
 			return lookupError("link", err)

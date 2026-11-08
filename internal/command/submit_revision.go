@@ -57,9 +57,18 @@ type SubmitRevision struct {
 // checked for duplicates as moderators check them: the submission names those whose checks it lacks
 // (datasources.UncheckedPendingReferencesError), which are then made and the submission retried as above, and one
 // that may duplicate another entity fails it with *domain.PendingReferenceFlaggedError. Otherwise it fails with the
-// errors of datasources.RevisionSubmitter.
+// errors of datasources.RevisionSubmitter. A moderator no longer one once their users row is locked submits as a
+// contributor (asLockedRole).
 func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest) (SubmittedRevision, error) {
-	actor := req.Principal.Actor()
+	return asLockedRole(req.Principal.Actor(), func(actor domain.Actor) (SubmittedRevision, error) {
+		return c.submit(ctx, actor, req)
+	})
+}
+
+// submit is Execute as actor.
+func (c *SubmitRevision) submit(
+	ctx context.Context, actor domain.Actor, req SubmitRevisionRequest,
+) (SubmittedRevision, error) {
 	var result datasources.SubmitResult
 	var referenceChecks map[int64]datasources.DuplicateCheck
 	err := withDuplicateRechecks(func() error {

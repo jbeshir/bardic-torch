@@ -97,7 +97,7 @@ func moderationRevisionCases(target, body string) (revisionCase, []revisionCase)
 			wantBody: revisionNotFound},
 		revisionCase{name: "not_pending", err: domain.ErrNotPending, wantStatus: http.StatusConflict,
 			wantBody: notPendingBody},
-		moderatorRequiredCase, unavailableCase, internalCase)...)
+		moderatorRequiredCase, userBlockedCase, unavailableCase, internalCase)...)
 }
 
 // badBodyCase is base with body, refused with 400 and message before the command runs.
@@ -351,7 +351,7 @@ func TestLinkReportCreate_ServeHTTP(t *testing.T) {
 		revisionCase{name: "report_limit_reached", err: datasources.ErrReportLimitReached,
 			wantStatus: http.StatusConflict,
 			wantBody:   `{"code":"report_limit_reached","message":"a user may have at most 20 open link reports"}`},
-		unavailableCase, internalCase)...)
+		userBlockedCase, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return LinkReportCreate{Command: commandFunc[command.ReportLinkRequest, command.ReportedLink](
 			func(_ context.Context, req command.ReportLinkRequest) (command.ReportedLink, error) {
@@ -433,7 +433,7 @@ func TestLinkReportResolve_ServeHTTP(t *testing.T) {
 			wantBody: `{"code":"not_found","message":"link report not found"}`},
 		revisionCase{name: "not_open", err: datasources.ErrReportNotOpen, wantStatus: http.StatusConflict,
 			wantBody: `{"code":"conflict","message":"the link report is not open"}`},
-		moderatorRequiredCase, unavailableCase, internalCase)...)
+		moderatorRequiredCase, userBlockedCase, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return LinkReportResolve{Command: commandFunc[command.ResolveLinkReportRequest, domain.LinkReport](
 			func(_ context.Context, req command.ResolveLinkReportRequest) (domain.LinkReport, error) {
@@ -520,7 +520,7 @@ func TestLinkHiddenSet_ServeHTTP(t *testing.T) {
 	}, errorCases(base,
 		revisionCase{name: notFoundCase, err: datasources.ErrNotFound, wantStatus: http.StatusNotFound,
 			wantBody: `{"code":"not_found","message":"link not found"}`},
-		moderatorRequiredCase, unavailableCase, internalCase)...)
+		moderatorRequiredCase, userBlockedCase, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return LinkHiddenSet{Command: commandFunc[command.SetLinkHiddenRequest, domain.ModerationLink](
 			func(_ context.Context, req command.SetLinkHiddenRequest) (domain.ModerationLink, error) {

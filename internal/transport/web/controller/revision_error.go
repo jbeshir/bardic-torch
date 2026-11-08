@@ -107,6 +107,7 @@ var revisionErrorAnswers = []struct {
 		fmt.Sprintf("a user may have at most %d open link reports", domain.MaxOpenLinkReports)}},
 	{domain.ErrModeratorRequired, revisionErrorAnswer{http.StatusForbidden, httpjson.CodeModeratorRequired,
 		moderatorRequiredMessage}},
+	{datasources.ErrUserBlocked, revisionErrorAnswer{http.StatusForbidden, httpjson.CodeUserBlocked, "user is blocked"}},
 }
 
 // writeRevisionError writes the response for err, an error of a revision command about what (such as "draft"):

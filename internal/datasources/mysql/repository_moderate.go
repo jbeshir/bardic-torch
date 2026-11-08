@@ -18,9 +18,9 @@ var (
 	_ datasources.RevisionReverter = (*Repository)(nil)
 )
 
-// RejectRevision rejects a pending revision: it locks the revision, checks the review note, then locks
-// its entity's row, rejects it and deletes a pending new entity's placeholder if no other pending revision has it
-// .
+// RejectRevision rejects a pending revision: it locks the moderator's users row (lockModerator), then the revision,
+// checks the review note, then locks its entity's row, rejects it and deletes a pending new entity's placeholder if
+// no other pending revision has it.
 func (r *Repository) RejectRevision(ctx context.Context, req datasources.RejectRequest) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return r.txReader(tx).rejectRevision(ctx, req)
@@ -34,6 +34,9 @@ func (r *Repository) RejectRevision(ctx context.Context, req datasources.RejectR
 
 // rejectRevision is RejectRevision's transaction.
 func (c *catalogueReader) rejectRevision(ctx context.Context, req datasources.RejectRequest) error {
+	if err := c.lockModerator(ctx, req.Actor.UserID); err != nil {
+		return err
+	}
 	row, err := c.lockModeratedRevision(ctx, req.Actor, req.RevisionID, domain.RevisionActionReject)
 	if err != nil {
 		return err
@@ -56,10 +59,11 @@ func (c *catalogueReader) rejectRevision(ctx context.Context, req datasources.Re
 }
 
 // RebaseRevision rebases a pending revision onto its entity's current revision (docs/PLAN.md §5.1): under the
-// revision's lock and its entity row's, the moderator's resolved document must be against the current revision, is
-// validated against the current document with the revision author's role (domain.PlanRebase), and replaces the
-// revision's document, which stays pending. Its stored flags lose those only the submission could find
-// (domain.FlagsAfterRebase); what its author submitted, and the base they edited from, are kept.
+// moderator's users row lock (lockModerator), the revision's and its entity row's, the moderator's resolved document
+// must be against the current revision, is validated against the current document with the revision author's role
+// (domain.PlanRebase), and replaces the revision's document, which stays pending. Its stored flags lose those only
+// the submission could find (domain.FlagsAfterRebase); what its author submitted, and the base they edited from, are
+// kept.
 func (r *Repository) RebaseRevision(ctx context.Context, req datasources.RebaseRequest) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return r.txReader(tx).rebaseRevision(ctx, req)
@@ -73,6 +77,9 @@ func (r *Repository) RebaseRevision(ctx context.Context, req datasources.RebaseR
 
 // rebaseRevision is RebaseRevision's transaction.
 func (c *catalogueReader) rebaseRevision(ctx context.Context, req datasources.RebaseRequest) error {
+	if err := c.lockModerator(ctx, req.Actor.UserID); err != nil {
+		return err
+	}
 	row, err := c.lockModeratedRevision(ctx, req.Actor, req.RevisionID, domain.RevisionActionRebase)
 	if err != nil {
 		return err
@@ -147,10 +154,12 @@ func (c *catalogueReader) rebase(ctx context.Context, req datasources.RebaseRequ
 }
 
 // RevertTo reverts an entity to one of its approved revisions, in the global lock order: the actor's users
-// row (a contributor's pending cap), their pending revision of the entity, which the revert supersedes (found by an
-// unlocked read and checked again once locked), then the entity row FOR UPDATE, whose current revision the revert
-// is based on, and the rows the documents reference FOR SHARE. A contributor's revert is stored pending; an
-// interactive moderator's is approved at once by the approval writer.
+// row (a contributor's pending cap; the block and an interactive moderator's role checked again under it), their
+// pending revision of the entity, which the revert supersedes (found by an unlocked read and checked again once
+// locked), then the entity row FOR UPDATE, whose current revision the revert is based on, and the rows the documents
+// reference FOR SHARE. A contributor's revert is stored pending; an interactive moderator's is approved at once by
+// the approval writer, so one whose locked row is no longer a moderator's is refused with
+// datasources.ErrActorChanged.
 func (r *Repository) RevertTo(ctx context.Context, req datasources.RevertRequest) (datasources.SubmitResult, error) {
 	var result datasources.SubmitResult
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -253,11 +262,11 @@ func (c *catalogueReader) revertStatus(req datasources.RevertRequest) (domain.Re
 }
 
 // lockRevert reads the revert's target, which must be an approved revision of a public entity, and takes the
-// revert's locks (docs/PLAN.md §5.1 "Revert"): for a pending revert the actor's users row and their pending
-// revision of the entity, then in one pass the entity row and what the target and the current document reference,
-// the current document being read before the lock and checked under it (lockedCurrent). A revert approved at once
-// (by an interactive moderator) of a term also locks the terms of its facet, first among the terms, as its approval
-// does. The target being the current revision is datasources.ErrAlreadyCurrent.
+// revert's locks (docs/PLAN.md §5.1 "Revert"): the actor's users row (lockAuthor), for a pending revert their
+// pending revision of the entity, then in one pass the entity row and what the target and the current document
+// reference, the current document being read before the lock and checked under it (lockedCurrent). A revert approved
+// at once (by an interactive moderator) of a term also locks the terms of its facet, first among the terms, as its
+// approval does. The target being the current revision is datasources.ErrAlreadyCurrent.
 func (c *catalogueReader) lockRevert(
 	ctx context.Context, req datasources.RevertRequest, status domain.RevisionStatus,
 ) (revertTarget, error) {
@@ -265,10 +274,8 @@ func (c *catalogueReader) lockRevert(
 	if err != nil {
 		return revertTarget{}, err
 	}
-	if status == domain.RevisionStatusPending {
-		if err := c.lockSuperseded(ctx, req.Actor, &t); err != nil {
-			return revertTarget{}, err
-		}
+	if err := c.lockRevertAuthor(ctx, req.Actor, status, &t); err != nil {
+		return revertTarget{}, err
 	}
 	peeked, err := c.peekCurrent(ctx, t.kind, t.entity)
 	if err != nil {
@@ -323,11 +330,16 @@ func (c *catalogueReader) revertTargetOf(ctx context.Context, id int64) (revertT
 	return t, c.err
 }
 
-// lockSuperseded locks the actor's users row, then their pending revision of the target's entity, if any, which a
-// pending revert supersedes: found by an unlocked read and checked again once locked.
-func (c *catalogueReader) lockSuperseded(ctx context.Context, actor domain.Actor, t *revertTarget) error {
-	if _, err := c.q.LockUser(ctx, actor.UserID); err != nil {
-		return fmt.Errorf("locking user: %w", lookupError("user", err))
+// lockRevertAuthor locks the actor's users row (lockAuthor) and, for a pending revert, their pending revision of
+// the target's entity, if any, which the revert supersedes: found by an unlocked read and checked again once locked.
+func (c *catalogueReader) lockRevertAuthor(
+	ctx context.Context, actor domain.Actor, status domain.RevisionStatus, t *revertTarget,
+) error {
+	if err := c.lockAuthor(ctx, actor); err != nil {
+		return err
+	}
+	if status != domain.RevisionStatusPending {
+		return nil
 	}
 	pending, found, err := c.userPendingFor(ctx, actor.UserID, t.row.EntityType, t.row.EntityID)
 	if !found || err != nil {

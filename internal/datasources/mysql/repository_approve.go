@@ -17,10 +17,11 @@ import (
 var _ datasources.RevisionApprover = (*Repository)(nil)
 
 // ApproveRevision approves a pending revision (docs/PLAN.md §5.1 "Approval") in one transaction, in the global lock
-// order: the revision row, the revisions creating the pending new terms and persons it references, the entity rows
-// (its own and those placeholders FOR UPDATE, what the revision and the current document reference FOR SHARE, and
-// the terms of a facet whose closure it may rebuild, first among the terms), and the links rows it writes. Nothing
-// is searched or served from inside the transaction: callers read the result after it commits.
+// order: the moderator's users row (lockModerator: the block and the role checked again), the revision row, the
+// revisions creating the pending new terms and persons it references, the entity rows (its own and those
+// placeholders FOR UPDATE, what the revision and the current document reference FOR SHARE, and the terms of a facet
+// whose closure it may rebuild, first among the terms), and the links rows it writes. Nothing is searched or served
+// from inside the transaction: callers read the result after it commits.
 func (r *Repository) ApproveRevision(ctx context.Context, req datasources.ApproveRequest) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return r.txReader(tx).approveRevision(ctx, req)
@@ -34,6 +35,9 @@ func (r *Repository) ApproveRevision(ctx context.Context, req datasources.Approv
 
 // approveRevision is ApproveRevision's transaction.
 func (c *catalogueReader) approveRevision(ctx context.Context, req datasources.ApproveRequest) error {
+	if err := c.lockModerator(ctx, req.Actor.UserID); err != nil {
+		return err
+	}
 	row, err := c.lockModeratedRevision(ctx, req.Actor, req.RevisionID, domain.RevisionActionApprove)
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ package mysql_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -20,12 +21,16 @@ import (
 // withWriteTx's retries (ApproveRevisionOnce), so a deadlock is seen and not absorbed.
 
 // approveTogether approves the revisions ids, each once and without retries, after the holder of rows has released
-// them to both at once, and returns the approvals' errors in order.
+// them to both at once, and returns the approvals' errors in order. Each approval is by a moderator of its own: an
+// approval first locks its moderator's users row, so two by one moderator would wait there, not on rows.
 func (f *editingFixture) approveTogether(t *testing.T, rows *heldRows, ids ...int64) []error {
 	t.Helper()
 	done := make([]<-chan error, len(ids))
 	for i, id := range ids {
-		req := datasources.ApproveRequest{Actor: actorRowan, RevisionID: id, Duplicates: f.approvalChecks(t, id),
+		moderator := domain.Actor{UserID: fmt.Sprintf("google-oauth2|moderator-%d", i), Role: domain.RoleModerator}
+		f.c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'moderator', ?)",
+			moderator.UserID, fmt.Sprintf("Moderator %d", i), f.now)
+		req := datasources.ApproveRequest{Actor: moderator, RevisionID: id, Duplicates: f.approvalChecks(t, id),
 			Now: f.tick()}
 		done[i] = started(t.Context(), func(ctx context.Context) error { return f.repo.ApproveRevisionOnce(ctx, req) })
 	}
