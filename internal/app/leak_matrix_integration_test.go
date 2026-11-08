@@ -954,6 +954,8 @@ var leakExempt = map[openapitest.Operation]string{
 	{Method: http.MethodGet, Path: repertoireEntryRoute}:    exemptOwnRepertoire,
 	{Method: http.MethodPut, Path: repertoireEntryRoute}:    exemptOwnRepertoire,
 	{Method: http.MethodDelete, Path: repertoireEntryRoute}: exemptOwnRepertoire,
+	{Method: http.MethodPost, Path: "/v1/mcp"}: "the MCP server: each tool call is a request to the REST " +
+		"operation it names, whose rows cover it",
 }
 
 // TestHTTP_LeakMatrix sends every leakMatrix request to the production handler over a real repository holding

@@ -7,11 +7,13 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/transport/mcp"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 )
 
 // HTTPDependencies are what the HTTP handler is built from: the datasources, the validators that authenticate
-// requests, the contact form's Turnstile verifier, the rate limits and how clients are told apart, and the clock.
+// requests, the contact form's Turnstile verifier, the rate limits and how clients are told apart, the MCP tools,
+// and the clock.
 type HTTPDependencies struct {
 	Pinger                         datasources.Pinger
 	AuthValidators                 []router.AuthValidator
@@ -77,6 +79,7 @@ type HTTPDependencies struct {
 	TurnstileVerifier              datasources.TurnstileVerifier
 	RateLimits                     router.RateLimits
 	ClientIP                       router.ClientIPConfig
+	MCPTools                       *mcp.Toolset
 	Now                            func() time.Time
 }
 
@@ -186,6 +189,7 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		RemoveRepertoireEntry: &command.RemoveRepertoireEntry{Deleter: deps.RepertoireEntryDeleter},
 		RateLimits:            deps.RateLimits,
 		ClientIP:              deps.ClientIP,
+		MCPTools:              deps.MCPTools,
 		Now:                   deps.Now,
 	})
 }

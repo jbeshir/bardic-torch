@@ -181,6 +181,7 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 	m.handler = NewHTTPHandler(HTTPDependencies{
 		Pinger:     m.pinger,
 		RateLimits: unlimitedRateLimits(),
+		MCPTools:   testMCPTools(t),
 		AuthValidators: []router.AuthValidator{
 			prefixValidator("auth0|", domain.AuthMethodAuth0),
 			prefixValidator(domain.APITokenPrefix, domain.AuthMethodAPIToken),

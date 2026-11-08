@@ -93,6 +93,7 @@ var (
 	userBlocked       = outcome{status: http.StatusForbidden, code: httpjson.CodeUserBlocked}
 	apiAuthNotAllowed = outcome{status: http.StatusForbidden, code: httpjson.CodeAPIAuthNotAllowed}
 	moderatorRequired = outcome{status: http.StatusForbidden, code: httpjson.CodeModeratorRequired}
+	apiAuthRequired   = outcome{status: http.StatusForbidden, code: httpjson.CodeAPIAuthRequired}
 	internalError     = outcome{status: http.StatusInternalServerError, code: httpjson.CodeInternal}
 )
 
@@ -163,14 +164,31 @@ var (
 	}}
 )
 
+// apiTokenUser operations are behind requireAPIToken: API tokens only, of any role.
+var apiTokenUser = access{authenticated: true, outcomes: map[principal]outcome{
+	anonymous:                 unauthenticated,
+	unrecognisedCredentials:   unauthenticated,
+	invalidCredentials:        unauthenticated,
+	unverifiableCredentials:   internalError,
+	auth0Contributor:          apiAuthRequired,
+	auth0Moderator:            apiAuthRequired,
+	apiAuthContributor:        allowed,
+	apiAuthModerator:          allowed,
+	blockedAuth0Contributor:   userBlocked,
+	blockedAPIAuthContributor: userBlocked,
+	unresolvable:              internalError,
+}}
+
 // matrixRow is an operation's access, and a request to it that succeeds when allowed.
 type matrixRow struct {
 	access access
 	// pathParams are the path parameter values, percent-encoded into the path.
 	pathParams map[string]string
 	// query is the query string, with its "?", of a request that succeeds.
-	query         string
-	body          string
+	query string
+	body  string
+	// headers are request headers beyond Content-Type and Authorization.
+	headers       map[string]string
 	successStatus int
 	// expectSuccess sets up the datasources for a successful request by userID.
 	expectSuccess func(m handlerMocks, userID string)
@@ -427,6 +445,14 @@ var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(),
 				m.revisions.EXPECT().GetPublicRevision(mock.Anything, int64(matrixRevisionID)).Return(matrixRevision, nil)
 			},
 		},
+		// Listing the MCP server's tools reaches it without calling any operation.
+		{Method: http.MethodPost, Path: "/v1/mcp"}: {
+			access:        apiTokenUser,
+			body:          `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`,
+			headers:       map[string]string{"Accept": "application/json, text/event-stream"},
+			successStatus: http.StatusOK,
+			expectSuccess: func(handlerMocks, string) {},
+		},
 		{Method: http.MethodGet, Path: needsWorkPath}: {
 			access:        public,
 			successStatus: http.StatusOK,
@@ -526,6 +552,9 @@ func assertOutcome(t *testing.T, method, path string, row matrixRow, p principal
 	}
 	if p.authorization != "" {
 		req.Header.Set("Authorization", p.authorization)
+	}
+	for name, value := range row.headers {
+		req.Header.Set(name, value)
 	}
 	rec := m.validate.Serve(t, m.handler, req)
 

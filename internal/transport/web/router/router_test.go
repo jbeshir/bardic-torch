@@ -20,7 +20,7 @@ var wildcard = regexp.MustCompile(`\{[^}]*\}`)
 func TestRouter_RoutesMatchOpenAPI(t *testing.T) {
 	t.Parallel()
 
-	table := routes(Dependencies{})
+	table := routes(Dependencies{}, nil)
 	router := newRouter(table, authMiddleware(nil, nil))
 
 	var routed []openapitest.Operation

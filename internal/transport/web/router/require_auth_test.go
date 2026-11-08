@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -193,4 +194,31 @@ func TestRequireModerator_Principals(t *testing.T) {
 			wantCode:   httpjson.CodeUserBlocked,
 		},
 	})
+}
+
+// TestRequireAPIToken checks that only users authenticated with an API token, whatever their role, and not
+// blocked, get through: an Auth0 session gets 403 api_token_required, and blocking takes precedence.
+func TestRequireAPIToken(t *testing.T) {
+	t.Parallel()
+
+	cases := []requireCase{anonymousRequireCase}
+	for _, method := range []domain.AuthMethod{domain.AuthMethodAuth0, domain.AuthMethodAPIToken} {
+		for _, role := range []domain.Role{domain.RoleContributor, domain.RoleModerator} {
+			for _, blocked := range []bool{false, true} {
+				tc := requireCase{
+					name:       fmt.Sprintf("%s_%s_blocked_%t", method, role, blocked),
+					principal:  principalWith(role, method, blocked),
+					wantStatus: http.StatusNoContent,
+				}
+				switch {
+				case blocked:
+					tc.wantStatus, tc.wantCode = http.StatusForbidden, httpjson.CodeUserBlocked
+				case method != domain.AuthMethodAPIToken:
+					tc.wantStatus, tc.wantCode = http.StatusForbidden, httpjson.CodeAPIAuthRequired
+				}
+				cases = append(cases, tc)
+			}
+		}
+	}
+	runRequireCases(t, requireAPIToken, cases)
 }

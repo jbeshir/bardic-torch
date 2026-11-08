@@ -50,6 +50,8 @@ type Tiers struct {
 	RepertoireWrite Tier
 	// ProfileWrite limits a user's profile changes.
 	ProfileWrite Tier
+	// MCP limits a user's MCP requests. Each tool call also spends the tier of the REST route it calls.
+	MCP Tier
 }
 
 // The key caps: client IPs are cheap to vary, so the tiers keyed by them hold more keys than those keyed by user.
@@ -70,6 +72,7 @@ func DefaultTiers() Tiers {
 			Name: "repertoire_write_user", Burst: 60, Interval: time.Minute / 60, MaxKeys: userKeyCap,
 		},
 		ProfileWrite: perHour("profile_write_user", 10, 10, userKeyCap),
+		MCP:          Tier{Name: "mcp_user", Burst: 60, Interval: time.Minute / 120, MaxKeys: userKeyCap},
 	}
 }
 

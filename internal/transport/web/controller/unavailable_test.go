@@ -50,12 +50,14 @@ const (
 	revokedUUID  = "0b0e5a4c-6a43-4f8e-9d3f-1c2b3a4d5e6f"
 )
 
-// unavailableExempt are the operations without a row: those that read no database, and GET /v1/me, which reads
-// it only in the auth middleware (TestRouter_UserLookupUnavailableIs503). /readyz has its own 503 test.
+// unavailableExempt are the operations without a row: those that read no database, and GET /v1/me and POST
+// /v1/mcp, which read it only in the auth middleware (TestRouter_UserLookupUnavailableIs503): the MCP server's
+// tool calls are requests to operations with rows of their own. /readyz has its own 503 test.
 var unavailableExempt = []openapitest.Operation{
 	{Method: http.MethodGet, Path: "/healthz"},
 	{Method: http.MethodGet, Path: "/readyz"},
 	{Method: http.MethodGet, Path: "/v1/me"},
+	{Method: http.MethodPost, Path: "/v1/mcp"},
 }
 
 func op(method, path string) openapitest.Operation {

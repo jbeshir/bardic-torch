@@ -201,6 +201,7 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `POST` | `/v1/link-reports` | Required | Report a link by its URL (not again for 30 days after a moderator dismisses your report of it) |
 | `GET` | `/v1/me/repertoire` | Required | The caller's repertoire, with their private notes (`visibility` filter) |
 | `GET`, `PUT`, `DELETE` | `/v1/me/repertoire/{slug}` | Required | Read, add or update (notes, `private`/`public`), or remove a piece in the caller's repertoire (max 2000) |
+| `POST` | `/v1/mcp` | API token | The MCP server (stateless Streamable HTTP): tools that call the catalogue reads and the caller's own drafts, revisions, link reports and repertoire |
 | `GET` | `/v1/moderation/queue` | Moderator, Auth0 only | Pending revisions, oldest first |
 | `GET` | `/v1/moderation/revisions/{revision_id}` | Moderator, Auth0 only | A revision in full: documents, rebase preview, flags, duplicates |
 | `POST` | `/v1/revisions/{revision_id}/approve`, `…/reject`, `…/rebase` | Moderator, Auth0 only | Approve, reject or rebase a pending revision |

@@ -75,6 +75,11 @@ const (
 	CodeRepertoireLimitReached ErrorCode = "repertoire_limit_reached"
 	// The code of a request refused by a rate limit.
 	CodeRateLimited ErrorCode = "rate_limited"
+
+	// The codes of POST /v1/mcp: a credential other than an API token, and an Accept header without the media
+	// types Streamable HTTP requires.
+	CodeAPIAuthRequired ErrorCode = "api_token_required"
+	CodeNotAcceptable   ErrorCode = "not_acceptable"
 )
 
 // ErrorCodeValues returns every error code, in declaration order: the codes the spec's error bodies enumerate
@@ -88,6 +93,7 @@ func ErrorCodeValues() []ErrorCode {
 		CodePossibleDuplicate, CodeDuplicateBlocked, CodeHiddenDataConflict, CodePendingReferenceFlagged,
 		CodeUnacknowledgedFlags, CodeDuplicateName, CodeStale, CodeDisplayNameTaken, CodeDisplayNameReserved,
 		CodeReportLimitReached, CodeReportCooldown, CodeTurnstileFailed, CodeRepertoireLimitReached, CodeRateLimited,
+		CodeAPIAuthRequired, CodeNotAcceptable,
 	}
 }
 

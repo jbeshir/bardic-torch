@@ -119,7 +119,8 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
       - **Requests.** No proxy, no cookies, at most 64 KiB of a body read, and the user agent
         `BardicTorchLinkChecker/1.0 (+https://bardictorch.org)`.
       - **Logs.** Logs name links by ID only, never by URL. The command reads only `DATABASE_URL` and `LOG_LEVEL`.
-  - `cmd/mcp` (an MCP server) comes later.
+  - MCP is served by the API at `POST /v1/mcp`, for API tokens only (§5.1 "MCP"); there is no separate MCP
+    binary.
   - The OpenAPI spec (`openapi/api.yaml`) is **the contract** with the FE.
 - **`bardic-torch-fe`** (React Router 8 framework mode on Cloudflare Workers)
   - Auth: openid-client against Auth0, with a React Router cookie session and token refresh. It keeps the feed's server-side proxy routes (`/api/*`).
@@ -689,7 +690,9 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   cap sweeps at once and otherwise evicts the least recently seen of 64 sampled keys, so a new key is never
   refused. Limits reset on every deploy, dokku's zero-downtime deploy briefly runs old and new containers together
   (limits double for that window), and scaling `web` multiplies them; rules that must hold exactly (the link-report
-  cooldown, the repertoire cap) are in MySQL. MCP calls (later in BE5) spend their own tier and the inner route's.
+  cooldown, the repertoire cap) are in MySQL. An MCP request spends the user's MCP tier (burst 60, then 120 a minute), and each tool call also spends the tier of
+  the route it calls, both keyed by user: a runaway agent can use up the same user's draft-autosave tier in the
+  browser.
 - **Contact requests** (`POST /v1/contact`, no account): kind, name, email, message, URL and a Turnstile token;
   202 with no ID. Turnstile is verified server-side with siteverify: `success`, a hostname in
   `TURNSTILE_HOSTNAMES` (bardictorch.org and preview.bardictorch.org, compared case-insensitively; empty disables
@@ -707,12 +710,33 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   Each open one is dismissed exactly as a single dismissal (resolver, note, and the 180-day purge clock from now);
   resolved, dismissed and unknown IDs are answered in `not_open` and left alone. The response holds IDs only. The
   1000 cap stays soft.
-- **API tokens** (a decision BE5 may revisit): a `user_api|` token acts as its user with **contributor powers
+- **API tokens**: a `user_api|` token acts as its user with **contributor powers
   only**: drafts, submit, withdraw, revert, their own revisions and link reports, with every submit pending and
   the contributor projection. Every moderator operation, the link-report inbox and the contact-request inbox
   answer 403 `api_token_not_allowed` to a moderator's token, because moderation and contact PII need an
-  interactive Auth0 session; `setUserBlocked` follows the same rule. BE5's MCP work may widen this, for example
-  with read-only queue access, by editing this paragraph.
+  interactive Auth0 session; `setUserBlocked` follows the same rule. BE5's MCP server kept the rule: it has no
+  moderator tools, and a moderator's token acts there as a contributor.
+- **MCP** (BE5): `POST /v1/mcp` is the API's MCP server, over stateless Streamable HTTP (protocol 2025-06-18 with
+  its `initialize` handshake, and sessionless 2026-07-28), answering `application/json` only. Only API tokens may
+  call it (an Auth0 session gets 403 `api_token_required`). It offers tools only, from one table
+  (`internal/transport/mcp/tools.go`): the public catalogue reads, the caller's editable and pending documents,
+  drafts, submit, withdraw, revert, their own revisions, link reports and repertoire; never moderation, tokens,
+  the account or the contact form. It is a facade: each tool calls one REST operation (`get_editable` and
+  `get_pending` choose one by `entity_type`) as a request to the API's own router with the caller's token and the
+  MCP request's context (deadline, logger, request ID), so authorisation, rate limits, validation and privacy are
+  the operation's. Input schemas are derived from the OpenAPI spec at startup (path and query parameters, and the
+  body as `body`, with the component schemas bundled as `$defs`). The facade checks the arguments first (unknown,
+  missing, and each path and query argument against its schema; the body must be an object, whose fields the
+  operation checks) and refuses them as a tool error 400 `invalid_request` naming the argument, never its value;
+  then it percent-encodes each path argument into the operation's template and requires the router to route the
+  request to that same template, so no value reaches another operation. A 2xx is the body as
+  `structuredContent` and as text (no body: its status); any other status is `isError` with text only, the REST
+  error body plus `status` (and `retry_after_seconds` on 429). No output schema is declared. Our own checks
+  answer first as JSON errors: 415 for a body not `application/json`, 406 `not_acceptable` for an Accept
+  without both `application/json` and `text/event-stream`, and 413 over 1 MiB + 4 KiB; the SDK's other refusals
+  are its plain-text or JSON-RPC 400s. DNS-rebinding protection is off (behind nginx every connection looks
+  local) and there is no cross-origin check (bearer tokens are never ambient). Each call logs one line through the
+  request's logger: the tool, the route it reached and the status, never arguments or results.
 - **Display names** (impersonation controls): `display_name_key` is the display name folded like duplicates with
   only letters and digits kept, unique, so `Mor.wen` and `MORWEN` collide (409 `display_name_taken`; this reveals
   that someone holds the name, which is public anyway). A new display name is 400 `invalid_request`, naming the

@@ -920,6 +920,12 @@ person's page shows it and the scan reports it, as it reports each planted place
    authenticated route.
 5. **Integration**: integration tests for every new query, and extend `TestHTTP_EndToEnd` when the endpoint
    changes a user-visible flow.
+6. **MCP tool** (when a contributor's token should reach the operation over MCP): add a row to the tool table in
+   `internal/transport/mcp/tools.go` (name, description, operationId, `destructive` if it removes or gives up
+   what the caller made). The input schema is derived from the spec: `TestToolSchemas_MatchSpec` checks it, and
+   `TestMCP_ToolTableCoversOnlyAllowedOperations` pins the operations tools may call, so add the operation there.
+   The tool is then covered by `TestMCP_AuthMatrix` through the operation's `authMatrix` row, and the README's
+   MCP tool list must name it with its description and annotations.
 
 ## Integration test modes
 

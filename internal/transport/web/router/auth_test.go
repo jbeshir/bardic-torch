@@ -230,7 +230,7 @@ func TestRouter_UserLookupUnavailableIs503(t *testing.T) {
 		}),
 	}
 	handler := New(deps)
-	for _, rt := range routes(deps) {
+	for _, rt := range routes(deps, nil) {
 		if !rt.authenticated {
 			continue
 		}

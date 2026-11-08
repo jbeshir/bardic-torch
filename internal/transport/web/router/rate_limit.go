@@ -20,6 +20,7 @@ type RateLimits struct {
 	RevisionWrite       *ratelimit.Limiter
 	RepertoireWrite     *ratelimit.Limiter
 	ProfileWrite        *ratelimit.Limiter
+	MCP                 *ratelimit.Limiter
 }
 
 // rateLimitedMessage is the message of every 429 response. Like the rest of the response, it names neither the

@@ -83,6 +83,7 @@ const (
 	routingRevisionPath      = "/v1/revisions/" + routingCatalogueID
 	routingNeedsWork         = "/v1/needs-work"
 	routingContact           = "/v1/contact"
+	routingMCP               = "/v1/mcp"
 	routingContactRequests   = "/v1/moderation/contact-requests"
 	routingContactDismissals = routingContactRequests + "/dismissals"
 

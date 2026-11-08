@@ -13,8 +13,10 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/ratelimit"
+	"github.com/jbeshir/bardic-torch/internal/transport/mcp"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/server"
+	"github.com/jbeshir/bardic-torch/openapi"
 )
 
 // bootstrapModeratorsEnv lists, comma-separated, the IDs of users to make moderators at startup.
@@ -83,6 +85,11 @@ func Setup(ctx context.Context) ([]Component, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("configuring client IPs: %w", err)
 	}
+	mcpTools, err := mcp.NewToolset(openapi.Spec)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("building the MCP tools: %w", err)
+	}
 
 	addr := ":" + strconv.Itoa(MustGetEnvAsInt(ctx, "PORT"))
 	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
@@ -94,6 +101,7 @@ func Setup(ctx context.Context) ([]Component, error) {
 	deps := repositoryHTTPDependencies(repository, authValidators, verifier,
 		rateLimits(ratelimit.DefaultTiers(), time.Now))
 	deps.ClientIP = clientIP
+	deps.MCPTools = mcpTools
 
 	return []Component{&server.Server{Listener: listener, Handler: NewHTTPHandler(deps)}}, nil
 }

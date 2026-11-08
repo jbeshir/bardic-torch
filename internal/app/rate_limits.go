@@ -27,6 +27,7 @@ func rateLimits(tiers ratelimit.Tiers, now func() time.Time) router.RateLimits {
 		RevisionWrite:       ratelimit.New(tiers.RevisionWrite, now),
 		RepertoireWrite:     ratelimit.New(tiers.RepertoireWrite, now),
 		ProfileWrite:        ratelimit.New(tiers.ProfileWrite, now),
+		MCP:                 ratelimit.New(tiers.MCP, now),
 	}
 }
 

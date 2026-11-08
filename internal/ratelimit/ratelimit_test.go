@@ -75,6 +75,7 @@ func TestLimiter_Tiers(t *testing.T) {
 		{"RevisionWrite", "revision_write_user", 30, time.Minute, 10_000},
 		{"RepertoireWrite", "repertoire_write_user", 60, time.Second, 10_000},
 		{"ProfileWrite", "profile_write_user", 10, 6 * time.Minute, 10_000},
+		{"MCP", "mcp_user", 60, 500 * time.Millisecond, 10_000},
 	}
 
 	defaults := reflect.ValueOf(DefaultTiers())
@@ -97,7 +98,7 @@ func TestLimiter_Tiers(t *testing.T) {
 			// The burst, then a refusal until the first token comes back.
 			requireAllowed(t, l, "alice", tc.burst)
 			requireRefused(t, l, "alice", tc.interval)
-			assert.Equal(t, int(tc.interval/time.Second), RetryAfterSeconds(tc.interval))
+			assert.Equal(t, max(1, int((tc.interval+time.Second-1)/time.Second)), RetryAfterSeconds(tc.interval))
 
 			// Another key has its own burst.
 			requireAllowed(t, l, "bryony", tc.burst)

@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,18 +16,31 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/ratelimit"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
+	"github.com/jbeshir/bardic-torch/internal/transport/mcp"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
+	"github.com/jbeshir/bardic-torch/openapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+// testMCPTools are the MCP tools of the embedded spec, as Setup builds them.
+func testMCPTools(t *testing.T) *mcp.Toolset {
+	t.Helper()
+
+	tools, err := embeddedMCPTools()
+	require.NoError(t, err)
+	return tools
+}
+
+var embeddedMCPTools = sync.OnceValues(func() (*mcp.Toolset, error) { return mcp.NewToolset(openapi.Spec) })
 
 // unlimitedRateLimits are rate limits no test reaches, for the tests of everything but rate limiting.
 func unlimitedRateLimits() router.RateLimits {
 	tier := ratelimit.Tier{Name: "unlimited", Burst: 1 << 30, Interval: time.Hour, MaxKeys: 1 << 16}
 	return rateLimits(ratelimit.Tiers{
 		Contact: tier, ContactUnattributed: tier, LinkReport: tier, DraftWrite: tier, RevisionWrite: tier,
-		RepertoireWrite: tier, ProfileWrite: tier,
+		RepertoireWrite: tier, ProfileWrite: tier, MCP: tier,
 	}, time.Now)
 }
 
@@ -125,7 +139,7 @@ func TestContactSubmit_RateLimitedBeforeTurnstile(t *testing.T) {
 		TurnstileVerifier:     verifier,
 		RateLimits: rateLimits(ratelimit.Tiers{
 			Contact: tier, ContactUnattributed: tier, LinkReport: tier, DraftWrite: tier, RevisionWrite: tier,
-			RepertoireWrite: tier, ProfileWrite: tier,
+			RepertoireWrite: tier, ProfileWrite: tier, MCP: tier,
 		}, func() time.Time { return handlerNow }),
 		Now: func() time.Time { return handlerNow },
 	})

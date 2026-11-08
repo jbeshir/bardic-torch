@@ -8,6 +8,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/transport/mcp"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/controller"
 )
 
@@ -69,6 +70,8 @@ type Dependencies struct {
 	GetRepertoireEntry             command.Command[command.RepertoireEntryRequest, domain.RepertoireEntry]
 	PutRepertoireEntry             command.Command[command.PutRepertoireEntryRequest, command.PutRepertoireEntryResult]
 	RemoveRepertoireEntry          command.Command[command.RepertoireEntryRequest, command.Empty]
+	// MCPTools are the tools of POST /v1/mcp.
+	MCPTools *mcp.Toolset
 	// RateLimits limit the routes docs/PLAN.md §5.1 "Rate limits" lists; ClientIP says how the contact form tells its
 	// clients apart.
 	RateLimits RateLimits
@@ -88,8 +91,9 @@ type route struct {
 	authenticated bool
 }
 
-// routes returns every route the API serves. Each method and path pair is a separate route.
-func routes(deps Dependencies) []route {
+// routes returns every route the API serves. Each method and path pair is a separate route. mcpServer serves
+// POST /v1/mcp once it is authenticated, authorised and within its rate limit.
+func routes(deps Dependencies, mcpServer http.Handler) []route {
 	return []route{
 		{method: http.MethodGet, path: "/healthz", handler: controller.Healthz{}},
 		{method: http.MethodGet, path: "/readyz", handler: controller.Readyz{Pinger: deps.Pinger}},
@@ -253,6 +257,11 @@ func routes(deps Dependencies) []route {
 			handler: requireAuth(limitedByUser(
 				deps.RateLimits.RepertoireWrite, controller.MyRepertoireEntryDelete{Command: deps.RemoveRepertoireEntry},
 			))},
+
+		// The MCP server, for API tokens only. Each tool call is a request to the REST operation it names, so it
+		// spends that route's rate limit too.
+		{method: http.MethodPost, path: "/v1/mcp", authenticated: true,
+			handler: requireAPIToken(limitedByUser(deps.RateLimits.MCP, mcpServer))},
 	}
 }
 
@@ -264,8 +273,13 @@ func routes(deps Dependencies) []route {
 // carries, as they would an anonymous request, so a client with an expired token, or a blocked user, can still
 // read the catalogue. Requests no route matches get a JSON 404, or 405 if a route matches the path but not the
 // method, without authenticating.
+//
+// The MCP server dispatches each tool call to the router itself, as the REST request of the tool's operation,
+// with the MCP request's context: the same deadline, logger and principal's credentials.
 func New(deps Dependencies) http.Handler {
-	r := newRouter(routes(deps), authMiddleware(deps.AuthValidators, deps.ResolveUser))
+	mcpServer := &lateHandler{}
+	r := newRouter(routes(deps, mcpServer), authMiddleware(deps.AuthValidators, deps.ResolveUser))
+	mcpServer.handler = mcp.NewHandler(deps.MCPTools, r, r.lookup)
 	return requestLogger(r.lookup)(securityHeaders(cors(strings.Join(r.methods, ", "))(r)))
 }
 
@@ -288,3 +302,13 @@ const draftPath = "/v1/drafts/{draft_id}"
 
 // repertoireEntryPath is the path of the caller's repertoire entry for a public piece, which three routes share.
 const repertoireEntryPath = "/v1/me/repertoire/{slug}"
+
+// lateHandler is a handler set after the route table is built: the MCP server, which needs the router the table
+// builds. It is set before the router serves any request, and never changed.
+type lateHandler struct {
+	handler http.Handler
+}
+
+func (h *lateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.handler.ServeHTTP(w, r)
+}

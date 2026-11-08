@@ -56,6 +56,9 @@ tags:
     description: |
       A user's own list of the pieces they perform, with private notes, and the public list of the entries they
       chose to make public, addressed by their public ID
+  - name: MCP
+    description: |
+      The MCP server, for API tokens: tools that call the REST operations a contributor's token may use
   - name: Catalogue
     description: |
       Public reads of the catalogue: pieces, persons, the terms that classify them, and the collections and
@@ -3627,6 +3630,160 @@ paths:
         "503":
           $ref: "#/components/responses/DatabaseUnavailable"
 
+  /v1/mcp:
+    post:
+      tags:
+        - MCP
+      summary: Call the MCP server
+      description: |
+        The API's MCP server, over stateless Streamable HTTP (MCP protocol versions 2025-06-18, with the
+        `initialize` handshake, and 2026-07-28, sessionless): one JSON-RPC message per request, answered with
+        `application/json`, never an event stream. Only API tokens may call it, with contributor powers whatever
+        their user's role; an Auth0 session gets 403 `api_token_required`. GET and DELETE are not served (405).
+
+        The server offers tools only (`tools/list`, `tools/call`). Each tool calls one REST operation of this
+        API, chosen for some tools by their `entity_type` argument, as a request with the caller's own token:
+        its authorisation, rate limit, validation and privacy are the operation's. A tool's input schema has the
+        operation's path and query parameters as arguments, and its request body as `body`; the arguments are
+        checked against it (the body must be an object, whose fields the operation checks) and percent-encoded
+        into the operation's own path, so no value reaches another operation. A call that succeeds returns the
+        operation's response body, as `structuredContent` and as text (a response without a body is its
+        `status` as text). Any other answer is a result with `isError` true and text content only: the
+        operation's error body with its `status`, and on 429 `retry_after_seconds`. Refused arguments are such a
+        result with status 400 `invalid_request`, naming the argument but never its value. No tool reaches a
+        moderator, token, contact or account operation. An unknown tool, method or malformed message is a
+        JSON-RPC error.
+
+        Each request spends the caller's MCP rate limit, and each tool call also spends the rate limit of the
+        operation it calls.
+
+        The request must be `application/json` (else 415) and its `Accept` header must list both
+        `application/json` and `text/event-stream`, or wildcards covering them (else 406 `not_acceptable`).
+      operationId: mcp
+      security:
+        - apiTokenBearer: []
+      parameters:
+        - name: Mcp-Protocol-Version
+          in: header
+          required: false
+          description: |
+            The MCP protocol version of the request: required by 2026-07-28, which also requires `Mcp-Method` and,
+            for `tools/call`, `Mcp-Name`. A version the server does not support is 400.
+          schema:
+            type: string
+            examples:
+              - "2025-06-18"
+        - name: Mcp-Method
+          in: header
+          required: false
+          description: The JSON-RPC method of the message, which 2026-07-28 requires.
+          schema:
+            type: string
+            examples:
+              - tools/call
+        - name: Mcp-Name
+          in: header
+          required: false
+          description: The tool a 2026-07-28 `tools/call` calls.
+          schema:
+            type: string
+            examples:
+              - get_piece
+      requestBody:
+        description: One JSON-RPC 2.0 message.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpMessage"
+      responses:
+        "200":
+          description: The JSON-RPC response to a request, holding its `result` or a JSON-RPC `error`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpResponse"
+        "202":
+          description: A notification, such as `notifications/initialized`, was accepted; there is no body.
+        "400":
+          description: |
+            The MCP SDK refused the message: an unsupported `Mcp-Protocol-Version`, a body that is not readable,
+            or a 2026-07-28 request whose headers do not match it. Some are plain text, others a JSON-RPC error.
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - "Bad Request: Unsupported protocol version (supported versions: 2026-07-28,2025-11-25)"
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: |
+            The caller is blocked (`user_blocked`), or is not using an API token (`api_token_required`).
+            Blocking takes precedence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                userBlocked:
+                  summary: The caller is blocked
+                  value:
+                    code: user_blocked
+                    message: user is blocked
+                apiTokenRequired:
+                  summary: The caller used an Auth0 session
+                  value:
+                    code: api_token_required
+                    message: this endpoint can only be used with an API token
+        "406":
+          description: |
+            The `Accept` header does not list both `application/json` and `text/event-stream`; the error code is
+            `not_acceptable`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_acceptable
+                message: the Accept header must list both application/json and text/event-stream
+        "413":
+          description: |
+            The request body is larger than 1 MiB and 4 KiB (1052672 bytes); the error code is
+            `request_too_large`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: request_too_large
+                message: request body is too large
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          description: |
+            The server failed to handle the request; as JSON, the error code is `internal`. The MCP SDK answers a
+            failure of its own in plain text.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: internal
+                message: internal error
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - failed connection
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
+
 components:
   securitySchemes:
     auth0Bearer:
@@ -4128,6 +4285,101 @@ components:
             message: the database is busy or cannot be reached; try again
 
   schemas:
+    McpMessage:
+      type: object
+      description: |
+        A JSON-RPC 2.0 message to the MCP server: a request (with an `id`) or a notification (without one).
+      additionalProperties: false
+      required: [jsonrpc, method]
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+          examples:
+            - "2.0"
+        id:
+          type: [string, integer]
+          description: The request's ID, which its response repeats; absent on a notification.
+          examples:
+            - 1
+        method:
+          type: string
+          description: The MCP method, such as `initialize`, `tools/list` or `tools/call`.
+          examples:
+            - tools/call
+        params:
+          type: object
+          description: The method's parameters, as MCP defines them; for `tools/call`, `name` and `arguments`.
+          additionalProperties: {}
+          examples:
+            - name: get_piece
+              arguments:
+                slug: the-copper-kettle
+      examples:
+        - jsonrpc: "2.0"
+          id: 1
+          method: tools/call
+          params:
+            name: get_piece
+            arguments:
+              slug: the-copper-kettle
+
+    McpResponse:
+      type: object
+      description: A JSON-RPC 2.0 response from the MCP server, with a `result` or an `error`.
+      additionalProperties: false
+      required: [jsonrpc]
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+          examples:
+            - "2.0"
+        id:
+          type: [string, integer, "null"]
+          description: The ID of the request answered; absent or null if it could not be read.
+          examples:
+            - 1
+        result:
+          type: object
+          description: |
+            The method's result, as MCP defines it. A `tools/call` result has `content` and `isError`, and on
+            success `structuredContent`, the REST operation's response body.
+          additionalProperties: {}
+          examples:
+            - content:
+                - type: text
+                  text: '{"code":"not_found","message":"piece not found","status":404}'
+              isError: true
+        error:
+          $ref: "#/components/schemas/McpError"
+      examples:
+        - jsonrpc: "2.0"
+          id: 1
+          result:
+            tools: []
+
+    McpError:
+      type: object
+      description: A JSON-RPC error, such as an unknown tool or method, or a malformed message.
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: The JSON-RPC error code.
+          examples:
+            - -32602
+        message:
+          type: string
+          examples:
+            - "unknown tool \"get_secret\""
+        data:
+          description: Further detail, of any type, as the MCP SDK gives it.
+      examples:
+        - code: -32602
+          message: "unknown tool \"get_secret\""
+
     Error:
       type: object
       description: The body of every error response.
@@ -4171,6 +4423,8 @@ components:
             - turnstile_failed
             - repertoire_limit_reached
             - rate_limited
+            - api_token_required
+            - not_acceptable
           examples:
             - unavailable
         message:

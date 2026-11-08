@@ -70,3 +70,21 @@ func requireModerator(next http.Handler) http.Handler {
 func requireInteractiveModerator(next http.Handler) http.Handler {
 	return requireModerator(requireNonAPIToken(next))
 }
+
+// requireAPIToken is requireAuth that also rejects requests not authenticated with an API token, with 403
+// api_token_required. The MCP server uses it: MCP clients hold long-lived API tokens, never Auth0 sessions, and a
+// token acts with contributor powers only.
+func requireAPIToken(next http.Handler) http.Handler {
+	return requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		// requireAuth has already checked that there is a principal.
+		if principal, _ := domain.PrincipalFromContext(ctx); principal.Method != domain.AuthMethodAPIToken {
+			httpjson.WriteError(ctx, w, http.StatusForbidden, httpjson.CodeAPIAuthRequired,
+				"this endpoint can only be used with an API token")
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}))
+}

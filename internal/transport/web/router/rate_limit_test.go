@@ -2,6 +2,7 @@ package router
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,6 +22,8 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/ratelimit"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
+	"github.com/jbeshir/bardic-torch/internal/transport/mcp"
+	"github.com/jbeshir/bardic-torch/openapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,7 +71,7 @@ func testRateLimits(burst int, now func() time.Time) RateLimits {
 	return RateLimits{
 		Contact: tier("Contact"), ContactUnattributed: tier("ContactUnattributed"), LinkReport: tier("LinkReport"),
 		DraftWrite: tier("DraftWrite"), RevisionWrite: tier("RevisionWrite"), RepertoireWrite: tier("RepertoireWrite"),
-		ProfileWrite: tier("ProfileWrite"),
+		ProfileWrite: tier("ProfileWrite"), MCP: tier("MCP"),
 	}
 }
 
@@ -132,6 +135,7 @@ func (f *limitFixture) dependencies() Dependencies {
 		SubmitContactRequest:  unavailableCommand[command.ContactSubmission, int64]{calls},
 		PutRepertoireEntry:    unavailableCommand[command.PutRepertoireEntryRequest, command.PutRepertoireEntryResult]{calls},
 		RemoveRepertoireEntry: unavailableCommand[command.RepertoireEntryRequest, command.Empty]{calls},
+		MCPTools:              testMCPTools(),
 		RateLimits:            f.limits,
 		ClientIP: ClientIPConfig{
 			TrustedProxies: []netip.Prefix{netip.MustParsePrefix("172.16.0.0/12")}, ProxySecret: limitedProxySecret,
@@ -192,7 +196,34 @@ type rateLimitCase struct {
 	tier, other func(RateLimits) *ratelimit.Limiter
 	as          func(*http.Request, limitedCaller)
 	byUser      bool
+	// reached is the status of a request that reaches the operation, if not the 503 of its unavailable command.
+	reached int
 }
+
+// reachedStatus is the status of a request that reaches the operation.
+func (tc rateLimitCase) reachedStatus() int {
+	return cmp.Or(tc.reached, http.StatusServiceUnavailable)
+}
+
+// asTokenUser makes an MCP request from the user of caller, with an API token: the MCP server takes no other
+// credential.
+func asTokenUser(req *http.Request, caller limitedCaller) {
+	userID := map[limitedCaller]string{
+		callerFirst: limitedAlice, callerFirstAgain: limitedAlice, callerSecond: limitedBryony,
+		callerBlocked: limitedBlocked,
+	}[caller]
+	req.Header.Set("Authorization", "Bearer token:"+userID)
+	req.Header.Set("Accept", "application/json, text/event-stream")
+}
+
+// testMCPTools are the MCP tools of the embedded spec.
+var testMCPTools = sync.OnceValue(func() *mcp.Toolset {
+	tools, err := mcp.NewToolset(openapi.Spec)
+	if err != nil {
+		panic(err)
+	}
+	return tools
+})
 
 const limitedRepertoireEntry = "/v1/me/repertoire/the-copper-kettle"
 
@@ -202,6 +233,7 @@ func rateLimitCases() []rateLimitCase {
 	revision := func(l RateLimits) *ratelimit.Limiter { return l.RevisionWrite }
 	linkReport := func(l RateLimits) *ratelimit.Limiter { return l.LinkReport }
 	repertoire := func(l RateLimits) *ratelimit.Limiter { return l.RepertoireWrite }
+	mcpTier := func(l RateLimits) *ratelimit.Limiter { return l.MCP }
 	contact := func(l RateLimits) *ratelimit.Limiter { return l.Contact }
 	unattributed := func(l RateLimits) *ratelimit.Limiter { return l.ContactUnattributed }
 	const event = `{"name":"Midwinter Revel","kind":"event","description_md":null}`
@@ -230,6 +262,12 @@ func rateLimitCases() []rateLimitCase {
 			`{"notes":null,"visibility":"private"}`, repertoire),
 		byUser("delete repertoire entry", http.MethodDelete, repertoireEntryPath, limitedRepertoireEntry, "",
 			repertoire),
+		// A tool call reaches the MCP server, which answers 200 with the tool's error; the call also spends the
+		// tier of the route it calls, which allows as many.
+		{name: "mcp", method: http.MethodPost, template: routingMCP, target: routingMCP,
+			body: `{"jsonrpc":"2.0","id":1,"method":"tools/call",` +
+				`"params":{"name":"withdraw_revision","arguments":{"revision_id":51}}}`,
+			tier: mcpTier, other: profile, as: asTokenUser, byUser: true, reached: http.StatusOK},
 		{name: "contact attributed", method: http.MethodPost, template: routingContact, target: routingContact,
 			body: contactBody, tier: contact, other: unattributed, as: asAttributed},
 		{name: "contact unattributed IPv4", method: http.MethodPost, template: routingContact, target: routingContact,
@@ -301,7 +339,7 @@ func TestRouter_RateLimitTiers(t *testing.T) {
 				return rec
 			}
 
-			serve(callerFirst, http.StatusServiceUnavailable, 1)
+			serve(callerFirst, tc.reachedStatus(), 1)
 
 			refused := serve(callerFirstAgain, http.StatusTooManyRequests, 1)
 			assert.Equal(t, "60", refused.Header().Get("Retry-After"))
@@ -311,12 +349,12 @@ func TestRouter_RateLimitTiers(t *testing.T) {
 				assert.NotContains(t, refused.Body.String(), leaked, "the 429 body names the tier or key")
 			}
 
-			serve(callerSecond, http.StatusServiceUnavailable, 2)
+			serve(callerSecond, tc.reachedStatus(), 2)
 
 			f.clock.Advance(limitedInterval - time.Second)
 			serve(callerFirst, http.StatusTooManyRequests, 2)
 			f.clock.Advance(time.Second)
-			serve(callerFirst, http.StatusServiceUnavailable, 3)
+			serve(callerFirst, tc.reachedStatus(), 3)
 
 			if tc.byUser {
 				serve(callerBlocked, http.StatusForbidden, 3)
