@@ -61,7 +61,11 @@ with `go tool`, so nothing needs installing.
   concatenated forms searched in one long word) up to 2 MiB. Neither has a wall-clock budget: `linearGrowth` runs
   each parser at six sizes, each 4x the one before, and fails as soon as a size takes over 10x the CPU time of the
   size before or 6x that of the first size of at least 20 ms scaled linearly (never under 1 s), so linear code
-  passes on any machine, on a busy one and under `-race`, while quadratic code fails as soon as it runs over.
+  passes on any machine, on a busy one and under `-race`, while quadratic code fails as soon as it runs over. A
+  run cut off over budget keeps running, so before measuring (and before measuring a size again) `linearGrowth`
+  waits up to 10 s for such runs to return rather than failing the next test; a size over budget is measured once
+  more after that wait and fails only if both measurements are over (quadratic code is over every time, and a run
+  still going after the wait is over for good).
   `TestLinearGrowth_FailsQuadratic` pins that on synthetic linear and quadratic code. The race detector does not
   slow the assembly of `strings.Index` and its kin, so a rescan done only by it is caught only without `-race`
   (`make validate`).
@@ -219,8 +223,14 @@ with `go tool`, so nothing needs installing.
   infoboxes, Collections page URLs and performance items with performers, per page and in total.
 - **Revision engine** (`internal/domain`, pure functions over hand-built documents and visibilities; the test IDs
   are those of the BE4 plan's tables):
-  - the state machine: `TestCheckTransition` (one subtest per transition) and
-    `TestCheckTransition_Exhaustive` (every role × author × status × action against an independent legal list);
+  - the state machine: `TestCheckTransition` (one subtest per transition `CheckTransition` decides) and
+    `TestCheckTransition_Exhaustive` (every role × author × status × action against an independent legal list).
+    Cases that `CheckTransition` allows but another layer decides are not rows of it: `decidedElsewhereRows` lists
+    each with the test that pins the real outcome (`decidedBy`: reverting to the current revision
+    (`TestRepository_RevertTo`), a blocked user (`TestRouter_AuthMatrix`), the pending and draft caps, another
+    user's placeholder (`TestRepository_SaveDraft_OthersPlaceholder`) and approval after the author was promoted
+    (`TestRepository_ApproveRevision_AfterAuthorPromoted`)), and `TestDecidedElsewhere_NamesExistingTests` fails if
+    a named test does not exist;
   - document validation: `Test<Type>Document_Validate` per type (every row also checks that no problem holds a
     document value), `TestValidate_*` (problems never hold values; unchanged no-page credits and relations stay
     editable, added ones are refused; restored references need only exist), `TestSourcedFields` (one row per sourced-field rule, each as
@@ -301,6 +311,11 @@ with `go tool`, so nothing needs installing.
   and `_ConcurrencyLimit` (the ninth concurrent call is unavailable at once). **No test reaches the network:**
   command and controller tests use the `mocks.TurnstileVerifier` mock, the HTTP integration tests a passing fake
   verifier (`passingTurnstile`), and Setup's tests run with empty Turnstile variables.
+- **Contact form against Cloudflare's dummy secret** (local runs only): the dummy secrets may answer an action other
+  than `contact` (reportedly `test`), so the full contact path can be 400 `turnstile_failed` locally even though
+  the form and the token are fine. This is expected and unverified: the action check must never be weakened by an
+  environment flag. Any exemption would be tied to the exact dummy secret value and needs a docs/PLAN.md edit
+  first. Tests therefore never go through the real verifier (above).
 - **Middleware and validators** (`internal/transport/web/router`): `TestAuthMiddleware_*`, `TestRequireAuth_*`,
   `TestRequireNonAPIToken_*`, `TestRequireModerator_*`, `TestCORSMiddleware_*`, `TestSecurityHeaders_*`,
   `TestRequestLogger_*`, `TestAPITokenValidator_*` (mocks) and `TestAuth0Validator_*`, which validate real RS256
@@ -429,7 +444,9 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
 - **Revisions and moderation** (`internal/datasources/mysql`, on `newEditingFixture`, a writable database with
   catalogtest's import revisions as bases): drafts (`TestRepository_SaveDraft_*`, `TestRepository_Drafts_*`),
   submit and withdraw (`TestRepository_SubmitDraft_*`, `TestRepository_WithdrawRevision_*`: placeholders with no
-  content, deleted with their children), the author's reads (`TestRepository_GetMyRevision_*`,
+  content, deleted with their children; `TestRepository_SubmitDraft_SourcedFields`: the sourced-field rules on a
+  submission, including a hidden licensing source, a moderator's and a stale base, where the comparison document
+  must be the draft's own base; `TestHTTP_RevisionEndToEnd` has the 422 `source_required` answer), the author's reads (`TestRepository_GetMyRevision_*`,
   `TestRepository_GetEditable_*`), duplicates (`TestRepository_FindDuplicates*`: no alias of a no-page person for a contributor), the approval writer
   (`TestEntityWriter_RoundTrip`: a public read equals the public view of the document written), approval
   (`TestRepository_ApproveRevision_*`: stale merges, pending references approved alongside, slugs, history order,
@@ -439,19 +456,27 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   (`TestRepository_ContactRequests*`: the cap, and the purge with the clock passed in) and display-name keys
   (`TestRepository_UpdateDisplayName_KeyUnique`, `TestRepository_DisplayNameKey_BlankLetter`,
   `TestBackfillDisplayNameKeys_KeyTooLongForColumn`, and `TestMigrations_DisplayNameKeyWidth`: the column is as wide
-  as `domain.MaxDisplayNameKeyRunes`). The races run goroutines released together and assert outcomes
-  only, never timing: `TestRepository_ApproveRevision_ConcurrentDoubleApprove`, `_ConcurrentSameEntity` (no lost
-  update), `_WithdrawRace`, `_SupersedeRace`, `_CrossingApprovals` (both always succeed, deadlocks retried),
-  `_ApproveVersusModeratorEdit` and `_ConcurrentOptOut`, `TestRepository_RevertTo_ConcurrentSubmit` and
-  `_ConcurrentApprove`, `TestRepository_SaveDraft_Concurrent` and `TestRepository_LinkHideResolveRace`. They are
-  only meaningful under `-race`, so a milestone's final gate includes `GOTESTFLAGS=-race make
-  test-integration-external` (CI's integration job).
+  as `domain.MaxDisplayNameKeyRunes`). The concurrency tests of `repository_approve_race_integration_test.go`
+  force each ordering of two contending writes (`inOrder`, below) and assert what the later write sees, once per
+  ordering: `TestRepository_ApproveRevision_ConcurrentDoubleApprove`, `_ConcurrentSameEntity` (no lost update; a
+  conflict is `rebase_required`), `_WithdrawRace`, `_SupersedeRace`, `_CrossingApprovalsSerialise` (the later
+  approval waits and succeeds without a retry), `_ApproveVersusModeratorEdit` and `_ConcurrentOptOut`,
+  `TestRepository_RevertTo_ConcurrentSubmit` and `_ConcurrentApprove`. The per-user caps (pending revisions,
+  drafts, open link reports) have `TestRepository_SubmitDraft_PendingLimitRace`, `TestRepository_SaveDraft_LimitRace`
+  and `TestRepository_InsertLinkReport_LimitRace` (`repository_cap_race_integration_test.go`): the last allowed
+  write commits while the next waits for the users row, which then counts it and is refused.
+  `TestRepository_SaveDraft_Concurrent` (two saves released together by a start barrier, with the forced variant
+  `_ConcurrentForced`) and `TestRepository_LinkHideResolveRace` assert outcomes only, never timing. CI runs the
+  integration suite with `-race` (`GOTESTFLAGS=-race make test-integration-external`), which also checks the
+  tests' own goroutines.
 - **Forced races** (`race_helpers_integration_test.go`) run one known interleaving rather than leaving it to the
   scheduler: `holdRows` holds the contested rows in a transaction of the test's own (which may also write in it,
   through the `…InTx` hooks of `export_test.go`, as the concurrent write would), the write under test starts on
   its own goroutine, `waitUntilBlocked` sees it waiting for the lock (`performance_schema.data_lock_waits`, else
   `INNODB_TRX`; the test accounts have the privileges, and a test fails rather than skips without them), and only
-  then does the holder commit. Each fails on the code without the lock or order it covers:
+  then does the holder commit. `inOrder` packages this for two writes: the first runs in the holder through an
+  `…InTx` hook, the second must be seen waiting, so a second that takes no lock the first holds fails the test.
+  Each fails on the code without the lock or order it covers:
   `TestRepository_SubmitDraft_ConcurrentUpdateNotLost` (the submission stores the draft read under its lock),
   `TestRepository_ApproveRevision_ReferenceRejectedWhileWaiting`, `_RebasedWhileWaiting` and
   `_ReferenceSupersededWhileLocking` (the pending references are read again once locked). The lock order tests
@@ -670,18 +695,32 @@ catalogue data. Every spec operation must be in exactly one of them, and a publi
 The shared `leakCatalogue` also holds BE4's hidden data that public reads must never show: a rejected revision's
 review note, a rebased revision's original document (only in `submitted_snapshot_json`), a link report's message
 and an open contact request's name, email, message and URL, each checked as stored by `requireLeakMarkersStored`.
+A contributor's unpublished revisions are written through the production handler while the fixture is seeded
+(`seedUnpublishedRevisions`), so the real write paths store them: a draft, a submitted then withdrawn revision, a
+pending edit with marked notes and summary, a pending new term and person tagged and credited by a pending new
+piece, and a pending edit whose summary names a hidden alias (flagged `hidden_alias_in_summary`).
+`requireUnpublishedStored` checks each, and that the placeholders have no current revision. Their rows: each
+revision's public view is a 404 byte-equal to an unknown ID's (`sameBodyAs`), the history rows give an exact
+`total`, the placeholders' pages are 404, and the lists and facet counts hold no `pending-` slug (`absent`).
 
 ### Revision leak matrix
 
 `TestHTTP_RevisionLeakMatrix` (`internal/app/revision_leak_matrix_integration_test.go`) does the same for the
 **authenticated** reads, on a private database whose contributor revisions are all written over HTTP as their
-authors would write them. The viewers are the author A, another contributor B, an interactive moderator M, M's API token MT, and a blocked user (403 `user_blocked`, the Error body only, on every
-row). Each row names its viewer, path, status and reveals, and the scan is the public matrix's:
+authors would write them. The viewers are the author A, A's API token AT, another contributor B, an interactive moderator M, M's API
+token MT, and a blocked user (403 `user_blocked`, the Error body only, on every row). Every row of A's that is not
+an error is repeated for AT with the same reveals (`withAuthorToken`). Each row names its viewer, path, status and reveals, and the scan is the public
+matrix's:
 
 - **contributor reads** (editable, pending, drafts with `preview` and `references`, `me/revisions`, reference
-  labels, the no-page person): A sees their own data and no `leakmark`; B gets 404 for A's draft and revisions;
-  MT gets the contributor projection with `link_states: []`; M gets the full document with `link_states`
+  labels, the no-page person): A sees their own data and no `leakmark`; B and MT get 404 for A's drafts,
+  revisions, pending versions and placeholders; MT gets the contributor projection with `link_states: []`; M gets the full document with `link_states`
   (`full` rows assert the hidden data is there instead of scanning);
+- **a rejected revision**: M rebases one of A's edits of wren (marked notes of M's) and rejects it with a clean
+  review note; A's view shows what A submitted, the note and `reviewed_at`, and none of M's notes, the hidden
+  aliases or link A received, or a flag code; `requireRevisionLeakMarkersStored` and the seed check that the
+  stored rows hold what the rows withhold (the no-page person's notes, pronouns, alias and credit note, the
+  unapproved region, which A's pending edit of the archive received, and the rejected snapshot's hidden data);
 - **provenance**: what A typed is present in A's pending view, and a link A received that was hidden since is
   absent;
 - **duplicate oracle**: A's drafts of a new person named as the no-page person's public alias and as a fresh name
@@ -690,8 +729,8 @@ row). Each row names its viewer, path, status and reveals, and the scan is the p
 - **validation oracle**: A's rename to a hidden alias and to a fresh name give byte-equal responses once the names
   are masked;
 - **moderator-only reads** (`moderatorOnly`: the queue, the moderation view, both inboxes, the link lookup): A and B
-  get 403 `moderator_required`, MT 403 `api_token_not_allowed`, each with the Error body only, and M's row asserts
-  the moderator data (the `hidden_data_conflict` flag, the report message, the contact request's personal data, a
+  get 403 `moderator_required` (and so does AT), MT 403 `api_token_not_allowed`, each with the Error body only,
+  and M's row asserts the moderator data (the `hidden_data_conflict` flag, the report message, the contact request's personal data, a
   hidden link) is present;
 - a report of a hidden link gets a 404 byte-equal to an unknown URL's.
 

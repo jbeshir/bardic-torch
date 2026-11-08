@@ -27,15 +27,17 @@ const (
 	moderationQueuePath      = "/v1/moderation/queue"
 	moderationReportsPath    = "/v1/moderation/link-reports"
 	// Editor document and request fields the test sets.
-	titleField      = "title"
-	kindField       = "kind"
-	aliasesField    = "aliases"
-	linksField      = "links"
-	rolesField      = "roles"
-	documentField   = "document"
-	entityTypeField = "entity_type"
-	termsField      = "terms"
-	urlField        = "url"
+	titleField             = "title"
+	kindField              = "kind"
+	aliasesField           = "aliases"
+	linksField             = "links"
+	rolesField             = "roles"
+	documentField          = "document"
+	entityTypeField        = "entity_type"
+	acknowledgedFlagsField = "acknowledged_flags"
+	partField              = "part"
+	termsField             = "terms"
+	urlField               = "url"
 )
 
 // moderationWorld is the production handler over a private database holding the scrubbed import, with the
@@ -133,7 +135,7 @@ func (w moderationWorld) approveBody(t *testing.T, id int64) string {
 			acknowledged = append(acknowledged, code)
 		}
 	}
-	return encodeJSON(t, jsonObject{"acknowledged_flags": acknowledged})
+	return encodeJSON(t, jsonObject{acknowledgedFlagsField: acknowledged})
 }
 
 // approve has the moderator approve the revision id, acknowledging its flags, and returns the approved revision.
@@ -336,7 +338,7 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 		withTerm := func(part domain.PiecePart) jsonObject {
 			terms, ok := editedDocument(t, start, nil)[termsField].([]any)
 			require.True(t, ok, "the document has terms")
-			terms = append(slices.Clone(terms), jsonObject{"term": termSlug, "is_primary": false, "part": part})
+			terms = append(slices.Clone(terms), pieceTerm(termSlug, false, part))
 			return editedDocument(t, start, jsonObject{termsField: terms})
 		}
 		base := objectID(t, start, "base_revision_id")
@@ -373,7 +375,7 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 			newTermDocument(taken), "A topic named as another."))
 		draftID := objectID(t, draft, "id")
 		body := encodeJSON(t, jsonObject{"draft_id": draftID, "acknowledge_duplicates": true,
-			"acknowledged_flags": []string{string(domain.FlagPossibleDuplicate)}})
+			acknowledgedFlagsField: []string{string(domain.FlagPossibleDuplicate)}})
 		sendRejected(t, w.e, http.MethodPost, "/v1/revisions", w.moderator, body, http.StatusConflict,
 			httpjson.CodeDuplicateName)
 		rec := w.e.send(t, http.MethodDelete, idPath("/v1/drafts/", draftID), w.moderator, "")
@@ -385,7 +387,7 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 		placeholder, ok := entityOf(t, term)["slug"].(string)
 		require.True(t, ok, "the pending term has a placeholder slug")
 		document := newPieceDocument(newTitle)
-		document[termsField] = []any{jsonObject{"term": placeholder, "is_primary": true, "part": nil}}
+		document[termsField] = []any{pieceTerm(placeholder, true, nil)}
 		piece := w.submitNew(t, w.a, domain.EntityTypePiece, document, "A new piece.")
 
 		approved := w.approve(t, objectID(t, piece, "id"))
@@ -440,6 +442,24 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 		public := w.publicPiece(t, notesPiece.Slug)
 		assert.NotContains(t, public, addedNotes, "the revert is published")
 		assert.NotContains(t, public, encodeJSON(t, reported), "the reverted piece keeps the link hidden")
+	})
+
+	t.Run("5_revert_to_a_draft_is_not_found", func(t *testing.T) {
+		start := w.editable(t, w.a, "pieces", notesPiece.Slug)
+		draft := saveDraft(t, w.e, w.a, draftRequest(t, domain.EntityTypePiece, entitySlug(notesPiece.Slug),
+			start["base_revision_id"], editedDocument(t, start, nil), "A draft."))
+		const body = `{"summary":"Back to the draft.","acknowledged_flags":[]}`
+		const notFound = `{"code":"not_found","message":"revision not found"}`
+		var bodies []string
+		for _, id := range []int64{objectID(t, draft, "id"), 999999999} {
+			rec := w.e.send(t, http.MethodPost, idPath("/v1/revisions/", id)+"/revert", w.moderator, body)
+			require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+			bodies = append(bodies, rec.Body.String())
+		}
+		assert.JSONEq(t, notFound, bodies[0])
+		assert.Equal(t, bodies[1], bodies[0], "a draft is told apart from an unknown revision")
+		discarded := w.e.send(t, http.MethodDelete, idPath("/v1/drafts/", objectID(t, draft, "id")), w.a, "")
+		require.Equal(t, http.StatusNoContent, discarded.Code, discarded.Body.String())
 	})
 
 	t.Run("6_reject_new_person", func(t *testing.T) {
@@ -551,4 +571,9 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 	// person to, a link report's message or the contact request's personal data.
 	w.logs.requireNoneOf(t, append([]string{w.renamedAlias, reportText, senderName, senderEmail, senderMessage},
 		w.hiddenAliases...))
+}
+
+// pieceTerm is a piece's tag with the term slug in the editor format, primary or not, scoped to part (nil for none).
+func pieceTerm(slug string, primary bool, part any) jsonObject {
+	return jsonObject{"term": slug, "is_primary": primary, partField: part}
 }

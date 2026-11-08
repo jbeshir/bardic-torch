@@ -453,7 +453,10 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "422":
           description: |
-            The document approval would publish is invalid (`invalid_document`, with its problems), or the new
+            The document approval would publish is invalid (`invalid_document`, with its problems). That includes
+            a clean merge that fails validation against the current document (a licence change merged with the
+            removal of its `licensing_source` link, say, or two primaries in a facet), with the merged document's
+            problems; the moderator resolves it with the rebase. Or the new
             person matches a person who has asked not to have a page (`duplicate_blocked`).
           content:
             application/json:
@@ -700,8 +703,9 @@ paths:
           description: |
             The `report_id` is not a positive integer, or the request body is malformed or invalid: for example
             `note` is longer than 2000 characters or holds a control character (a C0 or C1 control other than tab
-            and line feed, so that line breaks are LF and a carriage return is refused, or a bidirectional
-            override). The message names the field, never its value; the error code is `invalid_request`.
+            and line feed, or a bidirectional override; CRLF and a lone carriage return are first replaced by LF,
+            which is how the note is stored). The message names the field, never its value; the error code is
+            `invalid_request`.
           content:
             application/json:
               schema:
@@ -932,8 +936,9 @@ paths:
           description: |
             The `request_id` is not a positive integer, or the request body is malformed or invalid: for example
             `note` is longer than 2000 characters or holds a control character (a C0 or C1 control other than tab
-            and line feed, so that line breaks are LF and a carriage return is refused, or a bidirectional
-            override). The message names the field, never its value; the error code is `invalid_request`.
+            and line feed, or a bidirectional override; CRLF and a lone carriage return are first replaced by LF,
+            which is how the note is stored). The message names the field, never its value; the error code is
+            `invalid_request`.
           content:
             application/json:
               schema:
@@ -2042,10 +2047,10 @@ paths:
         "400":
           description: |
             The request body is malformed or invalid, for example a field is too long or holds a control character
-            (a C0 or C1 control other than tab and line feed, so that line breaks are LF and a carriage return is
-            refused, or a bidirectional override), or `turnstile_token` is missing (`invalid_request`; the message
-            names the field, never its value); or the Turnstile token did not pass: it is invalid, expired or
-            already used, or was minted for another hostname or action (`turnstile_failed`). Nothing is stored.
+            (a C0 or C1 control other than tab and line feed, or a bidirectional override; in `message`, CRLF and a
+            lone carriage return are first replaced by LF, which is how the message is stored), or
+            `turnstile_token` is missing (`invalid_request`; the message names the field, never its
+            value); or the Turnstile token did not pass: it is invalid, expired or already used, or was minted for another hostname or action (`turnstile_failed`). Nothing is stored.
           content:
             application/json:
               schema:
@@ -2121,7 +2126,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: |
-            No piece the caller may edit has this address; the error code is `not_found`.
+            No piece the caller may edit has this address; the error code is `not_found`. A placeholder (a pending new
+            piece) is editable only by its author, even by a moderator, who rebases its revision instead.
           content:
             application/json:
               schema:
@@ -2208,7 +2214,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: |
-            No person the caller may edit has this address; the error code is `not_found`.
+            No person the caller may edit has this address; the error code is `not_found`. A placeholder (a pending new
+            person) is editable only by its author, even by a moderator, who rebases its revision instead.
           content:
             application/json:
               schema:
@@ -2295,7 +2302,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: |
-            No term the caller may edit has this address; the error code is `not_found`.
+            No term the caller may edit has this address; the error code is `not_found`. A placeholder (a pending new
+            term) is editable only by its author, even by a moderator, who rebases its revision instead.
           content:
             application/json:
               schema:
@@ -2382,7 +2390,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: |
-            No event the caller may edit has this address; the error code is `not_found`.
+            No event the caller may edit has this address; the error code is `not_found`. A placeholder (a pending new
+            event) is editable only by its author, even by a moderator, who rebases its revision instead.
           content:
             application/json:
               schema:
@@ -2871,8 +2880,9 @@ paths:
           description: |
             The request body is malformed or invalid: for example `url` is missing or longer than 2048 characters,
             or `message` is longer than 2000 characters or holds a control character (a C0 or C1 control other
-            than tab and line feed, so that line breaks are LF and a carriage return is refused, or a bidirectional
-            override). The message names the field, never its value; the error code is `invalid_request`.
+            than tab and line feed, or a bidirectional override; CRLF and a lone carriage return are first replaced
+            by LF, which is how the message is stored). The message names the field, never its value; the error code
+            is `invalid_request`.
           content:
             application/json:
               schema:
@@ -3369,8 +3379,8 @@ components:
         The `revision_id` is not a positive integer, or the request body is malformed or invalid: for example
         `acknowledged_flags` is missing, holds an unknown flag or repeats one, `review_note` is longer than 2000
         characters, the approval's `summary` is longer than 500, or either holds a control character (a C0 or C1
-        control other than tab and line feed, so that line breaks are LF and a carriage return is refused, or a
-        bidirectional override). The message names the field, never its value; the error code is
+        control other than tab and line feed, or a bidirectional override; CRLF and a lone carriage return are
+        first replaced by LF, which is how they are stored). The message names the field, never its value; the error code is
         `invalid_request`.
       content:
         application/json:

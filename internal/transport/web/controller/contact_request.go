@@ -45,12 +45,13 @@ func (c ContactSubmit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !httpjson.DecodeJSONBodyLimit(w, r, &body, httpjson.MaxContactBodyBytes) {
 		return
 	}
-	if !contactSubmissionOrBadRequest(w, r, body) {
+	message, ok := contactSubmissionOrBadRequest(w, r, body)
+	if !ok {
 		return
 	}
 
 	id, err := c.Command.Execute(ctx, command.ContactSubmission{
-		Kind: body.Kind, Name: body.Name, Email: body.Email, Message: body.Message, URL: body.URL,
+		Kind: body.Kind, Name: body.Name, Email: body.Email, Message: message, URL: body.URL,
 		TurnstileToken: body.TurnstileToken,
 	})
 	logger := domain.LoggerFromContext(ctx)
@@ -72,14 +73,20 @@ func (c ContactSubmit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// contactSubmissionOrBadRequest checks body's fields. If one is invalid it writes 400 invalid_request, naming the
-// field and never its value, and returns false; the caller should then return without writing.
-func contactSubmissionOrBadRequest(w http.ResponseWriter, r *http.Request, body ContactSubmitRequest) bool {
+// contactSubmissionOrBadRequest checks body's fields and returns its message with CRLF and lone CR replaced by
+// LF. If a field is invalid it writes 400 invalid_request, naming the field and never its value, and returns
+// false; the caller should then return without writing.
+func contactSubmissionOrBadRequest(
+	w http.ResponseWriter, r *http.Request, body ContactSubmitRequest,
+) (string, bool) {
 	if !body.Kind.Valid() {
-		return invalidContactField(w, r, "invalid kind: not one of its allowed values")
+		return "", invalidContactField(w, r, "invalid kind: not one of its allowed values")
+	}
+	if !contactSenderOrBadRequest(w, r, body) {
+		return "", false
 	}
 
-	return contactSenderOrBadRequest(w, r, body) && contactMessageOrBadRequest(w, r, body)
+	return contactMessageOrBadRequest(w, r, body)
 }
 
 // contactSenderOrBadRequest checks the sender's name and email address as contactSubmissionOrBadRequest does.
@@ -99,24 +106,28 @@ func contactSenderOrBadRequest(w http.ResponseWriter, r *http.Request, body Cont
 }
 
 // contactMessageOrBadRequest checks the message, the URL and the Turnstile token as contactSubmissionOrBadRequest
-// does.
-func contactMessageOrBadRequest(w http.ResponseWriter, r *http.Request, body ContactSubmitRequest) bool {
-	switch {
-	case strings.TrimSpace(body.Message) == "":
-		return invalidContactField(w, r, "message is required")
-	case !textOrBadRequest(w, r, "message", &body.Message, domain.MaxContactMessageLength):
-		return false
-	case !textOrBadRequest(w, r, "url", body.URL, domain.MaxURLLength):
-		return false
-	case body.URL != nil && !domain.IsValidURL(*body.URL):
-		return invalidContactField(w, r, "invalid url: must be an http or https URL")
-	case body.TurnstileToken == "":
-		return invalidContactField(w, r, "turnstile_token is required")
-	case !textOrBadRequest(w, r, "turnstile_token", &body.TurnstileToken, domain.MaxTurnstileTokenLength):
-		return false
+// does, and returns the message with its line breaks normalised.
+func contactMessageOrBadRequest(w http.ResponseWriter, r *http.Request, body ContactSubmitRequest) (string, bool) {
+	if strings.TrimSpace(body.Message) == "" {
+		return "", invalidContactField(w, r, "message is required")
+	}
+	message, ok := freeTextOrBadRequest(w, r, "message", &body.Message, domain.MaxContactMessageLength)
+	if !ok {
+		return "", false
 	}
 
-	return true
+	switch {
+	case !textOrBadRequest(w, r, "url", body.URL, domain.MaxURLLength):
+		return "", false
+	case body.URL != nil && !domain.IsValidURL(*body.URL):
+		return "", invalidContactField(w, r, "invalid url: must be an http or https URL")
+	case body.TurnstileToken == "":
+		return "", invalidContactField(w, r, "turnstile_token is required")
+	case !textOrBadRequest(w, r, "turnstile_token", &body.TurnstileToken, domain.MaxTurnstileTokenLength):
+		return "", false
+	}
+
+	return *message, true
 }
 
 // invalidContactField writes 400 invalid_request with message, which names a field and never its value, and
@@ -234,12 +245,13 @@ func (c ContactRequestResolve) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			"invalid status: must be resolved or dismissed")
 		return
 	}
-	if !textOrBadRequest(w, r, "note", body.Note, domain.MaxModeratorNoteLength) {
+	note, ok := freeTextOrBadRequest(w, r, "note", body.Note, domain.MaxModeratorNoteLength)
+	if !ok {
 		return
 	}
 
 	request, err := c.Command.Execute(ctx, command.ResolveContactRequestRequest{
-		Principal: principal, RequestID: requestID, Status: body.Status, Note: body.Note,
+		Principal: principal, RequestID: requestID, Status: body.Status, Note: note,
 	})
 	if err != nil {
 		writeRevisionError(w, r, "contact request", err)

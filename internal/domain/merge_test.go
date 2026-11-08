@@ -307,6 +307,19 @@ func TestMerge_OtherTypes(t *testing.T) {
 	assert.Equal(t, []string{validTerm().Aliases[0], "Dreamy"}, merged.Aliases)
 	assert.Equal(t, "Wistfulness", merged.Name)
 
+	// Sets never conflict: an alias removed on either side is removed, even if the other side re-spelled it under
+	// the same collation key.
+	respelled, removed := term, term
+	respelled.Aliases = []string{strings.ToUpper(term.Aliases[0])}
+	removed.Aliases = nil
+	require.Equal(t, CollationKey(term.Aliases[0]), CollationKey(respelled.Aliases[0]))
+	for name, sides := range map[string][2]TermDocument{"ours_respells": {respelled, removed},
+		"theirs_respells": {removed, respelled}} {
+		merged, conflicts = MergeDocuments(term, sides[0], sides[1])
+		assert.Empty(t, conflicts, name)
+		assert.Empty(t, merged.Aliases, name+": the removal wins")
+	}
+
 	collection := validCollection()
 	co, ct := collection, collection
 	co.ParentID, ct.ParentID = nil, ptr(refChildColl)

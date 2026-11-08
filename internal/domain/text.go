@@ -71,6 +71,16 @@ func IsControlCharacter(r rune) bool {
 	return r >= 0x202a && r <= 0x202e || r >= 0x2066 && r <= 0x2069
 }
 
+// WithLineBreaksNormalized is s with every CRLF pair and every lone CR replaced by LF, the line break text is
+// stored with. Browsers submit the line breaks of a textarea as CRLF when a form is sent without JavaScript.
+func WithLineBreaksNormalized(s string) string {
+	if !strings.Contains(s, "\r") {
+		return s
+	}
+
+	return strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(s)
+}
+
 // WithoutControlCharacters is s without its control characters (IsControlCharacter).
 func WithoutControlCharacters(s string) string {
 	return strings.Map(func(r rune) rune {

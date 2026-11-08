@@ -476,20 +476,25 @@ func (c *catalogueReader) storeSubmission(
 // row stays.
 func (r *Repository) WithdrawRevision(ctx context.Context, actor domain.Actor, id int64) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		c := r.txReader(tx)
-		row, err := c.lockOwnRevision(ctx, actor, id, domain.RevisionActionWithdraw)
-		if err != nil {
-			return err
-		}
-		return c.leavePending(ctx, row, func() error {
-			return requireMatched(c.q.WithdrawRevision(ctx, row.ID))
-		})
+		return r.txReader(tx).withdrawRevision(ctx, actor, id)
 	})
 	if err != nil {
 		return databaseError(fmt.Sprintf("withdrawing revision [%d]", id), err)
 	}
 
 	return nil
+}
+
+// withdrawRevision is WithdrawRevision's transaction.
+func (c *catalogueReader) withdrawRevision(ctx context.Context, actor domain.Actor, id int64) error {
+	row, err := c.lockOwnRevision(ctx, actor, id, domain.RevisionActionWithdraw)
+	if err != nil {
+		return err
+	}
+
+	return c.leavePending(ctx, row, func() error {
+		return requireMatched(c.q.WithdrawRevision(ctx, row.ID))
+	})
 }
 
 // deleteUnusedPlaceholder deletes the placeholder of the pending new entity, which its revision revisionID has left

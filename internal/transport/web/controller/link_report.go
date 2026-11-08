@@ -55,12 +55,14 @@ func (c LinkReportCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
 			"invalid reason: not one of its allowed values")
 		return
-	case !textOrBadRequest(w, r, "message", body.Message, domain.MaxLinkReportMessageLength):
+	}
+	message, ok := freeTextOrBadRequest(w, r, "message", body.Message, domain.MaxLinkReportMessageLength)
+	if !ok {
 		return
 	}
 
 	reported, err := c.Command.Execute(ctx, command.ReportLinkRequest{
-		Principal: principal, URL: body.URL, Reason: body.Reason, Message: body.Message,
+		Principal: principal, URL: body.URL, Reason: body.Reason, Message: message,
 	})
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
@@ -147,12 +149,13 @@ func (c LinkReportResolve) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"invalid status: must be resolved or dismissed")
 		return
 	}
-	if !textOrBadRequest(w, r, "note", body.Note, domain.MaxModeratorNoteLength) {
+	note, ok := freeTextOrBadRequest(w, r, "note", body.Note, domain.MaxModeratorNoteLength)
+	if !ok {
 		return
 	}
 
 	report, err := c.Command.Execute(ctx, command.ResolveLinkReportRequest{
-		Principal: principal, ReportID: reportID, Status: body.Status, Note: body.Note, HideLink: body.HideLink,
+		Principal: principal, ReportID: reportID, Status: body.Status, Note: note, HideLink: body.HideLink,
 	})
 	if err != nil {
 		writeRevisionError(w, r, "link report", err)

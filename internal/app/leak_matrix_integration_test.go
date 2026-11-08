@@ -49,6 +49,8 @@ type leakFixture struct {
 	// turned chose not to have a page after their revisions were written.
 	turned    catalogtest.Ref
 	revisions leakRevisions
+	// unpublished are a contributor's drafts, withdrawn and pending revisions, written through the API.
+	unpublished unpublishedRevisions
 }
 
 // leakRevisions are revisions beyond catalogtest's: each shows something hidden now, or is not public.
@@ -442,6 +444,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	revisions.renamedNoPageFormer, revisions.renamedNoPageEdit = formerly(renamedNoPage, renamedNoPageDoc,
 		renamedNoPageFormerName)
 	revisions.rejectedLantern, revisions.rebasedLantern = seedModeratedLantern(c, piece, lanternDoc)
+	unpublished := seedUnpublishedRevisions(c, piece, ember, person)
 
 	// System fields no document holds and no read exposes.
 	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'contributor', ?)",
@@ -459,6 +462,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		unapprovedChild: unapprovedChild, unapprovedAffiliation: unapprovedAffiliation,
 		archive: archive, unapprovedCollection: unapprovedCollection, moot: moot, unapprovedEvent: unapprovedEvent,
 		turned: turned, renamed: renamed, renamedNoPage: renamedNoPage, ember: ember, revisions: revisions,
+		unpublished: unpublished,
 	}
 })
 
@@ -508,6 +512,10 @@ type leakRequest struct {
 	reveals []string
 	// absent are unmarked strings the response must not show either.
 	absent []string
+	// sameBodyAs, if set, is a path whose response body this one's must equal byte for byte, as an unknown ID's.
+	sameBodyAs string
+	// total, if not nil, is the exact total a list or history response must give.
+	total *int
 }
 
 // leakMatrix has, for each public catalogue read in the spec, the requests to send it against the leak fixture:
@@ -523,6 +531,8 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: "/v1/pieces/" + fx.ember.Slug, status: http.StatusOK, reveals: []string{enteredLinkURL}},
 			{path: "/v1/pieces/" + fx.unapprovedPiece.Slug, status: http.StatusNotFound},
 			{path: "/v1/pieces/" + fx.unapprovedEcho.Slug, status: http.StatusNotFound},
+			// A pending new piece's placeholder.
+			{path: "/v1/pieces/" + fx.unpublished.pieceSlug, status: http.StatusNotFound},
 		}
 	},
 	{Method: http.MethodGet, Path: "/v1/persons/{slug}"}: func(fx leakFixture) []leakRequest {
@@ -536,6 +546,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK, reveals: []string{fx.noPage.Slug, noPageName}},
 			{path: "/v1/persons/" + fx.turned.Slug, status: http.StatusOK, reveals: []string{fx.turned.Slug, turnedName}},
 			{path: "/v1/persons/" + fx.unapprovedPerson.Slug, status: http.StatusNotFound},
+			{path: "/v1/persons/" + fx.unpublished.personSlug, status: http.StatusNotFound},
 		}
 	},
 	{Method: http.MethodGet, Path: piecesPath}: func(fx leakFixture) []leakRequest {
@@ -546,9 +557,10 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 		}
 		return []leakRequest{
 			// Facet counts must not list unapproved terms, or terms under them, nor count unapproved pieces.
-			{path: piecesPath, status: http.StatusOK},
+			{path: piecesPath, status: http.StatusOK, absent: placeholders},
 			{path: piecesPath + "?term=" + fx.lanterns.Slug, status: http.StatusOK},
-			{path: piecesPath + "?q=leakmark", status: http.StatusOK},
+			// Pending new pieces, pending edits and drafts hold marked titles and notes.
+			{path: piecesPath + "?q=leakmark", status: http.StatusOK, absent: placeholders},
 			{path: piecesPath + "?q=Le", status: http.StatusOK},
 			unknownTerm(fx.unapprovedTerm),
 			unknownTerm(fx.underUnapproved),
@@ -561,8 +573,8 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 		stubs := []string{fx.noPage.Slug, noPageName, fx.noPageAdmirer.Slug, noPageAdmirerName,
 			fx.noPageBusker.Slug, noPageBuskerName, fx.turned.Slug, turnedName}
 		return []leakRequest{
-			{path: personsPath, status: http.StatusOK, reveals: stubs},
-			{path: personsPath + "?q=leakmark", status: http.StatusOK, reveals: stubs},
+			{path: personsPath, status: http.StatusOK, reveals: stubs, absent: placeholders},
+			{path: personsPath + "?q=leakmark", status: http.StatusOK, reveals: stubs, absent: placeholders},
 			{path: personsPath + "?q=Le", status: http.StatusOK, reveals: stubs},
 			// The no-page person's role and affiliation, and the unapproved person's, must not match.
 			{path: personsPath + "?role=jester", status: http.StatusOK},
@@ -579,8 +591,8 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	},
 	{Method: http.MethodGet, Path: termsPath}: func(leakFixture) []leakRequest {
 		return []leakRequest{
-			{path: termsPath, status: http.StatusOK},
-			{path: "/v1/terms?facet=topic", status: http.StatusOK},
+			{path: termsPath, status: http.StatusOK, absent: placeholders},
+			{path: "/v1/terms?facet=topic", status: http.StatusOK, absent: placeholders},
 			{path: "/v1/terms?facet=affiliation", status: http.StatusOK},
 		}
 	},
@@ -594,6 +606,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: "/v1/terms/" + fx.underUnapproved.Slug, status: http.StatusNotFound},
 			{path: "/v1/terms/" + fx.unapprovedChild.Slug, status: http.StatusNotFound},
 			{path: "/v1/terms/" + fx.unapprovedAffiliation.Slug, status: http.StatusNotFound},
+			{path: "/v1/terms/" + fx.unpublished.termSlug, status: http.StatusNotFound},
 		}
 	},
 	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}"}: func(fx leakFixture) []leakRequest {
@@ -619,7 +632,10 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/history"}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
 			// Authors by display name, never by user ID.
-			{path: historyPath("pieces", fx.piece.Slug), status: http.StatusOK},
+			// Exact totals: pending, rejected and withdrawn revisions and drafts are not counted.
+			{path: historyPath("pieces", fx.piece.Slug), status: http.StatusOK, total: new(2)},
+			{path: historyPath("pieces", fx.ember.Slug), status: http.StatusOK, total: new(1)},
+			{path: historyPath("pieces", fx.unpublished.pieceSlug), status: http.StatusNotFound},
 			// An unapproved piece with an approved revision.
 			{path: historyPath("pieces", fx.unapprovedPiece.Slug), status: http.StatusNotFound},
 			{path: historyPath("pieces", fx.unapprovedEcho.Slug), status: http.StatusNotFound},
@@ -627,7 +643,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	},
 	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
-			{path: historyPath("persons", fx.person.Slug), status: http.StatusOK},
+			{path: historyPath("persons", fx.person.Slug), status: http.StatusOK, total: new(2)},
 			{path: historyPath("persons", fx.noPage.Slug), status: http.StatusOK},
 			{path: historyPath("persons", fx.turned.Slug), status: http.StatusOK},
 			{path: historyPath("persons", fx.renamed.Slug), status: http.StatusOK},
@@ -637,6 +653,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	{Method: http.MethodGet, Path: "/v1/terms/{slug}/history"}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
 			{path: historyPath("terms", fx.lanterns.Slug), status: http.StatusOK},
+			{path: historyPath("terms", fx.unpublished.termSlug), status: http.StatusNotFound},
 			{path: historyPath("terms", fx.westmarch.Slug), status: http.StatusOK},
 			{path: historyPath("terms", fx.unapprovedTerm.Slug), status: http.StatusNotFound},
 			// Approved, under an unapproved term.
@@ -659,6 +676,11 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: func(fx leakFixture) []leakRequest {
 		revision := func(id int64, status int, reveals ...string) leakRequest {
 			return leakRequest{path: "/v1/revisions/" + strconv.FormatInt(id, 10), status: status, reveals: reveals}
+		}
+		unpublished := func(id int64) leakRequest {
+			req := revision(id, http.StatusNotFound)
+			req.sameBodyAs = unknownRevisionPath
+			return req
 		}
 		noPage := []string{fx.noPage.Slug, noPageName}
 		turned := []string{fx.turned.Slug, turnedName}
@@ -692,25 +714,40 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			revision(fx.archive.RevisionID, http.StatusOK),
 			revision(fx.moot.RevisionID, http.StatusOK),
 			revision(fx.underUnapproved.RevisionID, http.StatusNotFound),
-			revision(fx.revisions.pendingLantern, http.StatusNotFound),
-			// A rejected revision, and a rebased pending one whose original submission is marked.
-			revision(fx.revisions.rejectedLantern, http.StatusNotFound),
-			revision(fx.revisions.rebasedLantern, http.StatusNotFound),
 			revision(fx.revisions.unapprovedPieceApproved, http.StatusNotFound),
+			// Revisions that are not approved get the 404 of an ID no revision has: a pending one, a rejected
+			// one, a rebased pending one whose original submission is marked, and a contributor's draft,
+			// withdrawn revision, pending edits, pending new entities and flagged summary.
+			unpublished(fx.revisions.pendingLantern),
+			unpublished(fx.revisions.rejectedLantern),
+			unpublished(fx.revisions.rebasedLantern),
+			unpublished(fx.unpublished.draft),
+			unpublished(fx.unpublished.withdrawn),
+			unpublished(fx.unpublished.pending),
+			unpublished(fx.unpublished.pendingTerm),
+			unpublished(fx.unpublished.pendingPerson),
+			unpublished(fx.unpublished.pendingPiece),
+			unpublished(fx.unpublished.flagged),
 		}
 	},
 	{Method: http.MethodGet, Path: needsWorkPath}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
 			// Persons who prefer no page would be listed for their unknown licensing.
-			{path: needsWorkPath, status: http.StatusOK},
-			{path: needsWorkPath + "?reason=missing_licensing", status: http.StatusOK},
-			{path: needsWorkPath + "?reason=stub", status: http.StatusOK},
+			{path: needsWorkPath, status: http.StatusOK, absent: placeholders},
+			{path: needsWorkPath + "?reason=missing_licensing", status: http.StatusOK, absent: placeholders},
+			{path: needsWorkPath + "?reason=stub", status: http.StatusOK, absent: placeholders},
 			// The Lantern Song's and Rowan's only dead link is hidden.
 			{path: needsWorkPath + "?reason=dead_links", status: http.StatusOK,
 				absent: []string{fx.piece.Slug, fx.person.Slug}},
 		}
 	},
 }
+
+// unknownRevisionPath is the public view of a revision ID no revision has.
+const unknownRevisionPath = "/v1/revisions/999999999"
+
+// placeholders are what no public list may show of a placeholder (a pending new entity): its slug's prefix.
+var placeholders = []string{"pending-"}
 
 // historyPath is the path of the history of the entity of collection with address.
 func historyPath(collection, address string) string {
@@ -777,6 +814,7 @@ func TestHTTP_LeakMatrix(t *testing.T) {
 
 	db, fx := leakCatalogue.Get(t)
 	requireLeakMarkersStored(t, db)
+	requireUnpublishedStored(t, db, fx.unpublished)
 	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
 	contract := openapitest.New(t)
 
@@ -831,6 +869,19 @@ func assertNoLeak(t *testing.T, contract *openapitest.Validator, handler http.Ha
 		rec.Body.String())
 	for _, absent := range req.absent {
 		assert.NotContains(t, rec.Body.String(), absent, "the response shows something it must not")
+	}
+	if req.sameBodyAs != "" {
+		other := contract.Serve(t, handler,
+			httptest.NewRequestWithContext(t.Context(), http.MethodGet, req.sameBodyAs, nil))
+		assert.Equal(t, other.Body.String(), rec.Body.String(), "the response is told apart from %s's", req.sameBodyAs)
+	}
+	if req.total != nil {
+		var list struct {
+			Total *int `json:"total"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+		require.NotNil(t, list.Total, "the response has no total")
+		assert.Equal(t, *req.total, *list.Total)
 	}
 }
 
@@ -979,5 +1030,118 @@ func TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing(t *testing.T) {
 			assert.Empty(t, *body.ChangedFields)
 			assert.NotNil(t, body.Base, "the revision has a base, so an empty list means no change")
 		})
+	}
+}
+
+// The writer of the unpublished revisions, and the marked text only the writer and moderators may read.
+const (
+	leakWriterID         = "google-oauth2|leakmark-writer"
+	withdrawnNotes       = "leakmark-withdrawn-notes"
+	pendingPerson        = "leakmark-pending-person"
+	pendingPieceTitle    = "Leakmark Pending Piece"
+	publicFlaggedSummary = "leakmark-flagged-summary, as Leakmark Hidden Legal Alias told me."
+)
+
+// unpublishedRevisions are a contributor's revisions written through the production write paths, none of which a
+// public read may show.
+type unpublishedRevisions struct {
+	// draft is a draft of the Ember Song retitled; withdrawn a submitted then withdrawn edit of it.
+	draft, withdrawn int64
+	// pending is a pending edit of the Lantern Song with marked notes and summary.
+	pending int64
+	// pendingTerm and pendingPerson are pending new entities, which pendingPiece, a pending new piece, tags and
+	// credits; termSlug and personSlug are their placeholders' slugs.
+	pendingTerm, pendingPerson, pendingPiece int64
+	termSlug, personSlug, pieceSlug          string
+	// flagged is a pending edit of Rowan whose summary names Rowan's hidden alias.
+	flagged int64
+}
+
+// seedUnpublishedRevisions has a contributor write, through the production handler, the revisions of
+// unpublishedRevisions on the leak fixture's piece, ember and person.
+func seedUnpublishedRevisions(c *catalogtest.Catalog, piece, ember, person catalogtest.Ref) unpublishedRevisions {
+	// The seed runs inside the first test that uses the shared database, which is a *testing.T.
+	t, ok := c.T().(*testing.T)
+	require.True(t, ok, "the leak fixture is seeded by a test")
+	w := revisionWorldOn(t, c.DB(), nil)
+	writer := w.auth0(t, leakWriterID)
+	sendOK[jsonObject](t, w.e, http.MethodGet, mePath, writer, "", http.StatusOK)
+
+	edit := func(collection string, ref catalogtest.Ref, entityType domain.EntityType, changes jsonObject,
+		summary string,
+	) int64 {
+		start := sendOK[jsonObject](t, w.e, http.MethodGet, editablePath(collection, ref.Slug), writer, "",
+			http.StatusOK)
+		return objectID(t, saveDraft(t, w.e, writer, draftRequest(t, entityType, entitySlug(ref.Slug),
+			start["base_revision_id"], editedDocument(t, start, changes), summary)), "id")
+	}
+	submitted := func(draftID int64) jsonObject {
+		revision := submitDraft(t, w.e, writer, draftID)
+		require.Equal(t, string(domain.RevisionStatusPending), revision["status"])
+		return revision
+	}
+	submitNew := func(entityType domain.EntityType, document jsonObject, summary string) (int64, string) {
+		revision := submitted(objectID(t, saveDraft(t, w.e, writer, draftRequest(t, entityType, nil, nil, document,
+			summary)), "id"))
+		slug, ok := entityOf(t, revision)["slug"].(string)
+		require.True(t, ok, "a pending new entity has a placeholder slug")
+		return objectID(t, revision, "id"), slug
+	}
+
+	var u unpublishedRevisions
+	u.pending = objectID(t, submitted(edit("pieces", piece, domain.EntityTypePiece,
+		jsonObject{notesField: pendingNotes}, pendingSummary)), "id")
+	u.withdrawn = objectID(t, submitted(edit("pieces", ember, domain.EntityTypePiece,
+		jsonObject{notesField: withdrawnNotes}, "Add notes.")), "id")
+	withdrawn := sendOK[jsonObject](t, w.e, http.MethodPost, idPath("/v1/revisions/", u.withdrawn)+"/withdraw",
+		writer, "", http.StatusOK)
+	require.Equal(t, string(domain.RevisionStatusWithdrawn), withdrawn["status"])
+	u.draft = edit("pieces", ember, domain.EntityTypePiece, jsonObject{"title": draftTitle}, "Retitle.")
+
+	u.pendingTerm, u.termSlug = submitNew(domain.EntityTypeTerm, newTermDocument(pendingTerm), "Suggest a topic.")
+	u.pendingPerson, u.personSlug = submitNew(domain.EntityTypePerson, newPersonDocument(pendingPerson),
+		"A new bard.")
+	pieceDocument := newPieceDocument(pendingPieceTitle)
+	pieceDocument[termsField] = []any{pieceTerm(u.termSlug, true, nil)}
+	pieceDocument["credits"] = []any{jsonObject{"person": u.personSlug, "role": domain.CreditRoleLyrics,
+		"attribution": domain.AttributionNamed, "certainty": domain.CertaintyCertain, partField: nil, "note": nil}}
+	u.pendingPiece, u.pieceSlug = submitNew(domain.EntityTypePiece, pieceDocument, "A new piece.")
+
+	u.flagged = objectID(t, submitted(edit("persons", person, domain.EntityTypePerson,
+		jsonObject{notesField: "Rowan sings at the moot."}, publicFlaggedSummary)), "id")
+	return u
+}
+
+// requireUnpublishedStored checks that the unpublished revisions are stored as written: each marker in a revision
+// of the expected status, the flag on the summary, and the placeholders without a current revision.
+func requireUnpublishedStored(t *testing.T, db *sql.DB, u unpublishedRevisions) {
+	t.Helper()
+
+	for _, check := range []struct {
+		query string
+		args  []any
+	}{
+		{"SELECT COUNT(*) FROM revisions WHERE id = ? AND status = 'draft' AND snapshot_json->>'$.title' = ?",
+			[]any{u.draft, draftTitle}},
+		{"SELECT COUNT(*) FROM revisions WHERE id = ? AND status = 'withdrawn' AND snapshot_json->>'$.notes_md' = ?",
+			[]any{u.withdrawn, withdrawnNotes}},
+		{"SELECT COUNT(*) FROM revisions WHERE id = ? AND status = 'pending' AND snapshot_json->>'$.notes_md' = ? " +
+			"AND summary = ?", []any{u.pending, pendingNotes, pendingSummary}},
+		{"SELECT COUNT(*) FROM revisions r JOIN terms e ON e.id = r.entity_id WHERE r.id = ? AND r.status = 'pending' " +
+			"AND e.slug = ? AND e.current_revision_id IS NULL AND r.snapshot_json->>'$.name' = ?",
+			[]any{u.pendingTerm, u.termSlug, pendingTerm}},
+		{"SELECT COUNT(*) FROM revisions r JOIN persons e ON e.id = r.entity_id WHERE r.id = ? " +
+			"AND r.status = 'pending' AND e.slug = ? AND e.current_revision_id IS NULL AND r.snapshot_json->>'$.name' = ?",
+			[]any{u.pendingPerson, u.personSlug, pendingPerson}},
+		{"SELECT COUNT(*) FROM revisions r JOIN pieces e ON e.id = r.entity_id WHERE r.id = ? AND r.status = 'pending' " +
+			"AND e.slug = ? AND e.current_revision_id IS NULL AND r.snapshot_json->>'$.title' = ?",
+			[]any{u.pendingPiece, u.pieceSlug, pendingPieceTitle}},
+		{"SELECT COUNT(*) FROM revisions WHERE id = ? AND status = 'pending' AND summary = ? " +
+			"AND JSON_CONTAINS(flags_json, JSON_OBJECT('code', 'hidden_alias_in_summary'))",
+			[]any{u.flagged, publicFlaggedSummary}},
+	} {
+		var count int
+		require.NoError(t, db.QueryRowContext(t.Context(), check.query, check.args...).Scan(&count), check.query)
+		require.Equal(t, 1, count, "%s %v", check.query, check.args)
 	}
 }

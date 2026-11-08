@@ -3,7 +3,6 @@ package mysql
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
@@ -163,7 +162,8 @@ func limitedNames[T any](
 ) []T {
 	rows := fetchAll(ctx, c, what, query)
 	if len(rows) > maxDuplicateNames {
-		slog.WarnContext(ctx, "duplicate check reached its name limit; names past it are not compared",
+		domain.LoggerFromContext(ctx).WarnContext(ctx,
+			"duplicate check reached its name limit; names past it are not compared",
 			"names", what, "limit", maxDuplicateNames)
 	}
 

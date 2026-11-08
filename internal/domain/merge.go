@@ -295,7 +295,8 @@ func insertionIndex(order, preceding []string) int {
 }
 
 // mergeSet merges a set: an element is in the merge if both sides kept it or one side added it, with ours if ours
-// changed it and theirs otherwise; theirs' order, then what only ours added.
+// changed it and theirs otherwise; theirs' order, then what only ours added. Sets never conflict: an element
+// removed on either side is removed, even if the other re-spelled it under the same key.
 func mergeSet(b, o, t keyedList) reflect.Value {
 	merged := reflect.MakeSlice(o.typ, 0, len(o.keys)+len(t.keys))
 	for _, k := range unionKeys(t.keys, o.keys) {

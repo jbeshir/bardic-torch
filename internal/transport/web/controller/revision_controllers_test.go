@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
@@ -21,13 +22,20 @@ type commandFunc[Req, Res any] func(ctx context.Context, req Req) (Res, error)
 
 func (f commandFunc[Req, Res]) Execute(ctx context.Context, req Req) (Res, error) { return f(ctx, req) }
 
-// returning is a command that returns res and err, failing the test if it is called when it must not be (called
-// is false).
-func returning[Req, Res any](t *testing.T, called bool, res Res, err error) commandFunc[Req, Res] {
+// returning is a command that returns res and err. It fails the test if the command is called when it must not be
+// (wantCalled is false), and, when the test ends, if it was never called when it must be.
+func returning[Req, Res any](t *testing.T, wantCalled bool, res Res, err error) commandFunc[Req, Res] {
+	var calls atomic.Int64
+	t.Cleanup(func() {
+		assert.Equal(t, wantCalled, calls.Load() > 0, "command called: want %t", wantCalled)
+	})
+
 	return func(context.Context, Req) (Res, error) {
-		if !called {
+		calls.Add(1)
+		if !wantCalled {
 			t.Error("command called unexpectedly")
 		}
+
 		return res, err
 	}
 }
@@ -568,7 +576,6 @@ func TestRevisionRevert_ServeHTTP(t *testing.T) {
 	repeatedFlag.wantBody = `{"code":"invalid_request","message":"` + repeatedFlagMessage + `"}`
 	cases := append([]revisionCase{created, anonymous, badID, badFlag, repeatedFlag, tooLarge, notJSON}, errorCases(base,
 		revisionCase{name: notFoundCase, err: datasources.ErrNotFound, wantStatus: http.StatusNotFound, wantBody: revisionNotFound},
-		revisionCase{name: "not_approved", err: domain.ErrNotApproved, wantStatus: http.StatusNotFound, wantBody: revisionNotFound},
 		revisionCase{name: "already_current", err: datasources.ErrAlreadyCurrent, wantStatus: http.StatusConflict,
 			wantBody: `{"code":"already_current","message":"the revision is already the entity's current revision"}`},
 		pendingLimit, entityGone, hiddenDataConflict, unacknowledgedFlags, pendingReferenceFlagged,

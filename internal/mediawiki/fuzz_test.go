@@ -230,16 +230,34 @@ const (
 )
 
 // abandoned counts the runs cpuWithin stopped waiting for that have not returned yet. Their CPU time would count
-// in every later measurement, so linearGrowth measures nothing while one is running.
+// in every later measurement, so linearGrowth waits for them (waitAbandoned) before measuring.
 var abandoned atomic.Int64
 
+// abandonedWait bounds how long linearGrowth waits for abandoned runs to return before measuring.
+const abandonedWait = 10 * time.Second
+
+// waitAbandoned waits up to abandonedWait for the abandoned runs to return, and reports whether none is left.
+func waitAbandoned() bool {
+	deadline := time.Now().Add(abandonedWait)
+	for abandoned.Load() > 0 {
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	return true
+}
+
 // linearGrowth runs parse at maxSize/growthStep^growthSteps, then at each size growthStep times larger up to
-// maxSize, logging each time, and returns an error as soon as a size runs over its budget (see growthStep). A
-// run cut off over budget is left running in the background (see abandoned).
+// maxSize, logging each time, and returns an error as soon as a size runs over its budget (see growthStep) in
+// two measurements: a run cut off over budget is left running in the background (see abandoned), and when it
+// returns within abandonedWait the size is measured once more. A run still going then is over budget for good.
 func linearGrowth(t *testing.T, maxSize int, parse func(size int)) error {
 	t.Helper()
-	if n := abandoned.Load(); n > 0 {
-		return fmt.Errorf("not measured: %d run(s) over budget in an earlier test are still using CPU", n)
+	if !waitAbandoned() {
+		return fmt.Errorf("not measured: %d run(s) over budget in an earlier test are still using CPU after %s",
+			abandoned.Load(), abandonedWait)
 	}
 	size := maxSize
 	for range growthSteps {
@@ -252,6 +270,12 @@ func linearGrowth(t *testing.T, maxSize int, parse func(size int)) error {
 		runtime.GC()
 		n := size
 		elapsed, within := cpuWithin(t, budget, func() { parse(n) })
+		if !within && waitAbandoned() {
+			// The run just cut off returned within the wait, so a clean measurement is possible. Machine load
+			// can push linear code over a budget once; quadratic code is over it every time.
+			runtime.GC()
+			elapsed, within = cpuWithin(t, budget, func() { parse(n) })
+		}
 		if !within {
 			return fmt.Errorf("%d bytes took %s of CPU, over the %s budget (%s at the size before, anchor %s at %d bytes)",
 				size, elapsed, budget, previous, anchor, anchorSize)

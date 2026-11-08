@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -299,14 +300,19 @@ func TestVerifyTurnstile_TransportFailuresAreUnavailable(t *testing.T) {
 	}
 }
 
+// roundTripFunc adapts a function to an http.RoundTripper.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
 func TestVerifyTurnstile_UnreachableIsUnavailable(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.NotFoundHandler())
-	endpoint := server.URL
-	server.Close()
-	v := New(passSecret, productionHostnames, server.Client())
-	v.endpoint = endpoint
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, syscall.ECONNREFUSED
+	})}
+	v := New(passSecret, productionHostnames, client)
+	v.endpoint = "https://siteverify.invalid/"
 
 	require.ErrorIs(t, v.VerifyTurnstile(t.Context(), dummyToken), datasources.ErrTurnstileUnavailable)
 }

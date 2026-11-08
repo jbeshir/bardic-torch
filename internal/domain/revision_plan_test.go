@@ -109,13 +109,13 @@ func TestPlanApproval(t *testing.T) {
 	licensingLink := DocPieceLink{DocLink: DocLink{URL: linkNew, Roles: []LinkRole{LinkRoleLicensingSource}}}
 
 	rows := []approvalRow{
-		{id: "not_stale", state: notStale, check: func(t *testing.T, plan ApprovalPlan[PieceDocument], err error) {
+		{id: "not_stale_is_not_rebased", state: notStale, check: func(t *testing.T, plan ApprovalPlan[PieceDocument], err error) {
 			require.NoError(t, err)
 			assert.False(t, plan.Rebased)
 			assert.Equal(t, withNotes(base), plan.Document)
 		}},
-		{id: "disjoint_scalars", state: staleClean, check: assertRebased},
-		{id: "conflict", state: staleConflict, err: ErrRebaseRequired},
+		{id: "stale_disjoint_scalars_merge_cleanly", state: staleClean, check: assertRebased},
+		{id: "stale_conflicting_edit_needs_rebase", state: staleConflict, err: ErrRebaseRequired},
 		{id: "conservation_change", state: func() ApprovalState[PieceDocument] {
 			rev := edit(base, func(d *PieceDocument) {
 				d.Conservation = DocConservation{Status: ConservationStatusEndangered, SourceURL: ptr(linkA)}
@@ -260,6 +260,17 @@ func TestPlanApproval(t *testing.T) {
 		}, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
 			assert.Equal(t, []DocumentProblem{{Path: pathLicensingStatus, Code: ProblemSourceRequired}},
 				problemsOf(t, err), "merged cleanly, and not approved")
+		}},
+		{id: "clean_merge_drops_licence_source", state: func() ApprovalState[PieceDocument] {
+			withLink := edit(addLink(base, licensingLink), func(d *PieceDocument) {
+				d.LicensingStatus = LicensingStatusKnown
+			})
+			rev := edit(withLink, func(d *PieceDocument) { d.Licence = ptr(LicenceCCBY) })
+
+			return pieceApproval(withLink, rev, removeLink(withLink, linkNew), currentRevisionID)
+		}, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
+			assert.Equal(t, []DocumentProblem{{Path: "/licence", Code: ProblemSourceRequired}},
+				problemsOf(t, err), "the revision's licence merged with the removal of its source link, and not approved")
 		}},
 		{id: "flagged_pending_reference", state: pending(PendingReference{Entity: ownTerm.Entity,
 			RevisionID: termRevision, Flags: []Flag{{Code: FlagHiddenAliasInSummary, Path: pathSummary}}}),

@@ -512,6 +512,12 @@ func (c *Catalog) Import(imp domain.CatalogueImport) {
 	}
 }
 
+// DB returns the database the Catalog seeds, for a Shared seed that also writes through the production write
+// paths.
+func (c *Catalog) DB() *sql.DB {
+	return c.db
+}
+
 // T returns the test the Catalog fails, for a Shared seed that needs it.
 func (c *Catalog) T() testing.TB {
 	return c.t

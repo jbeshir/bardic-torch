@@ -464,3 +464,177 @@ func TestRepository_SubmitDraft_DocumentChangedSinceDuplicates(t *testing.T) {
 	result := f.submit(t, actorWren, draft.Draft.ID)
 	assert.Contains(t, f.stored(t, result.RevisionID).flags, string(domain.FlagPossibleDuplicate))
 }
+
+// submitEdit saves the actor's editable document of the entity key, changed by change and with summary, as a draft,
+// calls between (if not nil), and submits the draft, returning the submission's error.
+// summaryPath is the path of a revision's summary in a document problem.
+const summaryPath = "/summary"
+
+func submitEdit[D domain.Document](
+	t *testing.T, f *editingFixture, actor domain.Actor, key domain.EntityKey, summary string, change func(*D),
+	between func(),
+) error {
+	t.Helper()
+	doc := f.editable(t, actor, key).Document.(D)
+	change(&doc)
+	draft, err := f.repo.SaveDraft(t.Context(), datasources.SaveDraftRequest{Actor: actor, EntityType: key.Type,
+		Entity: &key, Document: any(doc).(domain.AnyDocument), Summary: summary, Now: f.tick()})
+	require.NoError(t, err)
+	if between != nil {
+		between()
+	}
+	_, err = f.repo.SubmitDraft(t.Context(), f.submitRequest(t, actor, draft.Draft.ID))
+
+	return err
+}
+
+// sourcedLicensingPiece is a piece with a known licensing status whose licensing source link is hidden.
+func (f *editingFixture) sourcedLicensingPiece() catalogtest.Ref {
+	const licenceURL = "https://example.org/wren/licence-terms"
+	piece := f.c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{
+		SchemaVersion: domain.DocumentSchemaVersion, Title: "Sourced Ballad", Kind: domain.PieceKindSong,
+		Conservation:    domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+		LicensingStatus: domain.LicensingStatusKnown, Licence: new(domain.LicenceCCBYSA),
+		Terms: []domain.DocPieceTerm{{TermID: f.ballads.ID, IsPrimary: true}},
+		Links: []domain.DocPieceLink{{DocLink: domain.DocLink{URL: licenceURL,
+			Roles: []domain.LinkRole{domain.LinkRoleLicensingSource}}}},
+	}})
+	f.c.SetLinkState(licenceURL, catalogtest.LinkState{IsHidden: true})
+
+	return piece
+}
+
+// TestRepository_SubmitDraft_SourcedFields checks that the sourced-field rules (docs/PLAN.md §5.1) hold on a
+// submission: a change that needs a source is refused with source_required, naming the field, unless the source is
+// in the submitted document; a source the author cannot see does not count for a contributor but is kept for a
+// moderator; and the comparison document is the draft's own base, not the entity's current document.
+func TestRepository_SubmitDraft_SourcedFields(t *testing.T) {
+	t.Parallel()
+
+	const archiveURL = "https://example.org/wren/archive"
+	licensingLink := domain.DocPieceLink{DocLink: domain.DocLink{URL: archiveURL,
+		Roles: []domain.LinkRole{domain.LinkRoleLicensingSource}}}
+	setLicence := func(d *domain.PieceDocument) {
+		d.LicensingStatus, d.Licence = domain.LicensingStatusKnown, new(domain.LicenceCCBY)
+	}
+	setConservation := func(d *domain.PieceDocument) {
+		d.Conservation = domain.DocConservation{Status: domain.ConservationStatusEndangered, SourceURL: new(conservedURL)}
+	}
+	sourceRequired := func(path string) *domain.DocumentProblem {
+		return &domain.DocumentProblem{Path: path, Code: domain.ProblemSourceRequired}
+	}
+	rows := []struct {
+		name string
+		// run submits the row's edit and returns the submission's error.
+		run func(t *testing.T, f *editingFixture) error
+		// want is the problem the submission is refused with, or nil if it is accepted.
+		want *domain.DocumentProblem
+	}{
+		{name: "licence_change_without_licensing_source", want: sourceRequired("/licence"),
+			run: func(t *testing.T, f *editingFixture) error {
+				return submitEdit(t, f, actorWren, *pieceKey(f.song.Slug), draftSummary, setLicence, nil)
+			}},
+		{name: "licence_change_with_licensing_source",
+			run: func(t *testing.T, f *editingFixture) error {
+				return submitEdit(t, f, actorWren, *pieceKey(f.song.Slug), draftSummary, func(d *domain.PieceDocument) {
+					setLicence(d)
+					d.Links = append(d.Links, licensingLink)
+				}, nil)
+			}},
+		{name: "licence_change_with_hidden_licensing_source", want: sourceRequired("/licence"),
+			run: func(t *testing.T, f *editingFixture) error {
+				piece := f.sourcedLicensingPiece()
+				return submitEdit(t, f, actorWren, *pieceKey(piece.Slug), draftSummary, func(d *domain.PieceDocument) {
+					d.Licence = new(domain.LicencePD)
+				}, nil)
+			}},
+		{name: "moderator_licence_change_keeps_hidden_licensing_source",
+			run: func(t *testing.T, f *editingFixture) error {
+				piece := f.sourcedLicensingPiece()
+				return submitEdit(t, f, actorRowan, *pieceKey(piece.Slug), draftSummary, func(d *domain.PieceDocument) {
+					d.Licence = new(domain.LicencePD)
+				}, nil)
+			}},
+		{name: "moderator_licence_change_without_licensing_source", want: sourceRequired("/licence"),
+			run: func(t *testing.T, f *editingFixture) error {
+				return submitEdit(t, f, actorRowan, *pieceKey(f.song.Slug), draftSummary, setLicence, nil)
+			}},
+		{name: "person_status_change_without_source", want: sourceRequired("/status_source_url"),
+			run: func(t *testing.T, f *editingFixture) error {
+				return submitEdit(t, f, actorWren, *personKey(f.ash.Slug), draftSummary, func(d *domain.PersonDocument) {
+					d.Status = domain.PersonStatusDeceased
+				}, nil)
+			}},
+		{name: "person_status_change_with_source",
+			run: func(t *testing.T, f *editingFixture) error {
+				return submitEdit(t, f, actorWren, *personKey(f.ash.Slug), draftSummary, func(d *domain.PersonDocument) {
+					d.Status, d.StatusSourceURL = domain.PersonStatusDeceased, new("https://example.org/ash/obituary")
+				}, nil)
+			}},
+		{name: "conservation_change_without_summary", want: &domain.DocumentProblem{Path: summaryPath,
+			Code: domain.ProblemReasonRequired},
+			run: func(t *testing.T, f *editingFixture) error {
+				return submitEdit(t, f, actorWren, *pieceKey(f.song.Slug), "", setConservation, nil)
+			}},
+		{name: "preference_change_without_source", want: sourceRequired("/preferences/0/source_url"),
+			run: func(t *testing.T, f *editingFixture) error {
+				return submitEdit(t, f, actorWren, *pieceKey(f.song.Slug), draftSummary, func(d *domain.PieceDocument) {
+					d.Preferences = []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
+						Value: json.RawMessage(`{"allowed": true}`)}}
+				}, nil)
+			}},
+		{name: "preference_change_with_source",
+			run: func(t *testing.T, f *editingFixture) error {
+				return submitEdit(t, f, actorWren, *pieceKey(f.song.Slug), draftSummary, func(d *domain.PieceDocument) {
+					d.Preferences = []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
+						Value: json.RawMessage(`{"allowed": true}`), SourceURL: preferencesURL}}
+				}, nil)
+			}},
+		{name: "conservation_change_without_summary_on_stale_base",
+			want: &domain.DocumentProblem{Path: summaryPath, Code: domain.ProblemReasonRequired},
+			run: func(t *testing.T, f *editingFixture) error {
+				// Current already holds the conservation status the draft sets: the change is against the draft's
+				// own base, not against current, so it still needs its summary.
+				return submitEdit(t, f, actorWren, *pieceKey(f.song.Slug), "", setConservation, func() {
+					conserved := songDocument(f)
+					setConservation(&conserved)
+					moved := f.c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece,
+						EntityID: f.song.ID, Snapshot: conserved, BaseRevisionID: f.song.RevisionID})
+					f.c.Exec("UPDATE pieces SET current_revision_id = ? WHERE id = ?", moved, f.song.ID)
+				})
+			}},
+	}
+	for _, row := range rows {
+		t.Run(row.name, func(t *testing.T) {
+			t.Parallel()
+			f := newEditingFixture(t)
+
+			err := row.run(t, f)
+
+			if row.want == nil {
+				require.NoError(t, err)
+				return
+			}
+			var docErr *domain.DocumentError
+			require.ErrorAs(t, err, &docErr)
+			assert.Contains(t, docErr.Problems, *row.want)
+		})
+	}
+}
+
+// TestRepository_SubmitDraft_ModeratorPreferenceChangeIsNotApplied checks that preferences, which no editable
+// document holds for anyone, cannot be changed through a submission: a moderator's changed preference is approved
+// without replacing the base's preferences in the stored document.
+func TestRepository_SubmitDraft_ModeratorPreferenceChangeIsNotApplied(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+
+	err := submitEdit(t, f, actorRowan, *pieceKey(f.song.Slug), draftSummary, func(d *domain.PieceDocument) {
+		d.Preferences = []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
+			Value: json.RawMessage(`{"allowed": true}`)}}
+	}, nil)
+
+	require.NoError(t, err)
+	id := int64(f.count(t, "SELECT MAX(id) FROM revisions WHERE entity_id = ?", f.song.ID))
+	assert.Equal(t, songDocument(f).Preferences, f.storedPiece(t, id).Preferences)
+}

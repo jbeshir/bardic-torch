@@ -9,14 +9,13 @@ import (
 var (
 	// ErrIllegalTransition is an action the revision's status does not allow. ErrNotDraft and ErrNotPending are
 	// the cases a caller tells apart; the bare error is an action on a revision that does not exist yet other than
-	// creating a draft.
+	// creating a draft, or a revert to a revision that is not approved, which no caller asks: the repository looks
+	// up only approved revisions as revert targets, and answers any other as not found.
 	ErrIllegalTransition = errors.New("illegal revision transition")
 	// ErrNotDraft is a draft action on a revision of the caller's that is no longer a draft.
 	ErrNotDraft = fmt.Errorf("%w: the revision is not a draft", ErrIllegalTransition)
 	// ErrNotPending is a moderation action, or a withdrawal, of a revision that is not pending.
 	ErrNotPending = fmt.Errorf("%w: the revision is not pending", ErrIllegalTransition)
-	// ErrNotApproved is a revert to a revision that is not approved, which is answered as if it did not exist.
-	ErrNotApproved = errors.New("the revision is not approved")
 	// ErrNotRevisionAuthor is an author's action by someone else, which is answered as if the revision did not
 	// exist.
 	ErrNotRevisionAuthor = errors.New("not the revision's author")
@@ -99,7 +98,7 @@ func submittedStatus(role Role) RevisionStatus {
 func draftTransition(role Role, from RevisionStatus, action RevisionAction) (RevisionStatus, error) {
 	if action == RevisionActionRevert {
 		if from != RevisionStatusApproved {
-			return "", ErrNotApproved
+			return "", ErrIllegalTransition
 		}
 
 		return submittedStatus(role), nil

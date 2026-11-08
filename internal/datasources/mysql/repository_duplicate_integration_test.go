@@ -119,8 +119,10 @@ func TestRepository_ListHiddenAliasNames(t *testing.T) {
 }
 
 // TestRepository_FindDuplicates_NameLimit checks that a name set reaching the duplicate check's limit is noticed:
-// a warning is logged. It sets the default logger, so it does not run in parallel.
+// a warning is logged to the request's logger.
 func TestRepository_FindDuplicates_NameLimit(t *testing.T) {
+	t.Parallel()
+
 	f := newEditingFixture(t)
 	digits := "(SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 " +
 		"UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9)"
@@ -129,11 +131,9 @@ func TestRepository_FindDuplicates_NameLimit(t *testing.T) {
 		"SELECT a.d + 10 * b.d + 100 * c.d + 1000 * e.d + 10000 * g.d AS n FROM "+digits+" a, "+digits+" b, "+
 		digits+" c, "+digits+" e, "+digits+" g) numbers WHERE n < 20001", f.song.RevisionID)
 	var logged bytes.Buffer
-	previous := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, nil)))
-	t.Cleanup(func() { slog.SetDefault(previous) })
+	ctx := domain.ContextWithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
 
-	_, err := f.repo.FindDuplicates(t.Context(), domain.NewDuplicateCandidate(newPieceDocument(unsungTitle)), false)
+	_, err := f.repo.FindDuplicates(ctx, domain.NewDuplicateCandidate(newPieceDocument(unsungTitle)), false)
 
 	require.NoError(t, err)
 	assert.Contains(t, logged.String(), "duplicate check reached its name limit")

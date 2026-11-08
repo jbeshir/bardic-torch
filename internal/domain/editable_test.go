@@ -178,7 +178,7 @@ func TestEditable(t *testing.T) {
 				DocPieceTerm{TermID: refOwnTerm}), want: true},
 		{id: "hidden_collection_nulled",
 			got: first(EditableDocument(pieceID, fullPiece(), contributor)).Links[1].CollectionID, want: (*int64)(nil)},
-		{id: "current_name", got: first(EditableDocument(personID, fullPerson(), contributor)).Name,
+		{id: "renamed_person_shows_current_name", got: first(EditableDocument(personID, fullPerson(), contributor)).Name,
 			want: fullPerson().Name},
 		{id: "own_pending_person_credited",
 			got: slices.ContainsFunc(first(EditableDocument(pieceID, fullPiece(), contributor)).Credits,

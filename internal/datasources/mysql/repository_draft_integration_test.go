@@ -52,6 +52,8 @@ func TestRepository_SaveDraft_OnePerEntity(t *testing.T) {
 	assert.NotEqual(t, first.Draft.ID, other.Draft.ID)
 }
 
+// TestRepository_SaveDraft_Concurrent releases two saves of one user's draft of an entity together: the users row
+// serialises them, so the second replaces the first's draft rather than adding another.
 func TestRepository_SaveDraft_Concurrent(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -59,13 +61,16 @@ func TestRepository_SaveDraft_Concurrent(t *testing.T) {
 	doc := f.editable(t, actorWren, *key).Document
 
 	var wg sync.WaitGroup
+	start := make(chan struct{})
 	errs := make([]error, 2)
 	for i := range errs {
 		wg.Go(func() {
+			<-start
 			_, errs[i] = f.repo.SaveDraft(t.Context(), datasources.SaveDraftRequest{Actor: actorWren,
 				EntityType: domain.EntityTypePiece, Entity: key, Document: doc, Now: f.now})
 		})
 	}
+	close(start)
 	wg.Wait()
 
 	for _, err := range errs {
@@ -244,4 +249,24 @@ func TestRepository_SaveDraft_DefaultBaseIsPendingStart(t *testing.T) {
 	assert.True(t, slices.ContainsFunc(current.Aliases, func(a domain.DocPersonAlias) bool { return a.Name == added }),
 		"Ash's alias survives Wren's edit")
 	assert.Equal(t, "Wren's notes.", *current.NotesMD)
+}
+
+// TestRepository_SaveDraft_OthersPlaceholder: a placeholder (a pending new entity) is its author's alone, so saving
+// a draft on another user's, a moderator's too, is datasources.ErrNotFound and leaves the drafts as they were.
+func TestRepository_SaveDraft_OthersPlaceholder(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	term := f.newPending(t, actorWren, newTermDocument("Sea Songs"))
+	key := domain.EntityKey{Type: domain.EntityTypeTerm, Slug: term.Entity.Slug}
+	const countDrafts = "SELECT COUNT(*) FROM revisions WHERE status = 'draft'"
+	before := f.count(t, countDrafts)
+
+	for _, actor := range []domain.Actor{actorAsh, actorRowan} {
+		_, err := f.repo.SaveDraft(t.Context(), datasources.SaveDraftRequest{Actor: actor,
+			EntityType: domain.EntityTypeTerm, Entity: &key, Document: newTermDocument("Sea Shanties"),
+			Summary: draftSummary, Now: f.tick()})
+		require.ErrorIs(t, err, datasources.ErrNotFound, "%s", actor.UserID)
+	}
+
+	assert.Equal(t, before, f.count(t, countDrafts), "no draft was saved")
 }

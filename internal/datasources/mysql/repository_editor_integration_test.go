@@ -170,7 +170,7 @@ func TestRepository_GetEditable_Moderator(t *testing.T) {
 	assert.Empty(t, token.LinkStates)
 }
 
-func TestRepository_GetEditable_PendingPlaceholder(t *testing.T) {
+func TestRepository_GetEditable_PlaceholderIsAuthorOnlyEvenForModerators(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
 	term := f.newPending(t, actorWren, newTermDocument("Sea Songs"))
@@ -186,7 +186,7 @@ func TestRepository_GetEditable_PendingPlaceholder(t *testing.T) {
 
 	for _, actor := range []domain.Actor{actorAsh, actorRowan} {
 		_, err := f.repo.GetEditable(t.Context(), actor, key)
-		require.ErrorIs(t, err, datasources.ErrNotFound, "a placeholder is editable by its author only")
+		require.ErrorIs(t, err, datasources.ErrNotFound, "a placeholder is editable by its author only, even by a moderator")
 	}
 	_, err := f.repo.GetEditable(t.Context(), actorWren, domain.EntityKey{Type: domain.EntityTypeTerm,
 		Slug: unknownTermSlug})

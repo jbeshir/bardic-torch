@@ -40,11 +40,19 @@ func newRevisionWorld(t *testing.T, logger *slog.Logger, moderatorID string) rev
 	t.Helper()
 
 	db := mysqltest.NewDatabase(t)
-	repository := mysql.New(db)
-	bootstrap := &command.BootstrapModerators{Promoter: repository, Now: now}
+	bootstrap := &command.BootstrapModerators{Promoter: mysql.New(db), Now: now}
 	_, err := bootstrap.Execute(t.Context(), []string{moderatorID})
 	require.NoError(t, err)
 
+	return revisionWorldOn(t, db, logger)
+}
+
+// revisionWorldOn returns a revisionWorld over db, a migrated database, promoting no one. If logger is not nil,
+// the handler logs every request to it.
+func revisionWorldOn(t *testing.T, db *sql.DB, logger *slog.Logger) revisionWorld {
+	t.Helper()
+
+	repository := mysql.New(db)
 	issuer := auth0test.NewIssuer(t)
 	auth0Validator, err := router.NewAuth0Validator(issuer.URL, endToEndAudience)
 	require.NoError(t, err)
@@ -85,6 +93,7 @@ func (w revisionWorld) block(t *testing.T, moderator, blockedPath string) {
 // Editor document fields the tests edit.
 const (
 	nameField        = "name"
+	statusField      = "status"
 	notesField       = "notes_md"
 	descriptionField = "description_md"
 )
@@ -131,8 +140,8 @@ func draftRequest(t *testing.T, entityType domain.EntityType, entity jsonObject,
 	if entity != nil {
 		key = entity
 	}
-	return encodeJSON(t, jsonObject{"entity_type": entityType, "entity": key, "base_revision_id": base,
-		"document": document, "summary": summary})
+	return encodeJSON(t, jsonObject{entityTypeField: entityType, "entity": key, "base_revision_id": base,
+		documentField: document, "summary": summary})
 }
 
 // saveDraft saves a draft as authorization, returning it.
@@ -213,6 +222,31 @@ func TestHTTP_RevisionEndToEnd(t *testing.T) {
 		contributeToPerson(t, w, w.apiToken(t, w.auth0(t, revisionE2EScriptUserID)), moderator, person,
 			"Tamsin Hidden Legal Name")
 	})
+	t.Run("status_change_without_source_is_422_source_required", func(t *testing.T) {
+		person := imported("Isolde Placeholder", "Isolde Hidden Legal Name")
+		contributor := w.auth0(t, revisionE2EContributorID)
+		editable := sendOK[jsonObject](t, w.e, http.MethodGet, editablePath("persons", person.Slug), contributor, "",
+			http.StatusOK)
+		draft := saveDraft(t, w.e, contributor, draftRequest(t, domain.EntityTypePerson, entitySlug(person.Slug),
+			person.RevisionID, editedDocument(t, editable, jsonObject{statusField: string(domain.PersonStatusDeceased)}),
+			"Mark deceased."))
+
+		rec := w.e.send(t, http.MethodPost, revisionsPath, contributor, submitBody(objectID(t, draft, "id")))
+
+		require.Equal(t, http.StatusUnprocessableEntity, rec.Code, rec.Body.String())
+		var body struct {
+			Code     httpjson.ErrorCode `json:"code"`
+			Problems []struct {
+				Path    string `json:"path"`
+				Problem string `json:"problem"`
+			} `json:"problems"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, httpjson.CodeInvalidDocument, body.Code)
+		require.Len(t, body.Problems, 1)
+		assert.Equal(t, "/status_source_url", body.Problems[0].Path)
+		assert.Equal(t, string(domain.ProblemSourceRequired), body.Problems[0].Problem)
+	})
 	t.Run("blocked_contributor", func(t *testing.T) {
 		person := imported("Blocked Placeholder", "Blocked Hidden Legal Name")
 		requireBlockedEverywhere(t, w, moderator, person)
@@ -239,7 +273,7 @@ func contributeToPerson(
 	draft := saveDraft(t, e, contributor, draftRequest(t, domain.EntityTypePerson, entitySlug(person.Slug),
 		person.RevisionID, editedDocument(t, start, jsonObject{notesField: "Sings at revels."}), "Add notes."))
 	first := submitDraft(t, e, contributor, objectID(t, draft, "id"))
-	assert.Equal(t, string(domain.RevisionStatusPending), first["status"])
+	assert.Equal(t, string(domain.RevisionStatusPending), first[statusField])
 	assert.Equal(t, string(domain.RevisionSourceUser), first["source"])
 	firstID := objectID(t, first, "id")
 
@@ -256,13 +290,13 @@ func contributeToPerson(
 	// Withdrawing leaves nothing pending; submitting again does.
 	withdrawn := sendOK[jsonObject](t, e, http.MethodPost, idPath("/v1/revisions/", firstID)+"/withdraw",
 		contributor, "", http.StatusOK)
-	assert.Equal(t, string(domain.RevisionStatusWithdrawn), withdrawn["status"])
+	assert.Equal(t, string(domain.RevisionStatusWithdrawn), withdrawn[statusField])
 	sendRejected(t, e, http.MethodGet, pendingPath("persons", person.Slug), contributor, "", http.StatusNotFound,
 		httpjson.CodeNotFound)
 	draft = saveDraft(t, e, contributor, draftRequest(t, domain.EntityTypePerson, entitySlug(person.Slug),
 		person.RevisionID, editedDocument(t, start, jsonObject{notesField: "Sings at revels."}), "Add notes."))
 	second := submitDraft(t, e, contributor, objectID(t, draft, "id"))
-	assert.Equal(t, string(domain.RevisionStatusPending), second["status"])
+	assert.Equal(t, string(domain.RevisionStatusPending), second[statusField])
 	secondID := objectID(t, second, "id")
 
 	// Re-opened while pending, the editable document starts from the pending revision, on its submitted base.
@@ -280,19 +314,19 @@ func contributeToPerson(
 	moderatorDraft := saveDraft(t, e, moderator, draftRequest(t, domain.EntityTypePerson, entitySlug(person.Slug),
 		person.RevisionID, editedDocument(t, moderatorStart, jsonObject{nameField: renamed}), "Use the stage name."))
 	moderatorEdit := submitDraft(t, e, moderator, objectID(t, moderatorDraft, "id"))
-	assert.Equal(t, string(domain.RevisionStatusApproved), moderatorEdit["status"])
+	assert.Equal(t, string(domain.RevisionStatusApproved), moderatorEdit[statusField])
 
 	// The contributor's superseding submit is pending on the base they edited, not the moderator's revision.
 	draft = saveDraft(t, e, contributor, draftRequest(t, domain.EntityTypePerson, entitySlug(person.Slug),
 		objectID(t, reopened, "base_revision_id"),
 		editedDocument(t, reopened, jsonObject{notesField: "Sings at revels and feasts."}), "More notes."))
 	third := submitDraft(t, e, contributor, objectID(t, draft, "id"))
-	assert.Equal(t, string(domain.RevisionStatusPending), third["status"])
+	assert.Equal(t, string(domain.RevisionStatusPending), third[statusField])
 	assert.Equal(t, person.RevisionID, objectID(t, third, "base_revision_id"))
 	thirdID := objectID(t, third, "id")
 	superseded := sendOK[jsonObject](t, e, http.MethodGet, idPath("/v1/me/revisions/", secondID), contributor, "",
 		http.StatusOK)
-	assert.Equal(t, string(domain.RevisionStatusWithdrawn), superseded["status"])
+	assert.Equal(t, string(domain.RevisionStatusWithdrawn), superseded[statusField])
 
 	// Approved (moderator HTTP is not there yet, so through the repository), the stale revision is merged: the
 	// moderator's rename survives next to the contributor's notes, and the hidden alias stays stored and hidden.
@@ -310,7 +344,7 @@ func contributeToPerson(
 	assert.Equal(t, 1, hidden)
 	approved := sendOK[jsonObject](t, e, http.MethodGet, idPath("/v1/me/revisions/", thirdID), contributor, "",
 		http.StatusOK)
-	assert.Equal(t, string(domain.RevisionStatusApproved), approved["status"])
+	assert.Equal(t, string(domain.RevisionStatusApproved), approved[statusField])
 	sendRejected(t, e, http.MethodGet, pendingPath("persons", person.Slug), contributor, "", http.StatusNotFound,
 		httpjson.CodeNotFound)
 }
@@ -358,8 +392,8 @@ func requireBlockedEverywhere(t *testing.T, w revisionWorld, moderator string, p
 // newPieceDocument is the editor document of a new song titled title, with every other field empty or default.
 func newPieceDocument(title string) jsonObject {
 	return jsonObject{
-		"title": title, "kind": domain.PieceKindSong, "secondary_kinds": []any{},
-		"conservation": jsonObject{"status": domain.ConservationStatusUnassessed, "source_url": nil},
+		titleField: title, "kind": domain.PieceKindSong, "secondary_kinds": []any{},
+		"conservation": jsonObject{statusField: domain.ConservationStatusUnassessed, "source_url": nil},
 		"is_stub":      false, "notes_md": nil, "version_notes_md": nil, "licensing_status": domain.LicensingStatusUnknown,
 		"licensing_notes_md": nil, "licence": nil, "historical_source_md": nil, "period_start": nil,
 		"period_end": nil, "aliases": []any{}, "terms": []any{}, "relations": []any{}, "credits": []any{},

@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -32,6 +34,8 @@ const (
 	viewerOther revisionViewer = "B"
 	// viewerModerator is moderator M in an Auth0 session.
 	viewerModerator revisionViewer = "M"
+	// viewerAuthorToken is A with an API token.
+	viewerAuthorToken revisionViewer = "AT"
 	// viewerModeratorToken is the same moderator with an API token, a contributor.
 	viewerModeratorToken revisionViewer = "MT"
 )
@@ -65,6 +69,9 @@ const (
 	draftTitle     = "leakmark-draft-title"
 	pendingTerm    = "leakmark-pending-term"
 	pendingEvent   = "leakmark-pending-event"
+	pendingArchive = "leakmark-pending-archive"
+	// rejectedWrenNotes are the notes of A's edit of wren that the moderator rejects with rejectionNote.
+	rejectedWrenNotes = "leakmark-rejected-wren-notes"
 	// flaggedSummary names a hidden alias, so the revision is flagged hidden_alias_in_summary.
 	flaggedSummary = "leakmark-flagged-summary, as " + wrenLegalAlias + " told me."
 )
@@ -89,6 +96,9 @@ type revisionLeakFixture struct {
 	pieceDraft int64
 	// renameToAlias is A's (withdrawn) rename of wren to a hidden alias, flagged hidden_data_conflict.
 	renameToAlias int64
+	// rejected is A's edit of wren that the moderator rejected: A typed nothing hidden, but received wren's
+	// hidden aliases and hidden link, which the stored snapshot holds.
+	rejected int64
 	// own are A's revisions, drafts included, with the marked strings of A's own each shows A.
 	own []ownRevision
 }
@@ -97,6 +107,8 @@ type revisionLeakFixture struct {
 type ownRevision struct {
 	id      int64
 	reveals []string
+	// check, if not nil, makes further assertions on the author's view.
+	check func(t *testing.T, body string)
 }
 
 // revisionLeakRequest is a GET the revision leak matrix sends as viewer, and its expected status.
@@ -187,6 +199,7 @@ func newRevisionLeakWorld(t *testing.T) (revisionLeakWorld, revisionLeakFixture)
 	for _, authorization := range w.viewers {
 		sendOK[jsonObject](t, w.e, http.MethodGet, mePath, authorization, "", http.StatusOK)
 	}
+	w.viewers[viewerAuthorToken] = w.apiToken(t, w.viewers[viewerAuthor])
 	w.viewers[viewerModeratorToken] = w.apiToken(t, w.viewers[viewerModerator])
 	blocked := w.auth0(t, revisionLeakBlockedID)
 	w.blocked = []string{blocked, w.apiToken(t, blocked)}
@@ -284,9 +297,13 @@ func (w revisionLeakWorld) seedAuthorRevisions(t *testing.T, fx revisionLeakFixt
 	fx.pieceDraft = objectID(t, saveDraft(t, w.e, a, draftRequest(t, domain.EntityTypePiece, nil, nil,
 		newPieceDocument(draftTitle), "A new piece.")), "id")
 
+	archive := w.submitEdit(t, "collections", idPath("", fx.archive.ID), domain.EntityTypeCollection,
+		jsonObject{descriptionField: pendingArchive}, "Describe the archive.")
+
 	renameToAlias, renameToFresh := w.validationOracle(t, fx)
 	w.duplicateOracle(t)
 	fx.renameToAlias = renameToAlias
+	fx.rejected = w.rejectedEdit(t, fx)
 	provenance := w.provenance(t, fx)
 
 	// A reports a visible link of the piece, with a message for the moderators' inbox.
@@ -298,6 +315,8 @@ func (w revisionLeakWorld) seedAuthorRevisions(t *testing.T, fx revisionLeakFixt
 	fx.own = []ownRevision{
 		{id: piece, reveals: []string{pendingNotes, pendingSummary}},
 		{id: event, reveals: []string{pendingEvent}},
+		{id: archive, reveals: []string{pendingArchive}},
+		{id: fx.rejected, reveals: []string{rejectedWrenNotes}, check: rejectedAuthorView},
 		{id: flagged, reveals: []string{flaggedSummary}},
 		{id: objectID(t, term, "id"), reveals: []string{pendingTerm}},
 		{id: fx.pieceDraft, reveals: []string{draftTitle}},
@@ -316,8 +335,14 @@ func (w revisionLeakWorld) submitEdit(t *testing.T, collection, key string, enti
 	t.Helper()
 	a := w.viewers[viewerAuthor]
 
+	entity := entitySlug(key)
+	if entityType == domain.EntityTypeCollection {
+		id, err := strconv.ParseInt(key, 10, 64)
+		require.NoError(t, err)
+		entity = jsonObject{"slug": nil, collectionIDParam: id}
+	}
 	start := sendOK[jsonObject](t, w.e, http.MethodGet, editablePath(collection, key), a, "", http.StatusOK)
-	draft := saveDraft(t, w.e, a, draftRequest(t, entityType, entitySlug(key), start["base_revision_id"],
+	draft := saveDraft(t, w.e, a, draftRequest(t, entityType, entity, start["base_revision_id"],
 		editedDocument(t, start, changes), summary))
 	revision := submitDraft(t, w.e, a, objectID(t, draft, "id"))
 	require.Equal(t, string(domain.RevisionStatusPending), revision["status"])
@@ -562,6 +587,7 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 			{viewer: viewerAuthor, path: editablePath("terms", fx.pendingTermSlug), status: http.StatusOK,
 				reveals: []string{pendingTerm}},
 			{viewer: viewerOther, path: editablePath("terms", fx.pendingTermSlug), status: http.StatusNotFound},
+			{viewer: viewerModeratorToken, path: editablePath("terms", fx.pendingTermSlug), status: http.StatusNotFound},
 		}
 	},
 	{Method: http.MethodGet, Path: "/v1/events/{slug}/editable"}: func(fx revisionLeakFixture) []revisionLeakRequest {
@@ -574,10 +600,10 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/editable"}: func(
 		fx revisionLeakFixture,
 	) []revisionLeakRequest {
-		// The unapproved region is withheld.
+		// The unapproved region is withheld; A starts from their pending edit, which received it.
 		path := editablePath("collections", idPath("", fx.archive.ID))
 		return []revisionLeakRequest{
-			{viewer: viewerAuthor, path: path, status: http.StatusOK},
+			{viewer: viewerAuthor, path: path, status: http.StatusOK, reveals: []string{pendingArchive}},
 			{viewer: viewerOther, path: path, status: http.StatusOK},
 		}
 	},
@@ -599,11 +625,8 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/pending"}: func(
 		fx revisionLeakFixture,
 	) []revisionLeakRequest {
-		path := pendingPath("collections", idPath("", fx.archive.ID))
-		return []revisionLeakRequest{
-			{viewer: viewerAuthor, path: path, status: http.StatusNotFound},
-			{viewer: viewerOther, path: path, status: http.StatusNotFound},
-		}
+		// A's pending edit received the unapproved region, which their view withholds.
+		return authorOnly(pendingPath("collections", idPath("", fx.archive.ID)), pendingArchive)
 	},
 	{Method: http.MethodGet, Path: "/v1/drafts/{draft_id}"}: func(fx revisionLeakFixture) []revisionLeakRequest {
 		// Drafts are private, from moderators too.
@@ -612,6 +635,7 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 			{viewer: viewerAuthor, path: path, status: http.StatusOK, reveals: []string{draftTitle}},
 			{viewer: viewerOther, path: path, status: http.StatusNotFound},
 			{viewer: viewerModerator, path: path, status: http.StatusNotFound},
+			{viewer: viewerModeratorToken, path: path, status: http.StatusNotFound},
 		}
 	},
 	{Method: http.MethodGet, Path: myRevisionsPath}: func(fx revisionLeakFixture) []revisionLeakRequest {
@@ -625,7 +649,9 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 	{Method: http.MethodGet, Path: myRevisionPath}: func(fx revisionLeakFixture) []revisionLeakRequest {
 		var rows []revisionLeakRequest
 		for _, own := range fx.own {
-			rows = append(rows, authorOnly(idPath("/v1/me/revisions/", own.id), own.reveals...)...)
+			some := authorOnly(idPath("/v1/me/revisions/", own.id), own.reveals...)
+			some[0].check = own.check
+			rows = append(rows, some...)
 		}
 		return rows
 	},
@@ -673,14 +699,15 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 	},
 }
 
-// moderatorOnly are the rows of a moderator view at path: contributors A and B get 403 moderator_required, the
-// moderator's API token 403 api_token_not_allowed, each with the Error body only, and the moderator in an Auth0
-// session the full view, which check asserts on.
+// moderatorOnly are the rows of a moderator view at path: contributors A and B, and A's API token, get 403
+// moderator_required, the moderator's API token 403 api_token_not_allowed, each with the Error body only, and the
+// moderator in an Auth0 session the full view, which check asserts on.
 func moderatorOnly(path string, check func(t *testing.T, body string)) []revisionLeakRequest {
 	return []revisionLeakRequest{
 		{viewer: viewerAuthor, path: path, status: http.StatusForbidden, code: httpjson.CodeModeratorRequired},
 		{viewer: viewerOther, path: path, status: http.StatusForbidden, code: httpjson.CodeModeratorRequired},
 		{viewer: viewerModeratorToken, path: path, status: http.StatusForbidden, code: httpjson.CodeAPIAuthNotAllowed},
+		{viewer: viewerAuthorToken, path: path, status: http.StatusForbidden, code: httpjson.CodeModeratorRequired},
 		{viewer: viewerModerator, path: path, status: http.StatusOK, full: true, check: check},
 	}
 }
@@ -739,11 +766,13 @@ func (w revisionLeakWorld) assertHiddenLinkReportIsUnknown(t *testing.T) {
 	}
 }
 
-// authorOnly are the rows of a read of A's own revision at path: A sees reveals, B gets 404.
+// authorOnly are the rows of a read of A's own revision at path: A sees reveals (and so does A's API token, as
+// withAuthorToken adds), and B and the moderator's API token get 404.
 func authorOnly(path string, reveals ...string) []revisionLeakRequest {
 	return []revisionLeakRequest{
 		{viewer: viewerAuthor, path: path, status: http.StatusOK, reveals: reveals},
 		{viewer: viewerOther, path: path, status: http.StatusNotFound},
+		{viewer: viewerModeratorToken, path: path, status: http.StatusNotFound},
 	}
 }
 
@@ -813,9 +842,10 @@ func TestHTTP_RevisionLeakMatrix(t *testing.T) {
 	t.Parallel()
 
 	w, fx := newRevisionLeakWorld(t)
+	requireRevisionLeakMarkersStored(t, w, fx)
 	for op, rows := range revisionLeakMatrix {
 		t.Run(op.Method+" "+op.Path, func(t *testing.T) {
-			for _, req := range rows(fx) {
+			for _, req := range withAuthorToken(rows(fx)) {
 				t.Run(string(req.viewer)+" "+req.path, func(t *testing.T) {
 					w.assertRow(t, req)
 				})
@@ -919,4 +949,104 @@ func (w revisionLeakWorld) duplicateOracle(t *testing.T) {
 	for _, body := range byName {
 		assert.Contains(t, body, `"matched":"name"`, "a draft named as a person who prefers no page shows them")
 	}
+}
+
+// rejectionNote is the moderator's review note on A's rejected edit of wren; it holds nothing private.
+const rejectionNote = "Please cite a source for this."
+
+// rebasedWrenNotes are the notes the moderator gave A's edit of wren in a rebase before rejecting it. A's view
+// shows what A submitted, so A never sees them.
+const rebasedWrenNotes = "leakmark-rebased-wren-notes"
+
+// rejectedEdit has A edit wren's notes, typing nothing hidden, and the moderator rebase the edit with
+// rebasedWrenNotes and then reject it with rejectionNote. It returns the rejected revision's ID, having checked
+// that its stored snapshot holds what A must not be shown: the moderator's notes, and what A received, wren's hidden
+// aliases and hidden link.
+func (w revisionLeakWorld) rejectedEdit(t *testing.T, fx revisionLeakFixture) int64 {
+	t.Helper()
+	m := w.viewers[viewerModerator]
+
+	id := w.submitEdit(t, "persons", fx.wren.Slug, domain.EntityTypePerson,
+		jsonObject{notesField: rejectedWrenNotes}, "Add notes.")
+	view := sendOK[jsonObject](t, w.e, http.MethodGet, moderationPath(id), m, "", http.StatusOK)
+	rebased := editedDocument(t, view, jsonObject{notesField: rebasedWrenNotes})
+	sendOK[jsonObject](t, w.e, http.MethodPost, idPath("/v1/revisions/", id)+"/rebase", m,
+		encodeJSON(t, jsonObject{"entity_type": domain.EntityTypePerson,
+			"current_revision_id": view["current_revision_id"], "document": rebased}), http.StatusOK)
+	view = sendOK[jsonObject](t, w.e, http.MethodGet, moderationPath(id), m, "", http.StatusOK)
+	acknowledged := []string{}
+	for _, code := range flagCodesOf(t, encodeJSON(t, view)) {
+		if !slices.Contains(acknowledged, code) {
+			acknowledged = append(acknowledged, code)
+		}
+	}
+	rejected := sendOK[jsonObject](t, w.e, http.MethodPost, idPath("/v1/revisions/", id)+"/reject", m,
+		encodeJSON(t, jsonObject{"review_note": rejectionNote, acknowledgedFlagsField: acknowledged}), http.StatusOK)
+	require.Equal(t, string(domain.RevisionStatusRejected), rejected["status"])
+
+	var stored string
+	require.NoError(t, w.db.QueryRowContext(t.Context(), "SELECT snapshot_json FROM revisions WHERE id = ? "+
+		"AND status = 'rejected'", id).Scan(&stored))
+	for _, private := range []string{rebasedWrenNotes, wrenLegalAlias, wrenSecondAlias, hiddenLinkURL} {
+		require.Contains(t, stored, `"`+private+`"`, "the rejected revision does not hold what A must not see")
+	}
+	return id
+}
+
+// rejectedAuthorView checks that A's view of their rejected revision shows the rejection: its status, review note
+// and review time.
+func rejectedAuthorView(t *testing.T, body string) {
+	t.Helper()
+
+	var revision struct {
+		Status     string  `json:"status"`
+		ReviewNote *string `json:"review_note"`
+		ReviewedAt *string `json:"reviewed_at"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &revision))
+	assert.Equal(t, string(domain.RevisionStatusRejected), revision.Status)
+	assert.Equal(t, new(rejectionNote), revision.ReviewNote)
+	assert.NotNil(t, revision.ReviewedAt)
+}
+
+// requireRevisionLeakMarkersStored checks that the fixture stores the marked strings the matrix's rows withhold,
+// so that no row passes because its marker went missing: the no-page person's notes, pronouns, public alias and
+// credit note, the unapproved region, and A's pending edit of the archive, which received the region.
+func requireRevisionLeakMarkersStored(t *testing.T, w revisionLeakWorld, fx revisionLeakFixture) {
+	t.Helper()
+
+	for _, check := range []struct {
+		query string
+		args  []any
+	}{
+		{"SELECT COUNT(*) FROM persons WHERE id = ? AND status = 'prefers_no_page' AND notes_md = ? AND pronouns = ?",
+			[]any{fx.noPage.ID, "Leakmark nopage notes", "leakmark/pronoun"}},
+		{"SELECT COUNT(*) FROM person_aliases WHERE person_id = ? AND is_public AND name = ?",
+			[]any{fx.noPage.ID, noPagePublicAlias}},
+		{"SELECT COUNT(*) FROM piece_credits WHERE piece_id = ? AND person_id = ? AND note = ?",
+			[]any{fx.piece.ID, fx.noPage.ID, "Leakmark nopage credit note"}},
+		{"SELECT COUNT(*) FROM terms WHERE name = ? AND current_revision_id IS NULL", []any{unapprovedRegionName}},
+		{"SELECT COUNT(*) FROM revisions r JOIN collections c ON c.id = r.entity_id JOIN terms region " +
+			"ON region.id = c.region_term_id WHERE r.entity_type = 'collection' AND r.entity_id = ? " +
+			"AND r.status = 'pending' AND region.name = ? " +
+			"AND CAST(r.snapshot_json->>'$.region_term_id' AS UNSIGNED) = region.id",
+			[]any{fx.archive.ID, unapprovedRegionName}},
+	} {
+		var count int
+		require.NoError(t, w.db.QueryRowContext(t.Context(), check.query, check.args...).Scan(&count), check.query)
+		require.Equal(t, 1, count, "%s %v", check.query, check.args)
+	}
+}
+
+// withAuthorToken returns rows with each of A's rows that is not an error repeated for A's API token, which sees
+// what A sees.
+func withAuthorToken(rows []revisionLeakRequest) []revisionLeakRequest {
+	all := slices.Clone(rows)
+	for _, req := range rows {
+		if req.viewer == viewerAuthor && req.code == "" {
+			req.viewer = viewerAuthorToken
+			all = append(all, req)
+		}
+	}
+	return all
 }

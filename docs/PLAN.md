@@ -320,7 +320,7 @@ the DDL is in `migrations/003`–`009`.
 **Approval** is one transaction:
 1. Check that `base_revision_id == current_revision_id`. If not, the revision is **stale**.
 2. Validate the snapshot against the domain rules.
-3. Write the snapshot into the entity and its child tables: upsert links by `normalized_url`, rebuild `term_ancestors` if a term changed, append to `conservation_history` if the status changed.
+3. Write the snapshot into the entity and its child tables: upsert links by `normalized_url`, rebuild `term_ancestors` if a term is new or moved, append to `conservation_history` if the status changed.
 4. Point `current_revision_id` at the approved revision.
 
 BE4's transaction (lock order, pending references, links, performances, retries) is in §5.1 "Approval".
@@ -363,7 +363,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   approved, rejected, withdrawn (by its author, or superseded by the author's next submit of that entity) or
   pending (rebase). Approved, rejected and withdrawn are final. Another user's draft or revision is 404; one's own
   that is no longer a draft is 409 `not_draft`; an action on a revision that is not pending is 409
-  `not_pending`. A replayed submit of a submitted draft answers 200 with the revision.
+  `not_pending`. A replayed submit of a submitted draft answers 200 with the revision: a draft that is now pending
+  or approved answers 200; one now rejected or withdrawn is 409 `not_draft`.
 - **The editor format.** Editable documents reference pieces, persons, terms and events by slug (collections by
   ID), never by internal ID, and have no `schema_version` or preferences. An unresolvable or forbidden slug is the
   same 422 `unknown_reference`.
@@ -371,8 +372,9 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   element** for a contributor or API token: hidden aliases, hidden links (by normalized URL, failing closed),
   credits, performers and relations of persons not public with a page, references to non-public entities (but the
   caller's own pending terms and persons), preferences (until BE5), and a no-page person's whole profile but its
-  identity. If the caller has a pending revision of the entity, the projection starts from it instead
-  (`starting_point: pending`, on its submitted base). An interactive moderator gets the full document with
+  identity. A placeholder (pending new entity) is editable only by its author, even by a moderator (404
+  otherwise); moderators rebase its revision instead. If the caller has a pending revision of the entity, the
+  projection starts from it instead (`starting_point: pending`, on its submitted base). An interactive moderator gets the full document with
   `link_states` (link ID, hidden, liveness); others get `[]`.
 - **Restore on submit**, for every actor: each withheld element of the draft's base is put back (keyed lists after
   their nearest preceding surviving element, sets unioned, nulled references restored unless replaced, the no-page
@@ -401,7 +403,7 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   lists merged per element (aliases, terms, relations, links by normalized URL, preferences), sets (secondary
   kinds, roles, affiliations, term aliases) and credits as one unit. The three-way merge (base, revision, current)
   takes one-sided changes, equal changes once, and makes every other overlap a conflict, served only in moderator
-  views.
+  views. Sets never conflict; a removal wins, even over the other side's re-spelling under the same key.
 - **Sourced fields** (R-12, R-15, also for moderators), compared with the base at submit and with current at
   approval: changed licensing notes, licence or a licensing status of known need a link with role
   `licensing_source`; a person status other than active, and any status change, needs `status_source_url`; a
@@ -450,8 +452,11 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   - referenced public entities are locked `FOR SHARE`, so a concurrent opt-out or placeholder delete waits or is
     seen; a vanished parent (1452) is 409 `entity_gone`;
   - stale revisions are merged; a conflict is 409 `rebase_required`, and the moderator resolves it with
-    `…/rebase` (`current_revision_id` must still be current, else 409 `stale`);
-  - pending terms and persons the document references (recursively) are approved alongside, parents first, only
+    `…/rebase` (`current_revision_id` must still be current, else 409 `stale`). A clean merge that fails validation
+  against current (for example a licence change merged with the removal of its `licensing_source` link, or two
+  primaries in a facet) is 422 `invalid_document` with the merged document's problems; the moderator resolves it
+  with `…/rebase`;
+  - pending terms and persons of the revision's author that the document references (recursively) are approved alongside, parents first, only
     when they carry no flag of their own and pass the duplicate check; otherwise 409 `pending_reference_flagged`,
     and the moderator handles that revision first. A moderator's own submission or revert approved at once does
     not check its pending references for duplicates again: they were checked at their own submission;
@@ -482,7 +487,9 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   way at approve and reject, as it reaches the author.
 - **Revert** (`POST /v1/revisions/{revision_id}/revert`) builds the target's document with every alias hidden in
   current or in the target still hidden and current preferences, on base = current read under the entity lock (so
-  never stale), with the default summary `Revert to revision <id>.`. A contributor's is pending (capped,
+  never stale), with the default summary `Revert to revision <id>.`. Validation sees the request's summary, so a
+  revert across a conservation-status change needs an explicit `summary` (422 `reason_required`); the default
+  summary is only stored. A contributor's is pending (capped,
   superseding), a moderator's approved. A replay answers 200 with the revision it already created.
 - **Moderation views** (`GET /v1/moderation/queue`, `GET /v1/moderation/revisions/{revision_id}`) show the full
   documents (revision, submitted, base, current, merged), link states, conflicts, pending references, flags,
@@ -504,7 +511,10 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   contact request, like every free-text field of the contact form) is 400 `invalid_request`, naming the field and
   never its value, if it holds a control character: a C0 or C1 control other than tab and line feed, or a
   bidirectional embedding, override or isolate, which could rewrite how a moderator's screen shows the text after
-  it.
+  it. CRLF and a lone carriage return (what a browser sends for a textarea line break without JavaScript) are
+  first replaced by LF, before the length and control-character checks and before storage, so the stored and
+  forwarded text holds LF only. The contact form's name, email, URL and token are single-line and keep the
+  strict rule.
 - **Contact requests** (`POST /v1/contact`, no account): kind, name, email, message, URL and a Turnstile token;
   202 with no ID. Turnstile is verified server-side with siteverify: `success`, a hostname in
   `TURNSTILE_HOSTNAMES` (bardictorch.org and preview.bardictorch.org, compared case-insensitively; empty disables

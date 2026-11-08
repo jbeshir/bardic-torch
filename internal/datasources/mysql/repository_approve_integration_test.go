@@ -698,3 +698,22 @@ func TestRepository_BackfillPerformanceOwners(t *testing.T) {
 	require.Equal(t, domain.RevisionStatusApproved, replaced.Status)
 	assert.Equal(t, 1, perfCount(), "the approval replaced the performance instead of adding a second copy")
 }
+
+// TestRepository_ApproveRevision_AfterAuthorPromoted: the author's role is not an input of an approval, so a
+// contributor's pending revision approved after its author became a moderator is approved as any other, by the
+// moderator who reviews it, and is applied as submitted.
+func TestRepository_ApproveRevision_AfterAuthorPromoted(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	key := *pieceKey(f.song.Slug)
+	submitted := editAndSubmit(t, f, actorWren, key, func(d *domain.PieceDocument) { d.NotesMD = new(editedNotes) })
+	require.Equal(t, domain.RevisionStatusPending, submitted.Status)
+	f.c.Exec("UPDATE users SET role = 'moderator' WHERE id = ?", wrenUserID)
+
+	f.mustApprove(t, submitted.RevisionID)
+
+	assert.Equal(t, "approved", f.stored(t, submitted.RevisionID).status)
+	assert.Equal(t, submitted.RevisionID, f.currentRevision(t, "pieces", f.song.ID))
+	assert.Equal(t, rowanUserID, f.reviewed(t, submitted.RevisionID).reviewer)
+	assert.Equal(t, editedNotes, *f.publicPiece(t, f.song.Slug).NotesMD)
+}

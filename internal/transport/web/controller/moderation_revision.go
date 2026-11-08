@@ -139,14 +139,21 @@ func (c RevisionApprove) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acknowledged, ok := acknowledgedFlagsOrBadRequest(w, r, body.AcknowledgedFlags)
-	if !ok || !textOrBadRequest(w, r, "review_note", body.ReviewNote, domain.MaxModeratorNoteLength) ||
-		!textOrBadRequest(w, r, "summary", body.Summary, domain.MaxSummaryLength) {
+	if !ok {
+		return
+	}
+	reviewNote, ok := freeTextOrBadRequest(w, r, "review_note", body.ReviewNote, domain.MaxModeratorNoteLength)
+	if !ok {
+		return
+	}
+	summary, ok := freeTextOrBadRequest(w, r, "summary", body.Summary, domain.MaxSummaryLength)
+	if !ok {
 		return
 	}
 
 	revision, err := c.Command.Execute(r.Context(), command.ApproveRevisionRequest{
 		Principal: req.Principal, RevisionID: req.ID, Options: domain.ApprovalOptions{
-			AcknowledgedFlags: acknowledged, Summary: body.Summary, ReviewNote: valueOrEmpty(body.ReviewNote),
+			AcknowledgedFlags: acknowledged, Summary: summary, ReviewNote: valueOrEmpty(reviewNote),
 		},
 	})
 	if err != nil {
@@ -178,12 +185,16 @@ func (c RevisionReject) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acknowledged, ok := acknowledgedFlagsOrBadRequest(w, r, body.AcknowledgedFlags)
-	if !ok || !textOrBadRequest(w, r, "review_note", body.ReviewNote, domain.MaxModeratorNoteLength) {
+	if !ok {
+		return
+	}
+	reviewNote, ok := freeTextOrBadRequest(w, r, "review_note", body.ReviewNote, domain.MaxModeratorNoteLength)
+	if !ok {
 		return
 	}
 
 	revision, err := c.Command.Execute(r.Context(), command.RejectRevisionRequest{
-		Principal: req.Principal, RevisionID: req.ID, ReviewNote: valueOrEmpty(body.ReviewNote),
+		Principal: req.Principal, RevisionID: req.ID, ReviewNote: valueOrEmpty(reviewNote),
 		AcknowledgedFlags: acknowledged,
 	})
 	if err != nil {
@@ -217,7 +228,8 @@ func (c RevisionRebase) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !httpjson.DecodeJSONBodyLimit(w, r, &body, httpjson.MaxDocumentBodyBytes) {
 		return
 	}
-	if !textOrBadRequest(w, r, "summary", body.Summary, domain.MaxSummaryLength) {
+	summary, ok := freeTextOrBadRequest(w, r, "summary", body.Summary, domain.MaxSummaryLength)
+	if !ok {
 		return
 	}
 	doc, ok := editorDocumentToDomain(r.Context(), w, body.EntityType, body.Document)
@@ -227,7 +239,7 @@ func (c RevisionRebase) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	revision, err := c.Command.Execute(r.Context(), command.RebaseRevisionRequest{
 		Principal: req.Principal, RevisionID: req.ID, CurrentRevisionID: body.CurrentRevisionID, Document: doc,
-		Summary: body.Summary,
+		Summary: summary,
 	})
 	if err != nil {
 		writeRevisionError(w, r, "revision", err)
@@ -271,6 +283,24 @@ func textOrBadRequest(w http.ResponseWriter, r *http.Request, name string, text 
 	}
 
 	return true
+}
+
+// freeTextOrBadRequest is textOrBadRequest for free text that may span lines. It replaces CRLF and lone CR in
+// *text with LF before it checks the length and the control characters, and returns the normalised text (nil for
+// nil), which the caller must use in place of *text; text itself is not changed. It returns false after writing
+// the 400.
+func freeTextOrBadRequest(
+	w http.ResponseWriter, r *http.Request, name string, text *string, maxLength int,
+) (*string, bool) {
+	if text == nil {
+		return nil, true
+	}
+	normalised := domain.WithLineBreaksNormalized(*text)
+	if !textOrBadRequest(w, r, name, &normalised, maxLength) {
+		return nil, false
+	}
+
+	return &normalised, true
 }
 
 // valueOrEmpty returns *s, or "" for nil.

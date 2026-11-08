@@ -85,46 +85,46 @@ func TestSourcedFields(t *testing.T) {
 		return func(d *PieceDocument) { d.Conservation = DocConservation{Status: status, SourceURL: source} }
 	}
 	rows := []sourcedRow{
-		{id: "licensing_notes_changed", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licensing_notes_changed_needs_licensing_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {
 				d.LicensingNotesMD = ptr("Ask before recording.")
 			}), s), a, "")
 		}, path: "/licensing_notes_md", code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "licensing_notes_cleared", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licensing_notes_cleared_needs_no_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := pieceWith(func(d *PieceDocument) { d.LicensingNotesMD = ptr("Ask first.") })
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {
 				d.LicensingNotesMD = ptr("")
 			}), s), a, "")
 		}, invalidPath: pathLicensingLinkURL},
-		{id: "licensing_notes_removed", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licensing_notes_removed_needs_no_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := pieceWith(func(d *PieceDocument) { d.LicensingNotesMD = ptr("Ask first.") })
 			return validatePiece(&base, withLicensingLink(validPiece(), s), a, "")
 		}, invalidPath: pathLicensingLinkURL},
-		{id: "licence_changed_with_known_status", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licence_changed_on_known_status_needs_licensing_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := pieceWith(known)
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {
 				known(d)
 				d.Licence = ptr(LicenceCCBYSA)
 			}), s), a, "")
 		}, path: pathLicence, code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "licence_needs_known_status", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licence_set_without_known_status_is_refused", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {
 				d.Licence = ptr(LicenceCCBY)
 			}), s), a, "")
 		}, path: pathLicence, always: ProblemLicenceNeedsKnown, invalidPath: pathLicensingLinkURL},
-		{id: "licensing_status_known", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licensing_status_set_known_needs_licensing_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, withLicensingLink(pieceWith(known), s), a, "")
 		}, path: pathLicensingStatus, code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "person_licensing_notes_changed", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "person_licensing_notes_changed_needs_licensing_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, withPersonLicensingLink(personWith(func(d *PersonDocument) {
 				d.LicensingNotesMD = ptr("Ask before recording.")
 			}), s), a)
 		}, path: "/licensing_notes_md", code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "person_licensing_status_known", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "person_licensing_status_set_known_needs_licensing_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, withPersonLicensingLink(personWith(func(d *PersonDocument) {
 				d.LicensingStatus = LicensingStatusKnown
@@ -154,7 +154,7 @@ func TestSourcedFields(t *testing.T) {
 			base := validPiece()
 			return validatePiece(&base, pieceWith(conservation(ConservationStatusEndangered, s)), a, "Assessed.")
 		}, path: pathConservationSource, code: ProblemSourceRequired, invalidPath: pathConservationSource},
-		{id: "conservation_blank_reason", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "conservation_set_with_blank_summary_needs_reason", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, pieceWith(conservation(ConservationStatusEndangered, s)), a, " ")
 		}, path: pathSummary, always: ProblemReasonRequired, invalidPath: pathConservationSource},
@@ -194,11 +194,11 @@ func TestSourcedFields(t *testing.T) {
 			current := pieceWith(conservation(ConservationStatusLowRisk, ptr(validSource+"/current")))
 			return validatePiece(&current, pieceWith(conservation(ConservationStatusEndangered, s)), a, "")
 		}, path: pathSummary, always: ProblemReasonRequired, invalidPath: pathConservationSource},
-		{id: "reverted_conservation_with_summary", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "reverted_conservation_with_summary_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			current := pieceWith(conservation(ConservationStatusLowRisk, ptr(validSource+"/current")))
 			return validatePiece(&current, pieceWith(conservation(ConservationStatusEndangered, s)), a, "Reverted.")
 		}, path: pathConservationSource, code: ProblemSourceRequired, invalidPath: pathConservationSource},
-		{id: "licence_changed_after_known_status", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licence_changed_against_current_needs_licensing_source", validate: func(a Role, s *string) []DocumentProblem {
 			current := pieceWith(known)
 			resolved := withLicensingLink(pieceWith(func(d *PieceDocument) {
 				known(d)
@@ -206,11 +206,16 @@ func TestSourcedFields(t *testing.T) {
 			}), s)
 			return validatePiece(&current, resolved, a, "")
 		}, path: pathLicence, code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
+		{id: "valid_base_source_replaced_by_invalid_url", validate: func(a Role, s *string) []DocumentProblem {
+			// Only the source changes, from a valid one: the status is unchanged, so no summary is needed.
+			base := pieceWith(conservation(ConservationStatusLowRisk, ptr(validSource)))
+			return validatePiece(&base, pieceWith(conservation(ConservationStatusLowRisk, s)), a, "")
+		}, path: pathConservationSource, code: ProblemSourceRequired, invalidPath: pathConservationSource},
 		{id: "person_deceased_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, personWith(deceased(s)), a)
 		}, path: pathStatusSource, code: ProblemSourceRequired, invalidPath: pathStatusSource},
-		{id: "merged_licensing_link", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "merge_dropping_licensing_link_needs_licensing_source", validate: func(a Role, s *string) []DocumentProblem {
 			// The revision set the status to known with a licensing link; the clean merge with current, which
 			// deleted that link meanwhile, keeps the link only when s is set.
 			current := validPiece()

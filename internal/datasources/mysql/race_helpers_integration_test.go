@@ -112,3 +112,28 @@ func started(ctx context.Context, fn func(ctx context.Context) error) <-chan err
 
 	return done
 }
+
+// inOrder forces first to commit before second reads the rows they contend for: first runs in a holder
+// transaction (holdRows with query and args, a locking read of a contested row), second starts and is seen
+// waiting for a row lock, and only then does the holder commit. It returns second's error; first's must be nil.
+// A second that never waits, because it takes no lock first holds, fails the test.
+func inOrder(t *testing.T, db *sql.DB, query string, args []any, first func(ctx context.Context, tx *sql.Tx) error,
+	second func(ctx context.Context) error,
+) error {
+	t.Helper()
+	holder := holdRows(t, db, query, args...)
+	require.NoError(t, first(t.Context(), holder.tx), "the first write")
+	done := started(t.Context(), second)
+	waitUntilBlocked(t, db, 1)
+	holder.commit()
+
+	return <-done
+}
+
+// The locking reads of inOrder's holders: of a revision, a piece, a person and a user row.
+const (
+	lockRevision = "SELECT id FROM revisions WHERE id = ? FOR UPDATE"
+	lockPiece    = "SELECT id FROM pieces WHERE id = ? FOR UPDATE"
+	lockPerson   = "SELECT id FROM persons WHERE id = ? FOR UPDATE"
+	lockUser     = "SELECT id FROM users WHERE id = ? FOR UPDATE"
+)

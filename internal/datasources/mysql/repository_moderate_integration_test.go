@@ -452,3 +452,59 @@ func TestRepository_RebaseRevision_ClearsRestoreFlags(t *testing.T) {
 		})
 	}
 }
+
+// TestRepository_RevertTo_TargetNotApproved checks that a revert's target must be an approved revision: a revert,
+// by a contributor or an interactive moderator, to another user's or their own draft, another user's pending
+// revision, a rejected or a withdrawn revision is datasources.ErrNotFound, as for an ID no revision has. It writes
+// no revision and leaves the entities' current revisions as they were.
+func TestRepository_RevertTo_TargetNotApproved(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	song, morwen := *pieceKey(f.song.Slug), *personKey(f.morwen.Slug)
+	withNotes := func(d *domain.PieceDocument) { d.NotesMD = new(editedNotes) }
+
+	rejected := editAndSubmit(t, f, actorWren, song, withNotes).RevisionID
+	var acknowledged []domain.FlagCode
+	for _, flag := range f.storedFlags(t, rejected) {
+		acknowledged = append(acknowledged, flag.Code)
+	}
+	require.NoError(t, f.reject(t, rejected, "Not this time.", acknowledged...))
+	withdrawn := editAndSubmit(t, f, actorWren, morwen, func(d *domain.PersonDocument) {
+		d.NotesMD = new(editedNotes)
+	}).RevisionID
+	require.NoError(t, f.repo.WithdrawRevision(t.Context(), actorWren, withdrawn))
+	pending := editAndSubmit(t, f, actorAsh, song, withNotes).RevisionID
+	draftOf := func(actor domain.Actor, key domain.EntityKey) int64 {
+		return f.saveDraft(t, actor, &key, f.editable(t, actor, key).Document).Draft.ID
+	}
+	ownDraft := map[domain.Role]int64{
+		domain.RoleContributor: draftOf(actorWren, song),
+		domain.RoleModerator:   draftOf(actorRowan, song),
+	}
+	othersDraft := draftOf(actorAsh, morwen)
+	for id, status := range map[int64]domain.RevisionStatus{
+		rejected: domain.RevisionStatusRejected, withdrawn: domain.RevisionStatusWithdrawn,
+		pending: domain.RevisionStatusPending, othersDraft: domain.RevisionStatusDraft,
+		ownDraft[domain.RoleContributor]: domain.RevisionStatusDraft,
+		ownDraft[domain.RoleModerator]:   domain.RevisionStatusDraft,
+	} {
+		require.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM revisions WHERE id = ? AND status = ?", id, status))
+	}
+
+	revisions := f.count(t, "SELECT COUNT(*) FROM revisions")
+	currentSong, currentMorwen := f.currentRevision(t, "pieces", f.song.ID), f.currentRevision(t, "persons", f.morwen.ID)
+	for _, actor := range []domain.Actor{actorWren, actorRowan} {
+		for name, target := range map[string]int64{
+			"others_draft": othersDraft, "own_draft": ownDraft[actor.Role], "others_pending": pending,
+			"rejected": rejected, "withdrawn": withdrawn,
+		} {
+			t.Run(string(actor.Role)+"_"+name, func(t *testing.T) {
+				_, err := f.revert(t, actor, target, "Back to this one.")
+				require.ErrorIs(t, err, datasources.ErrNotFound)
+				assert.Equal(t, revisions, f.count(t, "SELECT COUNT(*) FROM revisions"), "a revision was written")
+				assert.Equal(t, currentSong, f.currentRevision(t, "pieces", f.song.ID))
+				assert.Equal(t, currentMorwen, f.currentRevision(t, "persons", f.morwen.ID))
+			})
+		}
+	}
+}

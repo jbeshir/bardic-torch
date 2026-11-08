@@ -66,3 +66,27 @@ func (r *Repository) SubmitDraftInTx(
 ) (datasources.SubmitResult, error) {
 	return r.submitDraft(ctx, tx, req)
 }
+
+// ApproveRevisionInTx runs ApproveRevision's work in tx, as RejectRevisionInTx does.
+func (r *Repository) ApproveRevisionInTx(ctx context.Context, tx *sql.Tx, req datasources.ApproveRequest) error {
+	return r.txReader(tx).approveRevision(ctx, req)
+}
+
+// WithdrawRevisionInTx runs WithdrawRevision's work in tx, as RejectRevisionInTx does.
+func (r *Repository) WithdrawRevisionInTx(ctx context.Context, tx *sql.Tx, actor domain.Actor, id int64) error {
+	return r.txReader(tx).withdrawRevision(ctx, actor, id)
+}
+
+// RevertToInTx runs RevertTo's work in tx, as RejectRevisionInTx does.
+func (r *Repository) RevertToInTx(
+	ctx context.Context, tx *sql.Tx, req datasources.RevertRequest,
+) (datasources.SubmitResult, error) {
+	return r.txReader(tx).revert(ctx, req)
+}
+
+// SaveDraftInTx runs SaveDraft's work in tx, as RejectRevisionInTx does.
+func (r *Repository) SaveDraftInTx(
+	ctx context.Context, tx *sql.Tx, req datasources.SaveDraftRequest,
+) (datasources.SavedDraft, error) {
+	return r.saveDraft(ctx, r.txReader(tx), req)
+}

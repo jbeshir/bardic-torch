@@ -114,7 +114,7 @@ var revisionErrorAnswers = []struct {
 // not found, exactly like an unknown one.
 func writeRevisionError(w http.ResponseWriter, r *http.Request, what string, err error) {
 	ctx := r.Context()
-	if errors.Is(err, datasources.ErrNotFound) || errors.Is(err, domain.ErrNotApproved) {
+	if errors.Is(err, datasources.ErrNotFound) {
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, what+" not found")
 		return
 	}
