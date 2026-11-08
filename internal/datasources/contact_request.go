@@ -61,6 +61,23 @@ type ContactRequestResolver interface {
 	ResolveContactRequest(ctx context.Context, req ResolveContactRequestRequest) (domain.ContactRequest, error)
 }
 
+// DismissContactRequestsRequest is a moderator's dismissal of the open contact requests among RequestIDs, which are
+// distinct and at most domain.MaxContactRequestDismissals, with one optional note.
+type DismissContactRequestsRequest struct {
+	ModeratorUserID string
+	RequestIDs      []int64
+	Note            *string
+	Now             time.Time
+}
+
+// ContactRequestDismisser dismisses, in one write, every open request a DismissContactRequestsRequest names, each
+// as a single dismissal would, and returns which it dismissed and which were not open: resolved, dismissed and
+// unknown IDs alike.
+type ContactRequestDismisser interface {
+	DismissContactRequests(ctx context.Context, req DismissContactRequestsRequest) (domain.ContactRequestDismissal,
+		error)
+}
+
 // ContactRequestPurger deletes the personal data (name, email, message and URL) of every contact request resolved
 // or dismissed more than domain.ContactRetention before now, marking them purged at now, and returns how many it
 // purged. Open requests are never purged.

@@ -197,7 +197,7 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `POST` | `/v1/revisions/{revision_id}/revert` | Required | Revert an entity to an earlier approved revision |
 | `GET` | `/v1/me/revisions` | Required | The caller's drafts and revisions |
 | `GET` | `/v1/me/revisions/{revision_id}` | Required | One of the caller's revisions, as they see it |
-| `POST` | `/v1/link-reports` | Required | Report a link by its URL |
+| `POST` | `/v1/link-reports` | Required | Report a link by its URL (not again for 30 days after a moderator dismisses your report of it) |
 | `GET` | `/v1/me/repertoire` | Required | The caller's repertoire, with their private notes (`visibility` filter) |
 | `GET`, `PUT`, `DELETE` | `/v1/me/repertoire/{slug}` | Required | Read, add or update (notes, `private`/`public`), or remove a piece in the caller's repertoire (max 2000) |
 | `GET` | `/v1/moderation/queue` | Moderator, Auth0 only | Pending revisions, oldest first |
@@ -209,6 +209,7 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `PUT` | `/v1/links/{link_id}/hidden` | Moderator, Auth0 only | Hide or un-hide a link |
 | `GET` | `/v1/moderation/contact-requests` | Moderator, Auth0 only | The contact-request inbox |
 | `POST` | `/v1/moderation/contact-requests/{request_id}` | Moderator, Auth0 only | Resolve or dismiss a contact request |
+| `POST` | `/v1/moderation/contact-requests/dismissals` | Moderator, Auth0 only | Dismiss up to 100 open contact requests at once (IDs only in the response) |
 | `PUT` | `/v1/users/{user_id}/blocked` | Moderator, Auth0 only | Block or unblock a contributor |
 | `GET` | `/v1/tokens` | Auth0 only | List the caller's active API tokens |
 | `POST` | `/v1/tokens` | Auth0 only | Create an API token (max 10 active) |

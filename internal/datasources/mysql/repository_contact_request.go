@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -12,10 +13,11 @@ import (
 )
 
 var (
-	_ datasources.ContactRequestCreator  = (*Repository)(nil)
-	_ datasources.ContactRequestLister   = (*Repository)(nil)
-	_ datasources.ContactRequestResolver = (*Repository)(nil)
-	_ datasources.ContactRequestPurger   = (*Repository)(nil)
+	_ datasources.ContactRequestCreator   = (*Repository)(nil)
+	_ datasources.ContactRequestLister    = (*Repository)(nil)
+	_ datasources.ContactRequestResolver  = (*Repository)(nil)
+	_ datasources.ContactRequestDismisser = (*Repository)(nil)
+	_ datasources.ContactRequestPurger    = (*Repository)(nil)
 )
 
 // CreateContactRequest stores an open contact request, refusing it while domain.MaxOpenContactRequests are
@@ -130,6 +132,85 @@ func (r *Repository) ResolveContactRequest(
 	}
 
 	return request, nil
+}
+
+// DismissContactRequests dismisses the open requests among req.RequestIDs in one write: it locks the moderator's
+// users row (lockModerator), then the requests' rows in ascending ID order, and dismisses those still open with the
+// moderator, the note and now as their resolution, so each one's personal data is purged ContactRetention later,
+// as a single dismissal's is.
+func (r *Repository) DismissContactRequests(
+	ctx context.Context, req datasources.DismissContactRequestsRequest,
+) (domain.ContactRequestDismissal, error) {
+	named := slices.Clone(req.RequestIDs)
+	slices.Sort(named)
+	named = slices.Compact(named)
+	var dismissal domain.ContactRequestDismissal
+	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		c := r.txReader(tx)
+		if err := c.lockModerator(ctx, req.ModeratorUserID); err != nil {
+			return err
+		}
+		dismissed, err := c.dismissOpenContactRequests(ctx, req, named)
+		if err != nil {
+			return err
+		}
+		dismissal = domain.ContactRequestDismissal{Dismissed: make([]int64, 0, len(dismissed)),
+			NotOpen: make([]int64, 0, len(named)-len(dismissed))}
+		for _, id := range named {
+			if dismissed[id] {
+				dismissal.Dismissed = append(dismissal.Dismissed, id)
+			} else {
+				dismissal.NotOpen = append(dismissal.NotOpen, id)
+			}
+		}
+		return c.err
+	})
+	if err != nil {
+		return domain.ContactRequestDismissal{}, databaseError("dismissing contact requests", err)
+	}
+
+	return dismissal, nil
+}
+
+// dismissOpenContactRequests locks the rows of the requests named, which are sorted and distinct, in ascending ID
+// order, dismisses those that are open as req says, and returns the set of their IDs.
+func (c *catalogueReader) dismissOpenContactRequests(
+	ctx context.Context, req datasources.DismissContactRequestsRequest, named []int64,
+) (map[int64]bool, error) {
+	ids := make([]uint64, 0, len(named))
+	for _, id := range named {
+		if positive, ok := positiveID(id); ok {
+			ids = append(ids, positive)
+		}
+	}
+	rows, err := c.q.LockContactRequests(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("locking contact requests: %w", err)
+	}
+	dismissed := make(map[int64]bool, len(rows))
+	openIDs := make([]uint64, 0, len(rows))
+	for _, row := range rows {
+		if row.Status == queries.ContactRequestsStatusOpen {
+			dismissed[c.signedID(row.ID)] = true
+			openIDs = append(openIDs, row.ID)
+		}
+	}
+	if len(openIDs) == 0 {
+		return dismissed, c.err
+	}
+	count, err := c.q.DismissOpenContactRequests(ctx, queries.DismissOpenContactRequestsParams{
+		ResolvedByUserID: nullString(&req.ModeratorUserID), ResolvedAt: nullTime(req.Now),
+		ResolutionNote: nullString(req.Note), Ids: openIDs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("dismissing contact requests: %w", err)
+	}
+	if count != int64(len(openIDs)) {
+		return nil, fmt.Errorf("dismissing contact requests: %d of %d locked open requests dismissed", count,
+			len(openIDs))
+	}
+
+	return dismissed, c.err
 }
 
 // PurgeContactRequests deletes the personal data of the contact requests resolved or dismissed more than

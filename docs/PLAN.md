@@ -589,7 +589,10 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   by its dimension (`preferences[recording]`).
 - **Link reports** address a link by the URL the page shows (link IDs are not public): `POST /v1/link-reports`
   with a reason and message. Only a visible link can be reported; a hidden and an unknown URL are the same 404.
-  One open report per reporter and link (a repeat answers 200 with it), at most 20 open per reporter. Hiding a
+  One open report per reporter and link (a repeat answers 200 with it), at most 20 open per reporter. For 30 days
+  after a moderator dismisses a user's report of a link, that user's new report of it is 409 `report_cooldown`
+  (checked under the reporter's users-row lock, after the open-report repeat and before the cap); another user's
+  report, a resolved report and a link hidden then shown again set no cooldown. Hiding a
   link (`PUT /v1/links/{link_id}/hidden`, or resolving a report with `hide_link`) resolves its open reports.
   `GET /v1/moderation/links?url=` finds any link's ID, state and attachments.
 - **Repertoire** (BE5): a user's own list of public pieces. `PUT /v1/me/repertoire/{slug}` adds a piece (201) or
@@ -663,7 +666,12 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   https, so the inbox never shows a relative link. The name,
   email, message and URL are returned only by the moderators' inbox and never logged, and are purged 180 days
   after a request is resolved or dismissed (at startup, after each resolution and before each inbox list); open
-  requests are kept.
+  requests are kept. A flood is cleared with a **bulk dismiss** (`POST /v1/moderation/contact-requests/dismissals`,
+  interactive moderator): 1 to 100 distinct IDs and one optional note, in one write that locks the moderator's
+  users row (refusing a moderator blocked or demoted since authentication), then the requests by ascending ID.
+  Each open one is dismissed exactly as a single dismissal (resolver, note, and the 180-day purge clock from now);
+  resolved, dismissed and unknown IDs are answered in `not_open` and left alone. The response holds IDs only. The
+  1000 cap stays soft.
 - **API tokens** (a decision BE5 may revisit): a `user_api|` token acts as its user with **contributor powers
   only**: drafts, submit, withdraw, revert, their own revisions and link reports, with every submit pending and
   the contributor projection. Every moderator operation, the link-report inbox and the contact-request inbox
@@ -721,13 +729,13 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   - `GET /v1/me/revisions` and `GET /v1/me/revisions/{id}`: the caller's drafts and revisions, in the author's view
   - `GET /v1/me/repertoire` (optionally `?visibility=`) and `GET|PUT|DELETE /v1/me/repertoire/{slug}` (BE5): the caller's own repertoire of public pieces, with their private notes (§5.1 "Repertoire")
   - `GET /v1/users/{public_id}/repertoire` (BE5, no account needed): the entries a user made public, addressed by their `public_id`, never by their Auth0 ID; an unknown public ID, a blocked user and a user with no public entry are one 404. The moderation `PUT /v1/users/{user_id}/blocked` takes the Auth0 user ID, never a public ID; the spec's parameter descriptions say which kind each path takes
-  - `POST /v1/link-reports`: report a link by its URL (link IDs are not public)
+  - `POST /v1/link-reports`: report a link by its URL (link IDs are not public); 409 `report_cooldown` for 30 days after a moderator dismisses the caller's own report of it
   - suggestions for new terms are submitted as term revisions
 - **Moderator** (an interactive Auth0 session; API tokens get 403 `api_token_not_allowed`, §5.1):
   - `GET /v1/moderation/queue` (filters by type, author, age and `include_blocked`) and `GET /v1/moderation/revisions/{id}`
   - `POST /v1/revisions/{id}/approve`, `…/reject`, `…/rebase`
   - `GET /v1/moderation/link-reports` and `POST /v1/moderation/link-reports/{id}` (resolve or dismiss); `GET /v1/moderation/links?url=`
-  - `GET /v1/moderation/contact-requests` and `POST /v1/moderation/contact-requests/{id}` (resolve or dismiss)
+  - `GET /v1/moderation/contact-requests` and `POST /v1/moderation/contact-requests/{id}` (resolve or dismiss); `POST /v1/moderation/contact-requests/dismissals` (bulk dismiss: up to 100 IDs and one note; 200 `{dismissed, not_open}`, IDs only)
   - `PUT /v1/links/{id}/hidden`
   - `PUT /v1/users/{id}/blocked`: block or unblock a contributor. Author IDs are shown in the moderation queue, the moderation revision view and the inboxes.
 - **No account needed:** `POST /v1/contact`, verified server-side with Turnstile: `success`, a hostname in the allowlist (`TURNSTILE_HOSTNAMES`: bardictorch.org and preview.bardictorch.org) and the fixed action `contact` must all hold. Cloudflare-side failures and misconfiguration are 503, and only user-side token failures are 400.

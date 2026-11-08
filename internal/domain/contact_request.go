@@ -58,6 +58,13 @@ type ContactRequest struct {
 	Purged     bool
 }
 
+// ContactRequestDismissal is the outcome of a bulk dismissal: the IDs it dismissed, and the IDs it named that were
+// not open (resolved, dismissed or unknown), each in ascending order.
+type ContactRequestDismissal struct {
+	Dismissed []int64
+	NotOpen   []int64
+}
+
 // ContactRequestList is one page of contact requests, newest first, with how many there are in all.
 type ContactRequestList struct {
 	Requests []ContactRequest

@@ -104,6 +104,12 @@ func TestModeratorCommands_RequireAnInteractiveModerator(t *testing.T) {
 						ResolveContactRequestRequest{Principal: p.principal, RequestID: testContactRequestID})
 					return err
 				},
+				"dismiss_contact_requests": func() error {
+					_, err := (&DismissContactRequests{Dismisser: mocks.NewContactRequestDismisser(t),
+						Purger: mocks.NewContactRequestPurger(t), Now: fixedClock}).Execute(t.Context(),
+						DismissContactRequestsRequest{Principal: p.principal, RequestIDs: []int64{testContactRequestID}})
+					return err
+				},
 			}
 			for name, f := range run {
 				assert.ErrorIs(t, f(), domain.ErrModeratorRequired, name)

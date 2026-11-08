@@ -107,6 +107,7 @@ type handlerMocks struct {
 	contactCreator      *mocks.ContactRequestCreator
 	contactLister       *mocks.ContactRequestLister
 	contactResolver     *mocks.ContactRequestResolver
+	contactDismisser    *mocks.ContactRequestDismisser
 	contactPurger       *mocks.ContactRequestPurger
 	turnstile           *mocks.TurnstileVerifier
 	handler             http.Handler
@@ -172,6 +173,7 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		contactCreator:      mocks.NewContactRequestCreator(t),
 		contactLister:       mocks.NewContactRequestLister(t),
 		contactResolver:     mocks.NewContactRequestResolver(t),
+		contactDismisser:    mocks.NewContactRequestDismisser(t),
 		contactPurger:       mocks.NewContactRequestPurger(t),
 		turnstile:           mocks.NewTurnstileVerifier(t),
 		validate:            openapitest.New(t),
@@ -240,6 +242,7 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		ContactRequestCreator:          m.contactCreator,
 		ContactRequestLister:           m.contactLister,
 		ContactRequestResolver:         m.contactResolver,
+		ContactRequestDismisser:        m.contactDismisser,
 		ContactRequestPurger:           m.contactPurger,
 		TurnstileVerifier:              m.turnstile,
 		Now: func() time.Time {

@@ -84,6 +84,7 @@ const (
 	routingNeedsWork         = "/v1/needs-work"
 	routingContact           = "/v1/contact"
 	routingContactRequests   = "/v1/moderation/contact-requests"
+	routingContactDismissals = routingContactRequests + "/dismissals"
 
 	routingPieceEditableTmpl = "/v1/pieces/{slug}/editable"
 	routingPieceEditable     = routingPiecePath + "/editable"
@@ -264,6 +265,8 @@ func publicCases() []routingCase {
 		notFound(http.MethodPost, "/v1/pieces/%2F", routingInvalid),
 		notFound(http.MethodHead, "/v1/revisions/%2F", ""),
 		notFound(http.MethodDelete, "/v1/collections/%2f/history", routingInvalid),
+		// The literal dismissals segment matches only as sent: encoded, it is neither it nor a request ID.
+		notFound(http.MethodPost, routingContactRequests+"/dismissal%73", routingInvalid),
 		// Unrouted paths around the public routes, none of which authenticates.
 		notFound(http.MethodGet, "/v1/pieces/", ""),
 		notFound(http.MethodGet, routingPiecePath+"/", routingInvalid),
@@ -665,6 +668,9 @@ var routeRows = []routeRow{
 	}},
 	{path: routingContactRequests + "/" + routingCatalogueID, allow: http.MethodPost, routed: map[string]routingCase{
 		http.MethodPost: anonymousAuthRequired("/v1/moderation/contact-requests/{request_id}"),
+	}},
+	{path: routingContactDismissals, allow: http.MethodPost, routed: map[string]routingCase{
+		http.MethodPost: anonymousAuthRequired(routingContactDismissals),
 	}},
 }
 

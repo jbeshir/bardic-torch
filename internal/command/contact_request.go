@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	_ Command[ContactSubmission, int64]                             = (*SubmitContactRequest)(nil)
-	_ Command[ContactRequestListRequest, domain.ContactRequestList] = (*ListContactRequests)(nil)
-	_ Command[ResolveContactRequestRequest, domain.ContactRequest]  = (*ResolveContactRequest)(nil)
-	_ Command[Empty, Empty]                                         = (*PurgeContactRequests)(nil)
+	_ Command[ContactSubmission, int64]                                      = (*SubmitContactRequest)(nil)
+	_ Command[ContactRequestListRequest, domain.ContactRequestList]          = (*ListContactRequests)(nil)
+	_ Command[ResolveContactRequestRequest, domain.ContactRequest]           = (*ResolveContactRequest)(nil)
+	_ Command[DismissContactRequestsRequest, domain.ContactRequestDismissal] = (*DismissContactRequests)(nil)
+	_ Command[Empty, Empty]                                                  = (*PurgeContactRequests)(nil)
 )
 
 // ErrContactUnavailable is a contact request that cannot be taken now, through no fault of its sender: the
@@ -144,6 +145,43 @@ func (c *ResolveContactRequest) Execute(
 	purgeOrWarn(ctx, c.Purger, now)
 
 	return request, nil
+}
+
+// DismissContactRequestsRequest is Principal's dismissal of the open contact requests among RequestIDs, which are
+// distinct and at most domain.MaxContactRequestDismissals, with one optional note.
+type DismissContactRequestsRequest struct {
+	Principal  domain.Principal
+	RequestIDs []int64
+	Note       *string
+}
+
+// DismissContactRequests dismisses many open contact requests at once, such as a flood of spam.
+type DismissContactRequests struct {
+	Dismisser datasources.ContactRequestDismisser
+	Purger    datasources.ContactRequestPurger
+	Now       func() time.Time
+}
+
+// Execute dismisses the open requests among req.RequestIDs and returns which it dismissed and which were not
+// open, failing with the errors of datasources.ContactRequestDismisser. Once the dismissal commits it purges the
+// personal data that is past its retention, as ResolveContactRequest does.
+func (c *DismissContactRequests) Execute(
+	ctx context.Context, req DismissContactRequestsRequest,
+) (domain.ContactRequestDismissal, error) {
+	actor, err := moderatorActor(req.Principal)
+	if err != nil {
+		return domain.ContactRequestDismissal{}, err
+	}
+	now := c.Now()
+	dismissal, err := c.Dismisser.DismissContactRequests(ctx, datasources.DismissContactRequestsRequest{
+		ModeratorUserID: actor.UserID, RequestIDs: req.RequestIDs, Note: req.Note, Now: now,
+	})
+	if err != nil {
+		return domain.ContactRequestDismissal{}, fmt.Errorf("dismissing contact requests: %w", err)
+	}
+	purgeOrWarn(ctx, c.Purger, now)
+
+	return dismissal, nil
 }
 
 // PurgeContactRequests deletes the personal data of contact requests past their retention. It runs at startup.

@@ -331,6 +331,12 @@ func unavailableModerationRows() []unavailableRow {
 					Command: failing[command.ResolveContactRequestRequest, domain.ContactRequest](t),
 				}
 			}},
+		{op: op(http.MethodPost, "/v1/moderation/contact-requests/dismissals"),
+			body: `{"request_ids":[12,13],"note":"Spam."}`, handler: func(t *testing.T) http.Handler {
+				return ContactRequestsDismiss{
+					Command: failing[command.DismissContactRequestsRequest, domain.ContactRequestDismissal](t),
+				}
+			}},
 	}
 }
 

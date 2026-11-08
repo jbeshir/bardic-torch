@@ -214,5 +214,18 @@ func contactMatrix() map[openapitest.Operation]matrixRow {
 				m.contactPurger.EXPECT().PurgeContactRequests(mock.Anything, handlerNow).Return(0, nil).Once()
 			},
 		},
+		{Method: http.MethodPost, Path: "/v1/moderation/contact-requests/dismissals"}: {
+			access:        interactiveModerator,
+			body:          `{"request_ids":[` + strconv.Itoa(matrixContactRequestID) + `],"note":null}`,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, userID string) {
+				m.contactDismisser.EXPECT().DismissContactRequests(mock.Anything,
+					datasources.DismissContactRequestsRequest{ModeratorUserID: userID,
+						RequestIDs: []int64{matrixContactRequestID}, Now: handlerNow}).
+					Return(domain.ContactRequestDismissal{Dismissed: []int64{matrixContactRequestID}, NotOpen: []int64{}},
+						nil).Once()
+				m.contactPurger.EXPECT().PurgeContactRequests(mock.Anything, handlerNow).Return(0, nil).Once()
+			},
+		},
 	}
 }

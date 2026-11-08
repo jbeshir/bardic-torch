@@ -165,6 +165,7 @@ func repositoryHTTPDependencies(
 		ContactRequestCreator:          repository,
 		ContactRequestLister:           repository,
 		ContactRequestResolver:         repository,
+		ContactRequestDismisser:        repository,
 		ContactRequestPurger:           repository,
 		TurnstileVerifier:              verifier,
 		RateLimits:                     limits,

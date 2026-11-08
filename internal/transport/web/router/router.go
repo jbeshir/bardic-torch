@@ -64,6 +64,7 @@ type Dependencies struct {
 	SubmitContactRequest           command.Command[command.ContactSubmission, int64]
 	ListContactRequests            command.Command[command.ContactRequestListRequest, domain.ContactRequestList]
 	ResolveContactRequest          command.Command[command.ResolveContactRequestRequest, domain.ContactRequest]
+	DismissContactRequests         command.Command[command.DismissContactRequestsRequest, domain.ContactRequestDismissal]
 	ListRepertoire                 command.Command[command.RepertoireListRequest, domain.RepertoireList]
 	GetRepertoireEntry             command.Command[command.RepertoireEntryRequest, domain.RepertoireEntry]
 	PutRepertoireEntry             command.Command[command.PutRepertoireEntryRequest, command.PutRepertoireEntryResult]
@@ -184,6 +185,9 @@ func routes(deps Dependencies) []route {
 			handler: requireInteractiveModerator(controller.ContactRequestsList{Command: deps.ListContactRequests})},
 		{method: http.MethodPost, path: "/v1/moderation/contact-requests/{request_id}", authenticated: true,
 			handler: requireInteractiveModerator(controller.ContactRequestResolve{Command: deps.ResolveContactRequest})},
+		// The ServeMux prefers this literal path to the {request_id} wildcard beside it.
+		{method: http.MethodPost, path: "/v1/moderation/contact-requests/dismissals", authenticated: true,
+			handler: requireInteractiveModerator(controller.ContactRequestsDismiss{Command: deps.DismissContactRequests})},
 
 		// API tokens cannot manage API tokens, so a leaked token cannot be used to mint or revoke others.
 		{method: http.MethodPost, path: "/v1/tokens", authenticated: true,

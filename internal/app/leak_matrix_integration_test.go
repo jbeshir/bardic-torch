@@ -948,10 +948,12 @@ var leakExempt = map[openapitest.Operation]string{
 	{Method: http.MethodPost, Path: "/v1/contact"}:                                  "writes a contact request; returns no catalogue data",
 	{Method: http.MethodGet, Path: "/v1/moderation/contact-requests"}:               exemptModeration,
 	{Method: http.MethodPost, Path: "/v1/moderation/contact-requests/{request_id}"}: exemptModeration,
-	{Method: http.MethodGet, Path: myRepertoirePath}:                                exemptOwnRepertoire,
-	{Method: http.MethodGet, Path: repertoireEntryRoute}:                            exemptOwnRepertoire,
-	{Method: http.MethodPut, Path: repertoireEntryRoute}:                            exemptOwnRepertoire,
-	{Method: http.MethodDelete, Path: repertoireEntryRoute}:                         exemptOwnRepertoire,
+	{Method: http.MethodPost, Path: "/v1/moderation/contact-requests/dismissals"}: "moderator write; " +
+		"response holds request IDs only",
+	{Method: http.MethodGet, Path: myRepertoirePath}:        exemptOwnRepertoire,
+	{Method: http.MethodGet, Path: repertoireEntryRoute}:    exemptOwnRepertoire,
+	{Method: http.MethodPut, Path: repertoireEntryRoute}:    exemptOwnRepertoire,
+	{Method: http.MethodDelete, Path: repertoireEntryRoute}: exemptOwnRepertoire,
 }
 
 // TestHTTP_LeakMatrix sends every leakMatrix request to the production handler over a real repository holding

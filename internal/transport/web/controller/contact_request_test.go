@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -224,4 +225,80 @@ func TestContactRequestResolve_ServeHTTP(t *testing.T) {
 				return testContactRequest, tc.err
 			})}
 	})
+}
+
+func TestContactRequestsDismiss_ServeHTTP(t *testing.T) {
+	t.Parallel()
+
+	const (
+		ids           = "[12,13,11]"
+		dismissalBody = `{"dismissed":[11,12],"not_open":[13]}`
+	)
+	base := revisionCase{method: http.MethodPost, target: contactRequestsPath + "/dismissals",
+		body: `{"request_ids":` + ids + `,"note":"Spam."}`}
+	ok := base
+	ok.name, ok.wantStatus, ok.wantBody = "ok", http.StatusOK, dismissalBody
+	noNote := base
+	noNote.name, noNote.body = "no_note", `{"request_ids":[12]}`
+	noNote.wantStatus, noNote.wantBody = http.StatusOK, dismissalBody
+	anonymous := base
+	anonymous.name, anonymous.anonymous, anonymous.notCalled = anonymousCase, true, true
+	anonymous.wantStatus, anonymous.wantBody = http.StatusUnauthorized, unauthenticatedBody
+	tooLarge := base
+	tooLarge.name, tooLarge.invalidRequest, tooLarge.notCalled = tooLargeCase, true, true
+	tooLarge.body = `{"request_ids":[1],"note":"` + strings.Repeat("a", httpjson.MaxBodyBytes) + `"}`
+	tooLarge.wantStatus, tooLarge.wantBody = http.StatusRequestEntityTooLarge, tooLargeBody
+	notJSON := base
+	notJSON.name, notJSON.contentType, notJSON.invalidRequest, notJSON.notCalled = notJSONCase, plainText, true, true
+	notJSON.wantStatus, notJSON.wantBody = http.StatusUnsupportedMediaType, unsupportedMediaTypeBody
+	idCount := "invalid request_ids: must hold from 1 to 100 IDs"
+	idRange := "invalid request_ids: each must be an integer from 1 to 9007199254740991"
+	cases := append([]revisionCase{ok, noNote, anonymous, tooLarge, notJSON,
+		badBodyCase(base, "no_ids", `{"note":"Spam."}`, idCount),
+		badBodyCase(base, "null_ids", `{"request_ids":null}`, idCount),
+		badBodyCase(base, "empty", `{"request_ids":[]}`, idCount),
+		badBodyCase(base, "over_100", `{"request_ids":`+idList(domain.MaxContactRequestDismissals+1)+`}`, idCount),
+		badBodyCase(base, "duplicates", `{"request_ids":[12,13,12]}`, "invalid request_ids: must not repeat an ID"),
+		badBodyCase(base, "zero", `{"request_ids":[12,0]}`, idRange),
+		badBodyCase(base, "negative", `{"request_ids":[-1]}`, idRange),
+		badBodyCase(base, "above_safe", `{"request_ids":[9007199254740992]}`, idRange),
+		badBodyCase(base, "unknown_field", `{"request_ids":[12],"status":"dismissed"}`,
+			"request body has an unknown field"),
+		badBodyCase(base, "note_too_long", `{"request_ids":[12],"note":"`+strings.Repeat("a", 2001)+`"}`,
+			"invalid note: must be at most 2000 characters"),
+		controlCharacterCase(base, "note", `{"request_ids":[12],"note":"Spam\u202e."}`),
+	}, errorCases(base, moderatorRequiredCase, userBlockedCase, unavailableCase, internalCase)...)
+	// Exactly the cap is accepted.
+	full := base
+	full.name, full.body = "exactly_100", `{"request_ids":`+idList(domain.MaxContactRequestDismissals)+`}`
+	full.wantStatus, full.wantBody = http.StatusOK, dismissalBody
+	cases = append(cases, full)
+	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
+		return ContactRequestsDismiss{Command: commandFunc[command.DismissContactRequestsRequest,
+			domain.ContactRequestDismissal](
+			func(_ context.Context, req command.DismissContactRequestsRequest) (domain.ContactRequestDismissal, error) {
+				if tc.notCalled {
+					t.Error("command called unexpectedly")
+				}
+				switch tc.name {
+				case "ok":
+					assert.Equal(t, command.DismissContactRequestsRequest{Principal: req.Principal,
+						RequestIDs: []int64{12, 13, 11}, Note: new("Spam.")}, req)
+				case "no_note":
+					assert.Equal(t, command.DismissContactRequestsRequest{Principal: req.Principal,
+						RequestIDs: []int64{12}}, req)
+				}
+				return domain.ContactRequestDismissal{Dismissed: []int64{11, 12}, NotOpen: []int64{13}}, tc.err
+			})}
+	})
+}
+
+// idList is the JSON array of the IDs 1 to n.
+func idList(n int) string {
+	ids := make([]string, 0, n)
+	for id := 1; id <= n; id++ {
+		ids = append(ids, strconv.Itoa(id))
+	}
+
+	return "[" + strings.Join(ids, ",") + "]"
 }

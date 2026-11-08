@@ -198,6 +198,41 @@ func TestResolveContactRequest_ResolvesThenPurges(t *testing.T) {
 	}
 }
 
+func TestDismissContactRequests_DismissesThenPurges(t *testing.T) {
+	t.Parallel()
+
+	note := "Spam."
+	ids := []int64{testContactRequestID, testContactRequestID + 1}
+	request := datasources.DismissContactRequestsRequest{ModeratorUserID: moderatorUser.ID, RequestIDs: ids,
+		Note: &note, Now: fixedNow}
+	dismissal := domain.ContactRequestDismissal{Dismissed: ids[:1], NotOpen: ids[1:]}
+	dismisser := mocks.NewContactRequestDismisser(t)
+	purger := mocks.NewContactRequestPurger(t)
+	dismissed := dismisser.EXPECT().DismissContactRequests(mock.Anything, request).Return(dismissal, nil).Once()
+	purger.EXPECT().PurgeContactRequests(mock.Anything, fixedNow).Return(1, nil).Once().NotBefore(dismissed)
+	cmd := &DismissContactRequests{Dismisser: dismisser, Purger: purger, Now: fixedClock}
+	req := DismissContactRequestsRequest{Principal: interactiveMod, RequestIDs: ids, Note: &note}
+
+	got, err := cmd.Execute(t.Context(), req)
+	require.NoError(t, err)
+	assert.Equal(t, dismissal, got)
+
+	// A failed purge does not fail the dismissal, which has committed.
+	purger.EXPECT().PurgeContactRequests(mock.Anything, fixedNow).Return(0, datasources.ErrUnavailable).Once()
+	dismisser.EXPECT().DismissContactRequests(mock.Anything, request).Return(dismissal, nil).Once()
+	got, err = cmd.Execute(t.Context(), req)
+	require.NoError(t, err)
+	assert.Equal(t, dismissal, got)
+
+	// A failed dismissal purges nothing.
+	for _, want := range []error{domain.ErrModeratorRequired, datasources.ErrUserBlocked, datasources.ErrUnavailable} {
+		dismisser.EXPECT().DismissContactRequests(mock.Anything, request).
+			Return(domain.ContactRequestDismissal{}, want).Once()
+		_, err := cmd.Execute(t.Context(), req)
+		require.ErrorIs(t, err, want)
+	}
+}
+
 func TestPurgeContactRequests(t *testing.T) {
 	t.Parallel()
 

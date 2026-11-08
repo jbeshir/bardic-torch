@@ -988,6 +988,60 @@ paths:
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
+  /v1/moderation/contact-requests/dismissals:
+    post:
+      tags:
+        - Moderation
+      summary: Dismiss contact requests
+      description: |
+        Dismisses up to 100 open contact requests in one write, such as a flood of spam, with one optional note
+        for all of them. Each is dismissed as a single dismissal would be: its personal data is purged 180 days
+        later. A named request that is already resolved or dismissed, or that does not exist, is listed in
+        `not_open` and left as it is; the rest are dismissed. The response holds request IDs only. Requires an
+        interactive moderator session.
+      operationId: dismissContactRequests
+      requestBody:
+        description: The requests to dismiss and the note.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DismissContactRequestsRequest"
+      responses:
+        "200":
+          description: Which named requests were dismissed and which were not open.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRequestDismissal"
+        "400":
+          description: |
+            The request body is malformed or invalid: for example `request_ids` is missing, empty, holds more than
+            100 IDs, repeats an ID or holds one that is not a positive integer, or `note` is longer than 2000
+            characters or holds a control character (a C0 or C1 control other than tab and line feed, or a
+            bidirectional embedding, override or isolate; CRLF and a lone carriage return are first replaced by LF
+            before the length is counted, which is how the note is stored). The message names the field, never its
+            value; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid request_ids: must not repeat an ID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/InteractiveModeratorForbidden"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
   /v1/tokens:
     post:
       tags:
@@ -3030,7 +3084,9 @@ paths:
       description: |
         Reports a link a public page shows, by its URL, to the moderators. A repeat report of a link the caller
         has an open report of returns that report (200). A URL no visible link has, whether hidden or unknown, is
-        not found. A user may have at most 20 open reports.
+        not found. A user may have at most 20 open reports. Once a moderator dismisses a user's report of a link,
+        that user may not report the link again for 30 days; other users may, and a report resolved, or a link
+        hidden and shown again, sets no cooldown.
       operationId: reportLink
       requestBody:
         description: The link's URL, why it is reported, and an optional message.
@@ -3073,14 +3129,24 @@ paths:
         "404":
           $ref: "#/components/responses/LinkNotFound"
         "409":
-          description: The caller has 20 open link reports; the error code is `report_limit_reached`.
+          description: |
+            A moderator dismissed the caller's own report of this link less than 30 days ago (`report_cooldown`),
+            or the caller has 20 open link reports (`report_limit_reached`). The cooldown is checked first.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              example:
-                code: report_limit_reached
-                message: a user may have at most 20 open link reports
+              examples:
+                reportCooldown:
+                  summary: The caller's report of the link was dismissed recently
+                  value:
+                    code: report_cooldown
+                    message: a moderator dismissed your report of this link less than 30 days ago
+                reportLimitReached:
+                  summary: The caller has 20 open link reports
+                  value:
+                    code: report_limit_reached
+                    message: a user may have at most 20 open link reports
         "413":
           $ref: "#/components/responses/RequestTooLarge"
         "415":
@@ -4101,6 +4167,7 @@ components:
             - display_name_taken
             - display_name_reserved
             - report_limit_reached
+            - report_cooldown
             - turnstile_failed
             - repertoire_limit_reached
             - rate_limited
@@ -10614,6 +10681,68 @@ components:
       examples:
         - status: resolved
           note: Credit corrected.
+
+    DismissContactRequestsRequest:
+      type: object
+      description: The body of a bulk dismissal of contact requests.
+      additionalProperties: false
+      required: [request_ids]
+      properties:
+        request_ids:
+          type: array
+          description: The `id`s of the requests to dismiss, each at most once.
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
+            maximum: 9007199254740991
+            minimum: 1
+          examples:
+            - [12, 13]
+        note:
+          type: [string, "null"]
+          maxLength: 2000
+          examples:
+            - Spam.
+      examples:
+        - request_ids: [12, 13]
+          note: Spam.
+
+    ContactRequestDismissal:
+      type: object
+      description: |
+        The outcome of a bulk dismissal: every named request is in exactly one of the lists, each in ascending
+        order. It holds request IDs only, no personal data.
+      additionalProperties: false
+      required: [dismissed, not_open]
+      properties:
+        dismissed:
+          type: array
+          description: The requests this dismissal dismissed.
+          maxItems: 100
+          items:
+            type: integer
+            format: int64
+            maximum: 9007199254740991
+            minimum: 1
+          examples:
+            - [12]
+        not_open:
+          type: array
+          description: The named requests that were already resolved or dismissed, or do not exist; left unchanged.
+          maxItems: 100
+          items:
+            type: integer
+            format: int64
+            maximum: 9007199254740991
+            minimum: 1
+          examples:
+            - [13]
+      examples:
+        - dismissed: [12]
+          not_open: [13]
 
     DocumentError:
       type: object

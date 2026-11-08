@@ -1349,6 +1349,16 @@ SELECT COUNT(*)
 FROM link_reports
 WHERE reporter_user_id = ? AND status = 'open';
 
+-- Whether a moderator dismissed the reporter's own report of the link after since (domain.LinkReportCooldown).
+
+-- name: HasRecentDismissedReport :one
+SELECT EXISTS (
+    SELECT 1
+    FROM link_reports
+    WHERE reporter_user_id = sqlc.arg(reporter_user_id) AND link_id = sqlc.arg(link_id) AND status = 'dismissed'
+        AND resolved_at > sqlc.arg(since)
+) AS recent;
+
 -- name: InsertLinkReport :execlastid
 INSERT INTO link_reports (link_id, reporter_user_id, reason, message, created_at)
 VALUES (?, ?, ?, ?, ?);
@@ -1455,6 +1465,21 @@ FOR UPDATE;
 UPDATE contact_requests
 SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
 WHERE id = ? AND status = 'open';
+
+-- The rows of a bulk dismissal, locked in ascending ID order; an ID with no row is not returned.
+
+-- name: LockContactRequests :many
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ id, status
+FROM contact_requests
+WHERE id IN (sqlc.slice('ids'))
+ORDER BY id
+FOR UPDATE;
+
+-- name: DismissOpenContactRequests :execrows
+UPDATE contact_requests
+SET status = 'dismissed', resolved_by_user_id = sqlc.arg(resolved_by_user_id), resolved_at = sqlc.arg(resolved_at),
+    resolution_note = sqlc.arg(resolution_note)
+WHERE id IN (sqlc.slice('ids')) AND status = 'open';
 
 -- name: PurgeContactRequests :execrows
 UPDATE contact_requests

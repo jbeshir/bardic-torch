@@ -749,6 +749,41 @@ func (q *Queries) DeleteTermPlaceholder(ctx context.Context, id uint64) error {
 	return err
 }
 
+const dismissOpenContactRequests = `-- name: DismissOpenContactRequests :execrows
+UPDATE contact_requests
+SET status = 'dismissed', resolved_by_user_id = ?, resolved_at = ?,
+    resolution_note = ?
+WHERE id IN (/*SLICE:ids*/?) AND status = 'open'
+`
+
+type DismissOpenContactRequestsParams struct {
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+	Ids              []uint64
+}
+
+func (q *Queries) DismissOpenContactRequests(ctx context.Context, arg DismissOpenContactRequestsParams) (int64, error) {
+	query := dismissOpenContactRequests
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.ResolvedByUserID)
+	queryParams = append(queryParams, arg.ResolvedAt)
+	queryParams = append(queryParams, arg.ResolutionNote)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	result, err := q.db.ExecContext(ctx, query, queryParams...)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getAPITokenByHash = `-- name: GetAPITokenByHash :one
 SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
 FROM api_tokens
@@ -1771,6 +1806,30 @@ func (q *Queries) GetUserPendingForEntity(ctx context.Context, arg GetUserPendin
 		&i.SubmittedAt,
 	)
 	return i, err
+}
+
+const hasRecentDismissedReport = `-- name: HasRecentDismissedReport :one
+
+SELECT EXISTS (
+    SELECT 1
+    FROM link_reports
+    WHERE reporter_user_id = ? AND link_id = ? AND status = 'dismissed'
+        AND resolved_at > ?
+) AS recent
+`
+
+type HasRecentDismissedReportParams struct {
+	ReporterUserID string
+	LinkID         uint64
+	Since          sql.NullTime
+}
+
+// Whether a moderator dismissed the reporter's own report of the link after since (domain.LinkReportCooldown).
+func (q *Queries) HasRecentDismissedReport(ctx context.Context, arg HasRecentDismissedReportParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasRecentDismissedReport, arg.ReporterUserID, arg.LinkID, arg.Since)
+	var recent bool
+	err := row.Scan(&recent)
+	return recent, err
 }
 
 const insertCollectionPlaceholder = `-- name: InsertCollectionPlaceholder :execlastid
@@ -6651,6 +6710,54 @@ func (q *Queries) LockContactRequest(ctx context.Context, id uint64) (ContactReq
 	var status ContactRequestsStatus
 	err := row.Scan(&status)
 	return status, err
+}
+
+const lockContactRequests = `-- name: LockContactRequests :many
+
+SELECT /*+ MAX_EXECUTION_TIME(4000) */ id, status
+FROM contact_requests
+WHERE id IN (/*SLICE:ids*/?)
+ORDER BY id
+FOR UPDATE
+`
+
+type LockContactRequestsRow struct {
+	ID     uint64
+	Status ContactRequestsStatus
+}
+
+// The rows of a bulk dismissal, locked in ascending ID order; an ID with no row is not returned.
+func (q *Queries) LockContactRequests(ctx context.Context, ids []uint64) ([]LockContactRequestsRow, error) {
+	query := lockContactRequests
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LockContactRequestsRow
+	for rows.Next() {
+		var i LockContactRequestsRow
+		if err := rows.Scan(&i.ID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const lockLink = `-- name: LockLink :one

@@ -351,6 +351,9 @@ func TestLinkReportCreate_ServeHTTP(t *testing.T) {
 		revisionCase{name: "report_limit_reached", err: datasources.ErrReportLimitReached,
 			wantStatus: http.StatusConflict,
 			wantBody:   `{"code":"report_limit_reached","message":"a user may have at most 20 open link reports"}`},
+		revisionCase{name: "report_cooldown", err: datasources.ErrReportCooldown, wantStatus: http.StatusConflict,
+			wantBody: `{"code":"report_cooldown",` +
+				`"message":"a moderator dismissed your report of this link less than 30 days ago"}`},
 		userBlockedCase, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return LinkReportCreate{Command: commandFunc[command.ReportLinkRequest, command.ReportedLink](

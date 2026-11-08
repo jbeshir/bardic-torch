@@ -14,6 +14,9 @@ var (
 	ErrReportLimitReached = errors.New("open link report limit reached")
 	// ErrReportNotOpen is the resolution of a report that is already resolved or dismissed.
 	ErrReportNotOpen = errors.New("the link report is not open")
+	// ErrReportCooldown is a report of a link whose reporter's own report of it a moderator dismissed less than
+	// domain.LinkReportCooldown ago.
+	ErrReportCooldown = errors.New("the reporter's report of the link was dismissed recently")
 )
 
 // NewLinkReport is a user's report of the visible link whose URL normalizes to URL's.
@@ -28,8 +31,9 @@ type NewLinkReport struct {
 // LinkReporter stores a user's report of a visible link: one that is not hidden and is attached to a public
 // entity. It returns the reporter's open report of the link, if they have one, with created false, and otherwise
 // the new report with created true. It returns ErrNotFound if no visible link has the URL, which is the same for a
-// hidden link as for an unknown one, and ErrReportLimitReached if the reporter has domain.MaxOpenLinkReports open
-// reports.
+// hidden link as for an unknown one, ErrReportCooldown if a moderator dismissed the reporter's own report of the
+// link less than domain.LinkReportCooldown ago, and ErrReportLimitReached if the reporter has
+// domain.MaxOpenLinkReports open reports.
 type LinkReporter interface {
 	InsertLinkReport(ctx context.Context, report NewLinkReport) (receipt domain.LinkReportReceipt, created bool,
 		err error)

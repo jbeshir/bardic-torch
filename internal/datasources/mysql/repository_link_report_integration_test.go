@@ -5,6 +5,7 @@ package mysql_test
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -153,9 +154,11 @@ func TestRepository_LinkReports(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.False(t, shown.IsHidden)
-		_, created, err := f.report(t, ashUserID, songLyricsURL)
+		_, created, err := f.report(t, wrenUserID, songLyricsURL)
 		require.NoError(t, err)
 		assert.True(t, created, "a shown link can be reported again")
+		_, _, err = f.report(t, ashUserID, songLyricsURL)
+		require.ErrorIs(t, err, datasources.ErrReportCooldown, "Ash's report of it was dismissed just now")
 
 		open := f.insertOpenReport(t, site, ashUserID)
 		hiddenSite, err := f.repo.SetLinkHidden(t.Context(), datasources.SetLinkHiddenRequest{
@@ -238,5 +241,99 @@ func TestRepository_LinkHideResolveRace(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, hiddenLink.IsHidden, "run %d", i)
 		assert.Equal(t, int64(0), hiddenLink.OpenReportCount, "run %d", i)
+	}
+}
+
+// insertClosedReport stores reporterID's report of the link linkID directly, resolved or dismissed by Rowan at
+// resolvedAt, returning its ID.
+func (f *editingFixture) insertClosedReport(
+	t *testing.T, linkID int64, reporterID string, status domain.LinkReportStatus, resolvedAt time.Time,
+) int64 {
+	t.Helper()
+	result, err := f.db.ExecContext(t.Context(), "INSERT INTO link_reports (link_id, reporter_user_id, reason, "+
+		"status, created_at, resolved_by_user_id, resolved_at) VALUES (?, ?, 'broken', ?, ?, ?, ?)", linkID, reporterID,
+		string(status), resolvedAt.Add(-time.Hour), rowanUserID, resolvedAt)
+	require.NoError(t, err)
+	id, err := result.LastInsertId()
+	require.NoError(t, err)
+
+	return id
+}
+
+// TestRepository_ReportLink_CooldownAfterDismissal requires a report of a link to be refused with
+// datasources.ErrReportCooldown while the reporter's own report of that link was dismissed less than
+// domain.LinkReportCooldown ago, and only then.
+func TestRepository_ReportLink_CooldownAfterDismissal(t *testing.T) {
+	t.Parallel()
+
+	const day = 24 * time.Hour
+	dismissed, resolved := domain.LinkReportStatusDismissed, domain.LinkReportStatusResolved
+	tests := []struct {
+		name    string
+		prepare func(t *testing.T, f *editingFixture)
+		// wantErr is the error of Wren's report of the song's lyrics link; created is whether it is new otherwise.
+		wantErr error
+		created bool
+	}{
+		{name: "dismissed_29_days_ago", wantErr: datasources.ErrReportCooldown,
+			prepare: func(t *testing.T, f *editingFixture) {
+				f.insertClosedReport(t, f.linkID(t, songLyricsURL), wrenUserID, dismissed, f.now.Add(-29*day))
+			}},
+		{name: "dismissed_just_under_30_days_ago", wantErr: datasources.ErrReportCooldown,
+			prepare: func(t *testing.T, f *editingFixture) {
+				f.insertClosedReport(t, f.linkID(t, songLyricsURL), wrenUserID, dismissed,
+					f.now.Add(-domain.LinkReportCooldown+time.Second))
+			}},
+		{name: "dismissed_exactly_30_days_ago", created: true,
+			prepare: func(t *testing.T, f *editingFixture) {
+				f.insertClosedReport(t, f.linkID(t, songLyricsURL), wrenUserID, dismissed,
+					f.now.Add(-domain.LinkReportCooldown))
+			}},
+		{name: "dismissed_31_days_ago", created: true,
+			prepare: func(t *testing.T, f *editingFixture) {
+				f.insertClosedReport(t, f.linkID(t, songLyricsURL), wrenUserID, dismissed, f.now.Add(-31*day))
+			}},
+		{name: "resolved_without_hiding", created: true,
+			prepare: func(t *testing.T, f *editingFixture) {
+				f.insertClosedReport(t, f.linkID(t, songLyricsURL), wrenUserID, resolved, f.now.Add(-day))
+			}},
+		{name: "resolved_by_hide", wantErr: datasources.ErrNotFound,
+			prepare: func(t *testing.T, f *editingFixture) {
+				id := f.insertOpenReport(t, f.linkID(t, songLyricsURL), wrenUserID)
+				_, err := f.repo.ResolveLinkReport(t.Context(), datasources.ResolveLinkReportRequest{
+					ModeratorUserID: rowanUserID, ReportID: id, Status: resolved, HideLink: true, Now: f.now.Add(-day)})
+				require.NoError(t, err)
+			}},
+		{name: "another_reporters_dismissal", created: true,
+			prepare: func(t *testing.T, f *editingFixture) {
+				f.insertClosedReport(t, f.linkID(t, songLyricsURL), ashUserID, dismissed, f.now.Add(-day))
+			}},
+		{name: "dismissed_report_of_another_link", created: true,
+			prepare: func(t *testing.T, f *editingFixture) {
+				f.insertClosedReport(t, f.linkID(t, morwenSiteURL), wrenUserID, dismissed, f.now.Add(-day))
+			}},
+		{name: "open_report_returned_first", created: false,
+			prepare: func(t *testing.T, f *editingFixture) {
+				lyrics := f.linkID(t, songLyricsURL)
+				f.insertClosedReport(t, lyrics, wrenUserID, dismissed, f.now.Add(-day))
+				f.insertOpenReport(t, lyrics, wrenUserID)
+			}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := newEditingFixture(t)
+			tc.prepare(t, f)
+			before := f.count(t, "SELECT COUNT(*) FROM link_reports")
+
+			_, created, err := f.report(t, wrenUserID, songLyricsURL)
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				assert.Equal(t, before, f.count(t, "SELECT COUNT(*) FROM link_reports"), "nothing is written")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.created, created)
+		})
 	}
 }

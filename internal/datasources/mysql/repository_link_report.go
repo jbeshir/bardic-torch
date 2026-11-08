@@ -21,8 +21,9 @@ var (
 
 // InsertLinkReport stores a user's report of a visible link. Under the reporter's users row lock, which
 // serialises their reports, it locks the visible link by its normalized URL FOR SHARE, so that it cannot be hidden
-// before the report commits, then returns the reporter's open report of it or counts their open reports and
-// inserts. The URL is never named in errors: it may be a hidden link's.
+// before the report commits, then returns the reporter's open report of it, or refuses a report of a link whose
+// reporter's own report of it was dismissed less than domain.LinkReportCooldown ago, or counts their open reports
+// and inserts. The URL is never named in errors: it may be a hidden link's.
 func (r *Repository) InsertLinkReport(
 	ctx context.Context, report datasources.NewLinkReport,
 ) (domain.LinkReportReceipt, bool, error) {
@@ -53,6 +54,16 @@ func (r *Repository) InsertLinkReport(
 			return c.err
 		case !errors.Is(err, sql.ErrNoRows):
 			return fmt.Errorf("fetching open report: %w", err)
+		}
+		recent, err := c.q.HasRecentDismissedReport(ctx, queries.HasRecentDismissedReportParams{
+			ReporterUserID: report.ReporterUserID, LinkID: linkID,
+			Since: nullTime(report.Now.Add(-domain.LinkReportCooldown)),
+		})
+		if err != nil {
+			return fmt.Errorf("checking for a recently dismissed report: %w", err)
+		}
+		if recent {
+			return datasources.ErrReportCooldown
 		}
 		open, err := c.q.CountOpenLinkReportsOfReporter(ctx, report.ReporterUserID)
 		if err != nil {

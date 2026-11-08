@@ -4,6 +4,7 @@ package mysql_test
 
 import (
 	"database/sql"
+	"slices"
 	"testing"
 	"time"
 
@@ -213,4 +214,112 @@ func TestContactRequests_ListAndResolvePurge(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, resolved.Purged, "the request just resolved keeps its data")
 	assert.True(t, f.get(t, other).Purged, "the resolution purged the request past its retention")
+}
+
+// dismiss dismisses the requests ids in bulk at now with the note "Spam.".
+func (f contactFixture) dismiss(t *testing.T, ids []int64, now time.Time) (domain.ContactRequestDismissal, error) {
+	t.Helper()
+	return f.repo.DismissContactRequests(t.Context(), datasources.DismissContactRequestsRequest{
+		ModeratorUserID: contactModeratorID, RequestIDs: ids, Note: new("Spam."), Now: now})
+}
+
+// TestRepository_DismissContactRequests requires a bulk dismissal to dismiss exactly the open requests it names, each
+// as a single dismissal would (resolver, note, and the purge clock from its resolution), and to list every other
+// named ID, resolved, dismissed or unknown, as not open, leaving it unchanged.
+func TestRepository_DismissContactRequests(t *testing.T) {
+	t.Parallel()
+
+	// The requests each case starts with, by name; unknown has no row.
+	const (
+		open      = "open_request"
+		openToo   = "another_open_request"
+		resolved  = "resolved_request"
+		dismissed = "dismissed_request"
+		unknown   = "unknown_request"
+	)
+	tests := []struct {
+		name          string
+		named         []string
+		wantDismissed []string
+		wantNotOpen   []string
+	}{
+		{name: "one_open", named: []string{open}, wantDismissed: []string{open}, wantNotOpen: []string{}},
+		{name: "one_resolved", named: []string{resolved}, wantDismissed: []string{}, wantNotOpen: []string{resolved}},
+		{name: "one_dismissed", named: []string{dismissed}, wantDismissed: []string{}, wantNotOpen: []string{dismissed}},
+		{name: "one_unknown", named: []string{unknown}, wantDismissed: []string{}, wantNotOpen: []string{unknown}},
+		{name: "mixed_in_any_order", named: []string{unknown, openToo, resolved, open, dismissed},
+			wantDismissed: []string{open, openToo}, wantNotOpen: []string{resolved, dismissed, unknown}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := newContactFixture(t)
+			earlier := f.now.Add(-time.Hour)
+			ids := map[string]int64{
+				open:      f.create(t, domain.ContactRequestKindGeneral, "Buy now.", earlier),
+				openToo:   f.create(t, domain.ContactRequestKindGeneral, "Buy again.", earlier),
+				resolved:  f.create(t, domain.ContactRequestKindCorrection, "A real correction.", earlier),
+				dismissed: f.create(t, domain.ContactRequestKindGeneral, "Old spam.", earlier),
+			}
+			ids[unknown] = ids[dismissed] + 100
+			_, err := f.resolve(t, ids[resolved], domain.ContactRequestStatusResolved, earlier)
+			require.NoError(t, err)
+			_, err = f.resolve(t, ids[dismissed], domain.ContactRequestStatusDismissed, earlier)
+			require.NoError(t, err)
+			before := map[string]domain.ContactRequest{resolved: f.get(t, ids[resolved]),
+				dismissed: f.get(t, ids[dismissed]), openToo: f.get(t, ids[openToo])}
+			idsOf := func(names []string) []int64 {
+				out := make([]int64, 0, len(names))
+				for _, name := range names {
+					out = append(out, ids[name])
+				}
+				return out
+			}
+
+			got, err := f.dismiss(t, idsOf(tc.named), f.now)
+			require.NoError(t, err)
+			assert.Equal(t, domain.ContactRequestDismissal{Dismissed: idsOf(tc.wantDismissed),
+				NotOpen: idsOf(tc.wantNotOpen)}, got)
+
+			resolver := &domain.ModerationAuthor{ID: contactModeratorID, DisplayName: contactModeratorName,
+				Role: domain.RoleModerator}
+			for _, name := range tc.wantDismissed {
+				request := f.get(t, ids[name])
+				assert.Equal(t, domain.ContactRequestStatusDismissed, request.Status, name)
+				assert.Equal(t, &f.now, request.ResolvedAt, name)
+				assert.Equal(t, resolver, request.ResolvedBy, name)
+				assert.Equal(t, new("Spam."), request.Note, name)
+				assert.NotNil(t, request.Email, "%s: dismissing keeps the data until its retention ends", name)
+			}
+			for _, name := range []string{resolved, dismissed, openToo} {
+				if !slices.Contains(tc.wantDismissed, name) {
+					assert.Equal(t, before[name], f.get(t, ids[name]), "%s is unchanged", name)
+				}
+			}
+
+			// The purge clock runs from the bulk dismissal, as from a single one.
+			_, err = f.repo.PurgeContactRequests(t.Context(), f.now.Add(domain.ContactRetention-time.Second))
+			require.NoError(t, err)
+			for _, name := range tc.wantDismissed {
+				assert.False(t, f.get(t, ids[name]).Purged, name)
+			}
+			_, err = f.repo.PurgeContactRequests(t.Context(), f.now.Add(domain.ContactRetention+time.Second))
+			require.NoError(t, err)
+			for _, name := range tc.wantDismissed {
+				assert.True(t, f.get(t, ids[name]).Purged, name)
+			}
+		})
+	}
+
+	t.Run("again_is_not_open", func(t *testing.T) {
+		t.Parallel()
+		f := newContactFixture(t)
+		id := f.create(t, domain.ContactRequestKindGeneral, "Buy now.", f.now)
+		_, err := f.dismiss(t, []int64{id}, f.now)
+		require.NoError(t, err)
+		got, err := f.dismiss(t, []int64{id}, f.now.Add(time.Hour))
+		require.NoError(t, err)
+		assert.Equal(t, domain.ContactRequestDismissal{Dismissed: []int64{}, NotOpen: []int64{id}}, got)
+		assert.Equal(t, &f.now, f.get(t, id).ResolvedAt, "the first dismissal's time stays")
+	})
 }

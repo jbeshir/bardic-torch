@@ -198,6 +198,24 @@ func TestRepository_ModeratorWrites_DemotedActorRefused(t *testing.T) {
 				assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM contact_requests WHERE status = 'open'"))
 			},
 		},
+		{
+			name: "dismiss_contact_requests",
+			prepare: func(t *testing.T, f *editingFixture) func(ctx context.Context) error {
+				ids := make([]int64, 0, 2)
+				for _, message := range []string{"Buy now.", "Buy again."} {
+					id, err := f.repo.CreateContactRequest(t.Context(), datasources.NewContactRequest{
+						Kind: domain.ContactRequestKindGeneral, Email: "hazel@example.org", Message: message, Now: f.now})
+					require.NoError(t, err)
+					ids = append(ids, id)
+				}
+				req := datasources.DismissContactRequestsRequest{ModeratorUserID: rowanUserID, RequestIDs: ids,
+					Now: f.now}
+				return func(ctx context.Context) error { _, err := f.repo.DismissContactRequests(ctx, req); return err }
+			},
+			unchanged: func(t *testing.T, f *editingFixture) {
+				assert.Equal(t, 2, f.count(t, "SELECT COUNT(*) FROM contact_requests WHERE status = 'open'"))
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

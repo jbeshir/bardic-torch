@@ -750,3 +750,10 @@ Retention: 180 days after a request is resolved or dismissed, its name, email ad
 deleted, and the inbox shows it as `purged`. The purge runs at startup, after each resolution and before each
 inbox list; there is no scheduled job. Open requests are kept until a moderator resolves or dismisses them, since
 they still need action.
+
+Spam floods: the form is rate limited per client IP, and at 1000 open requests it answers 503 until some are
+closed. To clear a flood, a moderator dismisses up to 100 requests at a time with `POST
+/v1/moderation/contact-requests/dismissals` (`{"request_ids": [...], "note": "Spam."}`, interactive Auth0 session
+only). Each open request named is dismissed as a single dismissal would be, so its personal data is purged 180 days
+later; IDs already resolved, dismissed or unknown come back in `not_open` and are left alone. Page through the
+inbox with `status=open` and repeat until the flood is gone.

@@ -13,7 +13,13 @@ const (
 	MaxOpenLinkReports = 20
 	// MaxOpenContactRequests is how many open contact requests the site holds before it refuses more.
 	MaxOpenContactRequests = 1000
+	// MaxContactRequestDismissals is how many contact requests one bulk dismissal may name.
+	MaxContactRequestDismissals = 100
 )
+
+// LinkReportCooldown is how long after a moderator dismisses a user's report of a link that user may not report
+// the link again.
+const LinkReportCooldown = 30 * 24 * time.Hour
 
 // ContactRetention is how long after a contact request is resolved its personal data is kept.
 const ContactRetention = 180 * 24 * time.Hour

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -260,4 +261,79 @@ func (c ContactRequestResolve) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	domain.LoggerFromContext(ctx).InfoContext(ctx, "resolved contact request",
 		"contact_request_id", request.ID, "kind", request.Kind, "status", request.Status)
 	httpjson.WriteJSON(ctx, w, http.StatusOK, contactRequestFromDomain(request))
+}
+
+// ContactRequestsDismissRequest is the JSON body of a bulk dismissal: the IDs of the requests to dismiss, distinct
+// and at most domain.MaxContactRequestDismissals, and an optional note for all of them.
+type ContactRequestsDismissRequest struct {
+	RequestIDs []int64 `json:"request_ids"`
+	Note       *string `json:"note"`
+}
+
+// ContactRequestDismissal is the JSON representation of a bulk dismissal's outcome: the IDs it dismissed and the
+// IDs that were not open, resolved, dismissed and unknown alike, each in ascending order. It holds no personal data.
+type ContactRequestDismissal struct {
+	Dismissed []int64 `json:"dismissed"`
+	NotOpen   []int64 `json:"not_open"`
+}
+
+// ContactRequestsDismiss handles POST /v1/moderation/contact-requests/dismissals, dismissing many open contact
+// requests in one write.
+type ContactRequestsDismiss struct {
+	Command command.Command[command.DismissContactRequestsRequest, domain.ContactRequestDismissal]
+}
+
+func (c ContactRequestsDismiss) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	principal, ok := principalOrUnauthenticated(w, r)
+	if !ok {
+		return
+	}
+	var body ContactRequestsDismissRequest
+	if !httpjson.DecodeJSONBody(w, r, &body) {
+		return
+	}
+	if !dismissalIDsOrBadRequest(w, r, body.RequestIDs) {
+		return
+	}
+	note, ok := freeTextOrBadRequest(w, r, "note", body.Note, domain.MaxModeratorNoteLength)
+	if !ok {
+		return
+	}
+
+	dismissal, err := c.Command.Execute(ctx, command.DismissContactRequestsRequest{
+		Principal: principal, RequestIDs: body.RequestIDs, Note: note,
+	})
+	if err != nil {
+		writeRevisionError(w, r, "contact requests", err)
+		return
+	}
+	domain.LoggerFromContext(ctx).InfoContext(ctx, "dismissed contact requests",
+		"dismissed", len(dismissal.Dismissed), "not_open", len(dismissal.NotOpen))
+	httpjson.WriteJSON(ctx, w, http.StatusOK, ContactRequestDismissal{
+		Dismissed: dismissal.Dismissed, NotOpen: dismissal.NotOpen,
+	})
+}
+
+// dismissalIDsOrBadRequest checks a bulk dismissal's request IDs: from 1 to domain.MaxContactRequestDismissals of
+// them, each from 1 to maxSafeID, none repeated. If they are not, it writes 400 invalid_request and returns false;
+// the caller should then return without writing.
+func dismissalIDsOrBadRequest(w http.ResponseWriter, r *http.Request, ids []int64) bool {
+	if len(ids) == 0 || len(ids) > domain.MaxContactRequestDismissals {
+		return invalidContactField(w, r, fmt.Sprintf("invalid request_ids: must hold from 1 to %d IDs",
+			domain.MaxContactRequestDismissals))
+	}
+	seen := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		if id < 1 || id > maxSafeID {
+			return invalidContactField(w, r, fmt.Sprintf("invalid request_ids: each must be an integer from 1 to %d",
+				int64(maxSafeID)))
+		}
+		if seen[id] {
+			return invalidContactField(w, r, "invalid request_ids: must not repeat an ID")
+		}
+		seen[id] = true
+	}
+
+	return true
 }

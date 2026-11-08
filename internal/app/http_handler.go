@@ -72,6 +72,7 @@ type HTTPDependencies struct {
 	ContactRequestCreator          datasources.ContactRequestCreator
 	ContactRequestLister           datasources.ContactRequestLister
 	ContactRequestResolver         datasources.ContactRequestResolver
+	ContactRequestDismisser        datasources.ContactRequestDismisser
 	ContactRequestPurger           datasources.ContactRequestPurger
 	TurnstileVerifier              datasources.TurnstileVerifier
 	RateLimits                     router.RateLimits
@@ -175,6 +176,9 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		},
 		ResolveContactRequest: &command.ResolveContactRequest{
 			Resolver: deps.ContactRequestResolver, Purger: deps.ContactRequestPurger, Now: deps.Now,
+		},
+		DismissContactRequests: &command.DismissContactRequests{
+			Dismisser: deps.ContactRequestDismisser, Purger: deps.ContactRequestPurger, Now: deps.Now,
 		},
 		ListRepertoire:        &command.ListRepertoire{Lister: deps.RepertoireLister},
 		GetRepertoireEntry:    &command.GetRepertoireEntry{Getter: deps.RepertoireEntryGetter},

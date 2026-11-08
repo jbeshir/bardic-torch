@@ -68,6 +68,7 @@ const (
 	CodeDisplayNameTaken    ErrorCode = "display_name_taken"
 	CodeDisplayNameReserved ErrorCode = "display_name_reserved"
 	CodeReportLimitReached  ErrorCode = "report_limit_reached"
+	CodeReportCooldown      ErrorCode = "report_cooldown"
 	// The code of a contact request whose Turnstile token does not pass.
 	CodeTurnstileFailed ErrorCode = "turnstile_failed"
 	// The code of a new repertoire entry of a full repertoire.
@@ -86,7 +87,7 @@ func ErrorCodeValues() []ErrorCode {
 		CodeRebaseRequired, CodeEntityGone, CodeAlreadyCurrent, CodePendingLimitReached, CodeDraftLimitReached,
 		CodePossibleDuplicate, CodeDuplicateBlocked, CodeHiddenDataConflict, CodePendingReferenceFlagged,
 		CodeUnacknowledgedFlags, CodeDuplicateName, CodeStale, CodeDisplayNameTaken, CodeDisplayNameReserved,
-		CodeReportLimitReached, CodeTurnstileFailed, CodeRepertoireLimitReached, CodeRateLimited,
+		CodeReportLimitReached, CodeReportCooldown, CodeTurnstileFailed, CodeRepertoireLimitReached, CodeRateLimited,
 	}
 }
 
