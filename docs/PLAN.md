@@ -753,8 +753,18 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   keys; it leaves an oversized key NULL, with a warning naming the user ID only, like a collision, so stored names
   never stop startup. Authenticated author objects carry the `role`, so the FE can badge moderators.
 - **Body sizes:** document bodies up to 1 MiB, `/v1/contact` up to 64 KiB, everything else 16 KiB (413).
-- **No public schema or document schema change:** BE4 adds no field to an existing response, and
-  `DocumentSchemaVersion` stays 1.
+- **BE5 public schema additions:** `info.version` goes from 1.0.0 to 1.1.0 and `DocumentSchemaVersion` stays 1, because
+  every change is additive and hides no data. New in responses: `updated_at` (piece, person, term, collection,
+  event), `RevisionHistory.entity`, link liveness and archive on performance links and collection citations,
+  `PieceSummary.credit_names`, `preferences`, `conservation_suggestion`, `licence_version`, `User.public_id` and
+  `EditorPerformance.key`; new error codes `rate_limited`, `api_token_required`, `report_cooldown`,
+  `repertoire_limit_reached`, `not_acceptable`; new problem codes `choice_conflict` and `dimension_not_allowed`;
+  paged sub-lists, `listPieces?person`, and 429 on the rate-limited operations. The editor tolerates BE4-shaped
+  documents: an absent `preferences` keeps the base's (every `preference:*` key is dropped from the received set,
+  which only ever shrinks), an absent `licence_version` takes the base's, an absent performance `key` is null;
+  unknown fields stay 400. A client regenerated from 1.1.0 always sends them. **Deploy in three steps** (DEPLOY
+  "Deploying BE5"): an FE that decodes tolerantly and sends the proxy headers, then BE5, then an FE regenerated
+  from 1.1.0. After the third step, roll back the FE first, then the BE.
 
 ## 6. API surface (all specified in OpenAPI; the FE never calls the API directly from the browser)
 
@@ -1055,7 +1065,7 @@ Each pipeline has the same internal shape:
 | FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8 (including the read-only history and diff pages), the licensing card (licensing status and sourced notes) and conservation badge, the mobile facet drawer, and SEO. |
 | BE4 | revisions and moderation | BE | BE3 | Everything in §5 (§5.1 records the decisions), migration 010, and these endpoints: the editable and pending reads of each entity type, drafts (`POST /v1/drafts`, `GET|PUT|DELETE /v1/drafts/{id}`), submit, withdraw and revert, `GET /v1/me/revisions[/{id}]`, link reports by URL, the moderation queue and revision view, approve, reject and rebase, the link-report and contact-request inboxes, the moderator link lookup and `PUT /v1/links/{id}/hidden`, and the public contact form (Turnstile). Also the display-name impersonation controls (backlog 2). (needs-work, a public read, moved to BE2; repertoire is BE5's.) |
 | FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, revert, and the pending-version diff. (The read-only history and diff pages are FE2's.) |
-| BE5 | contributor extras | BE | BE4 | Repertoire, preference profiles and their validation, conservation suggestions, the `check-links` cron with Wayback lookup, API-token MCP tools, and rate limits. |
+| BE5 | contributor extras | BE | BE4 | Repertoire, preference profiles and their validation, conservation suggestions, the `check-links` cron with Wayback lookup, API-token MCP tools, and rate limits (decisions in §4.1/§5.1). |
 | FE4 | moderation and extras UI | FE | BE5 spec, FE3 | The moderation queue, diff and three-way review, the inboxes, repertoire, the etiquette card (preference profiles with piece-level overrides, once BE5 exposes them), the preference-profile editor, the needs-work dashboard, and the contact form. |
 | H1 | launch | host | all | Full-stack e2e against the real import, a staging deploy, the real import run with its review report worked through, the click-through by John and Fabian, then production. |
 

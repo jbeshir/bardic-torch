@@ -497,6 +497,32 @@ git push dokku main
 Every deploy runs the migrations first (predeploy), then the startup check. `dokku logs bardic-torch-api -t`
 follows the logs.
 
+### Deploying BE5
+
+BE5 adds fields, error codes and a 429 status to the API (docs/PLAN.md §5.1 "BE5 public schema additions"), and it
+reads client IPs from FE headers. The editor still accepts BE4-shaped documents, but BE4 rejects BE5-shaped ones, so
+the FE and API deploy in three steps, in this order:
+
+1. **FE step 1, before BE5.** An FE build that:
+   - decodes responses tolerantly: it ignores unknown properties, accepts unknown enum values (`Error.code`,
+     document error codes, `liveness`) and a 429 status (it backs off by `Retry-After`; autosave keeps the local
+     copy);
+   - sends `X-Bardic-Client-IP` (from `CF-Connecting-IP`) and `X-Bardic-Proxy-Secret` on every server-side API call,
+     strips any copies a browser sent, and has `FE_PROXY_SECRET` set;
+   - still sends BE4-shaped editor documents (no `preferences`, `licence_version` or performance `key`).
+2. **BE5.** Set `FE_PROXY_SECRET` and `TRUSTED_PROXY_CIDRS` on the API to the values the FE uses first
+   ([Configuration](#configuration)), then `git push dokku main`. Migrations 011 and 012 run in predeploy. Then run the
+   two-network check in [Rate limits and client IPs](#rate-limits-and-client-ips): a contact form message from each of
+   two networks is accepted, the logs show no unattributed warning, and `ss -tn` shows the expected peer.
+3. **FE step 3.** An FE regenerated from spec 1.1.0, which sends `preferences`, `licence_version` and `key`.
+
+The FE built against the BE4 spec (FE3) keeps working on BE5 unchanged; adopting `key` belongs with shipping
+performance editing and is not a precondition of this deploy.
+
+**Rollback order.** Before step 3, BE4 can be rolled back directly ([Rollback](#rollback)): migrations 011 and 012 are
+additive and BE4 works against them. After step 3, roll the FE back to its step-1 build first, then the API,
+because BE4 answers 400 to the new editor fields.
+
 ### Migrations must stay backward compatible
 
 The predeploy step applies the new release's migrations **while the old release is still serving**, and a
