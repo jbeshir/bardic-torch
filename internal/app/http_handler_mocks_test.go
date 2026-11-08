@@ -114,7 +114,13 @@ type handlerMocks struct {
 	validate            *openapitest.Validator
 }
 
+// newHandlerMocks returns the mocks and the production handler over them, with rate limits no test reaches.
 func newHandlerMocks(t *testing.T) handlerMocks {
+	return newLimitedHandlerMocks(t, unlimitedRateLimits())
+}
+
+// newLimitedHandlerMocks returns the mocks and the production handler over them, limited by limits.
+func newLimitedHandlerMocks(t *testing.T, limits router.RateLimits) handlerMocks {
 	m := handlerMocks{
 		pinger:              mocks.NewPinger(t),
 		users:               mocks.NewUserGetter(t),
@@ -180,7 +186,7 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
 		Pinger:     m.pinger,
-		RateLimits: unlimitedRateLimits(),
+		RateLimits: limits,
 		MCPTools:   testMCPTools(t),
 		AuthValidators: []router.AuthValidator{
 			prefixValidator("auth0|", domain.AuthMethodAuth0),

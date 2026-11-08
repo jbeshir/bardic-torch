@@ -56,6 +56,9 @@ type leakFixture struct {
 	unpublished unpublishedRevisions
 	// repertoires are users' repertoires, written through the API, whose notes and private entries are hidden.
 	repertoires leakRepertoires
+	// mcpTokens are the API tokens of a contributor (AT) and a moderator (MT), created while seeding, since the
+	// shared database is read-only to tests.
+	mcpTokens map[revisionViewer]string
 }
 
 // leakRevisions are revisions beyond catalogtest's: each shows something hidden now, or is not public.
@@ -513,6 +516,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	revisions.rejectedLantern, revisions.rebasedLantern = seedModeratedLantern(c, piece, lanternDoc)
 	unpublished := seedUnpublishedRevisions(c, piece, ember, person)
 	repertoires := seedLeakRepertoires(c, piece, ember, unapprovedPiece)
+	mcpTokens := seedMCPLeakTokens(c)
 
 	// System fields no document holds and no read exposes.
 	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'contributor', ?)",
@@ -532,6 +536,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		turned: turned, renamed: renamed, renamedNoPage: renamedNoPage, renamedBallad: renamedBallad, ember: ember, revisions: revisions,
 		unpublished: unpublished,
 		repertoires: repertoires,
+		mcpTokens:   mcpTokens,
 	}
 })
 
@@ -593,7 +598,7 @@ type leakRequest struct {
 // reach every list it shows.
 var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	{Method: http.MethodGet, Path: "/v1/users/{public_id}/repertoire"}: publicRepertoireRows,
-	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: func(fx leakFixture) []leakRequest {
+	{Method: http.MethodGet, Path: pieceRoute}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
 			{path: "/v1/pieces/" + fx.piece.Slug, status: http.StatusOK},
 			// The links of its first revision that are no visible link's now, and a link entered with tracking
@@ -921,8 +926,8 @@ var leakExempt = map[openapitest.Operation]string{
 	{Method: http.MethodPut, Path: draftPath}:                                       exemptOwnRevisions,
 	{Method: http.MethodDelete, Path: draftPath}:                                    exemptOwnRevisions,
 	{Method: http.MethodPost, Path: revisionsPath}:                                  exemptOwnRevisions,
-	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/withdraw"}:         exemptOwnRevisions,
-	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/revert"}:           exemptOwnRevisions,
+	{Method: http.MethodPost, Path: withdrawRoute}:                                  exemptOwnRevisions,
+	{Method: http.MethodPost, Path: revertRoute}:                                    exemptOwnRevisions,
 	{Method: http.MethodGet, Path: myRevisionsPath}:                                 exemptOwnRevisions,
 	{Method: http.MethodGet, Path: myRevisionPath}:                                  exemptOwnRevisions,
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/editable"}:                    exemptOwnRevisions,
@@ -954,8 +959,8 @@ var leakExempt = map[openapitest.Operation]string{
 	{Method: http.MethodGet, Path: repertoireEntryRoute}:    exemptOwnRepertoire,
 	{Method: http.MethodPut, Path: repertoireEntryRoute}:    exemptOwnRepertoire,
 	{Method: http.MethodDelete, Path: repertoireEntryRoute}: exemptOwnRepertoire,
-	{Method: http.MethodPost, Path: "/v1/mcp"}: "the MCP server: each tool call is a request to the REST " +
-		"operation it names, whose rows cover it",
+	{Method: http.MethodPost, Path: "/v1/mcp"}: "the MCP server: covered by the MCP leak matrix " +
+		"(TestHTTP_MCPLeakMatrix and TestHTTP_MCPRevisionLeakMatrix)",
 }
 
 // TestHTTP_LeakMatrix sends every leakMatrix request to the production handler over a real repository holding
@@ -1016,23 +1021,29 @@ func assertNoLeak(t *testing.T, contract *openapitest.Validator, handler http.Ha
 
 	rec := contract.Serve(t, handler, httptest.NewRequestWithContext(t.Context(), http.MethodGet, req.path, nil))
 	require.Equal(t, req.status, rec.Code, rec.Body.String())
-
-	assert.Empty(t, unusedReveals(rec.Body.String(), req.reveals), "the response does not show these revealed strings")
-	assert.Empty(t, leakedMarker(rec.Body.String(), req.reveals), "the response shows a marked string:\n%s",
-		rec.Body.String())
-	for _, absent := range req.absent {
-		assert.NotContains(t, rec.Body.String(), absent, "the response shows something it must not")
-	}
+	assertNoLeakInBody(t, rec.Body.String(), req)
 	if req.sameBodyAs != "" {
 		other := contract.Serve(t, handler,
 			httptest.NewRequestWithContext(t.Context(), http.MethodGet, req.sameBodyAs, nil))
 		assert.Equal(t, other.Body.String(), rec.Body.String(), "the response is told apart from %s's", req.sameBodyAs)
 	}
+}
+
+// assertNoLeakInBody checks the body of the response to req: it shows every string req reveals, no other marked
+// string and nothing req lists as absent, and has the total req expects.
+func assertNoLeakInBody(t *testing.T, body string, req leakRequest) {
+	t.Helper()
+
+	assert.Empty(t, unusedReveals(body, req.reveals), "the response does not show these revealed strings")
+	assert.Empty(t, leakedMarker(body, req.reveals), "the response shows a marked string:\n%s", body)
+	for _, absent := range req.absent {
+		assert.NotContains(t, body, absent, "the response shows something it must not")
+	}
 	if req.total != nil {
 		var list struct {
 			Total *int `json:"total"`
 		}
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+		require.NoError(t, json.Unmarshal([]byte(body), &list))
 		require.NotNil(t, list.Total, "the response has no total")
 		assert.Equal(t, *req.total, *list.Total)
 	}

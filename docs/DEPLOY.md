@@ -759,6 +759,43 @@ only). Each open request named is dismissed as a single dismissal would be, so i
 later; IDs already resolved, dismissed or unknown come back in `not_open` and are left alone. Page through the
 inbox with `status=open` and repeat until the flood is gone.
 
+## MCP
+
+The API serves MCP itself at `POST https://api.bardictorch.org/v1/mcp` (docs/PLAN.md §5.1 "MCP"): there is no
+separate process, port, variable or deploy step, and every deploy of the API ships the tools. The README's "MCP"
+section lists the tools.
+
+- **Tokens.** MCP takes API tokens only. A user creates one with `POST /v1/tokens` and their Auth0 access token
+  (at most 10 active per user), and keeps the `user_api|…` value, which is shown once. It acts
+  with a contributor's powers whatever the user's role: a moderator's token submits pending revisions and cannot
+  moderate. `DELETE /v1/tokens/{token_id}` revokes it; a blocked user's tokens are refused with 403
+  `user_blocked`.
+- **Client config.** An MCP client that speaks Streamable HTTP needs only the URL and the header
+  `Authorization: Bearer user_api|<token>`, for example:
+
+  ```json
+  {"mcpServers": {"bardic-torch": {"type": "http", "url": "https://api.bardictorch.org/v1/mcp",
+    "headers": {"Authorization": "Bearer user_api|<token>"}}}}
+  ```
+
+  The server is stateless: no session is kept between requests, so any number of API containers can serve it.
+- **Verify** after a deploy, with a token:
+
+  ```sh
+  curl -s https://api.bardictorch.org/v1/mcp -H "Authorization: Bearer user_api|<token>" \
+    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+    -H 'Mcp-Protocol-Version: 2025-06-18' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+  ```
+
+  answers 200 with the tools. Without the token it is 401; with an Auth0 token 403 `api_token_required`.
+- **Rate limits.** Each tool call is a request to its REST route, so it spends that route's tier as well as
+  `mcp_user` (burst 60, then 120 a minute per user). A limited call is a tool result with `status` 429 and
+  `retry_after_seconds`; a limited `/v1/mcp` request is an HTTP 429 with `Retry-After`. An agent writing drafts
+  shares `draft_write_user` with the same user's browser autosave.
+- **Logs.** Each tool call logs `mcp tool called` with `tool`, `status` and `tool_route` (the inner route's
+  template) with the `/v1/mcp` request's request ID, and the inner request logs its own `request completed`.
+  Arguments and results are never logged.
+
 ## Link checks (cron)
 
 `/app/check-links` checks whether the catalogue's visible links still work and looks up archived copies in the

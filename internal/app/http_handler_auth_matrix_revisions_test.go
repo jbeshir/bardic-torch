@@ -130,7 +130,7 @@ func revisionMatrix() map[openapitest.Operation]matrixRow {
 				expectMatrixRevision(m, userID)
 			},
 		},
-		{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/withdraw"}: {
+		{Method: http.MethodPost, Path: withdrawRoute}: {
 			access:        authenticatedUser,
 			pathParams:    map[string]string{revisionIDParam: strconv.Itoa(matrixRevisionID)},
 			successStatus: http.StatusOK,
@@ -140,7 +140,7 @@ func revisionMatrix() map[openapitest.Operation]matrixRow {
 				expectMatrixRevision(m, userID)
 			},
 		},
-		{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/revert"}: {
+		{Method: http.MethodPost, Path: revertRoute}: {
 			access:        authenticatedUser,
 			pathParams:    map[string]string{revisionIDParam: strconv.Itoa(matrixRevisionID - 1)},
 			body:          `{"summary":null,"acknowledged_flags":[]}`,
@@ -228,4 +228,6 @@ const (
 	revisionIDParam   = "revision_id"
 	collectionIDParam = "collection_id"
 	draftPath         = "/v1/drafts/{draft_id}"
+	withdrawRoute     = "/v1/revisions/{revision_id}/withdraw"
+	revertRoute       = "/v1/revisions/{revision_id}/revert"
 )

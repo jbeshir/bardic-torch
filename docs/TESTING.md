@@ -432,6 +432,16 @@ through the helper, so the command's name rules are checked against the spec's `
   `authenticated`, so the auth middleware never runs for them: they answer any credentials, even invalid,
   unverifiable or a blocked user's, as they would an anonymous request, and never look a user up.
 - `TestHTTP_LeakMatrix` checks that no public read shows hidden data; see [Leak matrix](#leak-matrix).
+- `TestMCP_AuthMatrix` (`internal/app/mcp_auth_matrix_test.go`) calls every MCP tool, once per operation it calls,
+  as every principal, through the same handler. Its expectations are derived, not written: the route's outcome is
+  the `apiTokenUser` access of `POST /v1/mcp` (Auth0 principals 403 `api_token_required`), and for the API tokens
+  it lets through, the outcome of the tool's operation's own `authMatrix` row, whose request (path parameters,
+  query and body) the call makes. A route refusal is an HTTP error; an inner refusal would be a tool error with the
+  REST status and code. Every allowed call must reach the datasources with a contributor actor, so a moderator's
+  token submits a pending revision and gets the editable document with `link_states: []`. A tool whose operation
+  has no row, or whose row refuses API tokens (403 `api_token_not_allowed`), fails the test.
+  `TestMCP_ToolTableMatchesReadme` keeps the README's MCP tool list (name, description, annotations, in table
+  order) equal to `mcp.Toolset.Tools()`; the failure message prints the rows the README needs.
 
 ### Rate-limit tests
 
@@ -450,6 +460,12 @@ Rate limits (docs/PLAN.md §5.1 "Rate limits") are tested without real time or r
 - Every other test gets limits it never reaches: `unlimitedRateLimits()` in package `app` (pass it to
   `repositoryHTTPDependencies`, or set `HTTPDependencies.RateLimits`) and in package `router`. A handler built
   without them panics on the first limited request, which is how a missing one shows up.
+- MCP tool calls are ordinary requests to their routes, so they spend those routes' tiers as well as `mcp_user`.
+  `TestMCPInnerRequestsCountTowardRouteTiers` (`internal/app/mcp_rate_limit_test.go`) has a row for every tool
+  whose operation is limited (a check fails for a writing tool without one, bar `delete_draft`): with that tier's
+  burst at 1 and every other tier open, the second call is a tool error 429 with `retry_after_seconds`, naming no
+  tier, user or key and reaching no datasource, and the same user's REST request to the route is then limited too.
+  `TestMCP_ServerTierLimitsToolCalls` checks the `mcp_user` tier refuses a second call before any dispatch.
 
 ### check-links tests
 
@@ -858,14 +874,47 @@ reported, and a typed value removed from a pending view fails the provenance che
 `TestHTTP_RevisionLeakMatrix_EveryAuthenticatedReadHasARow` (every authenticated GET in the spec has a row, or a
 listed exemption with a reason).
 
+### MCP leak matrix
+
+The MCP server is a facade over the REST operations, so its leak matrix replays the REST matrices' requests as
+tool calls (`internal/app/mcp_leak_matrix_integration_test.go`). Each request's path and query become the tool's
+arguments by the spec's parameter types (`toolArguments`), with `entity_type` for `get_editable` and
+`get_pending`. For every call, `assertToolMatchesREST` checks the result is the REST response to the same request
+with the same credentials: a 2xx body is the tool's text byte for byte and its structured content as JSON, a 204
+is `{"status":204}`, and an error is the REST error body plus `status`. The leak scans then run on that body, so a
+tool can show nothing its operation would not, and the JSON-RPC envelope around it must hold no `leakmark`.
+
+- `TestHTTP_MCPLeakMatrix` covers every public read tool with every `leakMatrix` request of its operation, over the
+  shared leak fixture, as a contributor's token (AT) and a moderator's (MT), with the same reveals, `absent`,
+  `total` and `sameBodyAs` checks. The shared database is read-only, so the two tokens are created while it is seeded
+  (`seedMCPLeakTokens`); each call then logs a warning that the token's last use could not be recorded.
+- `TestHTTP_MCPRevisionLeakMatrix` covers every authenticated read tool with every `revisionLeakMatrix` row of its
+  operation, over the revision leak fixture. AT's and MT's rows (AT's are A's, from `withAuthorToken`) get the REST
+  answer and its checks: MT's editable documents are the contributor projection with `link_states: []`, and AT's
+  and MT's hold no hidden-source preference or hidden status source. Every other viewer's row is refused by the route
+  (403 `api_token_required`), and the blocked user's token by `user_blocked`. A `report_link` of the hidden link is
+  the same tool error as one of a URL no link has.
+- Both capture the handler's logs: no record holds `leakmark`, and none written by the tool calls holds an
+  argument value (`argumentStrings`: every string argument of 8 or more characters, the body's included).
+
+A new tool is covered once its operation has a row in `leakMatrix` or `revisionLeakMatrix`; each test fails for a
+tool read whose operation has none. `TestHTTP_LeakMatrix` lists `POST /v1/mcp` in `leakExempt` as covered here.
+`TestMCP_ArgumentsCannotReachOtherOperations` (`mcp_end_to_end_integration_test.go`) sends path-traversal and
+query-smuggling values (`../moderation/queue`, `x%2Feditable`, `x/../../tokens`, `a?include_blocked=true`,
+`x/history`, `..`, a `draft_id` of `"1/x"`) as a contributor's token: each answer is the tool's own 404 or a 400
+`invalid_request`, and every route the logs record is `/v1/mcp` or one of the tools' own templates.
+`TestHTTP_MCPEndToEnd` drives a contributor's edit from `get_editable` to approval, and a moderator token's
+submission, which stays pending.
+
 ### Log capture
 
 The privacy rule covers logs too: no hidden alias, hidden link, legal name, contact request field or Turnstile
-token may reach a log record at any level. Three tests capture slog at DEBUG through the production handler:
+token may reach a log record at any level. Five tests capture slog at DEBUG through the production handler:
 `TestHTTP_RevisionLeakMatrix` (every authenticated read, no `leakmark`), `TestHTTP_ModerationEndToEnd` (the whole
-moderation flow on the scrubbed import: no hidden alias of the import, report message or contact field) and
-`TestContactSubmit_NeverLogsPII` (every contact outcome). Controllers log IDs and kinds only; a test that adds a
-log line with request data must extend one of them.
+moderation flow on the scrubbed import: no hidden alias of the import, report message or contact field),
+`TestContactSubmit_NeverLogsPII` (every contact outcome), and `TestHTTP_MCPLeakMatrix` and
+`TestHTTP_MCPRevisionLeakMatrix` (every read tool call: no `leakmark` and no argument value). Controllers log IDs
+and kinds only; a test that adds a log line with request data must extend one of them.
 
 ### Catalogue end to end
 
@@ -925,7 +974,9 @@ person's page shows it and the scan reports it, as it reports each planted place
    what the caller made). The input schema is derived from the spec: `TestToolSchemas_MatchSpec` checks it, and
    `TestMCP_ToolTableCoversOnlyAllowedOperations` pins the operations tools may call, so add the operation there.
    The tool is then covered by `TestMCP_AuthMatrix` through the operation's `authMatrix` row, and the README's
-   MCP tool list must name it with its description and annotations.
+   MCP tool list must name it with its description and annotations (`TestMCP_ToolTableMatchesReadme`); a read
+   tool is leak-scanned through its operation's `leakMatrix` or `revisionLeakMatrix` rows ([MCP leak
+   matrix](#mcp-leak-matrix)), and a limited operation needs a `TestMCPInnerRequestsCountTowardRouteTiers` row.
 
 ## Integration test modes
 

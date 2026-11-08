@@ -234,3 +234,63 @@ Two authentication methods are supported, identified by the bearer token prefix:
 - **Auth0:** `Authorization: Bearer auth0|<access_token>`, an Auth0 access token for the audience
   `https://api.bardictorch.org`. Can access every endpoint the user's role allows.
 - **API Token:** `Authorization: Bearer user_api|<token>`. Cannot manage tokens, and acts with a contributor's powers only: a moderator's token cannot moderate (403 `api_token_not_allowed`).
+
+## MCP
+
+The API is also an [MCP](https://modelcontextprotocol.io) server, for AI agents and scripts that act for a
+contributor: `POST https://api.bardictorch.org/v1/mcp`, stateless Streamable HTTP (protocol 2025-06-18 and later).
+It takes API tokens only (an Auth0 token gets 403 `api_token_required`). Create one at `POST /v1/tokens` while
+signed in, then configure the client with the server URL and the header:
+
+```json
+{
+  "mcpServers": {
+    "bardic-torch": {
+      "type": "http",
+      "url": "https://api.bardictorch.org/v1/mcp",
+      "headers": { "Authorization": "Bearer user_api|<token>" }
+    }
+  }
+}
+```
+
+Each tool call is a request to the REST operation it names, with the caller's token, so it gets that operation's
+answer, permissions, validation and rate limits; a moderator's token acts as a contributor, and every submission is
+pending. Tool calls also count against the `mcp_user` limit (burst 60, then 120 a minute). A REST error is a tool
+result with `isError` and the error body, with its `status`, as text. Annotations: read-only tools only read;
+destructive ones remove or give up something the caller made; idempotent ones can be repeated with the same effect.
+
+| Tool | Description | Annotations |
+|---|---|---|
+| `search_pieces` | Search and filter the public catalogue of pieces (songs, poems, stories and more) by words, terms, kinds, conservation status or a credited person. | read-only |
+| `get_piece` | Get a public piece by its slug: its credits, terms, links, performances, preferences and conservation status. | read-only |
+| `search_persons` | Search and filter the public persons (bards, authors, composers and other contributors). | read-only |
+| `get_person` | Get a public person by their slug, with their profile if they have a page. | read-only |
+| `list_terms` | List the public terms of one facet, or of every facet, in tree order, with their counts. | read-only |
+| `get_term` | Get a public term by its slug, with its pieces, or for an affiliation its persons, a page at a time. | read-only |
+| `list_collections` | List the public collections, such as songbooks, albums and websites, a page at a time. | read-only |
+| `get_collection` | Get a public collection by its ID, with its citations. | read-only |
+| `list_events` | List the public events and venues, a page at a time. | read-only |
+| `get_event` | Get a public event or venue by its slug, with the performances recorded at it. | read-only |
+| `list_needs_work` | List the public pieces and persons that need work, such as stubs, unassessed pieces and dead links. | read-only |
+| `get_revision` | Get an approved revision of a public entity by its ID, with what it changed, as the public sees it. | read-only |
+| `list_person_performances` | List a public person's performances, a page at a time. | read-only |
+| `list_collection_citations` | List a public collection's citations, a page at a time. | read-only |
+| `list_event_performances` | List the performances at a public event, a page at a time. | read-only |
+| `get_editable` | Get the editable document of an entity, the starting point of a draft that changes it: entity_type chooses the entity, which is addressed by slug, or by collection_id for a collection. | read-only |
+| `get_pending` | Get the caller's own pending revision of an entity: entity_type chooses the entity, which is addressed by slug, or by collection_id for a collection. | read-only |
+| `create_draft` | Create a draft that changes an entity, or creates one, from a document in the editor format. Submit it with submit_draft. | — |
+| `get_draft` | Get one of the caller's drafts by its ID. | read-only |
+| `update_draft` | Replace the document and summary of one of the caller's drafts. | idempotent |
+| `delete_draft` | Discard one of the caller's drafts. | destructive |
+| `submit_draft` | Submit one of the caller's drafts for moderation. A submission made with an API token is always pending until a moderator approves it. | — |
+| `withdraw_revision` | Withdraw one of the caller's pending revisions from moderation. | destructive |
+| `revert_revision` | Submit a revision that restores an entity to an earlier approved revision; it is pending until a moderator approves it. | — |
+| `list_my_revisions` | List the caller's own revisions: drafts, pending, approved, rejected and withdrawn. | read-only |
+| `get_my_revision` | Get one of the caller's own revisions by its ID. | read-only |
+| `report_link` | Report a link a public page shows, by its URL, to the moderators: for example a dead link or one to the wrong work. | — |
+| `list_my_repertoire` | List the pieces in the caller's repertoire, with their notes and visibility. | read-only |
+| `get_my_repertoire_entry` | Get the caller's repertoire entry for a piece, by the piece's slug. | read-only |
+| `set_repertoire_entry` | Add a public piece to the caller's repertoire, or replace the notes and visibility of its entry. | idempotent |
+| `remove_repertoire_entry` | Remove a piece from the caller's repertoire. | destructive |
+| `list_public_repertoire` | List the public entries of a user's repertoire, by the user's public ID. | read-only |

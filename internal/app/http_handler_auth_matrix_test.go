@@ -202,6 +202,9 @@ const blockTargetID = "google-oauth2|123"
 
 const revokeTargetID = "6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55"
 
+// pieceRoute is the route of a public piece.
+const pieceRoute = "/v1/pieces/{slug}"
+
 // matrixSlug is the slug of the piece, person, term and event the catalogue operations read.
 const matrixSlug = "the-copper-kettle"
 
@@ -315,7 +318,7 @@ var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(),
 				m.revoker.EXPECT().RevokeAPIToken(mock.Anything, userID, revokeTargetID, handlerNow).Return(nil)
 			},
 		},
-		{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: {
+		{Method: http.MethodGet, Path: pieceRoute}: {
 			access:        public,
 			pathParams:    map[string]string{slugParam: matrixSlug},
 			successStatus: http.StatusOK,

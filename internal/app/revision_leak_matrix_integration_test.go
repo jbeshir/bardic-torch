@@ -883,18 +883,6 @@ func wrenPreferenceShown(t *testing.T, body string) {
 	assert.Contains(t, body, `"source_url":"`+wrenPreferencesURL+`"`)
 }
 
-// noLinkStates checks that an editable document has an empty link_states, as every contributor's has.
-func noLinkStates(t *testing.T, body string) {
-	t.Helper()
-
-	var editable struct {
-		LinkStates []any `json:"link_states"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(body), &editable))
-	assert.NotNil(t, editable.LinkStates)
-	assert.Empty(t, editable.LinkStates)
-}
-
 // revisionLeakExempt are the authenticated reads with no row, and why.
 var revisionLeakExempt = map[openapitest.Operation]string{
 	{Method: http.MethodGet, Path: mePath}:     "the caller's own account, which holds no catalogue data",
