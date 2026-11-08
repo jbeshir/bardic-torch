@@ -7,13 +7,14 @@ import (
 )
 
 const (
-	linnetTitle = "The Linnet's Song"
-	linnetBook  = "https://example.org/linnet-book"
-	linnetAlias = "Linnet"
-	linnetRevel = "Linnet Revel"
-	tamsinName  = "Tamsin Placeholder"
-	tamsinStage = "Tamsin"
-	hushHarper  = "Hush Harper"
+	linnetTitle    = "The Linnet's Song"
+	linnetBook     = "https://example.org/linnet-book"
+	linnetAlias    = "Linnet"
+	linnetRevel    = "Linnet Revel"
+	tamsinName     = "Tamsin Placeholder"
+	tamsinStage    = "Tamsin"
+	hushHarper     = "Hush Harper"
+	linnetBookName = "Linnet Book"
 )
 
 func TestNewDuplicateCandidate(t *testing.T) {
@@ -31,7 +32,7 @@ func TestNewDuplicateCandidate(t *testing.T) {
 	assert.Equal(t, DuplicateCandidate{EntityType: EntityTypeTerm, Names: []string{"sad", "Sad"}, Facet: FacetMood},
 		term)
 
-	collection := NewDuplicateCandidate(CollectionDocument{Name: "Linnet Book", URL: new(linnetBook)})
+	collection := NewDuplicateCandidate(CollectionDocument{Name: linnetBookName, URL: new(linnetBook)})
 	assert.Equal(t, linnetBook, *collection.URL)
 
 	event := NewDuplicateCandidate(EventDocument{Name: linnetRevel})
@@ -49,7 +50,7 @@ func TestFindDuplicates(t *testing.T) {
 	hushBlocked.Matched, hushBlocked.Blocked = DuplicateFieldAlias, true
 	hushResult := hush
 	hushResult.Blocked = true
-	book := DuplicateMatch{EntityType: EntityTypeCollection, CollectionID: 3, Name: "Linnet Book",
+	book := DuplicateMatch{EntityType: EntityTypeCollection, CollectionID: 3, Name: linnetBookName,
 		Matched: DuplicateFieldURL}
 
 	tests := []struct {
@@ -108,4 +109,39 @@ func TestFindDuplicates(t *testing.T) {
 			assert.Equal(t, tt.want, FindDuplicates(tt.candidate, tt.names))
 		})
 	}
+}
+
+func TestDuplicateCandidate_Equal(t *testing.T) {
+	t.Parallel()
+	base := DuplicateCandidate{EntityType: EntityTypeCollection, Names: []string{linnetBookName}, URL: new(linnetBook)}
+	assert.True(t, base.Equal(DuplicateCandidate{EntityType: EntityTypeCollection, Names: []string{linnetBookName},
+		URL: new(linnetBook)}), "equal names and an equal URL behind another pointer")
+	for name, other := range map[string]DuplicateCandidate{
+		"another name":  {EntityType: EntityTypeCollection, Names: []string{"Linnet Ledger"}, URL: new(linnetBook)},
+		"a name more":   {EntityType: EntityTypeCollection, Names: []string{linnetBookName, linnetAlias}, URL: new(linnetBook)},
+		"another URL":   {EntityType: EntityTypeCollection, Names: []string{linnetBookName}, URL: new(linnetBook + "/2")},
+		"no URL":        {EntityType: EntityTypeCollection, Names: []string{linnetBookName}},
+		"another type":  {EntityType: EntityTypeEvent, Names: []string{linnetBookName}, URL: new(linnetBook)},
+		"another facet": {EntityType: EntityTypeCollection, Names: []string{linnetBookName}, URL: new(linnetBook), Facet: FacetMood},
+	} {
+		assert.False(t, base.Equal(other), name)
+		assert.False(t, other.Equal(base), name)
+	}
+}
+
+func TestMatchesOtherThan(t *testing.T) {
+	t.Parallel()
+	own := DuplicateMatch{EntityType: EntityTypePerson, Slug: "pending-person-ash", Name: tamsinName}
+	other := DuplicateMatch{EntityType: EntityTypePerson, Slug: "tamsin-placeholder", Name: tamsinName}
+	piece := DuplicateMatch{EntityType: EntityTypePiece, Slug: "pending-person-ash", Name: linnetTitle}
+	matches := []DuplicateMatch{own, other, piece}
+
+	got := MatchesOtherThan(matches, RevisionEntity{Type: EntityTypePerson, ID: 1, Slug: own.Slug, IsNew: true})
+	assert.Equal(t, []DuplicateMatch{other, piece}, got)
+	assert.Equal(t, []DuplicateMatch{own, other, piece}, matches, "the input is not changed")
+
+	collections := []DuplicateMatch{{EntityType: EntityTypeCollection, CollectionID: 7}, {EntityType: EntityTypeCollection,
+		CollectionID: 8}}
+	assert.Equal(t, collections[1:], MatchesOtherThan(collections, RevisionEntity{Type: EntityTypeCollection, ID: 7}))
+	assert.NotNil(t, MatchesOtherThan(nil, RevisionEntity{Type: EntityTypePerson}), "never nil")
 }

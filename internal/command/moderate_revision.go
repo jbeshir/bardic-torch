@@ -101,36 +101,73 @@ type ApproveRevisionRequest struct {
 
 // ApproveRevision approves a pending revision (D9, D15) and returns it as moderators then see it.
 type ApproveRevision struct {
-	Revisions datasources.ModerationRevisionGetter
-	Approver  datasources.RevisionApprover
-	Now       func() time.Time
+	Revisions  datasources.ModerationRevisionGetter
+	Duplicates datasources.DuplicateFinder
+	Approver   datasources.RevisionApprover
+	Now        func() time.Time
 }
 
-// Execute approves the pending revision req.RevisionID. The entities a new entity may duplicate are those the
-// moderation view shows (D13: hidden aliases and other pending new entities compared, the revision's own entity
-// left out), read before the approval's transaction. A term whose name was taken in its facet since fails with
-// ErrDuplicateName; otherwise it fails with the errors of datasources.RevisionApprover.
+// Execute approves the pending revision req.RevisionID. Every new entity it would approve, its own and each pending
+// reference approved alongside, is checked for duplicates as moderators check them (docs/PLAN.md §5.1 "Duplicate
+// check": hidden aliases and other pending new entities compared, the entity's own placeholder left out), before
+// the approval's transaction, which refuses a document changed since: the checks are then made again, up to
+// maxDuplicateRechecks times, and after that the approval fails with datasources.ErrUnavailable. A term whose name
+// was taken in its facet since fails with ErrDuplicateName; otherwise it fails with the errors of
+// datasources.RevisionApprover.
 func (c *ApproveRevision) Execute(ctx context.Context, req ApproveRevisionRequest) (domain.ModerationRevision, error) {
 	actor, err := moderatorActor(req.Principal)
 	if err != nil {
 		return domain.ModerationRevision{}, err
 	}
-	before, err := moderationRevision(ctx, c.Revisions, req.RevisionID)
+	err = withDuplicateRechecks(func() error {
+		before, err := moderationRevision(ctx, c.Revisions, req.RevisionID)
+		if err != nil {
+			return err
+		}
+		duplicates, err := c.duplicates(ctx, before)
+		if err != nil {
+			return err
+		}
+		err = c.Approver.ApproveRevision(ctx, datasources.ApproveRequest{
+			Actor: actor, RevisionID: req.RevisionID, Options: req.Options, Duplicates: duplicates, Now: c.Now(),
+		})
+		if before.EntityType == domain.EntityTypeTerm && isNameDuplicate(err) {
+			return ErrDuplicateName
+		}
+		if err != nil {
+			return fmt.Errorf("approving revision [%d]: %w", req.RevisionID, err)
+		}
+		return nil
+	})
 	if err != nil {
 		return domain.ModerationRevision{}, err
 	}
 
-	err = c.Approver.ApproveRevision(ctx, datasources.ApproveRequest{
-		Actor: actor, RevisionID: req.RevisionID, Options: req.Options, Duplicates: before.Duplicates, Now: c.Now(),
-	})
-	if err != nil {
-		if before.EntityType == domain.EntityTypeTerm && isNameDuplicate(err) {
-			return domain.ModerationRevision{}, ErrDuplicateName
+	return moderationRevision(ctx, c.Revisions, req.RevisionID)
+}
+
+// duplicates returns the duplicate checks of the new entities approving the revision, as moderators see it, may
+// approve, by revision ID: its own entity's, which the moderation view holds, and each pending reference's.
+func (c *ApproveRevision) duplicates(
+	ctx context.Context, revision domain.ModerationRevision,
+) (map[int64]datasources.DuplicateCheck, error) {
+	checks := map[int64]datasources.DuplicateCheck{}
+	if revision.Entity != nil && revision.Entity.IsNew {
+		checks[revision.ID] = datasources.DuplicateCheck{
+			Candidate: domain.NewDuplicateCandidate(revision.Document), Matches: revision.Duplicates,
 		}
-		return domain.ModerationRevision{}, fmt.Errorf("approving revision [%d]: %w", req.RevisionID, err)
+	}
+	for _, ref := range revision.PendingReferences {
+		candidate := domain.NewDuplicateCandidate(ref.Document)
+		matches, err := c.Duplicates.FindDuplicates(ctx, candidate, true)
+		if err != nil {
+			return nil, fmt.Errorf("finding duplicates of pending reference [%d]: %w", ref.RevisionID, err)
+		}
+		checks[ref.RevisionID] = datasources.DuplicateCheck{Candidate: candidate,
+			Matches: domain.MatchesOtherThan(matches, ref.Entity)}
 	}
 
-	return moderationRevision(ctx, c.Revisions, req.RevisionID)
+	return checks, nil
 }
 
 // isNameDuplicate reports whether err is a document error whose only problem is a name another entity has taken.

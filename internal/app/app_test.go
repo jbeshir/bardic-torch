@@ -32,9 +32,14 @@ func TestSetup_InvalidDatabaseURL(t *testing.T) {
 }
 
 // TestWriteTxBudget requires a write transaction, retries included, to end before the server stops writing the
-// response, so that a client sees a 503 and not a dropped connection while the transaction may still commit.
+// response, so that a client sees a 503 and not a dropped connection while the transaction may still commit: the
+// request's budget is under the server's WriteTimeout with a margin for writing the response, and a fresh request's
+// write transaction gets its whole deadline and still leaves the post-commit reserve. Work before the transaction,
+// such as a Turnstile verification, shortens the transaction, not the request.
 func TestWriteTxBudget(t *testing.T) {
 	t.Parallel()
 
-	assert.Less(t, mysql.WriteTxDeadline, server.WriteTimeout)
+	assert.LessOrEqual(t, server.RequestBudget+time.Second, server.WriteTimeout)
+	assert.LessOrEqual(t, mysql.WriteTxDeadline+mysql.PostCommitReserve, server.RequestBudget)
+	assert.Less(t, mysql.MinWriteTx, mysql.WriteTxDeadline)
 }

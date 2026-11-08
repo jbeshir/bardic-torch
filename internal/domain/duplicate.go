@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 // The duplicate check on create (D13): a new entity's names are compared, by DuplicateKey, with the names of the
 // existing entities of its type. Contributor-facing checks never compare with hidden aliases, which would make
 // them an oracle for hidden data; moderator views do.
@@ -57,6 +59,13 @@ func NewDuplicateCandidate(doc AnyDocument) DuplicateCandidate {
 	return c
 }
 
+// Equal is whether c and other compare the same names, so that a duplicate check of one holds for the other.
+func (c DuplicateCandidate) Equal(other DuplicateCandidate) bool {
+	sameURL := c.URL == nil && other.URL == nil || c.URL != nil && other.URL != nil && *c.URL == *other.URL
+
+	return c.EntityType == other.EntityType && c.Facet == other.Facet && sameURL && slices.Equal(c.Names, other.Names)
+}
+
 // DuplicateMatch is an existing entity a new one may duplicate: by slug, or a collection by ID, with its title or
 // name. Blocked is set for a person who prefers no page, which a new person may not duplicate (D13).
 type DuplicateMatch struct {
@@ -66,6 +75,21 @@ type DuplicateMatch struct {
 	Name         string
 	Matched      DuplicateField
 	Blocked      bool
+}
+
+// MatchesOtherThan returns a copy of matches, never nil, without those of the new entity e itself, which a
+// moderator's check finds among the pending new entities.
+func MatchesOtherThan(matches []DuplicateMatch, e RevisionEntity) []DuplicateMatch {
+	return slices.DeleteFunc(append([]DuplicateMatch{}, matches...), func(m DuplicateMatch) bool {
+		if m.EntityType != e.Type {
+			return false
+		}
+		if e.Type == EntityTypeCollection {
+			return m.CollectionID == e.ID
+		}
+
+		return m.Slug == e.Slug
+	})
 }
 
 // DuplicateName is one name an existing entity is known by, Text, and the match it gives.

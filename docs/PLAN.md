@@ -419,23 +419,40 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   compared by `domain.DuplicateKey` (NFC, apostrophes removed, `FoldName`) against whole name sets of public
   entities, in Go. Contributor checks **never** compare hidden aliases. A match on a no-page person's name blocks a
   new person (422 `duplicate_blocked`; at approval also on its hidden aliases), and other matches need
-  `acknowledge_duplicates` (409 `possible_duplicate`); moderators get the `possible_duplicate` flag.
+  `acknowledge_duplicates` (409 `possible_duplicate`); moderators get the `possible_duplicate` flag. The check
+  runs at approval of every new entity, including the pending references approved alongside: a match on one
+  refuses the approval with `pending_reference_flagged` (its `flags` include `possible_duplicate`), and the
+  moderator approves that revision on its own first. The check is made outside the write transaction, on the
+  document version the write then locks: the write compares the names checked with its locked document's, and a
+  change between the two is checked again and retried, at most twice, then 503 `unavailable`.
 - **New entities** are placeholder rows created at submit with no document content (§4.1). At first approval the
   writer allocates the real slug (`Slugify`, then `-2`, `-3`…), fixed thereafter, and the sort keys. A rejected
   or withdrawn new entity's placeholder is deleted with its children when no other pending revision has it; its
   revision rows stay. Term suggestions are term drafts submitted like any other and referenced by placeholder slug.
 - **Approval** is one READ COMMITTED transaction in `withWriteTx`:
   - every BE4 write takes locks in one global order: `users` rows, `revisions` rows by ascending ID, entity rows
-    by (type, ID), the term rows of a rebuilt facet, `links` rows by normalized URL, then `link_reports` rows. Rows
-    discovered later, and the S-locks foreign-key checks take on parent rows, can still deadlock: a deadlock
-    (1213) or lock-wait timeout (1205) is retried at most twice;
+    by (type, ID), then `links` rows by normalized URL, then `link_reports` rows. Within an entity type the rows
+    written (`FOR UPDATE`) and those referenced (`FOR SHARE`) are locked in one ascending pass; for a facet whose
+    closure an approval may rebuild (any term approved), all of its term rows are locked `FOR UPDATE` first among
+    the term rows, and no other lock is taken on them. The rows the entity's current document references are
+    locked in the same pass: the current revision is read before the lock and checked under it. The revisions of
+    pending references come from an unlocked read, so once locked they are read again, and any found anew (a
+    superseding revision) locked too, at most three rounds, then the approval is refused as changed (above). A
+    moderator's own submission or revert approved at once takes its facet lock with its entity rows too;
+  - rows discovered later can still deadlock: the pending references of such an inline approval (locked after its
+    entity rows), the current document of an entity approved since it was read, the `links` rows of a pending
+    reference approved alongside (upserted per entity), and the S-locks foreign-key checks
+    take at the end of a transaction on `users` rows — the reviewer's on approve and reject, the author's on a
+    moderator's revert, and the resolver's on a link report. A deadlock (1213) or lock-wait timeout (1205) is
+    retried at most twice;
   - referenced public entities are locked `FOR SHARE`, so a concurrent opt-out or placeholder delete waits or is
     seen; a vanished parent (1452) is 409 `entity_gone`;
   - stale revisions are merged; a conflict is 409 `rebase_required`, and the moderator resolves it with
     `…/rebase` (`current_revision_id` must still be current, else 409 `stale`);
   - pending terms and persons the document references (recursively) are approved alongside, parents first, only
-    when they carry no flag of their own; otherwise 409 `pending_reference_flagged`, and the moderator handles
-    that revision first;
+    when they carry no flag of their own and pass the duplicate check; otherwise 409 `pending_reference_flagged`,
+    and the moderator handles that revision first. A moderator's own submission or revert approved at once does
+    not check its pending references for duplicates again: they were checked at their own submission;
   - the entity's own child rows are deleted and reinserted from the document by the writer the importer shares;
     the facet's closure is rebuilt when a term is new or moved; conservation history is appended;
   - links are upserted by normalized URL; the shared fields are written only where this editor changed them, or
@@ -444,9 +461,12 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   - performances are replaced by owner (§4);
   - the revision's `created_at` becomes the approval time;
   - search happens only after commit;
-  - the session `innodb_lock_wait_timeout` is 3 s, locking reads carry `MAX_EXECUTION_TIME(4000)`, and the
-    transaction's 11 s deadline (`WriteTxDeadline`) stays under the server's 15 s `WriteTimeout`; past it, or after
-    the retries, the answer is 503 `unavailable`.
+  - the session `innodb_lock_wait_timeout` is 3 s and locking reads carry `MAX_EXECUTION_TIME(4000)`. Each request
+    has a 13 s budget (`RequestBudget`, its context's deadline) under the server's 15 s `WriteTimeout`; the
+    transaction gets at most 11 s of it (`WriteTxDeadline`), less a 1.5 s reserve for the response's reads after
+    commit (`PostCommitReserve`), so work before it (the pre-reads, a Turnstile verification) shortens the
+    transaction, not the request. With under 500 ms left the write is not tried. Past the deadline, or after the
+    retries, the answer is 503 `unavailable`.
 - **Flags** (stored in `flags_json`, recomputed in the moderation view and at approval; never shown to
   contributors): `hidden_alias_in_summary` (review C10), `hidden_alias_in_text`, `hidden_alias_in_review_note`,
   `hidden_alias_collision`, `hidden_link_collision`, `hidden_link_attached`, `hidden_data_conflict`,
@@ -475,7 +495,9 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   202 with no ID. Turnstile is verified server-side with siteverify: `success`, a hostname in
   `TURNSTILE_HOSTNAMES` (bardictorch.org and preview.bardictorch.org) and the action `contact` must all hold. Only
   user-side token failures are 400 `turnstile_failed`; Cloudflare-side failures, misconfiguration, an empty secret
-  (contact disabled), more than 8 verifications at once and 1000 open requests are 503. The name, email, message
+  (contact disabled), more than 8 verifications at once and 1000 open requests (a soft cap: the count is not
+  locked, so concurrent requests can pass it by about as many as are inserting at once; BE5 adds rate limits) are
+  503. The name, email, message
   and URL are returned only by the moderators' inbox and never logged, and are purged 180 days after a request is
   resolved or dismissed (at startup, after each resolution and before each inbox list); open requests are kept.
 - **API tokens** (a decision BE5 may revisit): a `user_api|` token acts as its user with **contributor powers

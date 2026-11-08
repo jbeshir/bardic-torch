@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -179,4 +180,21 @@ func TestServer_RunReturnsServeError(t *testing.T) {
 	s := &Server{Listener: listener, Handler: http.NotFoundHandler()}
 
 	assert.ErrorContains(t, s.Run(t.Context()), "serving HTTP")
+}
+
+// TestWithRequestBudget requires every request's context to end within RequestBudget.
+func TestWithRequestBudget(t *testing.T) {
+	t.Parallel()
+
+	var deadline time.Time
+	var hasDeadline bool
+	handler := withRequestBudget(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		deadline, hasDeadline = r.Context().Deadline()
+	}))
+	start := time.Now()
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+	end := time.Now()
+
+	require.True(t, hasDeadline)
+	assert.WithinRange(t, deadline, start.Add(RequestBudget), end.Add(RequestBudget))
 }

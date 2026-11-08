@@ -3,6 +3,7 @@
 package mysql_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -112,8 +113,7 @@ func TestRepository_SubmitDraft_PendingLimit(t *testing.T) {
 	}
 	extra := f.saveDraft(t, actorWren, nil, newEventDocument("One revel too many"))
 
-	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorWren, DraftID: extra.Draft.ID,
-		Now: f.tick()})
+	_, err := f.repo.SubmitDraft(t.Context(), f.submitRequest(t, actorWren, extra.Draft.ID))
 	require.ErrorIs(t, err, datasources.ErrPendingLimitReached)
 	assert.Equal(t, "draft", f.stored(t, extra.Draft.ID).status, "nothing was written")
 	assert.Equal(t, domain.MaxOpenPendingRevisions, f.count(t,
@@ -284,8 +284,7 @@ func TestRepository_SubmitDraft_ReferencesOwnPending(t *testing.T) {
 	}, revision.PendingReferences)
 
 	// Another user may not reference them: the stored reference is to an entity they may not reference.
-	_, err = f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorAsh,
-		DraftID: f.saveDraft(t, actorAsh, nil, doc).Draft.ID, Now: f.tick()})
+	_, err = f.repo.SubmitDraft(t.Context(), f.submitRequest(t, actorAsh, f.saveDraft(t, actorAsh, nil, doc).Draft.ID))
 	var docErr *domain.DocumentError
 	require.ErrorAs(t, err, &docErr)
 }
@@ -403,4 +402,65 @@ func TestRepository_SubmitDraft_EditedPerformanceKeepsHiddenPerformer(t *testing
 
 	assert.Equal(t, 1, performers(), "the hidden performer is kept")
 	assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM performances WHERE year = 2002"))
+}
+
+// TestRepository_SubmitDraft_ConcurrentUpdateNotLost forces a draft update to commit while the submission waits for
+// the draft's lock: the submission stores the draft as updated, both its document and the author's, never the copy
+// it read before the lock.
+func TestRepository_SubmitDraft_ConcurrentUpdateNotLost(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	key := *pieceKey(f.song.Slug)
+	doc := f.editable(t, actorWren, key).Document.(domain.PieceDocument)
+	doc.NotesMD = new("Notes as first saved.")
+	draft := f.saveDraft(t, actorWren, &key, doc)
+	doc.NotesMD = new("Notes as saved again.")
+	updated, err := json.Marshal(doc)
+	require.NoError(t, err)
+	req := f.submitRequest(t, actorWren, draft.Draft.ID)
+
+	// The holder updates the draft as UpdateDraft does, under the draft row's lock, and commits once the submission
+	// waits for that lock.
+	holder := holdRows(t, f.db, "SELECT id FROM revisions WHERE id = ? FOR UPDATE", draft.Draft.ID)
+	_, err = holder.tx.ExecContext(t.Context(), "UPDATE revisions SET snapshot_json = ?, updated_at = ? "+
+		"WHERE id = ? AND status = 'draft'", updated, f.tick(), draft.Draft.ID)
+	require.NoError(t, err)
+	done := started(t.Context(), func(ctx context.Context) error {
+		_, err := f.repo.SubmitDraft(ctx, req)
+		return err
+	})
+	waitUntilBlocked(t, f.db, 1)
+	holder.commit()
+	require.NoError(t, <-done)
+
+	stored := f.stored(t, draft.Draft.ID)
+	assert.Equal(t, statusPending, stored.status)
+	assert.Equal(t, "Notes as saved again.", *f.storedPiece(t, draft.Draft.ID).NotesMD)
+	submitted, err := domain.DecodeDocument[domain.PieceDocument]([]byte(stored.submitted))
+	require.NoError(t, err)
+	assert.Equal(t, "Notes as saved again.", *submitted.NotesMD, "the author's document is the updated draft")
+}
+
+// TestRepository_SubmitDraft_DocumentChangedSinceDuplicates requires a submission whose duplicate check was made
+// on other names than the locked draft's to be refused with datasources.ErrDocumentChanged, storing nothing, so
+// that the duplicate check holds for the document stored.
+func TestRepository_SubmitDraft_DocumentChangedSinceDuplicates(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	draft := f.saveDraft(t, actorWren, nil, newPersonDocument("Linnet Placeholder"))
+	checked := f.submitRequest(t, actorWren, draft.Draft.ID)
+	require.Empty(t, checked.Duplicates.Matches)
+	// Renamed since the check to a public person's name.
+	_, err := f.repo.UpdateDraft(t.Context(), datasources.UpdateDraftRequest{Actor: actorWren, ID: draft.Draft.ID,
+		Document: newPersonDocument(ashFiddler), Summary: draftSummary, Now: f.tick()})
+	require.NoError(t, err)
+
+	_, err = f.repo.SubmitDraft(t.Context(), checked)
+	require.ErrorIs(t, err, datasources.ErrDocumentChanged)
+	assert.Equal(t, statusDraft, f.stored(t, draft.Draft.ID).status, "nothing is stored")
+	assert.Zero(t, f.count(t, "SELECT COUNT(*) FROM persons WHERE current_revision_id IS NULL"), "no placeholder")
+
+	// Checked again, the rename is a possible duplicate.
+	result := f.submit(t, actorWren, draft.Draft.ID)
+	assert.Contains(t, f.stored(t, result.RevisionID).flags, string(domain.FlagPossibleDuplicate))
 }

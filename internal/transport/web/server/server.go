@@ -12,7 +12,11 @@ import (
 const (
 	// WriteTimeout is how long the server gives a response to be written, from the end of the request headers.
 	// Work behind a request must end before it, or the client sees a dropped connection.
-	WriteTimeout    = 15 * time.Second
+	WriteTimeout = 15 * time.Second
+	// RequestBudget is how long the work behind one request may take, its context's deadline: under WriteTimeout,
+	// so that a request out of time still answers, 503 when a write could not be tried in what is left of it.
+	// A write transaction takes what is left of it, at most mysql.WriteTxDeadline (docs/PLAN.md §5.1 "Approval").
+	RequestBudget   = 13 * time.Second
 	shutdownTimeout = 10 * time.Second
 	// maxHeaderBytes bounds the request line and headers; the largest legitimate header is an Auth0 access token
 	// of a few KiB. Larger requests get 431.
@@ -29,7 +33,7 @@ type Server struct {
 // seconds to finish. It returns nil after a graceful shutdown.
 func (s *Server) Run(ctx context.Context) error {
 	server := &http.Server{
-		Handler:           s.Handler,
+		Handler:           withRequestBudget(s.Handler),
 		ReadHeaderTimeout: 5 * time.Second,
 		MaxHeaderBytes:    maxHeaderBytes,
 		ReadTimeout:       15 * time.Second,
@@ -65,4 +69,13 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// withRequestBudget gives each request handled by next a context ending RequestBudget after the request reached it.
+func withRequestBudget(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), RequestBudget)
+		defer cancel()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

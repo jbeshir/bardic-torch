@@ -382,13 +382,9 @@ func (c *catalogueReader) moderationDuplicates(
 	if revision.Status != domain.RevisionStatusPending || revision.Entity == nil || !revision.Entity.IsNew {
 		return []domain.DuplicateMatch{}
 	}
-	own := *revision.Entity
 	matches := c.findDuplicates(ctx, domain.NewDuplicateCandidate(revision.Document), true)
 
-	return slices.DeleteFunc(append([]domain.DuplicateMatch{}, matches...), func(m domain.DuplicateMatch) bool {
-		return m.EntityType == own.Type && (own.Type == domain.EntityTypeCollection && m.CollectionID == own.ID ||
-			own.Type != domain.EntityTypeCollection && m.Slug == own.Slug)
-	})
+	return domain.MatchesOtherThan(matches, *revision.Entity)
 }
 
 // moderationFlags returns the flags of a moderation view: for a pending revision whose entity exists, the flags

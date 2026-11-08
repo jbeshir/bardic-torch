@@ -19,8 +19,10 @@ var (
 )
 
 // CreateContactRequest stores an open contact request (D21), refusing it while domain.MaxOpenContactRequests are
-// open. The count is not locked, so concurrent requests may pass it together; the Turnstile verifier's slots bound
-// how many can. Errors never hold the request's fields, or the server's message, which could quote them.
+// open. The count is not locked: concurrent requests can exceed the cap by about as many as are inserting at once,
+// and the Turnstile verifier's slots do not bound that, since a slot is released before the insert. It is a soft
+// backstop against spam; BE5 adds rate limits. Errors never hold the request's fields, or the server's message,
+// which could quote them.
 func (r *Repository) CreateContactRequest(ctx context.Context, request datasources.NewContactRequest) (int64, error) {
 	var id int64
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {

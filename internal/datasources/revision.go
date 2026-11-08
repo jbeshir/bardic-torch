@@ -98,14 +98,16 @@ type DraftDiscarder interface {
 	DiscardDraft(ctx context.Context, actor domain.Actor, id int64) error
 }
 
-// SubmitRequest is a submission of the draft DraftID. Duplicates are the entities a draft of a new entity may
-// duplicate, as DuplicateFinder found them (D13): any match is stored as a possible_duplicate flag, and for an
-// interactive moderator, whose submission is approved at once, they are the approval's (ApproveRequest).
-// AcknowledgedFlags are an interactive moderator's acknowledgements of their submission's flags (D3).
+// SubmitRequest is a submission of the draft DraftID. Duplicates is the duplicate check of a draft of a new entity
+// (docs/PLAN.md §5.1 "Duplicate check"): any match is stored as a possible_duplicate flag, and for an interactive
+// moderator, whose submission is approved at once, they are the approval's (ApproveRequest). A draft of a new entity
+// whose locked document's names are not those checked is refused with ErrDocumentChanged; for any other draft
+// Duplicates is not read. AcknowledgedFlags are an interactive moderator's acknowledgements of their submission's
+// flags.
 type SubmitRequest struct {
 	Actor             domain.Actor
 	DraftID           int64
-	Duplicates        []domain.DuplicateMatch
+	Duplicates        DuplicateCheck
 	AcknowledgedFlags []domain.FlagCode
 	Now               time.Time
 }
@@ -122,9 +124,9 @@ type SubmitResult struct {
 // base, never merging it with the current document, validates it in two phases (domain.PlanSubmit) and stores it
 // as pending, superseding the author's pending revision of the entity. A new entity gets its placeholder row
 // (D14). It returns ErrNotFound unless the draft is the actor's, domain.ErrNotDraft for a rejected or withdrawn
-// revision, a *domain.DocumentError, ErrPendingLimitReached and ErrEntityGone. An interactive moderator's
-// submission is approved at once, inline (D3): a stale one is merged, and the approval's errors are its errors
-// (RevisionApprover), the draft staying a draft.
+// revision, a *domain.DocumentError, ErrPendingLimitReached, ErrEntityGone and ErrDocumentChanged. An interactive
+// moderator's submission is approved at once, inline: a stale one is merged, and the approval's errors are its
+// errors (RevisionApprover), the draft staying a draft.
 type RevisionSubmitter interface {
 	SubmitDraft(ctx context.Context, req SubmitRequest) (SubmitResult, error)
 }
@@ -170,6 +172,14 @@ type DuplicateFinder interface {
 	FindDuplicates(
 		ctx context.Context, candidate domain.DuplicateCandidate, includeHidden bool,
 	) ([]domain.DuplicateMatch, error)
+}
+
+// DuplicateCheck is a duplicate check of a new entity's document: the names it compared, and the entities
+// DuplicateFinder found they may duplicate. A write that relies on it compares Candidate with its locked document's
+// (domain.NewDuplicateCandidate), so that it never acts on a check of another version of the document.
+type DuplicateCheck struct {
+	Candidate domain.DuplicateCandidate
+	Matches   []domain.DuplicateMatch
 }
 
 // HiddenAliasLister lists the names of every hidden alias, which moderator flags look for in revisions' text

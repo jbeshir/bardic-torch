@@ -56,9 +56,13 @@ func (r *Repository) submitDraft(
 	if s.result.Replayed {
 		return s.result, nil
 	}
-	docs, err := c.loadSubmission(ctx, s.draft)
+	docs, err := c.loadSubmission(ctx, s.draft, s.result.Status == domain.RevisionStatusApproved)
 	if err != nil {
 		return datasources.SubmitResult{}, err
+	}
+	if !s.draft.EntityID.Valid && !req.Duplicates.Candidate.Equal(domain.NewDuplicateCandidate(docs.submitted)) {
+		return datasources.SubmitResult{}, fmt.Errorf("duplicate check of draft [%d]: %w", s.draft.ID,
+			datasources.ErrDocumentChanged)
 	}
 	if s.result.Status == domain.RevisionStatusApproved {
 		return s.result, c.submitApproved(ctx, req, s, docs)
@@ -78,7 +82,7 @@ func (r *Repository) submitDraft(
 	if err != nil {
 		return datasources.SubmitResult{}, err
 	}
-	if !s.draft.EntityID.Valid && len(req.Duplicates) > 0 {
+	if !s.draft.EntityID.Valid && len(req.Duplicates.Matches) > 0 {
 		flags = append(flags, domain.Flag{Code: domain.FlagPossibleDuplicate})
 	}
 	_, err = c.writeSubmission(ctx, req, s, docs.entity, doc, flags)
@@ -89,7 +93,8 @@ func (r *Repository) submitDraft(
 // submitApproved submits an interactive moderator's draft, which is approved at once (D3): restored like any
 // submission (only the preferences were withheld), stored as pending, then approved inline by the approval writer,
 // the moderator its reviewer, in the same transaction, so that a refused approval leaves the draft a draft. The
-// pending cap does not apply: the revision does not stay pending.
+// pending cap does not apply: the revision does not stay pending. The duplicate check of a new entity's draft, which
+// submitDraft compared with the locked draft, is the approval's: restoring a moderator's draft adds no name.
 func (c *catalogueReader) submitApproved(
 	ctx context.Context, req datasources.SubmitRequest, s submission, docs submissionDocuments,
 ) error {
@@ -102,11 +107,17 @@ func (c *catalogueReader) submitApproved(
 		return err
 	}
 
+	duplicates := map[uint64]datasources.DuplicateCheck{}
+	if !s.draft.EntityID.Valid {
+		duplicates[s.draft.ID] = datasources.DuplicateCheck{Candidate: domain.NewDuplicateCandidate(doc),
+			Matches: req.Duplicates.Matches}
+	}
+
 	return c.approve(ctx, approvalInput{
 		revisionID: s.draft.ID, authorID: req.Actor.UserID, author: domain.RoleModerator, entity: entity,
 		kind: docs.kind, doc: doc, baseRevisionID: int64Ptr(s.draft.BaseRevisionID), summary: s.draft.Summary,
 		storedFlags: flags, reviewer: req.Actor.UserID,
-		options: domain.ApprovalOptions{AcknowledgedFlags: req.AcknowledgedFlags}, duplicates: req.Duplicates,
+		options: domain.ApprovalOptions{AcknowledgedFlags: req.AcknowledgedFlags}, duplicates: duplicates,
 		now: req.Now,
 	})
 }
@@ -119,10 +130,11 @@ type submission struct {
 	result     datasources.SubmitResult
 }
 
-// lockSubmission takes the submission's first locks (D15): the author's users row, then the draft and the author's
-// pending revision of its entity, if any, which the submission supersedes, by ascending ID. That pending revision is
-// found by an unlocked read and checked again once locked. The transition is checked on the locked draft: one
-// already submitted is a replay.
+// lockSubmission takes the submission's first locks (docs/PLAN.md §5.1 "Approval"): the author's users row, then the
+// draft and the author's pending revision of its entity, if any, which the submission supersedes, by ascending ID.
+// That pending revision is found by an unlocked read and checked again once locked. The transition is checked on the
+// locked draft, one already submitted being a replay, and the draft is read again under its lock: the submission
+// stores what the draft holds once no other write can change it.
 func (c *catalogueReader) lockSubmission(ctx context.Context, actor domain.Actor, draftID int64) (submission, error) {
 	if _, err := c.q.LockUser(ctx, actor.UserID); err != nil {
 		return submission{}, fmt.Errorf("locking user: %w", lookupError("user", err))
@@ -146,7 +158,6 @@ func (c *catalogueReader) lockSubmission(ctx context.Context, actor domain.Actor
 	}
 
 	locked, superseded := lockedSubmission(rows, draft)
-	s := submission{draft: draft, superseded: superseded}
 	if locked == nil {
 		return submission{}, datasources.ErrNotFound
 	}
@@ -154,10 +165,13 @@ func (c *catalogueReader) lockSubmission(ctx context.Context, actor domain.Actor
 	if err != nil {
 		return submission{}, err
 	}
-	s.result = datasources.SubmitResult{RevisionID: c.signedID(locked.ID), Status: to,
-		Replayed: locked.Status != queries.RevisionsStatusDraft}
+	if draft, err = c.q.GetRevision(ctx, draft.ID); err != nil {
+		return submission{}, fmt.Errorf("fetching locked draft: %w", err)
+	}
 
-	return s, nil
+	return submission{draft: draft, superseded: superseded, result: datasources.SubmitResult{
+		RevisionID: c.signedID(locked.ID), Status: to, Replayed: locked.Status != queries.RevisionsStatusDraft,
+	}}, nil
 }
 
 // lockedSubmission returns, of the locked rows, the draft's (nil if it is gone) and the ID of the pending revision it
@@ -227,9 +241,10 @@ func (d submissionDocuments) references() domain.SnapshotReferences {
 }
 
 // loadSubmission decodes the draft's document and loads its base's, then takes the submission's entity locks
-// (D15): the draft's entity row FOR UPDATE, which must still exist, and the rows of the entities either document
-// references FOR SHARE.
-func (c *catalogueReader) loadSubmission(ctx context.Context, draft queries.GetRevisionRow) (
+// (docs/PLAN.md §5.1 "Approval"): the draft's entity row FOR UPDATE, which must still exist, and the rows of the
+// entities either document references FOR SHARE. A submission approved at once (inline) also locks the terms of a
+// term's facet, first among the terms, as its approval does.
+func (c *catalogueReader) loadSubmission(ctx context.Context, draft queries.GetRevisionRow, inline bool) (
 	submissionDocuments, error,
 ) {
 	entityType := enumOf[domain.EntityType](c, draft.EntityType)
@@ -244,7 +259,11 @@ func (c *catalogueReader) loadSubmission(ctx context.Context, draft queries.GetR
 	if docs.base, err = c.draftBaseDocument(ctx, kind, docs.entity, draft.BaseRevisionID); err != nil {
 		return submissionDocuments{}, err
 	}
-	if _, err := c.lockOwnEntity(ctx, docs.entity, docs.references()); err != nil {
+	var facets []domain.Facet
+	if inline {
+		facets = rebuiltFacets(docs.submitted)
+	}
+	if _, err := c.lockOwnEntity(ctx, docs.entity, docs.references(), facets); err != nil {
 		return submissionDocuments{}, err
 	}
 

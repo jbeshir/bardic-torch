@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
@@ -38,4 +39,30 @@ func (r *Repository) WriteApprovedDocument(ctx context.Context, tx *sql.Tx, id i
 	w.write(approvedEntity{entity: domain.EntityRef{Type: doc.EntityType(), ID: id}, doc: doc, current: doc})
 
 	return approvalWriteError(w.err)
+}
+
+// ApproveRevisionOnce runs ApproveRevision's transaction once, without withWriteTx's retries, so that the external
+// tests see a deadlock (MySQL error 1213) the retries would absorb.
+func (r *Repository) ApproveRevisionOnce(ctx context.Context, req datasources.ApproveRequest) error {
+	return r.runWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return r.txReader(tx).approveRevision(ctx, req)
+	})
+}
+
+// RejectRevisionInTx runs RejectRevision's work in tx, a transaction of the external tests' own that holds locks
+// another write waits for.
+func (r *Repository) RejectRevisionInTx(ctx context.Context, tx *sql.Tx, req datasources.RejectRequest) error {
+	return r.txReader(tx).rejectRevision(ctx, req)
+}
+
+// RebaseRevisionInTx runs RebaseRevision's work in tx, as RejectRevisionInTx does.
+func (r *Repository) RebaseRevisionInTx(ctx context.Context, tx *sql.Tx, req datasources.RebaseRequest) error {
+	return r.txReader(tx).rebaseRevision(ctx, req)
+}
+
+// SubmitDraftInTx runs SubmitDraft's work in tx, as RejectRevisionInTx does.
+func (r *Repository) SubmitDraftInTx(
+	ctx context.Context, tx *sql.Tx, req datasources.SubmitRequest,
+) (datasources.SubmitResult, error) {
+	return r.submitDraft(ctx, tx, req)
 }

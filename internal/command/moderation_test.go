@@ -1,6 +1,8 @@
 package command
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -147,24 +149,107 @@ func TestListModerationQueue_MeasuresAgesToNow(t *testing.T) {
 	require.ErrorIs(t, err, errDatasource)
 }
 
-func TestApproveRevision_PassesTheViewsDuplicates(t *testing.T) {
+// newPieceWithReference is the moderation view of a pending new piece whose author's pending new person, named
+// personName, it credits.
+func newPieceWithReference(personName string) domain.ModerationRevision {
+	revision := testModerationRevision
+	revision.Entity = &domain.RevisionEntity{Type: domain.EntityTypePiece, ID: 7, Slug: "pending-piece-7", IsNew: true}
+	revision.PendingReferences = []domain.ModerationPendingReference{{
+		RevisionID: testReferenceRevisionID, EntityType: domain.EntityTypePerson, Entity: testReferenceEntity,
+		Document: domain.PersonDocument{Name: personName},
+	}}
+
+	return revision
+}
+
+const testReferenceRevisionID int64 = 41
+
+var testReferenceEntity = domain.RevisionEntity{Type: domain.EntityTypePerson, ID: 9, Slug: "pending-person-9",
+	IsNew: true}
+
+func TestApproveRevision_PassesTheDuplicateChecks(t *testing.T) {
 	t.Parallel()
 
 	options := domain.ApprovalOptions{AcknowledgedFlags: []domain.FlagCode{domain.FlagPossibleDuplicate},
 		ReviewNote: "Thanks."}
+	revision := newPieceWithReference("Ash Example")
+	reference := domain.NewDuplicateCandidate(revision.PendingReferences[0].Document)
+	public := domain.DuplicateMatch{EntityType: domain.EntityTypePerson, Slug: "ash-example", Name: "Ash Example"}
+	itself := domain.DuplicateMatch{EntityType: domain.EntityTypePerson, Slug: testReferenceEntity.Slug,
+		Name: "Ash Example"}
 	revisions := mocks.NewModerationRevisionGetter(t)
-	revisions.EXPECT().GetModerationRevision(mock.Anything, testRevisionID).Return(testModerationRevision, nil).Once()
+	revisions.EXPECT().GetModerationRevision(mock.Anything, testRevisionID).Return(revision, nil).Once()
+	finder := mocks.NewDuplicateFinder(t)
+	// A pending reference is checked as moderators check it, its own placeholder left out.
+	finder.EXPECT().FindDuplicates(mock.Anything, reference, true).Return([]domain.DuplicateMatch{itself, public}, nil)
 	approver := mocks.NewRevisionApprover(t)
 	approver.EXPECT().ApproveRevision(mock.Anything, datasources.ApproveRequest{
 		Actor: interactiveModActor, RevisionID: testRevisionID, Options: options,
-		Duplicates: []domain.DuplicateMatch{testDuplicate}, Now: fixedNow,
+		Duplicates: map[int64]datasources.DuplicateCheck{
+			testRevisionID: {Candidate: domain.NewDuplicateCandidate(testPiece),
+				Matches: []domain.DuplicateMatch{testDuplicate}},
+			testReferenceRevisionID: {Candidate: reference, Matches: []domain.DuplicateMatch{public}},
+		},
+		Now: fixedNow,
 	}).Return(nil)
 	revisions.EXPECT().GetModerationRevision(mock.Anything, testRevisionID).Return(testApproved, nil).Once()
 
-	got, err := (&ApproveRevision{Revisions: revisions, Approver: approver, Now: fixedClock}).Execute(t.Context(),
-		ApproveRevisionRequest{Principal: interactiveMod, RevisionID: testRevisionID, Options: options})
+	cmd := &ApproveRevision{Revisions: revisions, Duplicates: finder, Approver: approver, Now: fixedClock}
+	got, err := cmd.Execute(t.Context(), ApproveRevisionRequest{Principal: interactiveMod, RevisionID: testRevisionID,
+		Options: options})
 	require.NoError(t, err)
 	assert.Equal(t, testApproved, got)
+}
+
+// TestApproveRevision_RechecksAChangedDocument covers the version check of the duplicate check: an approval refused
+// because a document changed since its check is checked again on the new documents, and the new checks are used.
+func TestApproveRevision_RechecksAChangedDocument(t *testing.T) {
+	t.Parallel()
+
+	before, after := newPieceWithReference("Ash Example"), newPieceWithReference("Ash Renamed")
+	revisions := mocks.NewModerationRevisionGetter(t)
+	revisions.EXPECT().GetModerationRevision(mock.Anything, testRevisionID).Return(before, nil).Once()
+	revisions.EXPECT().GetModerationRevision(mock.Anything, testRevisionID).Return(after, nil).Once()
+	finder := mocks.NewDuplicateFinder(t)
+	finder.EXPECT().FindDuplicates(mock.Anything, mock.Anything, true).Return([]domain.DuplicateMatch{}, nil).Twice()
+	approver := mocks.NewRevisionApprover(t)
+	var checked []domain.DuplicateCandidate
+	approver.EXPECT().ApproveRevision(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, req datasources.ApproveRequest) error {
+			checked = append(checked, req.Duplicates[testReferenceRevisionID].Candidate)
+			if len(checked) == 1 {
+				return fmt.Errorf("approving: %w", datasources.ErrDocumentChanged)
+			}
+			return nil
+		}).Twice()
+	revisions.EXPECT().GetModerationRevision(mock.Anything, testRevisionID).Return(testApproved, nil).Once()
+
+	cmd := &ApproveRevision{Revisions: revisions, Duplicates: finder, Approver: approver, Now: fixedClock}
+	_, err := cmd.Execute(t.Context(), ApproveRevisionRequest{Principal: interactiveMod, RevisionID: testRevisionID})
+	require.NoError(t, err)
+	assert.Equal(t, []domain.DuplicateCandidate{
+		domain.NewDuplicateCandidate(before.PendingReferences[0].Document),
+		domain.NewDuplicateCandidate(after.PendingReferences[0].Document),
+	}, checked)
+}
+
+// TestApproveRevision_DocumentKeepsChanging requires an approval whose document changes at every try to give up
+// as unavailable after the rechecks.
+func TestApproveRevision_DocumentKeepsChanging(t *testing.T) {
+	t.Parallel()
+
+	revisions := mocks.NewModerationRevisionGetter(t)
+	revisions.EXPECT().GetModerationRevision(mock.Anything, testRevisionID).Return(testModerationRevision, nil).
+		Times(maxDuplicateRechecks + 1)
+	approver := mocks.NewRevisionApprover(t)
+	approver.EXPECT().ApproveRevision(mock.Anything, mock.Anything).Return(datasources.ErrDocumentChanged).
+		Times(maxDuplicateRechecks + 1)
+
+	cmd := &ApproveRevision{Revisions: revisions, Duplicates: mocks.NewDuplicateFinder(t), Approver: approver,
+		Now: fixedClock}
+	_, err := cmd.Execute(t.Context(), ApproveRevisionRequest{Principal: interactiveMod, RevisionID: testRevisionID})
+	require.ErrorIs(t, err, datasources.ErrUnavailable)
+	require.ErrorIs(t, err, datasources.ErrDocumentChanged)
 }
 
 func TestApproveRevision_Errors(t *testing.T) {
@@ -200,8 +285,10 @@ func TestApproveRevision_Errors(t *testing.T) {
 			approver := mocks.NewRevisionApprover(t)
 			approver.EXPECT().ApproveRevision(mock.Anything, mock.Anything).Return(tc.err)
 
-			_, err := (&ApproveRevision{Revisions: revisions, Approver: approver, Now: fixedClock}).Execute(
-				t.Context(), ApproveRevisionRequest{Principal: interactiveMod, RevisionID: testRevisionID})
+			cmd := &ApproveRevision{Revisions: revisions, Duplicates: mocks.NewDuplicateFinder(t), Approver: approver,
+				Now: fixedClock}
+			_, err := cmd.Execute(t.Context(), ApproveRevisionRequest{Principal: interactiveMod,
+				RevisionID: testRevisionID})
 			require.ErrorIs(t, err, tc.want)
 		})
 	}
@@ -212,8 +299,9 @@ func TestApproveRevision_Errors(t *testing.T) {
 		revisions := mocks.NewModerationRevisionGetter(t)
 		revisions.EXPECT().GetModerationRevision(mock.Anything, testRevisionID).
 			Return(domain.ModerationRevision{}, datasources.ErrNotFound)
-		_, err := (&ApproveRevision{Revisions: revisions, Approver: mocks.NewRevisionApprover(t), Now: fixedClock}).
-			Execute(t.Context(), ApproveRevisionRequest{Principal: interactiveMod, RevisionID: testRevisionID})
+		cmd := &ApproveRevision{Revisions: revisions, Duplicates: mocks.NewDuplicateFinder(t),
+			Approver: mocks.NewRevisionApprover(t), Now: fixedClock}
+		_, err := cmd.Execute(t.Context(), ApproveRevisionRequest{Principal: interactiveMod, RevisionID: testRevisionID})
 		require.ErrorIs(t, err, datasources.ErrNotFound)
 	})
 }

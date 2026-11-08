@@ -137,7 +137,8 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		ListModerationQueue:   &command.ListModerationQueue{Lister: deps.ModerationQueueLister, Now: deps.Now},
 		GetModerationRevision: &command.GetModerationRevision{Getter: deps.ModerationRevisionGetter},
 		ApproveRevision: &command.ApproveRevision{
-			Revisions: deps.ModerationRevisionGetter, Approver: deps.RevisionApprover, Now: deps.Now,
+			Revisions: deps.ModerationRevisionGetter, Duplicates: deps.DuplicateFinder, Approver: deps.RevisionApprover,
+			Now: deps.Now,
 		},
 		RejectRevision: &command.RejectRevision{
 			Revisions: deps.ModerationRevisionGetter, Rejecter: deps.RevisionRejecter, Now: deps.Now,

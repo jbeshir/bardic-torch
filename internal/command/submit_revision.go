@@ -47,51 +47,81 @@ type SubmitRevision struct {
 // Execute submits the principal's draft req.DraftID and returns the revision it leaves, as they see it; a draft
 // already submitted is a replay. A draft of a new entity whose names match a person who prefers no page fails with
 // domain.ErrDuplicateBlocked, and one matching other entities fails for a contributor with a
-// *PossibleDuplicateError unless req.AcknowledgeDuplicates. Otherwise it fails with the errors of
-// datasources.RevisionSubmitter.
+// *PossibleDuplicateError unless req.AcknowledgeDuplicates. The duplicates are found outside the submission's
+// transaction, which refuses a draft changed since (datasources.ErrDocumentChanged): the check is then made again,
+// up to maxDuplicateRechecks times, and after that the submission fails with datasources.ErrUnavailable. Otherwise
+// it fails with the errors of datasources.RevisionSubmitter.
 func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest) (SubmittedRevision, error) {
 	actor := req.Principal.Actor()
-	duplicates, err := c.duplicates(ctx, actor, req)
-	if err != nil {
-		return SubmittedRevision{}, err
-	}
-
-	result, err := c.Submitter.SubmitDraft(ctx, datasources.SubmitRequest{
-		Actor: actor, DraftID: req.DraftID, Duplicates: duplicates,
-		AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(),
+	var result datasources.SubmitResult
+	err := withDuplicateRechecks(func() error {
+		duplicates, err := c.duplicates(ctx, actor, req)
+		if err != nil {
+			return err
+		}
+		result, err = c.Submitter.SubmitDraft(ctx, datasources.SubmitRequest{
+			Actor: actor, DraftID: req.DraftID, Duplicates: duplicates,
+			AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(),
+		})
+		if err != nil {
+			return fmt.Errorf("submitting draft: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
-		return SubmittedRevision{}, fmt.Errorf("submitting draft: %w", err)
+		return SubmittedRevision{}, err
 	}
 
 	return submitted(ctx, c.Revisions, actor, result)
 }
 
-// duplicates returns the entities the draft's new entity may duplicate, read before the submission's transaction
-// (D13), and refuses the submission as Execute describes. A draft that is no longer a draft has none: its
-// submission is a replay, or refused.
+// maxDuplicateRechecks is how many times a write refused with datasources.ErrDocumentChanged is tried again with
+// a new duplicate check.
+const maxDuplicateRechecks = 2
+
+// withDuplicateRechecks runs write, which checks a document for duplicates and then writes it, and runs it again
+// while the write is refused with datasources.ErrDocumentChanged, up to maxDuplicateRechecks more times. After that
+// the error is also datasources.ErrUnavailable: the document kept changing, and trying again later may work.
+func withDuplicateRechecks(write func() error) error {
+	for attempt := 0; ; attempt++ {
+		err := write()
+		if !errors.Is(err, datasources.ErrDocumentChanged) {
+			return err
+		}
+		if attempt == maxDuplicateRechecks {
+			return fmt.Errorf("%w: %w", datasources.ErrUnavailable, err)
+		}
+	}
+}
+
+// duplicates returns the duplicate check of the draft's new entity, made before the submission's transaction
+// (docs/PLAN.md §5.1 "Duplicate check"), and refuses the submission as Execute describes. A draft that is no
+// longer a draft has none: its submission is a replay, or refused.
 func (c *SubmitRevision) duplicates(
 	ctx context.Context, actor domain.Actor, req SubmitRevisionRequest,
-) ([]domain.DuplicateMatch, error) {
+) (datasources.DuplicateCheck, error) {
 	draft, err := c.Drafts.GetDraft(ctx, actor, req.DraftID)
 	if errors.Is(err, domain.ErrNotDraft) {
-		return nil, nil
+		return datasources.DuplicateCheck{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("getting draft: %w", err)
+		return datasources.DuplicateCheck{}, fmt.Errorf("getting draft: %w", err)
+	}
+	if draft.Entity != nil {
+		return datasources.DuplicateCheck{}, nil
 	}
 
 	result, err := draftResult(ctx, c.Duplicates, actor, draft)
 	if err != nil {
-		return nil, err
+		return datasources.DuplicateCheck{}, err
 	}
 	matches := result.Duplicates
 	if slices.ContainsFunc(matches, func(m domain.DuplicateMatch) bool { return m.Blocked }) {
-		return nil, domain.ErrDuplicateBlocked
+		return datasources.DuplicateCheck{}, domain.ErrDuplicateBlocked
 	}
 	if len(matches) > 0 && actor.Role != domain.RoleModerator && !req.AcknowledgeDuplicates {
-		return nil, &PossibleDuplicateError{Duplicates: matches}
+		return datasources.DuplicateCheck{}, &PossibleDuplicateError{Duplicates: matches}
 	}
 
-	return matches, nil
+	return datasources.DuplicateCheck{Candidate: domain.NewDuplicateCandidate(draft.Document), Matches: matches}, nil
 }

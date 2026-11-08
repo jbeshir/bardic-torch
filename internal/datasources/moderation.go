@@ -17,14 +17,18 @@ var (
 	ErrAlreadyCurrent = errors.New("the revision is already current")
 )
 
-// ApproveRequest is a moderator's approval of the pending revision RevisionID. Duplicates are the entities a new
-// entity may duplicate, as DuplicateFinder found them with includeHidden (the revision's own pending entity left
-// out): any match is a possible_duplicate flag, a blocked one refuses the approval (D13).
+// ApproveRequest is a moderator's approval of the pending revision RevisionID. Duplicates are the duplicate checks
+// of the new entities the approval may approve, by revision ID: the revision's own, for a new entity, and each of its
+// pending references' (docs/PLAN.md §5.1 "Duplicate check"), found by DuplicateFinder with includeHidden, each
+// entity's own placeholder left out. A match on the revision's own entity is a possible_duplicate flag and a blocked
+// one refuses the approval; a match on a pending reference refuses it with *domain.PendingReferenceFlaggedError. A
+// new entity whose check is missing, or was of other names than its locked document's, refuses the approval with
+// ErrDocumentChanged.
 type ApproveRequest struct {
 	Actor      domain.Actor
 	RevisionID int64
 	Options    domain.ApprovalOptions
-	Duplicates []domain.DuplicateMatch
+	Duplicates map[int64]DuplicateCheck
 	Now        time.Time
 }
 
@@ -32,8 +36,8 @@ type ApproveRequest struct {
 // with the current document, validates it (domain.PlanApproval), approves the pending new terms and persons it
 // references alongside it, and writes the entity's rows. It returns ErrNotFound for no such revision,
 // domain.ErrNotPending, ErrEntityGone, domain.ErrRebaseRequired, domain.ErrHiddenDataConflict,
-// domain.ErrDuplicateBlocked, a *domain.DocumentError, *domain.UnacknowledgedFlagsError and
-// *domain.PendingReferenceFlaggedError.
+// domain.ErrDuplicateBlocked, a *domain.DocumentError, *domain.UnacknowledgedFlagsError,
+// *domain.PendingReferenceFlaggedError and ErrDocumentChanged.
 type RevisionApprover interface {
 	ApproveRevision(ctx context.Context, req ApproveRequest) error
 }

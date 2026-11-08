@@ -33,7 +33,10 @@ var userErrorCodes = []string{"missing-input-response", "invalid-input-response"
 var _ datasources.TurnstileVerifier = (*Verifier)(nil)
 
 // Verifier verifies Turnstile tokens with a site's secret key, running at most
-// domain.MaxConcurrentTurnstileVerifications verifications at once.
+// domain.MaxConcurrentTurnstileVerifications verifications at once. The slots bound the outbound calls only: a slot
+// is released when its verification returns, before the contact request is stored, so they do not bound how far
+// concurrent requests can pass the open-request cap, whose count is not locked (a soft backstop until BE5's rate
+// limits).
 type Verifier struct {
 	secret    string
 	hostnames []string

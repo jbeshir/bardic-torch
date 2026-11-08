@@ -38,10 +38,13 @@ func race(fns ...func() error) []error {
 	return errs
 }
 
-// approveAt returns an approval of the revision id by Rowan at now, for race.
-func (f *editingFixture) approveAt(ctx context.Context, id int64, now time.Time) func() error {
+// approveAt returns an approval of the revision id by Rowan at now, for race, with the duplicate checks made now.
+func (f *editingFixture) approveAt(t *testing.T, id int64, now time.Time) func() error {
+	t.Helper()
+	req := datasources.ApproveRequest{Actor: actorRowan, RevisionID: id, Duplicates: f.approvalChecks(t, id), Now: now}
+
 	return func() error {
-		return f.repo.ApproveRevision(ctx, datasources.ApproveRequest{Actor: actorRowan, RevisionID: id, Now: now})
+		return f.repo.ApproveRevision(t.Context(), req)
 	}
 }
 
@@ -68,8 +71,8 @@ func TestRepository_ApproveRevision_ConcurrentDoubleApprove(t *testing.T) {
 		result := editAndSubmit(t, f, actorWren, *pieceKey(f.song.Slug), func(d *domain.PieceDocument) {
 			d.NotesMD = new(fmt.Sprintf("Edit %d.", i))
 		})
-		errs := race(f.approveAt(t.Context(), result.RevisionID, f.tick()),
-			f.approveAt(t.Context(), result.RevisionID, f.tick()))
+		errs := race(f.approveAt(t, result.RevisionID, f.tick()),
+			f.approveAt(t, result.RevisionID, f.tick()))
 		oneOf(t, errs, domain.ErrNotPending)
 		assert.Equal(t, result.RevisionID, f.currentRevision(t, "pieces", f.song.ID))
 	}
@@ -87,8 +90,8 @@ func TestRepository_ApproveRevision_ConcurrentSameEntity(t *testing.T) {
 		ours := editAndSubmit(t, f, actorWren, key, func(d *domain.PieceDocument) { d.NotesMD = new(notes) })
 		theirs := editAndSubmit(t, f, actorAsh, key, func(d *domain.PieceDocument) { d.IsStub = !d.IsStub })
 		stub := f.storedPiece(t, theirs.RevisionID).IsStub
-		errs := race(f.approveAt(t.Context(), ours.RevisionID, f.tick()),
-			f.approveAt(t.Context(), theirs.RevisionID, f.tick()))
+		errs := race(f.approveAt(t, ours.RevisionID, f.tick()),
+			f.approveAt(t, theirs.RevisionID, f.tick()))
 		require.NoError(t, errs[0])
 		require.NoError(t, errs[1])
 		got := f.publicPiece(t, f.song.Slug)
@@ -102,8 +105,8 @@ func TestRepository_ApproveRevision_ConcurrentSameEntity(t *testing.T) {
 		theirs := editAndSubmit(t, f, actorAsh, key, func(d *domain.PieceDocument) {
 			d.Title = fmt.Sprintf("Theirs %d", i)
 		})
-		errs := race(f.approveAt(t.Context(), ours.RevisionID, f.tick()),
-			f.approveAt(t.Context(), theirs.RevisionID, f.tick()))
+		errs := race(f.approveAt(t, ours.RevisionID, f.tick()),
+			f.approveAt(t, theirs.RevisionID, f.tick()))
 		winner := []datasources.SubmitResult{ours, theirs}[oneOf(t, errs, domain.ErrRebaseRequired)]
 		assert.Equal(t, winner.RevisionID, f.currentRevision(t, "pieces", f.song.ID))
 		loser := ours
@@ -124,7 +127,7 @@ func TestRepository_ApproveRevision_WithdrawRace(t *testing.T) {
 		result := editAndSubmit(t, f, actorWren, *pieceKey(f.song.Slug), func(d *domain.PieceDocument) {
 			d.NotesMD = new(fmt.Sprintf("Edit %d.", i))
 		})
-		errs := race(f.approveAt(t.Context(), result.RevisionID, f.tick()), func() error {
+		errs := race(f.approveAt(t, result.RevisionID, f.tick()), func() error {
 			return f.repo.WithdrawRevision(t.Context(), actorWren, result.RevisionID)
 		})
 		status := []string{statusApproved, statusWithdrawn}[oneOf(t, errs, domain.ErrNotPending)]
@@ -152,7 +155,7 @@ func TestRepository_ApproveRevision_SupersedeRace(t *testing.T) {
 		draft := f.saveDraft(t, actorWren, &key, doc)
 		submitAt, approveAt := f.tick(), f.tick()
 		var submitted datasources.SubmitResult
-		errs := race(f.approveAt(t.Context(), old.RevisionID, approveAt), func() error {
+		errs := race(f.approveAt(t, old.RevisionID, approveAt), func() error {
 			var err error
 			submitted, err = f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorWren,
 				DraftID: draft.Draft.ID, Now: submitAt})
@@ -204,8 +207,8 @@ func TestRepository_ApproveRevision_CrossingApprovals(t *testing.T) {
 						PerformerIDs: []int64{f.ash.ID}}}},
 			}}
 		})
-		errs := race(f.approveAt(t.Context(), piece.RevisionID, f.tick()),
-			f.approveAt(t.Context(), person.RevisionID, f.tick()))
+		errs := race(f.approveAt(t, piece.RevisionID, f.tick()),
+			f.approveAt(t, person.RevisionID, f.tick()))
 		require.NoError(t, errs[0])
 		require.NoError(t, errs[1])
 	}
@@ -226,7 +229,7 @@ func TestRepository_ApproveRevision_ApproveVersusModeratorEdit(t *testing.T) {
 		doc.IsStub = !doc.IsStub
 		draft := f.saveDraft(t, actorRowan, &key, doc)
 		submitAt := f.tick()
-		errs := race(f.approveAt(t.Context(), pending.RevisionID, f.tick()), func() error {
+		errs := race(f.approveAt(t, pending.RevisionID, f.tick()), func() error {
 			_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan,
 				DraftID: draft.Draft.ID, Now: submitAt})
 			return err
@@ -256,7 +259,7 @@ func TestRepository_ApproveRevision_ConcurrentOptOut(t *testing.T) {
 		doc.Status, doc.StatusSourceURL = domain.PersonStatusPrefersNoPage, new("https://example.org/finch/request")
 		optOut := f.saveDraft(t, actorRowan, &key, doc)
 		submitAt := f.tick()
-		errs := race(f.approveAt(t.Context(), piece.RevisionID, f.tick()), func() error {
+		errs := race(f.approveAt(t, piece.RevisionID, f.tick()), func() error {
 			_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan,
 				DraftID: optOut.Draft.ID, Now: submitAt})
 			return err
@@ -341,7 +344,7 @@ func TestRepository_RevertTo_ConcurrentApprove(t *testing.T) {
 		pending := editAndSubmit(t, f, actorWren, key, func(d *domain.PieceDocument) { d.IsStub = !d.IsStub })
 		revertAt := f.tick()
 		var reverted datasources.SubmitResult
-		errs := race(f.approveAt(t.Context(), pending.RevisionID, f.tick()), func() error {
+		errs := race(f.approveAt(t, pending.RevisionID, f.tick()), func() error {
 			var err error
 			reverted, err = f.repo.RevertTo(t.Context(), datasources.RevertRequest{Actor: actorRowan,
 				RevisionID: f.song.RevisionID, Summary: "Revert.", Now: revertAt})

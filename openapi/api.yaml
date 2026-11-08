@@ -405,8 +405,10 @@ paths:
             The approval is refused: the revision is not pending (`not_pending`); it is stale and its changes
             conflict with the current version (`rebase_required`); its entity, or an entity it references, no
             longer exists (`entity_gone`); it carries hidden data a contributor could not see
-            (`hidden_data_conflict`; rebase it to clear); a pending new term or person it references carries flags
-            (`pending_reference_flagged`, with that revision's flags); its flags are not acknowledged
+            (`hidden_data_conflict`; rebase it to clear); a pending new term or person it references carries flags,
+            or may duplicate another entity (`pending_reference_flagged`, with that revision's flags,
+            `possible_duplicate` among them for a duplicate; approve that revision on its own first); its flags are
+            not acknowledged
             (`unacknowledged_flags`, with the flags); or another term of its facet has taken the term's name
             (`duplicate_name`).
           content:

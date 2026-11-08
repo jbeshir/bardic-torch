@@ -176,7 +176,7 @@ func TestSubmitRevision_ActsAsTheEffectiveRole(t *testing.T) {
 				wantAcknowledged = acknowledged
 			}
 			m.submitter.EXPECT().SubmitDraft(mock.Anything, datasources.SubmitRequest{
-				Actor: pc.actor, DraftID: testDraftID, Duplicates: []domain.DuplicateMatch{},
+				Actor: pc.actor, DraftID: testDraftID,
 				AcknowledgedFlags: wantAcknowledged, Now: fixedNow,
 			}).Return(datasources.SubmitResult{RevisionID: testDraftID, Status: domain.RevisionStatusPending}, nil)
 			m.revisions.EXPECT().GetMyRevision(mock.Anything, pc.actor, testDraftID).Return(testRevision, nil)
@@ -197,7 +197,7 @@ func TestSubmitRevision_Replay(t *testing.T) {
 	// A draft already submitted is no longer a draft, and has no duplicates to look for.
 	m.drafts.EXPECT().GetDraft(mock.Anything, contributorActor, testDraftID).Return(domain.Draft{}, domain.ErrNotDraft)
 	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.MatchedBy(func(r datasources.SubmitRequest) bool {
-		return r.Duplicates == nil
+		return assert.Equal(t, datasources.DuplicateCheck{}, r.Duplicates)
 	})).Return(datasources.SubmitResult{RevisionID: testDraftID, Status: domain.RevisionStatusPending, Replayed: true},
 		nil)
 	m.revisions.EXPECT().GetMyRevision(mock.Anything, contributorActor, testDraftID).Return(testRevision, nil)
@@ -244,7 +244,8 @@ func TestSubmitRevision_Duplicates(t *testing.T) {
 			refused := tc.wantErr != nil || tc.wantDupErr
 			if !refused {
 				m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.MatchedBy(func(r datasources.SubmitRequest) bool {
-					return assert.Equal(t, tc.matches, r.Duplicates)
+					return assert.Equal(t, datasources.DuplicateCheck{Candidate: domain.NewDuplicateCandidate(testPiece),
+						Matches: tc.matches}, r.Duplicates)
 				})).Return(datasources.SubmitResult{RevisionID: testDraftID}, nil)
 				m.revisions.EXPECT().GetMyRevision(mock.Anything, actor, testDraftID).Return(testRevision, nil)
 			}
@@ -264,6 +265,43 @@ func TestSubmitRevision_Duplicates(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSubmitRevision_RechecksAChangedDraft covers the version check of the duplicate check: a submission refused
+// because the draft changed since its check is checked again on the new draft, and the new check is used; one whose
+// draft keeps changing gives up as unavailable.
+func TestSubmitRevision_RechecksAChangedDraft(t *testing.T) {
+	t.Parallel()
+
+	renamed := testNewDraft
+	renamedPiece := testPiece
+	renamedPiece.Title = "The Tin Kettle"
+	renamed.Document = renamedPiece
+	m := newSubmitMocks(t)
+	m.drafts.EXPECT().GetDraft(mock.Anything, contributorActor, testDraftID).Return(testNewDraft, nil).Once()
+	m.drafts.EXPECT().GetDraft(mock.Anything, contributorActor, testDraftID).Return(renamed, nil).Once()
+	m.finder.EXPECT().FindDuplicates(mock.Anything, domain.NewDuplicateCandidate(testPiece), false).
+		Return([]domain.DuplicateMatch{}, nil).Once()
+	m.finder.EXPECT().FindDuplicates(mock.Anything, domain.NewDuplicateCandidate(renamedPiece), false).
+		Return([]domain.DuplicateMatch{}, nil).Once()
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.MatchedBy(func(r datasources.SubmitRequest) bool {
+		return r.Duplicates.Candidate.Equal(domain.NewDuplicateCandidate(testPiece))
+	})).Return(datasources.SubmitResult{}, datasources.ErrDocumentChanged).Once()
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.MatchedBy(func(r datasources.SubmitRequest) bool {
+		return r.Duplicates.Candidate.Equal(domain.NewDuplicateCandidate(renamedPiece))
+	})).Return(datasources.SubmitResult{RevisionID: testDraftID}, nil).Once()
+	m.revisions.EXPECT().GetMyRevision(mock.Anything, contributorActor, testDraftID).Return(testRevision, nil)
+
+	_, err := m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: contributor, DraftID: testDraftID})
+	require.NoError(t, err)
+
+	m = newSubmitMocks(t)
+	m.drafts.EXPECT().GetDraft(mock.Anything, contributorActor, testDraftID).Return(testExisting, nil).
+		Times(maxDuplicateRechecks + 1)
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.Anything).
+		Return(datasources.SubmitResult{}, datasources.ErrDocumentChanged).Times(maxDuplicateRechecks + 1)
+	_, err = m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: contributor, DraftID: testDraftID})
+	require.ErrorIs(t, err, datasources.ErrUnavailable)
 }
 
 func TestSubmitRevision_Errors(t *testing.T) {

@@ -5,6 +5,7 @@ package mysql_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -168,10 +169,61 @@ func (f *editingFixture) saveDraft(
 // submit submits the draft id, failing the test on an error.
 func (f *editingFixture) submit(t *testing.T, actor domain.Actor, id int64) datasources.SubmitResult {
 	t.Helper()
-	result, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actor, DraftID: id, Now: f.tick()})
+	result, err := f.repo.SubmitDraft(t.Context(), f.submitRequest(t, actor, id))
 	require.NoError(t, err)
 
 	return result
+}
+
+// submitRequest is the actor's submission of the draft id now, with the duplicate check SubmitRevision makes.
+func (f *editingFixture) submitRequest(t *testing.T, actor domain.Actor, id int64) datasources.SubmitRequest {
+	t.Helper()
+
+	return datasources.SubmitRequest{Actor: actor, DraftID: id, Duplicates: f.duplicateCheck(t, actor, id),
+		Now: f.tick()}
+}
+
+// duplicateCheck returns the duplicate check SubmitRevision makes of the actor's draft id: for a draft of a new
+// entity the entities it may duplicate, as the actor's role compares them, and none for any other.
+func (f *editingFixture) duplicateCheck(t *testing.T, actor domain.Actor, id int64) datasources.DuplicateCheck {
+	t.Helper()
+	draft, err := f.repo.GetDraft(t.Context(), actor, id)
+	if errors.Is(err, domain.ErrNotDraft) || errors.Is(err, datasources.ErrNotFound) || err == nil &&
+		draft.Entity != nil {
+		return datasources.DuplicateCheck{}
+	}
+	require.NoError(t, err)
+	candidate := domain.NewDuplicateCandidate(draft.Document)
+	matches, err := f.repo.FindDuplicates(t.Context(), candidate, actor.Role == domain.RoleModerator)
+	require.NoError(t, err)
+
+	return datasources.DuplicateCheck{Candidate: candidate, Matches: matches}
+}
+
+// approvalChecks returns the duplicate checks ApproveRevision makes for an approval of the revision id: of its own
+// new entity, as the moderation view shows them, and of each pending reference, its own placeholder left out. A
+// revision moderators may not see has none.
+func (f *editingFixture) approvalChecks(t *testing.T, id int64) map[int64]datasources.DuplicateCheck {
+	t.Helper()
+	checks := map[int64]datasources.DuplicateCheck{}
+	revision, err := f.repo.GetModerationRevision(t.Context(), id)
+	if errors.Is(err, datasources.ErrNotFound) {
+		return checks
+	}
+	require.NoError(t, err)
+	if revision.Entity != nil && revision.Entity.IsNew {
+		checks[id] = datasources.DuplicateCheck{Candidate: domain.NewDuplicateCandidate(revision.Document),
+			Matches: revision.Duplicates}
+	}
+	for _, ref := range revision.PendingReferences {
+		candidate := domain.NewDuplicateCandidate(ref.Document)
+		matches, err := f.repo.FindDuplicates(t.Context(), candidate, true)
+		require.NoError(t, err)
+		checks[ref.RevisionID] = datasources.DuplicateCheck{Candidate: candidate,
+			Matches: domain.MatchesOtherThan(matches, ref.Entity)}
+	}
+
+	return checks
 }
 
 // editable returns the actor's editable document of the entity key, failing the test on an error.

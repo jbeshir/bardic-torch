@@ -164,3 +164,34 @@ func TestWithWriteTx_CommitsOnSuccess(t *testing.T) {
 	}))
 	assert.Equal(t, 1, probeRows(t, db))
 }
+
+// TestWithWriteTx_HonoursRequestDeadline requires a write transaction to end PostCommitReserve before the request's
+// deadline, as unavailable, so that the response is still written; and a write with too little of the request left
+// not to be tried at all.
+func TestWithWriteTx_HonoursRequestDeadline(t *testing.T) {
+	t.Parallel()
+
+	repo := mysql.New(catalogtest.Writable(t))
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	start := time.Now()
+	err := repo.WithWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		// DO is not a SELECT, so the session's execution time limit does not stop it.
+		_, err := tx.ExecContext(ctx, "DO SLEEP(30)")
+
+		return err
+	})
+	require.ErrorIs(t, err, datasources.ErrUnavailable)
+	assert.Less(t, time.Since(start), 3*time.Second-mysql.PostCommitReserve+time.Second)
+	require.NoError(t, ctx.Err(), "the request still has time to answer")
+
+	late, cancelLate := context.WithTimeout(t.Context(), mysql.PostCommitReserve+mysql.MinWriteTx/2)
+	defer cancelLate()
+	attempts := 0
+	err = repo.WithWriteTx(late, func(context.Context, *sql.Tx) error {
+		attempts++
+		return nil
+	})
+	require.ErrorIs(t, err, datasources.ErrUnavailable)
+	assert.Zero(t, attempts, "a write with too little time left is not tried")
+}

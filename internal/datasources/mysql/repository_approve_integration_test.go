@@ -3,13 +3,16 @@
 package mysql_test
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +30,7 @@ func (f *editingFixture) approve(t *testing.T, id int64, opts domain.ApprovalOpt
 	t.Helper()
 
 	return f.repo.ApproveRevision(t.Context(), datasources.ApproveRequest{Actor: actorRowan, RevisionID: id,
-		Options: opts, Now: f.tick()})
+		Options: opts, Duplicates: f.approvalChecks(t, id), Now: f.tick()})
 }
 
 // mustApprove approves the revision id, failing the test on an error.
@@ -253,7 +256,8 @@ func TestRepository_ApproveRevision_NewPiece(t *testing.T) {
 	f := newEditingFixture(t)
 	require.Equal(t, "the-wren-s-song", f.song.Slug)
 	pending := f.newPending(t, actorWren, newPieceDocument(songTitle))
-	f.mustApprove(t, pending.ID)
+	// The title is the song's, so the moderator acknowledges the possible duplicate.
+	require.NoError(t, f.approve(t, pending.ID, domain.ApprovalOptions{AcknowledgedFlags: []domain.FlagCode{domain.FlagPossibleDuplicate}}))
 
 	var slug, sortTitle, letter string
 	require.NoError(t, f.db.QueryRowContext(t.Context(), "SELECT slug, sort_title, sort_letter FROM pieces "+
@@ -497,11 +501,167 @@ func TestRepository_ApproveRevision_TermNameTaken(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
 	pending := f.newPending(t, actorWren, newTermDocument("Laments"))
-	f.moderatorSubmit(t, nil, newTermDocument("Laments"))
+	// Each term may duplicate the other, which the moderator acknowledges.
+	draft := f.saveDraft(t, actorRowan, nil, newTermDocument("Laments"))
+	req := f.submitRequest(t, actorRowan, draft.Draft.ID)
+	req.AcknowledgedFlags = []domain.FlagCode{domain.FlagPossibleDuplicate}
+	_, err := f.repo.SubmitDraft(t.Context(), req)
+	require.NoError(t, err)
 
-	err := f.approve(t, pending.ID, domain.ApprovalOptions{})
+	err = f.approve(t, pending.ID, domain.ApprovalOptions{AcknowledgedFlags: []domain.FlagCode{domain.FlagPossibleDuplicate}})
 	var problems *domain.DocumentError
 	require.ErrorAs(t, err, &problems)
 	assert.Contains(t, problems.Problems, domain.DocumentProblem{Path: "/name", Code: domain.ProblemDuplicate})
 	assert.Equal(t, statusPending, f.stored(t, pending.ID).status)
+}
+
+// creditTo returns a change crediting the piece's tune to the person id.
+func creditTo(id int64) func(d *domain.PieceDocument) {
+	return func(d *domain.PieceDocument) {
+		d.Credits = append(slices.Clone(d.Credits), domain.DocCredit{PersonID: &id, Role: domain.CreditRoleTune,
+			Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain})
+	}
+}
+
+// tagWith returns a change adding the term id to the piece's terms.
+func tagWith(id int64) func(d *domain.PieceDocument) {
+	return func(d *domain.PieceDocument) {
+		d.Terms = append(slices.Clone(d.Terms), domain.DocPieceTerm{TermID: id})
+	}
+}
+
+// TestRepository_ApproveRevision_PendingReferenceDuplicate requires a pending new person approved alongside a piece
+// to pass the moderators' duplicate check too: a person of the same name made public since its submission refuses
+// the approval with pending_reference_flagged, possible_duplicate among its flags, and publishes nothing.
+func TestRepository_ApproveRevision_PendingReferenceDuplicate(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	person := f.newPending(t, actorWren, newPersonDocument("Ash Example"))
+	piece := editAndSubmit(t, f, actorWren, *pieceKey(f.song.Slug), creditTo(person.Entity.ID))
+	f.c.Person(catalogtest.Person{Doc: newPersonDocument("Ash Example")})
+
+	err := f.approve(t, piece.RevisionID, domain.ApprovalOptions{})
+	var flagged *domain.PendingReferenceFlaggedError
+	require.ErrorAs(t, err, &flagged)
+	assert.Equal(t, person.ID, flagged.RevisionID)
+	assert.True(t, slices.ContainsFunc(flagged.Flags, func(f domain.Flag) bool {
+		return f.Code == domain.FlagPossibleDuplicate
+	}), "the refusal names possible_duplicate: %v", flagged.Flags)
+	assert.Equal(t, statusPending, f.stored(t, piece.RevisionID).status)
+	assert.Equal(t, statusPending, f.stored(t, person.ID).status)
+	assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM persons WHERE id = ? AND current_revision_id IS NULL",
+		person.Entity.ID), "the person is not published")
+
+	// Approved on its own first, the moderator acknowledging the duplicate, the piece is then approved.
+	require.NoError(t, f.approve(t, person.ID,
+		domain.ApprovalOptions{AcknowledgedFlags: []domain.FlagCode{domain.FlagPossibleDuplicate}}))
+	f.mustApprove(t, piece.RevisionID)
+}
+
+// TestRepository_ApproveRevision_RebasedSinceDuplicates requires an approval whose duplicate check was made before
+// a rebase renamed the new entity to be refused with datasources.ErrDocumentChanged, approving nothing; checked
+// again, the new name's match is a possible duplicate.
+func TestRepository_ApproveRevision_RebasedSinceDuplicates(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	pending := f.newPending(t, actorWren, newPersonDocument("Linnet Placeholder"))
+	checks := f.approvalChecks(t, pending.ID)
+	renamed := f.moderationRevision(t, pending.ID).Document.(domain.PersonDocument)
+	renamed.Name = ashFiddler
+	require.NoError(t, f.rebase(t, pending.ID, nil, renamed, nil))
+
+	err := f.repo.ApproveRevision(t.Context(), datasources.ApproveRequest{Actor: actorRowan, RevisionID: pending.ID,
+		Duplicates: checks, Now: f.tick()})
+	require.ErrorIs(t, err, datasources.ErrDocumentChanged)
+	assert.Equal(t, statusPending, f.stored(t, pending.ID).status)
+
+	var unacknowledged *domain.UnacknowledgedFlagsError
+	require.ErrorAs(t, f.approve(t, pending.ID, domain.ApprovalOptions{}), &unacknowledged)
+	assert.Equal(t, []domain.Flag{{Code: domain.FlagPossibleDuplicate}}, unacknowledged.Flags)
+}
+
+// TestRepository_ApproveRevision_ReferenceRejectedWhileWaiting forces the rejection of a pending term to commit while
+// the approval of a piece referencing it waits for the term's revision: the approval sees the term rejected and its
+// placeholder gone, and is refused, publishing nothing.
+func TestRepository_ApproveRevision_ReferenceRejectedWhileWaiting(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	term := f.newPending(t, actorWren, newTermDocument("Laments"))
+	piece := editAndSubmit(t, f, actorWren, *pieceKey(f.song.Slug), tagWith(term.Entity.ID))
+	req := datasources.ApproveRequest{Actor: actorRowan, RevisionID: piece.RevisionID,
+		Duplicates: f.approvalChecks(t, piece.RevisionID), Now: f.tick()}
+
+	holder := holdRows(t, f.db, "SELECT id FROM revisions WHERE id = ? FOR UPDATE", term.ID)
+	require.NoError(t, f.repo.RejectRevisionInTx(t.Context(), holder.tx, datasources.RejectRequest{Actor: actorRowan,
+		RevisionID: term.ID, ReviewNote: "Not a topic.", Now: f.tick()}))
+	done := started(t.Context(), func(ctx context.Context) error { return f.repo.ApproveRevision(ctx, req) })
+	waitUntilBlocked(t, f.db, 1)
+	holder.commit()
+	err := <-done
+
+	var problems *domain.DocumentError
+	if !errors.Is(err, datasources.ErrEntityGone) {
+		require.ErrorAs(t, err, &problems)
+		assert.Contains(t, problems.Problems, domain.DocumentProblem{Path: "/terms/1/term",
+			Code: domain.ProblemUnknownReference})
+	}
+	assert.Equal(t, statusPending, f.stored(t, piece.RevisionID).status)
+	assert.Equal(t, statusRejected, f.stored(t, term.ID).status)
+	assert.Equal(t, f.song.RevisionID, f.currentRevision(t, "pieces", f.song.ID))
+}
+
+// TestRepository_ApproveRevision_RebasedWhileWaiting forces a rebase to commit while an approval of the revision
+// waits for its lock: the approval approves the rebased document.
+func TestRepository_ApproveRevision_RebasedWhileWaiting(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	pending := editAndSubmit(t, f, actorWren, *pieceKey(f.song.Slug), func(d *domain.PieceDocument) {
+		d.NotesMD = new(editedNotes)
+	})
+	req := datasources.ApproveRequest{Actor: actorRowan, RevisionID: pending.RevisionID, Now: f.tick()}
+	resolved := f.moderationRevision(t, pending.RevisionID).Document.(domain.PieceDocument)
+	resolved.NotesMD = new("Notes as the moderator rebased them.")
+
+	holder := holdRows(t, f.db, "SELECT id FROM revisions WHERE id = ? FOR UPDATE", pending.RevisionID)
+	require.NoError(t, f.repo.RebaseRevisionInTx(t.Context(), holder.tx, datasources.RebaseRequest{Actor: actorRowan,
+		RevisionID: pending.RevisionID, CurrentRevisionID: &f.song.RevisionID, Document: resolved, Now: f.tick()}))
+	done := started(t.Context(), func(ctx context.Context) error { return f.repo.ApproveRevision(ctx, req) })
+	waitUntilBlocked(t, f.db, 1)
+	holder.commit()
+	require.NoError(t, <-done)
+
+	assert.Equal(t, pending.RevisionID, f.currentRevision(t, "pieces", f.song.ID))
+	assert.Equal(t, "Notes as the moderator rebased them.", *f.storedPiece(t, pending.RevisionID).NotesMD)
+}
+
+// TestRepository_ApproveRevision_ReferenceSupersededWhileLocking forces the author's superseding of a pending term
+// to commit while the approval of a piece referencing it waits for the superseded revision: the approval finds the
+// superseding revision, rather than refusing the piece's reference as unknown. Its duplicate check was of the
+// superseded revision, so the approval is refused with datasources.ErrDocumentChanged; checked again, it approves
+// the superseding revision alongside.
+func TestRepository_ApproveRevision_ReferenceSupersededWhileLocking(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	first := f.newPending(t, actorWren, newTermDocument("Laments"))
+	piece := editAndSubmit(t, f, actorWren, *pieceKey(f.song.Slug), tagWith(first.Entity.ID))
+	req := datasources.ApproveRequest{Actor: actorRowan, RevisionID: piece.RevisionID,
+		Duplicates: f.approvalChecks(t, piece.RevisionID), Now: f.tick()}
+	termKey := domain.EntityKey{Type: domain.EntityTypeTerm, Slug: first.Entity.Slug}
+	edited := f.editable(t, actorWren, termKey).Document.(domain.TermDocument)
+	edited.DisplayName = "Bird Laments"
+	superseding := f.submitRequest(t, actorWren, f.saveDraft(t, actorWren, &termKey, edited).Draft.ID)
+
+	holder := holdRows(t, f.db, "SELECT id FROM revisions WHERE id = ? FOR UPDATE", first.ID)
+	second, err := f.repo.SubmitDraftInTx(t.Context(), holder.tx, superseding)
+	require.NoError(t, err)
+	done := started(t.Context(), func(ctx context.Context) error { return f.repo.ApproveRevision(ctx, req) })
+	waitUntilBlocked(t, f.db, 1)
+	holder.commit()
+	require.ErrorIs(t, <-done, datasources.ErrDocumentChanged)
+	assert.Equal(t, statusPending, f.stored(t, piece.RevisionID).status)
+
+	f.mustApprove(t, piece.RevisionID)
+	assert.Equal(t, statusWithdrawn, f.stored(t, first.ID).status)
+	assert.Equal(t, statusApproved, f.stored(t, second.RevisionID).status)
+	assert.Equal(t, second.RevisionID, f.currentRevision(t, "terms", first.Entity.ID))
 }

@@ -21,6 +21,11 @@ func (e *UnknownTermError) Error() string {
 	return "unknown term [" + e.Slug + "]"
 }
 
+// ErrDocumentChanged is returned, wrapped, by a write given a duplicate check (DuplicateCheck) of other names than
+// its locked document's, or none for a new entity it would write: the document changed after the caller checked
+// it. The write did not happen; the caller checks the document again and retries.
+var ErrDocumentChanged = errors.New("the document changed since its duplicate check")
+
 // ErrUnavailable is returned, wrapped, when a write could not finish in time: its transaction was still hitting
 // lock waits or deadlocks after its retries, or ran past its deadline. The write did not happen, and trying
 // again later may work.

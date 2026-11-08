@@ -432,6 +432,24 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   `_ConcurrentApprove`, `TestRepository_SaveDraft_Concurrent` and `TestRepository_LinkHideResolveRace`. They are
   only meaningful under `-race`, so a milestone's final gate includes `GOTESTFLAGS=-race make
   test-integration-external` (CI's integration job).
+- **Forced races** (`race_helpers_integration_test.go`) run one known interleaving rather than leaving it to the
+  scheduler: `holdRows` holds the contested rows in a transaction of the test's own (which may also write in it,
+  through the `…InTx` hooks of `export_test.go`, as the concurrent write would), the write under test starts on
+  its own goroutine, `waitUntilBlocked` sees it waiting for the lock (`performance_schema.data_lock_waits`, else
+  `INNODB_TRX`; the test accounts have the privileges, and a test fails rather than skips without them), and only
+  then does the holder commit. Each fails on the code without the lock or order it covers:
+  `TestRepository_SubmitDraft_ConcurrentUpdateNotLost` (the submission stores the draft read under its lock),
+  `TestRepository_ApproveRevision_ReferenceRejectedWhileWaiting`, `_RebasedWhileWaiting` and
+  `_ReferenceSupersededWhileLocking` (the pending references are read again once locked). The lock order tests
+  (`repository_lock_order_integration_test.go`: `_SameFacetTermsNoDeadlock`, `_MutualRelationsNoDeadlock`) hold
+  the rows both approvals lock first, release them to both at once, and run the approvals without retries
+  (`ApproveRevisionOnce`), so a lock order that is not global shows as a deadlock (1213) every time. They do not
+  count InnoDB's global `lock_deadlocks`, which the package's parallel tests, `TestWithWriteTx_RetriesADeadlock`
+  among them, also move. The duplicate check's version check has
+  `TestRepository_SubmitDraft_DocumentChangedSinceDuplicates`, `TestRepository_ApproveRevision_RebasedSinceDuplicates`
+  and `_PendingReferenceDuplicate`, and the request deadline `TestWithWriteTx_HonoursRequestDeadline`.
+  Integration tests that submit or approve through the repository pass the duplicate checks the commands make
+  (`editingFixture.submitRequest`, `approvalChecks`): a new entity's write without one is refused.
 - **Migration 010**: `TestMigrations_ModerationConstraints` (its CHECKs, foreign keys and unique key by MySQL error
   number) and `TestMigration010_BackfillsPerformanceOwners`, which writes the scrubbed import with BE3's
   performance insert (no owners), runs the migration's backfill statements and checks that every performance is

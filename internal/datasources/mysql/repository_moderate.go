@@ -23,31 +23,36 @@ var (
 // (D14).
 func (r *Repository) RejectRevision(ctx context.Context, req datasources.RejectRequest) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		c := r.txReader(tx)
-		row, err := c.lockModeratedRevision(ctx, req.Actor, req.RevisionID, domain.RevisionActionReject)
-		if err != nil {
-			return err
-		}
-		hidden := fetchAll(ctx, c, "hidden aliases", c.q.ListHiddenAliasNames)
-		if c.err != nil {
-			return c.err
-		}
-		if err := domain.CheckReviewNote(req.ReviewNote, domain.NewNameMatcher(hidden, nil),
-			req.AcknowledgedFlags); err != nil {
-			return err
-		}
-		return c.leavePending(ctx, row, func() error {
-			return requireMatched(c.q.RejectRevisionRow(ctx, queries.RejectRevisionRowParams{
-				ReviewerUserID: sql.NullString{String: req.Actor.UserID, Valid: true}, ReviewedAt: nullTime(req.Now),
-				ReviewNote: optionalText(req.ReviewNote), ID: row.ID,
-			}))
-		})
+		return r.txReader(tx).rejectRevision(ctx, req)
 	})
 	if err != nil {
 		return withoutServerMessage(fmt.Sprintf("rejecting revision [%d]", req.RevisionID), err)
 	}
 
 	return nil
+}
+
+// rejectRevision is RejectRevision's transaction.
+func (c *catalogueReader) rejectRevision(ctx context.Context, req datasources.RejectRequest) error {
+	row, err := c.lockModeratedRevision(ctx, req.Actor, req.RevisionID, domain.RevisionActionReject)
+	if err != nil {
+		return err
+	}
+	hidden := fetchAll(ctx, c, "hidden aliases", c.q.ListHiddenAliasNames)
+	if c.err != nil {
+		return c.err
+	}
+	if err := domain.CheckReviewNote(req.ReviewNote, domain.NewNameMatcher(hidden, nil),
+		req.AcknowledgedFlags); err != nil {
+		return err
+	}
+
+	return c.leavePending(ctx, row, func() error {
+		return requireMatched(c.q.RejectRevisionRow(ctx, queries.RejectRevisionRowParams{
+			ReviewerUserID: sql.NullString{String: req.Actor.UserID, Valid: true}, ReviewedAt: nullTime(req.Now),
+			ReviewNote: optionalText(req.ReviewNote), ID: row.ID,
+		}))
+	})
 }
 
 // RebaseRevision rebases a pending revision onto its entity's current revision (docs/PLAN.md §5.1): under the
@@ -57,19 +62,7 @@ func (r *Repository) RejectRevision(ctx context.Context, req datasources.RejectR
 // (domain.FlagsAfterRebase); what its author submitted, and the base they edited from, are kept.
 func (r *Repository) RebaseRevision(ctx context.Context, req datasources.RebaseRequest) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		c := r.txReader(tx)
-		row, err := c.lockModeratedRevision(ctx, req.Actor, req.RevisionID, domain.RevisionActionRebase)
-		if err != nil {
-			return err
-		}
-		in, err := c.pendingApproval(ctx, row.ID)
-		if err != nil {
-			return err
-		}
-		if req.Document.EntityType() != in.entity.Type {
-			return datasources.ErrDocumentType
-		}
-		return c.rebase(ctx, req, in)
+		return r.txReader(tx).rebaseRevision(ctx, req)
 	})
 	if err != nil {
 		return withoutServerMessage(fmt.Sprintf("rebasing revision [%d]", req.RevisionID), err)
@@ -78,19 +71,42 @@ func (r *Repository) RebaseRevision(ctx context.Context, req datasources.RebaseR
 	return nil
 }
 
+// rebaseRevision is RebaseRevision's transaction.
+func (c *catalogueReader) rebaseRevision(ctx context.Context, req datasources.RebaseRequest) error {
+	row, err := c.lockModeratedRevision(ctx, req.Actor, req.RevisionID, domain.RevisionActionRebase)
+	if err != nil {
+		return err
+	}
+	in, err := c.pendingApproval(ctx, row.ID)
+	if err != nil {
+		return err
+	}
+	if req.Document.EntityType() != in.entity.Type {
+		return datasources.ErrDocumentType
+	}
+
+	return c.rebase(ctx, req, in)
+}
+
 func (c *catalogueReader) rebase(ctx context.Context, req datasources.RebaseRequest, in approvalInput) error {
-	own, err := c.lockOwnEntity(ctx, in.entity, referencesOf(in.kind, in.entity.ID, req.Document))
+	peeked, err := c.peekCurrent(ctx, in.kind, in.entity)
+	if err != nil {
+		return err
+	}
+	locks := referencesOf(in.kind, in.entity.ID, req.Document)
+	peeked.references(in.kind, in.entity.ID, &locks)
+	own, err := c.lockOwnEntity(ctx, in.entity, locks, nil)
 	if err != nil {
 		return err
 	}
 	if !equalIDs(own.currentRevision, req.CurrentRevisionID) {
 		return datasources.ErrStale
 	}
-	docs, err := c.approvalDocuments(ctx, approvalInput{entity: in.entity, kind: in.kind}, own)
+	locked, err := c.lockedCurrent(ctx, in.kind, in.entity, own, peeked)
 	if err != nil {
 		return err
 	}
-	current := docs.current
+	current := locked.doc
 	summary := in.summary
 	if req.Summary != nil {
 		summary = *req.Summary
@@ -247,9 +263,11 @@ func (c *catalogueReader) revertStatus(req datasources.RevertRequest) (domain.Re
 }
 
 // lockRevert reads the revert's target, which must be an approved revision of a public entity, and takes the
-// revert's locks (D10): for a pending revert the actor's users row and their pending revision of the entity, then
-// the entity row and what the documents reference. The target being the current revision is
-// datasources.ErrAlreadyCurrent.
+// revert's locks (docs/PLAN.md §5.1 "Revert"): for a pending revert the actor's users row and their pending
+// revision of the entity, then in one pass the entity row and what the target and the current document reference,
+// the current document being read before the lock and checked under it (lockedCurrent). A revert approved at once
+// (by an interactive moderator) of a term also locks the terms of its facet, first among the terms, as its approval
+// does. The target being the current revision is datasources.ErrAlreadyCurrent.
 func (c *catalogueReader) lockRevert(
 	ctx context.Context, req datasources.RevertRequest, status domain.RevisionStatus,
 ) (revertTarget, error) {
@@ -262,7 +280,17 @@ func (c *catalogueReader) lockRevert(
 			return revertTarget{}, err
 		}
 	}
-	own, err := c.lockOwnEntity(ctx, t.entity, referencesOf(t.kind, t.entity.ID, t.doc))
+	peeked, err := c.peekCurrent(ctx, t.kind, t.entity)
+	if err != nil {
+		return revertTarget{}, err
+	}
+	refs := referencesOf(t.kind, t.entity.ID, t.doc)
+	peeked.references(t.kind, t.entity.ID, &refs)
+	var facets []domain.Facet
+	if status == domain.RevisionStatusApproved {
+		facets = rebuiltFacets(t.doc)
+	}
+	own, err := c.lockOwnEntity(ctx, t.entity, refs, facets)
 	if errors.Is(err, datasources.ErrEntityGone) || err == nil && own.currentRevision == nil {
 		return revertTarget{}, datasources.ErrNotFound
 	}
@@ -273,13 +301,11 @@ func (c *catalogueReader) lockRevert(
 	if t.currentID == c.signedID(t.row.ID) {
 		return revertTarget{}, datasources.ErrAlreadyCurrent
 	}
-	if t.current, err = c.approvedDocument(ctx, t.kind, domain.RevisionEntity{Type: t.entity.Type, ID: t.entity.ID},
-		t.currentID); err != nil {
+	current, err := c.lockedCurrent(ctx, t.kind, t.entity, own, peeked)
+	if err != nil {
 		return revertTarget{}, err
 	}
-	if _, err := c.lockEntities(ctx, nil, referencesOf(t.kind, t.entity.ID, t.current)); err != nil {
-		return revertTarget{}, err
-	}
+	t.current = current.doc
 
 	return t, c.err
 }
