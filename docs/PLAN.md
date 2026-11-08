@@ -106,7 +106,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
   - identity: `slug`, `title`, `sort_title` (articles ignored)
   - type and status: `kind`, `conservation_status`, `is_stub`
   - Markdown fields: `notes_md`, `version_notes_md`, `licensing_notes_md`
-  - licensing: `licensing_status` (known / unknown), `licence` (pd, cc-by…, arr, other, null)
+  - licensing: `licensing_status` (known / unknown), `licence` (pd, cc-by…, arr, other, null) and, from BE5 (migration 012), `licence_version` (1.0, 2.0, 2.5, 3.0, 4.0, null). A version belongs to a `cc_*` licence only: validation refuses it beside any other (`out_of_range` at `/licence_version`), and a read shows it only beside one, as there is no CHECK constraint (the previous release's writer does not know the column, so a constraint could fail its writes after a rollback). The importer leaves it null
   - history: `historical_source_md` and `period_start`/`period_end`, for documentable works (R-23)
   - import audit: `legacy_had_inline_lyrics`
   - Child tables: `piece_secondary_kinds`, `piece_aliases(text, kind)`, `piece_terms(term_id, is_primary, part, position)`, `piece_relations(to_piece, type: variant_of | contrafactum_of | setting_of | same_text_other_form)`, `conservation_history(status, reason, revision_id, at)`.
@@ -386,7 +386,7 @@ BE4's transaction (lock order, pending references, links, performances, retries)
 **Edit rules:**
 - **Contributors:** edits go to `pending`. Contributors see their own pending version on the entity's own page, its history and "my contributions", with a banner, through the authenticated `…/pending` and `/v1/me/revisions` endpoints. Public reads (lists, search, facets, counts, needs-work) stay credential-free and approved-only. Contributors may have at most 30 open pending revisions.
 - **Moderators:** edits made in an interactive (Auth0) session are approved as they are saved, but still recorded as revisions. An API token's edits are a contributor's (§5.1 "API tokens").
-- **Sourced fields** (licensing notes, licence, preferences, person status, conservation status) are rejected at validation without a source URL. The rule applies to moderators too (R-12).
+- **Sourced fields** (licensing notes, licence and its version, preferences, person status, conservation status) are rejected at validation without a source URL. The rule applies to moderators too (R-12).
 - **New entities**, whether created by hand or as term suggestions, exist with `current_revision_id = NULL` and are invisible to the public until approved. When a moderator reviews a piece, any pending terms it references are shown and approved alongside it.
 
 **Roles and blocking:** every user starts as a contributor. The moderator role is granted only through `BOOTSTRAP_MODERATOR_USER_IDS` (§4). Moderators block and unblock contributors, but not other moderators or themselves. A blocked user gets 403 on every authenticated endpoint.
@@ -424,8 +424,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
 - **The editor format.** Editable documents reference pieces, persons, terms and events by slug (collections by
   ID), never by internal ID, and have no `schema_version`; they hold the preferences as stored. An unresolvable or
   forbidden slug is the same 422 `unknown_reference`. A field the document type does not have is 400
-  `invalid_request`, but a field added after a client was built (`preferences`) may be left out of a request (or
-  sent as null): the document then keeps the base's value, as the author is treated as never having received it
+  `invalid_request`, but a field added after a client was built (`preferences`, and a piece's `licence_version`) may be left out of a request (`preferences` also
+  sent as null; a null `licence_version` is a version cleared): the document then keeps the base's value, as the author is treated as never having received it
   (its received keys are dropped from the draft, and only ever shrink), and a rebase document that leaves it out
   keeps current's. Responses always carry it. Each performance has a `key` (16 hex digits) the server issues:
   an editable document of the current revision gives every performance one (one stored without gets a key derived
@@ -476,7 +476,7 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   takes one-sided changes, equal changes once, and makes every other overlap a conflict, served only in moderator
   views. Sets never conflict; a removal wins, even over the other side's re-spelling under the same key.
 - **Sourced fields** (R-12, R-15, also for moderators), compared with the base at submit and with current at
-  approval: changed licensing notes, licence or a licensing status of known need a link with role
+  approval: changed licensing notes, licence, licence version or a licensing status of known need a link with role
   `licensing_source`; a person status other than active, and any status change, needs `status_source_url`; a
   conservation status other than unassessed needs its `source_url`, and a change also a non-empty summary (the
   history reason); every preference needs its `source_url`, changed or not. A source is an http(s) URL `NormalizeURL`
@@ -655,13 +655,14 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   - `GET /v1/pieces/{slug}`, with the piece's preferences and its `conservation_suggestion` (§2.3; null for a
     restricted piece), derived from its public links only, so it is no oracle for hidden links
   - `GET /v1/persons` (`kind`, `role`, `affiliation`, `q`, `letter`, `sort`) and `GET /v1/persons/{slug}`
-  - `GET /v1/terms?facet=…`: the term tree with piece and person counts
+  - `GET /v1/terms?facet=…`: the term tree with piece and person counts. It is not paged or searched: a client finds terms by name itself, matching on the same folding as the `Search` rule of §4.1 (combining marks removed, case ignored)
   - `GET /v1/terms/{slug}`, with its pieces or persons (paginated, including descendants)
   - `GET /v1/collections`, `GET /v1/collections/{collection_id}`
   - `GET /v1/events` (added in BE2) and `GET /v1/events/{slug}`
   - history:
     - `GET /v1/{pieces|persons|terms|events}/{slug}/history` and `GET /v1/collections/{collection_id}/history`
     - `GET /v1/revisions/{revision_id}`: the redacted snapshot view, its base and the changed fields
+  - From BE5 (`info.version` 1.1.0, all additive): every entity page carries `updated_at`, when its current revision was approved (the revision's `created_at`); a history carries `entity`, the public entity it belongs to (`entity_type`, `slug` or `collection_id`, `name`); the links of a performance (on a person's or an event's page) and the citations of a collection carry `liveness`, `last_checked_at` and `archived_url`, as a piece's and a person's links do (a hidden link is shown nowhere, so neither is its archive); a piece and its snapshots carry `licence_version`, null unless `licence` is a `cc_*` code (a Creative Commons licence's URL is derived from the two, not stored); and a symmetric relation (`same_text_other_form` between pieces, `same_as` between persons) stored on both entities is listed once, as outgoing. Every one of them is data of a public entity, so the 404 of an entity that is not public is unchanged.
   - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18). Restricted pieces appear only as stubs, and `prefers_no_page` persons never appear.
   - Lists page with `limit` (at most 100) and `offset` (at most 10000), and every ordering ends with the ID, so pages are stable. Nested lists that grow with data are capped at 200 entries, each with a `*_total` field.
   - A database outage is 503 `unavailable`, as on every operation that reads the database (all but `/healthz`; for an authenticated operation also when the caller's user cannot be looked up). A query that fails for another reason is 500 `internal`.

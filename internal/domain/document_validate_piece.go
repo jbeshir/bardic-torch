@@ -56,6 +56,8 @@ func (c *docCheck) pieceFields(d PieceDocument) {
 	c.check(d.PeriodStart == nil || d.PeriodEnd == nil || *d.PeriodStart <= *d.PeriodEnd, "/period_end",
 		ProblemOutOfRange)
 	c.check(d.Licence == nil || d.LicensingStatus == LicensingStatusKnown, "/licence", ProblemLicenceNeedsKnown)
+	c.check(d.LicenceVersion == nil || d.Licence != nil && d.Licence.IsCreativeCommons(), "/licence_version",
+		ProblemOutOfRange)
 	c.cap(len(d.Aliases), maxAliases, "/aliases")
 	aliases := make([]string, 0, len(d.Aliases))
 	for k, a := range d.Aliases {
@@ -125,6 +127,9 @@ func (c *docCheck) pieceSources(d, prev PieceDocument, summary string) {
 	c.licensingSources(d.LicensingNotesMD, prev.LicensingNotesMD, d.LicensingStatus, prev.LicensingStatus, licensed)
 	if d.Licence != nil && !EqualPointers(d.Licence, prev.Licence) {
 		c.check(licensed, "/licence", ProblemSourceRequired)
+	}
+	if d.LicenceVersion != nil && !EqualPointers(d.LicenceVersion, prev.LicenceVersion) {
+		c.check(licensed, "/licence_version", ProblemSourceRequired)
 	}
 	c.sourceURL(d.Conservation.SourceURL, "/conservation/source_url")
 	changed := d.Conservation.Status != prev.Conservation.Status

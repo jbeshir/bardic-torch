@@ -25,6 +25,7 @@ type PieceSnapshot struct {
 	LicensingStatus       domain.LicensingStatus    `json:"licensing_status"`
 	LicensingNotesMD      *string                   `json:"licensing_notes_md"`
 	Licence               *domain.Licence           `json:"licence"`
+	LicenceVersion        *domain.LicenceVersion    `json:"licence_version"`
 	HistoricalSourceMD    *string                   `json:"historical_source_md"`
 	PeriodStart           *int16                    `json:"period_start"`
 	PeriodEnd             *int16                    `json:"period_end"`
@@ -149,6 +150,7 @@ func pieceSnapshotFromDomain(s domain.PieceSnapshot) PieceSnapshot {
 		LicensingStatus:       s.LicensingStatus,
 		LicensingNotesMD:      s.LicensingNotesMD,
 		Licence:               s.Licence,
+		LicenceVersion:        s.LicenceVersion,
 		HistoricalSourceMD:    s.HistoricalSourceMD,
 		PeriodStart:           s.PeriodStart,
 		PeriodEnd:             s.PeriodEnd,

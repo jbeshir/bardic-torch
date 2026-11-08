@@ -18,7 +18,7 @@ import (
 // fields set, or removed when set to nil.
 func editorDocumentJSON(t *testing.T, entityType domain.EntityType, edit map[string]any) json.RawMessage {
 	t.Helper()
-	var doc any = domain.ToEditorPiece(domain.PieceDocument{Title: "The Copper Kettle", Kind: domain.PieceKindSong,
+	var doc any = domain.ToEditorPiece(domain.PieceDocument{Title: testPieceTitle, Kind: domain.PieceKindSong,
 		LicensingStatus: domain.LicensingStatusUnknown,
 		Conservation:    domain.DocConservation{Status: domain.ConservationStatusUnassessed}}, domain.SlugMap{})
 	if entityType == domain.EntityTypePerson {
@@ -42,10 +42,16 @@ func editorDocumentJSON(t *testing.T, entityType domain.EntityType, edit map[str
 	return out
 }
 
+// withoutPreferences is what a document that carried everything but its preferences sent.
+var withoutPreferences = domain.EditorFieldsSent{LicenceVersion: true}
+
 // The JSON of the decoding tests' preferences.
 const (
-	keyPreferences  = "preferences"
-	testPrefsSource = "https://x.org"
+	keyPreferences     = "preferences"
+	keyLicenceVersion  = "licence_version"
+	keyLicence         = "licence"
+	keyLicensingStatus = "licensing_status"
+	testPrefsSource    = "https://x.org"
 )
 
 // preferenceJSON is a recording preference with value and the fields of extra.
@@ -83,13 +89,20 @@ func TestDecodeEditorDocument_FieldsSent(t *testing.T) {
 		{name: "piece with no preferences", entityType: domain.EntityTypePiece,
 			edit: map[string]any{keyPreferences: []any{}}, want: domain.AllEditorFieldsSent},
 		{name: "piece without the field", entityType: domain.EntityTypePiece,
-			edit: map[string]any{keyPreferences: nil}, want: domain.EditorFieldsSent{}},
+			edit: map[string]any{keyPreferences: nil}, want: withoutPreferences},
 		{name: "piece with null", entityType: domain.EntityTypePiece,
-			edit: map[string]any{keyPreferences: jsonNull}, want: domain.EditorFieldsSent{}},
+			edit: map[string]any{keyPreferences: jsonNull}, want: withoutPreferences},
+		{name: "piece without a licence version", entityType: domain.EntityTypePiece,
+			edit: map[string]any{keyLicenceVersion: nil}, want: domain.EditorFieldsSent{Preferences: true}},
+		{name: "piece with a licence version", entityType: domain.EntityTypePiece,
+			edit: map[string]any{keyLicenceVersion: "4.0", keyLicence: "cc_by", keyLicensingStatus: "known"},
+			want: domain.AllEditorFieldsSent},
+		{name: "piece with a null licence version", entityType: domain.EntityTypePiece,
+			edit: map[string]any{keyLicenceVersion: jsonNull}, want: domain.AllEditorFieldsSent},
 		{name: "person with preferences", entityType: domain.EntityTypePerson,
 			edit: map[string]any{keyPreferences: preferences}, want: domain.AllEditorFieldsSent, wantPrefs: 1},
 		{name: "person without the field", entityType: domain.EntityTypePerson,
-			edit: map[string]any{keyPreferences: nil}, want: domain.EditorFieldsSent{}},
+			edit: map[string]any{keyPreferences: nil}, want: withoutPreferences},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -172,7 +185,7 @@ func TestDraftCreate_DocumentWithoutPreferences(t *testing.T) {
 		edit map[string]any
 		want domain.EditorFieldsSent
 	}{
-		{name: "without", edit: map[string]any{keyPreferences: nil}, want: domain.EditorFieldsSent{}},
+		{name: "without", edit: map[string]any{keyPreferences: nil}, want: withoutPreferences},
 		{name: "with", edit: map[string]any{}, want: domain.AllEditorFieldsSent},
 	} {
 		body := `{"entity_type":"piece","entity":null,"base_revision_id":null,"document":` +
@@ -186,5 +199,40 @@ func TestDraftCreate_DocumentWithoutPreferences(t *testing.T) {
 						return command.SavedDraft{DraftResult: command.DraftResult{Draft: testDraft}, Created: true}, nil
 					})}
 			})
+	}
+}
+
+// TestDecodeEditorDocument_AbsentLicenceVersionKeepsBase checks that a piece document from a client built before
+// licence versions existed decodes, reports the version as not sent, and so keeps the base's (domain.RestoreDocument),
+// while a null version is sent and clears it.
+func TestDecodeEditorDocument_AbsentLicenceVersionKeepsBase(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		edit     map[string]any
+		wantSent bool
+	}{
+		{name: "absent", edit: map[string]any{keyLicenceVersion: nil}},
+		{name: "null", edit: map[string]any{keyLicenceVersion: jsonNull}, wantSent: true},
+		{name: "set", edit: map[string]any{keyLicenceVersion: "3.0", keyLicence: "cc_by", keyLicensingStatus: "known"},
+			wantSent: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rec := httptest.NewRecorder()
+			doc, sent, ok := editorDocumentToDomain(t.Context(), rec, domain.EntityTypePiece,
+				editorDocumentJSON(t, domain.EntityTypePiece, tc.edit))
+			require.True(t, ok, rec.Body.String())
+			assert.Equal(t, tc.wantSent, sent.LicenceVersion)
+			assert.True(t, sent.Preferences)
+			piece, isPiece := doc.(domain.EditorPieceDocument)
+			require.True(t, isPiece)
+			if tc.name == "set" {
+				assert.Equal(t, new(domain.LicenceVersion30), piece.LicenceVersion)
+			} else {
+				assert.Nil(t, piece.LicenceVersion)
+			}
+		})
 	}
 }

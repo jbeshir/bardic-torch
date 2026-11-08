@@ -93,11 +93,16 @@ WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 -- another entity's page only if the link has a public attachment (the public_link_attachments view).
 -- ============================================
 
+-- A public entity's updated_at is when its current revision was approved: the revision's created_at, which approval
+-- sets.
+
 -- name: GetPublicPiece :one
-SELECT id, slug, title, kind, conservation_status, is_stub, notes_md, version_notes_md, licensing_status,
-    licensing_notes_md, licence, historical_source_md, period_start, period_end
-FROM pieces
-WHERE slug = ? AND current_revision_id IS NOT NULL;
+SELECT p.id, p.slug, p.title, p.kind, p.conservation_status, p.is_stub, p.notes_md, p.version_notes_md,
+    p.licensing_status, p.licensing_notes_md, p.licence, p.licence_version, p.historical_source_md, p.period_start,
+    p.period_end, rev.created_at AS updated_at
+FROM pieces p
+JOIN revisions rev ON rev.id = p.current_revision_id
+WHERE p.slug = ?;
 
 -- name: ListPieceSecondaryKinds :many
 SELECT p.slug, k.kind
@@ -192,10 +197,11 @@ WHERE person_id = ?
 ORDER BY dimension;
 
 -- name: GetPublicPerson :one
-SELECT id, slug, name, kind, status, status_date, status_source_url, is_stub, pronouns, notes_md, licensing_status,
-    licensing_notes_md
-FROM persons
-WHERE slug = ? AND current_revision_id IS NOT NULL;
+SELECT p.id, p.slug, p.name, p.kind, p.status, p.status_date, p.status_source_url, p.is_stub, p.pronouns, p.notes_md,
+    p.licensing_status, p.licensing_notes_md, rev.created_at AS updated_at
+FROM persons p
+JOIN revisions rev ON rev.id = p.current_revision_id
+WHERE p.slug = ?;
 
 -- name: ListPublicPersonAliases :many
 SELECT name, kind
@@ -261,7 +267,7 @@ WHERE c.person_id = ? AND p.current_revision_id IS NOT NULL;
 
 -- name: ListPublicPersonPerformances :many
 SELECT perf.year, perf.description_verbatim, l.url, l.title, l.platform,
-    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    l.liveness, l.last_checked_at, l.archived_url, p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
     e.slug AS event_slug, e.name AS event_name, e.kind AS event_kind
 FROM performances perf
@@ -303,9 +309,10 @@ WHERE (sqlc.narg(facet) IS NULL OR t.facet = sqlc.narg(facet))
 ORDER BY t.facet, t.position, t.display_name, t.id;
 
 -- name: GetPublicTerm :one
-SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md,
+SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md, rev.created_at AS updated_at,
     ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name
 FROM public_terms t
+JOIN revisions rev ON rev.id = t.current_revision_id
 LEFT JOIN public_terms ra ON ra.id = t.related_affiliation_id
 WHERE t.slug = ?;
 
@@ -383,8 +390,9 @@ LIMIT ? OFFSET ?;
 SELECT c.id, c.name, c.kind, c.url, c.is_bardic_resource, c.description_md, c.enumerable,
     r.slug AS region_slug, r.facet AS region_facet, r.display_name AS region_display_name,
     parent.id AS parent_id, parent.name AS parent_name, parent.kind AS parent_kind, parent.url AS parent_url,
-    parent.is_bardic_resource AS parent_is_bardic_resource
+    parent.is_bardic_resource AS parent_is_bardic_resource, rev.created_at AS updated_at
 FROM collections c
+JOIN revisions rev ON rev.id = c.current_revision_id
 LEFT JOIN public_terms r ON r.id = c.region_term_id
 LEFT JOIN collections parent ON parent.id = c.parent_id AND parent.current_revision_id IS NOT NULL
 WHERE c.id = ? AND c.current_revision_id IS NOT NULL;
@@ -399,7 +407,8 @@ ORDER BY sort_name, id;
 -- is attached to, whatever roles it is attached with.
 
 -- name: ListPublicCollectionCitations :many
-SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, a.piece_id, a.person_id,
+SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, l.liveness, l.last_checked_at, l.archived_url,
+    a.piece_id, a.person_id,
     COALESCE(p.sort_title, pe.sort_name) AS sort_key,
     p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
@@ -440,9 +449,10 @@ FROM events
 WHERE current_revision_id IS NOT NULL AND (sqlc.narg(kind) IS NULL OR kind = sqlc.narg(kind));
 
 -- name: GetPublicEvent :one
-SELECT id, slug, name, kind, description_md
-FROM events
-WHERE slug = ? AND current_revision_id IS NOT NULL;
+SELECT e.id, e.slug, e.name, e.kind, e.description_md, rev.created_at AS updated_at
+FROM events e
+JOIN revisions rev ON rev.id = e.current_revision_id
+WHERE e.slug = ?;
 
 -- An event's performances are on visible links attached to a public piece or a public person with a page, as
 -- a performance only an unapproved or no-page entity's links record may name them. A performance of a piece
@@ -450,7 +460,7 @@ WHERE slug = ? AND current_revision_id IS NOT NULL;
 
 -- name: ListPublicEventPerformances :many
 SELECT perf.id, perf.year, perf.description_verbatim, l.url, l.title, l.platform,
-    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    l.liveness, l.last_checked_at, l.archived_url, p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub
 FROM performances perf
 JOIN links l ON l.id = perf.link_id
@@ -492,6 +502,23 @@ SELECT id FROM events WHERE slug = ? AND current_revision_id IS NOT NULL;
 
 -- name: GetPublicCollectionID :one
 SELECT id FROM collections WHERE id = ? AND current_revision_id IS NOT NULL;
+
+-- The entity a history belongs to, by the ID of a public entity.
+
+-- name: GetHistoryPiece :one
+SELECT slug, title AS name FROM pieces WHERE id = ?;
+
+-- name: GetHistoryPerson :one
+SELECT slug, name FROM persons WHERE id = ?;
+
+-- name: GetHistoryTerm :one
+SELECT slug, display_name AS name FROM terms WHERE id = ?;
+
+-- name: GetHistoryEvent :one
+SELECT slug, name FROM events WHERE id = ?;
+
+-- name: GetHistoryCollection :one
+SELECT name FROM collections WHERE id = ?;
 
 -- name: ListApprovedRevisions :many
 SELECT r.id, r.source, r.summary, r.created_at, u.display_name AS author_display_name
@@ -1034,8 +1061,8 @@ DELETE FROM events WHERE id = ? AND current_revision_id IS NULL;
 -- name: UpdatePieceFromDocument :execrows
 UPDATE pieces
 SET title = ?, sort_title = ?, sort_letter = ?, kind = ?, conservation_status = ?, is_stub = ?, notes_md = ?,
-    version_notes_md = ?, licensing_notes_md = ?, licensing_status = ?, licence = ?, historical_source_md = ?,
-    period_start = ?, period_end = ?
+    version_notes_md = ?, licensing_notes_md = ?, licensing_status = ?, licence = ?,
+    licence_version = ?, historical_source_md = ?, period_start = ?, period_end = ?
 WHERE id = ?;
 
 -- name: UpdatePersonFromDocument :execrows

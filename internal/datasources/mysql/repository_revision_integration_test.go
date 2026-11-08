@@ -349,7 +349,9 @@ func TestRepository_ListPublicHistory(t *testing.T) {
 		domain.Page{Limit: domain.DefaultPageLimit})
 	require.NoError(t, err)
 	require.Len(t, history.Revisions, 5)
+	harvestEntity := domain.HistoryEntity{Type: domain.EntityTypePiece, Slug: new(fx.harvest.Slug), Name: harvestTitle}
 	assert.Equal(t, domain.RevisionHistory{
+		Entity: harvestEntity,
 		Revisions: []domain.RevisionSummary{imported, redacted, edit, foreignBase, {
 			ID: fx.harvest.RevisionID, Source: domain.RevisionSourceImport,
 			CreatedAt: history.Revisions[4].CreatedAt,
@@ -359,11 +361,12 @@ func TestRepository_ListPublicHistory(t *testing.T) {
 
 	page, err := repo.ListPublicHistory(ctx, domain.SlugEntityTypePiece, fx.harvest.Slug, domain.Page{Limit: 2, Offset: 1})
 	require.NoError(t, err)
-	assert.Equal(t, domain.RevisionHistory{Revisions: []domain.RevisionSummary{redacted, edit}, Total: 5}, page)
+	assert.Equal(t, domain.RevisionHistory{Entity: harvestEntity, Revisions: []domain.RevisionSummary{redacted, edit},
+		Total: 5}, page)
 
 	past, err := repo.ListPublicHistory(ctx, domain.SlugEntityTypePiece, fx.harvest.Slug, domain.Page{Limit: 2, Offset: 5})
 	require.NoError(t, err)
-	assert.Equal(t, domain.RevisionHistory{Revisions: []domain.RevisionSummary{}, Total: 5}, past)
+	assert.Equal(t, domain.RevisionHistory{Entity: harvestEntity, Revisions: []domain.RevisionSummary{}, Total: 5}, past)
 
 	for _, entity := range []struct {
 		entityType domain.SlugEntityType
@@ -385,6 +388,7 @@ func TestRepository_ListPublicHistory(t *testing.T) {
 	collection, err := repo.ListPublicCollectionHistory(ctx, fx.volume.ID, domain.Page{Limit: domain.DefaultPageLimit})
 	require.NoError(t, err)
 	assert.Equal(t, domain.RevisionHistory{
+		Entity: domain.HistoryEntity{Type: domain.EntityTypeCollection, CollectionID: new(fx.volume.ID), Name: volumeName},
 		Revisions: []domain.RevisionSummary{{ID: fx.volume.RevisionID, Source: domain.RevisionSourceImport,
 			CreatedAt: collection.Revisions[0].CreatedAt}},
 		Total: 1,
@@ -643,4 +647,36 @@ func TestRepository_GetPublicRevision_Undecodable(t *testing.T) {
 	pieceRevision, ok := revision.(domain.PieceRevision)
 	require.True(t, ok, "%T", revision)
 	assert.Equal(t, "Later Song", pieceRevision.Snapshot.Title)
+}
+
+// TestRepository_ListHistory_Entity checks that every history names its entity as it is now: a slug, or for a
+// collection an ID, and the title, name or display name.
+func TestRepository_ListHistory_Entity(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := revisionRepository(t)
+	ctx := t.Context()
+	page := domain.Page{Limit: 1}
+
+	for _, tc := range []struct {
+		entityType domain.SlugEntityType
+		ref        catalogtest.Ref
+		name       string
+	}{
+		{domain.SlugEntityTypePiece, fx.harvest, harvestTitle},
+		{domain.SlugEntityTypePerson, fx.lark, larkName},
+		{domain.SlugEntityTypePerson, fx.quiet, quietName},
+		{domain.SlugEntityTypeTerm, fx.seaBallads, seaBalladsName},
+		{domain.SlugEntityTypeEvent, fx.fair, fairName},
+	} {
+		history, err := repo.ListPublicHistory(ctx, tc.entityType, tc.ref.Slug, page)
+		require.NoError(t, err, tc.ref.Slug)
+		assert.Equal(t, domain.HistoryEntity{Type: tc.entityType.EntityType(), Slug: new(tc.ref.Slug), Name: tc.name},
+			history.Entity, tc.ref.Slug)
+	}
+
+	history, err := repo.ListPublicCollectionHistory(ctx, fx.volume.ID, page)
+	require.NoError(t, err)
+	assert.Equal(t, domain.HistoryEntity{Type: domain.EntityTypeCollection, CollectionID: new(fx.volume.ID),
+		Name: volumeName}, history.Entity)
 }

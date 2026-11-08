@@ -22,6 +22,7 @@ func testCollection() domain.Collection {
 			URL: new("https://example.org/songbook.pdf"), IsBardicResource: true,
 		},
 		DescriptionMD: new("Songs of the north."),
+		UpdatedAt:     testRevisionCreatedAt,
 		Enumerable:    domain.CollectionEnumerablePDF,
 		Region:        &domain.TermSummary{Slug: testAffiliationSlug, Facet: domain.FacetAffiliation, DisplayName: testAffiliationName},
 		Parent:        &domain.CollectionSummary{ID: 3, Name: "Songbooks of the Marches", Kind: domain.CollectionKindWiki},
@@ -35,12 +36,15 @@ func testCollection() domain.Collection {
 					ConservationStatus: domain.ConservationStatusLowRisk,
 				},
 				URL: "https://example.org/songbook.pdf", Title: new(testCollectionName), Locator: new("p. 12"),
-				Roles: []domain.LinkRole{domain.LinkRoleLyrics, domain.LinkRoleSheetMusic},
+				Liveness: domain.LivenessOK, LastCheckedAt: &testRevisionCreatedAt,
+				ArchivedURL: new("https://archive.example.org/songbook"),
+				Roles:       []domain.LinkRole{domain.LinkRoleLyrics, domain.LinkRoleSheetMusic},
 			},
 			{
-				Person: &domain.PersonSummary{Slug: testPersonSlug, Name: testPersonName, Kind: domain.PersonKindCommunityBard},
-				URL:    "https://example.org/songbook.pdf#wren",
-				Roles:  []domain.LinkRole{domain.LinkRoleExternalProfile},
+				Person:   &domain.PersonSummary{Slug: testPersonSlug, Name: testPersonName, Kind: domain.PersonKindCommunityBard},
+				URL:      "https://example.org/songbook.pdf#wren",
+				Liveness: domain.LivenessUnknown,
+				Roles:    []domain.LinkRole{domain.LinkRoleExternalProfile},
 			},
 		},
 		CitationsTotal: 250,
@@ -52,6 +56,7 @@ func TestCollectionGet_ServeHTTP(t *testing.T) {
 
 	empty := domain.Collection{
 		CollectionSummary: domain.CollectionSummary{ID: 12, Name: testCollectionName, Kind: domain.CollectionKindOther},
+		UpdatedAt:         testRevisionCreatedAt,
 		Enumerable:        domain.CollectionEnumerableUnknown,
 	}
 
@@ -69,7 +74,7 @@ func TestCollectionGet_ServeHTTP(t *testing.T) {
 			wantBody: `{
 				"id": 12, "name": "The Northmarch Songbook", "kind": "songbook_pdf",
 				"url": "https://example.org/songbook.pdf", "is_bardic_resource": true,
-				"description_md": "Songs of the north.", "enumerable": "pdf",
+				"updated_at": "2026-10-01T09:00:00Z", "description_md": "Songs of the north.", "enumerable": "pdf",
 				"region": {"slug": "northmarch", "facet": "affiliation", "display_name": "Northmarch"},
 				"parent": {"id": 3, "name": "Songbooks of the Marches", "kind": "wiki", "url": null,
 					"is_bardic_resource": false},
@@ -79,10 +84,12 @@ func TestCollectionGet_ServeHTTP(t *testing.T) {
 					{"piece": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
 						"secondary_kinds": [], "conservation_status": "low_risk", "is_stub": false},
 						"person": null, "url": "https://example.org/songbook.pdf",
-						"title": "The Northmarch Songbook", "locator": "p. 12", "roles": ["lyrics", "sheet_music"]},
+						"title": "The Northmarch Songbook", "locator": "p. 12", "liveness": "ok",
+						"last_checked_at": "2026-10-01T09:00:00Z", "archived_url": "https://archive.example.org/songbook", "roles": ["lyrics", "sheet_music"]},
 					{"piece": null, "person": {"slug": "wren-of-the-vale", "name": "Wren of the Vale",
 						"kind": "community_bard", "is_stub": false},
 						"url": "https://example.org/songbook.pdf#wren", "title": null, "locator": null,
+						"liveness": "unknown", "last_checked_at": null, "archived_url": null,
 						"roles": ["external_profile"]}
 				],
 				"citations_total": 250
@@ -94,7 +101,8 @@ func TestCollectionGet_ServeHTTP(t *testing.T) {
 			wantStatus: http.StatusOK,
 			wantBody: `{
 				"id": 12, "name": "The Northmarch Songbook", "kind": "other", "url": null,
-				"is_bardic_resource": false, "description_md": null, "enumerable": "unknown", "region": null,
+				"is_bardic_resource": false, "updated_at": "2026-10-01T09:00:00Z", "description_md": null,
+				"enumerable": "unknown", "region": null,
 				"parent": null, "children": [], "citations": [], "citations_total": 0
 			}`,
 		},

@@ -20,6 +20,7 @@ func testPiece() domain.Piece {
 	checkedAt := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
 	tune := domain.PiecePartTune
 	licence := domain.LicenceCCBYSA
+	licenceVersion := domain.LicenceVersion40
 	wren := domain.PersonSummary{
 		Slug: "wren-of-the-vale", Name: testPersonName, Kind: domain.PersonKindCommunityBard,
 	}
@@ -32,11 +33,13 @@ func testPiece() domain.Piece {
 			SecondaryKinds:     []domain.PieceKind{domain.PieceKindDanceMusic},
 			ConservationStatus: domain.ConservationStatusEndangered,
 		},
+		UpdatedAt:          testRevisionCreatedAt,
 		NotesMD:            new("A drinking song."),
 		VersionNotesMD:     new("Two verses."),
 		LicensingStatus:    domain.LicensingStatusKnown,
 		LicensingNotesMD:   new("Free with credit."),
 		Licence:            &licence,
+		LicenceVersion:     &licenceVersion,
 		HistoricalSourceMD: new("A broadside."),
 		PeriodStart:        new(int16(1580)),
 		PeriodEnd:          new(int16(1600)),
@@ -111,8 +114,9 @@ func testPiece() domain.Piece {
 const testPieceBody = `{
 	"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song", "secondary_kinds": ["dance_music"],
 	"conservation_status": "endangered", "is_stub": false,
-	"notes_md": "A drinking song.", "version_notes_md": "Two verses.", "licensing_status": "known",
-	"licensing_notes_md": "Free with credit.", "licence": "cc_by_sa", "historical_source_md": "A broadside.",
+	"updated_at": "2026-10-01T09:00:00Z", "notes_md": "A drinking song.", "version_notes_md": "Two verses.", "licensing_status": "known",
+	"licensing_notes_md": "Free with credit.", "licence": "cc_by_sa", "licence_version": "4.0",
+	"historical_source_md": "A broadside.",
 	"period_start": 1580, "period_end": 1600,
 	"aliases": [{"text": "Kettle Song", "kind": "nickname"}],
 	"terms": [
@@ -158,8 +162,9 @@ const testPieceBody = `{
 // emptyPieceBody is a piece with only its required scalars set: every list is [] and every nullable field null.
 const emptyPieceBody = `{
 	"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "story", "secondary_kinds": [],
-	"conservation_status": "unassessed", "is_stub": true, "notes_md": null, "version_notes_md": null,
-	"licensing_status": "unknown", "licensing_notes_md": null, "licence": null, "historical_source_md": null,
+	"conservation_status": "unassessed", "is_stub": true, "updated_at": "2026-10-01T09:00:00Z",
+	"notes_md": null, "version_notes_md": null, "licensing_status": "unknown", "licensing_notes_md": null,
+	"licence": null, "licence_version": null, "historical_source_md": null,
 	"period_start": null, "period_end": null, "aliases": [], "terms": [], "credits": [], "relations": [],
 	"links": [], "conservation_history": [], "preferences": [], "conservation_suggestion": null
 }`
@@ -170,7 +175,7 @@ func TestPieceGet_ServeHTTP(t *testing.T) {
 	emptyPiece := domain.Piece{PieceSummary: domain.PieceSummary{
 		Slug: testPieceSlug, Title: testPieceTitle, Kind: domain.PieceKindStory,
 		ConservationStatus: domain.ConservationStatusUnassessed, IsStub: true,
-	}, LicensingStatus: domain.LicensingStatusUnknown}
+	}, UpdatedAt: testRevisionCreatedAt, LicensingStatus: domain.LicensingStatusUnknown}
 
 	cases := []struct {
 		name       string

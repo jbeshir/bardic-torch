@@ -112,6 +112,7 @@ func (c *catalogueReader) term(ctx context.Context, slug string, members domain.
 	term := domain.Term{
 		TermSummary:   c.termSummary(row.Slug, row.Facet, row.DisplayName),
 		Name:          row.Name,
+		UpdatedAt:     row.UpdatedAt,
 		DescriptionMD: stringPtr(row.DescriptionMd),
 		Aliases:       fetch(ctx, c, "aliases", c.q.ListTermAliases, row.ID),
 		Ancestors:     c.termAncestors(fetch(ctx, c, "ancestors", c.q.ListTermAncestors, row.ID)),

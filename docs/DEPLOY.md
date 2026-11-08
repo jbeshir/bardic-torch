@@ -535,6 +535,16 @@ release keeps serving while it runs and after a rollback, and ignores the new co
 - Adding the two `links` indexes and the `link_reports` index builds them in place; the tables hold hundreds of
   rows.
 
+### Migration 012 (licence version)
+
+Migration 012 (BE5) adds the nullable `pieces.licence_version` (an ENUM of `1.0`, `2.0`, `2.5`, `3.0`, `4.0`). It is
+additive, so the BE4 release keeps serving while it runs and after a rollback, and ignores the column; the table
+holds hundreds of rows, so the `ALTER` is quick. There is deliberately no CHECK constraint tying the version to a
+Creative Commons `licence`: BE4's entity writer does not know the column, so a constraint could fail its writes after
+a rollback. Instead BE5 serves the version only beside a `cc_*` licence, so a version left behind by a BE4-era
+licence change never shows beside a licence it does not belong to, and the next BE5 edit of the piece rewrites it.
+The importer leaves the column NULL. The down migration drops it with its values.
+
 ### The normalized URL invariant
 
 Every row of `links` has `normalized_url = domain.NormalizeURL(url)`. The importer and every later writer keep

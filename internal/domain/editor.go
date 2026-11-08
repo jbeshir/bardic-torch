@@ -27,6 +27,7 @@ type EditorPieceDocument struct {
 	LicensingStatus    LicensingStatus       `json:"licensing_status"`
 	LicensingNotesMD   *string               `json:"licensing_notes_md"`
 	Licence            *Licence              `json:"licence"`
+	LicenceVersion     *LicenceVersion       `json:"licence_version"`
 	HistoricalSourceMD *string               `json:"historical_source_md"`
 	PeriodStart        *int16                `json:"period_start"`
 	PeriodEnd          *int16                `json:"period_end"`
@@ -266,8 +267,9 @@ func ToEditorPiece(d PieceDocument, s SlugMap) EditorPieceDocument {
 	e := EditorPieceDocument{
 		Title: d.Title, Kind: d.Kind, SecondaryKinds: nonNilClone(d.SecondaryKinds), Conservation: d.Conservation,
 		IsStub: d.IsStub, NotesMD: d.NotesMD, VersionNotesMD: d.VersionNotesMD, LicensingStatus: d.LicensingStatus,
-		LicensingNotesMD: d.LicensingNotesMD, Licence: d.Licence, HistoricalSourceMD: d.HistoricalSourceMD,
-		PeriodStart: d.PeriodStart, PeriodEnd: d.PeriodEnd, Aliases: nonNilClone(d.Aliases),
+		LicensingNotesMD: d.LicensingNotesMD, Licence: d.Licence, LicenceVersion: d.LicenceVersion,
+		HistoricalSourceMD: d.HistoricalSourceMD,
+		PeriodStart:        d.PeriodStart, PeriodEnd: d.PeriodEnd, Aliases: nonNilClone(d.Aliases),
 		Terms: []EditorPieceTerm{}, Relations: []EditorPieceRelation{}, Credits: []EditorCredit{},
 		Links: []EditorPieceLink{}, Preferences: nonNilClone(d.Preferences),
 	}
@@ -444,8 +446,9 @@ func FromEditorPiece(e EditorPieceDocument, refs RefMap) (PieceDocument, []Docum
 		SchemaVersion: DocumentSchemaVersion, Title: e.Title, Kind: e.Kind,
 		SecondaryKinds: slices.Clone(e.SecondaryKinds), Conservation: e.Conservation, IsStub: e.IsStub,
 		NotesMD: e.NotesMD, VersionNotesMD: e.VersionNotesMD, LicensingStatus: e.LicensingStatus,
-		LicensingNotesMD: e.LicensingNotesMD, Licence: e.Licence, HistoricalSourceMD: e.HistoricalSourceMD,
-		PeriodStart: e.PeriodStart, PeriodEnd: e.PeriodEnd, Aliases: slices.Clone(e.Aliases),
+		LicensingNotesMD: e.LicensingNotesMD, Licence: e.Licence, LicenceVersion: e.LicenceVersion,
+		HistoricalSourceMD: e.HistoricalSourceMD,
+		PeriodStart:        e.PeriodStart, PeriodEnd: e.PeriodEnd, Aliases: slices.Clone(e.Aliases),
 		Preferences: slices.Clone(e.Preferences),
 	}
 	for i, t := range e.Terms {

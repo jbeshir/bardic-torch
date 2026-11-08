@@ -34,6 +34,7 @@ var terms = catalogtest.NewShared(func(c *catalogtest.Catalog) termFixture {
 	war := c.Term(catalogtest.Term{Doc: domain.TermDocument{
 		Facet: domain.FacetTopic, Name: warName, DescriptionMD: new("Songs of war."), Aliases: []string{"Battle", "Strife"},
 	}})
+	setApprovedAt(c, war, approvedAt)
 	c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Peace"}})
 	swords := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: swordsName,
 		ParentID: &war.ID, Position: 2}})
@@ -48,6 +49,7 @@ var terms = catalogtest.NewShared(func(c *catalogtest.Catalog) termFixture {
 		ParentID: &spears.ID}})
 
 	northmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation, Name: northmarchName}})
+	setApprovedAt(c, northmarch, approvedAt)
 	barony := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
 		Name: "Northmarch Barony", ParentID: &northmarch.ID}})
 	southmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation, Name: "Southmarch"},
@@ -185,6 +187,7 @@ func TestRepository_GetPublicTerm(t *testing.T) {
 
 	assert.Equal(t, domain.Term{
 		TermSummary:   warSummary,
+		UpdatedAt:     approvedAt,
 		Name:          warName,
 		DescriptionMD: new("Songs of war."),
 		Aliases:       []string{"Battle", "Strife"},
@@ -236,6 +239,7 @@ func TestRepository_GetPublicTerm_Affiliation(t *testing.T) {
 
 	assert.Equal(t, domain.Term{
 		TermSummary: northmarchSummary,
+		UpdatedAt:   approvedAt,
 		Name:        northmarchName,
 		Ancestors:   []domain.TermSummary{},
 		Children:    []domain.TermChild{{Term: baronySummary, TermCounts: domain.TermCounts{PersonCount: 2}}},
@@ -277,5 +281,17 @@ func TestRepository_GetPublicTerm_NotFound(t *testing.T) {
 	for _, slug := range []string{fx.spears.Slug, fx.pikes.Slug, fx.gloomy.Slug, fx.southmarch.Slug, "no-such-term"} {
 		_, err := repo.GetPublicTerm(t.Context(), slug, firstPage)
 		require.ErrorIs(t, err, datasources.ErrNotFound, slug)
+	}
+}
+
+// TestRepository_GetPublicTerm_UpdatedAt checks that a term was updated when its current revision was approved.
+func TestRepository_GetPublicTerm_UpdatedAt(t *testing.T) {
+	t.Parallel()
+
+	repo, _ := termRepository(t)
+	for _, slug := range []string{"war", "northmarch"} {
+		term, err := repo.GetPublicTerm(t.Context(), slug, firstPage)
+		require.NoError(t, err)
+		assert.Equal(t, approvedAt, term.UpdatedAt, slug)
 	}
 }

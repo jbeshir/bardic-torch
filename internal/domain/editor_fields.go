@@ -8,13 +8,18 @@ import "strings"
 type EditorFieldsSent struct {
 	// Preferences is whether a piece or person document carried its preferences (a list, not null).
 	Preferences bool
+	// LicenceVersion is whether a piece document carried licence_version, null or not.
+	LicenceVersion bool
 }
 
 // AllEditorFieldsSent is a document that carried every editor field.
-var AllEditorFieldsSent = EditorFieldsSent{Preferences: true}
+var AllEditorFieldsSent = EditorFieldsSent{Preferences: true, LicenceVersion: true}
 
 // preferenceKeyPrefix starts the element key of every preference (preferenceElementKey).
 var preferenceKeyPrefix = elementKey("preference")
+
+// licenceVersionKey is the element key of a piece's licence version, which an editable document always shows.
+const licenceVersionKey = "licence_version"
 
 // preferenceElementKey is the element key of a preference: its dimension, of which a document holds one at most.
 func preferenceElementKey(p DocPreference) string { return elementKey("preference", p.Dimension) }
@@ -25,6 +30,9 @@ func (s EditorFieldsSent) ReceivedKeys(received ElementKeySet) ElementKeySet {
 	out := make(ElementKeySet, len(received))
 	for key, ok := range received {
 		if !s.Preferences && strings.HasPrefix(key, preferenceKeyPrefix) {
+			continue
+		}
+		if !s.LicenceVersion && key == licenceVersionKey {
 			continue
 		}
 		out[key] = ok

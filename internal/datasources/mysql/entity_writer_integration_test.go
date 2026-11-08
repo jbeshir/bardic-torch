@@ -47,6 +47,8 @@ func fullNewPiece(f *editingFixture) domain.PieceDocument {
 	doc.SecondaryKinds = []domain.PieceKind{domain.PieceKindPoem}
 	doc.NotesMD, doc.VersionNotesMD, doc.HistoricalSourceMD = new("Notes."), new("Version."), new("A source.")
 	doc.PeriodStart, doc.PeriodEnd = new(int16(1500)), new(int16(1550))
+	doc.LicensingStatus, doc.Licence, doc.LicenceVersion = domain.LicensingStatusKnown, new(domain.LicenceCCBYSA),
+		new(domain.LicenceVersion30)
 	doc.Aliases = []domain.DocPieceAlias{{Text: "The Kestrel", Kind: domain.PieceAliasKindAltTitle},
 		{Text: "Lament of the Kestrel", Kind: domain.PieceAliasKindAltTitle}}
 	doc.Terms = []domain.DocPieceTerm{{TermID: f.ballads.ID, IsPrimary: true}}
@@ -62,7 +64,8 @@ func fullNewPiece(f *editingFixture) domain.PieceDocument {
 			Roles: []domain.LinkRole{domain.LinkRoleLyrics, domain.LinkRoleText}},
 			Performances: []domain.DocPerformance{{EventID: &f.fair.ID, Year: new(int16(2001)),
 				Uploader: new("Ash"), DescriptionVerbatim: "At the fair", PerformerIDs: []int64{f.morwen.ID, f.ash.ID}}}},
-		{DocLink: domain.DocLink{URL: "https://example.org/kestrel/tune", Roles: []domain.LinkRole{domain.LinkRoleOther}}},
+		{DocLink: domain.DocLink{URL: "https://example.org/kestrel/tune",
+			Roles: []domain.LinkRole{domain.LinkRoleOther, domain.LinkRoleLicensingSource}}},
 	}
 	doc.Preferences = []domain.DocPreference{domaintest.Preference(domain.PreferenceDimensionRecording, preferencesURL, domain.PreferenceChoiceUploadsAllowed)}
 
@@ -82,6 +85,7 @@ func assertPieceIsView(t *testing.T, piece domain.Piece, view domain.PieceSnapsh
 		[]*string{piece.NotesMD, piece.VersionNotesMD, piece.LicensingNotesMD, piece.HistoricalSourceMD})
 	assert.Equal(t, view.LicensingStatus, piece.LicensingStatus)
 	assert.Equal(t, view.Licence, piece.Licence)
+	assert.Equal(t, view.LicenceVersion, piece.LicenceVersion)
 	assert.Equal(t, []*int16{view.PeriodStart, view.PeriodEnd}, []*int16{piece.PeriodStart, piece.PeriodEnd})
 	equalList(t, view.Aliases, piece.Aliases, "aliases in the document's order")
 	assert.ElementsMatch(t, view.Terms, piece.Terms)
@@ -143,6 +147,7 @@ func TestEntityWriter_RoundTrip(t *testing.T) {
 		newID := f.moderatorSubmit(t, nil, fullNewPiece(f))
 		slug := f.entitySlug(t, "pieces", newID)
 		assertPieceIsView(t, f.publicPiece(t, slug), snapshotOf[domain.PieceRevision](t, f, newID).Snapshot)
+		assert.Equal(t, new(domain.LicenceVersion30), f.publicPiece(t, slug).LicenceVersion)
 		var pieceID int64
 		require.NoError(t, f.db.QueryRowContext(t.Context(), "SELECT entity_id FROM revisions WHERE id = ?", newID).
 			Scan(&pieceID))

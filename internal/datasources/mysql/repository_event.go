@@ -77,6 +77,7 @@ func (c *catalogueReader) event(ctx context.Context, slug string) domain.Event {
 	return domain.Event{
 		EventSummary:  c.eventSummary(row.Slug, row.Name, row.Kind),
 		DescriptionMD: stringPtr(row.DescriptionMd),
+		UpdatedAt:     row.UpdatedAt,
 		Performances: c.eventPerformances(ctx, fetch(ctx, c, "performances", c.q.ListPublicEventPerformances,
 			queries.ListPublicEventPerformancesParams{EventID: key, Limit: domain.MaxNestedListItems})),
 		PerformancesTotal: fetch(ctx, c, "performance count", c.q.CountPublicEventPerformances, key),
@@ -100,9 +101,8 @@ func (c *catalogueReader) eventPerformances(
 	performances := make([]domain.EventPerformance, 0, len(rows))
 	for _, row := range rows {
 		performance := domain.EventPerformance{
-			Link: domain.PerformanceLink{
-				URL: row.Url, Title: stringPtr(row.Title), Platform: stringPtr(row.Platform),
-			},
+			Link: c.performanceLink(row.Url, row.Title, row.Platform, row.Liveness, row.LastCheckedAt,
+				row.ArchivedUrl),
 			Year:                int16Ptr(row.Year),
 			Performers:          performers[row.ID],
 			DescriptionVerbatim: row.DescriptionVerbatim,

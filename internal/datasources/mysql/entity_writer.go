@@ -314,9 +314,10 @@ func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, isNew bool, 
 		ConservationStatus: queries.PiecesConservationStatus(d.Conservation.Status), IsStub: d.IsStub,
 		NotesMd: nullString(d.NotesMD), VersionNotesMd: nullString(d.VersionNotesMD),
 		LicensingNotesMd: nullString(d.LicensingNotesMD), LicensingStatus: queries.PiecesLicensingStatus(d.LicensingStatus),
-		Licence: nullLicence(d.Licence), HistoricalSourceMd: nullString(d.HistoricalSourceMD),
-		PeriodStart: nullInt16(d.PeriodStart),
-		PeriodEnd:   nullInt16(d.PeriodEnd), ID: key}
+		Licence: nullLicence(d.Licence), LicenceVersion: nullLicenceVersion(d.LicenceVersion),
+		HistoricalSourceMd: nullString(d.HistoricalSourceMD),
+		PeriodStart:        nullInt16(d.PeriodStart),
+		PeriodEnd:          nullInt16(d.PeriodEnd), ID: key}
 	w.exec("pieces", func() error { return requireMatched(w.q.UpdatePieceFromDocument(w.ctx, p)) })
 	if isNew {
 		w.allocateSlug(domain.SlugEntityTypePiece, id, d.Title, func(ctx context.Context, slug string, rowID uint64) error {
@@ -525,6 +526,15 @@ func nullLicence(l *domain.Licence) queries.NullPiecesLicence {
 	}
 
 	return queries.NullPiecesLicence{PiecesLicence: queries.PiecesLicence(*l), Valid: true}
+}
+
+// nullLicenceVersion returns an optional licence version as the type of the licence_version column.
+func nullLicenceVersion(v *domain.LicenceVersion) queries.NullPiecesLicenceVersion {
+	if v == nil {
+		return queries.NullPiecesLicenceVersion{}
+	}
+
+	return queries.NullPiecesLicenceVersion{PiecesLicenceVersion: queries.PiecesLicenceVersion(*v), Valid: true}
 }
 
 // nullDate returns an optional date as the type of the date columns.

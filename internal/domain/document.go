@@ -189,6 +189,7 @@ type PieceDocument struct {
 	LicensingStatus    LicensingStatus    `json:"licensing_status"`
 	LicensingNotesMD   *string            `json:"licensing_notes_md"`
 	Licence            *Licence           `json:"licence"`
+	LicenceVersion     *LicenceVersion    `json:"licence_version"`
 	HistoricalSourceMD *string            `json:"historical_source_md"`
 	PeriodStart        *int16             `json:"period_start"`
 	PeriodEnd          *int16             `json:"period_end"`

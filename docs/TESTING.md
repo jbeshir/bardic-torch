@@ -712,6 +712,8 @@ without the marker: the preferences are dropped and the sources served as null. 
 each (`preference`, `status_source` and `conservation_source` kinds). The conservation suggestion, derived from
 visible links only, is pinned by `TestRepository_GetPublicPiece_SuggestionIgnoresHiddenAndDeadLinks`.
 
+The hidden link also has a last check and an archived copy (`https://web.archive.org/web/1/leakmark-archive`, checked as stored by `requireLeakMarkersStored`). It is attached to a public piece, to a person whose performance on it is at a public event, and to a public collection, so the piece, person, collection and event rows scan that no liveness, check time or archive of a hidden link is shown in a link, a performance's link or a citation. A history names its entity (`entity`): for a no-page person that is their identity, so those history rows reveal their slug and name as their page does; the history of a pending entity stays a 404, like its page.
+
 `leakMatrix` maps each operation to its requests, and `leakExempt` lists, with a reason, the operations that read no
 catalogue data. Every spec operation must be in exactly one of them, and a public `/v1` GET cannot be exempt.
 

@@ -71,6 +71,8 @@ func TestMigrations_EnumColumns(t *testing.T) {
 	licences := enumColumnType(domain.LicencePD, domain.LicenceCCBY, domain.LicenceCCBYSA, domain.LicenceCCBYNC,
 		domain.LicenceCCBYNCSA, domain.LicenceCCBYND, domain.LicenceCCBYNCND, domain.LicenceARR,
 		domain.LicenceOther)
+	licenceVersions := enumColumnType(domain.LicenceVersion10, domain.LicenceVersion20, domain.LicenceVersion25,
+		domain.LicenceVersion30, domain.LicenceVersion40)
 	pieceAliasKinds := enumColumnType(domain.PieceAliasKindAltTitle, domain.PieceAliasKindNickname,
 		domain.PieceAliasKindSubtitle, domain.PieceAliasKindRedirect)
 	parts := enumColumnType(domain.PiecePartWords, domain.PiecePartTune, domain.PiecePartVerses,
@@ -126,6 +128,7 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		"pieces.conservation_status":   conservationStatuses,
 		"pieces.licensing_status":      licensingStatuses,
 		"pieces.licence":               licences,
+		"pieces.licence_version":       licenceVersions,
 		"piece_secondary_kinds.kind":   pieceKinds,
 		"piece_aliases.kind":           pieceAliasKinds,
 		"piece_terms.part":             parts,
@@ -636,3 +639,26 @@ func TestMigrations_RepertoireVisibilityPrivateByDefault(t *testing.T) {
 
 // repertoireOwnerID is the user whose repertoire the repertoire schema tests fill.
 const repertoireOwnerID = "auth0|bran"
+
+// TestMigrations_LicenceVersion checks migration 012's column: NULL unless written, and with no CHECK tying it to
+// the licence, so that the previous release's writer, which leaves it alone, can never fail on it after a rollback.
+func TestMigrations_LicenceVersion(t *testing.T) {
+	t.Parallel()
+
+	db := catalogtest.Writable(t)
+	unversioned := insertRow(t, db, "INSERT INTO pieces (slug, title, sort_title, sort_letter, kind, licensing_status, "+
+		"licence) VALUES ('the-tin-kettle', 'The Tin Kettle', 'Tin Kettle', 'T', 'song', 'known', 'cc_by')")
+	versioned := insertRow(t, db, "INSERT INTO pieces (slug, title, sort_title, sort_letter, kind, licensing_status, "+
+		"licence, licence_version) VALUES ('the-zinc-kettle', 'The Zinc Kettle', 'Zinc Kettle', 'Z', 'song', 'known', "+
+		"'arr', '4.0')")
+
+	var version sql.NullString
+	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT licence_version FROM pieces WHERE id = ?",
+		unversioned).Scan(&version))
+	assert.False(t, version.Valid, "a piece written without it has none")
+	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT licence_version FROM pieces WHERE id = ?",
+		versioned).Scan(&version))
+	assert.Equal(t, "4.0", version.String, "a version beside a licence without versions is stored: reads hide it")
+	_, err := db.ExecContext(t.Context(), "UPDATE pieces SET licence_version = '5.0' WHERE id = ?", unversioned)
+	require.Error(t, err, "only the known versions are")
+}

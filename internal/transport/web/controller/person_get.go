@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -17,6 +18,7 @@ type Person struct {
 	PersonSummary
 
 	Status          domain.PersonStatus `json:"status"`
+	UpdatedAt       time.Time           `json:"updated_at"`
 	StatusDate      *string             `json:"status_date"`
 	StatusSourceURL *string             `json:"status_source_url"`
 	Profile         *PersonProfile      `json:"profile"`
@@ -72,9 +74,12 @@ type PersonPerformance struct {
 
 // PerformanceLink is the JSON representation of the link recording a performance.
 type PerformanceLink struct {
-	URL      string  `json:"url"`
-	Title    *string `json:"title"`
-	Platform *string `json:"platform"`
+	URL           string          `json:"url"`
+	Title         *string         `json:"title"`
+	Platform      *string         `json:"platform"`
+	Liveness      domain.Liveness `json:"liveness"`
+	LastCheckedAt *time.Time      `json:"last_checked_at"`
+	ArchivedURL   *string         `json:"archived_url"`
 }
 
 // PersonGet handles GET /v1/persons/{slug}, a public person's page. An unapproved person is not found,
@@ -106,6 +111,7 @@ func personFromDomain(p domain.Person) Person {
 	person := Person{
 		PersonSummary:   personSummaryFromDomain(p.PersonSummary),
 		Status:          p.Status,
+		UpdatedAt:       p.UpdatedAt,
 		StatusSourceURL: p.StatusSourceURL,
 		Profile:         optional(p.Profile, personProfileFromDomain),
 	}

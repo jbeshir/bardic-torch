@@ -108,6 +108,16 @@ func TestSourcedFields(t *testing.T) {
 				d.Licence = ptr(LicenceCCBYSA)
 			}), s), a, "")
 		}, path: pathLicence, code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
+		{id: "licence_version_changed_needs_licensing_source", validate: func(a Role, s *string) []DocumentProblem {
+			creativeCommons := func(version LicenceVersion) func(*PieceDocument) {
+				return func(d *PieceDocument) {
+					known(d)
+					d.Licence, d.LicenceVersion = ptr(LicenceCCBY), ptr(version)
+				}
+			}
+			base := pieceWith(creativeCommons(LicenceVersion30))
+			return validatePiece(&base, withLicensingLink(pieceWith(creativeCommons(LicenceVersion40)), s), a, "")
+		}, path: "/licence_version", code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
 		{id: "licence_set_without_known_status_is_refused", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {

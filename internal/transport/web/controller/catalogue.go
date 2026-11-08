@@ -152,7 +152,10 @@ func slugOrBadRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 }
 
 func performanceLinkFromDomain(l domain.PerformanceLink) PerformanceLink {
-	return PerformanceLink{URL: l.URL, Title: l.Title, Platform: l.Platform}
+	return PerformanceLink{
+		URL: l.URL, Title: l.Title, Platform: l.Platform, Liveness: l.Liveness, LastCheckedAt: l.LastCheckedAt,
+		ArchivedURL: l.ArchivedURL,
+	}
 }
 
 // slugRule is what an invalid slug parameter's 400 says a slug must be.

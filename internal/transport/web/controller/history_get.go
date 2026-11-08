@@ -11,8 +11,17 @@ import (
 
 // RevisionHistory is the JSON representation of one page of a public entity's approved revisions.
 type RevisionHistory struct {
-	Data  []RevisionSummary `json:"data"`
-	Total int64             `json:"total"`
+	Entity HistoryEntity     `json:"entity"`
+	Data   []RevisionSummary `json:"data"`
+	Total  int64             `json:"total"`
+}
+
+// HistoryEntity is the JSON representation of the public entity a history belongs to.
+type HistoryEntity struct {
+	EntityType   domain.EntityType `json:"entity_type"`
+	Slug         *string           `json:"slug"`
+	CollectionID *int64            `json:"collection_id"`
+	Name         string            `json:"name"`
 }
 
 // HistoryGet handles GET /v1/{pieces,persons,terms,events}/{slug}/history, one page of the approved revisions
@@ -81,6 +90,10 @@ func writeHistory(w http.ResponseWriter, r *http.Request, what string, history d
 		WriteInternalError(w, r, "unable to list history", err)
 	default:
 		httpjson.WriteJSON(ctx, w, http.StatusOK, RevisionHistory{
+			Entity: HistoryEntity{
+				EntityType: history.Entity.Type, Slug: history.Entity.Slug, CollectionID: history.Entity.CollectionID,
+				Name: history.Entity.Name,
+			},
 			Data:  mapSlice(history.Revisions, revisionSummaryFromDomain),
 			Total: history.Total,
 		})

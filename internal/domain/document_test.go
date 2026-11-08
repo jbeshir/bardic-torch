@@ -39,6 +39,7 @@ func fullPieceDocument() domain.PieceDocument {
 		LicensingStatus:    domain.LicensingStatusKnown,
 		LicensingNotesMD:   ptr("Free to sing."),
 		Licence:            ptr(domain.LicenceCCBY),
+		LicenceVersion:     ptr(domain.LicenceVersion40),
 		HistoricalSourceMD: ptr("A tavern book."),
 		PeriodStart:        ptr[int16](1500),
 		PeriodEnd:          ptr[int16](1550),
@@ -169,7 +170,8 @@ func TestDecodeDocument_RoundTrip(t *testing.T) {
 		t.Parallel()
 		requireRoundTrip(t, fullPieceDocument(), "schema_version", "title", "kind", "secondary_kinds",
 			"conservation", "is_stub", "notes_md", "version_notes_md", "licensing_status", "licensing_notes_md",
-			"licence", "historical_source_md", "period_start", "period_end", "aliases", "terms", "relations",
+			"licence", "licence_version", "historical_source_md", "period_start", "period_end", "aliases", "terms",
+			"relations",
 			"credits", "links", "preferences")
 	})
 	t.Run("person", func(t *testing.T) {
@@ -393,7 +395,7 @@ func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
 		domain.CollectionDocument{}, domain.EventDocument{}} {
 		visit(reflect.TypeOf(doc), reflect.TypeOf(doc).Name())
 	}
-	assert.Len(t, seen, 23, "the vocabularies documents use")
+	assert.Len(t, seen, 24, "the vocabularies documents use")
 }
 
 func TestDecodeDocument_StatusDate(t *testing.T) {

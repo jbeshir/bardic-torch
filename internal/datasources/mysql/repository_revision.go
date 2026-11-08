@@ -127,10 +127,38 @@ func (c *catalogueReader) history(
 	}
 
 	return domain.RevisionHistory{
+		Entity:    c.historyEntity(ctx, entityType, id),
 		Revisions: revisions,
 		Total: fetch(ctx, c, "revision count", c.q.CountApprovedRevisions,
 			queries.CountApprovedRevisionsParams{EntityType: entityType, EntityID: entityID}),
 	}
+}
+
+// historyEntity returns the public entity of entityType with id, as a history shows it.
+func (c *catalogueReader) historyEntity(
+	ctx context.Context, entityType queries.RevisionsEntityType, id uint64,
+) domain.HistoryEntity {
+	entity := domain.HistoryEntity{Type: domain.EntityType(entityType)}
+	switch entityType {
+	case queries.RevisionsEntityTypePiece:
+		row := fetch(ctx, c, "history piece", c.q.GetHistoryPiece, id)
+		entity.Slug, entity.Name = &row.Slug, row.Name
+	case queries.RevisionsEntityTypePerson:
+		row := fetch(ctx, c, "history person", c.q.GetHistoryPerson, id)
+		entity.Slug, entity.Name = &row.Slug, row.Name
+	case queries.RevisionsEntityTypeTerm:
+		row := fetch(ctx, c, "history term", c.q.GetHistoryTerm, id)
+		entity.Slug, entity.Name = &row.Slug, row.Name
+	case queries.RevisionsEntityTypeEvent:
+		row := fetch(ctx, c, "history event", c.q.GetHistoryEvent, id)
+		entity.Slug, entity.Name = &row.Slug, row.Name
+	case queries.RevisionsEntityTypeCollection:
+		collectionID := c.signedID(id)
+		entity.CollectionID = &collectionID
+		entity.Name = fetch(ctx, c, "history collection", c.q.GetHistoryCollection, id)
+	}
+
+	return entity
 }
 
 // contributors returns the contributors of each of the revisions, in order, by revision ID.

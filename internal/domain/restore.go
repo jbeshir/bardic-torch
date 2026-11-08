@@ -44,7 +44,8 @@ func RestoreDocument[D Document](id int64, submitted D, base *D, received Elemen
 	var flags []Flag
 	switch d := any(submitted).(type) {
 	case PieceDocument:
-		out, flags = pieceWithheld.restore(p, d, any(*base).(PieceDocument))
+		piece, pieceFlags := pieceWithheld.restore(p, d, any(*base).(PieceDocument))
+		out, flags = p.restorePieceLicenceVersion(piece, any(*base).(PieceDocument)), pieceFlags
 	case PersonDocument:
 		out, flags = p.restorePerson(d, any(*base).(PersonDocument))
 	case TermDocument:
@@ -292,6 +293,19 @@ func (p *projector) restorePerformance(url string, sub, base DocPerformance, pie
 		func(id int64) string { return eventKey(url, base, pieceID, id) }, p.eventVisible)
 	out.PerformerIDs, _ = restoreList(p, sub.PerformerIDs, base.PerformerIDs, performerKeys(url, base, pieceID),
 		func(id int64) bool { return !p.personVisible(id) })
+
+	return out
+}
+
+// restorePieceLicenceVersion puts back into sub the licence version of base if the author never received it (a
+// draft whose client did not send it: EditorFieldsSent) and sub still has a Creative Commons licence, which a
+// version may only accompany. It is public, so nothing withholds it otherwise.
+func (p *projector) restorePieceLicenceVersion(sub, base PieceDocument) PieceDocument {
+	out := sub
+	if p.withheld(licenceVersionKey, false) && sub.LicenceVersion == nil && sub.Licence != nil &&
+		sub.Licence.IsCreativeCommons() {
+		out.LicenceVersion = base.LicenceVersion
+	}
 
 	return out
 }

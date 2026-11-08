@@ -1756,6 +1756,63 @@ func (e PiecesLicence) Valid() bool {
 	return false
 }
 
+type PiecesLicenceVersion string
+
+const (
+	PiecesLicenceVersion10 PiecesLicenceVersion = "1.0"
+	PiecesLicenceVersion20 PiecesLicenceVersion = "2.0"
+	PiecesLicenceVersion25 PiecesLicenceVersion = "2.5"
+	PiecesLicenceVersion30 PiecesLicenceVersion = "3.0"
+	PiecesLicenceVersion40 PiecesLicenceVersion = "4.0"
+)
+
+func (e *PiecesLicenceVersion) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PiecesLicenceVersion(s)
+	case string:
+		*e = PiecesLicenceVersion(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PiecesLicenceVersion: %T", src)
+	}
+	return nil
+}
+
+type NullPiecesLicenceVersion struct {
+	PiecesLicenceVersion PiecesLicenceVersion
+	Valid                bool // Valid is true if PiecesLicenceVersion is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPiecesLicenceVersion) Scan(value interface{}) error {
+	if value == nil {
+		ns.PiecesLicenceVersion, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PiecesLicenceVersion.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPiecesLicenceVersion) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PiecesLicenceVersion), nil
+}
+
+func (e PiecesLicenceVersion) Valid() bool {
+	switch e {
+	case PiecesLicenceVersion10,
+		PiecesLicenceVersion20,
+		PiecesLicenceVersion25,
+		PiecesLicenceVersion30,
+		PiecesLicenceVersion40:
+		return true
+	}
+	return false
+}
+
 type PiecesLicensingStatus string
 
 const (
@@ -2355,6 +2412,7 @@ type Piece struct {
 	CurrentRevisionID     sql.NullInt64
 	LegacyWikiPageid      sql.NullInt32
 	LegacyTitle           sql.NullString
+	LicenceVersion        NullPiecesLicenceVersion
 }
 
 type PieceAlias struct {

@@ -28,6 +28,8 @@ const (
 	kettleBookURL     = "https://example.org/eastmarch#kettle"
 	aleTitle          = "The Ale Song"
 	revelVideoURL     = "https://example.org/revel/video"
+	kettleBookArchive = "https://web.archive.org/web/20260101000000/https://example.org/eastmarch"
+	revelVideoArchive = "https://web.archive.org/web/20260101000000/https://example.org/revel/video"
 )
 
 var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
@@ -44,6 +46,7 @@ var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
 		DescriptionMD: new("Songs of the east."), RegionTermID: &eastmarch.ID, ParentID: &songbooks.ID,
 		IsBardicResource: true, Enumerable: domain.CollectionEnumerablePDF,
 	}})
+	setApprovedAt(c, eastmarchBook, approvedAt)
 	supplement := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{
 		Name: "Eastmarch Supplement", ParentID: &eastmarchBook.ID, Kind: domain.CollectionKindHostedDocument}})
 	c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Draft Supplement",
@@ -55,6 +58,7 @@ var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
 
 	revel := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: revelName,
 		DescriptionMD: new("A winter gathering.")}})
+	setApprovedAt(c, revel, approvedAt)
 	c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "The Green Hall", Kind: domain.EventKindVenue}})
 	c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Autumn Moot"}})
 	pendingMoot := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Secret Moot"}, Unapproved: true})
@@ -113,8 +117,15 @@ var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
 			},
 		},
 	}, SortTitle: "Copper Kettle"})
-	c.SetLinkState("https://example.org/eastmarch#hidden", catalogtest.LinkState{IsHidden: true})
-	c.SetLinkState("https://example.org/revel/hidden", catalogtest.LinkState{IsHidden: true})
+	c.SetLinkState("https://example.org/eastmarch#hidden", catalogtest.LinkState{IsHidden: true,
+		Liveness: domain.LivenessDead, ArchivedURL: new(hiddenArchive)})
+	c.SetLinkState("https://example.org/revel/hidden", catalogtest.LinkState{IsHidden: true,
+		Liveness: domain.LivenessDead, ArchivedURL: new(hiddenArchive)})
+	c.SetLinkState(kettleBookURL, catalogtest.LinkState{Liveness: domain.LivenessDead, LastCheckedAt: &kettleCheckedAt,
+		ArchivedURL: new(kettleBookArchive)})
+	c.SetLinkState(revelVideoURL, catalogtest.LinkState{Liveness: domain.LivenessOK, LastCheckedAt: &kettleCheckedAt,
+		ArchivedURL: new(revelVideoArchive)})
+	c.SetLinkState(wrenURL, catalogtest.LinkState{Liveness: domain.LivenessBlocked})
 	// The book's kettle entry is also attached to Wren: one more citation, with its own roles.
 	c.Exec("INSERT INTO link_attachments (link_id, person_id, role, position) "+
 		"SELECT id, ?, 'external_profile', 1 FROM links WHERE url = ?", wren.ID, kettleBookURL)
@@ -181,6 +192,7 @@ func TestRepository_GetPublicCollection(t *testing.T) {
 			URL: new("https://example.org/eastmarch.pdf"), IsBardicResource: true,
 		},
 		DescriptionMD: new("Songs of the east."),
+		UpdatedAt:     approvedAt,
 		Enumerable:    domain.CollectionEnumerablePDF,
 		Region:        &domain.TermSummary{Slug: "eastmarch", Facet: domain.FacetAffiliation, DisplayName: eastmarchName},
 		Parent: &domain.CollectionSummary{ID: fx.songbooks.ID, Name: "Songbooks of the Marches",
@@ -194,10 +206,13 @@ func TestRepository_GetPublicCollection(t *testing.T) {
 		Citations: []domain.Citation{
 			{Piece: &domain.PieceSummary{Slug: "the-ale-song", Title: aleTitle, Kind: domain.PieceKindSong,
 				ConservationStatus: domain.ConservationStatusUnassessed},
-				URL: "https://example.org/eastmarch#ale", Roles: []domain.LinkRole{domain.LinkRoleText}},
+				URL: "https://example.org/eastmarch#ale", Liveness: domain.LivenessUnknown,
+				Roles: []domain.LinkRole{domain.LinkRoleText}},
 			{Piece: &plainKettleSummary, URL: kettleBookURL, Title: new("Kettle entry"), Locator: new("p. 12"),
+				Liveness: domain.LivenessDead, LastCheckedAt: &kettleCheckedAt, ArchivedURL: new(kettleBookArchive),
 				Roles: []domain.LinkRole{domain.LinkRoleLyrics, domain.LinkRoleSheetMusic}},
 			{Person: &plainWrenSummary, URL: kettleBookURL, Title: new("Kettle entry"), Locator: new("p. 12"),
+				Liveness: domain.LivenessDead, LastCheckedAt: &kettleCheckedAt, ArchivedURL: new(kettleBookArchive),
 				Roles: []domain.LinkRole{domain.LinkRoleExternalProfile}},
 		},
 		CitationsTotal: 3,
@@ -301,14 +316,17 @@ func TestRepository_GetPublicEvent(t *testing.T) {
 	event, err := repo.GetPublicEvent(t.Context(), fx.revel.Slug)
 	require.NoError(t, err)
 
-	revelLink := domain.PerformanceLink{URL: revelVideoURL, Title: new("At the revel"), Platform: new("example.org")}
+	revelLink := domain.PerformanceLink{URL: revelVideoURL, Title: new("At the revel"), Platform: new("example.org"),
+		Liveness: domain.LivenessOK, LastCheckedAt: &kettleCheckedAt, ArchivedURL: new(revelVideoArchive)}
 	assert.Equal(t, domain.Event{
 		EventSummary:  revelSummary,
+		UpdatedAt:     approvedAt,
 		DescriptionMD: new("A winter gathering."),
 		Performances: []domain.EventPerformance{
 			{Piece: &plainKettleSummary, Link: revelLink, Year: new(int16(2025)),
 				Performers: []domain.PersonSummary{plainWrenSummary}, DescriptionVerbatim: revelPerformance},
-			{Link: domain.PerformanceLink{URL: wrenURL, Title: new("Wren's songs")}, Year: new(int16(2023)),
+			{Link: domain.PerformanceLink{URL: wrenURL, Title: new("Wren's songs"), Liveness: domain.LivenessBlocked},
+				Year:                new(int16(2023)),
 				DescriptionVerbatim: "Wren at the revel"},
 			{Piece: &plainKettleSummary, Link: revelLink, Year: new(int16(2020)), DescriptionVerbatim: "Older"},
 			{Piece: &plainKettleSummary, Link: revelLink, DescriptionVerbatim: "Undated"},
@@ -339,5 +357,76 @@ func TestRepository_GetPublicEvent_NotFound(t *testing.T) {
 	for _, slug := range []string{fx.pendingMoot.Slug, "no-such-event"} {
 		_, err := repo.GetPublicEvent(t.Context(), slug)
 		require.ErrorIs(t, err, datasources.ErrNotFound, slug)
+	}
+}
+
+// TestRepository_GetPublicCollection_UpdatedAt and its event twin check that an entity was updated when its
+// current revision was approved.
+func TestRepository_GetPublicCollection_UpdatedAt(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := recordRepository(t)
+	collection, err := repo.GetPublicCollection(t.Context(), fx.eastmarchBook.ID)
+	require.NoError(t, err)
+	assert.Equal(t, approvedAt, collection.UpdatedAt)
+}
+
+func TestRepository_GetPublicEvent_UpdatedAt(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := recordRepository(t)
+	event, err := repo.GetPublicEvent(t.Context(), fx.revel.Slug)
+	require.NoError(t, err)
+	assert.Equal(t, approvedAt, event.UpdatedAt)
+}
+
+// TestRepository_CollectionCitationLiveness checks that a citation carries what the link checker found of its
+// link, whichever of a piece and a person it is attached to, and that the archive of a hidden link is shown
+// nowhere.
+func TestRepository_CollectionCitationLiveness(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := recordRepository(t)
+	collection, err := repo.GetPublicCollection(t.Context(), fx.eastmarchBook.ID)
+	require.NoError(t, err)
+
+	byURL := map[string][]domain.Citation{}
+	for _, citation := range collection.Citations {
+		byURL[citation.URL] = append(byURL[citation.URL], citation)
+	}
+	require.Len(t, byURL[kettleBookURL], 2, "one citation for the piece and one for the person")
+	for _, citation := range byURL[kettleBookURL] {
+		assert.Equal(t, domain.LivenessDead, citation.Liveness)
+		assert.Equal(t, &kettleCheckedAt, citation.LastCheckedAt)
+		assert.Equal(t, new(kettleBookArchive), citation.ArchivedURL)
+	}
+	require.Len(t, byURL["https://example.org/eastmarch#ale"], 1)
+	assert.Equal(t, domain.LivenessUnknown, byURL["https://example.org/eastmarch#ale"][0].Liveness,
+		"a link never checked is unknown")
+	assert.Nil(t, byURL["https://example.org/eastmarch#ale"][0].ArchivedURL)
+
+	for _, citation := range collection.Citations {
+		assert.NotEqual(t, new(hiddenArchive), citation.ArchivedURL, citation.URL)
+	}
+}
+
+// TestRepository_EventPerformanceLinkLiveness checks the same of the links of an event's performances.
+func TestRepository_EventPerformanceLinkLiveness(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := recordRepository(t)
+	event, err := repo.GetPublicEvent(t.Context(), fx.revel.Slug)
+	require.NoError(t, err)
+
+	for _, performance := range event.Performances {
+		assert.NotEqual(t, new(hiddenArchive), performance.Link.ArchivedURL, performance.Link.URL)
+		switch performance.Link.URL {
+		case revelVideoURL:
+			assert.Equal(t, domain.LivenessOK, performance.Link.Liveness)
+			assert.Equal(t, new(revelVideoArchive), performance.Link.ArchivedURL)
+		default:
+			assert.Equal(t, domain.LivenessBlocked, performance.Link.Liveness)
+			assert.Nil(t, performance.Link.ArchivedURL)
+		}
 	}
 }

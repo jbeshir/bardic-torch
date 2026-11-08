@@ -265,6 +265,7 @@ func projectDocument[D Document](p *projector, doc D) D {
 	var out any
 	switch d := any(doc).(type) {
 	case PieceDocument:
+		p.kept[licenceVersionKey] = true
 		out = pieceWithheld.project(p, d)
 	case PersonDocument:
 		out = p.person(d)

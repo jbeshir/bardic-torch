@@ -155,6 +155,9 @@ var (
 		LicencePD, LicenceCCBY, LicenceCCBYSA, LicenceCCBYNC, LicenceCCBYNCSA, LicenceCCBYND, LicenceCCBYNCND,
 		LicenceARR, LicenceOther,
 	}
+	licenceVersionValues = []LicenceVersion{
+		LicenceVersion10, LicenceVersion20, LicenceVersion25, LicenceVersion30, LicenceVersion40,
+	}
 	pieceAliasKindValues = []PieceAliasKind{
 		PieceAliasKindAltTitle, PieceAliasKindNickname, PieceAliasKindSubtitle, PieceAliasKindRedirect,
 	}
@@ -257,6 +260,9 @@ func (p PersonRole) Valid() bool { return slices.Contains(personRoleValues, p) }
 // Valid reports whether p is a known PersonRelationType.
 func (p PersonRelationType) Valid() bool { return slices.Contains(personRelationTypeValues, p) }
 
+// Symmetric reports whether a relation of type p between two persons holds both ways.
+func (p PersonRelationType) Symmetric() bool { return p == PersonRelationTypeSameAs }
+
 // Valid reports whether p is a known PreferenceDimension.
 func (p PreferenceDimension) Valid() bool { return slices.Contains(preferenceDimensionValues, p) }
 
@@ -272,6 +278,9 @@ func (c ConservationStatus) Valid() bool { return slices.Contains(conservationSt
 // Valid reports whether l is a known Licence.
 func (l Licence) Valid() bool { return slices.Contains(licenceValues, l) }
 
+// Valid reports whether v is a known LicenceVersion.
+func (v LicenceVersion) Valid() bool { return slices.Contains(licenceVersionValues, v) }
+
 // Valid reports whether p is a known PieceAliasKind.
 func (p PieceAliasKind) Valid() bool { return slices.Contains(pieceAliasKindValues, p) }
 
@@ -280,6 +289,9 @@ func (p PiecePart) Valid() bool { return slices.Contains(piecePartValues, p) }
 
 // Valid reports whether p is a known PieceRelationType.
 func (p PieceRelationType) Valid() bool { return slices.Contains(pieceRelationTypeValues, p) }
+
+// Symmetric reports whether a relation of type p between two pieces holds both ways.
+func (p PieceRelationType) Symmetric() bool { return p == PieceRelationTypeSameTextOtherForm }
 
 // Valid reports whether c is a known CreditRole.
 func (c CreditRole) Valid() bool { return slices.Contains(creditRoleValues, c) }

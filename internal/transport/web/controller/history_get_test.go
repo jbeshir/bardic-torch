@@ -26,14 +26,16 @@ type historyCase struct {
 	wantBody   string
 }
 
-// historyCases are the history requests of every history controller; notFound is its 404 message.
-func historyCases(notFound string) []historyCase {
+// historyCases are the history requests of every history controller; notFound is its 404 message, and entity the
+// entity the histories belong to, which entityJSON is the response's for.
+func historyCases(notFound string, entity domain.HistoryEntity, entityJSON string) []historyCase {
 	defaultPage := domain.Page{Limit: domain.DefaultPageLimit}
 	return []historyCase{
 		{
 			name:     "history",
 			wantPage: defaultPage,
 			history: domain.RevisionHistory{
+				Entity: entity,
 				Revisions: []domain.RevisionSummary{
 					{
 						ID: 43, Source: domain.RevisionSourceUser, Summary: "Credit the tune.",
@@ -47,7 +49,7 @@ func historyCases(notFound string) []historyCase {
 				Total: 3,
 			},
 			wantStatus: http.StatusOK,
-			wantBody: `{"data": [
+			wantBody: `{"entity": ` + entityJSON + `, "data": [
 					{"id": 43, "source": "user", "summary": "Credit the tune.", "author": {"display_name": "Morwen"},
 						"contributors": [], "created_at": "2026-10-01T09:00:00Z"},
 					{"id": 42, "source": "import", "summary": "", "author": null,
@@ -58,8 +60,9 @@ func historyCases(notFound string) []historyCase {
 			name:       emptyListsCase,
 			query:      "limit=100&offset=10000",
 			wantPage:   widestPage,
+			history:    domain.RevisionHistory{Entity: entity},
 			wantStatus: http.StatusOK,
-			wantBody:   `{"data": [], "total": 0}`,
+			wantBody:   `{"entity": ` + entityJSON + `, "data": [], "total": 0}`,
 		},
 		{
 			name:       notFoundCase,
@@ -90,7 +93,10 @@ func TestHistoryGet_ServeHTTP(t *testing.T) {
 			t.Parallel()
 
 			target := fmt.Sprintf(pathOf, testPieceSlug)
-			for _, tc := range historyCases(entityType.String() + " not found") {
+			entity := domain.HistoryEntity{Type: entityType.EntityType(), Slug: new(testPieceSlug), Name: testPieceTitle}
+			entityJSON := fmt.Sprintf(`{"entity_type": %q, "slug": %q, "collection_id": null, "name": %q}`,
+				entityType.EntityType(), testPieceSlug, testPieceTitle)
+			for _, tc := range historyCases(entityType.String()+" not found", entity, entityJSON) {
 				t.Run(tc.name, func(t *testing.T) {
 					t.Parallel()
 
@@ -141,7 +147,9 @@ func TestCollectionHistoryGet_ServeHTTP(t *testing.T) {
 	const target = "/v1/collections/12/history"
 	vars := map[string]string{collectionIDVar: "12"}
 
-	for _, tc := range historyCases("collection not found") {
+	entity := domain.HistoryEntity{Type: domain.EntityTypeCollection, CollectionID: new(int64(12)), Name: testCollectionName}
+	entityJSON := `{"entity_type": "collection", "slug": null, "collection_id": 12, "name": "` + testCollectionName + `"}`
+	for _, tc := range historyCases("collection not found", entity, entityJSON) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

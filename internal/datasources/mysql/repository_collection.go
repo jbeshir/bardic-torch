@@ -49,6 +49,7 @@ func (c *catalogueReader) collection(ctx context.Context, id uint64) domain.Coll
 	collection := domain.Collection{
 		CollectionSummary: c.collectionSummary(c.signedID(row.ID), row.Name, row.Kind, row.Url, row.IsBardicResource),
 		DescriptionMD:     stringPtr(row.DescriptionMd),
+		UpdatedAt:         row.UpdatedAt,
 		Enumerable:        enumOf[domain.CollectionEnumerable](c, row.Enumerable),
 		Children:          c.collectionChildren(fetch(ctx, c, "children", c.q.ListPublicCollectionChildren, key)),
 		Citations: c.citations(ctx, fetch(ctx, c, "citations", c.q.ListPublicCollectionCitations,
@@ -112,10 +113,13 @@ func (c *catalogueReader) citations(
 	citations := make([]domain.Citation, 0, len(rows))
 	for _, row := range rows {
 		citation := domain.Citation{
-			URL:     row.Url,
-			Title:   stringPtr(row.Title),
-			Locator: stringPtr(row.Locator),
-			Roles:   roles[attachmentKey{linkID: row.LinkID, pieceID: row.PieceID, personID: row.PersonID}],
+			URL:           row.Url,
+			Title:         stringPtr(row.Title),
+			Locator:       stringPtr(row.Locator),
+			Liveness:      enumOf[domain.Liveness](c, row.Liveness),
+			LastCheckedAt: timePtr(row.LastCheckedAt),
+			ArchivedURL:   stringPtr(row.ArchivedUrl),
+			Roles:         roles[attachmentKey{linkID: row.LinkID, pieceID: row.PieceID, personID: row.PersonID}],
 		}
 		if row.PieceSlug.Valid {
 			piece := c.pieceSummary(kinds, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,

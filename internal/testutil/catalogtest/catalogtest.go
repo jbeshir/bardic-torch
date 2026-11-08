@@ -245,11 +245,11 @@ func (c *Catalog) Piece(f Piece) Ref {
 
 	c.write(func(w writer) {
 		ref.ID = w.exec("INSERT INTO pieces (slug, title, sort_title, sort_letter, kind, conservation_status, "+
-			"is_stub, notes_md, version_notes_md, licensing_notes_md, licensing_status, licence, "+
-			"historical_source_md, period_start, period_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"is_stub, notes_md, version_notes_md, licensing_notes_md, licensing_status, licence, licence_version, "+
+			"historical_source_md, period_start, period_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			ref.Slug, doc.Title, sortTitle, sortLetter, doc.Kind, doc.Conservation.Status, doc.IsStub, doc.NotesMD,
-			doc.VersionNotesMD, doc.LicensingNotesMD, doc.LicensingStatus, doc.Licence, doc.HistoricalSourceMD,
-			doc.PeriodStart, doc.PeriodEnd)
+			doc.VersionNotesMD, doc.LicensingNotesMD, doc.LicensingStatus, doc.Licence, doc.LicenceVersion,
+			doc.HistoricalSourceMD, doc.PeriodStart, doc.PeriodEnd)
 		for _, kind := range doc.SecondaryKinds {
 			w.exec("INSERT INTO piece_secondary_kinds (piece_id, kind) VALUES (?, ?)", ref.ID, kind)
 		}

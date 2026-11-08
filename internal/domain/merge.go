@@ -94,7 +94,8 @@ var (
 	pieceFields = []docField{
 		scalar("title"), scalar("kind"), set("secondary_kinds", keyOfValue), scalar("conservation"),
 		scalar("is_stub"), scalar("notes_md"), scalar("version_notes_md"),
-		group("licensing", "licensing_status", "licence", "licensing_notes_md"), scalar("historical_source_md"),
+		group("licensing", "licensing_status", "licence", "licence_version", "licensing_notes_md"),
+		scalar("historical_source_md"),
 		group("period", "period_start", "period_end"), keyed("aliases", keyOfAliasText),
 		keyed("terms", keyOfTerm).referencing(EntityTypeTerm),
 		keyed("relations", keyOfPieceRelation).referencing(EntityTypePiece), scalar("credits"), keyed("links", keyOfLink),

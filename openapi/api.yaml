@@ -16,7 +16,7 @@ info:
     - A request whose path is not validly percent-encoded gets a plain-text 400 from the server, before any
       operation runs.
     - operationIds are camelCase.
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: Bardic Torch
     url: https://bardictorch.org
@@ -1381,6 +1381,7 @@ paths:
                     kind: community_bard
                     is_stub: false
                     status: active
+                    updated_at: "2026-10-01T09:00:00Z"
                     status_date: null
                     status_source_url: null
                     profile:
@@ -1428,6 +1429,7 @@ paths:
                     kind: community_bard
                     is_stub: true
                     status: prefers_no_page
+                    updated_at: "2026-10-01T09:00:00Z"
                     status_date: "2026-03-01"
                     status_source_url: https://example.org/requests/12
                     profile: null
@@ -4285,10 +4287,12 @@ components:
         - conservation_status
         - is_stub
         - notes_md
+        - updated_at
         - version_notes_md
         - licensing_status
         - licensing_notes_md
         - licence
+        - licence_version
         - historical_source_md
         - period_start
         - period_end
@@ -4318,6 +4322,12 @@ components:
           description: Notes about the piece, in Markdown.
           examples:
             - A drinking song from the northern marches.
+        updated_at:
+          type: string
+          format: date-time
+          description: When the entity's current revision was approved.
+          examples:
+            - "2026-10-01T09:00:00Z"
         version_notes_md:
           type: [string, "null"]
           description: Notes on the piece's versions, in Markdown.
@@ -4334,6 +4344,13 @@ components:
           description: The piece's licence; null unless `licensing_status` is `known`.
           oneOf:
             - $ref: "#/components/schemas/Licence"
+            - type: "null"
+        licence_version:
+          description: |
+            The version of the piece's Creative Commons licence; null when it is not recorded, and always null unless
+            `licence` is a `cc_*` code. See `Licence` for the licence's URL.
+          oneOf:
+            - $ref: "#/components/schemas/LicenceVersion"
             - type: "null"
         historical_source_md:
           type: [string, "null"]
@@ -4372,7 +4389,8 @@ components:
         relations:
           type: array
           description: |
-            Relations to other public pieces: the outgoing ones, then the incoming ones, each by type and title.
+            Relations to other public pieces: the outgoing ones, then the incoming ones, each by type and title. A
+            symmetric relation recorded on both pieces is listed once, as outgoing.
           items:
             $ref: "#/components/schemas/PieceRelation"
         links:
@@ -4412,10 +4430,12 @@ components:
           conservation_status: endangered
           is_stub: false
           notes_md: A drinking song from the northern marches.
+          updated_at: "2026-10-01T09:00:00Z"
           version_notes_md: null
           licensing_status: known
           licensing_notes_md: Free to perform with credit.
           licence: cc_by_sa
+          licence_version: "4.0"
           historical_source_md: null
           period_start: null
           period_end: null
@@ -4572,9 +4592,8 @@ components:
     PieceRelation:
       type: object
       description: |
-        A relation between the piece shown and another public piece, listed once per stored direction:
-        a symmetric relation (`same_as`, `same_text_other_form`) recorded on both entities appears both as
-        outgoing and as incoming, so treat (`type`, slug) as one.
+        A relation between the piece shown and another public piece. A symmetric relation (`same_text_other_form`)
+        recorded on both entities is listed once, as outgoing.
       additionalProperties: false
       required: [type, direction, piece]
       properties:
@@ -4844,7 +4863,7 @@ components:
         A public person. `profile` is null exactly when the person prefers not to have a page; `is_stub` is then
         true.
       additionalProperties: false
-      required: [slug, name, kind, is_stub, status, status_date, status_source_url, profile]
+      required: [slug, name, kind, is_stub, status, updated_at, status_date, status_source_url, profile]
       properties:
         slug:
           $ref: "#/components/schemas/PersonSummary/properties/slug"
@@ -4856,6 +4875,12 @@ components:
           $ref: "#/components/schemas/PersonSummary/properties/is_stub"
         status:
           $ref: "#/components/schemas/PersonStatus"
+        updated_at:
+          type: string
+          format: date-time
+          description: When the entity's current revision was approved.
+          examples:
+            - "2026-10-01T09:00:00Z"
         status_date:
           type: [string, "null"]
           format: date
@@ -4878,6 +4903,7 @@ components:
           kind: community_bard
           is_stub: true
           status: prefers_no_page
+          updated_at: "2026-10-01T09:00:00Z"
           status_date: "2026-03-01"
           status_source_url: https://example.org/requests/12
           profile: null
@@ -5018,9 +5044,8 @@ components:
     PersonRelation:
       type: object
       description: |
-        A relation between the person shown and another public person, listed once per stored direction:
-        a symmetric relation (`same_as`, `same_text_other_form`) recorded on both entities appears both as
-        outgoing and as incoming, so treat (`type`, slug) as one.
+        A relation between the person shown and another public person. A symmetric relation (`same_as`) recorded
+        on both entities is listed once, as outgoing.
       additionalProperties: false
       required: [type, direction, person]
       properties:
@@ -5090,15 +5115,18 @@ components:
             url: https://video.example.org/watch/revel
             title: Midwinter Revel 2025
             platform: video.example.org
+            liveness: ok
+            last_checked_at: "2026-10-01T09:00:00Z"
+            archived_url: null
           year: 2025
           event: null
           description_verbatim: Wren opens the evening
 
     PerformanceLink:
       type: object
-      description: The link recording a performance.
+      description: The link recording a performance, with what the last check of it found.
       additionalProperties: false
-      required: [url, title, platform]
+      required: [url, title, platform, liveness, last_checked_at, archived_url]
       properties:
         url:
           $ref: "#/components/schemas/PersonLink/properties/url"
@@ -5106,10 +5134,19 @@ components:
           $ref: "#/components/schemas/PersonLink/properties/title"
         platform:
           $ref: "#/components/schemas/PersonLink/properties/platform"
+        liveness:
+          $ref: "#/components/schemas/PersonLink/properties/liveness"
+        last_checked_at:
+          $ref: "#/components/schemas/PersonLink/properties/last_checked_at"
+        archived_url:
+          $ref: "#/components/schemas/PersonLink/properties/archived_url"
       examples:
         - url: https://video.example.org/watch/revel
           title: Midwinter Revel 2025
           platform: video.example.org
+          liveness: ok
+          last_checked_at: "2026-10-01T09:00:00Z"
+          archived_url: null
 
     TermList:
       type: object
@@ -5196,6 +5233,7 @@ components:
         - facet
         - name
         - display_name
+        - updated_at
         - description_md
         - aliases
         - ancestors
@@ -5214,6 +5252,8 @@ components:
           $ref: "#/components/schemas/TermListItem/properties/name"
         display_name:
           $ref: "#/components/schemas/TermSummary/properties/display_name"
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
         description_md:
           type: [string, "null"]
           description: What the term covers, in Markdown.
@@ -5264,6 +5304,7 @@ components:
           facet: topic
           name: War
           display_name: War
+          updated_at: "2026-10-01T09:00:00Z"
           description_md: null
           aliases: [Battle]
           ancestors: []
@@ -5345,6 +5386,7 @@ components:
         - kind
         - url
         - is_bardic_resource
+        - updated_at
         - description_md
         - enumerable
         - region
@@ -5363,6 +5405,8 @@ components:
           $ref: "#/components/schemas/CollectionSummary/properties/url"
         is_bardic_resource:
           $ref: "#/components/schemas/CollectionSummary/properties/is_bardic_resource"
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
         description_md:
           type: [string, "null"]
           description: What the collection holds, in Markdown.
@@ -5407,6 +5451,7 @@ components:
           kind: songbook_pdf
           url: https://example.org/songbook.pdf
           is_bardic_resource: true
+          updated_at: "2026-10-01T09:00:00Z"
           description_md: null
           enumerable: pdf
           region: null
@@ -5424,6 +5469,9 @@ components:
               url: https://example.org/songbook.pdf
               title: The Northmarch Songbook
               locator: p. 12
+              liveness: ok
+              last_checked_at: "2026-10-01T09:00:00Z"
+              archived_url: null
               roles: [lyrics]
           citations_total: 1
 
@@ -5432,7 +5480,7 @@ components:
       description: |
         A link in a collection, attached to a piece or a person: exactly one of `piece` and `person` is set.
       additionalProperties: false
-      required: [piece, person, url, title, locator, roles]
+      required: [piece, person, url, title, locator, liveness, last_checked_at, archived_url, roles]
       properties:
         piece:
           description: The public piece the link is attached to, or null if it is attached to a person.
@@ -5450,6 +5498,12 @@ components:
           $ref: "#/components/schemas/PersonLink/properties/title"
         locator:
           $ref: "#/components/schemas/PersonLink/properties/locator"
+        liveness:
+          $ref: "#/components/schemas/PersonLink/properties/liveness"
+        last_checked_at:
+          $ref: "#/components/schemas/PersonLink/properties/last_checked_at"
+        archived_url:
+          $ref: "#/components/schemas/PersonLink/properties/archived_url"
         roles:
           type: array
           description: The roles the link is attached to the piece or person with, in attachment order.
@@ -5465,6 +5519,9 @@ components:
           url: https://example.org/songbook.pdf
           title: null
           locator: p. 3
+          liveness: ok
+          last_checked_at: "2026-10-01T09:00:00Z"
+          archived_url: null
           roles: [external_profile]
 
     EventList:
@@ -5496,7 +5553,7 @@ components:
       type: object
       description: A public event's or venue's page.
       additionalProperties: false
-      required: [slug, name, kind, description_md, performances, performances_total]
+      required: [slug, name, kind, updated_at, description_md, performances, performances_total]
       properties:
         slug:
           $ref: "#/components/schemas/EventSummary/properties/slug"
@@ -5504,6 +5561,8 @@ components:
           $ref: "#/components/schemas/EventSummary/properties/name"
         kind:
           $ref: "#/components/schemas/EventKind"
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
         description_md:
           type: [string, "null"]
           description: About the event or venue, in Markdown.
@@ -5527,6 +5586,7 @@ components:
         - slug: midwinter-revel
           name: Midwinter Revel
           kind: event
+          updated_at: "2026-10-01T09:00:00Z"
           description_md: null
           performances:
             - piece: null
@@ -5534,6 +5594,9 @@ components:
                 url: https://video.example.org/watch/revel
                 title: Midwinter Revel 2025
                 platform: video.example.org
+                liveness: ok
+                last_checked_at: "2026-10-01T09:00:00Z"
+                archived_url: null
               year: 2025
               performers: []
               description_verbatim: Wren opens the evening
@@ -5563,6 +5626,9 @@ components:
             url: https://video.example.org/watch/revel
             title: Midwinter Revel 2025
             platform: video.example.org
+            liveness: ok
+            last_checked_at: "2026-10-01T09:00:00Z"
+            archived_url: null
           year: 2025
           performers:
             - slug: wren-of-the-vale
@@ -5631,9 +5697,21 @@ components:
       description: |
         The licence a piece is published under: public domain, a Creative Commons licence, all rights reserved
         or another licence.
+
+        A Creative Commons licence's URL is `https://creativecommons.org/licenses/<terms>/<licence_version>/`,
+        where `<terms>` is the code without its `cc_` prefix and with `_` replaced by `-`: `by`, `by-sa`, `by-nc`,
+        `by-nc-sa`, `by-nd` or `by-nc-nd`. The URL is not a field: a client derives it. For `other`, the licence is
+        described by the piece's `licensing_source` link.
       enum: [pd, cc_by, cc_by_sa, cc_by_nc, cc_by_nc_sa, cc_by_nd, cc_by_nc_nd, arr, other]
       examples:
         - cc_by_sa
+
+    LicenceVersion:
+      type: string
+      description: The version of a Creative Commons licence.
+      enum: ["1.0", "2.0", "2.5", "3.0", "4.0"]
+      examples:
+        - "4.0"
 
     PieceAliasKind:
       type: string
@@ -5850,12 +5928,48 @@ components:
           contributors: [Archivist, Lorekeeper]
           created_at: "2026-01-01T00:00:00Z"
 
+    HistoryEntity:
+      type: object
+      description: |
+        The public entity a history belongs to. Exactly one of `slug` and `collection_id` is set: collections are
+        addressed by ID, every other entity by slug.
+      additionalProperties: false
+      required: [entity_type, slug, collection_id, name]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        slug:
+          type: [string, "null"]
+          description: The entity's slug; null for a collection.
+          examples:
+            - the-copper-kettle
+        collection_id:
+          type: [integer, "null"]
+          format: int64
+          maximum: 9007199254740991
+          minimum: 1
+          description: The collection's ID; null for every other entity.
+          examples:
+            - null
+        name:
+          type: string
+          description: The entity's title, name or display name, as it is now.
+          examples:
+            - The Copper Kettle
+      examples:
+        - entity_type: piece
+          slug: the-copper-kettle
+          collection_id: null
+          name: The Copper Kettle
+
     RevisionHistory:
       type: object
       description: One page of a public entity's approved revisions, newest first.
       additionalProperties: false
-      required: [data, total]
+      required: [entity, data, total]
       properties:
+        entity:
+          $ref: "#/components/schemas/HistoryEntity"
         data:
           type: array
           items:
@@ -5869,7 +5983,12 @@ components:
           examples:
             - 1
       examples:
-        - data:
+        - entity:
+            entity_type: piece
+            slug: the-copper-kettle
+            collection_id: null
+            name: The Copper Kettle
+          data:
             - id: 42
               source: user
               summary: Credit the tune.
@@ -5987,6 +6106,7 @@ components:
               - is_stub
               - kind
               - licence
+              - licence_version
               - licensing_notes_md
               - licensing_status
               - links
@@ -6028,6 +6148,7 @@ components:
             licensing_status: unknown
             licensing_notes_md: null
             licence: null
+            licence_version: null
             historical_source_md: null
             period_start: null
             period_end: null
@@ -6055,6 +6176,7 @@ components:
             licensing_status: unknown
             licensing_notes_md: null
             licence: null
+            licence_version: null
             historical_source_md: null
             period_start: null
             period_end: null
@@ -6397,6 +6519,7 @@ components:
         - licensing_status
         - licensing_notes_md
         - licence
+        - licence_version
         - historical_source_md
         - period_start
         - period_end
@@ -6434,6 +6557,8 @@ components:
           $ref: "#/components/schemas/Piece/properties/licensing_notes_md"
         licence:
           $ref: "#/components/schemas/Piece/properties/licence"
+        licence_version:
+          $ref: "#/components/schemas/Piece/properties/licence_version"
         historical_source_md:
           $ref: "#/components/schemas/Piece/properties/historical_source_md"
         period_start:
@@ -6484,6 +6609,7 @@ components:
           licensing_status: unknown
           licensing_notes_md: null
           licence: null
+          licence_version: null
           historical_source_md: null
           period_start: null
           period_end: null
@@ -7124,6 +7250,14 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Licence"
             - type: "null"
+        licence_version:
+          description: |
+            The version of the piece's Creative Commons licence; null when it is not recorded, and non-null only
+            with a `cc_*` licence (`out_of_range`). Changing it needs a `licensing_source` link, like the licence. A
+            request that leaves it out keeps the base's value.
+          oneOf:
+            - $ref: "#/components/schemas/LicenceVersion"
+            - type: "null"
         historical_source_md:
           $ref: "#/components/schemas/EditorText"
         period_start:
@@ -7239,6 +7373,7 @@ components:
           licensing_status: unknown
           licensing_notes_md: null
           licence: null
+          licence_version: null
           historical_source_md: null
           period_start: null
           period_end: null
@@ -7257,10 +7392,10 @@ components:
     EditorPieceDocument:
       description: |
         A piece's document in the editor format, as the API returns it: `EditorPieceDocumentRequest` with
-        `preferences` always present.
+        `preferences` and `licence_version` always present.
       allOf:
         - $ref: "#/components/schemas/EditorPieceDocumentRequest"
-        - required: [preferences]
+        - required: [preferences, licence_version]
 
     EditorPieceLink:
       type: object

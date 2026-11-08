@@ -364,6 +364,45 @@ const (
 	LicenceOther Licence = "other"
 )
 
+// IsCreativeCommons reports whether l is a Creative Commons licence, the only kind that has a version.
+func (l Licence) IsCreativeCommons() bool {
+	switch l {
+	case LicenceCCBY, LicenceCCBYSA, LicenceCCBYNC, LicenceCCBYNCSA, LicenceCCBYND, LicenceCCBYNCND:
+		return true
+	case LicencePD, LicenceARR, LicenceOther:
+		return false
+	}
+
+	return false
+}
+
+// LicenceVersion is the version of a Creative Commons licence.
+type LicenceVersion string
+
+const (
+	// LicenceVersion10 is version 1.0.
+	LicenceVersion10 LicenceVersion = "1.0"
+	// LicenceVersion20 is version 2.0.
+	LicenceVersion20 LicenceVersion = "2.0"
+	// LicenceVersion25 is version 2.5.
+	LicenceVersion25 LicenceVersion = "2.5"
+	// LicenceVersion30 is version 3.0.
+	LicenceVersion30 LicenceVersion = "3.0"
+	// LicenceVersion40 is version 4.0.
+	LicenceVersion40 LicenceVersion = "4.0"
+)
+
+// ShownLicenceVersion returns the version a read shows beside licence: version only if licence is a Creative
+// Commons licence, so that a version left behind by a licence change an earlier release made is never shown
+// beside a licence it does not belong to.
+func ShownLicenceVersion(licence *Licence, version *LicenceVersion) *LicenceVersion {
+	if licence == nil || !licence.IsCreativeCommons() {
+		return nil
+	}
+
+	return version
+}
+
 // PieceAliasKind is what sort of alternative title a piece alias is.
 type PieceAliasKind string
 

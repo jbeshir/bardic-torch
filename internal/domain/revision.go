@@ -20,9 +20,20 @@ type RevisionAuthor struct {
 	DisplayName string
 }
 
+// HistoryEntity is the public entity a history belongs to, as the history shows it. Exactly one of Slug and
+// CollectionID is set: collections are addressed by ID, every other entity by slug.
+type HistoryEntity struct {
+	Type         EntityType
+	Slug         *string
+	CollectionID *int64
+	// Name is the entity's title, name or display name.
+	Name string
+}
+
 // RevisionHistory is one page of a public entity's approved revisions, newest first, with how many there are in
 // all.
 type RevisionHistory struct {
+	Entity    HistoryEntity
 	Revisions []RevisionSummary
 	Total     int64
 }

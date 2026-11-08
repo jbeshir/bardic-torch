@@ -830,6 +830,83 @@ func (q *Queries) GetContactRequest(ctx context.Context, id uint64) (GetContactR
 	return i, err
 }
 
+const getHistoryCollection = `-- name: GetHistoryCollection :one
+SELECT name FROM collections WHERE id = ?
+`
+
+func (q *Queries) GetHistoryCollection(ctx context.Context, id uint64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getHistoryCollection, id)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
+const getHistoryEvent = `-- name: GetHistoryEvent :one
+SELECT slug, name FROM events WHERE id = ?
+`
+
+type GetHistoryEventRow struct {
+	Slug string
+	Name string
+}
+
+func (q *Queries) GetHistoryEvent(ctx context.Context, id uint64) (GetHistoryEventRow, error) {
+	row := q.db.QueryRowContext(ctx, getHistoryEvent, id)
+	var i GetHistoryEventRow
+	err := row.Scan(&i.Slug, &i.Name)
+	return i, err
+}
+
+const getHistoryPerson = `-- name: GetHistoryPerson :one
+SELECT slug, name FROM persons WHERE id = ?
+`
+
+type GetHistoryPersonRow struct {
+	Slug string
+	Name string
+}
+
+func (q *Queries) GetHistoryPerson(ctx context.Context, id uint64) (GetHistoryPersonRow, error) {
+	row := q.db.QueryRowContext(ctx, getHistoryPerson, id)
+	var i GetHistoryPersonRow
+	err := row.Scan(&i.Slug, &i.Name)
+	return i, err
+}
+
+const getHistoryPiece = `-- name: GetHistoryPiece :one
+
+SELECT slug, title AS name FROM pieces WHERE id = ?
+`
+
+type GetHistoryPieceRow struct {
+	Slug string
+	Name string
+}
+
+// The entity a history belongs to, by the ID of a public entity.
+func (q *Queries) GetHistoryPiece(ctx context.Context, id uint64) (GetHistoryPieceRow, error) {
+	row := q.db.QueryRowContext(ctx, getHistoryPiece, id)
+	var i GetHistoryPieceRow
+	err := row.Scan(&i.Slug, &i.Name)
+	return i, err
+}
+
+const getHistoryTerm = `-- name: GetHistoryTerm :one
+SELECT slug, display_name AS name FROM terms WHERE id = ?
+`
+
+type GetHistoryTermRow struct {
+	Slug string
+	Name string
+}
+
+func (q *Queries) GetHistoryTerm(ctx context.Context, id uint64) (GetHistoryTermRow, error) {
+	row := q.db.QueryRowContext(ctx, getHistoryTerm, id)
+	var i GetHistoryTermRow
+	err := row.Scan(&i.Slug, &i.Name)
+	return i, err
+}
+
 const getLinkFields = `-- name: GetLinkFields :one
 SELECT url, title, description, platform, place_type, collection_id, locator
 FROM links
@@ -1097,8 +1174,9 @@ const getPublicCollection = `-- name: GetPublicCollection :one
 SELECT c.id, c.name, c.kind, c.url, c.is_bardic_resource, c.description_md, c.enumerable,
     r.slug AS region_slug, r.facet AS region_facet, r.display_name AS region_display_name,
     parent.id AS parent_id, parent.name AS parent_name, parent.kind AS parent_kind, parent.url AS parent_url,
-    parent.is_bardic_resource AS parent_is_bardic_resource
+    parent.is_bardic_resource AS parent_is_bardic_resource, rev.created_at AS updated_at
 FROM collections c
+JOIN revisions rev ON rev.id = c.current_revision_id
 LEFT JOIN public_terms r ON r.id = c.region_term_id
 LEFT JOIN collections parent ON parent.id = c.parent_id AND parent.current_revision_id IS NOT NULL
 WHERE c.id = ? AND c.current_revision_id IS NOT NULL
@@ -1120,6 +1198,7 @@ type GetPublicCollectionRow struct {
 	ParentKind             NullCollectionsKind
 	ParentUrl              sql.NullString
 	ParentIsBardicResource sql.NullBool
+	UpdatedAt              time.Time
 }
 
 func (q *Queries) GetPublicCollection(ctx context.Context, id uint64) (GetPublicCollectionRow, error) {
@@ -1141,6 +1220,7 @@ func (q *Queries) GetPublicCollection(ctx context.Context, id uint64) (GetPublic
 		&i.ParentKind,
 		&i.ParentUrl,
 		&i.ParentIsBardicResource,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1157,9 +1237,10 @@ func (q *Queries) GetPublicCollectionID(ctx context.Context, id uint64) (uint64,
 }
 
 const getPublicEvent = `-- name: GetPublicEvent :one
-SELECT id, slug, name, kind, description_md
-FROM events
-WHERE slug = ? AND current_revision_id IS NOT NULL
+SELECT e.id, e.slug, e.name, e.kind, e.description_md, rev.created_at AS updated_at
+FROM events e
+JOIN revisions rev ON rev.id = e.current_revision_id
+WHERE e.slug = ?
 `
 
 type GetPublicEventRow struct {
@@ -1168,6 +1249,7 @@ type GetPublicEventRow struct {
 	Name          string
 	Kind          EventsKind
 	DescriptionMd sql.NullString
+	UpdatedAt     time.Time
 }
 
 func (q *Queries) GetPublicEvent(ctx context.Context, slug string) (GetPublicEventRow, error) {
@@ -1179,6 +1261,7 @@ func (q *Queries) GetPublicEvent(ctx context.Context, slug string) (GetPublicEve
 		&i.Name,
 		&i.Kind,
 		&i.DescriptionMd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1195,10 +1278,11 @@ func (q *Queries) GetPublicEventID(ctx context.Context, slug string) (uint64, er
 }
 
 const getPublicPerson = `-- name: GetPublicPerson :one
-SELECT id, slug, name, kind, status, status_date, status_source_url, is_stub, pronouns, notes_md, licensing_status,
-    licensing_notes_md
-FROM persons
-WHERE slug = ? AND current_revision_id IS NOT NULL
+SELECT p.id, p.slug, p.name, p.kind, p.status, p.status_date, p.status_source_url, p.is_stub, p.pronouns, p.notes_md,
+    p.licensing_status, p.licensing_notes_md, rev.created_at AS updated_at
+FROM persons p
+JOIN revisions rev ON rev.id = p.current_revision_id
+WHERE p.slug = ?
 `
 
 type GetPublicPersonRow struct {
@@ -1214,6 +1298,7 @@ type GetPublicPersonRow struct {
 	NotesMd          sql.NullString
 	LicensingStatus  PersonsLicensingStatus
 	LicensingNotesMd sql.NullString
+	UpdatedAt        time.Time
 }
 
 func (q *Queries) GetPublicPerson(ctx context.Context, slug string) (GetPublicPersonRow, error) {
@@ -1232,6 +1317,7 @@ func (q *Queries) GetPublicPerson(ctx context.Context, slug string) (GetPublicPe
 		&i.NotesMd,
 		&i.LicensingStatus,
 		&i.LicensingNotesMd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1249,10 +1335,13 @@ func (q *Queries) GetPublicPersonID(ctx context.Context, slug string) (uint64, e
 
 const getPublicPiece = `-- name: GetPublicPiece :one
 
-SELECT id, slug, title, kind, conservation_status, is_stub, notes_md, version_notes_md, licensing_status,
-    licensing_notes_md, licence, historical_source_md, period_start, period_end
-FROM pieces
-WHERE slug = ? AND current_revision_id IS NOT NULL
+
+SELECT p.id, p.slug, p.title, p.kind, p.conservation_status, p.is_stub, p.notes_md, p.version_notes_md,
+    p.licensing_status, p.licensing_notes_md, p.licence, p.licence_version, p.historical_source_md, p.period_start,
+    p.period_end, rev.created_at AS updated_at
+FROM pieces p
+JOIN revisions rev ON rev.id = p.current_revision_id
+WHERE p.slug = ?
 `
 
 type GetPublicPieceRow struct {
@@ -1267,9 +1356,11 @@ type GetPublicPieceRow struct {
 	LicensingStatus    PiecesLicensingStatus
 	LicensingNotesMd   sql.NullString
 	Licence            NullPiecesLicence
+	LicenceVersion     NullPiecesLicenceVersion
 	HistoricalSourceMd sql.NullString
 	PeriodStart        sql.NullInt16
 	PeriodEnd          sql.NullInt16
+	UpdatedAt          time.Time
 }
 
 // ============================================
@@ -1280,6 +1371,8 @@ type GetPublicPieceRow struct {
 // references them (the listed_persons view), and hidden links from every read. What a link records is shown on
 // another entity's page only if the link has a public attachment (the public_link_attachments view).
 // ============================================
+// A public entity's updated_at is when its current revision was approved: the revision's created_at, which approval
+// sets.
 func (q *Queries) GetPublicPiece(ctx context.Context, slug string) (GetPublicPieceRow, error) {
 	row := q.db.QueryRowContext(ctx, getPublicPiece, slug)
 	var i GetPublicPieceRow
@@ -1295,9 +1388,11 @@ func (q *Queries) GetPublicPiece(ctx context.Context, slug string) (GetPublicPie
 		&i.LicensingStatus,
 		&i.LicensingNotesMd,
 		&i.Licence,
+		&i.LicenceVersion,
 		&i.HistoricalSourceMd,
 		&i.PeriodStart,
 		&i.PeriodEnd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1320,9 +1415,10 @@ func (q *Queries) GetPublicPieceID(ctx context.Context, slug string) (uint64, er
 }
 
 const getPublicTerm = `-- name: GetPublicTerm :one
-SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md,
+SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md, rev.created_at AS updated_at,
     ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name
 FROM public_terms t
+JOIN revisions rev ON rev.id = t.current_revision_id
 LEFT JOIN public_terms ra ON ra.id = t.related_affiliation_id
 WHERE t.slug = ?
 `
@@ -1334,6 +1430,7 @@ type GetPublicTermRow struct {
 	Name               string
 	DisplayName        string
 	DescriptionMd      sql.NullString
+	UpdatedAt          time.Time
 	RelatedSlug        sql.NullString
 	RelatedFacet       NullTermsFacet
 	RelatedDisplayName sql.NullString
@@ -1349,6 +1446,7 @@ func (q *Queries) GetPublicTerm(ctx context.Context, slug string) (GetPublicTerm
 		&i.Name,
 		&i.DisplayName,
 		&i.DescriptionMd,
+		&i.UpdatedAt,
 		&i.RelatedSlug,
 		&i.RelatedFacet,
 		&i.RelatedDisplayName,
@@ -4417,7 +4515,8 @@ func (q *Queries) ListPublicCollectionChildren(ctx context.Context, parentID sql
 
 const listPublicCollectionCitations = `-- name: ListPublicCollectionCitations :many
 
-SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, a.piece_id, a.person_id,
+SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, l.liveness, l.last_checked_at, l.archived_url,
+    a.piece_id, a.person_id,
     COALESCE(p.sort_title, pe.sort_name) AS sort_key,
     p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
@@ -4441,6 +4540,9 @@ type ListPublicCollectionCitationsRow struct {
 	Url                     string
 	Title                   sql.NullString
 	Locator                 sql.NullString
+	Liveness                LinksLiveness
+	LastCheckedAt           sql.NullTime
+	ArchivedUrl             sql.NullString
 	PieceID                 sql.NullInt64
 	PersonID                sql.NullInt64
 	SortKey                 string
@@ -4471,6 +4573,9 @@ func (q *Queries) ListPublicCollectionCitations(ctx context.Context, arg ListPub
 			&i.Url,
 			&i.Title,
 			&i.Locator,
+			&i.Liveness,
+			&i.LastCheckedAt,
+			&i.ArchivedUrl,
 			&i.PieceID,
 			&i.PersonID,
 			&i.SortKey,
@@ -4553,7 +4658,7 @@ func (q *Queries) ListPublicCollectionsByID(ctx context.Context, ids []uint64) (
 const listPublicEventPerformances = `-- name: ListPublicEventPerformances :many
 
 SELECT perf.id, perf.year, perf.description_verbatim, l.url, l.title, l.platform,
-    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    l.liveness, l.last_checked_at, l.archived_url, p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub
 FROM performances perf
 JOIN links l ON l.id = perf.link_id
@@ -4577,6 +4682,9 @@ type ListPublicEventPerformancesRow struct {
 	Url                     string
 	Title                   sql.NullString
 	Platform                sql.NullString
+	Liveness                LinksLiveness
+	LastCheckedAt           sql.NullTime
+	ArchivedUrl             sql.NullString
 	PieceSlug               sql.NullString
 	PieceTitle              sql.NullString
 	PieceKind               NullPiecesKind
@@ -4603,6 +4711,9 @@ func (q *Queries) ListPublicEventPerformances(ctx context.Context, arg ListPubli
 			&i.Url,
 			&i.Title,
 			&i.Platform,
+			&i.Liveness,
+			&i.LastCheckedAt,
+			&i.ArchivedUrl,
 			&i.PieceSlug,
 			&i.PieceTitle,
 			&i.PieceKind,
@@ -4916,7 +5027,7 @@ func (q *Queries) ListPublicPersonLinks(ctx context.Context, personID sql.NullIn
 const listPublicPersonPerformances = `-- name: ListPublicPersonPerformances :many
 
 SELECT perf.year, perf.description_verbatim, l.url, l.title, l.platform,
-    p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
+    l.liveness, l.last_checked_at, l.archived_url, p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
     e.slug AS event_slug, e.name AS event_name, e.kind AS event_kind
 FROM performances perf
@@ -4948,6 +5059,9 @@ type ListPublicPersonPerformancesRow struct {
 	Url                     string
 	Title                   sql.NullString
 	Platform                sql.NullString
+	Liveness                LinksLiveness
+	LastCheckedAt           sql.NullTime
+	ArchivedUrl             sql.NullString
 	PieceSlug               sql.NullString
 	PieceTitle              sql.NullString
 	PieceKind               NullPiecesKind
@@ -4976,6 +5090,9 @@ func (q *Queries) ListPublicPersonPerformances(ctx context.Context, arg ListPubl
 			&i.Url,
 			&i.Title,
 			&i.Platform,
+			&i.Liveness,
+			&i.LastCheckedAt,
+			&i.ArchivedUrl,
 			&i.PieceSlug,
 			&i.PieceTitle,
 			&i.PieceKind,
@@ -7097,8 +7214,8 @@ const updatePieceFromDocument = `-- name: UpdatePieceFromDocument :execrows
 
 UPDATE pieces
 SET title = ?, sort_title = ?, sort_letter = ?, kind = ?, conservation_status = ?, is_stub = ?, notes_md = ?,
-    version_notes_md = ?, licensing_notes_md = ?, licensing_status = ?, licence = ?, historical_source_md = ?,
-    period_start = ?, period_end = ?
+    version_notes_md = ?, licensing_notes_md = ?, licensing_status = ?, licence = ?,
+    licence_version = ?, historical_source_md = ?, period_start = ?, period_end = ?
 WHERE id = ?
 `
 
@@ -7114,6 +7231,7 @@ type UpdatePieceFromDocumentParams struct {
 	LicensingNotesMd   sql.NullString
 	LicensingStatus    PiecesLicensingStatus
 	Licence            NullPiecesLicence
+	LicenceVersion     NullPiecesLicenceVersion
 	HistoricalSourceMd sql.NullString
 	PeriodStart        sql.NullInt16
 	PeriodEnd          sql.NullInt16
@@ -7142,6 +7260,7 @@ func (q *Queries) UpdatePieceFromDocument(ctx context.Context, arg UpdatePieceFr
 		arg.LicensingNotesMd,
 		arg.LicensingStatus,
 		arg.Licence,
+		arg.LicenceVersion,
 		arg.HistoricalSourceMd,
 		arg.PeriodStart,
 		arg.PeriodEnd,

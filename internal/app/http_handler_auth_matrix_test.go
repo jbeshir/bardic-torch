@@ -386,7 +386,9 @@ var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(),
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.collectionHistory.EXPECT().ListPublicCollectionHistory(mock.Anything, int64(matrixCollectionID),
-				matrixPage).Return(domain.RevisionHistory{}, nil)
+				matrixPage).Return(domain.RevisionHistory{Entity: domain.HistoryEntity{
+				Type: domain.EntityTypeCollection, CollectionID: new(int64(matrixCollectionID)), Name: "The Northmarch Songbook",
+			}}, nil)
 		},
 	},
 	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: {
@@ -415,7 +417,9 @@ func historyRow(entityType domain.SlugEntityType) matrixRow {
 		successStatus: http.StatusOK,
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.history.EXPECT().ListPublicHistory(mock.Anything, entityType, matrixSlug, matrixPage).
-				Return(domain.RevisionHistory{}, nil)
+				Return(domain.RevisionHistory{Entity: domain.HistoryEntity{
+					Type: entityType.EntityType(), Slug: new(matrixSlug), Name: "Matrix History Piece",
+				}}, nil)
 		},
 	}
 }

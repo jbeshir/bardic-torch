@@ -28,6 +28,7 @@ func testPerson() domain.Person {
 			Slug: testPersonSlug, Name: testPersonName, Kind: domain.PersonKindCommunityBard,
 		},
 		Status:          domain.PersonStatusDeceased,
+		UpdatedAt:       testRevisionCreatedAt,
 		StatusDate:      new(time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)),
 		StatusSourceURL: new("https://example.org/notice"),
 		Profile: &domain.PersonProfile{
@@ -69,13 +70,17 @@ func testPerson() domain.Person {
 					Piece: &kettle,
 					Link: domain.PerformanceLink{
 						URL: testVideoURL, Title: new("At the revel"),
-						Platform: new("video.example.org"),
+						Platform: new("video.example.org"), Liveness: domain.LivenessBlocked,
+						LastCheckedAt: &testRevisionCreatedAt, ArchivedURL: new("https://archive.example.org/kettle"),
 					},
 					Year:                new(int16(2025)),
 					Event:               &domain.EventSummary{Slug: "the-green-hall", Name: "The Green Hall", Kind: domain.EventKindVenue},
 					DescriptionVerbatim: "Wren sings the Kettle",
 				},
-				{Link: domain.PerformanceLink{URL: "https://example.org/opening"}, DescriptionVerbatim: "Opening"},
+				{
+					Link:                domain.PerformanceLink{URL: "https://example.org/opening", Liveness: domain.LivenessUnknown},
+					DescriptionVerbatim: "Opening",
+				},
 			},
 			PerformancesTotal: 2,
 			Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionAttribution,
@@ -87,7 +92,7 @@ func testPerson() domain.Person {
 
 const testPersonBody = `{
 	"slug": "wren-of-the-vale", "name": "Wren of the Vale", "kind": "community_bard", "is_stub": false,
-	"status": "deceased", "status_date": "2025-03-01", "status_source_url": "https://example.org/notice",
+	"status": "deceased", "updated_at": "2026-10-01T09:00:00Z", "status_date": "2025-03-01", "status_source_url": "https://example.org/notice",
 	"profile": {
 		"pronouns": "she/her", "notes_md": "A bard.", "licensing_status": "known", "licensing_notes_md": "Sing freely.",
 		"aliases": [{"name": "Wren", "kind": "nickname"}],
@@ -113,10 +118,12 @@ const testPersonBody = `{
 			{"piece": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
 				"secondary_kinds": ["comedy"], "conservation_status": "low_risk", "is_stub": false},
 				"link": {"url": "https://video.example.org/watch/kettle", "title": "At the revel",
-					"platform": "video.example.org"},
+					"platform": "video.example.org", "liveness": "blocked",
+					"last_checked_at": "2026-10-01T09:00:00Z", "archived_url": "https://archive.example.org/kettle"},
 				"year": 2025, "event": {"slug": "the-green-hall", "name": "The Green Hall", "kind": "venue"},
 				"description_verbatim": "Wren sings the Kettle"},
-			{"piece": null, "link": {"url": "https://example.org/opening", "title": null, "platform": null},
+			{"piece": null, "link": {"url": "https://example.org/opening", "title": null, "platform": null,
+				"liveness": "unknown", "last_checked_at": null, "archived_url": null},
 				"year": null, "event": null, "description_verbatim": "Opening"}
 		],
 		"performances_total": 2,
@@ -132,11 +139,13 @@ func TestPersonGet_ServeHTTP(t *testing.T) {
 		PersonSummary: domain.PersonSummary{
 			Slug: testPersonSlug, Name: testPersonName, Kind: domain.PersonKindHistorical, IsStub: true,
 		},
-		Status: domain.PersonStatusPrefersNoPage,
+		Status:    domain.PersonStatusPrefersNoPage,
+		UpdatedAt: testRevisionCreatedAt,
 	}
 	emptyProfile := domain.Person{
 		PersonSummary: domain.PersonSummary{Slug: testPersonSlug, Name: testPersonName, Kind: domain.PersonKindGroup},
 		Status:        domain.PersonStatusActive,
+		UpdatedAt:     testRevisionCreatedAt,
 		Profile:       &domain.PersonProfile{LicensingStatus: domain.LicensingStatusUnknown},
 	}
 
@@ -153,7 +162,8 @@ func TestPersonGet_ServeHTTP(t *testing.T) {
 			person:     noPage,
 			wantStatus: http.StatusOK,
 			wantBody: `{"slug": "wren-of-the-vale", "name": "Wren of the Vale", "kind": "historical",
-				"is_stub": true, "status": "prefers_no_page", "status_date": null, "status_source_url": null,
+				"is_stub": true, "status": "prefers_no_page", "updated_at": "2026-10-01T09:00:00Z",
+				"status_date": null, "status_source_url": null,
 				"profile": null}`,
 		},
 		{
@@ -161,7 +171,7 @@ func TestPersonGet_ServeHTTP(t *testing.T) {
 			person:     emptyProfile,
 			wantStatus: http.StatusOK,
 			wantBody: `{"slug": "wren-of-the-vale", "name": "Wren of the Vale", "kind": "group", "is_stub": false,
-				"status": "active", "status_date": null, "status_source_url": null,
+				"status": "active", "updated_at": "2026-10-01T09:00:00Z", "status_date": null, "status_source_url": null,
 				"profile": {"pronouns": null, "notes_md": null, "licensing_status": "unknown",
 					"licensing_notes_md": null, "aliases": [], "roles": [], "affiliations": [], "relations": [],
 					"links": [], "works": [], "works_total": 0, "performances": [], "performances_total": 0, "preferences": []}}`,

@@ -120,6 +120,10 @@ const noPageBuskerName = "Leakmark Nopage Busker"
 
 const hiddenLinkURL = "https://example.org/leakmark-hidden-link"
 
+// hiddenArchiveURL is the archived copy of the hidden link, which the link checker found: no read shows it, as it
+// shows the link nowhere, in a performance or a citation either.
+const hiddenArchiveURL = "https://web.archive.org/web/1/leakmark-archive"
+
 // The no-page person's preference, which only their own profile would show, and they show none.
 const (
 	noPagePreferenceURL   = "https://example.org/leakmark-nopage-pref"
@@ -338,7 +342,8 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	}})
 	// Hidden after the documents above were written, and dead, so that needs-work would count it if it counted
 	// hidden links.
-	c.SetLinkState(hiddenLinkURL, catalogtest.LinkState{Liveness: domain.LivenessDead, IsHidden: true})
+	c.SetLinkState(hiddenLinkURL, catalogtest.LinkState{Liveness: domain.LivenessDead, IsHidden: true,
+		LastCheckedAt: new(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)), ArchivedURL: new(hiddenArchiveURL)})
 
 	// Unapproved and no-page entities referring to the public ones, seeded after them.
 	unapprovedEcho := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Leakmark Unapproved Echo",
@@ -692,8 +697,9 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
 			{path: historyPath("persons", fx.person.Slug), status: http.StatusOK, total: new(3)},
-			{path: historyPath("persons", fx.noPage.Slug), status: http.StatusOK},
-			{path: historyPath("persons", fx.turned.Slug), status: http.StatusOK},
+			// The history names its entity, as the entity's own page does: a no-page person's identity.
+			{path: historyPath("persons", fx.noPage.Slug), status: http.StatusOK, reveals: []string{fx.noPage.Slug, noPageName}},
+			{path: historyPath("persons", fx.turned.Slug), status: http.StatusOK, reveals: []string{fx.turned.Slug, turnedName}},
 			{path: historyPath("persons", fx.renamed.Slug), status: http.StatusOK},
 			{path: historyPath("persons", fx.unapprovedPerson.Slug), status: http.StatusNotFound},
 		}
@@ -971,6 +977,7 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 		// A user ID of revision authors, and a hidden link that is dead.
 		"SELECT COUNT(*) FROM revisions WHERE author_user_id LIKE '%leakmark%'",
 		"SELECT COUNT(*) FROM links WHERE is_hidden AND liveness = 'dead'",
+		"SELECT COUNT(*) FROM links WHERE is_hidden AND archived_url = '" + hiddenArchiveURL + "' AND last_checked_at IS NOT NULL",
 		// A public person performing on a link attached to a no-page person only, and on one attached to an
 		// unapproved person only.
 		performedOnHiddenAttachments + "'%Leakmark nopage busker%'",

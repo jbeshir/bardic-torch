@@ -82,6 +82,7 @@ type PieceSnapshot struct {
 	LicensingStatus       LicensingStatus
 	LicensingNotesMD      *string
 	Licence               *Licence
+	LicenceVersion        *LicenceVersion
 	HistoricalSourceMD    *string
 	PeriodStart           *int16
 	PeriodEnd             *int16
@@ -304,6 +305,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		LicensingStatus:       d.LicensingStatus,
 		LicensingNotesMD:      d.LicensingNotesMD,
 		Licence:               d.Licence,
+		LicenceVersion:        ShownLicenceVersion(d.Licence, d.LicenceVersion),
 		HistoricalSourceMD:    d.HistoricalSourceMD,
 		PeriodStart:           d.PeriodStart,
 		PeriodEnd:             d.PeriodEnd,

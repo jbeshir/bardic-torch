@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -23,6 +24,7 @@ type Collection struct {
 	CollectionSummary
 
 	DescriptionMD  *string                     `json:"description_md"`
+	UpdatedAt      time.Time                   `json:"updated_at"`
 	Enumerable     domain.CollectionEnumerable `json:"enumerable"`
 	Region         *TermSummary                `json:"region"`
 	Parent         *CollectionSummary          `json:"parent"`
@@ -33,12 +35,15 @@ type Collection struct {
 
 // Citation is the JSON representation of a link in a collection attached to a piece or person.
 type Citation struct {
-	Piece   *PieceSummary     `json:"piece"`
-	Person  *PersonSummary    `json:"person"`
-	URL     string            `json:"url"`
-	Title   *string           `json:"title"`
-	Locator *string           `json:"locator"`
-	Roles   []domain.LinkRole `json:"roles"`
+	Piece         *PieceSummary     `json:"piece"`
+	Person        *PersonSummary    `json:"person"`
+	URL           string            `json:"url"`
+	Title         *string           `json:"title"`
+	Locator       *string           `json:"locator"`
+	Liveness      domain.Liveness   `json:"liveness"`
+	LastCheckedAt *time.Time        `json:"last_checked_at"`
+	ArchivedURL   *string           `json:"archived_url"`
+	Roles         []domain.LinkRole `json:"roles"`
 }
 
 // CollectionGet handles GET /v1/collections/{collection_id}, a public collection's page. An unapproved
@@ -74,18 +79,22 @@ func collectionFromDomain(c domain.Collection) Collection {
 	return Collection{
 		CollectionSummary: collectionSummaryFromDomain(c.CollectionSummary),
 		DescriptionMD:     c.DescriptionMD,
+		UpdatedAt:         c.UpdatedAt,
 		Enumerable:        c.Enumerable,
 		Region:            optional(c.Region, termSummaryFromDomain),
 		Parent:            optional(c.Parent, collectionSummaryFromDomain),
 		Children:          mapSlice(c.Children, collectionSummaryFromDomain),
 		Citations: mapSlice(c.Citations, func(citation domain.Citation) Citation {
 			return Citation{
-				Piece:   optional(citation.Piece, pieceSummaryFromDomain),
-				Person:  optional(citation.Person, personSummaryFromDomain),
-				URL:     citation.URL,
-				Title:   citation.Title,
-				Locator: citation.Locator,
-				Roles:   nonNil(citation.Roles),
+				Piece:         optional(citation.Piece, pieceSummaryFromDomain),
+				Person:        optional(citation.Person, personSummaryFromDomain),
+				URL:           citation.URL,
+				Title:         citation.Title,
+				Locator:       citation.Locator,
+				Liveness:      citation.Liveness,
+				LastCheckedAt: citation.LastCheckedAt,
+				ArchivedURL:   citation.ArchivedURL,
+				Roles:         nonNil(citation.Roles),
 			}
 		}),
 		CitationsTotal: c.CitationsTotal,

@@ -185,14 +185,18 @@ func (c *catalogueReader) piece(ctx context.Context, slug string) domain.Piece {
 		}
 	}
 	hidden := c.hiddenSources(ctx, sources)
+	licence := nullEnumOf[domain.Licence](c, row.Licence.PiecesLicence, row.Licence.Valid)
+	version := nullEnumOf[domain.LicenceVersion](c, row.LicenceVersion.PiecesLicenceVersion, row.LicenceVersion.Valid)
 
 	return domain.Piece{
 		PieceSummary:        summary,
+		UpdatedAt:           row.UpdatedAt,
 		NotesMD:             stringPtr(row.NotesMd),
 		VersionNotesMD:      stringPtr(row.VersionNotesMd),
 		LicensingStatus:     enumOf[domain.LicensingStatus](c, row.LicensingStatus),
 		LicensingNotesMD:    stringPtr(row.LicensingNotesMd),
-		Licence:             nullEnumOf[domain.Licence](c, row.Licence.PiecesLicence, row.Licence.Valid),
+		Licence:             licence,
+		LicenceVersion:      domain.ShownLicenceVersion(licence, version),
 		HistoricalSourceMD:  stringPtr(row.HistoricalSourceMd),
 		PeriodStart:         int16Ptr(row.PeriodStart),
 		PeriodEnd:           int16Ptr(row.PeriodEnd),
@@ -351,8 +355,14 @@ func (c *catalogueReader) pieceCredits(rows []queries.ListPublicPieceCreditsRow)
 	return credits
 }
 
-// pieceRelations returns the outgoing relations, then the incoming ones. The two queries' rows have the same
-// columns.
+// relationKey identifies the other entity of a relation and its type: what a symmetric relation recorded on both
+// entities has in common as outgoing and incoming.
+type relationKey struct {
+	relationType, slug string
+}
+
+// pieceRelations returns the outgoing relations, then the incoming ones, except an incoming symmetric relation
+// that is also listed outgoing. The two queries' rows have the same columns.
 func (c *catalogueReader) pieceRelations(
 	kinds map[string][]domain.PieceKind,
 	to []queries.ListPublicPieceRelationsToRow,
@@ -366,10 +376,16 @@ func (c *catalogueReader) pieceRelations(
 			Piece:     c.pieceSummary(kinds, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub),
 		})
 	}
+	outgoing := make(map[relationKey]bool, len(to))
 	for _, row := range to {
 		add(row, domain.RelationDirectionOutgoing)
+		outgoing[relationKey{relationType: string(row.Type), slug: row.Slug}] = true
 	}
 	for _, row := range from {
+		if domain.PieceRelationType(row.Type).Symmetric() &&
+			outgoing[relationKey{relationType: string(row.Type), slug: row.Slug}] {
+			continue
+		}
 		add(queries.ListPublicPieceRelationsToRow(row), domain.RelationDirectionIncoming)
 	}
 
@@ -513,6 +529,7 @@ func (c *catalogueReader) person(ctx context.Context, slug string) domain.Person
 			IsStub: domain.PersonIsStub(row.IsStub, status),
 		},
 		Status:          status,
+		UpdatedAt:       row.UpdatedAt,
 		StatusDate:      timePtr(row.StatusDate),
 		StatusSourceURL: domain.ShownSource(stringPtr(row.StatusSourceUrl), hidden),
 	}
@@ -607,8 +624,8 @@ func (c *catalogueReader) affiliations(rows []queries.ListPublicPersonAffiliatio
 	return terms
 }
 
-// personRelations returns the outgoing relations, then the incoming ones. The two queries' rows have the same
-// columns.
+// personRelations returns the outgoing relations, then the incoming ones, except an incoming symmetric relation
+// that is also listed outgoing. The two queries' rows have the same columns.
 func (c *catalogueReader) personRelations(
 	to []queries.ListPublicPersonRelationsToRow, from []queries.ListPublicPersonRelationsFromRow,
 ) []domain.PersonRelation {
@@ -620,10 +637,16 @@ func (c *catalogueReader) personRelations(
 			Person:    c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub),
 		})
 	}
+	outgoing := make(map[relationKey]bool, len(to))
 	for _, row := range to {
 		add(row, domain.RelationDirectionOutgoing)
+		outgoing[relationKey{relationType: string(row.Type), slug: row.Slug}] = true
 	}
 	for _, row := range from {
+		if domain.PersonRelationType(row.Type).Symmetric() &&
+			outgoing[relationKey{relationType: string(row.Type), slug: row.Slug}] {
+			continue
+		}
 		add(queries.ListPublicPersonRelationsToRow(row), domain.RelationDirectionIncoming)
 	}
 
@@ -652,9 +675,8 @@ func (c *catalogueReader) personPerformances(
 	performances := make([]domain.PersonPerformance, 0, len(rows))
 	for _, row := range rows {
 		performance := domain.PersonPerformance{
-			Link: domain.PerformanceLink{
-				URL: row.Url, Title: stringPtr(row.Title), Platform: stringPtr(row.Platform),
-			},
+			Link: c.performanceLink(row.Url, row.Title, row.Platform, row.Liveness, row.LastCheckedAt,
+				row.ArchivedUrl),
 			Year:                int16Ptr(row.Year),
 			Event:               c.optionalEventSummary(row.EventSlug, row.EventName, row.EventKind),
 			DescriptionVerbatim: row.DescriptionVerbatim,
@@ -668,4 +690,15 @@ func (c *catalogueReader) personPerformances(
 	}
 
 	return performances
+}
+
+// performanceLink returns the link recording a performance, with what a check of it found.
+func (c *catalogueReader) performanceLink(
+	url string, title, platform sql.NullString, liveness queries.LinksLiveness, checkedAt sql.NullTime,
+	archivedURL sql.NullString,
+) domain.PerformanceLink {
+	return domain.PerformanceLink{
+		URL: url, Title: stringPtr(title), Platform: stringPtr(platform), Liveness: enumOf[domain.Liveness](c, liveness),
+		LastCheckedAt: timePtr(checkedAt), ArchivedURL: stringPtr(archivedURL),
+	}
 }

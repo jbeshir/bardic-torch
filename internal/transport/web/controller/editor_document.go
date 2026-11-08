@@ -82,8 +82,9 @@ func decodeEditorDocument[D domain.AnyEditorDocument](
 }
 
 // editorFieldsSent returns which of the editor fields added after a client may have been built raw, a valid editor
-// document of entityType, carries: a field is carried if its key is present with a value other than null. A
-// document type without such a field carries them all.
+// document of entityType, carries: preferences are carried if the key is present with a value other than null,
+// and a licence version if the key is present (null is a version too). A document type without a field carries
+// it.
 func editorFieldsSent(entityType domain.EntityType, raw json.RawMessage) domain.EditorFieldsSent {
 	if entityType != domain.EntityTypePiece && entityType != domain.EntityTypePerson {
 		return domain.AllEditorFieldsSent
@@ -93,8 +94,13 @@ func editorFieldsSent(entityType domain.EntityType, raw json.RawMessage) domain.
 		return domain.EditorFieldsSent{}
 	}
 	preferences, ok := fields["preferences"]
+	_, hasLicenceVersion := fields["licence_version"]
 
-	return domain.EditorFieldsSent{Preferences: ok && string(bytes.TrimSpace(preferences)) != "null"}
+	return domain.EditorFieldsSent{
+		Preferences: ok && string(bytes.TrimSpace(preferences)) != "null",
+		// A person has no licence version.
+		LicenceVersion: hasLicenceVersion || entityType == domain.EntityTypePerson,
+	}
 }
 
 // editorDocumentFromDomain returns doc in the editor format, with the slugs of refs, the references the caller

@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -14,6 +15,7 @@ type Term struct {
 	TermSummary
 
 	Name               string          `json:"name"`
+	UpdatedAt          time.Time       `json:"updated_at"`
 	DescriptionMD      *string         `json:"description_md"`
 	Aliases            []string        `json:"aliases"`
 	Ancestors          []TermSummary   `json:"ancestors"`
@@ -71,6 +73,7 @@ func termFromDomain(t domain.Term) Term {
 		TermSummary:   termSummaryFromDomain(t.TermSummary),
 		Name:          t.Name,
 		DescriptionMD: t.DescriptionMD,
+		UpdatedAt:     t.UpdatedAt,
 		Aliases:       nonNil(t.Aliases),
 		Ancestors:     mapSlice(t.Ancestors, termSummaryFromDomain),
 		Children: mapSlice(t.Children, func(child domain.TermChild) TermChild {

@@ -17,6 +17,7 @@ func testTerm() domain.Term {
 	return domain.Term{
 		TermSummary:   domain.TermSummary{Slug: testTermSlug, Facet: domain.FacetTopic, DisplayName: testTermName},
 		Name:          "War (Topic)",
+		UpdatedAt:     testRevisionCreatedAt,
 		DescriptionMD: new("Songs of war."),
 		Aliases:       []string{"Battle", "Strife"},
 		Ancestors: []domain.TermSummary{
@@ -43,6 +44,7 @@ func TestTermGet_ServeHTTP(t *testing.T) {
 	affiliation := domain.Term{
 		TermSummary: domain.TermSummary{Slug: testTermSlug, Facet: domain.FacetAffiliation, DisplayName: testTermName},
 		Name:        testTermName,
+		UpdatedAt:   testRevisionCreatedAt,
 		TermCounts:  domain.TermCounts{PersonCount: 1},
 		Persons: []domain.PersonSummary{
 			{Slug: testPersonSlug, Name: testPersonName, Kind: domain.PersonKindCommunityBard, IsStub: true},
@@ -65,6 +67,7 @@ func TestTermGet_ServeHTTP(t *testing.T) {
 			wantStatus: http.StatusOK,
 			wantBody: `{
 				"slug": "war", "facet": "topic", "name": "War (Topic)", "display_name": "War",
+				"updated_at": "2026-10-01T09:00:00Z",
 				"description_md": "Songs of war.", "aliases": ["Battle", "Strife"],
 				"ancestors": [{"slug": "conflict", "facet": "topic", "display_name": "Conflict"}],
 				"children": [{"term": {"slug": "swords", "facet": "topic", "display_name": "Swords"},
@@ -84,6 +87,7 @@ func TestTermGet_ServeHTTP(t *testing.T) {
 			wantStatus: http.StatusOK,
 			wantBody: `{
 				"slug": "war", "facet": "affiliation", "name": "War", "display_name": "War",
+				"updated_at": "2026-10-01T09:00:00Z",
 				"description_md": null, "aliases": [], "ancestors": [], "children": [], "related_affiliation": null,
 				"piece_count": 0, "person_count": 1, "pieces": [],
 				"persons": [{"slug": "wren-of-the-vale", "name": "Wren of the Vale", "kind": "community_bard",

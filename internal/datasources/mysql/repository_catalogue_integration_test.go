@@ -3,6 +3,7 @@
 package mysql_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -22,15 +23,17 @@ func TestMain(m *testing.M) { catalogtest.Main(m) }
 // unapproved terms (and an approved term under an unapproved parent), persons, pieces, collections and events;
 // a prefers_no_page person referenced from everywhere a person can be; a hidden alias; and a hidden link.
 type detailFixture struct {
-	kettle, pendingPiece           catalogtest.Ref
-	wren, ash, noPage, pendingWren catalogtest.Ref
-	prolific                       catalogtest.Ref
-	songbook                       catalogtest.Ref
+	kettle, pendingPiece, staleVersion catalogtest.Ref
+	wren, ash, noPage, pendingWren     catalogtest.Ref
+	prolific                           catalogtest.Ref
+	songbook                           catalogtest.Ref
 }
 
 // Fixture times; DATETIME and DATE columns are read back in UTC.
 var (
 	kettleCheckedAt = time.Date(2026, 9, 1, 8, 30, 0, 0, time.UTC)
+	// approvedAt is when the revisions of the entities the tests compare exactly were approved (setApprovedAt).
+	approvedAt      = time.Date(2026, 5, 6, 7, 8, 9, 0, time.UTC)
 	firstAssessment = time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)
 	reassessment    = time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 )
@@ -50,6 +53,20 @@ const (
 	kettleTitle      = "The Copper Kettle"
 	kettleVideoURL   = "https://example.org/kettle/video"
 )
+
+// What the link checker found of two links of the detail fixture.
+// hiddenArchive is the archive of a hidden link, which no read shows.
+const hiddenArchive = "https://web.archive.org/web/1/leakmark-archive"
+
+const (
+	kettleVideoArchive = "https://web.archive.org/web/20260101000000/https://example.org/kettle/video"
+	wrenPageArchive    = "https://web.archive.org/web/20260101000000/https://example.org/wren"
+)
+
+// setApprovedAt makes the approval of the entity ref the time at.
+func setApprovedAt(c *catalogtest.Catalog, ref catalogtest.Ref, at time.Time) {
+	c.Exec("UPDATE revisions SET created_at = ? WHERE id = ?", at, ref.RevisionID)
+}
 
 // manyItems is one more than a capped list holds.
 const manyItems = domain.MaxNestedListItems + 1
@@ -160,6 +177,7 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 			LicensingStatus:    domain.LicensingStatusKnown,
 			LicensingNotesMD:   new("Free with credit."),
 			Licence:            new(domain.LicenceCCBYSA),
+			LicenceVersion:     new(domain.LicenceVersion40),
 			HistoricalSourceMD: new("A broadside."),
 			PeriodStart:        new(int16(1580)),
 			PeriodEnd:          new(int16(1600)),
@@ -222,7 +240,22 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 				SourceURL: new("https://example.org/assessment"), At: firstAssessment},
 		},
 	})
-	c.SetLinkState("https://example.org/kettle/hidden", catalogtest.LinkState{IsHidden: true})
+	c.SetLinkState("https://example.org/kettle/hidden", catalogtest.LinkState{IsHidden: true,
+		Liveness: domain.LivenessDead, LastCheckedAt: &kettleCheckedAt, ArchivedURL: new(hiddenArchive)})
+	c.SetLinkState(kettleVideoURL, catalogtest.LinkState{Liveness: domain.LivenessOK, LastCheckedAt: &kettleCheckedAt,
+		ArchivedURL: new(kettleVideoArchive)})
+	c.SetLinkState(wrenURL, catalogtest.LinkState{Liveness: domain.LivenessBlocked, ArchivedURL: new(wrenPageArchive)})
+	setApprovedAt(c, kettle, approvedAt)
+	// A later pending revision is not an approval.
+	c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: kettle.ID,
+		Snapshot: domain.PieceDocument{Title: "The Copper Kettle, Revised"}, Status: domain.RevisionStatusPending,
+		CreatedAt: approvedAt.Add(time.Hour)})
+	// A version left in the column by a licence change an earlier release made.
+	staleVersion := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Stale Kettle",
+		LicensingStatus: domain.LicensingStatusKnown, Licence: new(domain.LicenceARR),
+		LicenceVersion: new(domain.LicenceVersion30)}})
+	setApprovedAt(c, wren, approvedAt)
+	setApprovedAt(c, noPage, approvedAt)
 	c.SetLinkState("https://example.org/kettle/archive", catalogtest.LinkState{Liveness: domain.LivenessDead,
 		LastCheckedAt: &kettleCheckedAt, ArchivedURL: new("https://archive.example.org/kettle")})
 	// Position, not insertion order, orders credits and links: reverse the credits, and move the archive link in
@@ -248,7 +281,7 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 					PerformerIDs: []int64{wren.ID}}}}}}}})
 
 	return detailFixture{
-		kettle: kettle, pendingPiece: pendingPiece,
+		kettle: kettle, pendingPiece: pendingPiece, staleVersion: staleVersion,
 		wren: wren, ash: ash, noPage: noPage, pendingWren: pendingWren,
 		prolific: seedProlific(c), songbook: songbook,
 	}
@@ -308,11 +341,13 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 	tune := domain.PiecePartTune
 	assert.Equal(t, domain.Piece{
 		PieceSummary:       kettleSummary,
+		UpdatedAt:          approvedAt,
 		NotesMD:            new("A drinking song."),
 		VersionNotesMD:     new("Two verses."),
 		LicensingStatus:    domain.LicensingStatusKnown,
 		LicensingNotesMD:   new("Free with credit."),
 		Licence:            new(domain.LicenceCCBYSA),
+		LicenceVersion:     new(domain.LicenceVersion40),
 		HistoricalSourceMD: new("A broadside."),
 		PeriodStart:        new(int16(1580)),
 		PeriodEnd:          new(int16(1600)),
@@ -354,8 +389,9 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 					Description: new("A recording."), Platform: new("example.org"),
 					PlaceType:  new(domain.LinkPlaceTypeRecordingPlatform),
 					Collection: &domain.CollectionRef{ID: fx.songbook.ID, Name: "The Northmarch Songbook"},
-					Locator:    new("p. 12"), Liveness: domain.LivenessUnknown,
-					Roles: []domain.LinkRole{domain.LinkRolePerformance, domain.LinkRoleLyrics},
+					Locator:    new("p. 12"), Liveness: domain.LivenessOK, LastCheckedAt: &kettleCheckedAt,
+					ArchivedURL: new(kettleVideoArchive),
+					Roles:       []domain.LinkRole{domain.LinkRolePerformance, domain.LinkRoleLyrics},
 				},
 				Performances: []domain.PiecePerformance{
 					{
@@ -403,6 +439,7 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 
 	assert.Equal(t, domain.Person{
 		PersonSummary: wrenSummary,
+		UpdatedAt:     approvedAt,
 		Status:        domain.PersonStatusActive,
 		Profile: &domain.PersonProfile{
 			Pronouns:         new("she/her"),
@@ -424,8 +461,8 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 				{Type: domain.PersonRelationTypeHeirOf, Direction: domain.RelationDirectionIncoming,
 					Person: domain.PersonSummary{Slug: "ash-tallow", Name: "Ash Tallow", Kind: domain.PersonKindHistorical}},
 			},
-			Links: []domain.Link{{URL: wrenURL, Title: new("Wren's songs"),
-				Liveness: domain.LivenessUnknown, Roles: []domain.LinkRole{domain.LinkRoleWebsite}}},
+			Links: []domain.Link{{URL: wrenURL, Title: new("Wren's songs"), Liveness: domain.LivenessBlocked,
+				ArchivedURL: new(wrenPageArchive), Roles: []domain.LinkRole{domain.LinkRoleWebsite}}},
 			Works: []domain.PersonWork{
 				{Piece: brassSummary, Role: domain.CreditRoleAuthor, Certainty: domain.CertaintyCertain},
 				{Piece: kettleSummary, Role: domain.CreditRoleLyrics, Certainty: domain.CertaintyCertain},
@@ -435,14 +472,16 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 				{
 					Piece: &kettleSummary,
 					Link: domain.PerformanceLink{URL: kettleVideoURL, Title: new("At the revel"),
-						Platform: new("example.org")},
+						Platform: new("example.org"), Liveness: domain.LivenessOK, LastCheckedAt: &kettleCheckedAt,
+						ArchivedURL: new(kettleVideoArchive)},
 					Year: new(int16(2025)),
 					Event: &domain.EventSummary{Slug: revelSlug, Name: revelName,
 						Kind: domain.EventKindEvent},
 					DescriptionVerbatim: revelPerformance,
 				},
 				{
-					Link:                domain.PerformanceLink{URL: wrenURL, Title: new("Wren's songs")},
+					Link: domain.PerformanceLink{URL: wrenURL, Title: new("Wren's songs"), Liveness: domain.LivenessBlocked,
+						ArchivedURL: new(wrenPageArchive)},
 					Year:                new(int16(2024)),
 					DescriptionVerbatim: "Wren at the fair",
 				},
@@ -477,6 +516,7 @@ func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
 
 	assert.Equal(t, domain.Person{
 		PersonSummary:   domain.PersonSummary{Slug: "hollis-fenn", Name: hollisName, Kind: domain.PersonKindCommunityBard, IsStub: true},
+		UpdatedAt:       approvedAt,
 		Status:          domain.PersonStatusPrefersNoPage,
 		StatusDate:      new(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)),
 		StatusSourceURL: new("https://example.org/requests/12"),
@@ -568,4 +608,64 @@ func TestRepository_GetPublicPiece_RestrictedKeepsLinks(t *testing.T) {
 	assert.Equal(t, linkURL, piece.Links[0].URL)
 	require.Len(t, piece.ConservationHistory, 1)
 	assert.Equal(t, source, piece.ConservationHistory[0].SourceURL, "the newest restricted entry holds the source")
+}
+
+// TestRepository_GetPublicPiece_UpdatedAt checks that a piece was updated when its current revision was approved,
+// whatever later revisions are pending.
+func TestRepository_GetPublicPiece_UpdatedAt(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	piece, err := repo.GetPublicPiece(t.Context(), fx.kettle.Slug)
+	require.NoError(t, err)
+	assert.Equal(t, approvedAt, piece.UpdatedAt)
+}
+
+// TestRepository_GetPublicPerson_UpdatedAt checks the same of persons, including one who prefers no page.
+func TestRepository_GetPublicPerson_UpdatedAt(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	for _, ref := range []catalogtest.Ref{fx.wren, fx.noPage} {
+		person, err := repo.GetPublicPerson(t.Context(), ref.Slug)
+		require.NoError(t, err)
+		assert.Equal(t, approvedAt, person.UpdatedAt, ref.Slug)
+	}
+}
+
+// TestRepository_GetPublicPiece_StaleLicenceVersionHidden checks that a version stored beside a licence that has
+// none, as a licence change by an earlier release leaves it, is not shown.
+func TestRepository_GetPublicPiece_StaleLicenceVersionHidden(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	piece, err := repo.GetPublicPiece(t.Context(), fx.staleVersion.Slug)
+	require.NoError(t, err)
+	assert.Equal(t, new(domain.LicenceARR), piece.Licence)
+	assert.Nil(t, piece.LicenceVersion)
+}
+
+// TestRepository_PerformanceLinkLiveness checks that the link of a performance on a person's page carries what the
+// link checker found, and that the archive of a hidden link, whose performance is left out, is shown nowhere.
+func TestRepository_PerformanceLinkLiveness(t *testing.T) {
+	t.Parallel()
+
+	repo, fx := detailRepository(t)
+	person, err := repo.GetPublicPerson(t.Context(), fx.wren.Slug)
+	require.NoError(t, err)
+
+	require.Len(t, person.Profile.Performances, 2)
+	assert.Equal(t, domain.PerformanceLink{URL: kettleVideoURL, Title: new("At the revel"), Platform: new("example.org"),
+		Liveness: domain.LivenessOK, LastCheckedAt: &kettleCheckedAt, ArchivedURL: new(kettleVideoArchive)},
+		person.Profile.Performances[0].Link)
+	assert.Equal(t, domain.PerformanceLink{URL: wrenURL, Title: new("Wren's songs"), Liveness: domain.LivenessBlocked,
+		ArchivedURL: new(wrenPageArchive)}, person.Profile.Performances[1].Link)
+
+	piece, err := repo.GetPublicPiece(t.Context(), fx.kettle.Slug)
+	require.NoError(t, err)
+	for _, read := range []any{person, piece} {
+		encoded, err := json.Marshal(read)
+		require.NoError(t, err)
+		assert.NotContains(t, string(encoded), hiddenArchive)
+	}
 }

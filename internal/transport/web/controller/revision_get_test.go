@@ -44,6 +44,7 @@ func testPieceSnapshot() domain.PieceSnapshot {
 		LicensingStatus:       domain.LicensingStatusKnown,
 		LicensingNotesMD:      new("Free to sing."),
 		Licence:               new(domain.LicenceCCBY),
+		LicenceVersion:        new(domain.LicenceVersion40),
 		HistoricalSourceMD:    new("A broadside."),
 		PeriodStart:           new(int16(1580)),
 		PeriodEnd:             new(int16(1600)),
@@ -81,7 +82,8 @@ func testPieceSnapshotJSON(title, credits string) string {
 	return fmt.Sprintf(`{"title": %q, "kind": "song", "secondary_kinds": ["dance_music"],
 		"conservation_status": "endangered", "conservation_source_url": "https://example.org/assessment",
 		"is_stub": true, "notes_md": "Notes", "version_notes_md": "Versions", "licensing_status": "known",
-		"licensing_notes_md": "Free to sing.", "licence": "cc_by", "historical_source_md": "A broadside.",
+		"licensing_notes_md": "Free to sing.", "licence": "cc_by", "licence_version": "4.0",
+		"historical_source_md": "A broadside.",
 		"period_start": 1580, "period_end": 1600,
 		"aliases": [{"text": "Kettle Song", "kind": "nickname"}],
 		"terms": [{"term": {"slug": "war", "facet": "topic", "display_name": "War"}, "is_primary": true, "part": null}],
@@ -408,7 +410,8 @@ func TestChangedFields(t *testing.T) {
 		{name: "everything", got: func() ([]string, error) { return changedFields(piece, &emptyPiece) },
 			want: []string{
 				"aliases", "conservation_source_url", "conservation_status", "credits", "historical_source_md",
-				"is_stub", "kind", "licence", "licensing_notes_md", "licensing_status", "links", "notes_md",
+				"is_stub", "kind", "licence", "licence_version", "licensing_notes_md", "licensing_status", "links",
+				"notes_md",
 				"period_end", "period_start", "relations", "secondary_kinds", "terms", "title", "version_notes_md",
 			}},
 	} {

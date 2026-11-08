@@ -84,6 +84,7 @@ pieces.version_notes_md                = version_notes_md
 pieces.licensing_notes_md              = licensing_notes_md
 pieces.licensing_status                = licensing_status
 pieces.licence                         = licence
+pieces.licence_version                 = licence_version
 pieces.historical_source_md            = historical_source_md
 pieces.period_start                    = period_start
 pieces.period_end                      = period_end

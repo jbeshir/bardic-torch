@@ -252,7 +252,7 @@ func TestMerge_ConflictValues(t *testing.T) {
 	_, conflicts = MergeDocuments(base, edit(base, func(d *PieceDocument) { d.LicensingNotesMD = ptr("Ask.") }),
 		edit(base, func(d *PieceDocument) { d.LicensingStatus = LicensingStatusKnown }))
 	require.Len(t, conflicts, 1)
-	assert.JSONEq(t, `{"licensing_status":"unknown","licence":null,"licensing_notes_md":null}`,
+	assert.JSONEq(t, `{"licensing_status":"unknown","licence":null,"licence_version":null,"licensing_notes_md":null}`,
 		string(conflicts[0].Base), "a group is an object of its fields")
 }
 

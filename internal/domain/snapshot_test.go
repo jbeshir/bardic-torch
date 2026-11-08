@@ -85,6 +85,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 		NotesMD:         new("Notes"),
 		LicensingStatus: LicensingStatusKnown,
 		Licence:         new(LicenceCCBY),
+		LicenceVersion:  new(LicenceVersion40),
 		PeriodStart:     new(int16(1580)),
 		Aliases:         []DocPieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindNickname}},
 		Terms: []DocPieceTerm{
@@ -142,6 +143,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 		NotesMD:               new("Notes"),
 		LicensingStatus:       LicensingStatusKnown,
 		Licence:               new(LicenceCCBY),
+		LicenceVersion:        new(LicenceVersion40),
 		PeriodStart:           new(int16(1580)),
 		Aliases:               []PieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindNickname}},
 		Terms:                 []PieceTerm{{Term: war, Part: new(PiecePartWords)}},

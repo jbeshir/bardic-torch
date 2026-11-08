@@ -66,11 +66,15 @@ const (
 // Piece is a public piece with everything its page shows.
 type Piece struct {
 	PieceSummary
-	NotesMD            *string
-	VersionNotesMD     *string
-	LicensingStatus    LicensingStatus
-	LicensingNotesMD   *string
-	Licence            *Licence
+	// UpdatedAt is when the piece's current revision was approved.
+	UpdatedAt        time.Time
+	NotesMD          *string
+	VersionNotesMD   *string
+	LicensingStatus  LicensingStatus
+	LicensingNotesMD *string
+	Licence          *Licence
+	// LicenceVersion is the version of Licence, nil unless it is a Creative Commons licence (ShownLicenceVersion).
+	LicenceVersion     *LicenceVersion
 	HistoricalSourceMD *string
 	PeriodStart        *int16
 	PeriodEnd          *int16
@@ -168,6 +172,8 @@ type ConservationChange struct {
 // the identity is shown.
 type Person struct {
 	PersonSummary
+	// UpdatedAt is when the person's current revision was approved.
+	UpdatedAt  time.Time
 	Status     PersonStatus
 	StatusDate *time.Time
 	// StatusSourceURL is nil when the source is a hidden link, or does not normalize (ShownSource).
@@ -240,9 +246,12 @@ type PersonPerformance struct {
 
 // PerformanceLink is the link recording a performance, as a person's or event's page shows it.
 type PerformanceLink struct {
-	URL      string
-	Title    *string
-	Platform *string
+	URL           string
+	Title         *string
+	Platform      *string
+	Liveness      Liveness
+	LastCheckedAt *time.Time
+	ArchivedURL   *string
 }
 
 // Page is the window of a paginated list to return: at most Limit items, after skipping Offset.
@@ -280,6 +289,8 @@ type TermCounts struct {
 // Term is a public term's page.
 type Term struct {
 	TermSummary
+	// UpdatedAt is when the term's current revision was approved.
+	UpdatedAt     time.Time
 	Name          string
 	DescriptionMD *string
 	Aliases       []string
@@ -316,6 +327,8 @@ type CollectionSummary struct {
 // Collection is a public collection's page.
 type Collection struct {
 	CollectionSummary
+	// UpdatedAt is when the collection's current revision was approved.
+	UpdatedAt     time.Time
 	DescriptionMD *string
 	Enumerable    CollectionEnumerable
 	// Region is the collection's public region term, if any.
@@ -333,11 +346,14 @@ type Collection struct {
 
 // Citation is a link in a collection attached to a piece or person: exactly one of Piece and Person is set.
 type Citation struct {
-	Piece   *PieceSummary
-	Person  *PersonSummary
-	URL     string
-	Title   *string
-	Locator *string
+	Piece         *PieceSummary
+	Person        *PersonSummary
+	URL           string
+	Title         *string
+	Locator       *string
+	Liveness      Liveness
+	LastCheckedAt *time.Time
+	ArchivedURL   *string
 	// Roles are the roles the link is attached to the piece or person with, in attachment order.
 	Roles []LinkRole
 }
@@ -351,6 +367,8 @@ type EventList struct {
 // Event is a public event's or venue's page.
 type Event struct {
 	EventSummary
+	// UpdatedAt is when the event's current revision was approved.
+	UpdatedAt     time.Time
 	DescriptionMD *string
 	// Performances are the performances at the event on visible links, newest year first (unknown years last),
 	// at most MaxNestedListItems. A performance of a piece that is not public is left out, as is one whose link
