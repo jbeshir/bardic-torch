@@ -34,7 +34,7 @@ func TestNewHTTPHandler_UserBlockedRouteTargets(t *testing.T) {
 				m.users.EXPECT().GetUser(mock.Anything, targetID).Return(storedUser(targetID), nil)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   `{"id":"google-oauth2|123","display_name":"Morwen","role":"contributor"}`,
+			wantBody:   `{"id":"google-oauth2|123","public_id":"k3vq7xw2mbnc4zra","display_name":"Morwen","role":"contributor"}`,
 		},
 		{
 			// Clients that send "|" unencoded reach the same user.
@@ -47,7 +47,7 @@ func TestNewHTTPHandler_UserBlockedRouteTargets(t *testing.T) {
 				m.users.EXPECT().GetUser(mock.Anything, targetID).Return(storedUser(targetID), nil)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   `{"id":"google-oauth2|123","display_name":"Morwen","role":"contributor"}`,
+			wantBody:   `{"id":"google-oauth2|123","public_id":"k3vq7xw2mbnc4zra","display_name":"Morwen","role":"contributor"}`,
 		},
 		{
 			// An encoded "/" stays inside the ID rather than splitting the path.

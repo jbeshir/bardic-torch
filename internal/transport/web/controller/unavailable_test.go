@@ -39,6 +39,7 @@ func failing[Req, Res any](t *testing.T) commandFunc[Req, Res] {
 var unavailablePathValues = map[string]string{
 	slugVar: testPieceSlug, collectionIDVar: "12", revisionIDVar: "51", draftIDVar: "51", reportIDVar: "3",
 	requestIDVar: "12", linkIDVar: "7", "user_id": "google-oauth2|456", "token_id": revokedUUID,
+	publicIDVar: testPublicID,
 }
 
 // The path variables of the moderation inboxes and links, and the UUID of the API token revoked.
@@ -258,6 +259,28 @@ func unavailableRevisionRows() []unavailableRow {
 			body: `{"url":"` + testLinkURL + `","reason":"broken","message":null}`,
 			handler: func(t *testing.T) http.Handler {
 				return LinkReportCreate{Command: failing[command.ReportLinkRequest, command.ReportedLink](t)}
+			}},
+		unavailableRow{op: op(http.MethodGet, "/v1/me/repertoire"), handler: func(t *testing.T) http.Handler {
+			return MyRepertoireList{Command: failing[command.RepertoireListRequest, domain.RepertoireList](t)}
+		}},
+		unavailableRow{op: op(http.MethodGet, "/v1/me/repertoire/{slug}"), handler: func(t *testing.T) http.Handler {
+			return MyRepertoireEntryGet{Command: failing[command.RepertoireEntryRequest, domain.RepertoireEntry](t)}
+		}},
+		unavailableRow{op: op(http.MethodPut, "/v1/me/repertoire/{slug}"), body: `{"notes":null,"visibility":"public"}`,
+			handler: func(t *testing.T) http.Handler {
+				return MyRepertoireEntryPut{
+					Command: failing[command.PutRepertoireEntryRequest, command.PutRepertoireEntryResult](t),
+				}
+			}},
+		unavailableRow{op: op(http.MethodDelete, "/v1/me/repertoire/{slug}"), handler: func(t *testing.T) http.Handler {
+			return MyRepertoireEntryDelete{Command: failing[command.RepertoireEntryRequest, command.Empty](t)}
+		}},
+		unavailableRow{op: op(http.MethodGet, "/v1/users/{public_id}/repertoire"),
+			handler: func(t *testing.T) http.Handler {
+				l := mocks.NewPublicRepertoireLister(t)
+				l.EXPECT().ListPublicRepertoire(mock.Anything, testPublicID, mock.Anything).
+					Return(domain.PublicRepertoire{}, errDatabaseUnavailable)
+				return PublicRepertoireGet{Lister: l}
 			}},
 	)
 }

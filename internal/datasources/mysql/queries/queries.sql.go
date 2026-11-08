@@ -408,6 +408,61 @@ func (q *Queries) CountPublicPersonWorks(ctx context.Context, personID sql.NullI
 	return count, err
 }
 
+const countPublicRepertoire = `-- name: CountPublicRepertoire :one
+SELECT COUNT(*)
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = ? AND r.visibility = 'public' AND p.current_revision_id IS NOT NULL
+`
+
+func (q *Queries) CountPublicRepertoire(ctx context.Context, userID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPublicRepertoire, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRepertoire = `-- name: CountRepertoire :one
+SELECT COUNT(*)
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = ? AND p.current_revision_id IS NOT NULL
+    AND (? IS NULL OR r.visibility = ?)
+`
+
+type CountRepertoireParams struct {
+	UserID     string
+	Visibility NullRepertoireVisibility
+}
+
+func (q *Queries) CountRepertoire(ctx context.Context, arg CountRepertoireParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRepertoire, arg.UserID, arg.Visibility, arg.Visibility)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRepertoireEntries = `-- name: CountRepertoireEntries :one
+
+SELECT COUNT(*)
+FROM repertoire
+WHERE user_id = ?
+`
+
+// ============================================
+// Repertoire
+//
+// A user's own entries of public pieces. Notes are private to their owner: the public queries never select them.
+// A write locks the owner's users row first, then reads and writes the owner's rows (the foreign key check takes a
+// shared lock on the pieces row). Both lists order by when an entry was added, newest first, then by piece ID.
+// ============================================
+func (q *Queries) CountRepertoireEntries(ctx context.Context, userID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRepertoireEntries, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUserActiveAPITokens = `-- name: CountUserActiveAPITokens :one
 SELECT COUNT(*)
 FROM api_tokens
@@ -656,6 +711,24 @@ DELETE FROM piece_terms WHERE piece_id = ?
 func (q *Queries) DeletePieceTerms(ctx context.Context, pieceID uint64) error {
 	_, err := q.db.ExecContext(ctx, deletePieceTerms, pieceID)
 	return err
+}
+
+const deleteRepertoireEntry = `-- name: DeleteRepertoireEntry :execrows
+DELETE FROM repertoire
+WHERE user_id = ? AND piece_id = ?
+`
+
+type DeleteRepertoireEntryParams struct {
+	UserID  string
+	PieceID uint64
+}
+
+func (q *Queries) DeleteRepertoireEntry(ctx context.Context, arg DeleteRepertoireEntryParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteRepertoireEntry, arg.UserID, arg.PieceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteTermAliases = `-- name: DeleteTermAliases :exec
@@ -1483,6 +1556,68 @@ func (q *Queries) GetPublicTermID(ctx context.Context, slug string) (uint64, err
 	return id, err
 }
 
+const getRepertoireEntry = `-- name: GetRepertoireEntry :one
+SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub, r.notes, r.visibility, r.added_at, r.updated_at
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = ? AND p.slug = ? AND p.current_revision_id IS NOT NULL
+`
+
+type GetRepertoireEntryParams struct {
+	UserID string
+	Slug   string
+}
+
+type GetRepertoireEntryRow struct {
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+	Notes              sql.NullString
+	Visibility         RepertoireVisibility
+	AddedAt            time.Time
+	UpdatedAt          time.Time
+}
+
+func (q *Queries) GetRepertoireEntry(ctx context.Context, arg GetRepertoireEntryParams) (GetRepertoireEntryRow, error) {
+	row := q.db.QueryRowContext(ctx, getRepertoireEntry, arg.UserID, arg.Slug)
+	var i GetRepertoireEntryRow
+	err := row.Scan(
+		&i.Slug,
+		&i.Title,
+		&i.Kind,
+		&i.ConservationStatus,
+		&i.IsStub,
+		&i.Notes,
+		&i.Visibility,
+		&i.AddedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRepertoireOwner = `-- name: GetRepertoireOwner :one
+
+SELECT id, display_name, role
+FROM users
+WHERE public_id = ? AND blocked_at IS NULL
+`
+
+type GetRepertoireOwnerRow struct {
+	ID          string
+	DisplayName string
+	Role        UsersRole
+}
+
+// The owner of a public repertoire, by public ID: a blocked user has none.
+func (q *Queries) GetRepertoireOwner(ctx context.Context, publicID sql.NullString) (GetRepertoireOwnerRow, error) {
+	row := q.db.QueryRowContext(ctx, getRepertoireOwner, publicID)
+	var i GetRepertoireOwnerRow
+	err := row.Scan(&i.ID, &i.DisplayName, &i.Role)
+	return i, err
+}
+
 const getRevision = `-- name: GetRevision :one
 SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.submitted_base_revision_id, r.author_user_id, r.source,
     r.status, r.snapshot_json, r.submitted_snapshot_json, r.flags_json, r.received_keys_json, r.summary,
@@ -1546,13 +1681,14 @@ func (q *Queries) GetRevision(ctx context.Context, id uint64) (GetRevisionRow, e
 
 const getUser = `-- name: GetUser :one
 
-SELECT id, display_name, role, created_at, blocked_at
+SELECT id, public_id, display_name, role, created_at, blocked_at
 FROM users
 WHERE id = ?
 `
 
 type GetUserRow struct {
 	ID          string
+	PublicID    sql.NullString
 	DisplayName string
 	Role        UsersRole
 	CreatedAt   time.Time
@@ -1567,6 +1703,7 @@ func (q *Queries) GetUser(ctx context.Context, id string) (GetUserRow, error) {
 	var i GetUserRow
 	err := row.Scan(
 		&i.ID,
+		&i.PublicID,
 		&i.DisplayName,
 		&i.Role,
 		&i.CreatedAt,
@@ -2389,6 +2526,32 @@ func (q *Queries) InsertPieceTerm(ctx context.Context, arg InsertPieceTermParams
 		arg.IsPrimary,
 		arg.Part,
 		arg.Position,
+	)
+	return err
+}
+
+const insertRepertoireEntry = `-- name: InsertRepertoireEntry :exec
+INSERT INTO repertoire (user_id, piece_id, notes, visibility, added_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type InsertRepertoireEntryParams struct {
+	UserID     string
+	PieceID    uint64
+	Notes      sql.NullString
+	Visibility RepertoireVisibility
+	AddedAt    time.Time
+	UpdatedAt  time.Time
+}
+
+func (q *Queries) InsertRepertoireEntry(ctx context.Context, arg InsertRepertoireEntryParams) error {
+	_, err := q.db.ExecContext(ctx, insertRepertoireEntry,
+		arg.UserID,
+		arg.PieceID,
+		arg.Notes,
+		arg.Visibility,
+		arg.AddedAt,
+		arg.UpdatedAt,
 	)
 	return err
 }
@@ -5786,6 +5949,60 @@ func (q *Queries) ListPublicPiecesByID(ctx context.Context, ids []uint64) ([]Lis
 	return items, nil
 }
 
+const listPublicRepertoire = `-- name: ListPublicRepertoire :many
+SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub, r.added_at
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = ? AND r.visibility = 'public' AND p.current_revision_id IS NOT NULL
+ORDER BY r.added_at DESC, r.piece_id DESC
+LIMIT ? OFFSET ?
+`
+
+type ListPublicRepertoireParams struct {
+	UserID string
+	Limit  int32
+	Offset int32
+}
+
+type ListPublicRepertoireRow struct {
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+	AddedAt            time.Time
+}
+
+func (q *Queries) ListPublicRepertoire(ctx context.Context, arg ListPublicRepertoireParams) ([]ListPublicRepertoireRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicRepertoire, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicRepertoireRow
+	for rows.Next() {
+		var i ListPublicRepertoireRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Title,
+			&i.Kind,
+			&i.ConservationStatus,
+			&i.IsStub,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPublicTermChildren = `-- name: ListPublicTermChildren :many
 SELECT t.id, t.slug, t.facet, t.display_name
 FROM public_terms t
@@ -6117,6 +6334,74 @@ func (q *Queries) ListPublicTermsByID(ctx context.Context, ids []uint64) ([]List
 	return items, nil
 }
 
+const listRepertoire = `-- name: ListRepertoire :many
+SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub, r.notes, r.visibility, r.added_at, r.updated_at
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = ? AND p.current_revision_id IS NOT NULL
+    AND (? IS NULL OR r.visibility = ?)
+ORDER BY r.added_at DESC, r.piece_id DESC
+LIMIT ? OFFSET ?
+`
+
+type ListRepertoireParams struct {
+	UserID     string
+	Visibility NullRepertoireVisibility
+	Limit      int32
+	Offset     int32
+}
+
+type ListRepertoireRow struct {
+	Slug               string
+	Title              string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+	Notes              sql.NullString
+	Visibility         RepertoireVisibility
+	AddedAt            time.Time
+	UpdatedAt          time.Time
+}
+
+func (q *Queries) ListRepertoire(ctx context.Context, arg ListRepertoireParams) ([]ListRepertoireRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRepertoire,
+		arg.UserID,
+		arg.Visibility,
+		arg.Visibility,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRepertoireRow
+	for rows.Next() {
+		var i ListRepertoireRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Title,
+			&i.Kind,
+			&i.ConservationStatus,
+			&i.IsStub,
+			&i.Notes,
+			&i.Visibility,
+			&i.AddedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRevisionContributors = `-- name: ListRevisionContributors :many
 SELECT revision_id, name
 FROM revision_contributors
@@ -6314,6 +6599,36 @@ func (q *Queries) ListUserActiveAPITokens(ctx context.Context, userID string) ([
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsersWithoutPublicID = `-- name: ListUsersWithoutPublicID :many
+SELECT id
+FROM users
+WHERE public_id IS NULL
+ORDER BY created_at, id
+`
+
+func (q *Queries) ListUsersWithoutPublicID(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listUsersWithoutPublicID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -6605,6 +6920,26 @@ func (q *Queries) RejectRevisionRow(ctx context.Context, arg RejectRevisionRowPa
 	return result.RowsAffected()
 }
 
+const repertoireEntryExists = `-- name: RepertoireEntryExists :one
+SELECT EXISTS (
+    SELECT 1
+    FROM repertoire
+    WHERE user_id = ? AND piece_id = ?
+)
+`
+
+type RepertoireEntryExistsParams struct {
+	UserID  string
+	PieceID uint64
+}
+
+func (q *Queries) RepertoireEntryExists(ctx context.Context, arg RepertoireEntryExistsParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, repertoireEntryExists, arg.UserID, arg.PieceID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const resolveContactRequest = `-- name: ResolveContactRequest :execrows
 UPDATE contact_requests
 SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
@@ -6844,6 +7179,25 @@ type SetMissingDisplayNameKeyParams struct {
 // index refuses, leaves it NULL without refusing the user. Only a user still named name with no key matches.
 func (q *Queries) SetMissingDisplayNameKey(ctx context.Context, arg SetMissingDisplayNameKeyParams) error {
 	_, err := q.db.ExecContext(ctx, setMissingDisplayNameKey, arg.DisplayNameKey, arg.ID, arg.DisplayName)
+	return err
+}
+
+const setUserPublicIDIfMissing = `-- name: SetUserPublicIDIfMissing :exec
+
+UPDATE users
+SET public_id = ?
+WHERE id = ? AND public_id IS NULL
+`
+
+type SetUserPublicIDIfMissingParams struct {
+	PublicID sql.NullString
+	ID       string
+}
+
+// A user's public ID, set after the insert of a new user, and by the startup backfill for users created without
+// one; only a user with none matches, so a public ID once given never changes.
+func (q *Queries) SetUserPublicIDIfMissing(ctx context.Context, arg SetUserPublicIDIfMissingParams) error {
+	_, err := q.db.ExecContext(ctx, setUserPublicIDIfMissing, arg.PublicID, arg.ID)
 	return err
 }
 
@@ -7294,6 +7648,31 @@ func (q *Queries) UpdatePieceFromDocument(ctx context.Context, arg UpdatePieceFr
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateRepertoireEntry = `-- name: UpdateRepertoireEntry :exec
+UPDATE repertoire
+SET notes = ?, visibility = ?, updated_at = ?
+WHERE user_id = ? AND piece_id = ?
+`
+
+type UpdateRepertoireEntryParams struct {
+	Notes      sql.NullString
+	Visibility RepertoireVisibility
+	UpdatedAt  time.Time
+	UserID     string
+	PieceID    uint64
+}
+
+func (q *Queries) UpdateRepertoireEntry(ctx context.Context, arg UpdateRepertoireEntryParams) error {
+	_, err := q.db.ExecContext(ctx, updateRepertoireEntry,
+		arg.Notes,
+		arg.Visibility,
+		arg.UpdatedAt,
+		arg.UserID,
+		arg.PieceID,
+	)
+	return err
 }
 
 const updateTermFromDocument = `-- name: UpdateTermFromDocument :execrows

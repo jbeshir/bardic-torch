@@ -3,7 +3,7 @@
 -- ============================================
 
 -- name: GetUser :one
-SELECT id, display_name, role, created_at, blocked_at
+SELECT id, public_id, display_name, role, created_at, blocked_at
 FROM users
 WHERE id = ?;
 
@@ -39,6 +39,20 @@ ORDER BY created_at, id;
 UPDATE users
 SET display_name_key = ?
 WHERE id = ?;
+
+-- A user's public ID, set after the insert of a new user, and by the startup backfill for users created without
+-- one; only a user with none matches, so a public ID once given never changes.
+
+-- name: SetUserPublicIDIfMissing :exec
+UPDATE users
+SET public_id = sqlc.arg(public_id)
+WHERE id = sqlc.arg(id) AND public_id IS NULL;
+
+-- name: ListUsersWithoutPublicID :many
+SELECT id
+FROM users
+WHERE public_id IS NULL
+ORDER BY created_at, id;
 
 -- name: BlockUser :execrows
 UPDATE users
@@ -1509,3 +1523,79 @@ LIMIT ?;
 UPDATE links
 SET archived_url = COALESCE(sqlc.narg(archived_url), archived_url), archive_checked_at = sqlc.arg(checked_at)
 WHERE id = sqlc.arg(id) AND is_hidden = FALSE;
+
+-- ============================================
+-- Repertoire
+--
+-- A user's own entries of public pieces. Notes are private to their owner: the public queries never select them.
+-- A write locks the owner's users row first, then reads and writes the owner's rows (the foreign key check takes a
+-- shared lock on the pieces row). Both lists order by when an entry was added, newest first, then by piece ID.
+-- ============================================
+
+-- name: CountRepertoireEntries :one
+SELECT COUNT(*)
+FROM repertoire
+WHERE user_id = ?;
+
+-- name: RepertoireEntryExists :one
+SELECT EXISTS (
+    SELECT 1
+    FROM repertoire
+    WHERE user_id = ? AND piece_id = ?
+);
+
+-- name: InsertRepertoireEntry :exec
+INSERT INTO repertoire (user_id, piece_id, notes, visibility, added_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: UpdateRepertoireEntry :exec
+UPDATE repertoire
+SET notes = ?, visibility = ?, updated_at = ?
+WHERE user_id = ? AND piece_id = ?;
+
+-- name: DeleteRepertoireEntry :execrows
+DELETE FROM repertoire
+WHERE user_id = ? AND piece_id = ?;
+
+-- name: GetRepertoireEntry :one
+SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub, r.notes, r.visibility, r.added_at, r.updated_at
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = ? AND p.slug = ? AND p.current_revision_id IS NOT NULL;
+
+-- name: ListRepertoire :many
+SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub, r.notes, r.visibility, r.added_at, r.updated_at
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = sqlc.arg(user_id) AND p.current_revision_id IS NOT NULL
+    AND (sqlc.narg(visibility) IS NULL OR r.visibility = sqlc.narg(visibility))
+ORDER BY r.added_at DESC, r.piece_id DESC
+LIMIT ? OFFSET ?;
+
+-- name: CountRepertoire :one
+SELECT COUNT(*)
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = sqlc.arg(user_id) AND p.current_revision_id IS NOT NULL
+    AND (sqlc.narg(visibility) IS NULL OR r.visibility = sqlc.narg(visibility));
+
+-- The owner of a public repertoire, by public ID: a blocked user has none.
+
+-- name: GetRepertoireOwner :one
+SELECT id, display_name, role
+FROM users
+WHERE public_id = ? AND blocked_at IS NULL;
+
+-- name: ListPublicRepertoire :many
+SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub, r.added_at
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = ? AND r.visibility = 'public' AND p.current_revision_id IS NOT NULL
+ORDER BY r.added_at DESC, r.piece_id DESC
+LIMIT ? OFFSET ?;
+
+-- name: CountPublicRepertoire :one
+SELECT COUNT(*)
+FROM repertoire r
+JOIN pieces p ON p.id = r.piece_id
+WHERE r.user_id = ? AND r.visibility = 'public' AND p.current_revision_id IS NOT NULL;

@@ -30,10 +30,10 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 		targetID = "google-oauth2|456"
 		// encodedTargetID is targetID as it appears in the path; the router decodes it once for the controller.
 		encodedTargetID = "google-oauth2%7C456"
-		targetBody      = `{"id":"google-oauth2|456","display_name":"Morwen","role":"contributor"}`
+		targetBody      = `{"id":"google-oauth2|456","public_id":"k3vq7xw2mbnc4zra","display_name":"Morwen","role":"contributor"}`
 		blockBody       = `{"blocked":true}`
 	)
-	target := domain.User{ID: targetID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: testNow}
+	target := domain.User{ID: targetID, PublicID: testPublicID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: testNow}
 	moderator := domain.Principal{User: domain.User{ID: principalUserID, DisplayName: testDisplayName,
 		Role: domain.RoleModerator, CreatedAt: testNow}, Method: domain.AuthMethodAuth0}
 

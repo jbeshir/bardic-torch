@@ -50,6 +50,10 @@ tags:
       The caller's own edits and link reports: editable documents, drafts, submissions, withdrawals and
       reverts, their revisions, and reports of links. An API token acts with contributor powers, whatever its
       user's role.
+  - name: Repertoire
+    description: |
+      A user's own list of the pieces they perform, with private notes, and the public list of the entries they
+      chose to make public, addressed by their public ID
   - name: Catalogue
     description: |
       Public reads of the catalogue: pieces, persons, the terms that classify them, and the collections and
@@ -212,7 +216,8 @@ paths:
           in: path
           required: true
           description: |
-            The user's `id`, percent-encoded: its `|` is sent as `%7C`, as in `google-oauth2%7C123`.
+            The user's `id`, percent-encoded: its `|` is sent as `%7C`, as in `google-oauth2%7C123`. This is the
+            identity provider's user ID, never a `public_id`.
           schema:
             type: string
             examples:
@@ -3293,6 +3298,242 @@ paths:
         "503":
           $ref: "#/components/responses/DatabaseUnavailable"
 
+  /v1/me/repertoire:
+    get:
+      tags:
+        - Repertoire
+      summary: List the caller's repertoire
+      description: |
+        Lists one page of the caller's own repertoire, notes included, newest entry first (by when it was added,
+        then by an internal ID, so pages are stable), with how many entries match in all. Only entries of public
+        pieces are listed.
+      operationId: listMyRepertoire
+      parameters:
+        - name: visibility
+          in: query
+          required: false
+          description: Only list entries with this visibility.
+          schema:
+            $ref: "#/components/schemas/RepertoireVisibility"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the caller's repertoire.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRepertoire"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
+
+  /v1/me/repertoire/{slug}:
+    get:
+      tags:
+        - Repertoire
+      summary: Get one of the caller's repertoire entries
+      description: |
+        Returns the caller's entry for a public piece, notes included. A piece not in the caller's repertoire is
+        not found, exactly like a piece that is not public or an unknown slug.
+      operationId: getMyRepertoireEntry
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRepertoireEntry"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RepertoireEntryNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
+    put:
+      tags:
+        - Repertoire
+      summary: Add a piece to the caller's repertoire, or update its entry
+      description: |
+        Adds a public piece to the caller's repertoire (201), or replaces the notes and visibility of its entry
+        there (200, even if nothing changed), keeping when it was added. The notes are private: only the caller
+        ever sees them. A `public` entry is listed on the caller's public repertoire, without its notes; a
+        `private` one is not. A repertoire holds at most 2000 entries. A piece that is not public, such as a
+        pending new piece by its placeholder slug, is not found, exactly like an unknown slug.
+      operationId: putMyRepertoireEntry
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      requestBody:
+        description: The entry's notes and visibility.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutRepertoireEntryRequest"
+      responses:
+        "200":
+          description: The updated entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRepertoireEntry"
+        "201":
+          description: The new entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRepertoireEntry"
+        "400":
+          description: |
+            The slug is not a valid slug, or the request body is malformed or invalid: for example `visibility` is
+            missing or not one of its values, or `notes` is longer than 2000 characters or holds a control
+            character (a C0 or C1 control other than tab and line feed, or a bidirectional embedding, override or
+            isolate; CRLF and a lone carriage return are first replaced by LF before the length is counted, which is
+            how the notes are stored). The message names the field, never its value; the error code is
+            `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid notes: must not contain a control character"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No public piece has this slug; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: piece not found
+        "409":
+          description: |
+            The piece is not in the caller's repertoire, which already holds 2000 entries; the error code is
+            `repertoire_limit_reached`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: repertoire_limit_reached
+                message: a repertoire may hold at most 2000 entries
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+    delete:
+      tags:
+        - Repertoire
+      summary: Remove a piece from the caller's repertoire
+      description: |
+        Removes a public piece from the caller's repertoire, notes and all. A piece not in the caller's repertoire
+        is not found, exactly like a piece that is not public or an unknown slug.
+      operationId: deleteMyRepertoireEntry
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "204":
+          description: The entry is removed.
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RepertoireEntryNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
+
+  /v1/users/{public_id}/repertoire:
+    get:
+      tags:
+        - Repertoire
+      summary: List a user's public repertoire
+      description: |
+        Lists one page of the entries a user made public in their repertoire, newest first (by when they were
+        added, then by an internal ID, so pages are stable), with the user's display name and role and how many
+        public entries there are in all. Only entries of public pieces are listed, and never their notes. A user
+        who is blocked, or has no public entry, is not found, exactly like an unknown public ID. Credentials are
+        ignored.
+      operationId: listPublicRepertoire
+      security: []
+      parameters:
+        - name: public_id
+          in: path
+          required: true
+          description: |
+            The user's public ID from `User.public_id`, never an Auth0 ID: 16 lowercase letters and digits from 2
+            to 7.
+          schema:
+            type: string
+            pattern: "^[a-z2-7]{16}$"
+            minLength: 16
+            maxLength: 16
+            examples:
+              - k3vq7xw2mbnc4zra
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of the user's public repertoire.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicRepertoire"
+        "400":
+          description: |
+            The `public_id` is not a public ID, `limit` or `offset` is out of range, a parameter is given more than
+            once, or the query string is not validly percent-encoded; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid public_id: must be 16 lowercase letters and digits from 2 to 7"
+        "404":
+          description: |
+            No user who is not blocked has this public ID and a public entry of a public piece; the error code is
+            `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: repertoire not found
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
+
 components:
   securitySchemes:
     auth0Bearer:
@@ -3726,6 +3967,17 @@ components:
           example:
             code: not_found
             message: revision not found
+    RepertoireEntryNotFound:
+      description: |
+        The piece is not in the caller's repertoire, or no public piece has this slug; the error code is
+        `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: repertoire entry not found
     DocumentTooLarge:
       description: The request body is larger than 1 MiB; the error code is `request_too_large`.
       content:
@@ -3801,6 +4053,7 @@ components:
             - display_name_reserved
             - report_limit_reached
             - turnstile_failed
+            - repertoire_limit_reached
           examples:
             - unavailable
         message:
@@ -3834,6 +4087,7 @@ components:
       additionalProperties: false
       required:
         - id
+        - public_id
         - display_name
         - role
       properties:
@@ -3841,9 +4095,21 @@ components:
           type: string
           description: |
             The user's ID: the subject Auth0 authenticated them as, such as `google-oauth2|<id>`. It contains `|`,
-            which must be percent-encoded as `%7C` in a path.
+            which must be percent-encoded as `%7C` in a path. It is never shown to other users: their public
+            repertoire is addressed by `public_id` instead.
           examples:
             - google-oauth2|123
+        public_id:
+          type: string
+          description: |
+            The user's public ID: 16 random lowercase base32 characters, fixed for the user's lifetime, unrelated to
+            `id` and never derived from it. It addresses the user's public repertoire
+            (`/v1/users/{public_id}/repertoire`), which lists only the entries they made public.
+          pattern: "^[a-z2-7]{16}$"
+          minLength: 16
+          maxLength: 16
+          examples:
+            - k3vq7xw2mbnc4zra
         display_name:
           type: string
           description: The name shown for the user.
@@ -3863,6 +4129,7 @@ components:
             - contributor
       examples:
         - id: google-oauth2|123
+          public_id: k3vq7xw2mbnc4zra
           display_name: Morwen
           role: contributor
 
@@ -9133,6 +9400,184 @@ components:
       enum: [broken, wrong_link, privacy, copyright, lyrics, other]
       examples:
         - broken
+
+    RepertoireVisibility:
+      type: string
+      description: |
+        Whether a repertoire entry is listed on its owner's public repertoire (`public`) or not (`private`, the
+        default for a new entry).
+      enum: [private, public]
+      examples:
+        - private
+
+    MyRepertoireEntry:
+      type: object
+      description: An entry of the caller's own repertoire, as only the caller sees it.
+      additionalProperties: false
+      required: [piece, notes, visibility, added_at, updated_at]
+      properties:
+        piece:
+          $ref: "#/components/schemas/PieceSummary"
+        notes:
+          type: [string, "null"]
+          description: The caller's private notes on the piece; never shown to anyone else.
+          maxLength: 2000
+          examples:
+            - Capo 2; I sing the third verse slower.
+        visibility:
+          $ref: "#/components/schemas/RepertoireVisibility"
+        added_at:
+          type: string
+          format: date-time
+          description: When the piece was added to the repertoire; an update keeps it.
+          examples:
+            - "2026-10-31T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: When the entry was last written.
+          examples:
+            - "2026-10-31T12:00:00Z"
+      examples:
+        - piece:
+            slug: the-copper-kettle
+            title: The Copper Kettle
+            kind: song
+            secondary_kinds: []
+            conservation_status: endangered
+            is_stub: false
+            credit_names: [Wren of the Vale]
+          notes: Capo 2; I sing the third verse slower.
+          visibility: public
+          added_at: "2026-10-31T12:00:00Z"
+          updated_at: "2026-10-31T12:00:00Z"
+
+    MyRepertoire:
+      type: object
+      description: One page of the caller's own repertoire, newest entry first.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyRepertoireEntry"
+        total:
+          type: integer
+          format: int64
+          maximum: 9007199254740991
+          minimum: 0
+          description: How many entries match, over every page.
+          examples:
+            - 1
+      examples:
+        - data:
+            - piece:
+                slug: the-copper-kettle
+                title: The Copper Kettle
+                kind: song
+                secondary_kinds: []
+                conservation_status: endangered
+                is_stub: false
+                credit_names: [Wren of the Vale]
+              notes: null
+              visibility: private
+              added_at: "2026-10-31T12:00:00Z"
+              updated_at: "2026-10-31T12:00:00Z"
+          total: 1
+
+    PutRepertoireEntryRequest:
+      type: object
+      description: |
+        A repertoire entry's notes and visibility. The entry is replaced: absent or null `notes` leave it without
+        notes.
+      additionalProperties: false
+      required: [visibility]
+      properties:
+        notes:
+          type: [string, "null"]
+          description: |
+            Private notes on the piece, at most 2000 characters after CRLF and a lone carriage return are replaced
+            by LF, with no control character other than tab and line feed.
+          maxLength: 2000
+          examples:
+            - Capo 2; I sing the third verse slower.
+        visibility:
+          $ref: "#/components/schemas/RepertoireVisibility"
+      examples:
+        - notes: Capo 2; I sing the third verse slower.
+          visibility: public
+
+    RepertoireOwner:
+      type: object
+      description: The owner of a public repertoire, by display name and role; user IDs are never shown.
+      additionalProperties: false
+      required: [display_name, role]
+      properties:
+        display_name:
+          $ref: "#/components/schemas/User/properties/display_name"
+        role:
+          $ref: "#/components/schemas/User/properties/role"
+      examples:
+        - display_name: Morwen
+          role: contributor
+
+    PublicRepertoireEntry:
+      type: object
+      description: A public entry of a user's repertoire, without its notes.
+      additionalProperties: false
+      required: [piece, added_at]
+      properties:
+        piece:
+          $ref: "#/components/schemas/PieceSummary"
+        added_at:
+          $ref: "#/components/schemas/MyRepertoireEntry/properties/added_at"
+      examples:
+        - piece:
+            slug: the-copper-kettle
+            title: The Copper Kettle
+            kind: song
+            secondary_kinds: []
+            conservation_status: endangered
+            is_stub: false
+            credit_names: [Wren of the Vale]
+          added_at: "2026-10-31T12:00:00Z"
+
+    PublicRepertoire:
+      type: object
+      description: One page of the entries a user made public in their repertoire, newest first, with its owner.
+      additionalProperties: false
+      required: [owner, data, total]
+      properties:
+        owner:
+          $ref: "#/components/schemas/RepertoireOwner"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicRepertoireEntry"
+        total:
+          type: integer
+          format: int64
+          maximum: 9007199254740991
+          minimum: 1
+          description: How many public entries the repertoire has, over every page; at least one.
+          examples:
+            - 1
+      examples:
+        - owner:
+            display_name: Morwen
+            role: contributor
+          data:
+            - piece:
+                slug: the-copper-kettle
+                title: The Copper Kettle
+                kind: song
+                secondary_kinds: []
+                conservation_status: endangered
+                is_stub: false
+                credit_names: [Wren of the Vale]
+              added_at: "2026-10-31T12:00:00Z"
+          total: 1
 
     LinkReportStatus:
       type: string

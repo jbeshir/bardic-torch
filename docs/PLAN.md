@@ -507,8 +507,10 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   or withdrawn new entity's placeholder is deleted with its children when no other pending revision has it; its
   revision rows stay. Term suggestions are term drafts submitted like any other and referenced by placeholder slug.
 - **Approval** is one READ COMMITTED transaction in `withWriteTx`:
-  - every BE4 write takes locks in one global order: `users` rows, `revisions` rows by ascending ID, entity rows
-    by (type, ID), then `links` rows by normalized URL, then `link_reports` rows. Within an entity type the rows
+  - every write takes locks in one global order: `users` rows, `revisions` rows by ascending ID, entity rows
+    by (type, ID), then `links` rows by normalized URL, then `link_reports` rows, then `repertoire` rows, then
+    `contact_requests` rows. A repertoire write locks its owner's `users` row, reads the piece, and its insert's
+    foreign-key check then locks the piece row `FOR SHARE` (an entity row after a `users` row) before its own row. Within an entity type the rows
     written (`FOR UPDATE`) and those referenced (`FOR SHARE`) are locked in one ascending pass; for a facet whose
     closure an approval may rebuild (any term approved), all of its term rows are locked `FOR UPDATE` first among
     the term rows, and no other lock is taken on them. The rows the entity's current document references are
@@ -590,15 +592,34 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   One open report per reporter and link (a repeat answers 200 with it), at most 20 open per reporter. Hiding a
   link (`PUT /v1/links/{link_id}/hidden`, or resolving a report with `hide_link`) resolves its open reports.
   `GET /v1/moderation/links?url=` finds any link's ID, state and attachments.
+- **Repertoire** (BE5): a user's own list of public pieces. `PUT /v1/me/repertoire/{slug}` adds a piece (201) or
+  replaces its entry's `notes` and `visibility` (200, `added_at` kept); `DELETE` removes it; `GET` reads one entry
+  or (`/v1/me/repertoire`) one page, newest first by `added_at` then piece ID, optionally of one visibility. Any
+  credential may, API tokens included; another user's entry is not found like an unknown one. Only public pieces
+  can be added or are listed: a placeholder slug or an unapproved piece is 404, and an entry whose piece stops being
+  public is left out of every list. A repertoire holds at most 2000 entries (409 `repertoire_limit_reached`),
+  counted under the owner's `users` row lock, which also refuses a user blocked since the request was authenticated.
+  - **Notes are always private**: only the owner's own reads return them, and no public query selects them.
+    Visibility is per entry and private by default.
+  - **Public lists** (`GET /v1/users/{public_id}/repertoire`, no account needed) show the owner's display name and
+    role and each public entry's piece summary and `added_at`, never notes, the Auth0 ID or a private entry. A user
+    is addressed by `users.public_id`, 80 random bits fixed for their lifetime, so a public URL never holds or
+    reveals the Auth0 ID; `User.public_id` on `GET`/`PATCH /v1/me` tells the owner theirs. An unknown public ID, a
+    blocked user and a user with no public entry of a public piece are one byte-equal 404, so a list never tells
+    whether a user exists, is blocked or keeps only private entries. A never-renamed user's default display name
+    is a hash of their Auth0 ID; it is already shown as the author of their approved revisions, so the public list
+    adds no exposure.
+  - A user created without a public ID, by a release that does not set one, is given one by the startup backfill or
+    at their next authenticated request, whichever comes first.
 - **Line breaks and control characters in text.** A control character is a C0 or C1 control other than tab and
   line feed, or a bidirectional embedding, override or isolate (U+202A–U+202E, U+2066–U+2069), which could rewrite
   how a moderator's screen shows the text after it. CRLF and a lone carriage return are what a browser sends for a
   textarea line break without JavaScript. The rule depends on the field's class:
   - *Moderation and contact free text*: a link report's `message`, a `review_note`, the approve and rebase
-    `summary`, the `note` resolving a link report or a contact request, and the contact form's `message`. CRLF and
-    a lone CR are first replaced by LF; the length (counted on the replaced text, so a spec `maxLength` is the
-    limit on the stored text) and the control characters are then checked, and a failure is 400
-    `invalid_request`, naming the field and never its value. The stored and forwarded text holds LF only.
+    `summary`, the `note` resolving a link report or a contact request, the contact form's `message`, and a
+    repertoire entry's `notes`. CRLF and a lone CR are first replaced by LF; the length (counted on the replaced
+    text, so a spec `maxLength` is the limit on the stored text) and the control characters are then checked, and
+    a failure is 400 `invalid_request`, naming the field and never its value. The stored and forwarded text holds LF only.
   - *Revision summaries* of drafts and reverts (`summary` of `POST /v1/drafts`, `PUT /v1/drafts/{draft_id}` and
     `POST /v1/revisions/{revision_id}/revert`): CRLF and a lone CR are replaced by LF in the same way, and the
     summary is then checked with the document, so a control character, a non-NFC string or more than 500
@@ -674,8 +695,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   - drafts: `POST /v1/drafts`, `GET|PUT|DELETE /v1/drafts/{draft_id}` (a draft has its own ID, since slug `new` is a valid piece slug)
   - `POST /v1/revisions` to submit a draft, `POST /v1/revisions/{id}/withdraw` and `…/revert`
   - `GET /v1/me/revisions` and `GET /v1/me/revisions/{id}`: the caller's drafts and revisions, in the author's view
-  - `GET|PUT|DELETE /v1/me/repertoire/{piece}` (BE5)
-  - `GET /v1/users/{id}/repertoire`: public lists (BE5)
+  - `GET /v1/me/repertoire` (optionally `?visibility=`) and `GET|PUT|DELETE /v1/me/repertoire/{slug}` (BE5): the caller's own repertoire of public pieces, with their private notes (§5.1 "Repertoire")
+  - `GET /v1/users/{public_id}/repertoire` (BE5, no account needed): the entries a user made public, addressed by their `public_id`, never by their Auth0 ID; an unknown public ID, a blocked user and a user with no public entry are one 404. The moderation `PUT /v1/users/{user_id}/blocked` takes the Auth0 user ID, never a public ID; the spec's parameter descriptions say which kind each path takes
   - `POST /v1/link-reports`: report a link by its URL (link IDs are not public)
   - suggestions for new terms are submitted as term revisions
 - **Moderator** (an interactive Auth0 session; API tokens get 403 `api_token_not_allowed`, §5.1):

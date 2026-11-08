@@ -39,6 +39,7 @@ type Dependencies struct {
 	PublicPersonPerformanceLister  datasources.PublicPersonPerformanceLister
 	PublicCollectionCitationLister datasources.PublicCollectionCitationLister
 	PublicEventPerformanceLister   datasources.PublicEventPerformanceLister
+	PublicRepertoireLister         datasources.PublicRepertoireLister
 	GetEditable                    command.Command[command.EntityRequest, domain.Editable]
 	GetPendingVersion              command.Command[command.EntityRequest, domain.MyRevision]
 	SaveDraft                      command.Command[command.SaveDraftRequest, command.SavedDraft]
@@ -63,6 +64,10 @@ type Dependencies struct {
 	SubmitContactRequest           command.Command[command.ContactSubmission, int64]
 	ListContactRequests            command.Command[command.ContactRequestListRequest, domain.ContactRequestList]
 	ResolveContactRequest          command.Command[command.ResolveContactRequestRequest, domain.ContactRequest]
+	ListRepertoire                 command.Command[command.RepertoireListRequest, domain.RepertoireList]
+	GetRepertoireEntry             command.Command[command.RepertoireEntryRequest, domain.RepertoireEntry]
+	PutRepertoireEntry             command.Command[command.PutRepertoireEntryRequest, command.PutRepertoireEntryResult]
+	RemoveRepertoireEntry          command.Command[command.RepertoireEntryRequest, command.Empty]
 	Now                            func() time.Time
 }
 
@@ -131,6 +136,10 @@ func routes(deps Dependencies) []route {
 			handler: controller.RevisionGet{Getter: deps.PublicRevisionGetter}},
 		{method: http.MethodGet, path: "/v1/needs-work",
 			handler: controller.NeedsWorkListGet{Lister: deps.PublicNeedsWorkLister}},
+		// A user's public repertoire is addressed by their public ID, never their user ID, and lists only the entries
+		// they made public.
+		{method: http.MethodGet, path: "/v1/users/{public_id}/repertoire",
+			handler: controller.PublicRepertoireGet{Lister: deps.PublicRepertoireLister}},
 		// The contact form needs no account: like the catalogue reads, it answers whatever credentials a request
 		// carries. Turnstile, not authentication, keeps automated senders out.
 		{method: http.MethodPost, path: "/v1/contact",
@@ -213,6 +222,15 @@ func routes(deps Dependencies) []route {
 		// Link reports address a link by the URL a public page shows: link IDs are not public.
 		{method: http.MethodPost, path: "/v1/link-reports", authenticated: true,
 			handler: requireAuth(controller.LinkReportCreate{Command: deps.ReportLink})},
+		// The caller's own repertoire, with either credential.
+		{method: http.MethodGet, path: "/v1/me/repertoire", authenticated: true,
+			handler: requireAuth(controller.MyRepertoireList{Command: deps.ListRepertoire})},
+		{method: http.MethodGet, path: repertoireEntryPath, authenticated: true,
+			handler: requireAuth(controller.MyRepertoireEntryGet{Command: deps.GetRepertoireEntry})},
+		{method: http.MethodPut, path: repertoireEntryPath, authenticated: true,
+			handler: requireAuth(controller.MyRepertoireEntryPut{Command: deps.PutRepertoireEntry})},
+		{method: http.MethodDelete, path: repertoireEntryPath, authenticated: true,
+			handler: requireAuth(controller.MyRepertoireEntryDelete{Command: deps.RemoveRepertoireEntry})},
 	}
 }
 
@@ -245,3 +263,6 @@ func pendingRoute(collection, key string, entityType domain.EntityType, deps Dep
 
 // draftPath is the path of a draft, which three routes share.
 const draftPath = "/v1/drafts/{draft_id}"
+
+// repertoireEntryPath is the path of the caller's repertoire entry for a public piece, which three routes share.
+const repertoireEntryPath = "/v1/me/repertoire/{slug}"

@@ -342,6 +342,9 @@ func (w revisionLeakWorld) seedAuthorRevisions(t *testing.T, fx revisionLeakFixt
 		reportLinkRequest(t, "https://example.org/lantern", reportMessage), http.StatusCreated)
 	// Someone without an account writes to the moderators; their personal data is for the inbox alone.
 	sendContact(t, w.e, contactBody("opt_out", contactName, contactEmail, contactMessage))
+	// A keeps the piece in their repertoire, privately, with notes only A sees.
+	sendOK[jsonObject](t, w.e, http.MethodPut, repertoireEntryPath(fx.piece.Slug), a,
+		repertoireEntryBody(domain.RepertoireVisibilityPrivate), http.StatusCreated)
 
 	fx.own = []ownRevision{
 		{id: piece, reveals: []string{pendingNotes, pendingSummary}},
@@ -687,6 +690,18 @@ var revisionLeakMatrix = map[openapitest.Operation]func(fx revisionLeakFixture) 
 			rows = append(rows, some...)
 		}
 		return rows
+	},
+	{Method: http.MethodGet, Path: myRepertoirePath}: func(revisionLeakFixture) []revisionLeakRequest {
+		// Each viewer lists their own repertoire: only A's holds A's entry and notes.
+		return []revisionLeakRequest{
+			{viewer: viewerAuthor, path: myRepertoirePath, status: http.StatusOK, reveals: []string{repertoireNotes}},
+			{viewer: viewerOther, path: myRepertoirePath, status: http.StatusOK, check: emptyRepertoire},
+			{viewer: viewerModerator, path: myRepertoirePath, status: http.StatusOK, check: emptyRepertoire},
+			{viewer: viewerModeratorToken, path: myRepertoirePath, status: http.StatusOK, check: emptyRepertoire},
+		}
+	},
+	{Method: http.MethodGet, Path: repertoireEntryRoute}: func(fx revisionLeakFixture) []revisionLeakRequest {
+		return authorOnly(repertoireEntryPath(fx.piece.Slug), repertoireNotes)
 	},
 	{Method: http.MethodGet, Path: moderationQueuePath}: func(revisionLeakFixture) []revisionLeakRequest {
 		return moderatorOnly(moderationQueuePath, func(t *testing.T, body string) {
@@ -1101,4 +1116,10 @@ func withAuthorToken(rows []revisionLeakRequest) []revisionLeakRequest {
 		}
 	}
 	return all
+}
+
+// emptyRepertoire checks that body is an empty repertoire: another user's entries are never listed.
+func emptyRepertoire(t *testing.T, body string) {
+	t.Helper()
+	assert.JSONEq(t, `{"data":[],"total":0}`, body)
 }

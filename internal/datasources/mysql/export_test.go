@@ -90,3 +90,12 @@ func (r *Repository) SaveDraftInTx(
 ) (datasources.SavedDraft, error) {
 	return r.saveDraft(ctx, r.txReader(tx), req)
 }
+
+// PutRepertoireEntryOnce runs PutRepertoireEntry's transaction once, without withWriteTx's retries, so that the
+// external tests see a deadlock the retries would absorb.
+func (r *Repository) PutRepertoireEntryOnce(ctx context.Context, entry datasources.RepertoireEntryWrite) error {
+	return r.runWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, _, err := r.txReader(tx).putRepertoireEntry(ctx, entry)
+		return err
+	})
+}

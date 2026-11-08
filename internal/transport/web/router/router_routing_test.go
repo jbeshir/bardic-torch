@@ -99,6 +99,8 @@ const (
 	routingModerationRevisionTmpl = "/v1/moderation/revisions/{revision_id}"
 	// routingPlaceholder is the placeholder slug of a pending new piece.
 	routingPlaceholder = "pending-piece-12"
+	// routingPublicID is the public ID of the user whose public repertoire is read.
+	routingPublicID = "k3vq7xw2mbnc4zra"
 )
 
 // catalogueNotFound is the answer of a public catalogue route whose controller asked the fixture for pathValue and
@@ -183,6 +185,9 @@ var publicRows = []routeRow{
 	}},
 	{path: routingNeedsWork, allow: http.MethodGet, routed: map[string]routingCase{
 		http.MethodGet: catalogueListFailed(routingNeedsWork),
+	}},
+	{path: "/v1/users/" + routingPublicID + "/repertoire", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: catalogueNotFound("/v1/users/{public_id}/repertoire", "repertoire", routingPublicID),
 	}},
 }
 
@@ -489,6 +494,7 @@ func (f *routingFixture) dependencies() Dependencies {
 		PublicPersonPerformanceLister:  f,
 		PublicCollectionCitationLister: f,
 		PublicEventPerformanceLister:   f,
+		PublicRepertoireLister:         f,
 		GetEditable:                    routingEditable{f},
 		GetPendingVersion:              routingPending{f},
 		WithdrawRevision:               routingRevision{f},
@@ -617,6 +623,14 @@ var routeRows = []routeRow{
 	}},
 	{path: "/v1/link-reports", allow: http.MethodPost, routed: map[string]routingCase{
 		http.MethodPost: anonymousAuthRequired("/v1/link-reports"),
+	}},
+	{path: "/v1/me/repertoire", allow: http.MethodGet, routed: map[string]routingCase{
+		http.MethodGet: anonymousAuthRequired("/v1/me/repertoire"),
+	}},
+	{path: "/v1/me/repertoire/" + routingSlug, allow: "DELETE, GET, PUT", routed: map[string]routingCase{
+		http.MethodDelete: anonymousAuthRequired(repertoireEntryPath),
+		http.MethodGet:    anonymousAuthRequired(repertoireEntryPath),
+		http.MethodPut:    anonymousAuthRequired(repertoireEntryPath),
 	}},
 	{path: "/v1/moderation/queue", allow: http.MethodGet, routed: map[string]routingCase{
 		http.MethodGet: anonymousAuthRequired("/v1/moderation/queue"),
@@ -925,4 +939,11 @@ func asModerator(method, target, route, body, pathValue string) routingCase {
 		status: http.StatusNotFound, contentType: jsonContentType, respBody: body + "\n", authRan: true,
 		route: route, pathValue: pathValue,
 	}
+}
+
+func (f *routingFixture) ListPublicRepertoire(
+	_ context.Context, publicID string, _ domain.Page,
+) (domain.PublicRepertoire, error) {
+	f.recordPathValue(publicID)
+	return domain.PublicRepertoire{}, datasources.ErrNotFound
 }

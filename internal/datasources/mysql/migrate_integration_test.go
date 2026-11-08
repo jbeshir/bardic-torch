@@ -10,6 +10,7 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
@@ -72,8 +73,8 @@ func TestMigrations_UpDownUp(t *testing.T) {
 	// Closing the migrator closes only its own pool.
 	repo := mysql.New(db)
 	require.NoError(t, repo.Ping(ctx))
-	_, err = repo.EnsureUser(ctx, datasources.NewUser{ID: "auth0|after-migrate", DisplayName: "After",
-		CreatedAt: baseTime})
+	_, err = repo.EnsureUser(ctx, datasources.NewUser{ID: "auth0|after-migrate", PublicID: domain.RandomPublicID(),
+		DisplayName: "After", CreatedAt: baseTime})
 	require.NoError(t, err)
 }
 

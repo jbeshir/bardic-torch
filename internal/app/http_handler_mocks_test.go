@@ -76,6 +76,11 @@ type handlerMocks struct {
 	personPerformances  *mocks.PublicPersonPerformanceLister
 	collectionCitations *mocks.PublicCollectionCitationLister
 	eventPerformances   *mocks.PublicEventPerformanceLister
+	publicRepertoire    *mocks.PublicRepertoireLister
+	repertoire          *mocks.RepertoireLister
+	repertoireEntries   *mocks.RepertoireEntryGetter
+	repertoirePutter    *mocks.RepertoireEntryPutter
+	repertoireDeleter   *mocks.RepertoireEntryDeleter
 	refs                *mocks.EditorRefResolver
 	editable            *mocks.EditableDocumentGetter
 	draftSaver          *mocks.DraftSaver
@@ -136,6 +141,11 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		personPerformances:  mocks.NewPublicPersonPerformanceLister(t),
 		collectionCitations: mocks.NewPublicCollectionCitationLister(t),
 		eventPerformances:   mocks.NewPublicEventPerformanceLister(t),
+		publicRepertoire:    mocks.NewPublicRepertoireLister(t),
+		repertoire:          mocks.NewRepertoireLister(t),
+		repertoireEntries:   mocks.NewRepertoireEntryGetter(t),
+		repertoirePutter:    mocks.NewRepertoireEntryPutter(t),
+		repertoireDeleter:   mocks.NewRepertoireEntryDeleter(t),
 		refs:                mocks.NewEditorRefResolver(t),
 		editable:            mocks.NewEditableDocumentGetter(t),
 		draftSaver:          mocks.NewDraftSaver(t),
@@ -198,6 +208,11 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		PublicPersonPerformanceLister:  m.personPerformances,
 		PublicCollectionCitationLister: m.collectionCitations,
 		PublicEventPerformanceLister:   m.eventPerformances,
+		PublicRepertoireLister:         m.publicRepertoire,
+		RepertoireLister:               m.repertoire,
+		RepertoireEntryGetter:          m.repertoireEntries,
+		RepertoireEntryPutter:          m.repertoirePutter,
+		RepertoireEntryDeleter:         m.repertoireDeleter,
 		EditorRefResolver:              m.refs,
 		EditableDocumentGetter:         m.editable,
 		DraftSaver:                     m.draftSaver,
@@ -236,7 +251,8 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 // storedUser is the user with userID as the datasource holds it: a contributor, unless userID is moderatorID
 // or blockedID.
 func storedUser(userID string) domain.User {
-	user := domain.User{ID: userID, DisplayName: "Morwen", Role: domain.RoleContributor, CreatedAt: handlerNow}
+	user := domain.User{ID: userID, PublicID: matrixPublicID, DisplayName: "Morwen", Role: domain.RoleContributor,
+		CreatedAt: handlerNow}
 	switch userID {
 	case moderatorID:
 		user.Role = domain.RoleModerator

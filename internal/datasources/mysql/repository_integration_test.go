@@ -32,6 +32,7 @@ func ensureUser(t *testing.T, repo *mysql.Repository, userID, displayName string
 
 	user, err := repo.EnsureUser(t.Context(), datasources.NewUser{
 		ID:          userID,
+		PublicID:    domain.RandomPublicID(),
 		DisplayName: displayName,
 		CreatedAt:   baseTime,
 	})
@@ -75,7 +76,10 @@ func TestRepository_EnsureUser_CreatesContributor(t *testing.T) {
 	want := domain.User{ID: "google-oauth2|1001", DisplayName: "Bard 1a2b3c4d", Role: domain.RoleContributor,
 		CreatedAt: baseTime}
 
-	assert.Equal(t, want, ensureUser(t, repo, want.ID, want.DisplayName))
+	created := ensureUser(t, repo, want.ID, want.DisplayName)
+	assert.True(t, domain.IsPublicID(created.PublicID), created.PublicID)
+	want.PublicID = created.PublicID
+	assert.Equal(t, want, created)
 	assert.Equal(t, want, getUser(t, repo, want.ID))
 }
 
@@ -98,6 +102,7 @@ func TestRepository_EnsureUser_PreservesExistingUser(t *testing.T) {
 
 		after, err := repo.EnsureUser(ctx, datasources.NewUser{
 			ID:          userID,
+			PublicID:    domain.RandomPublicID(),
 			DisplayName: "Replacement",
 			CreatedAt:   baseTime.Add(24 * time.Hour),
 		})
@@ -126,6 +131,7 @@ func TestRepository_EnsureUser_ConcurrentFirstCallsCreateOneUser(t *testing.T) {
 		wg.Go(func() {
 			users[i], errs[i] = repo.EnsureUser(t.Context(), datasources.NewUser{
 				ID:          userID,
+				PublicID:    domain.RandomPublicID(),
 				DisplayName: "Bard concurrent",
 				CreatedAt:   baseTime,
 			})
@@ -210,7 +216,7 @@ func TestRepository_PromoteToModerator_KeepsExistingUserAndIsIdempotent(t *testi
 	repo := newRepository(t)
 	ctx := t.Context()
 
-	ensureUser(t, repo, "auth0|promoted", "Chosen name")
+	ensured := ensureUser(t, repo, "auth0|promoted", "Chosen name")
 
 	for range 2 {
 		require.NoError(t, repo.PromoteToModerator(ctx, datasources.NewUser{
@@ -220,8 +226,8 @@ func TestRepository_PromoteToModerator_KeepsExistingUserAndIsIdempotent(t *testi
 		}))
 	}
 
-	assert.Equal(t, domain.User{ID: "auth0|promoted", DisplayName: "Chosen name", Role: domain.RoleModerator,
-		CreatedAt: baseTime}, getUser(t, repo, "auth0|promoted"))
+	assert.Equal(t, domain.User{ID: "auth0|promoted", PublicID: ensured.PublicID, DisplayName: "Chosen name",
+		Role: domain.RoleModerator, CreatedAt: baseTime}, getUser(t, repo, "auth0|promoted"))
 }
 
 func TestRepository_PromoteToModerator_UnblocksBlockedContributor(t *testing.T) {
@@ -232,7 +238,7 @@ func TestRepository_PromoteToModerator_UnblocksBlockedContributor(t *testing.T) 
 	repo := newRepository(t)
 	ctx := t.Context()
 
-	ensureUser(t, repo, bootstrappedID, "Chosen name")
+	ensured := ensureUser(t, repo, bootstrappedID, "Chosen name")
 	require.NoError(t, repo.BlockUser(ctx, bootstrappedID, baseTime.Add(time.Hour)))
 
 	require.NoError(t, repo.PromoteToModerator(ctx, datasources.NewUser{
@@ -241,8 +247,8 @@ func TestRepository_PromoteToModerator_UnblocksBlockedContributor(t *testing.T) 
 		CreatedAt:   baseTime.Add(24 * time.Hour),
 	}))
 
-	assert.Equal(t, domain.User{ID: bootstrappedID, DisplayName: "Chosen name", Role: domain.RoleModerator,
-		CreatedAt: baseTime}, getUser(t, repo, bootstrappedID))
+	assert.Equal(t, domain.User{ID: bootstrappedID, PublicID: ensured.PublicID, DisplayName: "Chosen name",
+		Role: domain.RoleModerator, CreatedAt: baseTime}, getUser(t, repo, bootstrappedID))
 }
 
 func TestRepository_UpdateDisplayName(t *testing.T) {

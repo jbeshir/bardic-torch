@@ -122,6 +122,7 @@ func TestStoredTime_RoundTripsThroughDatabase(t *testing.T) {
 	repository := mysql.New(mysqltest.NewDatabase(t))
 	_, err := repository.EnsureUser(t.Context(), datasources.NewUser{
 		ID:          "auth0|owner",
+		PublicID:    domain.RandomPublicID(),
 		DisplayName: "Owner",
 		CreatedAt:   storedTime(time.Now()),
 	})

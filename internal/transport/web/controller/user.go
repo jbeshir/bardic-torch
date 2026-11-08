@@ -5,6 +5,7 @@ import "github.com/jbeshir/bardic-torch/internal/domain"
 // User is the JSON representation of a user.
 type User struct {
 	ID          string      `json:"id"`
+	PublicID    string      `json:"public_id"`
 	DisplayName string      `json:"display_name"`
 	Role        domain.Role `json:"role"`
 }
@@ -12,6 +13,7 @@ type User struct {
 func userFromDomain(user domain.User) User {
 	return User{
 		ID:          user.ID,
+		PublicID:    user.PublicID,
 		DisplayName: user.DisplayName,
 		Role:        user.Role,
 	}

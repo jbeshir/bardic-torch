@@ -59,6 +59,7 @@ func specEnums() map[string][]string {
 		"FlagCode":             strs(flagCodeValues),
 		"LinkReportReason":     strs(linkReportReasonValues),
 		"LinkReportStatus":     strs(linkReportStatusValues),
+		"RepertoireVisibility": strs(repertoireVisibilityValues),
 		"ContactRequestKind":   strs(contactRequestKindValues),
 		"ContactRequestStatus": strs(contactRequestStatusValues),
 		"RebaseStatus":         strs([]RebaseStatus{RebaseStatusNotNeeded, RebaseStatusClean, RebaseStatusConflicts}),

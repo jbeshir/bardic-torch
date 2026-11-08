@@ -8,9 +8,11 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// NewUser holds the values a user is created with if it does not exist yet.
+// NewUser holds the values a user is created with if it does not exist yet. PublicID is the public ID a user
+// without one is given.
 type NewUser struct {
 	ID          string
+	PublicID    string
 	DisplayName string
 	CreatedAt   time.Time
 }
@@ -21,7 +23,8 @@ type UserGetter interface {
 }
 
 // UserEnsurer creates a contributor from user unless a user with its ID already exists, and returns the
-// stored user. A new user's display name key is stored too, unless another user has it. An existing user is
+// stored user. A new user's display name key is stored too, unless another user has it. A user without a public
+// ID is given user.PublicID, and ErrPublicIDTaken is returned if another user has it; an existing user is otherwise
 // returned unchanged.
 type UserEnsurer interface {
 	EnsureUser(ctx context.Context, user NewUser) (domain.User, error)
@@ -69,4 +72,18 @@ type DisplayNameKeyLister interface {
 // such user and ErrDisplayNameTaken if another user has the key.
 type DisplayNameKeySetter interface {
 	SetDisplayNameKey(ctx context.Context, userID string, key *string) error
+}
+
+// ErrPublicIDTaken is returned, wrapped, when another user already has the public ID a user is to be given.
+var ErrPublicIDTaken = errors.New("public ID taken")
+
+// PublicIDSetter gives a user the public ID publicID unless they already have one, returning ErrPublicIDTaken if
+// another user has it. A user who has one, or no user with the ID, is left as is.
+type PublicIDSetter interface {
+	SetUserPublicIDIfMissing(ctx context.Context, userID, publicID string) error
+}
+
+// UsersWithoutPublicIDLister lists the IDs of the users without a public ID, oldest user first, then by ID.
+type UsersWithoutPublicIDLister interface {
+	ListUsersWithoutPublicID(ctx context.Context) ([]string, error)
 }

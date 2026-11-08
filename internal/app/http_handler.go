@@ -41,6 +41,11 @@ type HTTPDependencies struct {
 	PublicPersonPerformanceLister  datasources.PublicPersonPerformanceLister
 	PublicCollectionCitationLister datasources.PublicCollectionCitationLister
 	PublicEventPerformanceLister   datasources.PublicEventPerformanceLister
+	PublicRepertoireLister         datasources.PublicRepertoireLister
+	RepertoireEntryPutter          datasources.RepertoireEntryPutter
+	RepertoireEntryDeleter         datasources.RepertoireEntryDeleter
+	RepertoireEntryGetter          datasources.RepertoireEntryGetter
+	RepertoireLister               datasources.RepertoireLister
 	EditorRefResolver              datasources.EditorRefResolver
 	EditableDocumentGetter         datasources.EditableDocumentGetter
 	DraftSaver                     datasources.DraftSaver
@@ -79,9 +84,10 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		Pinger:         deps.Pinger,
 		AuthValidators: deps.AuthValidators,
 		ResolveUser: &command.ResolveUser{
-			Getter:  deps.UserGetter,
-			Ensurer: deps.UserEnsurer,
-			Now:     deps.Now,
+			Getter:    deps.UserGetter,
+			Ensurer:   deps.UserEnsurer,
+			PublicIDs: domain.RandomPublicID,
+			Now:       deps.Now,
 		},
 		UpdateDisplayName: &command.UpdateDisplayName{
 			Updater: deps.DisplayNameUpdater,
@@ -117,6 +123,7 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		PublicPersonPerformanceLister:  deps.PublicPersonPerformanceLister,
 		PublicCollectionCitationLister: deps.PublicCollectionCitationLister,
 		PublicEventPerformanceLister:   deps.PublicEventPerformanceLister,
+		PublicRepertoireLister:         deps.PublicRepertoireLister,
 		GetEditable:                    &command.GetEditable{Getter: deps.EditableDocumentGetter},
 		GetPendingVersion:              &command.GetPendingVersion{Getter: deps.PendingVersionGetter},
 		SaveDraft: &command.SaveDraft{
@@ -167,6 +174,10 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		ResolveContactRequest: &command.ResolveContactRequest{
 			Resolver: deps.ContactRequestResolver, Purger: deps.ContactRequestPurger, Now: deps.Now,
 		},
-		Now: deps.Now,
+		ListRepertoire:        &command.ListRepertoire{Lister: deps.RepertoireLister},
+		GetRepertoireEntry:    &command.GetRepertoireEntry{Getter: deps.RepertoireEntryGetter},
+		PutRepertoireEntry:    &command.PutRepertoireEntry{Putter: deps.RepertoireEntryPutter, Now: deps.Now},
+		RemoveRepertoireEntry: &command.RemoveRepertoireEntry{Deleter: deps.RepertoireEntryDeleter},
+		Now:                   deps.Now,
 	})
 }

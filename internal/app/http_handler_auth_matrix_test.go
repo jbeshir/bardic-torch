@@ -235,206 +235,207 @@ var matrixPage = domain.Page{Limit: domain.DefaultPageLimit}
 
 // authMatrix is the access every operation in the OpenAPI spec requires. TestRouter_AuthMatrix fails for an
 // operation without a row, so each new endpoint adds one here.
-var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(), map[openapitest.Operation]matrixRow{
-	{Method: http.MethodGet, Path: healthzPath}: {
-		access:        public,
-		successStatus: http.StatusOK,
-		expectSuccess: func(handlerMocks, string) {},
-	},
-	{Method: http.MethodGet, Path: readyzPath}: {
-		access:        public,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.pinger.EXPECT().Ping(mock.Anything).Return(nil)
+var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(), repertoireMatrix(),
+	map[openapitest.Operation]matrixRow{
+		{Method: http.MethodGet, Path: healthzPath}: {
+			access:        public,
+			successStatus: http.StatusOK,
+			expectSuccess: func(handlerMocks, string) {},
 		},
-	},
-	{Method: http.MethodGet, Path: mePath}: {
-		access:        authenticatedUser,
-		successStatus: http.StatusOK,
-		expectSuccess: func(handlerMocks, string) {},
-	},
-	{Method: http.MethodPatch, Path: mePath}: {
-		access:        authenticatedUser,
-		body:          `{"display_name":"  Morwen "}`,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, userID string) {
-			m.displayNames.EXPECT().UpdateDisplayName(mock.Anything, userID, "Morwen").Return(nil)
-			m.users.EXPECT().GetUser(mock.Anything, userID).Return(storedUser(userID), nil).Once()
+		{Method: http.MethodGet, Path: readyzPath}: {
+			access:        public,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.pinger.EXPECT().Ping(mock.Anything).Return(nil)
+			},
 		},
-	},
-	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: {
-		access:        interactiveModerator,
-		pathParams:    map[string]string{"user_id": blockTargetID},
-		body:          blockBody,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.blocker.EXPECT().BlockUser(mock.Anything, blockTargetID, handlerNow).Return(nil)
-			m.users.EXPECT().GetUser(mock.Anything, blockTargetID).Return(storedUser(blockTargetID), nil)
+		{Method: http.MethodGet, Path: mePath}: {
+			access:        authenticatedUser,
+			successStatus: http.StatusOK,
+			expectSuccess: func(handlerMocks, string) {},
 		},
-	},
-	{Method: http.MethodPost, Path: tokensPath}: {
-		access:        interactiveUser,
-		body:          `{"name":"CI runner"}`,
-		successStatus: http.StatusCreated,
-		expectSuccess: func(m handlerMocks, userID string) {
-			m.counter.EXPECT().CountUserActiveAPITokens(mock.Anything, userID).Return(0, nil)
-			m.creator.EXPECT().CreateAPIToken(mock.Anything, mock.Anything).Return(nil)
+		{Method: http.MethodPatch, Path: mePath}: {
+			access:        authenticatedUser,
+			body:          `{"display_name":"  Morwen "}`,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, userID string) {
+				m.displayNames.EXPECT().UpdateDisplayName(mock.Anything, userID, "Morwen").Return(nil)
+				m.users.EXPECT().GetUser(mock.Anything, userID).Return(storedUser(userID), nil).Once()
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: tokensPath}: {
-		access:        interactiveUser,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, userID string) {
-			m.lister.EXPECT().ListUserActiveAPITokens(mock.Anything, userID).Return(nil, nil)
+		{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: {
+			access:        interactiveModerator,
+			pathParams:    map[string]string{"user_id": blockTargetID},
+			body:          blockBody,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.blocker.EXPECT().BlockUser(mock.Anything, blockTargetID, handlerNow).Return(nil)
+				m.users.EXPECT().GetUser(mock.Anything, blockTargetID).Return(storedUser(blockTargetID), nil)
+			},
 		},
-	},
-	{Method: http.MethodDelete, Path: "/v1/tokens/{token_id}"}: {
-		access:        interactiveUser,
-		pathParams:    map[string]string{"token_id": revokeTargetID},
-		successStatus: http.StatusNoContent,
-		expectSuccess: func(m handlerMocks, userID string) {
-			m.revoker.EXPECT().RevokeAPIToken(mock.Anything, userID, revokeTargetID, handlerNow).Return(nil)
+		{Method: http.MethodPost, Path: tokensPath}: {
+			access:        interactiveUser,
+			body:          `{"name":"CI runner"}`,
+			successStatus: http.StatusCreated,
+			expectSuccess: func(m handlerMocks, userID string) {
+				m.counter.EXPECT().CountUserActiveAPITokens(mock.Anything, userID).Return(0, nil)
+				m.creator.EXPECT().CreateAPIToken(mock.Anything, mock.Anything).Return(nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: {
-		access:        public,
-		pathParams:    map[string]string{slugParam: matrixSlug},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.pieces.EXPECT().GetPublicPiece(mock.Anything, matrixSlug).Return(matrixPiece, nil)
+		{Method: http.MethodGet, Path: tokensPath}: {
+			access:        interactiveUser,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, userID string) {
+				m.lister.EXPECT().ListUserActiveAPITokens(mock.Anything, userID).Return(nil, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/persons/{slug}"}: {
-		access:        public,
-		pathParams:    map[string]string{slugParam: matrixSlug},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.persons.EXPECT().GetPublicPerson(mock.Anything, matrixSlug).Return(matrixPerson, nil)
+		{Method: http.MethodDelete, Path: "/v1/tokens/{token_id}"}: {
+			access:        interactiveUser,
+			pathParams:    map[string]string{"token_id": revokeTargetID},
+			successStatus: http.StatusNoContent,
+			expectSuccess: func(m handlerMocks, userID string) {
+				m.revoker.EXPECT().RevokeAPIToken(mock.Anything, userID, revokeTargetID, handlerNow).Return(nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: piecesPath}: {
-		access:        public,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.pieceLister.EXPECT().ListPublicPieces(mock.Anything,
-				datasources.PieceQuery{Sort: domain.PieceSortTitle, Page: matrixPage}).Return(domain.PieceList{}, nil)
+		{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: {
+			access:        public,
+			pathParams:    map[string]string{slugParam: matrixSlug},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.pieces.EXPECT().GetPublicPiece(mock.Anything, matrixSlug).Return(matrixPiece, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: personsPath}: {
-		access:        public,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.personLister.EXPECT().ListPublicPersons(mock.Anything,
-				datasources.PersonQuery{Sort: domain.PersonSortName, Page: matrixPage}).Return(domain.PersonList{}, nil)
+		{Method: http.MethodGet, Path: "/v1/persons/{slug}"}: {
+			access:        public,
+			pathParams:    map[string]string{slugParam: matrixSlug},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.persons.EXPECT().GetPublicPerson(mock.Anything, matrixSlug).Return(matrixPerson, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: collectionsPath}: {
-		access:        public,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.collectionLister.EXPECT().ListPublicCollections(mock.Anything,
-				datasources.CollectionQuery{Page: matrixPage}).Return(domain.CollectionList{}, nil)
+		{Method: http.MethodGet, Path: piecesPath}: {
+			access:        public,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.pieceLister.EXPECT().ListPublicPieces(mock.Anything,
+					datasources.PieceQuery{Sort: domain.PieceSortTitle, Page: matrixPage}).Return(domain.PieceList{}, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: termsPath}: {
-		access:        public,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.termLister.EXPECT().ListPublicTerms(mock.Anything, (*domain.Facet)(nil)).Return(nil, nil)
+		{Method: http.MethodGet, Path: personsPath}: {
+			access:        public,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.personLister.EXPECT().ListPublicPersons(mock.Anything,
+					datasources.PersonQuery{Sort: domain.PersonSortName, Page: matrixPage}).Return(domain.PersonList{}, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/terms/{slug}"}: {
-		access:        public,
-		pathParams:    map[string]string{slugParam: matrixSlug},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.terms.EXPECT().GetPublicTerm(mock.Anything, matrixSlug, matrixPage).Return(matrixTerm, nil)
+		{Method: http.MethodGet, Path: collectionsPath}: {
+			access:        public,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.collectionLister.EXPECT().ListPublicCollections(mock.Anything,
+					datasources.CollectionQuery{Page: matrixPage}).Return(domain.CollectionList{}, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}"}: {
-		access:        public,
-		pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.collections.EXPECT().GetPublicCollection(mock.Anything, int64(matrixCollectionID)).
-				Return(matrixCollection, nil)
+		{Method: http.MethodGet, Path: termsPath}: {
+			access:        public,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.termLister.EXPECT().ListPublicTerms(mock.Anything, (*domain.Facet)(nil)).Return(nil, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: eventsPath}: {
-		access:        public,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.eventLister.EXPECT().ListPublicEvents(mock.Anything, (*domain.EventKind)(nil), matrixPage).
-				Return(domain.EventList{}, nil)
+		{Method: http.MethodGet, Path: "/v1/terms/{slug}"}: {
+			access:        public,
+			pathParams:    map[string]string{slugParam: matrixSlug},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.terms.EXPECT().GetPublicTerm(mock.Anything, matrixSlug, matrixPage).Return(matrixTerm, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/events/{slug}"}: {
-		access:        public,
-		pathParams:    map[string]string{slugParam: matrixSlug},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.events.EXPECT().GetPublicEvent(mock.Anything, matrixSlug).Return(matrixEvent, nil)
+		{Method: http.MethodGet, Path: "/v1/collections/{collection_id}"}: {
+			access:        public,
+			pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.collections.EXPECT().GetPublicCollection(mock.Anything, int64(matrixCollectionID)).
+					Return(matrixCollection, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/history"}:  historyRow(domain.SlugEntityTypePiece),
-	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: historyRow(domain.SlugEntityTypePerson),
-	{Method: http.MethodGet, Path: "/v1/terms/{slug}/history"}:   historyRow(domain.SlugEntityTypeTerm),
-	{Method: http.MethodGet, Path: "/v1/events/{slug}/history"}:  historyRow(domain.SlugEntityTypeEvent),
-	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/history"}: {
-		access:        public,
-		pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.collectionHistory.EXPECT().ListPublicCollectionHistory(mock.Anything, int64(matrixCollectionID),
-				matrixPage).Return(domain.RevisionHistory{Entity: domain.HistoryEntity{
-				Type: domain.EntityTypeCollection, CollectionID: new(int64(matrixCollectionID)), Name: "The Northmarch Songbook",
-			}}, nil)
+		{Method: http.MethodGet, Path: eventsPath}: {
+			access:        public,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.eventLister.EXPECT().ListPublicEvents(mock.Anything, (*domain.EventKind)(nil), matrixPage).
+					Return(domain.EventList{}, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/persons/{slug}/performances"}: {
-		access:        public,
-		pathParams:    map[string]string{slugParam: matrixSlug},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.personPerformances.EXPECT().ListPublicPersonPerformances(mock.Anything, matrixSlug, matrixPage).
-				Return(domain.PersonPerformanceList{}, nil)
+		{Method: http.MethodGet, Path: "/v1/events/{slug}"}: {
+			access:        public,
+			pathParams:    map[string]string{slugParam: matrixSlug},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.events.EXPECT().GetPublicEvent(mock.Anything, matrixSlug).Return(matrixEvent, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/citations"}: {
-		access:        public,
-		pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.collectionCitations.EXPECT().ListPublicCollectionCitations(mock.Anything, int64(matrixCollectionID),
-				matrixPage).Return(domain.CitationList{}, nil)
+		{Method: http.MethodGet, Path: "/v1/pieces/{slug}/history"}:  historyRow(domain.SlugEntityTypePiece),
+		{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: historyRow(domain.SlugEntityTypePerson),
+		{Method: http.MethodGet, Path: "/v1/terms/{slug}/history"}:   historyRow(domain.SlugEntityTypeTerm),
+		{Method: http.MethodGet, Path: "/v1/events/{slug}/history"}:  historyRow(domain.SlugEntityTypeEvent),
+		{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/history"}: {
+			access:        public,
+			pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.collectionHistory.EXPECT().ListPublicCollectionHistory(mock.Anything, int64(matrixCollectionID),
+					matrixPage).Return(domain.RevisionHistory{Entity: domain.HistoryEntity{
+					Type: domain.EntityTypeCollection, CollectionID: new(int64(matrixCollectionID)), Name: "The Northmarch Songbook",
+				}}, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/events/{slug}/performances"}: {
-		access:        public,
-		pathParams:    map[string]string{slugParam: matrixSlug},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.eventPerformances.EXPECT().ListPublicEventPerformances(mock.Anything, matrixSlug, matrixPage).
-				Return(domain.EventPerformanceList{}, nil)
+		{Method: http.MethodGet, Path: "/v1/persons/{slug}/performances"}: {
+			access:        public,
+			pathParams:    map[string]string{slugParam: matrixSlug},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.personPerformances.EXPECT().ListPublicPersonPerformances(mock.Anything, matrixSlug, matrixPage).
+					Return(domain.PersonPerformanceList{}, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: {
-		access:        public,
-		pathParams:    map[string]string{revisionIDParam: strconv.Itoa(matrixRevisionID)},
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.revisions.EXPECT().GetPublicRevision(mock.Anything, int64(matrixRevisionID)).Return(matrixRevision, nil)
+		{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/citations"}: {
+			access:        public,
+			pathParams:    map[string]string{collectionIDParam: strconv.Itoa(matrixCollectionID)},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.collectionCitations.EXPECT().ListPublicCollectionCitations(mock.Anything, int64(matrixCollectionID),
+					matrixPage).Return(domain.CitationList{}, nil)
+			},
 		},
-	},
-	{Method: http.MethodGet, Path: needsWorkPath}: {
-		access:        public,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, _ string) {
-			m.needsWork.EXPECT().ListPublicNeedsWork(mock.Anything, (*domain.NeedsWorkReason)(nil), matrixPage).
-				Return(domain.NeedsWorkList{}, nil)
+		{Method: http.MethodGet, Path: "/v1/events/{slug}/performances"}: {
+			access:        public,
+			pathParams:    map[string]string{slugParam: matrixSlug},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.eventPerformances.EXPECT().ListPublicEventPerformances(mock.Anything, matrixSlug, matrixPage).
+					Return(domain.EventPerformanceList{}, nil)
+			},
 		},
-	},
-})
+		{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: {
+			access:        public,
+			pathParams:    map[string]string{revisionIDParam: strconv.Itoa(matrixRevisionID)},
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.revisions.EXPECT().GetPublicRevision(mock.Anything, int64(matrixRevisionID)).Return(matrixRevision, nil)
+			},
+		},
+		{Method: http.MethodGet, Path: needsWorkPath}: {
+			access:        public,
+			successStatus: http.StatusOK,
+			expectSuccess: func(m handlerMocks, _ string) {
+				m.needsWork.EXPECT().ListPublicNeedsWork(mock.Anything, (*domain.NeedsWorkReason)(nil), matrixPage).
+					Return(domain.NeedsWorkList{}, nil)
+			},
+		},
+	})
 
 // historyRow is the row of the history of the public entity of entityType with slug matrixSlug.
 func historyRow(entityType domain.SlugEntityType) matrixRow {

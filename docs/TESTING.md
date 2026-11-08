@@ -750,6 +750,15 @@ piece, and a pending edit whose summary names a hidden alias (flagged `hidden_al
 revision's public view is a 404 byte-equal to an unknown ID's (`sameBodyAs`), the history rows give an exact
 `total`, the placeholders' pages are 404, and the lists and facet counts hold no `pending-` slug (`absent`).
 
+Users' repertoires are written through the production handler too (`seedLeakRepertoires`), every entry with the
+marked notes `leakmark-repertoire-note` and every owner with a marked user ID: one owner with a public and a
+private entry (and a public entry of an unapproved piece, inserted directly since no write path allows it), one with
+only private entries, and one blocked after adding a public entry; `requireLeakRepertoiresStored` checks them. The
+`GET /v1/users/{public_id}/repertoire` rows: every page of the first owner's list shows the public entry only
+(exact `total`, `absent` the private and unapproved pieces' slugs, the owner's user ID and `notes`), and the
+all-private and blocked owners' lists are 404s byte-equal to an unknown public ID's. The four `/v1/me/repertoire`
+operations are exempt here and covered by the revision leak matrix.
+
 ### Revision leak matrix
 
 `TestHTTP_RevisionLeakMatrix` (`internal/app/revision_leak_matrix_integration_test.go`) does the same for the
@@ -783,6 +792,8 @@ matrix's:
   get 403 `moderator_required` (and so does AT), MT 403 `api_token_not_allowed`, each with the Error body only,
   and M's row asserts the moderator data (the `hidden_data_conflict` flag, the report message, the contact request's personal data, a
   hidden link) is present;
+- **the caller's repertoire**: A keeps the public piece privately with marked notes; A's (and AT's) list and entry
+  show them, B's, M's and MT's lists are empty, and B and MT get 404 for A's entry;
 - a report of a hidden link gets a 404 byte-equal to an unknown URL's.
 
 The handler logs at DEBUG to a capture (`logCapture`), and no record of the whole test may hold `leakmark`, which

@@ -54,6 +54,8 @@ type leakFixture struct {
 	revisions leakRevisions
 	// unpublished are a contributor's drafts, withdrawn and pending revisions, written through the API.
 	unpublished unpublishedRevisions
+	// repertoires are users' repertoires, written through the API, whose notes and private entries are hidden.
+	repertoires leakRepertoires
 }
 
 // leakRevisions are revisions beyond catalogtest's: each shows something hidden now, or is not public.
@@ -510,6 +512,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		renamedNoPageFormerName)
 	revisions.rejectedLantern, revisions.rebasedLantern = seedModeratedLantern(c, piece, lanternDoc)
 	unpublished := seedUnpublishedRevisions(c, piece, ember, person)
+	repertoires := seedLeakRepertoires(c, piece, ember, unapprovedPiece)
 
 	// System fields no document holds and no read exposes.
 	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'contributor', ?)",
@@ -528,6 +531,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		archive: archive, unapprovedCollection: unapprovedCollection, moot: moot, unapprovedEvent: unapprovedEvent,
 		turned: turned, renamed: renamed, renamedNoPage: renamedNoPage, renamedBallad: renamedBallad, ember: ember, revisions: revisions,
 		unpublished: unpublished,
+		repertoires: repertoires,
 	}
 })
 
@@ -588,6 +592,7 @@ type leakRequest struct {
 // fails for a public /v1 GET without a row, so each new catalogue endpoint adds one here, with requests that
 // reach every list it shows.
 var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
+	{Method: http.MethodGet, Path: "/v1/users/{public_id}/repertoire"}: publicRepertoireRows,
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
 			{path: "/v1/pieces/" + fx.piece.Slug, status: http.StatusOK},
@@ -894,10 +899,11 @@ func historyPath(collection, address string) string {
 
 // Reasons an operation is in leakExempt.
 const (
-	exemptAccount      = "the caller's own account"
-	exemptAPIAuth      = "the caller's API tokens"
-	exemptOwnRevisions = "the caller's own drafts and revisions; covered by TestHTTP_RevisionLeakMatrix"
-	exemptModeration   = "moderation: full data for moderators; covered by TestHTTP_RevisionLeakMatrix"
+	exemptAccount       = "the caller's own account"
+	exemptAPIAuth       = "the caller's API tokens"
+	exemptOwnRevisions  = "the caller's own drafts and revisions; covered by TestHTTP_RevisionLeakMatrix"
+	exemptModeration    = "moderation: full data for moderators; covered by TestHTTP_RevisionLeakMatrix"
+	exemptOwnRepertoire = "the caller's own repertoire; covered by TestHTTP_RevisionLeakMatrix"
 )
 
 // leakExempt are the operations that read no catalogue data, and why. A public /v1 GET cannot be exempt.
@@ -942,6 +948,10 @@ var leakExempt = map[openapitest.Operation]string{
 	{Method: http.MethodPost, Path: "/v1/contact"}:                                  "writes a contact request; returns no catalogue data",
 	{Method: http.MethodGet, Path: "/v1/moderation/contact-requests"}:               exemptModeration,
 	{Method: http.MethodPost, Path: "/v1/moderation/contact-requests/{request_id}"}: exemptModeration,
+	{Method: http.MethodGet, Path: myRepertoirePath}:                                exemptOwnRepertoire,
+	{Method: http.MethodGet, Path: repertoireEntryRoute}:                            exemptOwnRepertoire,
+	{Method: http.MethodPut, Path: repertoireEntryRoute}:                            exemptOwnRepertoire,
+	{Method: http.MethodDelete, Path: repertoireEntryRoute}:                         exemptOwnRepertoire,
 }
 
 // TestHTTP_LeakMatrix sends every leakMatrix request to the production handler over a real repository holding
@@ -953,6 +963,7 @@ func TestHTTP_LeakMatrix(t *testing.T) {
 	db, fx := leakCatalogue.Get(t)
 	requireLeakMarkersStored(t, db)
 	requireUnpublishedStored(t, db, fx.unpublished)
+	requireLeakRepertoiresStored(t, db, fx)
 	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
 	contract := openapitest.New(t)
 

@@ -185,7 +185,8 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `GET` | `/v1/revisions/{revision_id}` | No | An approved revision: redacted snapshot, base snapshot and changed fields |
 | `GET` | `/v1/needs-work` | No | Stub, unassessed, unknown-licensing and dead-link pieces and persons, with a count per reason |
 | `POST` | `/v1/contact` | No | Send the moderators a takedown, opt-out, correction or general request (Cloudflare Turnstile token required) |
-| `GET` | `/v1/me` | Required | The caller's user |
+| `GET` | `/v1/users/{public_id}/repertoire` | No | The pieces a user made public in their repertoire, by their `public_id` (never notes) |
+| `GET` | `/v1/me` | Required | The caller's user, with their `public_id` |
 | `PATCH` | `/v1/me` | Required | Change the caller's display name (unique; reserved names refused) |
 | `GET` | `/v1/{pieces,persons,terms,events}/{slug}/editable`, `/v1/collections/{collection_id}/editable` | Required | The caller's editable document of an entity, without hidden data |
 | `GET` | `/v1/{pieces,persons,terms,events}/{slug}/pending`, `/v1/collections/{collection_id}/pending` | Required | The caller's pending revision of an entity, as they see it |
@@ -197,6 +198,8 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `GET` | `/v1/me/revisions` | Required | The caller's drafts and revisions |
 | `GET` | `/v1/me/revisions/{revision_id}` | Required | One of the caller's revisions, as they see it |
 | `POST` | `/v1/link-reports` | Required | Report a link by its URL |
+| `GET` | `/v1/me/repertoire` | Required | The caller's repertoire, with their private notes (`visibility` filter) |
+| `GET`, `PUT`, `DELETE` | `/v1/me/repertoire/{slug}` | Required | Read, add or update (notes, `private`/`public`), or remove a piece in the caller's repertoire (max 2000) |
 | `GET` | `/v1/moderation/queue` | Moderator, Auth0 only | Pending revisions, oldest first |
 | `GET` | `/v1/moderation/revisions/{revision_id}` | Moderator, Auth0 only | A revision in full: documents, rebase preview, flags, duplicates |
 | `POST` | `/v1/revisions/{revision_id}/approve`, `…/reject`, `…/rebase` | Moderator, Auth0 only | Approve, reject or rebase a pending revision |

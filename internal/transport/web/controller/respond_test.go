@@ -25,7 +25,8 @@ func testClock() time.Time {
 // require* middleware would leave it.
 func asPrincipal(req *http.Request) *http.Request {
 	principal := domain.Principal{
-		User:   domain.User{ID: principalUserID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: testNow},
+		User: domain.User{ID: principalUserID, PublicID: testPublicID, DisplayName: testDisplayName,
+			Role: domain.RoleContributor, CreatedAt: testNow},
 		Method: domain.AuthMethodAuth0,
 	}
 	return req.WithContext(domain.ContextWithPrincipal(req.Context(), principal))
@@ -33,6 +34,7 @@ func asPrincipal(req *http.Request) *http.Request {
 
 const (
 	testDisplayName = "Morwen"
+	testPublicID    = "k3vq7xw2mbnc4zra"
 
 	anonymousCase = "anonymous"
 	tooLargeCase  = "too_large"

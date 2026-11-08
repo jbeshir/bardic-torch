@@ -105,6 +105,8 @@ var revisionErrorAnswers = []struct {
 		"the contact request is not open"}},
 	{datasources.ErrReportLimitReached, revisionErrorAnswer{http.StatusConflict, httpjson.CodeReportLimitReached,
 		fmt.Sprintf("a user may have at most %d open link reports", domain.MaxOpenLinkReports)}},
+	{datasources.ErrRepertoireLimitReached, revisionErrorAnswer{http.StatusConflict, httpjson.CodeRepertoireLimitReached,
+		fmt.Sprintf("a repertoire may hold at most %d entries", domain.MaxRepertoireEntries)}},
 	{domain.ErrModeratorRequired, revisionErrorAnswer{http.StatusForbidden, httpjson.CodeModeratorRequired,
 		moderatorRequiredMessage}},
 	{datasources.ErrUserBlocked, revisionErrorAnswer{http.StatusForbidden, httpjson.CodeUserBlocked, "user is blocked"}},

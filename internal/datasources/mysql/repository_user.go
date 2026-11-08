@@ -13,14 +13,16 @@ import (
 )
 
 var (
-	_ datasources.UserGetter           = (*Repository)(nil)
-	_ datasources.UserEnsurer          = (*Repository)(nil)
-	_ datasources.ModeratorPromoter    = (*Repository)(nil)
-	_ datasources.DisplayNameUpdater   = (*Repository)(nil)
-	_ datasources.UserBlocker          = (*Repository)(nil)
-	_ datasources.UserUnblocker        = (*Repository)(nil)
-	_ datasources.DisplayNameKeyLister = (*Repository)(nil)
-	_ datasources.DisplayNameKeySetter = (*Repository)(nil)
+	_ datasources.UserGetter                 = (*Repository)(nil)
+	_ datasources.UserEnsurer                = (*Repository)(nil)
+	_ datasources.ModeratorPromoter          = (*Repository)(nil)
+	_ datasources.DisplayNameUpdater         = (*Repository)(nil)
+	_ datasources.UserBlocker                = (*Repository)(nil)
+	_ datasources.UserUnblocker              = (*Repository)(nil)
+	_ datasources.DisplayNameKeyLister       = (*Repository)(nil)
+	_ datasources.DisplayNameKeySetter       = (*Repository)(nil)
+	_ datasources.PublicIDSetter             = (*Repository)(nil)
+	_ datasources.UsersWithoutPublicIDLister = (*Repository)(nil)
 )
 
 // GetUser retrieves a user by ID, returning datasources.ErrNotFound if there is none.
@@ -38,8 +40,12 @@ func (r *Repository) GetUser(ctx context.Context, userID string) (domain.User, e
 
 // EnsureUser creates a contributor from user unless a user with its ID already exists, and returns the
 // stored user. Concurrent calls for the same ID create one user. A new user's display name key is set after the
-// insert, and left NULL if another user has it.
+// insert, and left NULL if another user has it. A user without a public ID is then given user.PublicID, or
+// datasources.ErrPublicIDTaken is returned if another user has it.
 func (r *Repository) EnsureUser(ctx context.Context, user datasources.NewUser) (domain.User, error) {
+	if !domain.IsPublicID(user.PublicID) {
+		return domain.User{}, fmt.Errorf("ensuring user [%s]: %w", user.ID, errInvalidPublicID)
+	}
 	err := r.queries.InsertUserIfMissing(ctx, queries.InsertUserIfMissingParams{
 		ID:          user.ID,
 		DisplayName: user.DisplayName,
@@ -56,6 +62,9 @@ func (r *Repository) EnsureUser(ctx context.Context, user datasources.NewUser) (
 			return domain.User{}, fmt.Errorf("setting display name key of user [%s]: %w", user.ID,
 				unavailableIfDisconnected(err))
 		}
+	}
+	if err := r.SetUserPublicIDIfMissing(ctx, user.ID, user.PublicID); err != nil {
+		return domain.User{}, err
 	}
 
 	return r.GetUser(ctx, user.ID)
@@ -169,9 +178,39 @@ func convertUser(row queries.GetUserRow) (domain.User, error) {
 
 	return domain.User{
 		ID:          row.ID,
+		PublicID:    row.PublicID.String,
 		DisplayName: row.DisplayName,
 		Role:        role,
 		CreatedAt:   row.CreatedAt,
 		BlockedAt:   timePtr(row.BlockedAt),
 	}, nil
 }
+
+// SetUserPublicIDIfMissing gives a user without a public ID publicID, returning datasources.ErrPublicIDTaken if
+// another user has it. A user who has one, or no user with the ID, is left as is.
+func (r *Repository) SetUserPublicIDIfMissing(ctx context.Context, userID, publicID string) error {
+	err := r.queries.SetUserPublicIDIfMissing(ctx, queries.SetUserPublicIDIfMissingParams{
+		PublicID: sql.NullString{String: publicID, Valid: true}, ID: userID,
+	})
+	if mysqlErrorNumber(err) == erDuplicateEntry {
+		return fmt.Errorf("setting public ID of user [%s]: %w", userID, datasources.ErrPublicIDTaken)
+	}
+	if err != nil {
+		return fmt.Errorf("setting public ID of user [%s]: %w", userID, unavailableIfDisconnected(err))
+	}
+
+	return nil
+}
+
+// ListUsersWithoutPublicID lists the IDs of the users without a public ID, oldest user first, then by ID.
+func (r *Repository) ListUsersWithoutPublicID(ctx context.Context) ([]string, error) {
+	ids, err := r.queries.ListUsersWithoutPublicID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing users without a public ID: %w", unavailableIfDisconnected(err))
+	}
+
+	return ids, nil
+}
+
+// errInvalidPublicID is a user to be given a public ID that does not have the form of one (domain.IsPublicID).
+var errInvalidPublicID = errors.New("invalid public ID")

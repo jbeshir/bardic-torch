@@ -528,7 +528,8 @@ Migration 011 (BE5) adds `users.public_id`, the `repertoire` table, the link che
 release keeps serving while it runs and after a rollback, and ignores the new columns and table:
 
 - `users.public_id` is NULL until BE5 sets it: on a user's creation, and for every user without one by a backfill
-  at startup. A user BE4 creates after a rollback gets theirs at the next BE5 start.
+  at startup. A user BE4 creates after a rollback, or during a deploy's overlap, gets theirs at the next BE5 start
+  or at their first authenticated request to BE5, whichever comes first. A public ID never changes once set.
 - BE4 never reads or writes `repertoire`. The down migration drops it with its entries.
 - BE4 never writes the link checker's columns. `liveness_failures` defaults to 0 and `archive_checked_at` to NULL,
   so no link looks checked or archived that was not.

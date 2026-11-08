@@ -21,7 +21,7 @@ func TestMeGet_ServeHTTP(t *testing.T) {
 		{
 			name:       "principal",
 			wantStatus: http.StatusOK,
-			wantBody:   `{"id":"google-oauth2|123","display_name":"Morwen","role":"contributor"}`,
+			wantBody:   `{"id":"google-oauth2|123","public_id":"k3vq7xw2mbnc4zra","display_name":"Morwen","role":"contributor"}`,
 		},
 		{name: anonymousCase, anonymous: true, wantStatus: http.StatusUnauthorized, wantBody: unauthenticatedBody},
 	}

@@ -131,12 +131,15 @@ func TestHTTP_EndToEnd(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code, name)
 	}
 
-	// The first authenticated request creates the user.
+	// The first authenticated request creates the user, with a fresh public ID.
+	first := sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK)
+	assert.True(t, domain.IsPublicID(first.PublicID), first.PublicID)
 	assert.Equal(t, controller.User{
 		ID:          endToEndContributorID,
+		PublicID:    first.PublicID,
 		DisplayName: domain.DefaultDisplayName(endToEndContributorID),
 		Role:        domain.RoleContributor,
-	}, sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK))
+	}, first)
 
 	// Renaming persists.
 	renamed := sendOK[controller.User](t, e, http.MethodPatch, "/v1/me", contributor, `{"display_name":" Morwen "}`,

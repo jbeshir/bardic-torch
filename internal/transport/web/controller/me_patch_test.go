@@ -53,14 +53,14 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			body:       displayNameBody("Morwen of the Hills"),
 			stored:     "Morwen of the Hills",
 			wantStatus: http.StatusOK,
-			wantBody:   `{"id":"google-oauth2|123","display_name":"Morwen of the Hills","role":"contributor"}`,
+			wantBody:   `{"id":"google-oauth2|123","public_id":"k3vq7xw2mbnc4zra","display_name":"Morwen of the Hills","role":"contributor"}`,
 		},
 		{
 			name:       "padded_max_length",
 			body:       displayNameBody("  " + sixtyFour + "  "),
 			stored:     sixtyFour,
 			wantStatus: http.StatusOK,
-			wantBody:   `{"id":"google-oauth2|123","display_name":"` + sixtyFour + `","role":"contributor"}`,
+			wantBody:   `{"id":"google-oauth2|123","public_id":"k3vq7xw2mbnc4zra","display_name":"` + sixtyFour + `","role":"contributor"}`,
 		},
 		{
 			// 256 characters as sent, the most the spec allows.
@@ -68,7 +68,7 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			body:       displayNameBody(strings.Repeat(" ", 253) + "Bob"),
 			stored:     "Bob",
 			wantStatus: http.StatusOK,
-			wantBody:   `{"id":"google-oauth2|123","display_name":"Bob","role":"contributor"}`,
+			wantBody:   `{"id":"google-oauth2|123","public_id":"k3vq7xw2mbnc4zra","display_name":"Bob","role":"contributor"}`,
 		},
 		{
 			// 128 code points as sent, 64 once composed.
@@ -76,7 +76,7 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			body:       displayNameBody(strings.Repeat(decomposedE, domain.MaxDisplayNameLength)),
 			stored:     strings.Repeat(composedE, domain.MaxDisplayNameLength),
 			wantStatus: http.StatusOK,
-			wantBody: `{"id":"google-oauth2|123","display_name":"` +
+			wantBody: `{"id":"google-oauth2|123","public_id":"k3vq7xw2mbnc4zra","display_name":"` +
 				strings.Repeat(composedE, domain.MaxDisplayNameLength) + `","role":"contributor"}`,
 		},
 		{
@@ -234,6 +234,7 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 				if tc.storeErr == nil {
 					getter.EXPECT().GetUser(mock.Anything, principalUserID).Return(domain.User{
 						ID:          principalUserID,
+						PublicID:    testPublicID,
 						DisplayName: tc.stored,
 						Role:        domain.RoleContributor,
 						CreatedAt:   testNow,

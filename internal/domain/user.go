@@ -4,7 +4,10 @@ import "time"
 
 // User is an account, identified by the subject of the identity provider that authenticated it.
 type User struct {
-	ID          string
+	ID string
+	// PublicID addresses the user's public repertoire (IsPublicID); unlike ID it may be shown to anyone. It is
+	// empty only for a user created by code that does not set one, until they are given one.
+	PublicID    string
 	DisplayName string
 	Role        Role
 	CreatedAt   time.Time
