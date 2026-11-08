@@ -29,6 +29,8 @@ func setSetupEnv(t *testing.T, databaseURL, bootstrapModerators string) {
 	// The contact form is disabled, so that no test calls Cloudflare.
 	t.Setenv(turnstileSecretKeyEnv, "")
 	t.Setenv(turnstileHostnamesEnv, "")
+	t.Setenv(trustedProxyCIDRsEnv, "127.0.0.0/8,::1/128")
+	t.Setenv(feProxySecretEnv, "")
 }
 
 // connectRepository returns a repository connected to the database at databaseURL.

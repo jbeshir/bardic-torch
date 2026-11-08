@@ -238,6 +238,7 @@ func TestContactSubmit_NeverLogsPII(t *testing.T) {
 				slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 			handler := NewHTTPHandler(HTTPDependencies{
 				ContactRequestCreator: creator,
+				RateLimits:            unlimitedRateLimits(),
 				TurnstileVerifier:     contactVerifierFromEnv(ctx, client),
 				Now:                   func() time.Time { return handlerNow },
 			})

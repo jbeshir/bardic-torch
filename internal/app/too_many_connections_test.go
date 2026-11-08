@@ -19,7 +19,7 @@ func TestNewHTTPHandler_TooManyConnectionsIsUnavailable(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(refusingmysql.DB(t)), nil,
-		mocks.NewTurnstileVerifier(t)))
+		mocks.NewTurnstileVerifier(t), unlimitedRateLimits()))
 
 	for _, path := range []string{termsPath, piecesPath + "/the-copper-kettle"} {
 		rec := openapitest.New(t).Serve(t, handler,

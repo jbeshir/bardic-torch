@@ -72,6 +72,8 @@ const (
 	CodeTurnstileFailed ErrorCode = "turnstile_failed"
 	// The code of a new repertoire entry of a full repertoire.
 	CodeRepertoireLimitReached ErrorCode = "repertoire_limit_reached"
+	// The code of a request refused by a rate limit.
+	CodeRateLimited ErrorCode = "rate_limited"
 )
 
 // ErrorCodeValues returns every error code, in declaration order: the codes the spec's error bodies enumerate
@@ -84,7 +86,7 @@ func ErrorCodeValues() []ErrorCode {
 		CodeRebaseRequired, CodeEntityGone, CodeAlreadyCurrent, CodePendingLimitReached, CodeDraftLimitReached,
 		CodePossibleDuplicate, CodeDuplicateBlocked, CodeHiddenDataConflict, CodePendingReferenceFlagged,
 		CodeUnacknowledgedFlags, CodeDuplicateName, CodeStale, CodeDisplayNameTaken, CodeDisplayNameReserved,
-		CodeReportLimitReached, CodeTurnstileFailed, CodeRepertoireLimitReached,
+		CodeReportLimitReached, CodeTurnstileFailed, CodeRepertoireLimitReached, CodeRateLimited,
 	}
 }
 

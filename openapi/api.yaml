@@ -15,6 +15,8 @@ info:
     - Request headers over 16 KiB get a plain-text 431 from the server, before any operation runs.
     - A request whose path is not validly percent-encoded gets a plain-text 400 from the server, before any
       operation runs.
+    - Some writes are rate limited, per user (the contact form per client IP): each such operation lists 429
+      `rate_limited`, with a `Retry-After` header in seconds. Public reads are not rate limited.
     - operationIds are camelCase.
   version: 1.1.0
   contact:
@@ -192,6 +194,8 @@ paths:
               example:
                 code: display_name_reserved
                 message: this display name is reserved
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/Internal"
         "503":
@@ -2186,6 +2190,11 @@ paths:
         before anything is stored. The answer holds no ID. The name, email address, message and URL are shown
         only to moderators, in an interactive session, and are never logged; 180 days after a moderator resolves
         or dismisses the request they are deleted. The body may be up to 64 KiB. Credentials are ignored.
+
+        Messages are rate limited by client IP, before the body is read or Turnstile is asked: a browser's IP as the
+        FE attributes it, with `X-Bardic-Client-IP` and the FE's `X-Bardic-Proxy-Secret` (only the FE's server sends
+        these), allows 3 messages at once and then 5 an hour; any other client IP allows 30 at once and then 60 an
+        hour. IPv6 addresses are counted by their /56 network.
       operationId: submitContactRequest
       security: []
       requestBody:
@@ -2235,6 +2244,8 @@ paths:
                 message: request body is too large
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/Internal"
         "503":
@@ -2755,6 +2766,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "422":
           $ref: "#/components/responses/InvalidDraftDocument"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/WriteInternal"
         "503":
@@ -2850,6 +2863,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "422":
           $ref: "#/components/responses/InvalidDraftDocument"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/Internal"
         "503":
@@ -3000,6 +3015,8 @@ paths:
                   value:
                     code: duplicate_blocked
                     message: a person with this name has asked not to have a page
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/WriteInternal"
         "503":
@@ -3068,6 +3085,8 @@ paths:
           $ref: "#/components/responses/RequestTooLarge"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/Internal"
         "503":
@@ -3109,6 +3128,8 @@ paths:
               example:
                 code: not_pending
                 message: the revision is not pending
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/WriteInternal"
         "503":
@@ -3208,6 +3229,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "422":
           $ref: "#/components/responses/InvalidDocument"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/WriteInternal"
         "503":
@@ -3441,6 +3464,8 @@ paths:
           $ref: "#/components/responses/RequestTooLarge"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/Internal"
         "503":
@@ -3466,6 +3491,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/RepertoireEntryNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/Internal"
         "503":
@@ -3813,6 +3840,28 @@ components:
           example:
             code: not_found
             message: link not found
+    RateLimited:
+      description: |
+        The caller made too many requests of this kind: the user, or for the contact form the client IP, has used
+        up its rate limit. Retry after the number of seconds in `Retry-After`; the error code is `rate_limited`.
+        Limits are counted per user across both of their credentials; moderators are limited like everyone. The
+        body never says which limit was reached or for what key.
+      headers:
+        Retry-After:
+          description: Whole seconds until the request may be retried, at least 1.
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            examples:
+              - 720
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: rate_limited
+            message: too many requests; retry after the number of seconds in the Retry-After header
     RequestTooLarge:
       description: The request body is larger than 16 KiB; the error code is `request_too_large`.
       content:
@@ -4054,6 +4103,7 @@ components:
             - report_limit_reached
             - turnstile_failed
             - repertoire_limit_reached
+            - rate_limited
           examples:
             - unavailable
         message:

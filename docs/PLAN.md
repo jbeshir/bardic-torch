@@ -629,14 +629,38 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     CRLF and CR to LF and NFC-normalises before it sends a document; the server never rewrites document text.
   - *Single-line fields* (the contact form's name, email, URL and Turnstile token, a link report's URL) are not
     normalised: a CR, like any control character, is 400 `invalid_request`.
+- **Rate limits** (BE5): in-process token buckets (`internal/ratelimit`), one limiter per tier, keyed by user ID
+  (both of a user's credentials share it; moderators are limited like everyone) or, for the contact form, by
+  client IP. A key may make a burst of requests at once, then one per interval; over it, 429 `rate_limited` with
+  `Retry-After` (whole seconds to the next token, at least 1). The tiers: the contact form, 3 at once then 5 an hour
+  per attributed client IP, and 30 at once then 60 an hour per unattributed one; link reports 10 then 10 an hour;
+  draft creates and saves 60 then 30 a minute; submits, withdrawals and reverts together 30 then 60 an hour;
+  repertoire puts and deletes 60 then 60 a minute; `PATCH /v1/me` 10 then 10 an hour. Public reads are not limited
+  (edge limiting at Cloudflare is a later decision). User tiers run after `requireAuth`, so anonymous and blocked
+  requests spend nothing; the contact tiers run before the body is read and before Turnstile. A 429 body names
+  neither tier nor key, and its log line adds only the tier (never a client IP). **Client IP:** the socket peer
+  (IPv4-mapped addresses read as IPv4); if the peer is in `TRUSTED_PROXY_CIDRS` (dokku's nginx), the last entry of
+  the last `X-Forwarded-For` line, which nginx writes, when it is an IP; `X-Forwarded-For` from any other peer is
+  ignored. The FE calls the API from its server, so it sends the browser's IP in `X-Bardic-Client-IP` with
+  `X-Bardic-Proxy-Secret` equal to `FE_PROXY_SECRET` (compared in constant time; empty attributes nothing, with a
+  startup warning), and strips client copies of both. Such a request is *attributed* to that IP and spends the
+  attributed tier; any other spends the looser unattributed tier, keyed by the derived IP, with a warning at most
+  once a minute, so an FE not yet sending the headers cannot throttle the whole site to 5 an hour. IPv6 keys are
+  the /56 network. Neither header is logged. **Memory is bounded:** each tier holds at most 50 000 keys (contact)
+  or 10 000 (user tiers), about 150 bytes each; a sweep each minute forgets refilled buckets, and a new key at the
+  cap sweeps at once and otherwise evicts the least recently seen of 64 sampled keys, so a new key is never
+  refused. Limits reset on every deploy, dokku's zero-downtime deploy briefly runs old and new containers together
+  (limits double for that window), and scaling `web` multiplies them; rules that must hold exactly (the link-report
+  cooldown, the repertoire cap) are in MySQL. MCP calls (later in BE5) spend their own tier and the inner route's.
 - **Contact requests** (`POST /v1/contact`, no account): kind, name, email, message, URL and a Turnstile token;
   202 with no ID. Turnstile is verified server-side with siteverify: `success`, a hostname in
   `TURNSTILE_HOSTNAMES` (bardictorch.org and preview.bardictorch.org, compared case-insensitively; empty disables
   the hostname check, for development only, with a startup warning) and the action `contact` must all hold. Only
   user-side token failures are 400 `turnstile_failed`; Cloudflare-side failures, misconfiguration, an empty secret
   (contact disabled), more than 8 verifications at once and 1000 open requests (a soft cap: the count is not
-  locked, so concurrent requests can pass it by about as many as are inserting at once; BE5 adds rate limits) are
-  503. A URL typed without a scheme is stored with https, so the inbox never shows a relative link. The name,
+  locked, so concurrent requests can pass it by about as many as are inserting at once) are 503. Before any of
+  that, each client IP is rate limited (see "Rate limits": 429). A URL typed without a scheme is stored with
+  https, so the inbox never shows a relative link. The name,
   email, message and URL are returned only by the moderators' inbox and never logged, and are purged 180 days
   after a request is resolved or dismissed (at startup, after each resolution and before each inbox list); open
   requests are kept.

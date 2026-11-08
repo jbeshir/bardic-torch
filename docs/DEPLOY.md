@@ -16,6 +16,7 @@ Replace these in the commands below:
 | `<MODERATOR_USER_IDS>` | Comma-separated Auth0 user IDs of the moderators | `google-oauth2\|1234,facebook\|5678` |
 | `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
 | `<TURNSTILE_SECRET_KEY>` | The secret key of the contact form's Cloudflare Turnstile widget (see [Cloudflare Turnstile](#cloudflare-turnstile)) | `0x4AAAAAAA…` |
+| `<FE_PROXY_SECRET>` | A long random secret the FE sends to attribute contact requests to the browser's IP, the same value on the FE (see [Rate limits and client IPs](#rate-limits-and-client-ips)); generate it with `openssl rand -hex 32` | `9f86d081884c…` |
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
 | `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
@@ -321,7 +322,9 @@ dokku config:set --no-restart bardic-torch-api \
   AUTH0_AUDIENCE=https://api.bardictorch.org \
   BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>' \
   TURNSTILE_SECRET_KEY='<TURNSTILE_SECRET_KEY>' \
-  TURNSTILE_HOSTNAMES=bardictorch.org,preview.bardictorch.org
+  TURNSTILE_HOSTNAMES=bardictorch.org,preview.bardictorch.org \
+  TRUSTED_PROXY_CIDRS=172.16.0.0/12 \
+  FE_PROXY_SECRET='<FE_PROXY_SECRET>'
 ```
 
 - Keep the single quotes around the user IDs: they contain `|`, which the shell would otherwise treat as a pipe.
@@ -331,9 +334,51 @@ dokku config:set --no-restart bardic-torch-api \
   and the API logs a warning at startup. `TURNSTILE_HOSTNAMES` lists the hostnames a token must have been minted
   on, compared case-insensitively; empty disables that check (development only), and the API then logs a warning
   at startup.
+- `TRUSTED_PROXY_CIDRS` is the docker bridge network dokku's nginx connects from, and `FE_PROXY_SECRET` the
+  secret shared with the FE; see [Rate limits and client IPs](#rate-limits-and-client-ips). Either may be empty,
+  with a startup warning, but then contact form rate limits fall back to coarser keys. The API refuses to start
+  if `TRUSTED_PROXY_CIDRS` holds something other than CIDR networks.
 - `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
   if `AUTH_DRIVERS` names an unknown driver, or if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
   enabled.
+
+### Rate limits and client IPs
+
+The API rate limits writes per user, and the contact form per client IP, in memory (docs/PLAN.md §5.1 "Rate
+limits"): a refused request gets 429 with `Retry-After`. Limits reset on every deploy; during dokku's
+zero-downtime deploy the old and new containers both serve for the healthcheck window, so the limits briefly
+double, and `ps:scale web=N` multiplies them by N.
+
+The contact form's client IP comes from three places:
+
+- **dokku's nginx.** The API trusts `X-Forwarded-For` only from a peer in `TRUSTED_PROXY_CIDRS`, and takes the last
+  entry of the last line, which nginx writes as `$remote_addr`. Check that nginx overwrites rather than appends a
+  client's header: `dokku nginx:report bardic-torch-api --nginx-x-forwarded-for-value` must be empty (the default,
+  `$remote_addr`) or `$remote_addr`. Check the peer address itself, not only the network: `docker network inspect
+  bridge` shows the bridge subnet, but the address nginx actually connects from is what counts, and the API
+  never logs client IPs. So on the server, while a request is in flight (or a keep-alive connection is open), list
+  the container's connections:
+  `sudo nsenter -t $(docker inspect -f '{{.State.Pid}}' bardic-torch-api.web.1) -n ss -tn`, and confirm the
+  peer column is inside `TRUSTED_PROXY_CIDRS` (172.16.0.0/12 covers docker's default
+  bridge networks).
+- **The FE.** The FE calls the API from its server, so every request arrives from Cloudflare's egress IPs. The FE
+  sends the browser's IP (from `CF-Connecting-IP`) in `X-Bardic-Client-IP` and `FE_PROXY_SECRET` in
+  `X-Bardic-Proxy-Secret` on every server-side call, and strips any copies a browser sent. Set the same
+  `FE_PROXY_SECRET` on the FE before deploying an API that relies on it. Requests without the secret are
+  *unattributed*: they are limited by a looser per-IP tier, and the API logs a warning at most once a minute,
+  naming only the tier. A steady stream of those warnings means the FE is not sending the headers, or the
+  secrets differ.
+- **Rotation.** A leaked `FE_PROXY_SECRET` lets its holder choose the IP a contact request is counted against
+  (Turnstile still applies). Rotate it by setting a new value on the FE and the API together:
+  `dokku config:set bardic-torch-api FE_PROXY_SECRET='<FE_PROXY_SECRET>'`; contact requests in between are
+  unattributed, not refused.
+
+To verify after a deploy, send a contact form message from two different networks (a phone off Wi-Fi and a home
+connection): each must get its own allowance (3 at once), and the logs must not show the unattributed warning for
+them.
+
+Revisit all of this if `api.bardictorch.org` is ever put behind Cloudflare's proxy: the peer would then be a
+Cloudflare IP rather than nginx's view of the client, and the trusted networks and header would change.
 
 ### First deploy
 

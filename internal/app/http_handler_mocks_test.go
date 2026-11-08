@@ -177,7 +177,8 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		validate:            openapitest.New(t),
 	}
 	m.handler = NewHTTPHandler(HTTPDependencies{
-		Pinger: m.pinger,
+		Pinger:     m.pinger,
+		RateLimits: unlimitedRateLimits(),
 		AuthValidators: []router.AuthValidator{
 			prefixValidator("auth0|", domain.AuthMethodAuth0),
 			prefixValidator(domain.APITokenPrefix, domain.AuthMethodAPIToken),

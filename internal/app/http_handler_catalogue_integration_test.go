@@ -110,7 +110,7 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 
 	repository := mysql.New(db)
 	e := endToEnd{
-		handler:  NewHTTPHandler(repositoryHTTPDependencies(repository, nil, passingTurnstile{})),
+		handler:  NewHTTPHandler(repositoryHTTPDependencies(repository, nil, passingTurnstile{}, unlimitedRateLimits())),
 		contract: openapitest.New(t),
 	}
 
@@ -227,7 +227,7 @@ func TestHTTP_RevisionWithNonASCIILinkURL(t *testing.T) {
 		BaseRevisionID: piece.RevisionID})
 
 	e := endToEnd{
-		handler:  NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{})),
+		handler:  NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}, unlimitedRateLimits())),
 		contract: openapitest.New(t),
 	}
 	revision := sendOK[controller.EntityRevision[controller.PieceSummary, controller.PieceSnapshot]](

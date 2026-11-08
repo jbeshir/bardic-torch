@@ -964,7 +964,7 @@ func TestHTTP_LeakMatrix(t *testing.T) {
 	requireLeakMarkersStored(t, db)
 	requireUnpublishedStored(t, db, fx.unpublished)
 	requireLeakRepertoiresStored(t, db, fx)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}, unlimitedRateLimits()))
 	contract := openapitest.New(t)
 
 	operations := contract.Operations()
@@ -1150,7 +1150,7 @@ func TestHTTP_LeakMatrix_PlantedLeakFails(t *testing.T) {
 	t.Parallel()
 
 	db, fx := leakCatalogue.Get(t)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}, unlimitedRateLimits()))
 
 	req := leakRequest{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK,
 		reveals: []string{fx.noPage.Slug, noPageName}}
@@ -1173,7 +1173,7 @@ func TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing(t *testing.T) {
 	t.Parallel()
 
 	db, fx := leakCatalogue.Get(t)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}, unlimitedRateLimits()))
 
 	for name, id := range map[string]int64{
 		// Adds an alias that is hidden now, and a relation to a person who now prefers no page.

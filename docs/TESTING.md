@@ -433,6 +433,24 @@ through the helper, so the command's name rules are checked against the spec's `
   unverifiable or a blocked user's, as they would an anonymous request, and never look a user up.
 - `TestHTTP_LeakMatrix` checks that no public read shows hidden data; see [Leak matrix](#leak-matrix).
 
+### Rate-limit tests
+
+Rate limits (docs/PLAN.md §5.1 "Rate limits") are tested without real time or real tiers' sizes:
+
+- `internal/ratelimit` uses a fake clock moved by hand. `TestLimiter_Tiers` has a row for every field of
+  `DefaultTiers()` (a reflection check fails if a tier lacks one): it pins each tier's burst, interval and key cap,
+  and checks the burst is allowed, the next request is refused with exactly one interval to wait, one token comes
+  back per interval, a full burst after a long wait, and keys do not share tokens. Eviction tests inject a key cap
+  of 2; `TestLimiter_ConcurrentAllow` runs under `-race`.
+- The router tests build every tier with a burst of 1 and a one-minute interval (`testRateLimits`). Each row of
+  `TestRouter_RateLimitTiers` is a limited route, or a way of reaching the contact form (attributed, unattributed
+  IPv4, IPv6 grouped by /56, through the proxy without the secret), served through the contract helper; the 429
+  is a contract case of its operation. `TestClientIP` is the client-IP table, `TestClientIP_NeverLogs` and
+  `TestRateLimit_LogLineHoldsTierOnly` the log rules.
+- Every other test gets limits it never reaches: `unlimitedRateLimits()` in package `app` (pass it to
+  `repositoryHTTPDependencies`, or set `HTTPDependencies.RateLimits`) and in package `router`. A handler built
+  without them panics on the first limited request, which is how a missing one shows up.
+
 ### Integration tests (`//go:build integration`)
 
 Run against real MySQL 8.4 by the `test-integration*` targets:
@@ -839,6 +857,9 @@ person's page shows it and the scan reports it, as it reports each planted place
    (`TestSpec_DatabaseOperationsDeclare503`; only `/healthz` reads none). An ID is `format: int64` with
    `maximum: 9007199254740991` (`TestSpec_Int64IDsHaveSafeMaximum`, which checks every int64). A request schema
    may be stricter than the server's decoder (`required`, `uniqueItems`); clients follow the spec and must never
+   rely on the server's leniency. A rate-limited operation lists 429 `RateLimited` (with its `Retry-After`
+   header), and only those do: `TestRouter_RateLimitCoverage` pairs the spec's 429s with the rows of
+   `TestRouter_RateLimitTiers` (see "Rate-limit tests").
    rely on the server's leniency.
 2. **Route**: add it to the route table in `router.routes`: method, path pattern, handler behind the right
    `require*` middleware, and `authenticated: true` unless it is public.

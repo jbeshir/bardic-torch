@@ -12,6 +12,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/ratelimit"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/server"
 )
@@ -28,7 +29,7 @@ type Component interface {
 // Setup connects to the database, promotes the moderators named in BOOTSTRAP_MODERATOR_USER_IDS, stores missing
 // or stale display name keys, gives every user without a public ID one, gives the performances with no owner their
 // owner, purges the contact requests past their retention, and returns the components to run, configured from the
-// environment.
+// environment, with the production rate limits.
 func Setup(ctx context.Context) ([]Component, error) {
 	dbConfig, err := mysql.ConfigFromURL(MustGetEnvAsString(ctx, "DATABASE_URL"))
 	if err != nil {
@@ -77,6 +78,11 @@ func Setup(ctx context.Context) ([]Component, error) {
 		return nil, fmt.Errorf("setting up authentication: %w", err)
 	}
 	verifier := contactVerifierFromEnv(ctx, &http.Client{})
+	clientIP, err := clientIPConfigFromEnv(ctx)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("configuring client IPs: %w", err)
+	}
 
 	addr := ":" + strconv.Itoa(MustGetEnvAsInt(ctx, "PORT"))
 	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
@@ -85,18 +91,19 @@ func Setup(ctx context.Context) ([]Component, error) {
 		return nil, fmt.Errorf("listening on [%s]: %w", addr, err)
 	}
 
-	return []Component{
-		&server.Server{
-			Listener: listener,
-			Handler:  NewHTTPHandler(repositoryHTTPDependencies(repository, authValidators, verifier)),
-		},
-	}, nil
+	deps := repositoryHTTPDependencies(repository, authValidators, verifier,
+		rateLimits(ratelimit.DefaultTiers(), time.Now))
+	deps.ClientIP = clientIP
+
+	return []Component{&server.Server{Listener: listener, Handler: NewHTTPHandler(deps)}}, nil
 }
 
 // repositoryHTTPDependencies are the HTTP handler's dependencies with repository as every datasource, verifier as
-// the contact form's Turnstile verifier, and the production clock.
+// the contact form's Turnstile verifier, limits as the rate limits, and the production clock. Client IPs are
+// derived from the socket peer alone.
 func repositoryHTTPDependencies(
 	repository *mysql.Repository, authValidators []router.AuthValidator, verifier datasources.TurnstileVerifier,
+	limits router.RateLimits,
 ) HTTPDependencies {
 	return HTTPDependencies{
 		Pinger:                         repository,
@@ -160,6 +167,7 @@ func repositoryHTTPDependencies(
 		ContactRequestResolver:         repository,
 		ContactRequestPurger:           repository,
 		TurnstileVerifier:              verifier,
+		RateLimits:                     limits,
 		Now:                            now,
 	}
 }

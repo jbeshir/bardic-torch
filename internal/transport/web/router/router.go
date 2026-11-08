@@ -68,7 +68,11 @@ type Dependencies struct {
 	GetRepertoireEntry             command.Command[command.RepertoireEntryRequest, domain.RepertoireEntry]
 	PutRepertoireEntry             command.Command[command.PutRepertoireEntryRequest, command.PutRepertoireEntryResult]
 	RemoveRepertoireEntry          command.Command[command.RepertoireEntryRequest, command.Empty]
-	Now                            func() time.Time
+	// RateLimits limit the routes docs/PLAN.md §5.1 "Rate limits" lists; ClientIP says how the contact form tells its
+	// clients apart.
+	RateLimits RateLimits
+	ClientIP   ClientIPConfig
+	Now        func() time.Time
 }
 
 // route is one operation the router serves.
@@ -141,14 +145,16 @@ func routes(deps Dependencies) []route {
 		{method: http.MethodGet, path: "/v1/users/{public_id}/repertoire",
 			handler: controller.PublicRepertoireGet{Lister: deps.PublicRepertoireLister}},
 		// The contact form needs no account: like the catalogue reads, it answers whatever credentials a request
-		// carries. Turnstile, not authentication, keeps automated senders out.
+		// carries. Turnstile, not authentication, keeps automated senders out. Its rate limit, by client IP, comes before
+		// the body is read and Turnstile is asked.
 		{method: http.MethodPost, path: "/v1/contact",
-			handler: controller.ContactSubmit{Command: deps.SubmitContactRequest}},
+			handler: limitedByClientIP(deps.RateLimits, deps.ClientIP, deps.Now,
+				controller.ContactSubmit{Command: deps.SubmitContactRequest})},
 
 		{method: http.MethodGet, path: "/v1/me", handler: requireAuth(controller.MeGet{}), authenticated: true},
-		{method: http.MethodPatch, path: "/v1/me", authenticated: true, handler: requireAuth(controller.MePatch{
-			Command: deps.UpdateDisplayName,
-		})},
+		{method: http.MethodPatch, path: "/v1/me", authenticated: true, handler: requireAuth(
+			limitedByUser(deps.RateLimits.ProfileWrite, controller.MePatch{Command: deps.UpdateDisplayName}),
+		)},
 
 		// Moderation, for interactive moderators only. User IDs contain "|", which clients send percent-encoded
 		// as %7C. The approve, reject and rebase routes coexist with the public GET /v1/revisions/{revision_id},
@@ -202,35 +208,47 @@ func routes(deps Dependencies) []route {
 		pendingRoute("events", "{slug}", domain.EntityTypeEvent, deps),
 		pendingRoute("collections", "{collection_id}", domain.EntityTypeCollection, deps),
 		{method: http.MethodPost, path: "/v1/drafts", authenticated: true,
-			handler: requireAuth(controller.DraftCreate{Command: deps.SaveDraft})},
+			handler: requireAuth(limitedByUser(deps.RateLimits.DraftWrite, controller.DraftCreate{Command: deps.SaveDraft}))},
 		{method: http.MethodGet, path: draftPath, authenticated: true,
 			handler: requireAuth(controller.DraftGet{Command: deps.GetDraft})},
 		{method: http.MethodPut, path: draftPath, authenticated: true,
-			handler: requireAuth(controller.DraftUpdate{Command: deps.UpdateDraft})},
+			handler: requireAuth(limitedByUser(deps.RateLimits.DraftWrite, controller.DraftUpdate{Command: deps.UpdateDraft}))},
 		{method: http.MethodDelete, path: draftPath, authenticated: true,
 			handler: requireAuth(controller.DraftDelete{Command: deps.DiscardDraft})},
 		{method: http.MethodPost, path: "/v1/revisions", authenticated: true,
-			handler: requireAuth(controller.RevisionSubmit{Command: deps.SubmitRevision})},
+			handler: requireAuth(
+				limitedByUser(deps.RateLimits.RevisionWrite, controller.RevisionSubmit{Command: deps.SubmitRevision}),
+			)},
 		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/withdraw", authenticated: true,
-			handler: requireAuth(controller.RevisionWithdraw{Command: deps.WithdrawRevision})},
+			handler: requireAuth(
+				limitedByUser(deps.RateLimits.RevisionWrite, controller.RevisionWithdraw{Command: deps.WithdrawRevision}),
+			)},
 		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/revert", authenticated: true,
-			handler: requireAuth(controller.RevisionRevert{Command: deps.RevertTo})},
+			handler: requireAuth(
+				limitedByUser(deps.RateLimits.RevisionWrite, controller.RevisionRevert{Command: deps.RevertTo}),
+			)},
 		{method: http.MethodGet, path: "/v1/me/revisions", authenticated: true,
 			handler: requireAuth(controller.MyRevisionsList{Command: deps.ListMyRevisions})},
 		{method: http.MethodGet, path: "/v1/me/revisions/{revision_id}", authenticated: true,
 			handler: requireAuth(controller.MyRevisionGet{Command: deps.GetMyRevision})},
 		// Link reports address a link by the URL a public page shows: link IDs are not public.
 		{method: http.MethodPost, path: "/v1/link-reports", authenticated: true,
-			handler: requireAuth(controller.LinkReportCreate{Command: deps.ReportLink})},
+			handler: requireAuth(
+				limitedByUser(deps.RateLimits.LinkReport, controller.LinkReportCreate{Command: deps.ReportLink}),
+			)},
 		// The caller's own repertoire, with either credential.
 		{method: http.MethodGet, path: "/v1/me/repertoire", authenticated: true,
 			handler: requireAuth(controller.MyRepertoireList{Command: deps.ListRepertoire})},
 		{method: http.MethodGet, path: repertoireEntryPath, authenticated: true,
 			handler: requireAuth(controller.MyRepertoireEntryGet{Command: deps.GetRepertoireEntry})},
 		{method: http.MethodPut, path: repertoireEntryPath, authenticated: true,
-			handler: requireAuth(controller.MyRepertoireEntryPut{Command: deps.PutRepertoireEntry})},
+			handler: requireAuth(limitedByUser(
+				deps.RateLimits.RepertoireWrite, controller.MyRepertoireEntryPut{Command: deps.PutRepertoireEntry},
+			))},
 		{method: http.MethodDelete, path: repertoireEntryPath, authenticated: true,
-			handler: requireAuth(controller.MyRepertoireEntryDelete{Command: deps.RemoveRepertoireEntry})},
+			handler: requireAuth(limitedByUser(
+				deps.RateLimits.RepertoireWrite, controller.MyRepertoireEntryDelete{Command: deps.RemoveRepertoireEntry},
+			))},
 	}
 }
 

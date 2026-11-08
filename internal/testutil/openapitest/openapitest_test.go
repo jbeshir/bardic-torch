@@ -292,6 +292,19 @@ func TestValidator_Public(t *testing.T) {
 	assert.False(t, v.Public(Operation{Method: http.MethodGet, Path: "/albums"}))
 }
 
+// TestValidator_Documents checks that only a status an operation lists is documented.
+func TestValidator_Documents(t *testing.T) {
+	t.Parallel()
+
+	v := newFixtureValidator(t)
+	song := Operation{Method: http.MethodGet, Path: songPathTemplate}
+	assert.True(t, v.Documents(song, http.StatusOK))
+	assert.True(t, v.Documents(song, http.StatusNotFound))
+	assert.False(t, v.Documents(song, http.StatusTooManyRequests))
+	assert.False(t, v.Documents(Operation{Method: http.MethodPut, Path: songPathTemplate}, http.StatusOK))
+	assert.False(t, v.Documents(Operation{Method: http.MethodGet, Path: "/albums"}, http.StatusOK))
+}
+
 func TestValidator_RejectsInvalidSpec(t *testing.T) {
 	t.Parallel()
 

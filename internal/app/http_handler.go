@@ -11,7 +11,7 @@ import (
 )
 
 // HTTPDependencies are what the HTTP handler is built from: the datasources, the validators that authenticate
-// requests, the contact form's Turnstile verifier, and the clock.
+// requests, the contact form's Turnstile verifier, the rate limits and how clients are told apart, and the clock.
 type HTTPDependencies struct {
 	Pinger                         datasources.Pinger
 	AuthValidators                 []router.AuthValidator
@@ -74,6 +74,8 @@ type HTTPDependencies struct {
 	ContactRequestResolver         datasources.ContactRequestResolver
 	ContactRequestPurger           datasources.ContactRequestPurger
 	TurnstileVerifier              datasources.TurnstileVerifier
+	RateLimits                     router.RateLimits
+	ClientIP                       router.ClientIPConfig
 	Now                            func() time.Time
 }
 
@@ -178,6 +180,8 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		GetRepertoireEntry:    &command.GetRepertoireEntry{Getter: deps.RepertoireEntryGetter},
 		PutRepertoireEntry:    &command.PutRepertoireEntry{Putter: deps.RepertoireEntryPutter, Now: deps.Now},
 		RemoveRepertoireEntry: &command.RemoveRepertoireEntry{Deleter: deps.RepertoireEntryDeleter},
+		RateLimits:            deps.RateLimits,
+		ClientIP:              deps.ClientIP,
 		Now:                   deps.Now,
 	})
 }

@@ -500,6 +500,7 @@ func (f *routingFixture) dependencies() Dependencies {
 		WithdrawRevision:               routingRevision{f},
 		GetDraft:                       routingDraft{f},
 		GetModerationRevision:          routingModerationRevision{f},
+		RateLimits:                     unlimitedRateLimits(),
 		Now:                            func() time.Time { return testNow },
 	}
 }

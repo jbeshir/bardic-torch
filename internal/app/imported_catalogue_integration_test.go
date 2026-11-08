@@ -134,7 +134,7 @@ func TestHTTP_ImportedCatalogue(t *testing.T) {
 	t.Parallel()
 
 	db, imp := importedCatalogue.Get(t)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}, unlimitedRateLimits()))
 	contract := openapitest.New(t)
 	hidden := hiddenAliases(imp)
 	require.NotEmpty(t, hidden, "the scrubbed import hides aliases, so this test checks them")
@@ -222,7 +222,7 @@ func TestHTTP_ImportedCatalogue_PlantedLeakFails(t *testing.T) {
 	require.NotEmpty(t, slug, "the scrubbed import has a person with a page and a hidden alias")
 	db := mysqltest.NewDatabase(t)
 	catalogtest.New(t, db).Import(imp)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}))
+	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil, passingTurnstile{}, unlimitedRateLimits()))
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/persons/"+slug, nil))

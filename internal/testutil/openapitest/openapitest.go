@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -110,6 +111,17 @@ func (v *Validator) Public(op Operation) bool {
 	operation := item.GetOperation(op.Method)
 
 	return operation != nil && operation.Security != nil && len(*operation.Security) == 0
+}
+
+// Documents reports whether op is in the spec and documents a response with status.
+func (v *Validator) Documents(op Operation, status int) bool {
+	item := v.doc.Paths.Value(op.Path)
+	if item == nil {
+		return false
+	}
+	operation := item.GetOperation(op.Method)
+
+	return operation != nil && operation.Responses.Value(strconv.Itoa(status)) != nil
 }
 
 // Operations returns every operation in the spec, sorted by path and then method.
