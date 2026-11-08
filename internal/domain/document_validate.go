@@ -43,6 +43,9 @@ type ValidationContext[D Document] struct {
 	// editor is set for the first phase of ValidateSubmission, which validates the document as the contributor
 	// submitted it, before restore.
 	editor bool
+	// withheldSources are the paths of the scalar sources the contributor's projection withheld, which the first
+	// phase does not require: restore puts them back.
+	withheldSources map[string]bool
 }
 
 // ReferenceIndex is what validation knows of the entities a document references, by ID. An ID in no map does not
@@ -118,7 +121,8 @@ func DefaultDocument[D Document]() D {
 // oracle for what the contributor could not see:
 //  1. editor, the document as submitted (before restore), compared with editorPrevious, the projection of the
 //     base the contributor edited. Its problems, with paths into the document the contributor sees, are the
-//     only problems returned.
+//     only problems returned. A source the projection withheld (a hidden link) and that the contributor left
+//     null is not required there: phase 2 checks the source restore puts back.
 //  2. restored, the document with the withheld elements put back, compared with v.Previous, the full base. Only
 //     when phase 1 passes; each problem it finds exists because of data the contributor could not see, and is
 //     returned as a hidden_data_conflict flag with its path into the full document.
@@ -127,6 +131,7 @@ func ValidateSubmission[D Document](editor, restored D, editorPrevious *D, v Val
 ) {
 	phase1 := v
 	phase1.Previous, phase1.editor = editorPrevious, true
+	phase1.withheldSources = withheldSourcePaths(v.Previous, editorPrevious)
 	if problems := validateDocument(editor, phase1); len(problems) > 0 {
 		return problems, nil
 	}
@@ -167,6 +172,9 @@ type docCheck struct {
 	previousStrings map[string]bool
 	// changed are the keys of the references the edit adds or changes (ChangedReferences).
 	changed map[string]bool
+	// withheldSources are the paths of the sources a contributor was not given, which requireSource does not
+	// require (ValidationContext.withheldSources).
+	withheldSources map[string]bool
 }
 
 func newDocCheck[D Document](doc D, prev *D, refs ReferenceIndex, id int64) *docCheck {

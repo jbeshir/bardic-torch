@@ -374,6 +374,9 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 				SourceURL: new("https://example.org/assessment"), At: firstAssessment},
 			{Status: domain.ConservationStatusEndangered, Reason: "Fewer singers.", At: reassessment},
 		},
+		// The video's place only: the archive link has no place type (and is dead), the hidden link is not counted.
+		ConservationSuggestion: &domain.ConservationSuggestion{Status: domain.ConservationStatusEndangered,
+			PlaceCount: 1, Places: []domain.LinkPlaceType{domain.LinkPlaceTypeRecordingPlatform}},
 	}, piece)
 }
 

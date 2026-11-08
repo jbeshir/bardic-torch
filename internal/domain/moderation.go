@@ -122,6 +122,9 @@ type ModerationRevision struct {
 	Duplicates []DuplicateMatch
 	// ChangedPaths are what Document changes from BaseDocument (from the default document for a new entity).
 	ChangedPaths []FieldPath
+	// ConservationSuggestion is the status the links of a piece revision's Document suggest, by their current state
+	// (hidden links left out); nil for a restricted piece and for other entity types.
+	ConservationSuggestion *ConservationSuggestion
 }
 
 // ModerationLinkAttachment is an entity a link is attached to, as a moderator sees it: by slug, with its title or

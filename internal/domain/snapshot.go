@@ -13,7 +13,8 @@ import (
 //   - each link shown by URL, and only if its normalized URL (NormalizeURL) is that of a link that is not hidden
 //     now, and of no hidden link: a link since hidden, deleted, or given a URL that normalizes otherwise is left
 //     out, and so is a URL that does not normalize;
-//   - a preference shown only if its source normalizes and is no hidden link's now (fail closed);
+//   - a preference shown only if its source normalizes and is no hidden link's now, and a person's status source
+//     and a piece's conservation source shown as null unless they do (fail closed; hidden_source.go);
 //   - a person's alias shown only if it is public in the document and is now a public alias of the person;
 //   - a person's name shown only if it is their name now or one of their public alias names now, and their
 //     current name otherwise, so that a former name that is now a hidden alias never shows;
@@ -33,7 +34,8 @@ type SnapshotReferences struct {
 	CollectionIDs []int64
 	EventIDs      []int64
 	LinkURLs      []string
-	// SourceURLs are the URLs the documents cite as sources outside their links: their preferences' sources.
+	// SourceURLs are the URLs the documents cite as sources outside their links: their preferences' sources, a
+	// person's status source and a piece's conservation source.
 	SourceURLs []string
 	// AliasPersonIDs are the persons whose public alias names a view needs: the person a document is of, who is
 	// among PersonIDs too.
@@ -68,10 +70,11 @@ type SnapshotVisibility struct {
 
 // PieceSnapshot is the public view of a PieceDocument.
 type PieceSnapshot struct {
-	Title                 string
-	Kind                  PieceKind
-	SecondaryKinds        []PieceKind
-	ConservationStatus    ConservationStatus
+	Title              string
+	Kind               PieceKind
+	SecondaryKinds     []PieceKind
+	ConservationStatus ConservationStatus
+	// ConservationSourceURL is nil when the source is a hidden link now, or does not normalize (ShownSource).
 	ConservationSourceURL *string
 	IsStub                bool
 	NotesMD               *string
@@ -136,10 +139,11 @@ type SnapshotPersonPerformance struct {
 // PersonSnapshot is the public view of a PersonDocument. Profile is nil, and IsStub true, for a person who prefers
 // no page now or in the document, of whom the view shows the identity only.
 type PersonSnapshot struct {
-	Name            string
-	Kind            PersonKind
-	Status          PersonStatus
-	StatusDate      *Date
+	Name       string
+	Kind       PersonKind
+	Status     PersonStatus
+	StatusDate *Date
+	// StatusSourceURL is nil when the source is a hidden link now, or does not normalize (ShownSource).
 	StatusSourceURL *string
 	IsStub          bool
 	Profile         *PersonSnapshotProfile
@@ -224,6 +228,7 @@ func (d PieceDocument) AddReferences(refs *SnapshotReferences) {
 		}
 	}
 	refs.addSources(d.Preferences)
+	refs.SourceURLs = appendID(refs.SourceURLs, d.Conservation.SourceURL)
 }
 
 // AddReferences adds what the document of the person personID references to refs, including the person.
@@ -244,6 +249,7 @@ func (d PersonDocument) AddReferences(personID int64, refs *SnapshotReferences) 
 		}
 	}
 	refs.addSources(d.Preferences)
+	refs.SourceURLs = appendID(refs.SourceURLs, d.StatusSourceURL)
 }
 
 // AddReferences adds what the document references to refs.
@@ -291,7 +297,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		Kind:                  d.Kind,
 		SecondaryKinds:        d.SecondaryKinds,
 		ConservationStatus:    d.Conservation.Status,
-		ConservationSourceURL: d.Conservation.SourceURL,
+		ConservationSourceURL: ShownSource(d.Conservation.SourceURL, vis.HiddenSources),
 		IsStub:                d.IsStub,
 		NotesMD:               d.NotesMD,
 		VersionNotesMD:        d.VersionNotesMD,
@@ -331,7 +337,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		}
 		snapshot.Links = append(snapshot.Links, pieceLink)
 	}
-	snapshot.Preferences = vis.preferences(d.Preferences)
+	snapshot.Preferences = ShownPreferences(d.Preferences, vis.HiddenSources)
 
 	return snapshot
 }
@@ -413,7 +419,7 @@ func NewPersonSnapshot(personID int64, d PersonDocument, vis SnapshotVisibility)
 		Kind:            d.Kind,
 		Status:          d.Status,
 		StatusDate:      d.StatusDate,
-		StatusSourceURL: d.StatusSourceURL,
+		StatusSourceURL: ShownSource(d.StatusSourceURL, vis.HiddenSources),
 		IsStub:          d.IsStub,
 	}
 	if d.Name == current.Name || vis.PublicAliases[personID][d.Name] {
@@ -468,7 +474,7 @@ func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisi
 		}
 		profile.Links = append(profile.Links, personLink)
 	}
-	profile.Preferences = vis.preferences(d.Preferences)
+	profile.Preferences = ShownPreferences(d.Preferences, vis.HiddenSources)
 
 	return profile
 }
@@ -544,17 +550,4 @@ func (v SnapshotVisibility) visibleLinkURL(url string) (string, bool) {
 	visible, ok := v.VisibleLinks[normalized]
 
 	return visible, ok
-}
-
-// preferences returns the preferences of prefs a view shows: those whose source normalizes to a URL that is no
-// hidden link's now. A source that does not normalize fails closed.
-func (v SnapshotVisibility) preferences(prefs []DocPreference) []DocPreference {
-	var out []DocPreference
-	for _, p := range prefs {
-		if normalized, err := NormalizeURL(p.SourceURL); err == nil && !v.HiddenSources[normalized] {
-			out = append(out, p)
-		}
-	}
-
-	return out
 }

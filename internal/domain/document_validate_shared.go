@@ -138,9 +138,10 @@ func (c *docCheck) sourceURL(s *string, path string) {
 	c.check(s == nil || IsValidURL(*s), path, ProblemInvalidURL)
 }
 
-// requireSource checks that a source URL field a rule requires is set; sourceURL checks that it is valid.
+// requireSource checks that a source URL field a rule requires is set; sourceURL checks that it is valid. A
+// source the contributor was not given, and left null, is not required: restore puts it back.
 func (c *docCheck) requireSource(s *string, path string) {
-	c.check(s != nil && *s != "", path, ProblemSourceRequired)
+	c.check(s != nil && *s != "" || s == nil && c.withheldSources[path], path, ProblemSourceRequired)
 }
 
 // IsValidURL reports whether s is a valid source or link URL: at most MaxURLLength bytes, without control

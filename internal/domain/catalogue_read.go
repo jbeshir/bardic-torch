@@ -86,6 +86,11 @@ type Piece struct {
 	Links []PieceLink
 	// ConservationHistory is oldest first.
 	ConservationHistory []ConservationChange
+	// Preferences are the piece's stated preferences whose source a read shows (ShownPreferences), in dimension
+	// order.
+	Preferences []DocPreference
+	// ConservationSuggestion is the status the piece's visible links suggest, nil for a restricted piece.
+	ConservationSuggestion *ConservationSuggestion
 }
 
 // PieceAlias is another title of a piece.
@@ -152,8 +157,9 @@ type PiecePerformance struct {
 
 // ConservationChange is an entry in a piece's conservation history.
 type ConservationChange struct {
-	Status    ConservationStatus
-	Reason    string
+	Status ConservationStatus
+	Reason string
+	// SourceURL is nil when the source is a hidden link, or does not normalize (ShownSource).
 	SourceURL *string
 	At        time.Time
 }
@@ -162,8 +168,9 @@ type ConservationChange struct {
 // the identity is shown.
 type Person struct {
 	PersonSummary
-	Status          PersonStatus
-	StatusDate      *time.Time
+	Status     PersonStatus
+	StatusDate *time.Time
+	// StatusSourceURL is nil when the source is a hidden link, or does not normalize (ShownSource).
 	StatusSourceURL *string
 	Profile         *PersonProfile
 }
@@ -192,6 +199,9 @@ type PersonProfile struct {
 	// (unknown years last), at most MaxNestedListItems. A performance of a piece that is not public is left out.
 	Performances      []PersonPerformance
 	PerformancesTotal int64
+	// Preferences are the person's stated preferences whose source a read shows (ShownPreferences), in dimension
+	// order.
+	Preferences []DocPreference
 }
 
 // MaxNestedListItems caps nested lists that grow with the catalogue, such as a person's works; each capped list

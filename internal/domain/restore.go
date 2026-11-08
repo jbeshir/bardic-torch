@@ -16,7 +16,8 @@ import (
 //     element, keyed by dimension, so one whose source is a hidden link is put back, and so is every preference
 //     of a draft whose client never sent the preferences: EditorFieldsSent);
 //   - a reference set to null in the projection is restored if the submitted value is still null: an author who
-//     set it to something else replaced it;
+//     set it to something else replaced it; so is a scalar source (a person's status source, a piece's
+//     conservation source) withheld because it is a hidden link;
 //   - a no-page person's profile is copied whole from base, ignoring what the author sent but their identity.
 //
 // A submitted element whose key equals a withheld one is kept, and the withheld one not put back; for an alias or
@@ -59,7 +60,7 @@ func RestoreDocument[D Document](id int64, submitted D, base *D, received Elemen
 
 func (p *projector) restorePerson(sub, base PersonDocument) (PersonDocument, []Flag) {
 	if p.withheld(profileKey, p.hidden(p.noPage(base))) {
-		return withIdentity(base, sub), nil
+		return personWithheld.restoreSources(p, withIdentity(base, sub), base), nil
 	}
 
 	return personWithheld.restore(p, sub, base)

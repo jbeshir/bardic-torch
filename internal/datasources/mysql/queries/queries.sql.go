@@ -4998,6 +4998,42 @@ func (q *Queries) ListPublicPersonPerformances(ctx context.Context, arg ListPubl
 	return items, nil
 }
 
+const listPublicPersonPreferences = `-- name: ListPublicPersonPreferences :many
+SELECT dimension, value_json, source_url
+FROM person_preferences
+WHERE person_id = ?
+ORDER BY dimension
+`
+
+type ListPublicPersonPreferencesRow struct {
+	Dimension PersonPreferencesDimension
+	ValueJson json.RawMessage
+	SourceUrl string
+}
+
+func (q *Queries) ListPublicPersonPreferences(ctx context.Context, personID uint64) ([]ListPublicPersonPreferencesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPersonPreferences, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonPreferencesRow
+	for rows.Next() {
+		var i ListPublicPersonPreferencesRow
+		if err := rows.Scan(&i.Dimension, &i.ValueJson, &i.SourceUrl); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPublicPersonRelationsFrom = `-- name: ListPublicPersonRelationsFrom :many
 SELECT r.type, p.slug, p.name, p.kind, p.is_stub
 FROM person_relations r
@@ -5362,6 +5398,44 @@ func (q *Queries) ListPublicPiecePerformances(ctx context.Context, pieceID sql.N
 			&i.EventName,
 			&i.EventKind,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPiecePreferences = `-- name: ListPublicPiecePreferences :many
+
+SELECT dimension, value_json, source_url
+FROM piece_preferences
+WHERE piece_id = ?
+ORDER BY dimension
+`
+
+type ListPublicPiecePreferencesRow struct {
+	Dimension PiecePreferencesDimension
+	ValueJson json.RawMessage
+	SourceUrl string
+}
+
+// A preference's ENUM dimension sorts in declaration order, which is PreferenceDimension's.
+func (q *Queries) ListPublicPiecePreferences(ctx context.Context, pieceID uint64) ([]ListPublicPiecePreferencesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicPiecePreferences, pieceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPiecePreferencesRow
+	for rows.Next() {
+		var i ListPublicPiecePreferencesRow
+		if err := rows.Scan(&i.Dimension, &i.ValueJson, &i.SourceUrl); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

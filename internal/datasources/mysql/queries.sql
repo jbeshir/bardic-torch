@@ -177,6 +177,20 @@ FROM conservation_history
 WHERE piece_id = ?
 ORDER BY at, id;
 
+-- A preference's ENUM dimension sorts in declaration order, which is PreferenceDimension's.
+
+-- name: ListPublicPiecePreferences :many
+SELECT dimension, value_json, source_url
+FROM piece_preferences
+WHERE piece_id = ?
+ORDER BY dimension;
+
+-- name: ListPublicPersonPreferences :many
+SELECT dimension, value_json, source_url
+FROM person_preferences
+WHERE person_id = ?
+ORDER BY dimension;
+
 -- name: GetPublicPerson :one
 SELECT id, slug, name, kind, status, status_date, status_source_url, is_stub, pronouns, notes_md, licensing_status,
     licensing_notes_md

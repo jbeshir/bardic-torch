@@ -363,7 +363,7 @@ func documentChanges[D Document](doc D, current *D, summary string) (*Conservati
 
 // contentFlags are the flags of a revision's content, its document doc compared with prev (nil for a new entity):
 // its summary holding a hidden alias, each string it changed holding one, each hidden link it attaches (as a link
-// or as a preference's source) and each pending new entity it references.
+// or as a preference's, status or conservation source) and each pending new entity it references.
 func contentFlags[D Document](doc D, prev *D, summary string, refs ReferenceIndex, hiddenLinks map[string]bool,
 	matcher NameMatcher,
 ) []Flag {
@@ -391,6 +391,7 @@ func contentFlags[D Document](doc D, prev *D, summary string, refs ReferenceInde
 		}
 	}
 	flags = append(flags, preferenceSourceFlags(doc, prev, hiddenLinks)...)
+	flags = append(flags, scalarSourceFlags(doc, prev, hiddenLinks)...)
 	for _, r := range documentReferences(doc) {
 		if refs.ownPending(r) {
 			flags = append(flags, Flag{Code: FlagReferencesPending, Path: r.Path})
@@ -459,4 +460,28 @@ func documentPreferences[D Document](doc D) []DocPreference {
 	}
 
 	return nil
+}
+
+// scalarSourceFlags are the hidden_link_attached flags of doc's status and conservation sources that are a hidden
+// link, unless prev (nil for a new entity) has that source already.
+func scalarSourceFlags[D Document](doc D, prev *D, hiddenLinks map[string]bool) []Flag {
+	before := map[string]string{}
+	if prev != nil {
+		for _, s := range documentSources(*prev) {
+			if s.url != nil {
+				before[s.path] = linkKey(*s.url)
+			}
+		}
+	}
+	var flags []Flag
+	for _, s := range documentSources(doc) {
+		if s.url == nil {
+			continue
+		}
+		if key := linkKey(*s.url); hiddenLinks[key] && before[s.path] != key {
+			flags = append(flags, Flag{Code: FlagHiddenLinkAttached, Path: s.path})
+		}
+	}
+
+	return flags
 }

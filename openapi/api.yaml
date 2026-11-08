@@ -1414,6 +1414,12 @@ paths:
                       works_total: 1
                       performances: []
                       performances_total: 0
+                      preferences:
+                        - dimension: recording
+                          value:
+                            choices: [ask_before_recording]
+                            notes: null
+                          source_url: https://example.org/preferences
                 noPage:
                   summary: A person who prefers not to have a page
                   value:
@@ -4292,6 +4298,8 @@ components:
         - relations
         - links
         - conservation_history
+        - preferences
+        - conservation_suggestion
       properties:
         slug:
           $ref: "#/components/schemas/PieceSummary/properties/slug"
@@ -4380,6 +4388,22 @@ components:
           description: The piece's conservation status changes, oldest first.
           items:
             $ref: "#/components/schemas/ConservationChange"
+        preferences:
+          type: array
+          maxItems: 7
+          description: |
+            The piece's stated preferences, in dimension order: overrides, for this piece, of the credited
+            persons' preferences (a piece never has `licensing`). A preference whose source is a link hidden for
+            privacy, or does not parse as a URL, is left out.
+          items:
+            $ref: "#/components/schemas/PreferenceEntry"
+        conservation_suggestion:
+          description: |
+            The conservation status the piece's links suggest, for moderators to confirm by editing the piece's
+            conservation status; null for a `restricted` piece.
+          oneOf:
+            - $ref: "#/components/schemas/ConservationSuggestion"
+            - type: "null"
       examples:
         - slug: the-copper-kettle
           title: The Copper Kettle
@@ -4453,6 +4477,16 @@ components:
               reason: Known to only a few singers.
               source_url: null
               at: "2026-01-01T00:00:00Z"
+          preferences:
+            - dimension: recording
+              value:
+                choices: [ask_before_recording]
+                notes: null
+              source_url: https://example.org/preferences
+          conservation_suggestion:
+            status: endangered
+            place_count: 1
+            places: [recording_platform]
 
     PieceAlias:
       type: object
@@ -4757,7 +4791,7 @@ components:
             - Known to only a few singers.
         source_url:
           type: [string, "null"]
-          description: The source of the assessment.
+          description: The source of the assessment; null when the source is a link hidden for privacy.
           examples:
             - https://example.org/assessments/kettle
         at:
@@ -4771,6 +4805,38 @@ components:
           reason: Known to only a few singers.
           source_url: null
           at: "2026-01-01T00:00:00Z"
+
+    ConservationSuggestion:
+      type: object
+      description: |
+        The conservation status a piece's links suggest (the wiki's rule of thumb). Its places are the distinct
+        place types of the piece's visible links that are not dead (an unknown or blocked link counts as live) and
+        carry a content role: official, lyrics, text, sheet_music, dance_instructions, text_source, translation or
+        performance. No place suggests `critically_endangered`, one to three `endangered`, four or more
+        `low_risk`. It is never applied by itself: a moderator confirms it by editing the conservation status.
+      additionalProperties: false
+      required: [status, place_count, places]
+      properties:
+        status:
+          $ref: "#/components/schemas/ConservationStatus"
+        place_count:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: How many places there are; the length of `places`.
+          examples:
+            - 1
+        places:
+          type: array
+          description: The places, in the place type enum's order.
+          uniqueItems: true
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/LinkPlaceType"
+      examples:
+        - status: endangered
+          place_count: 1
+          places: [recording_platform]
 
     Person:
       type: object
@@ -4798,7 +4864,7 @@ components:
             - "2026-03-01"
         status_source_url:
           type: [string, "null"]
-          description: The source of the status.
+          description: The source of the status; null when the source is a link hidden for privacy.
           examples:
             - https://example.org/requests/12
         profile:
@@ -4834,6 +4900,7 @@ components:
         - works_total
         - performances
         - performances_total
+        - preferences
       properties:
         pronouns:
           type: [string, "null"]
@@ -4908,6 +4975,14 @@ components:
           description: How many performances there are in all.
           examples:
             - 0
+        preferences:
+          type: array
+          maxItems: 8
+          description: |
+            The person's stated preferences, in dimension order. A preference whose source is a link hidden for
+            privacy, or does not parse as a URL, is left out.
+          items:
+            $ref: "#/components/schemas/PreferenceEntry"
       examples:
         - pronouns: null
           notes_md: null
@@ -4922,6 +4997,7 @@ components:
           works_total: 0
           performances: []
           performances_total: 0
+          preferences: []
 
     PersonAlias:
       type: object
@@ -6341,7 +6417,9 @@ components:
           $ref: "#/components/schemas/ConservationStatus"
         conservation_source_url:
           type: [string, "null"]
-          description: The source supporting the conservation status.
+          description: |
+            The source supporting the conservation status; null when the source is a link hidden for privacy now
+            (or does not parse as a URL).
           examples:
             - https://example.org/assessments/kettle
         is_stub:
@@ -8900,6 +8978,7 @@ components:
         - flags
         - duplicates
         - changed_paths
+        - conservation_suggestion
       properties:
         id:
           $ref: "#/components/schemas/RevisionSummary/properties/id"
@@ -9006,6 +9085,14 @@ components:
             examples:
               - description_md
               - terms[drinking-songs]
+        conservation_suggestion:
+          description: |
+            For a piece revision, the conservation status `document`'s links suggest by their state now (hidden
+            links left out, links not stored yet counted as live); null for a `restricted` piece and for other
+            entity types.
+          oneOf:
+            - $ref: "#/components/schemas/ConservationSuggestion"
+            - type: "null"
       examples:
         - id: 51
           status: pending
@@ -9059,6 +9146,7 @@ components:
           flags: []
           duplicates: []
           changed_paths: [description_md]
+          conservation_suggestion: null
 
     ApproveRequest:
       type: object

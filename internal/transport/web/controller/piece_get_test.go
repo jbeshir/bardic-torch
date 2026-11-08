@@ -99,6 +99,12 @@ func testPiece() domain.Piece {
 			Status: domain.ConservationStatusEndangered, Reason: "Few singers know it.",
 			SourceURL: new("https://example.org/assessment"), At: testNow,
 		}},
+		Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
+			Value: &domain.PreferenceValue{Choices: []domain.PreferenceChoice{domain.PreferenceChoiceOralOnly},
+				Notes: new("Ask first.")},
+			SourceURL: "https://example.org/preferences"}},
+		ConservationSuggestion: &domain.ConservationSuggestion{Status: domain.ConservationStatusEndangered,
+			PlaceCount: 1, Places: []domain.LinkPlaceType{domain.LinkPlaceTypeRecordingPlatform}},
 	}
 }
 
@@ -143,7 +149,10 @@ const testPieceBody = `{
 			"last_checked_at": null, "archived_url": null, "roles": [], "performances": []}
 	],
 	"conservation_history": [{"conservation_status": "endangered", "reason": "Few singers know it.",
-		"source_url": "https://example.org/assessment", "at": "2026-10-31T12:00:00Z"}]
+		"source_url": "https://example.org/assessment", "at": "2026-10-31T12:00:00Z"}],
+	"preferences": [{"dimension": "recording", "value": {"choices": ["oral_only"], "notes": "Ask first."},
+		"source_url": "https://example.org/preferences"}],
+	"conservation_suggestion": {"status": "endangered", "place_count": 1, "places": ["recording_platform"]}
 }`
 
 // emptyPieceBody is a piece with only its required scalars set: every list is [] and every nullable field null.
@@ -152,7 +161,7 @@ const emptyPieceBody = `{
 	"conservation_status": "unassessed", "is_stub": true, "notes_md": null, "version_notes_md": null,
 	"licensing_status": "unknown", "licensing_notes_md": null, "licence": null, "historical_source_md": null,
 	"period_start": null, "period_end": null, "aliases": [], "terms": [], "credits": [], "relations": [],
-	"links": [], "conservation_history": []
+	"links": [], "conservation_history": [], "preferences": [], "conservation_suggestion": null
 }`
 
 func TestPieceGet_ServeHTTP(t *testing.T) {

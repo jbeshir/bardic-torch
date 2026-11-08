@@ -78,6 +78,9 @@ func testPerson() domain.Person {
 				{Link: domain.PerformanceLink{URL: "https://example.org/opening"}, DescriptionVerbatim: "Opening"},
 			},
 			PerformancesTotal: 2,
+			Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionAttribution,
+				Value:     &domain.PreferenceValue{Choices: []domain.PreferenceChoice{domain.PreferenceChoiceSCAName}},
+				SourceURL: "https://example.org/wren/preferences"}},
 		},
 	}
 }
@@ -116,7 +119,9 @@ const testPersonBody = `{
 			{"piece": null, "link": {"url": "https://example.org/opening", "title": null, "platform": null},
 				"year": null, "event": null, "description_verbatim": "Opening"}
 		],
-		"performances_total": 2
+		"performances_total": 2,
+		"preferences": [{"dimension": "attribution", "value": {"choices": ["sca_name"], "notes": null},
+			"source_url": "https://example.org/wren/preferences"}]
 	}
 }`
 
@@ -159,7 +164,7 @@ func TestPersonGet_ServeHTTP(t *testing.T) {
 				"status": "active", "status_date": null, "status_source_url": null,
 				"profile": {"pronouns": null, "notes_md": null, "licensing_status": "unknown",
 					"licensing_notes_md": null, "aliases": [], "roles": [], "affiliations": [], "relations": [],
-					"links": [], "works": [], "works_total": 0, "performances": [], "performances_total": 0}}`,
+					"links": [], "works": [], "works_total": 0, "performances": [], "performances_total": 0, "preferences": []}}`,
 		},
 		{
 			name:       notFoundCase,

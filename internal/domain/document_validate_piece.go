@@ -13,6 +13,7 @@ func (d PieceDocument) Validate(v ValidationContext[PieceDocument]) []DocumentPr
 		prev = *v.Previous
 	}
 	c := newDocCheck(d, v.Previous, v.Refs, v.ID)
+	c.withheldSources = v.withheldSources
 	c.document(d, d.SchemaVersion, v.Summary)
 	c.pieceFields(d)
 	c.pieceTerms(d.Terms)

@@ -11,13 +11,14 @@ import (
 // these tables to withhold, and RestoreDocument walks the same tables to put back what was withheld, so a field is
 // always withheld and restored by the same keys and the same rule (docs/PLAN.md §5.1, "Editable projection" and
 // "Restore on submit"). One thing is handled outside the tables: a no-page person's profile, which is withheld
-// whole (identityOnly).
+// whole (identityOnly); their status source, part of their identity, is still withheld by the table's sources.
 
 // withheldFields are the fields of a document of type D a projection may withhold: lists, whose elements it may
-// withhold, and references, which it may set to null.
+// withhold, references, which it may set to null, and scalar sources, which it may set to null too.
 type withheldFields[D any] struct {
-	lists []withheldList[D]
-	refs  []refField[D]
+	lists   []withheldList[D]
+	refs    []refField[D]
+	sources []sourceField[D]
 }
 
 // withheldList is a list field of a document of type D, whatever its element type.
@@ -116,6 +117,39 @@ func (f refField[D]) restore(p *projector, out *D, base D) {
 	*ref = p.restoreRef(*ref, *f.ref(&base), f.elementKey, func(id int64) bool { return f.visible(p, id) })
 }
 
+// sourceField is a scalar source URL field of a document of type D, at path, with the element key
+// elementKey("source", key): it is withheld (set to null) when the source is a hidden link now, or does not
+// normalize (fail closed), the rule links and preferences have, so that a hidden link never reaches a contributor
+// as a source. A submitted null is restored from the base when it was withheld; a submitted URL replaces it.
+type sourceField[D any] struct {
+	path   string
+	key    string
+	source func(*D) **string
+}
+
+func (f sourceField[D]) elementKey() string { return elementKey("source", f.key) }
+
+func (f sourceField[D]) project(p *projector, out *D) {
+	source := f.source(out)
+	if *source == nil {
+		return
+	}
+	if p.withheld(f.elementKey(), p.hidden(p.linkHidden(**source))) {
+		*source = nil
+
+		return
+	}
+	p.kept[f.elementKey()] = true
+}
+
+func (f sourceField[D]) restore(p *projector, out *D, base D) {
+	source, baseSource := f.source(out), *f.source(&base)
+	if *source == nil && baseSource != nil && p.withheld(f.elementKey(), p.hidden(p.linkHidden(*baseSource))) {
+		restored := *baseSource
+		*source = &restored
+	}
+}
+
 // project withholds from d every field the projector withholds.
 func (fs withheldFields[D]) project(p *projector, d D) D {
 	out := d
@@ -123,6 +157,16 @@ func (fs withheldFields[D]) project(p *projector, d D) D {
 		f.project(p, &out)
 	}
 	for _, f := range fs.refs {
+		f.project(p, &out)
+	}
+
+	return fs.projectSources(p, out)
+}
+
+// projectSources withholds from d the scalar sources the projector withholds.
+func (fs withheldFields[D]) projectSources(p *projector, d D) D {
+	out := d
+	for _, f := range fs.sources {
 		f.project(p, &out)
 	}
 
@@ -140,7 +184,46 @@ func (fs withheldFields[D]) restore(p *projector, sub, base D) (D, []Flag) {
 		f.restore(p, &out, base)
 	}
 
-	return out, flags
+	return fs.restoreSources(p, out, base), flags
+}
+
+// restoreSources puts back into sub the scalar sources of base in the restore set that sub leaves null.
+func (fs withheldFields[D]) restoreSources(p *projector, sub, base D) D {
+	out := sub
+	for _, f := range fs.sources {
+		f.restore(p, &out, base)
+	}
+
+	return out
+}
+
+// withheldSourcePaths are the paths of the scalar sources of D that base holds and its projection, the editable
+// document a contributor was given, does not: those the projection withheld.
+func (fs withheldFields[D]) withheldSourcePaths(base, projection D) map[string]bool {
+	paths := map[string]bool{}
+	for _, f := range fs.sources {
+		if *f.source(&base) != nil && *f.source(&projection) == nil {
+			paths[f.path] = true
+		}
+	}
+
+	return paths
+}
+
+// scalarSource is the value of a scalar source field at its path, nil for null.
+type scalarSource struct {
+	path string
+	url  *string
+}
+
+// sourcesOf are the scalar sources of d, in the table's order.
+func (fs withheldFields[D]) sourcesOf(d D) []scalarSource {
+	sources := make([]scalarSource, 0, len(fs.sources))
+	for _, f := range fs.sources {
+		sources = append(sources, scalarSource{path: f.path, url: *f.source(&d)})
+	}
+
+	return sources
 }
 
 // names are the JSON names of the fields.
@@ -190,6 +273,9 @@ var pieceWithheld = withheldFields[PieceDocument]{lists: []withheldList[PieceDoc
 	linkField(func(d *PieceDocument) *[]DocPieceLink { return &d.Links }, func(l DocPieceLink) string { return l.URL },
 		(*projector).pieceLink, (*projector).restorePieceLink),
 	preferenceField(func(d *PieceDocument) *[]DocPreference { return &d.Preferences }),
+}, sources: []sourceField[PieceDocument]{
+	{path: "/conservation/source_url", key: "conservation",
+		source: func(d *PieceDocument) **string { return &d.Conservation.SourceURL }},
 }}
 
 var personWithheld = withheldFields[PersonDocument]{lists: []withheldList[PersonDocument]{
@@ -206,6 +292,9 @@ var personWithheld = withheldFields[PersonDocument]{lists: []withheldList[Person
 	linkField(func(d *PersonDocument) *[]DocPersonLink { return &d.Links }, func(l DocPersonLink) string { return l.URL },
 		(*projector).personLink, (*projector).restorePersonLink),
 	preferenceField(func(d *PersonDocument) *[]DocPreference { return &d.Preferences }),
+}, sources: []sourceField[PersonDocument]{
+	{path: "/status_source_url", key: "status",
+		source: func(d *PersonDocument) **string { return &d.StatusSourceURL }},
 }}
 
 var termWithheld = withheldFields[TermDocument]{refs: []refField[TermDocument]{
@@ -247,4 +336,32 @@ func jsonFieldName(f reflect.StructField) string {
 	name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 
 	return name
+}
+
+// withheldSourcePaths are the paths of the scalar sources base holds that projection, the editable document of
+// base a contributor was given, withheld; none when either is nil (a new entity).
+func withheldSourcePaths[D Document](base, projection *D) map[string]bool {
+	if base == nil || projection == nil {
+		return nil
+	}
+	switch b := any(*base).(type) {
+	case PieceDocument:
+		return pieceWithheld.withheldSourcePaths(b, any(*projection).(PieceDocument))
+	case PersonDocument:
+		return personWithheld.withheldSourcePaths(b, any(*projection).(PersonDocument))
+	}
+
+	return nil
+}
+
+// documentSources are the scalar sources of doc: none for a document type without them.
+func documentSources[D Document](doc D) []scalarSource {
+	switch d := any(doc).(type) {
+	case PieceDocument:
+		return pieceWithheld.sourcesOf(d)
+	case PersonDocument:
+		return personWithheld.sourcesOf(d)
+	}
+
+	return nil
 }

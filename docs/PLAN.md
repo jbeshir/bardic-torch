@@ -47,6 +47,12 @@ Every decision below was confirmed by John on 2026-10-31.
    - The app *suggests* a status from a count of distinct live "places" among the links (each link carries a place type); a moderator confirms it.
    - **Exactly three places counts as Endangered** (the wiki leaves this case undefined).
    - Restricted overrides everything and hides the "help preserve this" prompts.
+   - The suggestion's places are the distinct place types of the piece's visible links that are not dead (unknown
+     and blocked links count as live) and carry a content role (official, lyrics, text, sheet_music,
+     dance_instructions, text_source, translation, performance): none is critically endangered, one to three
+     endangered, four or more low risk, and a restricted piece has none. It is read-only
+     (`Piece.conservation_suggestion`, and on the moderation revision view from the revision's links), pending the owners' choice of places (distinct
+     place types or distinct hosts).
 4. **Pseudo-bards:** "Traditional & Folk", Unknown, Anonymous, Various and Disputed become an `attribution` enum on the credit, plus a `certainty` field. Bands and historical figures become person records with `kind = group | historical`.
 5. **Red-link people and missing works** are imported as **public stub pages**, marked "stub — help complete this", in line with the wiki's "any contribution counts".
 6. **Legal and mundane names** in bard aliases are imported **hidden** (`is_public = false`) until a moderator reviews each one. Other aliases (SCA names, stage names, nicknames) stay public.
@@ -180,6 +186,11 @@ the DDL is in `migrations/003`–`009`.
   and so is a document URL that does not normalize (fail closed). Normalized URLs are ASCII, so a non-ASCII
   document URL is compared by its percent-encoding and never reaches the ASCII column as it is (which MySQL
   refuses, error 3988); the column is binary (`ascii_bin`), so the comparison is exact.
+  A source URL outside a document's links follows the same rule (`domain.ShownSource`, fail closed): a preference
+  whose `source_url` is a hidden link's (in any spelling) or does not normalize is dropped from every read,
+  snapshot and author's view, and a person's `status_source_url` or a conservation `source_url` (the piece's, in
+  snapshots, and each `conservation_history` entry's) is served as null. Contributors' editable views withhold
+  them too (§5.1 "Editable projection"), and a submission attaching one is flagged `hidden_link_attached`.
 - **Slugs** are ASCII `[a-z0-9]+(-[a-z0-9]+)*`, at most 191 characters and unique per table. Term slugs keep the
   wiki's disambiguation suffix (`12th-century` in origin, `12th-century-topic` in topic), while `display_name`
   drops it. The importer's `domain.Slugify` uses NFKD, strips marks, transliterates the letters NFKD leaves whole
@@ -240,8 +251,9 @@ the DDL is in `migrations/003`–`009`.
   - A revision is public if it is approved and its entity is public now; anything else is the same 404. History
     lists approved revisions newest first (`created_at`, then ID).
   - Views hold the document's editor-owned fields; links have no liveness or other system state. A preference is
-    shown only if its `source_url` normalizes and is no hidden link's now. A link is shown only if its normalized URL is now that of a link that is not hidden ("Hidden
-    links" above).
+    shown only if its `source_url` normalizes and is no hidden link's now, and the person's status source and the
+    piece's conservation source are null unless they do. A link is shown only if its normalized URL is now that of
+    a link that is not hidden ("Hidden links" above).
   - An alias is shown only if public in the document and now a public alias of the person, by name. A person's
     name is shown only if it is their current name or a current public alias name, and is their current name
     otherwise. Credits,
@@ -305,10 +317,10 @@ the DDL is in `migrations/003`–`009`.
   order, each value's choices in vocabulary order), so reordering is never a change; problems name the order the
   client sent. A code may be added like an ENUM value (§4.1); renaming or removing one is free until the first
   preference is stored, and needs a document migration after. The profiles are edited in the editor format
-  (§5.1) and shown in snapshots; a preference whose source is a hidden link is withheld from contributors and left
-  out of every view. Until the public reads carry them, the only etiquette data on a page is `licensing_status`
-  and `licensing_notes_md`, so FE2 builds a licensing card from those, and the full etiquette card (profile with
-  piece-level overrides) waits for FE4 (§10).
+  (§5.1), shown in snapshots and on the public pages (`Piece.preferences`, `PersonProfile.preferences`, in dimension
+  order; a no-page person has no profile, so none); a preference whose source is a hidden link is withheld from
+  contributors and left out of every view ("Hidden links"). FE2 builds its licensing card from `licensing_status`
+  and `licensing_notes_md`; the full etiquette card (profile with piece-level overrides) is FE4's (§10).
 - **Public reads ignore credentials.** The catalogue reads are served outside the authentication middleware, like
   the health checks: invalid, expired or uncheckable credentials and blocked users get the same answer as an
   anonymous request, and no user is looked up or created. A person's page lists the performances recorded by
@@ -348,7 +360,7 @@ the DDL is in `migrations/003`–`009`.
   - Every scalar property is required, `type: [X, "null"]` when it can be empty, and arrays are required and
     possibly empty; every object is closed.
   - Never exposed: `legacy_*` columns, `claimed_by_user_id`, `normalized_url`, internal person, term and piece IDs
-    (collections and revisions are addressed by ID by design), user IDs, and preference profiles until BE5.
+    (collections and revisions are addressed by ID by design) and user IDs.
   - Unknown path slugs and non-public slugs are one 404. A malformed slug is a 400.
   - An unknown ENUM value read from the database or in a stored document, a snapshot with an unsupported
     `schema_version` and a read the server stops after 2 s are 500s, logged, never panics.
@@ -423,14 +435,16 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   element** for a contributor or API token: hidden aliases, hidden links (by normalized URL, failing closed),
   credits, performers and relations of persons not public with a page, references to non-public entities (but the
   caller's own pending terms and persons), preferences whose `source_url` is a hidden link's (by normalized URL)
-  or does not normalize, and a no-page person's whole profile but its identity. A placeholder (pending new
-  entity) is editable only by its author, even by a moderator (404 otherwise); moderators rebase its revision instead. If the caller has a pending revision of the entity, the
+  or does not normalize, a person's `status_source_url` or a piece's `conservation.source_url` that is
+  such a link (served as null; a no-page person's status source too), and a no-page person's whole profile but its
+  identity. A placeholder (pending new entity) is editable only by its author, even by a moderator (404 otherwise); moderators rebase its revision instead. If the caller has a pending revision of the entity, the
   projection starts from it instead (`starting_point: pending`, on its submitted base). An interactive moderator gets the full document with
   `link_states` (link ID, hidden, liveness); others get `[]`.
 - **Restore on submit**, for every actor: each withheld element of the draft's base is put back (keyed lists after
   their nearest preceding surviving element, sets unioned, nulled references restored unless replaced, the no-page
   profile copied whole; preferences are a keyed list by dimension, so a withheld one is put back, and a submitted
-  preference of its dimension replaces it), as is every base element the author never received (not in
+  preference of its dimension replaces it; a status or conservation source withheld as null is put back if the
+  submission leaves it null, and a submitted URL replaces it), as is every base element the author never received (not in
   `received_keys_json`). A submitted element whose key equals a withheld one (a public alias equal to a hidden
   alias, a link URL of a hidden link) is kept, and the collision is a moderator flag; the contributor is told
   nothing. A submitted performance is matched to the base performance it edits by its `key` first, so it keeps its
@@ -638,7 +652,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     - Terms combine with OR within a facet and AND across facets, and a term matches its descendants (closure table). `kind` and `conservation_status` act as two more facets.
     - `q` is FULLTEXT over title, aliases and notes (§4.1).
     - Facet counts are disjunctive: each facet's counts ignore that facet's own selection. Letter counts are returned for the A–Z bar.
-  - `GET /v1/pieces/{slug}`
+  - `GET /v1/pieces/{slug}`, with the piece's preferences and its `conservation_suggestion` (§2.3; null for a
+    restricted piece), derived from its public links only, so it is no oracle for hidden links
   - `GET /v1/persons` (`kind`, `role`, `affiliation`, `q`, `letter`, `sort`) and `GET /v1/persons/{slug}`
   - `GET /v1/terms?facet=…`: the term tree with piece and person counts
   - `GET /v1/terms/{slug}`, with its pieces or persons (paginated, including descendants)

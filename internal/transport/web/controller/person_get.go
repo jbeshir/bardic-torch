@@ -37,6 +37,7 @@ type PersonProfile struct {
 	WorksTotal        int64                  `json:"works_total"`
 	Performances      []PersonPerformance    `json:"performances"`
 	PerformancesTotal int64                  `json:"performances_total"`
+	Preferences       []PreferenceEntry      `json:"preferences"`
 }
 
 // PersonAlias is the JSON representation of another public name of a person.
@@ -143,6 +144,7 @@ func personProfileFromDomain(p domain.PersonProfile) PersonProfile {
 			}
 		}),
 		PerformancesTotal: p.PerformancesTotal,
+		Preferences:       mapSlice(p.Preferences, preferenceEntryFromDomain),
 	}
 }
 func personAliasFromDomain(a domain.PersonAlias) PersonAlias {

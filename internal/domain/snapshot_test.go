@@ -178,7 +178,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 		CollectionIDs: []int64{publicCollectionID, hiddenCollectionID},
 		EventIDs:      []int64{publicEventID, hiddenEventID},
 		LinkURLs:      []string{hiddenURL, visibleURL, otherURL, deletedURL, recasedURL},
-		SourceURLs:    []string{hiddenURL, "https://exa mple.org/prefs", prefsURL},
+		SourceURLs:    []string{hiddenURL, "https://exa mple.org/prefs", prefsURL, "https://example.org/assessment"},
 	}, refs)
 }
 
@@ -276,7 +276,7 @@ func TestNewPersonSnapshot(t *testing.T) {
 		CollectionIDs:  []int64{hiddenCollectionID},
 		EventIDs:       []int64{publicEventID, hiddenEventID},
 		LinkURLs:       []string{hiddenURL, visibleURL},
-		SourceURLs:     []string{respelledHiddenURL, prefsURL},
+		SourceURLs:     []string{respelledHiddenURL, prefsURL, "https://example.org/status"},
 		AliasPersonIDs: []int64{subjectPersonID},
 	}, refs)
 }

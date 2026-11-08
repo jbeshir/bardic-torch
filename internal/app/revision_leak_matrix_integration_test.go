@@ -240,6 +240,8 @@ func seedRevisionLeakCatalogue(t *testing.T, w revisionLeakWorld) revisionLeakFi
 	}})
 	wren := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
 		Name: "Wren Placeholder",
+		// The status source is the hidden link respelled: only an interactive moderator's editable document shows it.
+		StatusSourceURL: new(respelledHiddenLinkURL),
 		Aliases: []domain.DocPersonAlias{
 			{Name: "Wren", Kind: domain.PersonAliasKindStage, IsPublic: true},
 			{Name: wrenLegalAlias, Kind: domain.PersonAliasKindLegal},
@@ -268,7 +270,9 @@ func seedRevisionLeakCatalogue(t *testing.T, w revisionLeakWorld) revisionLeakFi
 
 	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{
 		Title: "The Lantern Song",
-		Terms: []domain.DocPieceTerm{{TermID: lanterns.ID, IsPrimary: true}, {TermID: suggestedTermID}},
+		// The conservation source is the hidden link: only an interactive moderator's editable document shows it.
+		Conservation: domain.DocConservation{Status: domain.ConservationStatusEndangered, SourceURL: new(hiddenLinkURL)},
+		Terms:        []domain.DocPieceTerm{{TermID: lanterns.ID, IsPrimary: true}, {TermID: suggestedTermID}},
 		Credits: []domain.DocCredit{
 			namedCredit(wren.ID, domain.CreditRoleLyrics, nil),
 			namedCredit(noPage.ID, domain.CreditRoleTune, new("Leakmark nopage credit note")),
@@ -823,7 +827,7 @@ func personEditableRows(fx revisionLeakFixture) []revisionLeakRequest {
 }
 
 // moderatorSeesAll checks that a moderator's editable document of wren is complete: the hidden aliases and links,
-// with their link states, and the preference whose source is hidden.
+// with their link states, and the preference whose source is hidden, and the status source.
 func moderatorSeesAll(t *testing.T, body string) {
 	t.Helper()
 
@@ -831,6 +835,7 @@ func moderatorSeesAll(t *testing.T, body string) {
 		respelledHiddenLinkURL} {
 		assert.Contains(t, body, `"`+hidden+`"`)
 	}
+	assert.Contains(t, body, `"status_source_url":"`+respelledHiddenLinkURL+`"`)
 	var editable struct {
 		LinkStates []struct {
 			URL      string `json:"url"`
@@ -846,11 +851,13 @@ func moderatorSeesAll(t *testing.T, body string) {
 		hidden)
 }
 
-// hiddenSourceShown checks that a moderator's editable document shows the preference whose source is hidden.
+// hiddenSourceShown checks that a moderator's editable document shows the preference whose source is hidden, and the
+// piece's conservation source.
 func hiddenSourceShown(t *testing.T, body string) {
 	t.Helper()
 
 	assert.Contains(t, body, `"`+hiddenSourceNotes+`"`)
+	assert.Contains(t, body, `"source_url":"`+hiddenLinkURL+`"`)
 }
 
 // wrenPreferenceShown checks that a contributor's editable document of wren shows the preference whose source is

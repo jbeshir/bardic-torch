@@ -57,8 +57,8 @@ func TestEditableDocument_PreferenceWithHiddenSourceWithheld(t *testing.T) {
 		name   string
 		source string
 	}{
-		{name: "hidden link", source: hiddenLinkURL},
-		{name: "hidden link respelled", source: respelledHiddenLinkURL},
+		{name: caseHiddenLink, source: hiddenLinkURL},
+		{name: caseRespelledHiddenLink, source: respelledHiddenLinkURL},
 		{name: "source that does not normalize", source: unnormalizableSource},
 	}
 	for _, tt := range tests {

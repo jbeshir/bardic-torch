@@ -15,6 +15,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
+	"github.com/jbeshir/bardic-torch/internal/testutil/domaintest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,6 +58,9 @@ type leakFixture struct {
 type leakRevisions struct {
 	// rowanAliasPublic shows Rowan's hidden alias as public, and a relation to turned.
 	rowanAliasPublic int64
+	// rowanHiddenSources differs from Rowan's first revision only in a preference and a status source that are the
+	// hidden link, in another spelling.
+	rowanHiddenSources int64
 	// lanternTurned credits turned.
 	lanternTurned int64
 	// turnedEdit is of turned, with their profile.
@@ -115,6 +119,22 @@ const noPageAdmirerName = "Leakmark Nopage Admirer"
 const noPageBuskerName = "Leakmark Nopage Busker"
 
 const hiddenLinkURL = "https://example.org/leakmark-hidden-link"
+
+// The no-page person's preference, which only their own profile would show, and they show none.
+const (
+	noPagePreferenceURL   = "https://example.org/leakmark-nopage-pref"
+	noPagePreferenceNotes = "leakmark-nopage-preference"
+)
+
+// markedPreference is a valid preference of dimension stating choice, whose source is url, with marked notes.
+func markedPreference(dimension domain.PreferenceDimension, url, notes string,
+	choice domain.PreferenceChoice,
+) domain.DocPreference {
+	p := domaintest.Preference(dimension, url, choice)
+	p.Value.Notes = new(notes)
+
+	return p
+}
 
 // The URLs of links a revision holds that are no visible link's now: one deleted, one given another URL and
 // hidden, one hidden under the lower-cased URL, and one respelled (to respelledLinkURLNow, with the same
@@ -222,6 +242,8 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 			Performances: []domain.DocPersonPerformance{{DocPerformance: domain.DocPerformance{EventID: &moot.ID,
 				DescriptionVerbatim: "Leakmark nopage performance"}}},
 		}},
+		Preferences: []domain.DocPreference{markedPreference(domain.PreferenceDimensionRecording,
+			noPagePreferenceURL, noPagePreferenceNotes, domain.PreferenceChoiceOralOnly)},
 	}})
 	// Rowan's and the Lantern Song's documents are written out in full, defaults included, as later revisions
 	// store variants of them as given.
@@ -230,6 +252,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		Name:            "Rowan Ashby",
 		Kind:            domain.PersonKindCommunityBard,
 		Status:          domain.PersonStatusActive,
+		StatusSourceURL: new(respelledHiddenLinkURL),
 		LicensingStatus: domain.LicensingStatusUnknown,
 		Aliases: []domain.DocPersonAlias{
 			{Name: "Rowan", Kind: domain.PersonAliasKindStage, IsPublic: true},
@@ -237,6 +260,12 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		},
 		Roles:          []domain.PersonRole{domain.PersonRoleSinger},
 		AffiliationIDs: []int64{westmarch.ID, unapprovedAffiliation.ID},
+		Preferences: []domain.DocPreference{
+			markedPreference(domain.PreferenceDimensionPerformancePermission, respelledHiddenLinkURL,
+				hiddenSourceNotes, domain.PreferenceChoiceGiven),
+			domaintest.Preference(domain.PreferenceDimensionRecording, "https://example.org/rowan-preferences",
+				domain.PreferenceChoiceAskBeforeRecording),
+		},
 		Relations: []domain.DocPersonRelation{
 			{ToPersonID: group.ID, Type: domain.PersonRelationTypeMemberOf},
 			{ToPersonID: noPage.ID, Type: domain.PersonRelationTypeHeirOf},
@@ -263,15 +292,22 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	}
 	person := c.Person(catalogtest.Person{Doc: rowanDoc})
 	lanternDoc := domain.PieceDocument{
-		SchemaVersion:   domain.DocumentSchemaVersion,
-		Title:           "The Lantern Song",
-		Kind:            domain.PieceKindSong,
-		Conservation:    domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+		SchemaVersion: domain.DocumentSchemaVersion,
+		Title:         "The Lantern Song",
+		Kind:          domain.PieceKindSong,
+		Conservation: domain.DocConservation{Status: domain.ConservationStatusEndangered,
+			SourceURL: new(respelledHiddenLinkURL)},
 		LicensingStatus: domain.LicensingStatusUnknown,
 		Terms: []domain.DocPieceTerm{
 			{TermID: lanterns.ID, IsPrimary: true}, {TermID: unapprovedTerm.ID}, {TermID: underUnapproved.ID},
 		},
 		Relations: []domain.DocPieceRelation{{ToPieceID: unapprovedPiece.ID, Type: domain.PieceRelationTypeVariantOf}},
+		Preferences: []domain.DocPreference{
+			markedPreference(domain.PreferenceDimensionAttribution, hiddenLinkURL, hiddenSourceNotes,
+				domain.PreferenceChoiceSCAName),
+			domaintest.Preference(domain.PreferenceDimensionRecording, "https://example.org/lantern-preferences",
+				domain.PreferenceChoiceOralOnly),
+		},
 		Credits: []domain.DocCredit{
 			namedCredit(person.ID, domain.CreditRoleLyrics, nil),
 			namedCredit(noPage.ID, domain.CreditRoleTune, new("Leakmark nopage credit note")),
@@ -297,7 +333,9 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 				Locator: new("shelf 3"), Roles: []domain.LinkRole{domain.LinkRoleText}}},
 		},
 	}
-	piece := c.Piece(catalogtest.Piece{Doc: lanternDoc})
+	piece := c.Piece(catalogtest.Piece{Doc: lanternDoc, ConservationHistory: []catalogtest.ConservationEntry{
+		{Status: domain.ConservationStatusEndangered, Reason: "Few sing it.", SourceURL: new(respelledHiddenLinkURL)},
+	}})
 	// Hidden after the documents above were written, and dead, so that needs-work would count it if it counted
 	// hidden links.
 	c.SetLinkState(hiddenLinkURL, catalogtest.LinkState{Liveness: domain.LivenessDead, IsHidden: true})
@@ -425,11 +463,21 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 	lanternTurned := lanternDoc
 	lanternTurned.Credits = append(append([]domain.DocCredit{}, lanternDoc.Credits...),
 		namedCredit(turned.ID, domain.CreditRoleTranslation, new("Leakmark turned credit note")))
+	rowanHiddenSources := rowanDoc
+	rowanHiddenSources.StatusSourceURL = new(hiddenLinkURL)
+	rowanHiddenSources.Preferences = []domain.DocPreference{
+		markedPreference(domain.PreferenceDimensionPerformancePermission, hiddenLinkURL, "leakmark-hidden-source-edit",
+			domain.PreferenceChoiceNotGiven),
+		rowanDoc.Preferences[1],
+	}
 	pendingLantern := lanternDoc
 	pendingLantern.Title = "Leakmark Pending Title"
 	revisions := leakRevisions{
 		rowanAliasPublic: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePerson, EntityID: person.ID,
 			Snapshot: rowanAliasPublic, BaseRevisionID: person.RevisionID, Source: domain.RevisionSourceUser,
+			AuthorUserID: leakAuthorID}),
+		rowanHiddenSources: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePerson, EntityID: person.ID,
+			Snapshot: rowanHiddenSources, BaseRevisionID: person.RevisionID, Source: domain.RevisionSourceUser,
 			AuthorUserID: leakAuthorID}),
 		lanternTurned: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
 			Snapshot: lanternTurned, BaseRevisionID: piece.RevisionID, Source: domain.RevisionSourceUser,
@@ -643,7 +691,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	},
 	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
-			{path: historyPath("persons", fx.person.Slug), status: http.StatusOK, total: new(2)},
+			{path: historyPath("persons", fx.person.Slug), status: http.StatusOK, total: new(3)},
 			{path: historyPath("persons", fx.noPage.Slug), status: http.StatusOK},
 			{path: historyPath("persons", fx.turned.Slug), status: http.StatusOK},
 			{path: historyPath("persons", fx.renamed.Slug), status: http.StatusOK},
@@ -694,6 +742,8 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			// no-page and unapproved persons; the hidden link.
 			revision(fx.person.RevisionID, http.StatusOK),
 			revision(fx.revisions.rowanAliasPublic, http.StatusOK),
+			// A preference and a status source that are the hidden link, in a snapshot and its base.
+			revision(fx.revisions.rowanHiddenSources, http.StatusOK),
 			revision(fx.group.RevisionID, http.StatusOK),
 			// Persons who prefer no page, now or in the snapshot: the identity only.
 			revision(fx.noPage.RevisionID, http.StatusOK, noPage...),
@@ -957,6 +1007,24 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 			"WHERE r.status = 'open' AND NOT l.is_hidden AND r.message = '" + reportMessage + "'",
 		"SELECT COUNT(*) FROM contact_requests WHERE status = 'open' AND name = '" + contactName + "' " +
 			"AND email = '" + contactEmail + "' AND message = '" + contactMessage + "'",
+		// Preferences: of a no-page person, marked; of a public person with a page and of a public piece, whose source is
+		// the hidden link (respelled for the person), with marked notes.
+		"SELECT COUNT(*) FROM person_preferences pp JOIN persons p ON p.id = pp.person_id " +
+			"WHERE p.status = 'prefers_no_page' AND pp.value_json->>'$.notes' = '" + noPagePreferenceNotes + "'",
+		"SELECT COUNT(*) FROM person_preferences pp JOIN persons p ON p.id = pp.person_id " +
+			"WHERE p.status <> 'prefers_no_page' AND p.current_revision_id IS NOT NULL " +
+			"AND pp.source_url = '" + respelledHiddenLinkURL + "' AND pp.value_json->>'$.notes' = '" +
+			hiddenSourceNotes + "'",
+		"SELECT COUNT(*) FROM piece_preferences pp JOIN pieces p ON p.id = pp.piece_id " +
+			"WHERE p.current_revision_id IS NOT NULL AND pp.source_url = '" + hiddenLinkURL + "'",
+		// Status and conservation sources that are the hidden link respelled: a public person's status source, a
+		// public piece's conservation history entry, and an approved revision's conservation source.
+		"SELECT COUNT(*) FROM persons WHERE current_revision_id IS NOT NULL AND status <> 'prefers_no_page' " +
+			"AND status_source_url = '" + respelledHiddenLinkURL + "'",
+		"SELECT COUNT(*) FROM conservation_history h JOIN pieces p ON p.id = h.piece_id " +
+			"WHERE p.current_revision_id IS NOT NULL AND h.source_url = '" + respelledHiddenLinkURL + "'",
+		"SELECT COUNT(*) FROM revisions WHERE status = 'approved' " +
+			"AND snapshot_json->>'$.conservation.source_url' = '" + respelledHiddenLinkURL + "'",
 	} {
 		var count int
 		require.NoError(t, db.QueryRowContext(t.Context(), query).Scan(&count), query)
@@ -1012,6 +1080,8 @@ func TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing(t *testing.T) {
 		"hidden_alias_and_no_page_relation": fx.revisions.rowanAliasPublic,
 		// Adds a credit to a person who now prefers no page.
 		"credit_to_no_page_person": fx.revisions.lanternTurned,
+		// Changes a preference and the status source, both the hidden link in another spelling.
+		"hidden_source_preference_and_status_source": fx.revisions.rowanHiddenSources,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

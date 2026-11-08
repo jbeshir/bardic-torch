@@ -229,6 +229,10 @@ func (c *catalogueReader) moderationRevision(
 
 	revision.References = c.moderationReferences(ctx, kind, id, revision, docs, pending)
 	revision.LinkStates = c.documentLinkStates(ctx, moderationViewer, id, kind, docs.doc)
+	if d, ok := docs.doc.(domain.PieceDocument); ok {
+		revision.ConservationSuggestion = domain.SuggestConservation(d.Conservation.Status,
+			domain.DocumentSuggestionLinks(d, revision.LinkStates))
+	}
 
 	return revision, nil
 }

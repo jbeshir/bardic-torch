@@ -279,10 +279,11 @@ func projectDocument[D Document](p *projector, doc D) D {
 	return out.(D)
 }
 
-// person is the projection of a person: their identity only if the caller may not see their profile.
+// person is the projection of a person: their identity only if the caller may not see their profile, with a
+// withheld status source.
 func (p *projector) person(d PersonDocument) PersonDocument {
 	if p.withheld(profileKey, p.hidden(p.noPage(d))) {
-		return identityOnly(d)
+		return personWithheld.projectSources(p, identityOnly(d))
 	}
 	p.kept[profileKey] = true
 
@@ -290,8 +291,9 @@ func (p *projector) person(d PersonDocument) PersonDocument {
 }
 
 // EditableDocument returns the document of entity id (0 for a new one) as the caller may edit it: without every
-// element the current state withholds from them (hidden aliases and links, preferences whose source is a hidden
-// link, references to entities they may not see, a no-page person's profile), each performance with its key, derived
+// element the current state withholds from them (hidden aliases and links, preferences, status and conservation
+// sources that are a hidden link, references to entities they may not see, a no-page person's profile), each
+// performance with its key, derived
 // for one stored without (key_source.go). It also returns the keys of the elements it shows, the received keys of a
 // draft made from it.
 func EditableDocument[D Document](id int64, doc D, vis EditorVisibility) (D, ElementKeySet) {

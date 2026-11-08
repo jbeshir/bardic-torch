@@ -699,8 +699,18 @@ response also goes through the contract helper. `requireLeakMarkersStored` check
 the matrix cannot pass vacuously. Three self-tests keep the check honest: `TestLeakedMarker` and
 `TestUnusedReveals` (unit) run the scanner on synthetic bodies with planted leaks next to revealed strings, and
 `TestHTTP_LeakMatrix_PlantedLeakFails` plants a no-page note next to the revealed name in a real response.
-`TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing` reads two revisions that differ from their base only in
-redacted data and requires `changed_fields` to be `[]`.
+`TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing` reads three revisions that differ from their base only in
+redacted data (the last only in a preference and a status source that are the hidden link) and requires
+`changed_fields` to be `[]`.
+
+The fixture also covers the hidden-source rule (PLAN §4.1 "Hidden links"): the no-page person has a marked
+preference (their page shows no profile, so none); the public person has a preference with marked notes and a
+status source, both the hidden link respelled (`HTTPS://EXAMPLE.org/leakmark-hidden-link?utm_source=x`), and a
+visible preference; the public piece has a marked preference sourced at the hidden link, and a conservation source
+and a history entry's source that are the hidden link respelled. Every page and revision view of them is scanned
+without the marker: the preferences are dropped and the sources served as null. `requireLeakMarkersStored` checks
+each (`preference`, `status_source` and `conservation_source` kinds). The conservation suggestion, derived from
+visible links only, is pinned by `TestRepository_GetPublicPiece_SuggestionIgnoresHiddenAndDeadLinks`.
 
 `leakMatrix` maps each operation to its requests, and `leakExempt` lists, with a reason, the operations that read no
 catalogue data. Every spec operation must be in exactly one of them, and a public `/v1` GET cannot be exempt.
@@ -750,7 +760,9 @@ matrix's:
   revisions, pending versions and placeholders; MT gets the contributor projection with `link_states: []`; M gets the full document with `link_states`
   (`full` rows assert the hidden data is there instead of scanning). The fixture's person and piece hold a preference
   whose source is the hidden link (respelled for the person) with marked notes: A's, AT's, B's and MT's editable
-  documents of both are scanned without it (B's shows the person's other preference), and M's show it;
+  documents of both are scanned without it (B's shows the person's other preference), and M's show it; the person's
+  status source is the hidden link respelled and the piece's conservation source the hidden link: contributors'
+  editable documents get null (and their submissions put it back), and M's show them;
 - **a rejected revision**: M rebases one of A's edits of wren (marked notes of M's) and rejects it with a clean
   review note; A's view shows what A submitted, the note and `reviewed_at`, and none of M's notes, the hidden
   aliases or link A received, or a flag code; `requireRevisionLeakMarkersStored` and the seed check that the

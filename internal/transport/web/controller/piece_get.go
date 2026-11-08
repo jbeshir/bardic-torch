@@ -14,20 +14,22 @@ import (
 type Piece struct {
 	PieceSummary
 
-	NotesMD             *string                `json:"notes_md"`
-	VersionNotesMD      *string                `json:"version_notes_md"`
-	LicensingStatus     domain.LicensingStatus `json:"licensing_status"`
-	LicensingNotesMD    *string                `json:"licensing_notes_md"`
-	Licence             *domain.Licence        `json:"licence"`
-	HistoricalSourceMD  *string                `json:"historical_source_md"`
-	PeriodStart         *int16                 `json:"period_start"`
-	PeriodEnd           *int16                 `json:"period_end"`
-	Aliases             []PieceAlias           `json:"aliases"`
-	Terms               []PieceTerm            `json:"terms"`
-	Credits             []PieceCredit          `json:"credits"`
-	Relations           []PieceRelation        `json:"relations"`
-	Links               []PieceLink            `json:"links"`
-	ConservationHistory []ConservationChange   `json:"conservation_history"`
+	NotesMD                *string                 `json:"notes_md"`
+	VersionNotesMD         *string                 `json:"version_notes_md"`
+	LicensingStatus        domain.LicensingStatus  `json:"licensing_status"`
+	LicensingNotesMD       *string                 `json:"licensing_notes_md"`
+	Licence                *domain.Licence         `json:"licence"`
+	HistoricalSourceMD     *string                 `json:"historical_source_md"`
+	PeriodStart            *int16                  `json:"period_start"`
+	PeriodEnd              *int16                  `json:"period_end"`
+	Aliases                []PieceAlias            `json:"aliases"`
+	Terms                  []PieceTerm             `json:"terms"`
+	Credits                []PieceCredit           `json:"credits"`
+	Relations              []PieceRelation         `json:"relations"`
+	Links                  []PieceLink             `json:"links"`
+	ConservationHistory    []ConservationChange    `json:"conservation_history"`
+	Preferences            []PreferenceEntry       `json:"preferences"`
+	ConservationSuggestion *ConservationSuggestion `json:"conservation_suggestion"`
 }
 
 // PieceAlias is the JSON representation of another title of a piece.
@@ -132,6 +134,8 @@ func pieceFromDomain(p domain.Piece) Piece {
 		ConservationHistory: mapSlice(p.ConservationHistory, func(c domain.ConservationChange) ConservationChange {
 			return ConservationChange{ConservationStatus: c.Status, Reason: c.Reason, SourceURL: c.SourceURL, At: c.At}
 		}),
+		Preferences:            mapSlice(p.Preferences, preferenceEntryFromDomain),
+		ConservationSuggestion: optional(p.ConservationSuggestion, conservationSuggestionFromDomain),
 	}
 }
 
@@ -162,4 +166,15 @@ func piecePerformanceFromDomain(p domain.PiecePerformance) PiecePerformance {
 		Event:               optional(p.Event, eventSummaryFromDomain),
 		Performers:          mapSlice(p.Performers, personSummaryFromDomain),
 	}
+}
+
+// ConservationSuggestion is the JSON representation of the conservation status a piece's links suggest.
+type ConservationSuggestion struct {
+	Status     domain.ConservationStatus `json:"status"`
+	PlaceCount int                       `json:"place_count"`
+	Places     []domain.LinkPlaceType    `json:"places"`
+}
+
+func conservationSuggestionFromDomain(s domain.ConservationSuggestion) ConservationSuggestion {
+	return ConservationSuggestion{Status: s.Status, PlaceCount: s.PlaceCount, Places: nonNil(s.Places)}
 }

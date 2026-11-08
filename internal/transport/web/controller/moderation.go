@@ -112,6 +112,7 @@ type ModerationRevision struct {
 	Flags                   []Flag                       `json:"flags"`
 	Duplicates              []DuplicateMatch             `json:"duplicates"`
 	ChangedPaths            []string                     `json:"changed_paths"`
+	ConservationSuggestion  *ConservationSuggestion      `json:"conservation_suggestion"`
 }
 
 // editorDocuments converts a moderation view's documents to the editor format with the slugs of its references,
@@ -166,7 +167,8 @@ func moderationRevisionFromDomain(r domain.ModerationRevision) (ModerationRevisi
 					Flags: mapSlice(p.Flags, flagFromDomain)}
 			}),
 		Flags: mapSlice(r.Flags, flagFromDomain), Duplicates: mapSlice(r.Duplicates, duplicateMatchFromDomain),
-		ChangedPaths: mapSlice(changed, func(p domain.FieldPath) string { return string(p) }),
+		ChangedPaths:           mapSlice(changed, func(p domain.FieldPath) string { return string(p) }),
+		ConservationSuggestion: optional(r.ConservationSuggestion, conservationSuggestionFromDomain),
 	}
 	if docs.err != nil {
 		return ModerationRevision{}, fmt.Errorf("revision [%d]: %w", r.ID, docs.err)

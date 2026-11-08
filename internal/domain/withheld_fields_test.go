@@ -100,9 +100,17 @@ func TestWithheldFields_TableKeys(t *testing.T) {
 	for _, f := range collectionWithheld.refs {
 		keys["collection."+f.name] = f.elementKey(7)
 	}
+	for _, f := range pieceWithheld.sources {
+		keys["piece."+f.path] = f.elementKey()
+	}
+	for _, f := range personWithheld.sources {
+		keys["person."+f.path] = f.elementKey()
+	}
 	assert.Equal(t, map[string]string{
 		"parent_id": elementKey("parent", 7), "related_affiliation_id": elementKey("related_affiliation", 7),
 		"collection.region_term_id": elementKey("region", 7), "collection.parent_id": elementKey("collection_parent", 7),
+		"piece./conservation/source_url": elementKey("source", "conservation"),
+		"person./status_source_url":      elementKey("source", "status"),
 	}, keys)
 }
 

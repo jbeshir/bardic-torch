@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -170,27 +171,79 @@ func (c *catalogueReader) piece(ctx context.Context, slug string) domain.Piece {
 		slugs = append(slugs, rel.Slug)
 	}
 	kinds := c.secondaryKinds(ctx, slugs)
+	summary := c.pieceSummary(kinds, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub)
+	links := c.pieceLinks(ctx, key)
+	history := fetch(ctx, c, "conservation history", c.q.ListConservationHistory, row.ID)
+	var preferences []domain.DocPreference
+	for _, p := range fetch(ctx, c, "preferences", c.q.ListPublicPiecePreferences, row.ID) {
+		preferences = append(preferences, preference(c, p.Dimension, p.ValueJson, p.SourceUrl))
+	}
+	sources := preferenceSources(preferences)
+	for _, entry := range history {
+		if entry.SourceUrl.Valid {
+			sources = append(sources, entry.SourceUrl.String)
+		}
+	}
+	hidden := c.hiddenSources(ctx, sources)
 
-	piece := domain.Piece{
-		PieceSummary:       c.pieceSummary(kinds, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub),
-		NotesMD:            stringPtr(row.NotesMd),
-		VersionNotesMD:     stringPtr(row.VersionNotesMd),
-		LicensingStatus:    enumOf[domain.LicensingStatus](c, row.LicensingStatus),
-		LicensingNotesMD:   stringPtr(row.LicensingNotesMd),
-		Licence:            nullEnumOf[domain.Licence](c, row.Licence.PiecesLicence, row.Licence.Valid),
-		HistoricalSourceMD: stringPtr(row.HistoricalSourceMd),
-		PeriodStart:        int16Ptr(row.PeriodStart),
-		PeriodEnd:          int16Ptr(row.PeriodEnd),
-		Aliases:            c.pieceAliases(fetch(ctx, c, "aliases", c.q.ListPieceAliases, row.ID)),
-		Terms:              c.pieceTerms(fetch(ctx, c, "terms", c.q.ListPublicPieceTerms, row.ID)),
-		Credits:            c.pieceCredits(fetch(ctx, c, "credits", c.q.ListPublicPieceCredits, row.ID)),
-		Relations:          c.pieceRelations(kinds, relationsTo, relationsFrom),
-		Links:              c.pieceLinks(ctx, key),
-		ConservationHistory: c.conservationHistory(
-			fetch(ctx, c, "conservation history", c.q.ListConservationHistory, row.ID)),
+	return domain.Piece{
+		PieceSummary:        summary,
+		NotesMD:             stringPtr(row.NotesMd),
+		VersionNotesMD:      stringPtr(row.VersionNotesMd),
+		LicensingStatus:     enumOf[domain.LicensingStatus](c, row.LicensingStatus),
+		LicensingNotesMD:    stringPtr(row.LicensingNotesMd),
+		Licence:             nullEnumOf[domain.Licence](c, row.Licence.PiecesLicence, row.Licence.Valid),
+		HistoricalSourceMD:  stringPtr(row.HistoricalSourceMd),
+		PeriodStart:         int16Ptr(row.PeriodStart),
+		PeriodEnd:           int16Ptr(row.PeriodEnd),
+		Aliases:             c.pieceAliases(fetch(ctx, c, "aliases", c.q.ListPieceAliases, row.ID)),
+		Terms:               c.pieceTerms(fetch(ctx, c, "terms", c.q.ListPublicPieceTerms, row.ID)),
+		Credits:             c.pieceCredits(fetch(ctx, c, "credits", c.q.ListPublicPieceCredits, row.ID)),
+		Relations:           c.pieceRelations(kinds, relationsTo, relationsFrom),
+		Links:               links,
+		ConservationHistory: c.conservationHistory(history, hidden),
+		Preferences:         domain.ShownPreferences(preferences, hidden),
+		ConservationSuggestion: domain.SuggestConservation(summary.ConservationStatus,
+			domain.PieceSuggestionLinks(links)),
+	}
+}
+
+// hiddenSources returns the normalized URLs of the hidden links among sources, for the hidden-source rule
+// (domain.ShownSource): a query only if a source normalizes.
+func (c *catalogueReader) hiddenSources(ctx context.Context, sources []string) map[string]bool {
+	return c.hiddenLinkURLs(ctx, domain.SnapshotReferences{SourceURLs: sources})
+}
+
+// preferenceSources are the sources of prefs.
+func preferenceSources(prefs []domain.DocPreference) []string {
+	sources := make([]string, 0, len(prefs))
+	for _, p := range prefs {
+		sources = append(sources, p.SourceURL)
 	}
 
-	return piece
+	return sources
+}
+
+// preference returns a stored preference of dimension, with its value decoded from valueJSON. A value that does
+// not decode, or a choice this release does not know (one a newer release wrote before a rollback), fails the read,
+// as an unknown ENUM value does (enumOf). Fields the value does not have are ignored (docs/PLAN.md §4.1).
+func preference[E dbEnum](
+	c *catalogueReader, dimension E, valueJSON json.RawMessage, source string,
+) domain.DocPreference {
+	pref := domain.DocPreference{Dimension: enumOf[domain.PreferenceDimension](c, dimension), SourceURL: source}
+	var value domain.PreferenceValue
+	if err := json.Unmarshal(valueJSON, &value); err != nil {
+		c.fail(fmt.Errorf("decoding preference [%s]: %w", pref.Dimension, err))
+		return pref
+	}
+	for _, choice := range value.Choices {
+		if !choice.Valid() {
+			c.fail(fmt.Errorf("%w [%s] of preference [%s]", domain.ErrUnknownEnumValue, choice, pref.Dimension))
+		}
+	}
+	pref.Value = &value
+
+	return pref
 }
 
 // secondaryKinds returns the secondary kinds of the pieces with slugs, by slug, in PieceKind's declaration order.
@@ -408,13 +461,17 @@ func (c *catalogueReader) performers(ctx context.Context, performanceIDs []uint6
 	return performers
 }
 
-func (c *catalogueReader) conservationHistory(rows []queries.ListConservationHistoryRow) []domain.ConservationChange {
+// conservationHistory returns the conservation history of rows, each source null if it is among hidden or does not
+// normalize (domain.ShownSource).
+func (c *catalogueReader) conservationHistory(
+	rows []queries.ListConservationHistoryRow, hidden map[string]bool,
+) []domain.ConservationChange {
 	history := make([]domain.ConservationChange, 0, len(rows))
 	for _, row := range rows {
 		history = append(history, domain.ConservationChange{
 			Status:    enumOf[domain.ConservationStatus](c, row.Status),
 			Reason:    row.Reason,
-			SourceURL: stringPtr(row.SourceUrl),
+			SourceURL: domain.ShownSource(stringPtr(row.SourceUrl), hidden),
 			At:        row.At,
 		})
 	}
@@ -434,6 +491,20 @@ func (c *catalogueReader) person(ctx context.Context, slug string) domain.Person
 	}
 
 	status := enumOf[domain.PersonStatus](c, row.Status)
+	hasPage := status != domain.PersonStatusPrefersNoPage
+	// The preferences of a person who prefers no page are part of their profile, which is not read at all.
+	var preferences []domain.DocPreference
+	if hasPage {
+		for _, p := range fetch(ctx, c, "preferences", c.q.ListPublicPersonPreferences, row.ID) {
+			preferences = append(preferences, preference(c, p.Dimension, p.ValueJson, p.SourceUrl))
+		}
+	}
+	sources := preferenceSources(preferences)
+	if row.StatusSourceUrl.Valid {
+		sources = append(sources, row.StatusSourceUrl.String)
+	}
+	hidden := c.hiddenSources(ctx, sources)
+
 	person := domain.Person{
 		PersonSummary: domain.PersonSummary{
 			Slug:   row.Slug,
@@ -443,16 +514,19 @@ func (c *catalogueReader) person(ctx context.Context, slug string) domain.Person
 		},
 		Status:          status,
 		StatusDate:      timePtr(row.StatusDate),
-		StatusSourceURL: stringPtr(row.StatusSourceUrl),
+		StatusSourceURL: domain.ShownSource(stringPtr(row.StatusSourceUrl), hidden),
 	}
-	if status != domain.PersonStatusPrefersNoPage {
-		person.Profile = c.personProfile(ctx, row)
+	if hasPage {
+		person.Profile = c.personProfile(ctx, row, domain.ShownPreferences(preferences, hidden))
 	}
 
 	return person
 }
 
-func (c *catalogueReader) personProfile(ctx context.Context, row queries.GetPublicPersonRow) *domain.PersonProfile {
+// personProfile returns the profile of the person of row, with preferences, those a read shows.
+func (c *catalogueReader) personProfile(
+	ctx context.Context, row queries.GetPublicPersonRow, preferences []domain.DocPreference,
+) *domain.PersonProfile {
 	key := c.nullID(row.ID)
 	works := fetch(ctx, c, "works", c.q.ListPublicPersonWorks,
 		queries.ListPublicPersonWorksParams{PersonID: key, Limit: domain.MaxNestedListItems})
@@ -491,6 +565,7 @@ func (c *catalogueReader) personProfile(ctx context.Context, row queries.GetPubl
 		Performances: c.personPerformances(kinds, performances),
 		PerformancesTotal: fetch(ctx, c, "performance count", c.q.CountPublicPersonPerformances,
 			queries.CountPublicPersonPerformancesParams{PerformerID: row.ID, AttachedPersonID: key}),
+		Preferences: preferences,
 	}
 }
 
