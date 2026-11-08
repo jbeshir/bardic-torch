@@ -245,7 +245,9 @@ with `go tool`, so nothing needs installing.
     `TestPlanRebase`, `TestPlanRevert`, `TestRevertDocument`, `TestCheckReviewNote` and `TestLinkRowUpdate` (each
     row of the link write rule);
   - duplicates and display names: `TestDuplicateKey` (apostrophes, ł/ø/æ/ß, NFC/NFD), `TestFindDuplicates`,
-    `TestDisplayNameKey` and `TestCheckDisplayNameReserved`.
+    `TestDisplayNameKey` (blank letters dropped), `TestNormalizeDisplayName` (blank letters, mixed Latin, Cyrillic
+    and Greek, no letter or digit, a folded key over its column's width) and `TestCheckDisplayNameReserved`
+    (reserved words, contained `moderator`/`bardictorch`, a leading `admin`, and "Badminton" allowed).
 
   `FuzzMergePiece` and `FuzzRestorePerson` (`revision_fuzz_test.go`) are seeded with every piece and person of the
   scrubbed import (`importtest.Scrubbed`), so plain runs check every imported document: the merge never panics, is
@@ -277,19 +279,21 @@ with `go tool`, so nothing needs installing.
   `TestCreateAPIToken_InvalidNames` (the length limit and the character rule),
   `TestSetUserBlocked_RetriesContributorCreatedDuringUpdate` (a contributor created between the update and the
   lookup is updated by one retry) and `TestSetUserBlocked_ContributorNeverMatchingFails` (an internal error, not
-  `ErrModeratorNotBlockable`). The revision commands act as the principal's effective role
+  `ErrModeratorNotBlockable`); `TestSetUserBlocked_ModeratorRequired` refuses a contributor and a moderator's API
+  token before any datasource call, and `TestBackfillDisplayNameKeys_KeyTooLong` leaves an oversized key unset with
+  a warning naming the user ID only. The revision commands act as the principal's effective role
   (`TestReadCommands_ActAsTheEffectiveRole`, `TestSubmitRevision_ActsAsTheEffectiveRole`: an API token is a
   contributor), contributors never see flags (`TestSubmitRevision_ContributorNeverSeesFlags`), and
   `TestModeratorCommands_RequireAnInteractiveModerator` refuses every moderator command to a contributor and to a
   moderator's API token. The contact commands verify before storing and never put personal data in an error
-  (`TestSubmitContactRequest_*`), and list and resolve purge expired requests (`TestListContactRequests_*`,
-  `TestResolveContactRequest_*`).
+  (`TestSubmitContactRequest_*`; `_StoresAbsoluteURL`: a URL typed without a scheme is stored with https), and
+  list and resolve purge expired requests (`TestListContactRequests_*`, `TestResolveContactRequest_*`).
 - **Turnstile verifier** (`internal/datasources/turnstile`): every test answers from a loopback `httptest`
   siteverify keyed by the `secret` it receives, using Cloudflare's documented test secrets (`1x…AA` passes, `2x…AA`
   fails, `3x…AA` reports a spent token). `TestVerifyTurnstile_Outcomes` covers each error-code class (user-side
-  codes → rejected, server-side and unknown codes → unavailable at error level), both allowlisted hostnames, an
-  empty allowlist, a foreign hostname, a wrong or missing action and malformed JSON, and checks that neither the
-  token nor the secret is in the logs or the error; `_SendsOnlySecretAndResponse`,
+  codes → rejected, server-side and unknown codes → unavailable at error level), both allowlisted hostnames (in
+  any case, on either side), an empty allowlist, a foreign hostname, a wrong or missing action and malformed JSON,
+  and checks that neither the token nor the secret is in the logs or the error; `_SendsOnlySecretAndResponse`,
   `_TransportFailuresAreUnavailable` (non-200 statuses, an oversized body, a timeout), `_UnreachableIsUnavailable`
   and `_ConcurrencyLimit` (the ninth concurrent call is unavailable at once). **No test reaches the network:**
   command and controller tests use the `mocks.TurnstileVerifier` mock, the HTTP integration tests a passing fake
@@ -320,11 +324,14 @@ with `go tool`, so nothing needs installing.
 - **Server, JSON helpers and wiring** (`internal/transport/web/server`, `internal/transport/web/httpjson`,
   `internal/app`): `TestServer_ShutdownWaitsForInFlightRequest`, `TestServer_HeaderSizeLimit` (431 over 16 KiB
   of request headers), `TestDecodeJSONBody` (the exact client-facing messages) and
-  `TestDecodeJSONBody_LogsDecodeErrorAtDebug`, `TestNewHTTPHandler_UnroutedRequests` (JSON 404 for an unknown
+  `TestDecodeJSONBody_LogsDecodeErrorAtDebug` (the error's type, offset and field only), with
+  `TestDecodeJSONBody_DebugLogHasNoBodyText` (no refused value or unknown field name in the record),
+  `TestNewHTTPHandler_UnroutedRequests` (JSON 404 for an unknown
   path, 405 with `Allow` for a wrong method, neither authenticating) and `TestNewHTTPHandler_PreflightToUnknownPath`,
   `TestAuth0IssuerURL`, `TestAuthValidatorsFromEnv_*`, `TestStoredTime_UTCWholeSeconds` and
   `TestSetup_InvalidDatabaseURL`. `TestContactVerifierFromEnv_*` read the Turnstile variables (an empty secret
-  disables the form). `TestContactSubmit_NeverLogsPII` sends contact requests through the production handler, with
+  disables the form, hostnames ignore case, and an empty list is logged at warn). `TestContactSubmit_NeverLogsPII`
+  sends contact requests through the production handler, with
   the real verifier calling a loopback siteverify, for every outcome (success, each invalid field, malformed JSON,
   an unknown field, 413, each Turnstile failure, disabled, the cap, a busy and a failing database) and captures
   slog at DEBUG: no record and no response holds the name, email, message, URL or token.
@@ -418,14 +425,16 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
   catalogtest's import revisions as bases): drafts (`TestRepository_SaveDraft_*`, `TestRepository_Drafts_*`),
   submit and withdraw (`TestRepository_SubmitDraft_*`, `TestRepository_WithdrawRevision_*`: placeholders with no
   content, deleted with their children), the author's reads (`TestRepository_GetMyRevision_*`,
-  `TestRepository_GetEditable_*`), duplicates (`TestRepository_FindDuplicates*`), the approval writer
+  `TestRepository_GetEditable_*`), duplicates (`TestRepository_FindDuplicates*`: no alias of a no-page person for a contributor), the approval writer
   (`TestEntityWriter_RoundTrip`: a public read equals the public view of the document written), approval
   (`TestRepository_ApproveRevision_*`: stale merges, pending references approved alongside, slugs, history order,
   links never deleted and never un-hidden, performances by owner, flags, the 1452 → `ErrEntityGone` mapping,
   search after commit), reject, rebase (`TestRepository_RebaseRevision_*`: a rebase clears the
   submission's restore flags, so a revision refused with `hidden_data_conflict` can then be approved) and revert, link reports (`TestRepository_LinkReports`), contact requests
   (`TestRepository_ContactRequests*`: the cap, and the purge with the clock passed in) and display-name keys
-  (`TestRepository_UpdateDisplayName_KeyUnique`). The races run goroutines released together and assert outcomes
+  (`TestRepository_UpdateDisplayName_KeyUnique`, `TestRepository_DisplayNameKey_BlankLetter`,
+  `TestBackfillDisplayNameKeys_KeyTooLongForColumn`, and `TestMigrations_DisplayNameKeyWidth`: the column is as wide
+  as `domain.MaxDisplayNameKeyRunes`). The races run goroutines released together and assert outcomes
   only, never timing: `TestRepository_ApproveRevision_ConcurrentDoubleApprove`, `_ConcurrentSameEntity` (no lost
   update), `_WithdrawRace`, `_SupersedeRace`, `_CrossingApprovals` (both always succeed, deadlocks retried),
   `_ApproveVersusModeratorEdit` and `_ConcurrentOptOut`, `TestRepository_RevertTo_ConcurrentSubmit` and
@@ -669,6 +678,9 @@ row). Each row names its viewer, path, status and reveals, and the scan is the p
   (`full` rows assert the hidden data is there instead of scanning);
 - **provenance**: what A typed is present in A's pending view, and a link A received that was hidden since is
   absent;
+- **duplicate oracle**: A's drafts of a new person named as the no-page person's public alias and as a fresh name
+  are byte-equal, saved and read back, once the names are masked (a no-page person is found only by name); a
+  draft named as that person shows the match, so the check is seen to run;
 - **validation oracle**: A's rename to a hidden alias and to a fresh name give byte-equal responses once the names
   are masked;
 - **moderator-only reads** (`moderatorOnly`: the queue, the moderation view, both inboxes, the link lookup): A and B
@@ -715,7 +727,12 @@ person's page shows it and the scan reports it, as it reports each planted place
 1. **Spec**: add the operation to `openapi/api.yaml` with a camelCase `operationId`, its security, closed
    request and response schemas with examples, and **every status its handler and middleware can produce**
    (reuse `components/responses` such as `Unauthenticated`, `Forbidden`, `Internal`). `make lint-openapi` must
-   stay clean.
+   stay clean. Every operation that reads or writes the database, directly or through the auth middleware,
+   declares 503: `DatabaseUnavailable` for a read, `WriteUnavailable` for a write
+   (`TestSpec_DatabaseOperationsDeclare503`; only `/healthz` reads none). An ID is `format: int64` with
+   `maximum: 9007199254740991` (`TestSpec_Int64IDsHaveSafeMaximum`, which checks every int64). A request schema
+   may be stricter than the server's decoder (`required`, `uniqueItems`); clients follow the spec and must never
+   rely on the server's leniency.
 2. **Route**: add it to the route table in `router.routes`: method, path pattern, handler behind the right
    `require*` middleware, and `authenticated: true` unless it is public.
    `TestRouter_RoutesMatchOpenAPI` fails until the spec and the router agree.
@@ -731,7 +748,11 @@ person's page shows it and the scan reports it, as it reports each planted place
    out-of-range) as `ServeResponseOnly` tests.
 4. **Per-status tests**: a contract-validated controller test case for every documented status the controller
    produces (`Serve`, or `ServeResponseOnly` for deliberately invalid requests). Middleware statuses (401, 403,
-   500 from a failed credential check or user lookup) are covered by the matrix.
+   500 from a failed credential check or user lookup) are covered by the matrix. The 503 of a database that cannot
+   be served is a row in `unavailableRows` (`TestControllers_DatabaseUnavailableIs503`, which fails for an
+   operation without one), whose datasource or command fails with an error wrapping `datasources.ErrUnavailable`;
+   the auth middleware's 503 (a user lookup that fails so) is `TestRouter_UserLookupUnavailableIs503`, over every
+   authenticated route.
 5. **Integration**: integration tests for every new query, and extend `TestHTTP_EndToEnd` when the endpoint
    changes a user-visible flow.
 

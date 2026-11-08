@@ -60,7 +60,7 @@ func (c CollectionGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "collection not found")
 	case err != nil:
-		writeInternalError(w, r, "unable to get collection", err)
+		WriteInternalError(w, r, "unable to get collection", err)
 	default:
 		httpjson.WriteJSON(ctx, w, http.StatusOK, collectionFromDomain(collection))
 	}

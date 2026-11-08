@@ -142,7 +142,7 @@ func TestRepository_GetModerationRevision_RebaseConflicts(t *testing.T) {
 	assert.Equal(t, domain.FieldPath("title"), revision.Rebase.Conflicts[0].Path)
 	assert.JSONEq(t, `"The Wren's Lament"`, string(revision.Rebase.Conflicts[0].Revision))
 	assert.JSONEq(t, `"The Wren's Air"`, string(revision.Rebase.Conflicts[0].Current))
-	assert.Equal(t, []string{"title"}, revision.ChangedPaths)
+	assert.Equal(t, []domain.FieldPath{"title"}, revision.ChangedPaths)
 	assert.Equal(t, []domain.DuplicateMatch{}, revision.Duplicates, "an existing entity has no duplicates")
 
 	// Moderators see everything: the hidden link, with its state, the preferences and who prefers no page.
@@ -183,7 +183,7 @@ func TestRepository_GetModerationRevision_RebaseConflicts(t *testing.T) {
 	assert.Equal(t, "she/her", *mergedDoc.Pronouns)
 	assert.Contains(t, merged.Document.(domain.PersonDocument).Aliases,
 		domain.DocPersonAlias{Name: morwenLegal, Kind: domain.PersonAliasKindLegal}, "the hidden alias is shown")
-	assert.Equal(t, []string{"notes_md"}, merged.ChangedPaths)
+	assert.Equal(t, []domain.FieldPath{"notes_md"}, merged.ChangedPaths)
 }
 
 func TestRepository_GetModerationRevision_ImportedRevision(t *testing.T) {
@@ -203,7 +203,7 @@ func TestRepository_GetModerationRevision_ImportedRevision(t *testing.T) {
 	assert.Equal(t, domain.RebaseStatusNotNeeded, revision.Rebase.Status)
 	assert.Equal(t, []domain.ModerationPendingReference{}, revision.PendingReferences)
 	assert.Equal(t, []domain.Flag{}, revision.Flags)
-	assert.Contains(t, revision.ChangedPaths, "title", "compared with the default document")
+	assert.Contains(t, revision.ChangedPaths, domain.FieldPath("title"), "compared with the default document")
 }
 
 func TestRepository_GetModerationRevision_PendingReferences(t *testing.T) {
@@ -242,7 +242,7 @@ func TestRepository_GetModerationRevision_PendingReferences(t *testing.T) {
 	assert.Equal(t, f.song.Slug, revision.Duplicates[0].Slug)
 	assert.Contains(t, revision.References, domain.EditorReference{EntityType: domain.EntityTypeTerm,
 		ID: term.Entity.ID, Slug: term.Entity.Slug, Label: "Sea Songs", IsPending: true})
-	assert.Contains(t, revision.ChangedPaths, "title")
+	assert.Contains(t, revision.ChangedPaths, domain.FieldPath("title"))
 }
 
 func TestRepository_GetModerationRevision_NotFound(t *testing.T) {

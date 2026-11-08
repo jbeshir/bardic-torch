@@ -228,10 +228,7 @@ func (c *catalogueReader) moderationRevision(
 	if revision.Flags, err = c.moderationFlags(ctx, kind, row, revision, docs, pending); err != nil {
 		return domain.ModerationRevision{}, err
 	}
-	revision.ChangedPaths = []string{}
-	for _, path := range kind.changedPaths(docs.base, docs.doc) {
-		revision.ChangedPaths = append(revision.ChangedPaths, string(path))
-	}
+	revision.ChangedPaths = append([]domain.FieldPath{}, kind.changedPaths(docs.base, docs.doc)...)
 
 	revision.References = c.moderationReferences(ctx, kind, id, revision, docs, pending)
 	revision.LinkStates = c.documentLinkStates(ctx, moderationViewer, id, kind, docs.doc)
@@ -273,6 +270,11 @@ func (c *catalogueReader) moderationRevisionRow(
 	if err != nil {
 		return domain.ModerationRevision{}, err
 	}
+	rebasedBy, err := optionalModerationAuthor(row.RebasedByUserID, row.RebaserDisplayName, row.RebaserRole,
+		row.RebaserBlockedAt)
+	if err != nil {
+		return domain.ModerationRevision{}, err
+	}
 	contributors := c.contributors(ctx, []uint64{row.ID})[row.ID]
 	if contributors == nil {
 		contributors = []string{}
@@ -281,7 +283,8 @@ func (c *catalogueReader) moderationRevisionRow(
 	return domain.ModerationRevision{
 		ID: c.signedID(row.ID), Status: enumOf[domain.RevisionStatus](c, row.Status),
 		Source: enumOf[domain.RevisionSource](c, row.Source), Author: author, Contributors: contributors,
-		Reviewer: reviewer, Summary: row.Summary, ReviewNote: stringPtr(row.ReviewNote), CreatedAt: row.CreatedAt,
+		Reviewer: reviewer, RebasedBy: rebasedBy, Summary: row.Summary, ReviewNote: stringPtr(row.ReviewNote),
+		CreatedAt:   row.CreatedAt,
 		SubmittedAt: timePtr(row.SubmittedAt), ReviewedAt: timePtr(row.ReviewedAt), RebasedAt: timePtr(row.RebasedAt),
 		BaseRevisionID: int64Ptr(row.BaseRevisionID), SubmittedBaseRevisionID: int64Ptr(row.SubmittedBaseRevisionID),
 	}, nil

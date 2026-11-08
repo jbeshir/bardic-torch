@@ -51,6 +51,37 @@ func TestSubmitContactRequest_VerifiesThenStores(t *testing.T) {
 	assert.Equal(t, testContactRequestID, id)
 }
 
+// TestSubmitContactRequest_StoresAbsoluteURL checks that a URL typed without a scheme is stored with https, so
+// that a moderator's link to it is never relative, and that a request without a URL stores none.
+func TestSubmitContactRequest_StoresAbsoluteURL(t *testing.T) {
+	t.Parallel()
+
+	for typed, want := range map[string]*string{
+		"www.example.org/the-copper-kettle": new("https://www.example.org/the-copper-kettle"),
+		"//example.org/the-copper-kettle":   new("https://example.org/the-copper-kettle"),
+		" " + testContactURL + " ":          &testContactURL,
+		"":                                  nil,
+	} {
+		t.Run(typed, func(t *testing.T) {
+			t.Parallel()
+
+			submission, stored := testSubmission, testNewContactRequest
+			submission.URL, stored.URL = new(typed), want
+			if typed == "" {
+				submission.URL = nil
+			}
+			verifier := mocks.NewTurnstileVerifier(t)
+			verifier.EXPECT().VerifyTurnstile(mock.Anything, testTurnstileToken).Return(nil).Once()
+			creator := mocks.NewContactRequestCreator(t)
+			creator.EXPECT().CreateContactRequest(mock.Anything, stored).Return(testContactRequestID, nil).Once()
+
+			_, err := (&SubmitContactRequest{Verifier: verifier, Creator: creator, Now: fixedClock}).
+				Execute(t.Context(), submission)
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestSubmitContactRequest_Errors(t *testing.T) {
 	t.Parallel()
 

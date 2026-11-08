@@ -34,6 +34,8 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 		blockBody       = `{"blocked":true}`
 	)
 	target := domain.User{ID: targetID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: testNow}
+	moderator := domain.Principal{User: domain.User{ID: principalUserID, DisplayName: testDisplayName,
+		Role: domain.RoleModerator, CreatedAt: testNow}, Method: domain.AuthMethodAuth0}
 
 	cases := []struct {
 		name        string
@@ -42,6 +44,7 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 		// invalidRequest marks requests that deliberately break the request schema, so only the response is
 		// checked against the spec.
 		invalidRequest bool
+		anonymous      bool
 		// wantBlocked is what the command should be asked to set; nil means it is not called.
 		wantBlocked *bool
 		user        domain.User
@@ -80,6 +83,21 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 			err:         command.ErrModeratorNotBlockable,
 			wantStatus:  http.StatusConflict,
 			wantBody:    `{"code":"conflict","message":"moderators cannot be blocked or unblocked"}`,
+		},
+		{
+			name:        "not_interactive_moderator",
+			body:        blockBody,
+			wantBlocked: new(true),
+			err:         domain.ErrModeratorRequired,
+			wantStatus:  http.StatusForbidden,
+			wantBody:    moderatorRequiredBy,
+		},
+		{
+			name:       anonymousCase,
+			body:       blockBody,
+			anonymous:  true,
+			wantStatus: http.StatusUnauthorized,
+			wantBody:   unauthenticatedBody,
 		},
 		{
 			name:        "command_failure",
@@ -136,7 +154,8 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 					if tc.wantBlocked == nil {
 						t.Error("command called unexpectedly")
 					} else {
-						assert.Equal(t, command.SetUserBlockedRequest{UserID: targetID, Blocked: *tc.wantBlocked}, req)
+						assert.Equal(t, command.SetUserBlockedRequest{Principal: moderator, UserID: targetID,
+							Blocked: *tc.wantBlocked}, req)
 					}
 					return tc.user, tc.err
 				},
@@ -149,6 +168,9 @@ func TestUserBlockedSet_ServeHTTP(t *testing.T) {
 				req.Header.Set("Content-Type", tc.contentType)
 			}
 			req.SetPathValue("user_id", targetID)
+			if !tc.anonymous {
+				req = req.WithContext(domain.ContextWithPrincipal(req.Context(), moderator))
+			}
 
 			validator := openapitest.New(t)
 			var rec *httptest.ResponseRecorder

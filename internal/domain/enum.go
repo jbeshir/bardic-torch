@@ -246,3 +246,20 @@ func (c ContactRequestKind) Valid() bool { return slices.Contains(contactRequest
 
 // Valid reports whether c is a known ContactRequestStatus.
 func (c ContactRequestStatus) Valid() bool { return slices.Contains(contactRequestStatusValues, c) }
+
+// ProblemCodeValues returns every problem code, in declaration order: the problem vocabulary of the API's
+// DocumentError (TestSpec_InlineEnumsMatchCode).
+func ProblemCodeValues() []ProblemCode {
+	return []ProblemCode{
+		ProblemRequired, ProblemTooLong, ProblemInvalidCharacters, ProblemNotNFC, ProblemBlank, ProblemDuplicate,
+		ProblemUnknownReference, ProblemSelfReference, ProblemCycle, ProblemTooDeep, ProblemWrongFacet,
+		ProblemFacetImmutable, ProblemSourceRequired, ProblemReasonRequired, ProblemInvalidURL,
+		ProblemLicenceNeedsKnown, ProblemDateNeedsStatus, ProblemNamedNeedsPerson, ProblemPersonNeedsNamed,
+		ProblemCreditToNoPagePerson, ProblemRelationToNoPagePerson, ProblemSecondPrimaryTerm, ProblemPartNotAllowed,
+		ProblemOutOfRange, ProblemTooMany, ProblemAliasVisibility, ProblemWithheldPlaceholder,
+		ProblemWithheldFieldChanged,
+	}
+}
+
+// RoleValues returns the roles, in the order of the users.role ENUM.
+func RoleValues() []Role { return []Role{RoleContributor, RoleModerator} }

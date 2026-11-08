@@ -950,10 +950,13 @@ SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.submitted_base_re
     r.snapshot_json, r.submitted_snapshot_json, r.flags_json, r.summary, r.review_note, r.created_at,
     r.submitted_at, r.reviewed_at, r.rebased_at, r.author_user_id, a.display_name AS author_display_name,
     a.role AS author_role, a.blocked_at AS author_blocked_at, r.reviewer_user_id,
-    v.display_name AS reviewer_display_name, v.role AS reviewer_role, v.blocked_at AS reviewer_blocked_at
+    v.display_name AS reviewer_display_name, v.role AS reviewer_role, v.blocked_at AS reviewer_blocked_at,
+    r.rebased_by_user_id, b.display_name AS rebaser_display_name, b.role AS rebaser_role,
+    b.blocked_at AS rebaser_blocked_at
 FROM revisions r
 LEFT JOIN users a ON a.id = r.author_user_id
 LEFT JOIN users v ON v.id = r.reviewer_user_id
+LEFT JOIN users b ON b.id = r.rebased_by_user_id
 WHERE r.id = ? AND r.status <> 'draft'
 `
 
@@ -982,6 +985,10 @@ type GetModerationRevisionRow struct {
 	ReviewerDisplayName     sql.NullString
 	ReviewerRole            NullUsersRole
 	ReviewerBlockedAt       sql.NullTime
+	RebasedByUserID         sql.NullString
+	RebaserDisplayName      sql.NullString
+	RebaserRole             NullUsersRole
+	RebaserBlockedAt        sql.NullTime
 }
 
 func (q *Queries) GetModerationRevision(ctx context.Context, id uint64) (GetModerationRevisionRow, error) {
@@ -1012,6 +1019,10 @@ func (q *Queries) GetModerationRevision(ctx context.Context, id uint64) (GetMode
 		&i.ReviewerDisplayName,
 		&i.ReviewerRole,
 		&i.ReviewerBlockedAt,
+		&i.RebasedByUserID,
+		&i.RebaserDisplayName,
+		&i.RebaserRole,
+		&i.RebaserBlockedAt,
 	)
 	return i, err
 }

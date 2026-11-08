@@ -42,7 +42,8 @@ const (
 // timeout rolls the transaction back and runs fn again, up to maxWriteTxRetries more times, all within the
 // transaction's deadline (writeTxDeadline). When the retries or the deadline run out, or too little of ctx's
 // deadline is left to start, the error is datasources.ErrUnavailable, naming the MySQL error number but not the
-// server's message. Any other error from fn is returned as it is, so fn must be safe to run again from the start.
+// server's message; a failure to reach the database is datasources.ErrUnavailable too (unavailableIfDisconnected).
+// Any other error from fn is returned as it is, so fn must be safe to run again from the start.
 // fn must use the context it is given, which ends at the deadline; a statement run with another context is not
 // stopped by it.
 func (r *Repository) withWriteTx(ctx context.Context, fn func(ctx context.Context, tx *sql.Tx) error) error {
@@ -65,7 +66,7 @@ func (r *Repository) withWriteTx(ctx context.Context, fn func(ctx context.Contex
 
 		var mysqlErr *mysqldriver.MySQLError
 		if !errors.As(err, &mysqlErr) || (mysqlErr.Number != errDeadlock && mysqlErr.Number != errLockWaitTimeout) {
-			return err
+			return unavailableIfDisconnected(err)
 		}
 		if attempt == maxWriteTxRetries {
 			return fmt.Errorf("%w: write transaction: MySQL error %d", datasources.ErrUnavailable, mysqlErr.Number)

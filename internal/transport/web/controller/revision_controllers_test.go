@@ -145,8 +145,8 @@ const (
 	draftNotFound    = `{"code":"not_found","message":"draft not found"}`
 	revisionNotFound = `{"code":"not_found","message":"revision not found"}`
 	notDraftBody     = `{"code":"not_draft","message":"the revision is not a draft"}`
-	unavailableBody  = `{"code":"unavailable","message":"the write could not be completed in time; try again"}`
-	invalidIDBody    = `{"code":"invalid_request","message":"invalid %s: must be an integer from 1 to 9223372036854775807"}`
+	unavailableBody  = `{"code":"unavailable","message":"the database is busy or cannot be reached; try again"}`
+	invalidIDBody    = `{"code":"invalid_request","message":"invalid %s: must be an integer from 1 to 9007199254740991"}`
 )
 
 // invalidID is the 400 body of an invalid path ID name.
@@ -177,10 +177,14 @@ func errorCases(base revisionCase, errs ...revisionCase) []revisionCase {
 
 // The answers to the revision errors every write may give.
 var (
-	internalCase    = revisionCase{name: "internal", err: errCommand, wantStatus: http.StatusInternalServerError, wantBody: internalErrorBody}
-	unavailableCase = revisionCase{name: "unavailable", err: datasources.ErrUnavailable, wantStatus: http.StatusServiceUnavailable, wantBody: unavailableBody}
-	notDraftCase    = revisionCase{name: "not_draft", err: domain.ErrNotDraft, wantStatus: http.StatusConflict, wantBody: notDraftBody}
-	pendingLimit    = revisionCase{name: "pending_limit_reached", err: datasources.ErrPendingLimitReached, wantStatus: http.StatusConflict,
+	internalCase        = revisionCase{name: "internal", err: errCommand, wantStatus: http.StatusInternalServerError, wantBody: internalErrorBody}
+	unavailableCase     = revisionCase{name: "unavailable", err: datasources.ErrUnavailable, wantStatus: http.StatusServiceUnavailable, wantBody: unavailableBody}
+	notDraftCase        = revisionCase{name: "not_draft", err: domain.ErrNotDraft, wantStatus: http.StatusConflict, wantBody: notDraftBody}
+	repeatedFlagCase    = "repeated_flag"
+	repeatedFlagMessage = "invalid acknowledged_flags: must not repeat a flag"
+	duplicateNameCase   = revisionCase{name: "duplicate_name", err: command.ErrDuplicateName, wantStatus: http.StatusConflict,
+		wantBody: `{"code":"duplicate_name","message":"another term of the facet has this name"}`}
+	pendingLimit = revisionCase{name: "pending_limit_reached", err: datasources.ErrPendingLimitReached, wantStatus: http.StatusConflict,
 		wantBody: `{"code":"pending_limit_reached","message":"a user may have at most 30 pending revisions"}`}
 	entityGone = revisionCase{name: "entity_gone", err: datasources.ErrEntityGone, wantStatus: http.StatusConflict,
 		wantBody: `{"code":"entity_gone","message":"the entity, or an entity it references, no longer exists"}`}
@@ -418,7 +422,7 @@ func TestDraftUpdate_ServeHTTP(t *testing.T) {
 	cases := append([]revisionCase{ok, anonymous, badID, tooLarge, notJSON}, errorCases(base,
 		revisionCase{name: notFoundCase, err: datasources.ErrNotFound, wantStatus: http.StatusNotFound, wantBody: draftNotFound},
 		revisionCase{name: "another_entity_type", err: datasources.ErrDocumentType, wantStatus: http.StatusBadRequest,
-			wantBody: `{"code":"invalid_request","message":"invalid entity_type: not the draft's entity type"}`},
+			wantBody: `{"code":"invalid_request","message":"invalid entity_type: not the entity type of the draft or revision"}`},
 		notDraftCase, invalidDocument, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return DraftUpdate{Command: returning[command.UpdateDraftRequest](t, !tc.notCalled,
@@ -464,6 +468,10 @@ func TestRevisionSubmit_ServeHTTP(t *testing.T) {
 			body: `{"draft_id":51,"acknowledge_duplicates":false,"acknowledged_flags":["suspicious"]}`, notCalled: true,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   `{"code":"invalid_request","message":"invalid acknowledged_flags: not one of its allowed values"}`},
+		{name: repeatedFlagCase, method: http.MethodPost, target: revisionsTarget, notCalled: true,
+			body:           `{"draft_id":51,"acknowledge_duplicates":true,"acknowledged_flags":["possible_duplicate","possible_duplicate"]}`,
+			invalidRequest: true, wantStatus: http.StatusBadRequest,
+			wantBody: `{"code":"invalid_request","message":"` + repeatedFlagMessage + `"}`},
 		{name: tooLargeCase, method: http.MethodPost, target: revisionsTarget, invalidRequest: true, notCalled: true,
 			body:       `{"draft_id":51,"x":"` + strings.Repeat("a", httpjson.MaxBodyBytes) + `"}`,
 			wantStatus: http.StatusRequestEntityTooLarge, wantBody: tooLargeBody},
@@ -485,7 +493,7 @@ func TestRevisionSubmit_ServeHTTP(t *testing.T) {
 				`conflict: edit the current version"}`},
 		revisionCase{name: "duplicate_blocked", err: domain.ErrDuplicateBlocked, wantStatus: http.StatusUnprocessableEntity,
 			wantBody: `{"code":"duplicate_blocked","message":"a person with this name has asked not to have a page"}`},
-		invalidDocument, unavailableCase, internalCase)...)
+		duplicateNameCase, invalidDocument, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return RevisionSubmit{Command: returning[command.SubmitRevisionRequest](t, !tc.notCalled,
 			command.SubmittedRevision{Revision: testMyRevision}, tc.err)}
@@ -555,13 +563,16 @@ func TestRevisionRevert_ServeHTTP(t *testing.T) {
 	notJSON := base
 	notJSON.name, notJSON.contentType, notJSON.invalidRequest, notJSON.notCalled = notJSONCase, plainText, true, true
 	notJSON.wantStatus, notJSON.wantBody = http.StatusUnsupportedMediaType, unsupportedMediaTypeBody
-	cases := append([]revisionCase{created, anonymous, badID, badFlag, tooLarge, notJSON}, errorCases(base,
+	repeatedFlag := badFlag
+	repeatedFlag.name, repeatedFlag.body = repeatedFlagCase, `{"summary":null,"acknowledged_flags":["possible_duplicate","possible_duplicate"]}`
+	repeatedFlag.wantBody = `{"code":"invalid_request","message":"` + repeatedFlagMessage + `"}`
+	cases := append([]revisionCase{created, anonymous, badID, badFlag, repeatedFlag, tooLarge, notJSON}, errorCases(base,
 		revisionCase{name: notFoundCase, err: datasources.ErrNotFound, wantStatus: http.StatusNotFound, wantBody: revisionNotFound},
 		revisionCase{name: "not_approved", err: domain.ErrNotApproved, wantStatus: http.StatusNotFound, wantBody: revisionNotFound},
 		revisionCase{name: "already_current", err: datasources.ErrAlreadyCurrent, wantStatus: http.StatusConflict,
 			wantBody: `{"code":"already_current","message":"the revision is already the entity's current revision"}`},
 		pendingLimit, entityGone, hiddenDataConflict, unacknowledgedFlags, pendingReferenceFlagged,
-		invalidDocument, unavailableCase, internalCase)...)
+		duplicateNameCase, invalidDocument, unavailableCase, internalCase)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return RevisionRevert{Command: returning[command.RevertRequest](t, !tc.notCalled,
 			command.SubmittedRevision{Revision: testMyRevision}, tc.err)}

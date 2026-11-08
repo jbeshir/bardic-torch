@@ -540,3 +540,29 @@ func TestRepository_CatalogueReads_UnknownEnumValue(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
 	require.ErrorContains(t, err, "[harper]")
 }
+
+// TestRepository_GetPublicPiece_RestrictedKeepsLinks pins that a restricted piece's public page still serves its
+// visible links: no read filters links by conservation status, and how they are shown is the client's policy.
+func TestRepository_GetPublicPiece_RestrictedKeepsLinks(t *testing.T) {
+	t.Parallel()
+
+	db := catalogtest.Writable(t)
+	c := catalogtest.New(t, db)
+	source := new("https://example.org/restriction")
+	const linkURL = "https://example.org/hush-song/recording"
+	c.Piece(catalogtest.Piece{Slug: "hush-song", Doc: domain.PieceDocument{
+		Title:        "The Hush Song",
+		Conservation: domain.DocConservation{Status: domain.ConservationStatusRestricted, SourceURL: source},
+		Links: []domain.DocPieceLink{{DocLink: domain.DocLink{URL: linkURL,
+			Roles: []domain.LinkRole{domain.LinkRolePerformance}}}},
+	}, ConservationHistory: []catalogtest.ConservationEntry{{Status: domain.ConservationStatusRestricted,
+		Reason: "The family asked that it not be spread.", SourceURL: source}}})
+
+	piece, err := mysql.New(db).GetPublicPiece(t.Context(), "hush-song")
+	require.NoError(t, err)
+	assert.Equal(t, domain.ConservationStatusRestricted, piece.ConservationStatus)
+	require.Len(t, piece.Links, 1)
+	assert.Equal(t, linkURL, piece.Links[0].URL)
+	require.Len(t, piece.ConservationHistory, 1)
+	assert.Equal(t, source, piece.ConservationHistory[0].SourceURL, "the newest restricted entry holds the source")
+}

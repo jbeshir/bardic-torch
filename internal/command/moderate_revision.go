@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -15,8 +14,8 @@ import (
 // (domain.Principal.Actor) is moderator, which an API token never has (D25). The router lets no one else reach
 // them; each command also refuses anyone else with domain.ErrModeratorRequired.
 
-// ErrDuplicateName is an approval of a term whose name another term of its facet has taken since it was
-// submitted (R45).
+// ErrDuplicateName is an approval of a term whose name another term of its facet has taken: approving a
+// submitted term, or a moderator's own submission or revert, which is approved at once (docs/PLAN.md §5.1).
 var ErrDuplicateName = errors.New("the term's name is taken in its facet")
 
 var (
@@ -168,16 +167,6 @@ func (c *ApproveRevision) duplicates(
 	}
 
 	return checks, nil
-}
-
-// isNameDuplicate reports whether err is a document error whose only problem is a name another entity has taken.
-func isNameDuplicate(err error) bool {
-	var documentErr *domain.DocumentError
-	if !errors.As(err, &documentErr) {
-		return false
-	}
-
-	return slices.Equal(documentErr.Problems, []domain.DocumentProblem{{Path: "/name", Code: domain.ProblemDuplicate}})
 }
 
 // RejectRevisionRequest is Principal's rejection of the pending revision RevisionID with a review note for its

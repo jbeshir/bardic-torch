@@ -42,7 +42,7 @@ func (c TermListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	terms, err := c.Lister.ListPublicTerms(ctx, facet)
 	if err != nil {
-		writeInternalError(w, r, "unable to list terms", err)
+		WriteInternalError(w, r, "unable to list terms", err)
 		return
 	}
 

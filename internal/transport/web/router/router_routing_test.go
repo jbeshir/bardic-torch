@@ -66,6 +66,7 @@ const (
 	routingConnectRedir    = "//example.com:443/"
 
 	internalBody    = `{"code":"internal","message":"internal error"}` + "\n"
+	unavailableBody = `{"code":"unavailable","message":"the database is busy or cannot be reached; try again"}` + "\n"
 	invalidSlugBody = `{"code":"invalid_request","message":"invalid slug: must be lowercase ASCII letters and ` +
 		`digits, in runs joined by single hyphens, at most 191 characters"}` + "\n"
 
@@ -233,7 +234,7 @@ func publicCases() []routingCase {
 			method: http.MethodGet, target: "/v1/revisions/4%2F2",
 			status: http.StatusBadRequest, contentType: jsonContentType,
 			respBody: `{"code":"invalid_request","message":"invalid revision_id: must be an integer from 1 to ` +
-				`9223372036854775807"}` + "\n",
+				`9007199254740991"}` + "\n",
 			route: routingRevisionTemplate,
 		},
 		// A slug or ID that is exactly %2F (or %2f) is an unrouted 404 for every method, as on the authenticated

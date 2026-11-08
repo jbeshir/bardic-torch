@@ -366,3 +366,30 @@ func newPieceDocument(title string) jsonObject {
 		"links": []any{},
 	}
 }
+
+// TestHTTP_RevisionSnapshotNestedSummaryIsCurrent pins what a nested summary in a revision snapshot shows: the
+// referenced piece as it is now, not as it was when the revision was saved.
+func TestHTTP_RevisionSnapshotNestedSummaryIsCurrent(t *testing.T) {
+	t.Parallel()
+
+	w := newRevisionWorld(t, nil, "auth0|snapshot-moderator")
+	c := catalogtest.New(t, w.db)
+	brass := c.Piece(catalogtest.Piece{Slug: "the-brass-kettle", Doc: domain.PieceDocument{Title: "The Brass Kettle"}})
+	kettle := c.Piece(catalogtest.Piece{Slug: "the-copper-kettle", Doc: domain.PieceDocument{
+		Title:     "The Copper Kettle",
+		Relations: []domain.DocPieceRelation{{ToPieceID: brass.ID, Type: domain.PieceRelationTypeVariantOf}},
+	}})
+	c.Exec("UPDATE pieces SET conservation_status = 'endangered' WHERE id = ?", brass.ID)
+
+	revision := sendOK[jsonObject](t, w.e, http.MethodGet, idPath("/v1/revisions/", kettle.RevisionID), "", "",
+		http.StatusOK)
+	snapshot, ok := revision["snapshot"].(jsonObject)
+	require.True(t, ok, "the revision has a snapshot")
+	relations, ok := snapshot["relations"].([]any)
+	require.True(t, ok, "the snapshot has relations")
+	require.Len(t, relations, 1)
+	piece, ok := relations[0].(jsonObject)["piece"].(jsonObject)
+	require.True(t, ok, "the relation has a piece")
+	assert.Equal(t, string(domain.ConservationStatusEndangered), piece["conservation_status"],
+		"the related piece's status now, not when the revision was saved")
+}

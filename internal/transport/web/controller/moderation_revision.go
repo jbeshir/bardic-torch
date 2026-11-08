@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
@@ -138,7 +139,8 @@ func (c RevisionApprove) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acknowledged, ok := acknowledgedFlagsOrBadRequest(w, r, body.AcknowledgedFlags)
-	if !ok || !textOrBadRequest(w, r, "review_note", body.ReviewNote, domain.MaxModeratorNoteLength) {
+	if !ok || !textOrBadRequest(w, r, "review_note", body.ReviewNote, domain.MaxModeratorNoteLength) ||
+		!textOrBadRequest(w, r, "summary", body.Summary, domain.MaxSummaryLength) {
 		return
 	}
 
@@ -215,6 +217,9 @@ func (c RevisionRebase) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !httpjson.DecodeJSONBodyLimit(w, r, &body, httpjson.MaxDocumentBodyBytes) {
 		return
 	}
+	if !textOrBadRequest(w, r, "summary", body.Summary, domain.MaxSummaryLength) {
+		return
+	}
 	doc, ok := editorDocumentToDomain(r.Context(), w, body.EntityType, body.Document)
 	if !ok {
 		return
@@ -246,12 +251,22 @@ func acknowledgedFlagsOrBadRequest(
 	return *codes, flagCodesOrBadRequest(w, r, *codes)
 }
 
-// textOrBadRequest checks that the optional text field name has at most maxLength characters. If it has more, it
-// writes 400 invalid_request and returns false; the caller should then return without writing.
+// textOrBadRequest checks that the optional free-text field name has at most maxLength characters and no control
+// character (domain.IsControlCharacter: a C0 or C1 control other than tab and line feed, or a bidirectional
+// override, which could rewrite how a moderator's screen shows the text after it). Otherwise it writes 400
+// invalid_request, naming the field but never quoting its value, and returns false; the caller should then return
+// without writing.
 func textOrBadRequest(w http.ResponseWriter, r *http.Request, name string, text *string, maxLength int) bool {
-	if text != nil && utf8.RuneCountInString(*text) > maxLength {
+	switch {
+	case text == nil:
+		return true
+	case utf8.RuneCountInString(*text) > maxLength:
 		httpjson.WriteError(r.Context(), w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
 			fmt.Sprintf("invalid %s: must be at most %d characters", name, maxLength))
+		return false
+	case strings.ContainsFunc(*text, domain.IsControlCharacter):
+		httpjson.WriteError(r.Context(), w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
+			fmt.Sprintf("invalid %s: must not contain a control character", name))
 		return false
 	}
 

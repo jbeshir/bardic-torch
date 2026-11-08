@@ -2,7 +2,9 @@ package command
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -97,4 +99,16 @@ func submitted(
 	}
 
 	return SubmittedRevision{Revision: revision, Replayed: result.Replayed}, nil
+}
+
+// isNameDuplicate reports whether err is a document error whose only problem is a name another entity has taken:
+// a term's name taken in its facet, by a public term (validation) or by one approved since (the write's UNIQUE
+// index on the facet and name). Where the document is approved, this is ErrDuplicateName.
+func isNameDuplicate(err error) bool {
+	var documentErr *domain.DocumentError
+	if !errors.As(err, &documentErr) {
+		return false
+	}
+
+	return slices.Equal(documentErr.Problems, []domain.DocumentProblem{{Path: "/name", Code: domain.ProblemDuplicate}})
 }

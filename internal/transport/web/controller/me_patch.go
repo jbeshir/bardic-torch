@@ -48,7 +48,7 @@ func (c MePatch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteError(ctx, w, http.StatusConflict, httpjson.CodeDisplayNameTaken,
 			"another user has this display name, or one that differs only in case, spaces or punctuation")
 	case err != nil:
-		writeInternalError(w, r, "unable to update display name", err)
+		WriteInternalError(w, r, "unable to update display name", err)
 	default:
 		httpjson.WriteJSON(ctx, w, http.StatusOK, userFromDomain(user))
 	}

@@ -133,24 +133,66 @@ func TestDecodeJSONBody(t *testing.T) {
 	}
 }
 
+// errorTypeKey is the key of the decode error's Go type in its debug record.
+const errorTypeKey = "error_type"
+
 func TestDecodeJSONBody_LogsDecodeErrorAtDebug(t *testing.T) {
 	t.Parallel()
 
-	for _, body := range []string{`{"name":5}`, `{"name":"lute","extra":1}`} {
+	for body, want := range map[string]map[string]any{
+		`{"name":5}`:                {errorTypeKey: "*json.UnmarshalTypeError", "offset": float64(9), "field": "name"},
+		`{"name":`:                  {errorTypeKey: "*errors.errorString"},
+		`{"name"}`:                  {errorTypeKey: "*json.SyntaxError", "offset": float64(8)},
+		`{"name":"lute","extra":1}`: {errorTypeKey: "*errors.errorString"},
+	} {
+		entry := decodeLogEntry(t, body, &testBody{})
+		assert.Equal(t, "DEBUG", entry["level"], body)
+		for key, value := range want {
+			assert.Equal(t, value, entry[key], body)
+		}
+		assert.NotContains(t, entry, "error", body)
+	}
+}
+
+// TestDecodeJSONBody_DebugLogHasNoBodyText checks that the debug record of a body that could not be decoded
+// quotes none of it: neither a value a field's own decoder refused, nor an unknown field's name.
+func TestDecodeJSONBody_DebugLogHasNoBodyText(t *testing.T) {
+	t.Parallel()
+
+	var withDate struct {
+		Date domain.Date `json:"date"`
+	}
+	for _, body := range []string{`{"date":"leakmark-xyz"}`, `{"date":"2026-11-08","leakmark":1}`} {
 		var logs bytes.Buffer
 		logger := slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		ctx := domain.ContextWithLogger(t.Context(), logger)
-		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/", strings.NewReader(body))
+		req := httptest.NewRequestWithContext(domain.ContextWithLogger(t.Context(), logger), http.MethodPost, "/",
+			strings.NewReader(body))
 		req.Header.Set("Content-Type", mediaType)
 
-		var got testBody
-		require.False(t, DecodeJSONBody(httptest.NewRecorder(), req, &got), body)
-
-		var entry map[string]any
-		require.NoError(t, json.Unmarshal(logs.Bytes(), &entry), body)
-		assert.Equal(t, "DEBUG", entry["level"], body)
-		assert.Contains(t, entry["error"], "json: ", body)
+		rec := httptest.NewRecorder()
+		require.False(t, DecodeJSONBody(rec, req, &withDate), body)
+		assert.Equal(t, http.StatusBadRequest, rec.Code, body)
+		assert.Contains(t, logs.String(), "unable to decode request body", body)
+		assert.NotContains(t, logs.String(), "leakmark", body)
+		assert.NotContains(t, rec.Body.String(), "leakmark", body)
 	}
+}
+
+// decodeLogEntry decodes body into dst with a debug logger, which must fail, and returns the one record logged.
+func decodeLogEntry(t *testing.T, body string, dst any) map[string]any {
+	t.Helper()
+
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	req := httptest.NewRequestWithContext(domain.ContextWithLogger(t.Context(), logger), http.MethodPost, "/",
+		strings.NewReader(body))
+	req.Header.Set("Content-Type", mediaType)
+	require.False(t, DecodeJSONBody(httptest.NewRecorder(), req, dst), body)
+
+	var entry map[string]any
+	require.NoError(t, json.Unmarshal(logs.Bytes(), &entry), body)
+
+	return entry
 }
 
 func TestDecodeJSONBodyLimit(t *testing.T) {

@@ -37,7 +37,7 @@ func (c EventListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	list, err := c.Lister.ListPublicEvents(ctx, kind, page)
 	if err != nil {
-		writeInternalError(w, r, "unable to list events", err)
+		WriteInternalError(w, r, "unable to list events", err)
 		return
 	}
 

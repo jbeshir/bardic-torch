@@ -420,3 +420,45 @@ func TestRevertTo(t *testing.T) {
 		require.ErrorIs(t, err, want)
 	}
 }
+
+// termNameTaken is the error an approval's write gives a term whose name another term of its facet has taken.
+var termNameTaken = &domain.DocumentError{Problems: []domain.DocumentProblem{
+	{Path: "/name", Code: domain.ProblemDuplicate},
+}}
+
+// TestModeratorWrites_TermNameTakenIsDuplicateName checks that an interactive moderator's own submission and revert,
+// which are approved at once, refuse a term whose name is taken with ErrDuplicateName, as approving does.
+func TestModeratorWrites_TermNameTakenIsDuplicateName(t *testing.T) {
+	t.Parallel()
+
+	t.Run("submit", func(t *testing.T) {
+		t.Parallel()
+		m := newSubmitMocks(t)
+		m.drafts.EXPECT().GetDraft(mock.Anything, interactiveModActor, testDraftID).Return(testExisting, nil)
+		m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.Anything).Return(datasources.SubmitResult{}, termNameTaken)
+		_, err := m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: interactiveMod, DraftID: testDraftID})
+		require.ErrorIs(t, err, ErrDuplicateName)
+	})
+
+	t.Run("revert", func(t *testing.T) {
+		t.Parallel()
+		reverter := mocks.NewRevisionReverter(t)
+		reverter.EXPECT().RevertTo(mock.Anything, mock.Anything).Return(datasources.SubmitResult{}, termNameTaken)
+		_, err := (&RevertTo{Reverter: reverter, Revisions: mocks.NewMyRevisionGetter(t), Now: fixedClock}).Execute(
+			t.Context(), RevertRequest{Principal: interactiveMod, RevisionID: testRevisionID})
+		require.ErrorIs(t, err, ErrDuplicateName)
+	})
+}
+
+// TestSubmitRevision_ContributorTermNameTakenIsInvalidDocument checks that a contributor's submission, which is not
+// approved, keeps a taken term name as a document problem (422), not ErrDuplicateName.
+func TestSubmitRevision_ContributorTermNameTakenIsInvalidDocument(t *testing.T) {
+	t.Parallel()
+
+	m := newSubmitMocks(t)
+	m.drafts.EXPECT().GetDraft(mock.Anything, contributorActor, testDraftID).Return(testExisting, nil)
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.Anything).Return(datasources.SubmitResult{}, termNameTaken)
+	_, err := m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: contributor, DraftID: testDraftID})
+	require.ErrorIs(t, err, termNameTaken)
+	require.NotErrorIs(t, err, ErrDuplicateName)
+}

@@ -23,6 +23,7 @@ var ErrContactUnavailable = errors.New("the contact form is unavailable")
 
 // ContactSubmission is a message sent through the public contact form (D21), already validated. Name, Email,
 // Message, URL and TurnstileToken are personal data or secrets: they are never logged or named in an error.
+// URL is stored absolute: one typed without a scheme ("www.example.org/x") gets https (domain.WithScheme).
 type ContactSubmission struct {
 	Kind           domain.ContactRequestKind
 	Name           *string
@@ -53,7 +54,8 @@ func (c *SubmitContactRequest) Execute(ctx context.Context, req ContactSubmissio
 	}
 
 	id, err := c.Creator.CreateContactRequest(ctx, datasources.NewContactRequest{
-		Kind: req.Kind, Name: req.Name, Email: req.Email, Message: req.Message, URL: req.URL, Now: c.Now(),
+		Kind: req.Kind, Name: req.Name, Email: req.Email, Message: req.Message, URL: absoluteURL(req.URL),
+		Now: c.Now(),
 	})
 	switch {
 	case errors.Is(err, datasources.ErrContactRequestLimitReached):
@@ -63,6 +65,16 @@ func (c *SubmitContactRequest) Execute(ctx context.Context, req ContactSubmissio
 	}
 
 	return id, nil
+}
+
+// absoluteURL is the URL raw with a scheme (domain.WithScheme), or nil for none.
+func absoluteURL(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	absolute := domain.WithScheme(*raw)
+
+	return &absolute
 }
 
 // ContactRequestListRequest is Principal's request for a page of the contact requests.

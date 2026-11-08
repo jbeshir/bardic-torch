@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -33,6 +34,7 @@ const (
 	rolesField      = "roles"
 	documentField   = "document"
 	entityTypeField = "entity_type"
+	termsField      = "terms"
 	urlField        = "url"
 )
 
@@ -223,6 +225,27 @@ func newPersonDocument(name string) jsonObject {
 	}
 }
 
+// originTermNotOn returns the slug of a public term of the origin facet, whose terms may be scoped to a part, that
+// the editor document is not tagged with.
+func originTermNotOn(t *testing.T, w moderationWorld, document jsonObject) string {
+	t.Helper()
+
+	tagged := encodeJSON(t, document[termsField])
+	terms := sendOK[jsonObject](t, w.e, http.MethodGet, "/v1/terms?facet="+string(domain.FacetOrigin), "", "",
+		http.StatusOK)
+	list, ok := terms["data"].([]any)
+	require.True(t, ok, "the term list has data")
+	for _, item := range list {
+		slug, ok := item.(jsonObject)["slug"].(string)
+		require.True(t, ok, "a term has a slug")
+		if !strings.Contains(tagged, `"term":"`+slug+`"`) {
+			return slug
+		}
+	}
+	require.FailNow(t, "the scrubbed import has an origin term the piece is not tagged with")
+	return ""
+}
+
 // TestHTTP_ModerationEndToEnd walks the moderation flow (plan 7.4) over the scrubbed import through the
 // production handler, every response checked against the spec. The steps run in order on one database; step 10
 // runs before step 7, which blocks contributor A.
@@ -307,12 +330,62 @@ func TestHTTP_ModerationEndToEnd(t *testing.T) {
 		assert.Contains(t, w.publicPiece(t, titlePiece.Slug), "The "+titleWord+" Moderation Title")
 	})
 
+	t.Run("3_reference_conflict_in_editor_format", func(t *testing.T) {
+		start := w.editable(t, w.a, "pieces", titlePiece.Slug)
+		termSlug := originTermNotOn(t, w, editedDocument(t, start, nil))
+		withTerm := func(part domain.PiecePart) jsonObject {
+			terms, ok := editedDocument(t, start, nil)[termsField].([]any)
+			require.True(t, ok, "the document has terms")
+			terms = append(slices.Clone(terms), jsonObject{"term": termSlug, "is_primary": false, "part": part})
+			return editedDocument(t, start, jsonObject{termsField: terms})
+		}
+		base := objectID(t, start, "base_revision_id")
+		first := w.submitPieceEdit(t, w.a, titlePiece.Slug, base, withTerm(domain.PiecePartWords), "Tag the words.")
+		second := w.submitPieceEdit(t, w.b, titlePiece.Slug, base, withTerm(domain.PiecePartTune), "Tag the tune.")
+		secondID := objectID(t, second, "id")
+		assert.Contains(t, encodeJSON(t, w.view(t, secondID)["changed_paths"]), `"terms[`+termSlug+`]"`)
+		w.approve(t, objectID(t, first, "id"))
+
+		stale := w.view(t, secondID)
+		rebase, ok := stale["rebase"].(jsonObject)
+		require.True(t, ok, "the view has a rebase preview")
+		require.Equal(t, "conflicts", rebase["status"])
+		conflicts := encodeJSON(t, rebase["conflicts"])
+		assert.Contains(t, conflicts, `"path":"terms[`+termSlug+`]"`, "the term by slug, as the editor format has it")
+		assert.Contains(t, conflicts, `\"term\":\"`+termSlug+`\"`, "the values in the editor format")
+		assert.NotContains(t, conflicts, `_id`, "no internal ID or stored field name")
+		assert.NotContains(t, encodeJSON(t, stale["changed_paths"]), `_id`)
+		assert.Contains(t, encodeJSON(t, stale["references"]), `"slug":"`+termSlug+`"`,
+			"the conflict's slug is one of the view's references")
+		w.reject(t, secondID)
+	})
+
+	t.Run("3_moderator_term_name_taken", func(t *testing.T) {
+		terms := sendOK[jsonObject](t, w.e, http.MethodGet, "/v1/terms?facet="+string(domain.FacetTopic), "", "",
+			http.StatusOK)
+		list, ok := terms["data"].([]any)
+		require.True(t, ok, "the term list has data")
+		require.NotEmpty(t, list, "the scrubbed import has topic terms")
+		taken, ok := list[0].(jsonObject)["name"].(string)
+		require.True(t, ok, "a term has a name")
+
+		draft := saveDraft(t, w.e, w.moderator, draftRequest(t, domain.EntityTypeTerm, nil, nil,
+			newTermDocument(taken), "A topic named as another."))
+		draftID := objectID(t, draft, "id")
+		body := encodeJSON(t, jsonObject{"draft_id": draftID, "acknowledge_duplicates": true,
+			"acknowledged_flags": []string{string(domain.FlagPossibleDuplicate)}})
+		sendRejected(t, w.e, http.MethodPost, "/v1/revisions", w.moderator, body, http.StatusConflict,
+			httpjson.CodeDuplicateName)
+		rec := w.e.send(t, http.MethodDelete, idPath("/v1/drafts/", draftID), w.moderator, "")
+		require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+	})
+
 	t.Run("4_pending_term_approved_with_piece", func(t *testing.T) {
 		term := w.submitNew(t, w.a, domain.EntityTypeTerm, newTermDocument(termName), "Suggest a topic.")
 		placeholder, ok := entityOf(t, term)["slug"].(string)
 		require.True(t, ok, "the pending term has a placeholder slug")
 		document := newPieceDocument(newTitle)
-		document["terms"] = []any{jsonObject{"term": placeholder, "is_primary": true, "part": nil}}
+		document[termsField] = []any{jsonObject{"term": placeholder, "is_primary": true, "part": nil}}
 		piece := w.submitNew(t, w.a, domain.EntityTypePiece, document, "A new piece.")
 
 		approved := w.approve(t, objectID(t, piece, "id"))

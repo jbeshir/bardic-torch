@@ -61,7 +61,7 @@ const (
 	invalidDocumentMessage   = "the document is invalid"
 	duplicateBlockedMessage  = "a person with this name has asked not to have a page"
 	possibleDuplicateMessage = "the new entity may duplicate an existing one: acknowledge_duplicates confirms it"
-	unavailableMessage       = "the write could not be completed in time; try again"
+	moderatorRequiredMessage = "this endpoint requires the moderator role"
 )
 
 // revisionErrorAnswer is the response to an error of a revision command.
@@ -88,7 +88,7 @@ var revisionErrorAnswers = []struct {
 	{datasources.ErrAlreadyCurrent, revisionErrorAnswer{http.StatusConflict, httpjson.CodeAlreadyCurrent,
 		"the revision is already the entity's current revision"}},
 	{datasources.ErrDocumentType, revisionErrorAnswer{http.StatusBadRequest, httpjson.CodeInvalidRequest,
-		"invalid entity_type: not the draft's entity type"}},
+		"invalid entity_type: not the entity type of the draft or revision"}},
 	{domain.ErrRebaseRequired, revisionErrorAnswer{http.StatusConflict, httpjson.CodeRebaseRequired,
 		"the entity changed since the base, and the changes conflict: edit the current version"}},
 	{domain.ErrHiddenDataConflict, revisionErrorAnswer{http.StatusConflict, httpjson.CodeHiddenDataConflict,
@@ -100,9 +100,7 @@ var revisionErrorAnswers = []struct {
 	{command.ErrDuplicateName, revisionErrorAnswer{http.StatusConflict, httpjson.CodeDuplicateName,
 		"another term of the facet has this name"}},
 	{domain.ErrModeratorRequired, revisionErrorAnswer{http.StatusForbidden, httpjson.CodeModeratorRequired,
-		"this endpoint requires the moderator role"}},
-	{datasources.ErrUnavailable, revisionErrorAnswer{http.StatusServiceUnavailable, httpjson.CodeUnavailable,
-		unavailableMessage}},
+		moderatorRequiredMessage}},
 }
 
 // writeRevisionError writes the response for err, an error of a revision command about what (such as "draft"):
@@ -124,7 +122,7 @@ func writeRevisionError(w http.ResponseWriter, r *http.Request, what string, err
 		httpjson.WriteJSON(ctx, w, body.status, body.body)
 		return
 	}
-	writeInternalError(w, r, "unable to handle "+what, err)
+	WriteInternalError(w, r, "unable to handle "+what, err)
 }
 
 // revisionErrorResponse is a status and JSON body.

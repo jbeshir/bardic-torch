@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -21,42 +22,51 @@ type BackfillDisplayNameKeys struct {
 
 // Execute first clears every stale key, so that a key a user no longer holds is free, then sets every missing key,
 // oldest user first: of users whose names have one key, the first keeps it and the later ones are left without, and
-// logged by user ID only.
+// logged by user ID only. A name whose key is too long for its column (domain.MaxDisplayNameKeyRunes), which only
+// a name stored before such names were refused can have, is left without a key and logged the same way, so that
+// no stored name keeps the service from starting.
 func (c *BackfillDisplayNameKeys) Execute(ctx context.Context, _ Empty) (Empty, error) {
 	users, err := c.Lister.ListDisplayNameKeys(ctx)
 	if err != nil {
 		return Empty{}, fmt.Errorf("listing display name keys: %w", err)
 	}
 
-	var missing []datasources.UserDisplayNameKey
+	logger := domain.LoggerFromContext(ctx)
+	var missing []userKey
 	for _, u := range users {
 		want := domain.DisplayNameKey(u.DisplayName)
-		switch {
-		case u.Key != nil && *u.Key == want:
-		case u.Key != nil:
+		if utf8.RuneCountInString(want) > domain.MaxDisplayNameKeyRunes {
+			logger.WarnContext(ctx, "display name key too long for its column; left unset", "user_id", u.UserID)
+			want = ""
+		}
+		if u.Key != nil && *u.Key == want {
+			continue
+		}
+		if u.Key != nil {
 			if err := c.Setter.SetDisplayNameKey(ctx, u.UserID, nil); err != nil {
 				return Empty{}, fmt.Errorf("clearing a stale display name key: %w", err)
 			}
-			missing = append(missing, u)
-		case want != "":
-			missing = append(missing, u)
+		}
+		if want != "" {
+			missing = append(missing, userKey{userID: u.UserID, key: want})
 		}
 	}
 
-	logger := domain.LoggerFromContext(ctx)
 	for _, u := range missing {
-		want := domain.DisplayNameKey(u.DisplayName)
-		if want == "" {
-			continue
-		}
-		err := c.Setter.SetDisplayNameKey(ctx, u.UserID, &want)
+		err := c.Setter.SetDisplayNameKey(ctx, u.userID, &u.key)
 		switch {
 		case errors.Is(err, datasources.ErrDisplayNameTaken):
-			logger.WarnContext(ctx, "display name key taken by an earlier user; left unset", "user_id", u.UserID)
+			logger.WarnContext(ctx, "display name key taken by an earlier user; left unset", "user_id", u.userID)
 		case err != nil:
 			return Empty{}, fmt.Errorf("setting a display name key: %w", err)
 		}
 	}
 
 	return Empty{}, nil
+}
+
+// userKey is the display name key a user should have.
+type userKey struct {
+	userID string
+	key    string
 }

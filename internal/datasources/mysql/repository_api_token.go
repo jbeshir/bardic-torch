@@ -40,7 +40,7 @@ func (r *Repository) CreateAPIToken(ctx context.Context, token datasources.NewAP
 		CreatedAt:   token.CreatedAt,
 	})
 	if err != nil {
-		return fmt.Errorf("creating API token for user [%s]: %w", token.UserID, err)
+		return fmt.Errorf("creating API token for user [%s]: %w", token.UserID, unavailableIfDisconnected(err))
 	}
 
 	return nil
@@ -54,7 +54,7 @@ func (r *Repository) GetAPITokenByHash(ctx context.Context, tokenHash string) (d
 		return domain.APIToken{}, fmt.Errorf("API token: %w", datasources.ErrNotFound)
 	}
 	if err != nil {
-		return domain.APIToken{}, fmt.Errorf("fetching API token by hash: %w", err)
+		return domain.APIToken{}, fmt.Errorf("fetching API token by hash: %w", unavailableIfDisconnected(err))
 	}
 
 	return convertAPIToken(row), nil
@@ -69,7 +69,7 @@ func (r *Repository) UpdateAPITokenLastUsed(ctx context.Context, tokenID string,
 		StaleBefore: nullTime(usedAt.Add(-apiTokenLastUsedResolution)),
 	})
 	if err != nil {
-		return fmt.Errorf("updating last use of API token [%s]: %w", tokenID, err)
+		return fmt.Errorf("updating last use of API token [%s]: %w", tokenID, unavailableIfDisconnected(err))
 	}
 
 	return nil
@@ -79,7 +79,7 @@ func (r *Repository) UpdateAPITokenLastUsed(ctx context.Context, tokenID string,
 func (r *Repository) ListUserActiveAPITokens(ctx context.Context, userID string) ([]domain.APIToken, error) {
 	rows, err := r.queries.ListUserActiveAPITokens(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("listing API tokens of user [%s]: %w", userID, err)
+		return nil, fmt.Errorf("listing API tokens of user [%s]: %w", userID, unavailableIfDisconnected(err))
 	}
 
 	tokens := make([]domain.APIToken, 0, len(rows))
@@ -94,7 +94,7 @@ func (r *Repository) ListUserActiveAPITokens(ctx context.Context, userID string)
 func (r *Repository) CountUserActiveAPITokens(ctx context.Context, userID string) (int64, error) {
 	count, err := r.queries.CountUserActiveAPITokens(ctx, userID)
 	if err != nil {
-		return 0, fmt.Errorf("counting API tokens of user [%s]: %w", userID, err)
+		return 0, fmt.Errorf("counting API tokens of user [%s]: %w", userID, unavailableIfDisconnected(err))
 	}
 
 	return count, nil
@@ -109,7 +109,8 @@ func (r *Repository) RevokeAPIToken(ctx context.Context, userID, tokenID string,
 		UserID:    userID,
 	}))
 	if err != nil {
-		return fmt.Errorf("revoking API token [%s] of user [%s]: %w", tokenID, userID, err)
+		return fmt.Errorf("revoking API token [%s] of user [%s]: %w", tokenID, userID,
+			unavailableIfDisconnected(err))
 	}
 
 	return nil

@@ -121,6 +121,40 @@ func TestMePatch_ServeHTTP(t *testing.T) {
 			wantBody:   `{"code":"display_name_reserved","message":"this display name is reserved"}`,
 		},
 		{
+			// A blank letter after a reserved name would make it pass for that name.
+			name:       "blank_letter",
+			body:       displayNameBody("Moderator\u3164"),
+			wantStatus: http.StatusBadRequest,
+			wantBody: `{"code":"invalid_request","message":"invalid display name: must not contain a blank letter ` +
+				`(a Hangul filler, the braille blank or a default-ignorable character)"}`,
+		},
+		{
+			name:       "mixed_scripts",
+			body:       displayNameBody("M\u043erwen"),
+			wantStatus: http.StatusBadRequest,
+			wantBody: `{"code":"invalid_request",` +
+				`"message":"invalid display name: must not mix Latin, Cyrillic and Greek letters"}`,
+		},
+		{
+			name:       "no_letter_or_digit",
+			body:       displayNameBody("\U0001f3bb\U0001f3b5"),
+			wantStatus: http.StatusBadRequest,
+			wantBody:   `{"code":"invalid_request","message":"invalid display name: must contain a letter or a digit"}`,
+		},
+		{
+			name:       "key_too_long",
+			body:       displayNameBody(strings.Repeat("ﷺ", 18)),
+			wantStatus: http.StatusBadRequest,
+			wantBody: `{"code":"invalid_request",` +
+				`"message":"invalid display name: must be at most 255 characters once folded for comparison"}`,
+		},
+		{
+			name:       "contains_reserved",
+			body:       displayNameBody("The Bardic Torch Crew"),
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   `{"code":"display_name_reserved","message":"this display name is reserved"}`,
+		},
+		{
 			name:       "store_failure",
 			body:       displayNameBody(testDisplayName),
 			stored:     testDisplayName,

@@ -99,6 +99,28 @@ func TestNormalizeDisplayName(t *testing.T) {
 		{name: "unassigned", raw: "Mor\u0378wen", wantErr: disallowedCharacterError(0x378)},
 		{name: "too_many_combining_marks", raw: "Zalgo" + strings.Repeat("\u0336", 5), wantErr: tooManyMarksError},
 		{name: "invalid_utf8", raw: "Mor\xffwen", wantErr: "must be valid UTF-8"},
+		{name: "single_script_cyrillic", raw: "Морвен", want: "Морвен"},
+		{name: "single_script_greek", raw: "Ορφέας", want: "Ορφέας"},
+		{name: "symbol_and_letters", raw: "\U0001f3bb Wren", want: "\U0001f3bb Wren"},
+		{name: "digits_only", raw: "1066", want: "1066"},
+		{name: "hangul_filler_letter", raw: "Morwen\u3164", wantErr: blankLetterError},
+		{name: "halfwidth_hangul_filler", raw: "Mor\uffa0wen", wantErr: blankLetterError},
+		{name: "hangul_choseong_filler", raw: "\u115fMorwen", wantErr: blankLetterError},
+		{name: "braille_blank", raw: "\u2800Morwen", wantErr: blankLetterError},
+		{name: "combining_grapheme_joiner", raw: "Mor\u034fwen", wantErr: blankLetterError},
+		{name: "blank_letter_reserved_name", raw: "Moderator\u3164", wantErr: blankLetterError},
+		{name: "cyrillic_in_latin", raw: "\u041c\u043ederator", wantErr: mixedScriptsError},
+		{name: "one_cyrillic_letter", raw: "M\u043erwen", wantErr: mixedScriptsError},
+		{name: "greek_in_latin", raw: "M\u03bfrwen", wantErr: mixedScriptsError},
+		{name: "greek_in_cyrillic", raw: "\u041c\u03bf\u0440\u0432\u0435\u043d", wantErr: mixedScriptsError},
+		{name: "symbols_only", raw: "\U0001f3bb\U0001f3b5", wantErr: noLetterError},
+		{name: "punctuation_only", raw: "—", wantErr: noLetterError},
+		{
+			// 18 characters, each of which folds to 18: the key would not fit its column.
+			name:    "key_too_long",
+			raw:     strings.Repeat("ﷺ", 18),
+			wantErr: "must be at most 255 characters once folded for comparison",
+		},
 	}
 
 	for _, tc := range cases {
@@ -132,7 +154,15 @@ func TestCheckDisplayNameReserved(t *testing.T) {
 		{name: "Ad.min", want: ErrDisplayNameReserved},
 		{name: "Bardic Torch", want: ErrDisplayNameReserved},
 		{name: "Traditional", want: ErrDisplayNameReserved},
-		{name: "Moderator Wren"},
+		{name: "Moderator Wren", want: ErrDisplayNameReserved},
+		{name: "Moderator Team", want: ErrDisplayNameReserved},
+		{name: "Admin BardicTorch", want: ErrDisplayNameReserved},
+		{name: "TheBardicTorchCrew", want: ErrDisplayNameReserved},
+		{name: "Administrator", want: ErrDisplayNameReserved},
+		{name: "Admin.Wren", want: ErrDisplayNameReserved},
+		{name: "Badminton Bard"},
+		{name: "Modesty"},
+		{name: "Wren the Admin"},
 		// The caller's own default name may be restored, in any spelling with its key.
 		{name: DefaultDisplayName(userID)},
 		{name: "bard-47B988F0"},
@@ -151,3 +181,11 @@ func TestCheckDisplayNameReserved(t *testing.T) {
 		})
 	}
 }
+
+// Errors NormalizeDisplayName returns for the look-alike rules, after its "invalid display name: " prefix.
+const (
+	blankLetterError = "must not contain a blank letter (a Hangul filler, the braille blank or a default-ignorable " +
+		"character)"
+	mixedScriptsError = "must not mix Latin, Cyrillic and Greek letters"
+	noLetterError     = "must contain a letter or a digit"
+)

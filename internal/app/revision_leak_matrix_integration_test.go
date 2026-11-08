@@ -213,7 +213,7 @@ func seedRevisionLeakCatalogue(t *testing.T, w revisionLeakWorld) revisionLeakFi
 	noPage := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
 		Name: noPageName, Status: domain.PersonStatusPrefersNoPage, NotesMD: new("Leakmark nopage notes"),
 		Pronouns: new("leakmark/pronoun"),
-		Aliases: []domain.DocPersonAlias{{Name: "Leakmark Nopage Public Alias", Kind: domain.PersonAliasKindStage,
+		Aliases: []domain.DocPersonAlias{{Name: noPagePublicAlias, Kind: domain.PersonAliasKindStage,
 			IsPublic: true}},
 		AffiliationIDs: []int64{westmarch.ID},
 	}})
@@ -285,6 +285,7 @@ func (w revisionLeakWorld) seedAuthorRevisions(t *testing.T, fx revisionLeakFixt
 		newPieceDocument(draftTitle), "A new piece.")), "id")
 
 	renameToAlias, renameToFresh := w.validationOracle(t, fx)
+	w.duplicateOracle(t)
 	fx.renameToAlias = renameToAlias
 	provenance := w.provenance(t, fx)
 
@@ -882,5 +883,40 @@ func TestHTTP_RevisionLeakMatrix_EveryAuthenticatedReadHasARow(t *testing.T) {
 		if authenticatedRead(op) {
 			assert.NotEqual(t, hasRow, exempt, "%s %s needs exactly one of a row and an exemption", op.Method, op.Path)
 		}
+	}
+}
+
+// duplicateOracle is the duplicate check's row: A drafts a new person named as the public alias of the person who
+// prefers no page, and as a fresh name. A person who prefers no page is found only by name, so the two drafts, as
+// saved and as read back, are byte-equal once the typed name, IDs and times are masked, and show no duplicate;
+// a draft named as that person does show it, so that the check is seen to run. The drafts are discarded.
+func (w revisionLeakWorld) duplicateOracle(t *testing.T) {
+	t.Helper()
+	a := w.viewers[viewerAuthor]
+
+	draft := func(name string) []string {
+		saved := w.e.send(t, http.MethodPost, draftsPath, a, draftRequest(t, domain.EntityTypePerson, nil, nil,
+			newPersonDocument(name), "A new bard."))
+		require.Equal(t, http.StatusCreated, saved.Code, saved.Body.String())
+		var body jsonObject
+		require.NoError(t, json.Unmarshal(saved.Body.Bytes(), &body))
+		path := idPath(draftsPath+"/", objectID(t, body, "id"))
+		read := w.e.send(t, http.MethodGet, path, a, "")
+		require.Equal(t, http.StatusOK, read.Code, read.Body.String())
+		discarded := w.e.send(t, http.MethodDelete, path, a, "")
+		require.Equal(t, http.StatusNoContent, discarded.Code, discarded.Body.String())
+
+		return []string{saved.Body.String(), read.Body.String()}
+	}
+
+	aliasBodies := draft(noPagePublicAlias)
+	freshBodies := draft("Fresh Placeholder Bard")
+	for i := range aliasBodies {
+		assert.Equal(t, maskedBody(t, freshBodies[i], "Fresh Placeholder Bard"), maskedBody(t, aliasBodies[i],
+			noPagePublicAlias), "a draft named as an alias of a person who prefers no page is told apart")
+	}
+	byName := draft(noPageName)
+	for _, body := range byName {
+		assert.Contains(t, body, `"matched":"name"`, "a draft named as a person who prefers no page shows them")
 	}
 }

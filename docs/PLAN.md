@@ -413,12 +413,14 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   `CatalogueImport.Validate`: column widths, NFC, no control characters, non-blank names, element caps (aliases,
   terms, credits and relations ≤100, links ≤200, performances per link ≤200, performers ≤50), the credit and
   facet CHECKs, one primary term per facet, term depth ≤3 without cycles and an immutable facet, collection
-  parents without cycles, and a term name unique in its facet (422 `duplicate` against a public term at submit;
-  409 `duplicate_name` at approval).
+  parents without cycles, and a term name unique in its facet (422 `duplicate` against a public term at a
+  contributor's submit; 409 `duplicate_name` wherever the term is approved: at approval, and at an interactive
+  moderator's own submit or revert, which are approved at once).
 - **Duplicate check** (R-17) on new-entity drafts, submits and the moderation view: titles, names and aliases
   compared by `domain.DuplicateKey` (NFC, apostrophes removed, `FoldName`) against whole name sets of public
-  entities, in Go. Contributor checks **never** compare hidden aliases. A match on a no-page person's name blocks a
-  new person (422 `duplicate_blocked`; at approval also on its hidden aliases), and other matches need
+  entities, in Go. Contributor checks **never** compare hidden aliases, nor any alias of a person who prefers no
+  page, who is found only by name (§2); moderator checks compare both. A match on a no-page person's name blocks a
+  new person (422 `duplicate_blocked`; at approval also on any of its aliases), and other matches need
   `acknowledge_duplicates` (409 `possible_duplicate`); moderators get the `possible_duplicate` flag. The check
   runs at approval of every new entity, including the pending references approved alongside: a match on one
   refuses the approval with `pending_reference_flagged` (its `flags` include `possible_duplicate`), and the
@@ -466,7 +468,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     transaction gets at most 11 s of it (`WriteTxDeadline`), less a 1.5 s reserve for the response's reads after
     commit (`PostCommitReserve`), so work before it (the pre-reads, a Turnstile verification) shortens the
     transaction, not the request. With under 500 ms left the write is not tried. Past the deadline, or after the
-    retries, the answer is 503 `unavailable`.
+    retries, the answer is 503 `unavailable`. A database that cannot be reached is 503 `unavailable` too, on
+    every operation (§6); a query that fails for any other reason stays 500 `internal`.
 - **Flags** (stored in `flags_json`, recomputed in the moderation view and at approval; never shown to
   contributors): `hidden_alias_in_summary` (review C10), `hidden_alias_in_text`, `hidden_alias_in_review_note`,
   `hidden_alias_collision`, `hidden_link_collision`, `hidden_link_attached`, `hidden_data_conflict`,
@@ -485,21 +488,34 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   documents (revision, submitted, base, current, merged), link states, conflicts, pending references, flags,
   duplicates and the author with user ID, role and blocked state (null for imported revisions, whose wiki
   contributors are listed). The queue is oldest first and hides blocked authors' revisions unless
-  `include_blocked=true`.
+  `include_blocked=true`. Conflicts and changed paths are in the editor format of the view's documents: fields
+  by their editor names (`term`, `parent`, `affiliations`), list elements keyed by a reference by its slug
+  (`terms[drinking-songs]`, `relations[the-copper-kettle:variant_of]`), and conflict values as
+  an editor document holds them. A reference the view cannot name is `pending-<type>-<id>`. The editor format has
+  no preferences, so a change or conflict there is the one path `preferences` with no values; a rebase keeps
+  current's preferences, so the only resolution of a preferences conflict is to keep current until preferences
+  become editable.
 - **Link reports** address a link by the URL the page shows (link IDs are not public): `POST /v1/link-reports`
   with a reason and message. Only a visible link can be reported; a hidden and an unknown URL are the same 404.
   One open report per reporter and link (a repeat answers 200 with it), at most 20 open per reporter. Hiding a
   link (`PUT /v1/links/{link_id}/hidden`, or resolving a report with `hide_link`) resolves its open reports.
   `GET /v1/moderation/links?url=` finds any link's ID, state and attachments.
+- **Moderation free text** (a link report's `message`, a `review_note`, and the `note` resolving a link report or a
+  contact request, like every free-text field of the contact form) is 400 `invalid_request`, naming the field and
+  never its value, if it holds a control character: a C0 or C1 control other than tab and line feed, or a
+  bidirectional embedding, override or isolate, which could rewrite how a moderator's screen shows the text after
+  it.
 - **Contact requests** (`POST /v1/contact`, no account): kind, name, email, message, URL and a Turnstile token;
   202 with no ID. Turnstile is verified server-side with siteverify: `success`, a hostname in
-  `TURNSTILE_HOSTNAMES` (bardictorch.org and preview.bardictorch.org) and the action `contact` must all hold. Only
+  `TURNSTILE_HOSTNAMES` (bardictorch.org and preview.bardictorch.org, compared case-insensitively; empty disables
+  the hostname check, for development only, with a startup warning) and the action `contact` must all hold. Only
   user-side token failures are 400 `turnstile_failed`; Cloudflare-side failures, misconfiguration, an empty secret
   (contact disabled), more than 8 verifications at once and 1000 open requests (a soft cap: the count is not
   locked, so concurrent requests can pass it by about as many as are inserting at once; BE5 adds rate limits) are
-  503. The name, email, message
-  and URL are returned only by the moderators' inbox and never logged, and are purged 180 days after a request is
-  resolved or dismissed (at startup, after each resolution and before each inbox list); open requests are kept.
+  503. A URL typed without a scheme is stored with https, so the inbox never shows a relative link. The name,
+  email, message and URL are returned only by the moderators' inbox and never logged, and are purged 180 days
+  after a request is resolved or dismissed (at startup, after each resolution and before each inbox list); open
+  requests are kept.
 - **API tokens** (a decision BE5 may revisit): a `user_api|` token acts as its user with **contributor powers
   only**: drafts, submit, withdraw, revert, their own revisions and link reports, with every submit pending and
   the contributor projection. Every moderator operation, the link-report inbox and the contact-request inbox
@@ -508,11 +524,19 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   with read-only queue access, by editing this paragraph.
 - **Display names** (impersonation controls): `display_name_key` is the display name folded like duplicates with
   only letters and digits kept, unique, so `Mor.wen` and `MORWEN` collide (409 `display_name_taken`; this reveals
-  that someone holds the name, which is public anyway). Names whose key is reserved (`moderator`, `mod`, `admin`,
-  `administrator`, `bardictorch`, `system`, `import`, `wiki`, `anonymous`, `unknown`, `traditional`) or shaped like
-  another user's default name (`bard` + 8 hex digits) are 422 `display_name_reserved`. Existing holders are not
-  renamed (DEPLOY.md lists them), and a startup backfill sets missing or stale keys. Authenticated author objects
-  carry the `role`, so the FE can badge moderators.
+  that someone holds the name, which is public anyway). A new display name is 400 `invalid_request`, naming the
+  field and never its value, unless it passes these rules too: it contains no blank letters (Hangul fillers, the
+  braille blank, default-ignorable characters; also checked after compatibility decomposition), it does not mix
+  Latin, Cyrillic and Greek letters (a name wholly in one script is allowed), it contains at least one letter or
+  digit, so its key is never empty, and its key has at most 255 characters (the column's width). The key also drops
+  blank letters, so an older name holding one collides with the name it looks like. Names whose key is reserved
+  (`mod`, `system`, `import`, `wiki`, `anonymous`, `unknown`, `traditional`), contains `moderator` or
+  `bardictorch`, starts with `admin`, or is shaped like another user's default name (`bard` + 8 hex digits) are 422
+  `display_name_reserved`. `admin` and `mod` are not refused inside a key, which would refuse ordinary names such
+  as "Badminton" and "Modesty". Look-alike letters within one script (a confusable skeleton) are an accepted risk
+  for now. Existing holders are not renamed (DEPLOY.md lists them), and a startup backfill sets missing or stale
+  keys; it leaves an oversized key NULL, with a warning naming the user ID only, like a collision, so stored names
+  never stop startup. Authenticated author objects carry the `role`, so the FE can badge moderators.
 - **Body sizes:** document bodies up to 1 MiB, `/v1/contact` up to 64 KiB, everything else 16 KiB (413).
 - **No public schema or document schema change:** BE4 adds no field to an existing response, and
   `DocumentSchemaVersion` stays 1.
@@ -536,6 +560,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     - `GET /v1/revisions/{revision_id}`: the redacted snapshot view, its base and the changed fields
   - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18). Restricted pieces appear only as stubs, and `prefers_no_page` persons never appear.
   - Lists page with `limit` (at most 100) and `offset` (at most 10000), and every ordering ends with the ID, so pages are stable. Nested lists that grow with data are capped at 200 entries, each with a `*_total` field.
+  - A database outage is 503 `unavailable`, as on every operation that reads the database (all but `/healthz`; for an authenticated operation also when the caller's user cannot be looked up). A query that fails for another reason is 500 `internal`.
+  - IDs, in paths and bodies, are at most 2^53−1 (9007199254740991), the largest integer a JSON number holds exactly; a larger path ID is 400 `invalid_request`. The IDs are AUTO_INCREMENT columns, far below it.
 - **Authenticated:**
   - `GET /v1/me`, and `PATCH /v1/me` to set the display name
   - `GET /v1/{pieces|persons|terms|events}/{slug}/editable|pending` and `GET /v1/collections/{collection_id}/editable|pending`: the caller's editable document, and their pending revision of the entity (a placeholder slug addresses their own pending new entity)

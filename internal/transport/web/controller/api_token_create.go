@@ -45,7 +45,7 @@ func (c APITokenCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, command.ErrAPITokenLimitReached):
 		httpjson.WriteError(ctx, w, http.StatusConflict, httpjson.CodeAPIAuthLimitReached, err.Error())
 	case err != nil:
-		writeInternalError(w, r, "unable to create API token", err)
+		WriteInternalError(w, r, "unable to create API token", err)
 	default:
 		httpjson.WriteJSON(ctx, w, http.StatusCreated, CreatedAPIToken{
 			APIToken: apiTokenFromDomain(res.Token),

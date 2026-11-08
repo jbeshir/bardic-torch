@@ -131,11 +131,11 @@ func TestCollectionGet_ServeHTTP(t *testing.T) {
 		t.Parallel()
 
 		getter := mocks.NewPublicCollectionGetter(t)
-		getter.EXPECT().GetPublicCollection(mock.Anything, int64(9223372036854775807)).
+		getter.EXPECT().GetPublicCollection(mock.Anything, int64(9007199254740991)).
 			Return(domain.Collection{}, datasources.ErrNotFound)
 
-		rec := serveGet(t, CollectionGet{Getter: getter}, "/v1/collections/9223372036854775807",
-			map[string]string{collectionIDVar: "9223372036854775807"}, false)
+		rec := serveGet(t, CollectionGet{Getter: getter}, "/v1/collections/9007199254740991",
+			map[string]string{collectionIDVar: "9007199254740991"}, false)
 
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})

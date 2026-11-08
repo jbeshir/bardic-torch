@@ -72,7 +72,7 @@ func myRevisionFromDomain(r domain.MyRevision) (MyRevision, error) {
 func writeMyRevision(w http.ResponseWriter, r *http.Request, status int, revision domain.MyRevision) {
 	body, err := myRevisionFromDomain(revision)
 	if err != nil {
-		writeInternalError(w, r, "unable to show revision", err)
+		WriteInternalError(w, r, "unable to show revision", err)
 		return
 	}
 	httpjson.WriteJSON(r.Context(), w, status, body)

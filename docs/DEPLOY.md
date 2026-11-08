@@ -321,7 +321,8 @@ dokku config:set --no-restart bardic-torch-api \
   later as in [Moderators](#moderators).
 - `TURNSTILE_SECRET_KEY` must be set, but may be empty: the contact form (`POST /v1/contact`) then answers 503,
   and the API logs a warning at startup. `TURNSTILE_HOSTNAMES` lists the hostnames a token must have been minted
-  on; empty skips that check, which only development should do.
+  on, compared case-insensitively; empty disables that check (development only), and the API then logs a warning
+  at startup.
 - `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
   if `AUTH_DRIVERS` names an unknown driver, or if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
   enabled.

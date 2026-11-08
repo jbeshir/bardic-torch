@@ -26,7 +26,8 @@ func (e *UnknownTermError) Error() string {
 // it. The write did not happen; the caller checks the document again and retries.
 var ErrDocumentChanged = errors.New("the document changed since its duplicate check")
 
-// ErrUnavailable is returned, wrapped, when a write could not finish in time: its transaction was still hitting
-// lock waits or deadlocks after its retries, or ran past its deadline. The write did not happen, and trying
-// again later may work.
-var ErrUnavailable = errors.New("database busy")
+// ErrUnavailable is returned, wrapped, when the database could not serve a request: it cannot be reached (a
+// connection could not be made or broke), or a write could not finish in time (its transaction was still hitting
+// lock waits or deadlocks after its retries, or ran past its deadline). A write that fails so did not happen, but
+// for a connection that broke during its commit; trying again later may work.
+var ErrUnavailable = errors.New("database unavailable")

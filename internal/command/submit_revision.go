@@ -49,8 +49,9 @@ type SubmitRevision struct {
 // domain.ErrDuplicateBlocked, and one matching other entities fails for a contributor with a
 // *PossibleDuplicateError unless req.AcknowledgeDuplicates. The duplicates are found outside the submission's
 // transaction, which refuses a draft changed since (datasources.ErrDocumentChanged): the check is then made again,
-// up to maxDuplicateRechecks times, and after that the submission fails with datasources.ErrUnavailable. Otherwise
-// it fails with the errors of datasources.RevisionSubmitter.
+// up to maxDuplicateRechecks times, and after that the submission fails with datasources.ErrUnavailable. An
+// interactive moderator's submission is approved at once, so a term whose name another term of its facet has
+// taken fails with ErrDuplicateName. Otherwise it fails with the errors of datasources.RevisionSubmitter.
 func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest) (SubmittedRevision, error) {
 	actor := req.Principal.Actor()
 	var result datasources.SubmitResult
@@ -63,6 +64,9 @@ func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest)
 			Actor: actor, DraftID: req.DraftID, Duplicates: duplicates,
 			AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(),
 		})
+		if actor.Role == domain.RoleModerator && isNameDuplicate(err) {
+			return ErrDuplicateName
+		}
 		if err != nil {
 			return fmt.Errorf("submitting draft: %w", err)
 		}

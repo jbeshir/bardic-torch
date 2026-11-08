@@ -64,7 +64,7 @@ func (c EditableGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	doc, err := editorDocumentFromDomain(editable.Document, editable.References)
 	if err != nil {
-		writeInternalError(w, r, "unable to show editable document", err)
+		WriteInternalError(w, r, "unable to show editable document", err)
 		return
 	}
 	httpjson.WriteJSON(r.Context(), w, http.StatusOK, Editable{

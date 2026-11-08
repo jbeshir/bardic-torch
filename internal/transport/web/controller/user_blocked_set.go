@@ -24,6 +24,11 @@ type UserBlockedSet struct {
 func (c UserBlockedSet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	principal, ok := principalOrUnauthenticated(w, r)
+	if !ok {
+		return
+	}
+
 	var body UserBlockedSetRequest
 	if !httpjson.DecodeJSONBody(w, r, &body) {
 		return
@@ -33,15 +38,18 @@ func (c UserBlockedSet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.PathValue("user_id")
-	user, err := c.Command.Execute(ctx, command.SetUserBlockedRequest{UserID: userID, Blocked: *body.Blocked})
+	user, err := c.Command.Execute(ctx, command.SetUserBlockedRequest{
+		Principal: principal, UserID: r.PathValue("user_id"), Blocked: *body.Blocked,
+	})
 	switch {
+	case errors.Is(err, domain.ErrModeratorRequired):
+		httpjson.WriteError(ctx, w, http.StatusForbidden, httpjson.CodeModeratorRequired, moderatorRequiredMessage)
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "user not found")
 	case errors.Is(err, command.ErrModeratorNotBlockable):
 		httpjson.WriteError(ctx, w, http.StatusConflict, httpjson.CodeConflict, err.Error())
 	case err != nil:
-		writeInternalError(w, r, "unable to set user blocked", err)
+		WriteInternalError(w, r, "unable to set user blocked", err)
 	default:
 		domain.LoggerFromContext(ctx).InfoContext(ctx, "set user blocked",
 			"target_user_id", user.ID, "blocked", *body.Blocked)

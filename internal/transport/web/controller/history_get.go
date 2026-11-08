@@ -78,7 +78,7 @@ func writeHistory(w http.ResponseWriter, r *http.Request, what string, history d
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, what+" not found")
 	case err != nil:
-		writeInternalError(w, r, "unable to list history", err)
+		WriteInternalError(w, r, "unable to list history", err)
 	default:
 		httpjson.WriteJSON(ctx, w, http.StatusOK, RevisionHistory{
 			Data:  mapSlice(history.Revisions, revisionSummaryFromDomain),

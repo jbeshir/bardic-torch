@@ -17,17 +17,18 @@ import (
 
 var (
 	testModerationAuthor   = domain.ModerationAuthor{ID: principalUserID, DisplayName: testDisplayName, Role: domain.RoleContributor}
+	testModerator          = domain.ModerationAuthor{ID: "auth0|moderator", DisplayName: "Rowan", Role: domain.RoleModerator}
 	testModerationRevision = domain.ModerationRevision{
 		ID: 51, Status: domain.RevisionStatusPending, EntityType: domain.EntityTypeEvent, Entity: &testRevisionEntity,
 		Source: domain.RevisionSourceUser, Author: &testModerationAuthor, Summary: testMyRevision.Summary,
-		CreatedAt: testNow, SubmittedAt: &testNow, BaseRevisionID: new(int64(46)),
+		CreatedAt: testNow, SubmittedAt: &testNow, RebasedAt: &testNow, RebasedBy: &testModerator, BaseRevisionID: new(int64(46)),
 		SubmittedBaseRevisionID: new(int64(45)), CurrentRevisionID: new(int64(47)), Stale: true,
 		Document: testEventDocument, SubmittedDocument: testEventDocument, BaseDocument: testEventDocument,
 		CurrentDocument: testEventDocument,
 		LinkStates: []domain.LinkState{{URL: testLinkURL, LinkID: new(int64(7)), IsHidden: true,
 			Liveness: new(domain.LivenessOK)}},
 		Rebase: domain.RebasePreview{Status: domain.RebaseStatusConflicts, Conflicts: []domain.RebaseConflict{
-			{Path: "/name", Base: json.RawMessage(`"Revel"`), Revision: json.RawMessage(`"Midwinter Revel"`)},
+			{Path: namePath, Base: json.RawMessage(`"Revel"`), Revision: json.RawMessage(`"Midwinter Revel"`)},
 		}},
 		PendingReferences: []domain.ModerationPendingReference{{RevisionID: 50, EntityType: domain.EntityTypeTerm,
 			Entity: domain.RevisionEntity{Type: domain.EntityTypeTerm, ID: 3, Slug: "pending-term-3", IsNew: true},
@@ -35,7 +36,7 @@ var (
 				Name: "Revels", DisplayName: "Revel songs"},
 			Flags: []domain.Flag{{Code: domain.FlagPossibleDuplicate}}}},
 		Flags:        []domain.Flag{{Code: domain.FlagHiddenAliasInText, Path: "/description_md"}},
-		ChangedPaths: []string{"/description_md"},
+		ChangedPaths: []domain.FieldPath{"description_md"},
 	}
 	testLinkURL        = "https://example.org/the-copper-kettle"
 	testModerationLink = domain.ModerationLink{LinkID: 7, URL: testLinkURL, Liveness: domain.LivenessOK, IsHidden: true,
@@ -45,8 +46,7 @@ var (
 		OpenReportCount: 0}
 	testLinkReport = domain.LinkReport{ID: 3, Link: testModerationLink, Reason: domain.LinkReportReasonBroken,
 		Message: new("The video is gone."), Reporter: testModerationAuthor, Status: domain.LinkReportStatusResolved,
-		CreatedAt: testNow, ResolvedAt: &testNow, ResolvedBy: &domain.ModerationAuthor{ID: "auth0|moderator",
-			DisplayName: "Rowan", Role: domain.RoleModerator}, Note: new(domain.LinkHiddenNote)}
+		CreatedAt: testNow, ResolvedAt: &testNow, ResolvedBy: &testModerator, Note: new(domain.LinkHiddenNote)}
 )
 
 const (
@@ -62,6 +62,8 @@ const (
 	notPendingBody      = `{"code":"not_pending","message":"the revision is not pending"}`
 	totalOne            = `"total":1`
 	linkReportsPath     = "/v1/moderation/link-reports"
+	// namePath is the editor path of an event's name in a conflict.
+	namePath = "name"
 )
 
 var moderatorRequiredCase = revisionCase{name: "moderator_required", err: domain.ErrModeratorRequired,
@@ -74,8 +76,9 @@ func moderationRevisionCases(target, body string) (revisionCase, []revisionCase)
 		body: body}
 	ok := base
 	ok.name, ok.wantStatus = "ok", http.StatusOK
-	ok.wantContains = []string{`"id":51`, `"author":{"id":"` + principalUserID + `"`, `"link_states":[{"url":`,
-		`"rebase":{"status":"conflicts","merged_document":null,"conflicts":[{"path":"/name",` +
+	ok.wantContains = []string{`"id":51`, `"author":{"id":"` + principalUserID + `"`,
+		`"rebased_by":{"id":"auth0|moderator","display_name":"Rowan","role":"moderator","blocked":false}`, `"link_states":[{"url":`,
+		`"rebase":{"status":"conflicts","merged_document":null,"conflicts":[{"path":"name",` +
 			`"base_json":"\"Revel\"","revision_json":"\"Midwinter Revel\"","current_json":null}]}`,
 		`"pending_references":[{"revision_id":50,"entity_type":"term"`}
 	anonymous := base
@@ -102,6 +105,16 @@ func badBodyCase(base revisionCase, name, body, message string) revisionCase {
 	tc := base
 	tc.name, tc.body, tc.invalidRequest, tc.notCalled = name, body, true, true
 	tc.wantStatus, tc.wantBody = http.StatusBadRequest, `{"code":"invalid_request","message":"`+message+`"}`
+
+	return tc
+}
+
+// controlCharacterCase is base with a body that is valid against the spec but whose free-text field holds a
+// right-to-left override: 400 naming the field, never quoting it.
+func controlCharacterCase(base revisionCase, field, body string) revisionCase {
+	tc := badBodyCase(base, field+"_control_character", body,
+		"invalid "+field+": must not contain a control character")
+	tc.invalidRequest = false
 
 	return tc
 }
@@ -186,17 +199,26 @@ func TestRevisionApprove_ServeHTTP(t *testing.T) {
 			"invalid acknowledged_flags: not one of its allowed values"),
 		badBodyCase(base, "review_note_too_long",
 			`{"review_note":"`+strings.Repeat("é", domain.MaxModeratorNoteLength+1)+`","acknowledged_flags":[]}`,
-			"invalid review_note: must be at most 2000 characters"))
+			"invalid review_note: must be at most 2000 characters"),
+		badBodyCase(base, "summary_too_long",
+			`{"summary":"`+strings.Repeat("é", domain.MaxSummaryLength+1)+`","acknowledged_flags":[]}`,
+			"invalid summary: must be at most 500 characters"),
+		badBodyCase(base, repeatedFlagCase, `{"acknowledged_flags":["possible_duplicate","possible_duplicate"]}`,
+			repeatedFlagMessage),
+		controlCharacterCase(base, "review_note", `{"review_note":"Thanks\u202e.","acknowledged_flags":[]}`))
 	cases = append(cases, errorCases(base,
 		revisionCase{name: "rebase_required", err: domain.ErrRebaseRequired, wantStatus: http.StatusConflict,
 			wantBody: `{"code":"rebase_required","message":"the entity changed since the base, and the changes ` +
 				`conflict: edit the current version"}`},
-		revisionCase{name: "duplicate_name", err: command.ErrDuplicateName, wantStatus: http.StatusConflict,
-			wantBody: `{"code":"duplicate_name","message":"another term of the facet has this name"}`},
+		duplicateNameCase,
 		revisionCase{name: "duplicate_blocked", err: domain.ErrDuplicateBlocked,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody:   `{"code":"duplicate_blocked","message":"a person with this name has asked not to have a page"}`},
-		entityGone, hiddenDataConflict, unacknowledgedFlags, pendingReferenceFlagged, invalidDocument)...)
+		entityGone, hiddenDataConflict, unacknowledgedFlags, pendingReferenceFlagged,
+		revisionCase{name: "pending_reference_without_flags", err: &domain.PendingReferenceFlaggedError{RevisionID: 9},
+			wantStatus: http.StatusConflict, wantBody: `{"code":"pending_reference_flagged","message":"the referenced ` +
+				`pending revision 9 has flags: approve it on its own first","flags":[]}`},
+		invalidDocument)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return RevisionApprove{Command: commandFunc[command.ApproveRevisionRequest, domain.ModerationRevision](
 			func(_ context.Context, req command.ApproveRevisionRequest) (domain.ModerationRevision, error) {
@@ -225,7 +247,10 @@ func TestRevisionReject_ServeHTTP(t *testing.T) {
 		badBodyCase(base, "no_acknowledged_flags", `{"review_note":null}`, "acknowledged_flags is required"),
 		badBodyCase(base, "review_note_too_long",
 			`{"review_note":"`+strings.Repeat("a", domain.MaxModeratorNoteLength+1)+`","acknowledged_flags":[]}`,
-			"invalid review_note: must be at most 2000 characters"))
+			"invalid review_note: must be at most 2000 characters"),
+		badBodyCase(base, repeatedFlagCase, `{"acknowledged_flags":["possible_duplicate","possible_duplicate"]}`,
+			repeatedFlagMessage),
+		controlCharacterCase(base, "review_note", `{"review_note":"Thanks\u202e.","acknowledged_flags":[]}`))
 	cases = append(cases, errorCases(base, revisionCase{name: "unacknowledged_review_note",
 		err: &domain.UnacknowledgedFlagsError{Flags: []domain.Flag{
 			{Code: domain.FlagHiddenAliasInReviewNote, Path: "/review_note"},
@@ -261,14 +286,17 @@ func TestRevisionRebase_ServeHTTP(t *testing.T) {
 			"invalid entity_type: not one of its allowed values"),
 		badBodyCase(base, "not_an_event_document",
 			`{"entity_type":"event","current_revision_id":null,"document":{"title":"x"}}`,
-			"field document has an unknown field"))
+			"field document has an unknown field"),
+		badBodyCase(base, "summary_too_long", `{"entity_type":"event","current_revision_id":47,"document":`+
+			testEditorEventJSON+`,"summary":"`+strings.Repeat("a", domain.MaxSummaryLength+1)+`"}`,
+			"invalid summary: must be at most 500 characters"))
 	cases = append(cases, errorCases(base,
 		revisionCase{name: "stale", err: datasources.ErrStale, wantStatus: http.StatusConflict,
 			wantBody: `{"code":"stale","message":"the entity's current revision has changed: resolve against the ` +
 				`new current revision"}`},
 		revisionCase{name: "wrong_document_type", err: datasources.ErrDocumentType,
 			wantStatus: http.StatusBadRequest,
-			wantBody:   `{"code":"invalid_request","message":"invalid entity_type: not the draft's entity type"}`},
+			wantBody:   `{"code":"invalid_request","message":"invalid entity_type: not the entity type of the draft or revision"}`},
 		entityGone, invalidDocument)...)
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return RevisionRebase{Command: commandFunc[command.RebaseRevisionRequest, domain.ModerationRevision](
@@ -316,6 +344,7 @@ func TestLinkReportCreate_ServeHTTP(t *testing.T) {
 		badBodyCase(base, "message_too_long",
 			`{"url":"`+testLinkURL+`","reason":"other","message":"`+strings.Repeat("a", 2001)+`"}`,
 			"invalid message: must be at most 2000 characters"),
+		controlCharacterCase(base, "message", `{"url":"`+testLinkURL+`","reason":"other","message":"Gone\u202e."}`),
 	}, errorCases(base,
 		revisionCase{name: notFoundCase, err: datasources.ErrNotFound, wantStatus: http.StatusNotFound,
 			wantBody: `{"code":"not_found","message":"link not found"}`},
@@ -377,7 +406,7 @@ func TestLinkReportResolve_ServeHTTP(t *testing.T) {
 	t.Parallel()
 
 	base := revisionCase{method: http.MethodPost, target: "/v1/moderation/link-reports/3",
-		pathValues: map[string]string{"report_id": "3"}, body: `{"status":"resolved","note":null,"hide_link":true}`}
+		pathValues: map[string]string{reportIDVar: "3"}, body: `{"status":"resolved","note":null,"hide_link":true}`}
 	ok := base
 	ok.name, ok.wantStatus, ok.wantContains = "ok", http.StatusOK, []string{`"id":3`, `"status":"resolved"`}
 	anonymous := base
@@ -385,8 +414,8 @@ func TestLinkReportResolve_ServeHTTP(t *testing.T) {
 	anonymous.wantStatus, anonymous.wantBody = http.StatusUnauthorized, unauthenticatedBody
 	badID := base
 	badID.name, badID.pathValues, badID.invalidRequest, badID.notCalled = badIDCase,
-		map[string]string{"report_id": "-1"}, true, true
-	badID.wantStatus, badID.wantBody = http.StatusBadRequest, invalidID("report_id")
+		map[string]string{reportIDVar: "-1"}, true, true
+	badID.wantStatus, badID.wantBody = http.StatusBadRequest, invalidID(reportIDVar)
 	tooLarge := base
 	tooLarge.name, tooLarge.invalidRequest, tooLarge.notCalled = tooLargeCase, true, true
 	tooLarge.body = `{"note":"` + strings.Repeat("a", httpjson.MaxBodyBytes) + `"}`
@@ -398,6 +427,7 @@ func TestLinkReportResolve_ServeHTTP(t *testing.T) {
 		badBodyCase(base, "reopen", `{"status":"open"}`, "invalid status: must be resolved or dismissed"),
 		badBodyCase(base, "note_too_long", `{"status":"dismissed","note":"`+strings.Repeat("a", 2001)+`"}`,
 			"invalid note: must be at most 2000 characters"),
+		controlCharacterCase(base, "note", `{"status":"dismissed","note":"Done\u0085."}`),
 	}, errorCases(base,
 		revisionCase{name: notFoundCase, err: datasources.ErrNotFound, wantStatus: http.StatusNotFound,
 			wantBody: `{"code":"not_found","message":"link report not found"}`},
@@ -449,6 +479,8 @@ func TestModerationLinkGet_ServeHTTP(t *testing.T) {
 			`{"code":"invalid_request","message":"query parameter url must be given at most once"}`),
 		get("url_too_long", "?url="+strings.Repeat("a", 2049), http.StatusBadRequest,
 			`{"code":"invalid_request","message":"invalid url: must be at most 2048 characters"}`),
+		get("url_control_character", "?url=https%3A%2F%2Fexample.org%2F%1B%5B2J", http.StatusBadRequest,
+			`{"code":"invalid_request","message":"invalid url: must not contain a control character"}`),
 	}
 	runRevisionCases(t, cases, func(t *testing.T, tc revisionCase) http.Handler {
 		return ModerationLinkGet{Command: commandFunc[command.ModerationLinkRequest, domain.ModerationLink](
@@ -466,7 +498,7 @@ func TestLinkHiddenSet_ServeHTTP(t *testing.T) {
 	t.Parallel()
 
 	base := revisionCase{method: http.MethodPut, target: "/v1/links/7/hidden",
-		pathValues: map[string]string{"link_id": "7"}, body: `{"hidden":true}`}
+		pathValues: map[string]string{linkIDVar: "7"}, body: `{"hidden":true}`}
 	ok := base
 	ok.name, ok.wantStatus, ok.wantBody = "ok", http.StatusOK, testModerationLinkBody
 	anonymous := base
@@ -474,8 +506,8 @@ func TestLinkHiddenSet_ServeHTTP(t *testing.T) {
 	anonymous.wantStatus, anonymous.wantBody = http.StatusUnauthorized, unauthenticatedBody
 	badID := base
 	badID.name, badID.pathValues, badID.invalidRequest, badID.notCalled = badIDCase,
-		map[string]string{"link_id": "seven"}, true, true
-	badID.wantStatus, badID.wantBody = http.StatusBadRequest, invalidID("link_id")
+		map[string]string{linkIDVar: "seven"}, true, true
+	badID.wantStatus, badID.wantBody = http.StatusBadRequest, invalidID(linkIDVar)
 	tooLarge := base
 	tooLarge.name, tooLarge.invalidRequest, tooLarge.notCalled = tooLargeCase, true, true
 	tooLarge.body = `{"x":"` + strings.Repeat("a", httpjson.MaxBodyBytes) + `"}`

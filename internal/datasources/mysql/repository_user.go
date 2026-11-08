@@ -30,7 +30,7 @@ func (r *Repository) GetUser(ctx context.Context, userID string) (domain.User, e
 		return domain.User{}, fmt.Errorf("user [%s]: %w", userID, datasources.ErrNotFound)
 	}
 	if err != nil {
-		return domain.User{}, fmt.Errorf("fetching user [%s]: %w", userID, err)
+		return domain.User{}, fmt.Errorf("fetching user [%s]: %w", userID, unavailableIfDisconnected(err))
 	}
 
 	return convertUser(row)
@@ -46,14 +46,15 @@ func (r *Repository) EnsureUser(ctx context.Context, user datasources.NewUser) (
 		CreatedAt:   user.CreatedAt,
 	})
 	if err != nil {
-		return domain.User{}, fmt.Errorf("inserting user [%s]: %w", user.ID, err)
+		return domain.User{}, fmt.Errorf("inserting user [%s]: %w", user.ID, unavailableIfDisconnected(err))
 	}
 	if key := displayNameKey(user.DisplayName); key.Valid {
 		err = r.queries.SetMissingDisplayNameKey(ctx, queries.SetMissingDisplayNameKeyParams{
 			DisplayNameKey: key, ID: user.ID, DisplayName: user.DisplayName,
 		})
 		if err != nil && mysqlErrorNumber(err) != erDuplicateEntry {
-			return domain.User{}, fmt.Errorf("setting display name key of user [%s]: %w", user.ID, err)
+			return domain.User{}, fmt.Errorf("setting display name key of user [%s]: %w", user.ID,
+				unavailableIfDisconnected(err))
 		}
 	}
 
@@ -68,7 +69,7 @@ func (r *Repository) PromoteToModerator(ctx context.Context, user datasources.Ne
 		CreatedAt:   user.CreatedAt,
 	})
 	if err != nil {
-		return fmt.Errorf("promoting user [%s] to moderator: %w", user.ID, err)
+		return fmt.Errorf("promoting user [%s] to moderator: %w", user.ID, unavailableIfDisconnected(err))
 	}
 
 	return nil
@@ -83,7 +84,8 @@ func (r *Repository) UpdateDisplayName(ctx context.Context, userID, displayName 
 		ID:             userID,
 	}))
 	if err != nil {
-		return fmt.Errorf("updating display name of user [%s]: %w", userID, displayNameKeyError(err))
+		return fmt.Errorf("updating display name of user [%s]: %w", userID,
+			unavailableIfDisconnected(displayNameKeyError(err)))
 	}
 
 	return nil
@@ -93,7 +95,7 @@ func (r *Repository) UpdateDisplayName(ctx context.Context, userID, displayName 
 func (r *Repository) ListDisplayNameKeys(ctx context.Context) ([]datasources.UserDisplayNameKey, error) {
 	rows, err := r.queries.ListDisplayNameKeys(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("listing display name keys: %w", err)
+		return nil, fmt.Errorf("listing display name keys: %w", unavailableIfDisconnected(err))
 	}
 	keys := make([]datasources.UserDisplayNameKey, 0, len(rows))
 	for _, row := range rows {
@@ -112,7 +114,8 @@ func (r *Repository) SetDisplayNameKey(ctx context.Context, userID string, key *
 		DisplayNameKey: nullString(key), ID: userID,
 	}))
 	if err != nil {
-		return fmt.Errorf("setting display name key of user [%s]: %w", userID, displayNameKeyError(err))
+		return fmt.Errorf("setting display name key of user [%s]: %w", userID,
+			unavailableIfDisconnected(displayNameKeyError(err)))
 	}
 
 	return nil
@@ -142,7 +145,7 @@ func (r *Repository) BlockUser(ctx context.Context, userID string, blockedAt tim
 		ID:        userID,
 	}))
 	if err != nil {
-		return fmt.Errorf("blocking contributor [%s]: %w", userID, err)
+		return fmt.Errorf("blocking contributor [%s]: %w", userID, unavailableIfDisconnected(err))
 	}
 
 	return nil
@@ -152,7 +155,7 @@ func (r *Repository) BlockUser(ctx context.Context, userID string, blockedAt tim
 // ID.
 func (r *Repository) UnblockUser(ctx context.Context, userID string) error {
 	if err := requireMatched(r.queries.UnblockUser(ctx, userID)); err != nil {
-		return fmt.Errorf("unblocking contributor [%s]: %w", userID, err)
+		return fmt.Errorf("unblocking contributor [%s]: %w", userID, unavailableIfDisconnected(err))
 	}
 
 	return nil

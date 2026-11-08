@@ -46,7 +46,7 @@ func (c EventGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "event not found")
 	case err != nil:
-		writeInternalError(w, r, "unable to get event", err)
+		WriteInternalError(w, r, "unable to get event", err)
 	default:
 		httpjson.WriteJSON(ctx, w, http.StatusOK, eventFromDomain(event))
 	}

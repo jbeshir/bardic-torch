@@ -49,19 +49,20 @@ func (r *Repository) GetPublicPerson(ctx context.Context, slug string) (domain.P
 }
 
 // readOnly runs f with a catalogueReader in a read-only transaction, so that the several queries of one read
-// see one consistent snapshot.
+// see one consistent snapshot. A failure to reach the database is datasources.ErrUnavailable
+// (unavailableIfDisconnected).
 func (r *Repository) readOnly(ctx context.Context, f func(c *catalogueReader) error) error {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return fmt.Errorf("beginning read-only transaction: %w", err)
+		return fmt.Errorf("beginning read-only transaction: %w", unavailableIfDisconnected(err))
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	if err := f(&catalogueReader{q: r.queries.WithTx(tx), run: txRunner(tx)}); err != nil {
-		return err
+		return unavailableIfDisconnected(err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("committing read-only transaction: %w", err)
+		return fmt.Errorf("committing read-only transaction: %w", unavailableIfDisconnected(err))
 	}
 
 	return nil

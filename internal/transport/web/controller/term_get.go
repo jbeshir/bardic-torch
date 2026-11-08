@@ -60,7 +60,7 @@ func (c TermGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "term not found")
 	case err != nil:
-		writeInternalError(w, r, "unable to get term", err)
+		WriteInternalError(w, r, "unable to get term", err)
 	default:
 		httpjson.WriteJSON(ctx, w, http.StatusOK, termFromDomain(term))
 	}

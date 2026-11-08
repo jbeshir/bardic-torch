@@ -47,8 +47,9 @@ tags:
     description: Personal API tokens for programmatic access
   - name: Revisions
     description: |
-      The caller's own edits: editable documents, drafts, submissions, withdrawals and reverts, and their
-      revisions. An API token acts with contributor powers, whatever its user's role.
+      The caller's own edits and link reports: editable documents, drafts, submissions, withdrawals and
+      reverts, their revisions, and reports of links. An API token acts with contributor powers, whatever its
+      user's role.
   - name: Catalogue
     description: |
       Public reads of the catalogue: pieces, persons, the terms that classify them, and the collections and
@@ -120,6 +121,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
     patch:
       tags:
         - Users
@@ -142,7 +145,10 @@ paths:
                 $ref: "#/components/schemas/User"
         "400":
           description: |
-            The request body is malformed, or the display name is invalid after normalisation; the error code is
+            The request body is malformed, or the display name is invalid after normalisation: too long, holding a
+            disallowed character or a blank letter (Hangul fillers, the braille blank, default-ignorable
+            characters), mixing Latin, Cyrillic and Greek letters, without a letter or digit, or more than 255
+            characters once folded for comparison. The message never quotes the name; the error code is
             `invalid_request`.
           content:
             application/json:
@@ -172,7 +178,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "422":
           description: |
-            The display name is reserved: it names a role or the site (such as `Moderator`), or has the shape of a
+            The display name is reserved: it names a role or the site (such as `Moderator`), contains `moderator` or
+            `bardictorch` once folded (such as `The Moderator Team`), starts with `admin`, or has the shape of a
             default display name other than the caller's own. The error code is `display_name_reserved`.
           content:
             application/json:
@@ -183,6 +190,8 @@ paths:
                 message: this display name is reserved
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
 
   /v1/users/{user_id}/blocked:
     put:
@@ -261,6 +270,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
 
   /v1/moderation/queue:
     get:
@@ -332,6 +343,8 @@ paths:
           $ref: "#/components/responses/InteractiveModeratorForbidden"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/moderation/revisions/{revision_id}:
     get:
@@ -363,6 +376,8 @@ paths:
           $ref: "#/components/responses/ModerationRevisionNotFound"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/revisions/{revision_id}/approve:
     post:
@@ -406,9 +421,10 @@ paths:
             conflict with the current version (`rebase_required`); its entity, or an entity it references, no
             longer exists (`entity_gone`); it carries hidden data a contributor could not see
             (`hidden_data_conflict`; rebase it to clear); a pending new term or person it references carries flags,
-            or may duplicate another entity (`pending_reference_flagged`, with that revision's flags,
-            `possible_duplicate` among them for a duplicate; approve that revision on its own first); its flags are
-            not acknowledged
+            or may duplicate another entity, or cannot be approved for another reason (`pending_reference_flagged`,
+            with that revision's flags, `possible_duplicate` among them for a duplicate, and empty when no flag
+            explains it, such as an invalid document, a hidden-data conflict or a blocked duplicate, which opening
+            the referenced revision shows; approve that revision on its own first); its flags are not acknowledged
             (`unacknowledged_flags`, with the flags); or another term of its facet has taken the term's name
             (`duplicate_name`).
           content:
@@ -460,7 +476,7 @@ paths:
                     code: duplicate_blocked
                     message: a person with this name has asked not to have a page
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/WriteInternal"
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
@@ -527,7 +543,7 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/WriteInternal"
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
@@ -561,7 +577,8 @@ paths:
                 $ref: "#/components/schemas/ModerationRevision"
         "400":
           description: |
-            The `revision_id` is not a positive integer, the request body is malformed, or its document is not a
+            The `revision_id` is not a positive integer, the request body is malformed, its `summary` is longer
+            than 500 characters or holds a control character (as for `review_note`), or its document is not a
             document of its `entity_type` or of the revision's; the error code is `invalid_request`.
           content:
             application/json:
@@ -575,7 +592,16 @@ paths:
         "403":
           $ref: "#/components/responses/InteractiveModeratorForbidden"
         "404":
-          $ref: "#/components/responses/ModerationRevisionNotFound"
+          description: |
+            No revision but a draft has this `id`. The document is checked first, so a request with an invalid
+            document is 422 whatever the `id`. The error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: revision not found
         "409":
           description: |
             The revision is not pending (`not_pending`); `current_revision_id` is no longer the entity's current
@@ -595,7 +621,7 @@ paths:
         "422":
           $ref: "#/components/responses/InvalidDocument"
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/WriteInternal"
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
@@ -632,6 +658,8 @@ paths:
           $ref: "#/components/responses/InteractiveModeratorForbidden"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/moderation/link-reports/{report_id}:
     post:
@@ -650,6 +678,7 @@ paths:
           schema:
             type: integer
             format: int64
+            maximum: 9007199254740991
             minimum: 1
             examples:
               - 3
@@ -669,8 +698,10 @@ paths:
                 $ref: "#/components/schemas/LinkReport"
         "400":
           description: |
-            The `report_id` is not a positive integer, or the request body is malformed or invalid; the error code
-            is `invalid_request`.
+            The `report_id` is not a positive integer, or the request body is malformed or invalid: for example
+            `note` is longer than 2000 characters or holds a control character (a C0 or C1 control other than tab
+            and line feed, so that line breaks are LF and a carriage return is refused, or a bidirectional
+            override). The message names the field, never its value; the error code is `invalid_request`.
           content:
             application/json:
               schema:
@@ -738,8 +769,8 @@ paths:
                 $ref: "#/components/schemas/ModerationLink"
         "400":
           description: |
-            `url` is missing, empty, longer than 2048 characters or given more than once, or the query string is
-            not validly percent-encoded; the error code is `invalid_request`.
+            `url` is missing, empty, longer than 2048 characters, holds a control character or is given more than once,
+            or the query string is not validly percent-encoded; the error code is `invalid_request`.
           content:
             application/json:
               schema:
@@ -752,9 +783,11 @@ paths:
         "403":
           $ref: "#/components/responses/InteractiveModeratorForbidden"
         "404":
-          $ref: "#/components/responses/LinkNotFound"
+          $ref: "#/components/responses/ModerationLinkNotFound"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/links/{link_id}/hidden:
     put:
@@ -773,6 +806,7 @@ paths:
           schema:
             type: integer
             format: int64
+            maximum: 9007199254740991
             minimum: 1
             examples:
               - 7
@@ -806,7 +840,7 @@ paths:
         "403":
           $ref: "#/components/responses/InteractiveModeratorForbidden"
         "404":
-          $ref: "#/components/responses/LinkNotFound"
+          $ref: "#/components/responses/ModerationLinkNotFound"
         "413":
           $ref: "#/components/responses/RequestTooLarge"
         "415":
@@ -856,6 +890,8 @@ paths:
           $ref: "#/components/responses/InteractiveModeratorForbidden"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/moderation/contact-requests/{request_id}:
     post:
@@ -874,6 +910,7 @@ paths:
           schema:
             type: integer
             format: int64
+            maximum: 9007199254740991
             minimum: 1
             examples:
               - 12
@@ -893,8 +930,10 @@ paths:
                 $ref: "#/components/schemas/ContactRequest"
         "400":
           description: |
-            The `request_id` is not a positive integer, or the request body is malformed or invalid; the error
-            code is `invalid_request`.
+            The `request_id` is not a positive integer, or the request body is malformed or invalid: for example
+            `note` is longer than 2000 characters or holds a control character (a C0 or C1 control other than tab
+            and line feed, so that line breaks are LF and a carriage return is refused, or a bidirectional
+            override). The message names the field, never its value; the error code is `invalid_request`.
           content:
             application/json:
               schema:
@@ -988,6 +1027,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
     get:
       tags:
         - API tokens
@@ -1011,6 +1052,8 @@ paths:
           $ref: "#/components/responses/APITokenForbidden"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/tokens/{token_id}:
     delete:
@@ -1052,6 +1095,8 @@ paths:
                 message: API token not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/WriteUnavailable"
 
   /v1/pieces:
     get:
@@ -1167,6 +1212,8 @@ paths:
                     message: "invalid kind: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/pieces/{slug}:
     get:
@@ -1203,6 +1250,8 @@ paths:
                 message: piece not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/persons:
     get:
@@ -1291,6 +1340,8 @@ paths:
                 message: "unknown affiliation: northmarch"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/persons/{slug}:
     get:
@@ -1380,6 +1431,8 @@ paths:
                 message: person not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/terms:
     get:
@@ -1421,6 +1474,8 @@ paths:
                 message: "invalid facet: not one of its allowed values"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/terms/{slug}:
     get:
@@ -1477,6 +1532,8 @@ paths:
                 message: term not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/collections:
     get:
@@ -1526,6 +1583,8 @@ paths:
                 message: "invalid kind: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/collections/{collection_id}:
     get:
@@ -1570,6 +1629,8 @@ paths:
                 message: collection not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/events:
     get:
@@ -1610,6 +1671,8 @@ paths:
                 message: "invalid offset: must be an integer from 0 to 10000"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/events/{slug}:
     get:
@@ -1646,6 +1709,8 @@ paths:
                 message: event not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/pieces/{slug}/history:
     get:
@@ -1684,6 +1749,8 @@ paths:
                 message: piece not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/persons/{slug}/history:
     get:
@@ -1722,6 +1789,8 @@ paths:
                 message: person not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/terms/{slug}/history:
     get:
@@ -1760,6 +1829,8 @@ paths:
                 message: term not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/collections/{collection_id}/history:
     get:
@@ -1798,6 +1869,8 @@ paths:
                 message: collection not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/events/{slug}/history:
     get:
@@ -1836,6 +1909,8 @@ paths:
                 message: event not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/revisions/{revision_id}:
     get:
@@ -1886,6 +1961,8 @@ paths:
                 message: revision not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/needs-work:
     get:
@@ -1930,6 +2007,8 @@ paths:
                 message: "invalid reason: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
 
   /v1/contact:
@@ -1962,9 +2041,11 @@ paths:
                 $ref: "#/components/schemas/ContactRequestReceived"
         "400":
           description: |
-            The request body is malformed or invalid (`invalid_request`; the message names the field, never its
-            value), or the Turnstile token did not pass: it is missing, invalid, expired, already used, or was
-            minted for another site or form (`turnstile_failed`). Nothing is stored.
+            The request body is malformed or invalid, for example a field is too long or holds a control character
+            (a C0 or C1 control other than tab and line feed, so that line breaks are LF and a carriage return is
+            refused, or a bidirectional override), or `turnstile_token` is missing (`invalid_request`; the message
+            names the field, never its value); or the Turnstile token did not pass: it is invalid, expired or
+            already used, or was minted for another hostname or action (`turnstile_failed`). Nothing is stored.
           content:
             application/json:
               schema:
@@ -1997,8 +2078,8 @@ paths:
           description: |
             The request cannot be taken now, and nothing is stored: the contact form is disabled, Cloudflare failed,
             could not be reached in time or reports a misconfiguration, too many verifications are running, 1000
-            requests are already open, or the write could not finish in time. It may be retried later, with a new
-            Turnstile token. The error code is `unavailable`.
+            requests are already open, the write could not finish in time, or the database cannot be reached. It may
+            be retried later, with a new Turnstile token. The error code is `unavailable`.
           content:
             application/json:
               schema:
@@ -2050,6 +2131,8 @@ paths:
                 message: piece not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/pieces/{slug}/pending:
     get:
@@ -2089,6 +2172,8 @@ paths:
                 message: pending revision not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/persons/{slug}/editable:
     get:
@@ -2133,6 +2218,8 @@ paths:
                 message: person not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/persons/{slug}/pending:
     get:
@@ -2172,6 +2259,8 @@ paths:
                 message: pending revision not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/terms/{slug}/editable:
     get:
@@ -2216,6 +2305,8 @@ paths:
                 message: term not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/terms/{slug}/pending:
     get:
@@ -2255,6 +2346,8 @@ paths:
                 message: pending revision not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/events/{slug}/editable:
     get:
@@ -2299,6 +2392,8 @@ paths:
                 message: event not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/events/{slug}/pending:
     get:
@@ -2338,6 +2433,8 @@ paths:
                 message: pending revision not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/collections/{collection_id}/editable:
     get:
@@ -2382,6 +2479,8 @@ paths:
                 message: collection not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/collections/{collection_id}/pending:
     get:
@@ -2421,6 +2520,8 @@ paths:
                 message: pending revision not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/drafts:
     post:
@@ -2488,7 +2589,7 @@ paths:
         "422":
           $ref: "#/components/responses/InvalidDraftDocument"
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/WriteInternal"
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
@@ -2523,6 +2624,8 @@ paths:
           $ref: "#/components/responses/NotDraft"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
     put:
       tags:
         - Revisions
@@ -2556,13 +2659,22 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 code: invalid_request
-                message: "invalid entity_type: not the draft's entity type"
+                message: "invalid entity_type: not the entity type of the draft or revision"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
-          $ref: "#/components/responses/DraftNotFound"
+          description: |
+            The caller has no draft with this `id`. The document is checked first, so a request with an invalid
+            document is 422 whatever the `id`. The error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: draft not found
         "409":
           $ref: "#/components/responses/NotDraft"
         "413":
@@ -2652,8 +2764,9 @@ paths:
             duplicate others, which are listed (`possible_duplicate`); a pending new entity of the caller's it
             edits or references no longer exists (`entity_gone`); or, for an interactive moderator, the entity
             changed since the base in a way that conflicts (`rebase_required`), the submission's flags are not
-            acknowledged (`unacknowledged_flags`) or conflict with hidden data (`hidden_data_conflict`), or a
-            pending new entity it references has flags (`pending_reference_flagged`).
+            acknowledged (`unacknowledged_flags`) or conflict with hidden data (`hidden_data_conflict`), a
+            pending new entity it references has flags (`pending_reference_flagged`), or, the submission being
+            approved at once, another term of its facet has taken the term's name (`duplicate_name`).
           content:
             application/json:
               schema:
@@ -2720,7 +2833,7 @@ paths:
                     code: duplicate_blocked
                     message: a person with this name has asked not to have a page
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/WriteInternal"
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
@@ -2755,7 +2868,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/LinkReportReceipt"
         "400":
-          $ref: "#/components/responses/InvalidRequest"
+          description: |
+            The request body is malformed or invalid: for example `url` is missing or longer than 2048 characters,
+            or `message` is longer than 2000 characters or holds a control character (a C0 or C1 control other
+            than tab and line feed, so that line breaks are LF and a carriage return is refused, or a bidirectional
+            override). The message names the field, never its value; the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: "invalid message: must not contain a control character"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -2817,7 +2941,7 @@ paths:
                 code: not_pending
                 message: the revision is not pending
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/WriteInternal"
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
@@ -2858,8 +2982,8 @@ paths:
                 $ref: "#/components/schemas/MyRevision"
         "400":
           description: |
-            The `revision_id` is not a positive integer, or the request body is malformed or invalid; the error
-            code is `invalid_request`.
+            The `revision_id` is not a positive integer, or the request body is malformed or invalid (for example
+            `acknowledged_flags` holds an unknown flag or repeats one); the error code is `invalid_request`.
           content:
             application/json:
               schema:
@@ -2886,8 +3010,9 @@ paths:
             The revert is refused: the revision is the entity's current one (`already_current`); the caller has
             30 pending revisions (`pending_limit_reached`); an entity the document references no longer exists
             (`entity_gone`); or, for an interactive moderator, the revert's flags are not acknowledged
-            (`unacknowledged_flags`) or conflict with hidden data (`hidden_data_conflict`), or a pending new
-            entity it references has flags (`pending_reference_flagged`).
+            (`unacknowledged_flags`) or conflict with hidden data (`hidden_data_conflict`), a pending new entity
+            it references has flags (`pending_reference_flagged`), or, the revert being approved at once, another
+            term of its facet has taken the term's name (`duplicate_name`).
           content:
             application/json:
               schema:
@@ -2907,7 +3032,7 @@ paths:
                     message: the revision has flags that are not acknowledged
                     flags:
                       - code: hidden_alias_in_summary
-                        path: null
+                        path: /summary
         "413":
           $ref: "#/components/responses/RequestTooLarge"
         "415":
@@ -2915,7 +3040,7 @@ paths:
         "422":
           $ref: "#/components/responses/InvalidDocument"
         "500":
-          $ref: "#/components/responses/Internal"
+          $ref: "#/components/responses/WriteInternal"
         "503":
           $ref: "#/components/responses/WriteUnavailable"
 
@@ -2968,6 +3093,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /v1/me/revisions/{revision_id}:
     get:
@@ -2999,6 +3126,8 @@ paths:
           $ref: "#/components/responses/MyRevisionNotFound"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/DatabaseUnavailable"
 
 components:
   securitySchemes:
@@ -3022,6 +3151,7 @@ components:
       schema:
         type: integer
         format: int64
+        maximum: 9007199254740991
         minimum: 1
         examples:
           - 12
@@ -3033,6 +3163,7 @@ components:
       schema:
         type: integer
         format: int64
+        maximum: 9007199254740991
         minimum: 1
         examples:
           - 42
@@ -3044,6 +3175,7 @@ components:
       schema:
         type: integer
         format: int64
+        maximum: 9007199254740991
         minimum: 1
         examples:
           - 51
@@ -3235,8 +3367,11 @@ components:
     InvalidModerationRequest:
       description: |
         The `revision_id` is not a positive integer, or the request body is malformed or invalid: for example
-        `acknowledged_flags` is missing or holds an unknown flag, or `review_note` is longer than 2000 characters.
-        The error code is `invalid_request`.
+        `acknowledged_flags` is missing, holds an unknown flag or repeats one, `review_note` is longer than 2000
+        characters, the approval's `summary` is longer than 500, or either holds a control character (a C0 or C1
+        control other than tab and line feed, so that line breaks are LF and a carriage return is refused, or a
+        bidirectional override). The message names the field, never its value; the error code is
+        `invalid_request`.
       content:
         application/json:
           schema:
@@ -3254,7 +3389,18 @@ components:
             code: not_found
             message: revision not found
     LinkNotFound:
-      description: No link with this URL or `id` exists, or it is hidden; the error code is `not_found`.
+      description: No link with this URL exists, or it is hidden; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: link not found
+    ModerationLinkNotFound:
+      description: |
+        No link has this URL (after normalisation) or `id`, hidden or not: a moderator finds hidden links too.
+        The error code is `not_found`.
       content:
         application/json:
           schema:
@@ -3282,6 +3428,20 @@ components:
             message: request body must be sent as application/json
     Internal:
       description: The server failed to handle the request; the error code is `internal`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: internal
+            message: internal error
+    WriteInternal:
+      description: |
+        The server failed to handle the request; the error code is `internal`. The write may have committed even
+        so, if the failure came after it, and retrying is safe: a submission or revert replays to 200, a
+        withdrawal, approval or rejection answers 409 `not_pending`, and a rebase answers 409 `stale` or succeeds
+        again. Creating a draft of a new entity is not idempotent, so list your drafts (`GET /v1/me/revisions`)
+        before retrying one.
       content:
         application/json:
           schema:
@@ -3345,7 +3505,8 @@ components:
       description: |
         The document references an entity the caller may not reference, whether it does not exist or is not
         public, or holds an unknown value, a string that is not valid UTF-8 in NFC or holds control characters,
-        or a summary longer than 500 characters; the error code is `invalid_document`. A draft may otherwise be
+        or a summary longer than 500 characters; or `base_revision_id` is not an approved revision of the entity
+        (`/base_revision_id`, `unknown_reference`). The error code is `invalid_document`. A draft may otherwise be
         incomplete.
       content:
         application/json:
@@ -3356,6 +3517,8 @@ components:
             message: the document is invalid
             problems:
               - path: /terms/0/term
+                problem: unknown_reference
+              - path: /base_revision_id
                 problem: unknown_reference
     InvalidDocument:
       description: The document is invalid; the error code is `invalid_document`, with its problems.
@@ -3408,7 +3571,8 @@ components:
             message: request body is too large
     WriteUnavailable:
       description: |
-        The write could not take its locks, or finish, in the time the server allows; it may be retried. The error
+        The write could not take its locks, or finish, in the time the server allows, or the database cannot be
+        reached (nor, on an authenticated operation, the caller's user be looked up); it may be retried. The error
         code is `unavailable`.
       content:
         application/json:
@@ -3416,7 +3580,19 @@ components:
             $ref: "#/components/schemas/Error"
           example:
             code: unavailable
-            message: the write could not be completed in time; try again
+            message: the database is busy or cannot be reached; try again
+    DatabaseUnavailable:
+      description: |
+        The database cannot be reached (on an authenticated operation, also to look up the caller's user); the
+        request may be retried. A query that fails for any other reason is 500 `internal`. The error code is
+        `unavailable`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unavailable
+            message: the database is busy or cannot be reached; try again
 
   schemas:
     Error:
@@ -3512,8 +3688,8 @@ components:
         role:
           type: string
           description: |
-            What the user may do. Every user starts as a `contributor`; `moderator`s may also block and unblock
-            contributors.
+            What the user may do. Every user starts as a `contributor`; `moderator`s review and approve edits,
+            handle link reports and contact requests, and block contributors.
           enum:
             - contributor
             - moderator
@@ -3538,7 +3714,10 @@ components:
             whitespace is trimmed; the result must have 1 to 64 characters, each a letter, mark, number,
             punctuation, symbol or space separator. So control and format characters (such as U+202E), line and
             paragraph separators, and private-use and unassigned code points are rejected, as are more than 4
-            combining marks in a row.
+            combining marks in a row. So that a name cannot pass for another, names may not contain blank letters
+            (Hangul fillers, the braille blank, default-ignorable characters), may not mix Latin, Cyrillic and Greek
+            letters, and must contain at least one letter or digit. The name folded for comparison (case, accents,
+            spaces and punctuation removed) must have at most 255 characters.
           maxLength: 256
           examples:
             - Morwen
@@ -3708,6 +3887,7 @@ components:
         count:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: How many entries match, ignoring the list's letter filter.
           examples:
@@ -3743,6 +3923,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many pieces match, over every page.
           examples:
@@ -3842,6 +4023,7 @@ components:
         count:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: How many pieces match, ignoring the selection in this facet.
           examples:
@@ -3879,6 +4061,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many persons match, over every page.
           examples:
@@ -3914,6 +4097,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many collections match, over every page.
           examples:
@@ -4034,6 +4218,7 @@ components:
         id:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 12
@@ -4123,6 +4308,7 @@ components:
           examples:
             - Free to perform with credit.
         licence:
+          description: The piece's licence; null unless `licensing_status` is `known`.
           oneOf:
             - $ref: "#/components/schemas/Licence"
             - type: "null"
@@ -4148,7 +4334,9 @@ components:
             $ref: "#/components/schemas/PieceAlias"
         terms:
           type: array
-          description: The public terms the piece is classified with, by facet in the enum's order, then position.
+          description: |
+            The public terms the piece is classified with, by facet in the enum's order, then position. Each term
+            appears at most once; `part` scopes it to a part of the piece.
           items:
             $ref: "#/components/schemas/PieceTerm"
         credits:
@@ -4168,7 +4356,8 @@ components:
           type: array
           description: |
             The piece's visible links, each once with all its roles, in order. The list is not capped: links are
-            curated per piece.
+            curated per piece. They are served for every piece, `restricted` ones included; how a restricted
+            piece's links are shown is the client's policy.
           items:
             $ref: "#/components/schemas/PieceLink"
         conservation_history:
@@ -4333,7 +4522,10 @@ components:
 
     PieceRelation:
       type: object
-      description: A relation between the piece shown and another public piece.
+      description: |
+        A relation between the piece shown and another public piece, listed once per stored direction:
+        a symmetric relation (`same_as`, `same_text_other_form`) recorded on both entities appears both as
+        outgoing and as incoming, so treat (`type`, slug) as one.
       additionalProperties: false
       required: [type, direction, piece]
       properties:
@@ -4680,6 +4872,7 @@ components:
         works_total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many credits the person has on public pieces.
           examples:
@@ -4695,6 +4888,7 @@ components:
         performances_total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many performances there are in all.
           examples:
@@ -4732,7 +4926,10 @@ components:
 
     PersonRelation:
       type: object
-      description: A relation between the person shown and another public person.
+      description: |
+        A relation between the person shown and another public person, listed once per stored direction:
+        a symmetric relation (`same_as`, `same_text_other_form`) recorded on both entities appears both as
+        outgoing and as incoming, so treat (`type`, slug) as one.
       additionalProperties: false
       required: [type, direction, person]
       properties:
@@ -4875,6 +5072,7 @@ components:
         piece_count:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: |
             How many distinct public pieces the term or any public descendant classifies.
@@ -4883,6 +5081,7 @@ components:
         person_count:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: |
             How many distinct public persons with a page are affiliated with the term or any public descendant.
@@ -5106,6 +5305,7 @@ components:
         citations_total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many citations the collection has in all.
           examples:
@@ -5189,6 +5389,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many events match, over every page.
           examples:
@@ -5226,6 +5427,7 @@ components:
         performances_total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many performances the event has in all.
           examples:
@@ -5290,6 +5492,8 @@ components:
       description: |
         How at risk a piece is of being lost. `restricted` overrides every other status and means the piece
         should not be spread further.
+        For `restricted`, the newest `conservation_history` entry with that status holds the restriction's source
+        (`source_url`, required since BE4) and its `reason`.
       enum: [unassessed, low_risk, endangered, critically_endangered, restricted]
       examples:
         - endangered
@@ -5517,6 +5721,7 @@ components:
         id:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: The revision's ID, its address.
           examples:
@@ -5567,6 +5772,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many approved revisions the entity has in all.
           examples:
@@ -5649,6 +5855,7 @@ components:
         base_revision_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: |
             The revision this one was based on, if that is an approved revision of the same entity; otherwise
@@ -6082,7 +6289,7 @@ components:
       type: object
       description: |
         The view of a piece snapshot: the piece's editor-owned fields as the revision set them, with references
-        to entities that are public now, and visible links.
+        to entities that are public now, each summarised as it is now (`Snapshot`), and visible links.
       additionalProperties: false
       required:
         - title
@@ -6183,7 +6390,9 @@ components:
 
     SnapshotPieceRelation:
       type: object
-      description: A relation of a piece snapshot's piece to another public piece.
+      description: |
+        A relation of a piece snapshot's piece to another public piece. `piece` is the piece as it is now (title,
+        conservation status), not as it was when the revision was saved; a piece no longer public is left out.
       additionalProperties: false
       required: [type, piece]
       properties:
@@ -6283,7 +6492,9 @@ components:
       required: [piece, year, uploader, description_verbatim, event, performers]
       properties:
         piece:
-          description: The piece performed, or null for a performance of no particular piece.
+          description: |
+            The piece performed, or null for a performance of no particular piece: the piece as it is now (title,
+            conservation status), not as it was when the revision was saved.
           oneOf:
             - $ref: "#/components/schemas/PieceSummary"
             - type: "null"
@@ -6537,6 +6748,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           description: How many entries need work for the requested reason, or any reason, in all.
           examples:
@@ -6608,6 +6820,7 @@ components:
         count:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           examples:
             - 3
@@ -6775,6 +6988,7 @@ components:
         licensing_notes_md:
           $ref: "#/components/schemas/EditorText"
         licence:
+          description: The piece's licence; null unless `licensing_status` is `known` (`licence_needs_known_status`).
           oneOf:
             - $ref: "#/components/schemas/Licence"
             - type: "null"
@@ -6807,6 +7021,9 @@ components:
         terms:
           type: array
           maxItems: 100
+          description: |
+            The terms tagging the piece, each at most once (a repeat is `duplicate`); `part` scopes a term to a part
+            of the piece.
           items:
             type: object
             description: A term tagging the piece, or part of it.
@@ -6932,6 +7149,7 @@ components:
         collection_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: The collection the link belongs to, by its `id`.
           examples:
@@ -7223,6 +7441,7 @@ components:
         parent_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: The collection this one is part of, by its `id`.
           examples:
@@ -7276,7 +7495,12 @@ components:
           description_md: null
 
     Snapshot:
-      description: A snapshot view, in the shape of the `entity_type` beside it in the enclosing object.
+      description: |
+        A snapshot view, in the shape of the `entity_type` beside it in the enclosing object. Its own fields are
+        as the revision set them; every nested summary of a referenced entity (a related piece, a performed
+        piece, a credited person, a term, an event, a collection) is the entity as it is now (title, conservation
+        status and the rest), not as it was when the revision was saved, and is left out if it is no longer
+        public.
       oneOf:
         - $ref: "#/components/schemas/PieceSnapshot"
         - $ref: "#/components/schemas/PersonSnapshot"
@@ -7304,6 +7528,7 @@ components:
         collection_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: The collection's `id`; null for other entities.
           examples:
@@ -7333,6 +7558,7 @@ components:
         collection_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: The collection's `id`; null for other entities.
           examples:
@@ -7366,6 +7592,7 @@ components:
         link_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 7
@@ -7407,6 +7634,7 @@ components:
         base_revision_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: The revision a draft started from this document is based on; null for a pending new entity.
           examples:
@@ -7490,6 +7718,7 @@ components:
         collection_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - null
@@ -7516,6 +7745,7 @@ components:
         base_revision_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 46
@@ -7564,7 +7794,10 @@ components:
 
     DuplicateMatch:
       type: object
-      description: An existing entity a new one may duplicate, by `slug` (a collection by `collection_id`).
+      description: |
+        An existing entity a new one may duplicate, by `slug` (a collection by `collection_id`). A contributor's
+        check never compares hidden aliases, nor any alias of a person who prefers no page, who is found only by
+        name; a moderator's compares both.
       additionalProperties: false
       required: [entity_type, slug, collection_id, name, matched]
       properties:
@@ -7577,6 +7810,7 @@ components:
         collection_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - null
@@ -7626,6 +7860,7 @@ components:
         base_revision_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           description: The revision the draft is based on; null for a new entity.
           examples:
@@ -7806,12 +8041,14 @@ components:
         base_revision_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 46
         submitted_base_revision_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 46
@@ -7958,6 +8195,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           examples:
             - 1
@@ -8079,6 +8317,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           examples:
             - 1
@@ -8091,10 +8330,16 @@ components:
       description: |
         A field, element or order that a stale revision and the current document both changed, differently,
         since their common base. Each value is the JSON of what the base, the revision and the current document
-        hold at `path`, encoded as a string, or null where that side has no such element. Values are in the
-        stored document format, which references entities by internal ID. `path` is a field's name (`title`), a
-        group's (`licensing`), a keyed list element (`links[https://example.org/a]`) or a list's order
-        (`links#order`).
+        hold at `path`, encoded as a string, or null where that side has no such element. Paths and values are
+        in the editor format of the revision's documents (`EditorDocument`), references by slug: `path` is a
+        field's editor name (`title`, `parent`), a group's (`licensing`), a keyed list element
+        (`links[https://example.org/a]`, `terms[drinking-songs]`, `relations[the-copper-kettle:variant_of]`) or a
+        list's order (`links#order`, whose values are the lists of element keys). An element's value parses as an
+        item of that editor list (an `EditorPieceDocument` `terms` item for `terms[…]`), a field's as that
+        editor field, a group's as an object of its editor fields. A reference the view cannot name is
+        `pending-<type>-<id>`. The editor format has no preferences: any preferences conflict is the one conflict
+        `preferences`, with every value null, and its only resolution is to keep current's preferences, which a
+        rebase always does.
       additionalProperties: false
       required: [path, base_json, revision_json, current_json]
       properties:
@@ -8196,6 +8441,7 @@ components:
         pending revision; `flags` are the flags approving it gates on, or for another status the flags stored on
         it. `changed_paths` are what `document` changes from `base_document`, or from an empty document for a new
         entity, named as a `RebaseConflict`'s `path` is. `link_states` are the states of `document`'s links by URL.
+        `rebased_by` is the moderator who last rebased the revision (with `rebased_at`), null if none has.
       additionalProperties: false
       required:
         - id
@@ -8212,6 +8458,7 @@ components:
         - submitted_at
         - reviewed_at
         - rebased_at
+        - rebased_by
         - base_revision_id
         - submitted_base_revision_id
         - current_revision_id
@@ -8269,6 +8516,10 @@ components:
           format: date-time
           examples:
             - null
+        rebased_by:
+          oneOf:
+            - $ref: "#/components/schemas/ModerationAuthor"
+            - type: "null"
         base_revision_id:
           $ref: "#/components/schemas/MyRevisionSummary/properties/base_revision_id"
         submitted_base_revision_id:
@@ -8276,6 +8527,7 @@ components:
         current_revision_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 46
@@ -8319,10 +8571,15 @@ components:
             $ref: "#/components/schemas/DuplicateMatch"
         changed_paths:
           type: array
+          description: |
+            What `document` changes from `base_document` (from the default document for a new entity), each once,
+            named as `RebaseConflict` paths are: editor field names, list elements keyed by slug
+            (`terms[drinking-songs]`), orders (`links#order`), and `preferences` for any change there.
           items:
             type: string
             examples:
               - description_md
+              - terms[drinking-songs]
       examples:
         - id: 51
           status: pending
@@ -8345,6 +8602,7 @@ components:
           submitted_at: "2026-10-01T09:10:00Z"
           reviewed_at: null
           rebased_at: null
+          rebased_by: null
           base_revision_id: 46
           submitted_base_revision_id: 46
           current_revision_id: 46
@@ -8435,6 +8693,7 @@ components:
         current_revision_id:
           type: [integer, "null"]
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 47
@@ -8510,6 +8769,7 @@ components:
         link_id:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 7
@@ -8552,6 +8812,7 @@ components:
         open_report_count:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           examples:
             - 1
@@ -8617,6 +8878,7 @@ components:
         id:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 3
@@ -8709,6 +8971,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           examples:
             - 1
@@ -8830,6 +9093,7 @@ components:
         id:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 1
           examples:
             - 12
@@ -8849,6 +9113,7 @@ components:
             - The second verse of The Copper Kettle is credited to the wrong person.
         url:
           type: [string, "null"]
+          description: The page the request is about, absolute; a URL typed without a scheme gets https.
           examples:
             - null
         status:
@@ -8903,6 +9168,7 @@ components:
         total:
           type: integer
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           examples:
             - 1
@@ -9061,6 +9327,10 @@ components:
             - the revision has flags that are not acknowledged
         flags:
           type: array
+          description: |
+            For `unacknowledged_flags`, the flags to acknowledge. For `pending_reference_flagged`, the referenced
+            revision's flags; empty when it cannot be approved for another reason (an invalid document, a
+            hidden-data conflict, a blocked duplicate), which opening its `revision_id` in the moderation view shows.
           items:
             $ref: "#/components/schemas/Flag"
       examples:

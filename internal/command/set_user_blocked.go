@@ -19,10 +19,11 @@ var errContributorNotMatched = errors.New("contributor did not match the blocked
 
 var _ Command[SetUserBlockedRequest, domain.User] = (*SetUserBlocked)(nil)
 
-// SetUserBlockedRequest is the request for the SetUserBlocked command.
+// SetUserBlockedRequest is Principal's request to block or unblock the user UserID.
 type SetUserBlockedRequest struct {
-	UserID  string
-	Blocked bool
+	Principal domain.Principal
+	UserID    string
+	Blocked   bool
 }
 
 // SetUserBlocked blocks or unblocks a contributor.
@@ -34,9 +35,14 @@ type SetUserBlocked struct {
 }
 
 // Execute blocks or unblocks req.UserID and returns the user. Blocking a blocked user keeps the time they were
-// first blocked. An unknown user returns an error wrapping datasources.ErrNotFound, and a moderator, including
-// the caller, returns ErrModeratorNotBlockable.
+// first blocked. A principal other than an interactive moderator returns domain.ErrModeratorRequired, before
+// anything is read or written. An unknown user returns an error wrapping datasources.ErrNotFound, and a moderator,
+// including the caller, returns ErrModeratorNotBlockable.
 func (c *SetUserBlocked) Execute(ctx context.Context, req SetUserBlockedRequest) (domain.User, error) {
+	if _, err := moderatorActor(req.Principal); err != nil {
+		return domain.User{}, err
+	}
+
 	user, matched, err := c.setBlockedAndGet(ctx, req)
 	if err != nil {
 		return domain.User{}, err

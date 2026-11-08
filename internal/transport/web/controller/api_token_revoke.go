@@ -39,7 +39,7 @@ func (c APITokenRevoke) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, datasources.ErrNotFound):
 		writeAPITokenNotFound(w, r)
 	case err != nil:
-		writeInternalError(w, r, "unable to revoke API token", err)
+		WriteInternalError(w, r, "unable to revoke API token", err)
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}

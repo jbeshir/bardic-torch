@@ -12,10 +12,12 @@ import (
 
 // The column widths of the catalogue fields: VARCHAR widths in characters, TEXT in bytes.
 const (
-	maxNameLength        = 255
-	maxLinkTitleLength   = 500
-	maxCreditNoteLength  = 500
-	maxSummaryLength     = 500
+	maxNameLength       = 255
+	maxLinkTitleLength  = 500
+	maxCreditNoteLength = 500
+	// MaxSummaryLength is the width of a revision's summary, which a moderator's replacement summary is checked
+	// against as a request field.
+	MaxSummaryLength     = 500
 	maxPlatformLength    = 64
 	maxPronounsLength    = 64
 	maxTextBytes         = 65535

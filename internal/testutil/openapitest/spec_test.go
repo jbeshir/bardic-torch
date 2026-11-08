@@ -189,3 +189,105 @@ func TestSpec_RevisionShapeFollowsEntityType(t *testing.T) {
 		})
 	}
 }
+
+// noDatabaseOperations are the operations that read no database, directly or through the auth middleware, and so
+// cannot answer 503 unavailable. Every other operation does.
+var noDatabaseOperations = []Operation{{Method: http.MethodGet, Path: "/healthz"}}
+
+// TestSpec_DatabaseOperationsDeclare503 requires every operation that reads or writes the database (every one but
+// noDatabaseOperations) to document 503: a database that cannot be reached is 503 unavailable on every operation,
+// and writes are also 503 when they cannot finish in time.
+func TestSpec_DatabaseOperationsDeclare503(t *testing.T) {
+	t.Parallel()
+
+	v := New(t)
+	for _, op := range v.Operations() {
+		operation := v.doc.Paths.Value(op.Path).GetOperation(op.Method)
+		declared := operation.Responses.Status(http.StatusServiceUnavailable) != nil
+		if slices.Contains(noDatabaseOperations, op) {
+			assert.False(t, declared, "%s %s reads no database but declares 503", op.Method, op.Path)
+			continue
+		}
+		assert.True(t, declared, "%s %s reads the database but does not declare 503", op.Method, op.Path)
+	}
+}
+
+// maxSafeInteger is 2^53-1, the largest integer a JSON number holds exactly in every client (an IEEE double).
+const maxSafeInteger = 1<<53 - 1
+
+// TestSpec_Int64IDsHaveSafeMaximum requires every int64 schema of the spec, in parameters, request and response
+// bodies and components, to have maximum 2^53-1, so that no client loses precision on an ID. Every int64 is an ID
+// or a count of rows, so none is excepted: a count is far below the bound too.
+func TestSpec_Int64IDsHaveSafeMaximum(t *testing.T) {
+	t.Parallel()
+
+	int64s := int64Schemas(New(t).doc)
+	assert.NotEmpty(t, int64s, "the walk finds the int64 schemas")
+	var unbounded []string
+	for location, schema := range int64s {
+		if schema.Max == nil || *schema.Max != maxSafeInteger {
+			unbounded = append(unbounded, location)
+		}
+	}
+	slices.Sort(unbounded)
+	assert.Empty(t, unbounded, "int64 schemas without maximum: 9007199254740991")
+}
+
+// int64Schemas returns every int64 schema reachable in doc, by its first location: components, parameters,
+// request bodies and responses, and every schema nested in them.
+func int64Schemas(doc *openapi3.T) map[string]*openapi3.Schema {
+	found := map[string]*openapi3.Schema{}
+	visited := map[*openapi3.Schema]bool{}
+	var visit func(location string, ref *openapi3.SchemaRef)
+	visit = func(location string, ref *openapi3.SchemaRef) {
+		if ref == nil || ref.Value == nil || visited[ref.Value] {
+			return
+		}
+		visited[ref.Value] = true
+		if ref.Value.Format == "int64" {
+			found[location] = ref.Value
+		}
+		for subLocation, sub := range subSchemas(location, ref.Value) {
+			visit(subLocation, sub)
+		}
+	}
+
+	for name, schema := range doc.Components.Schemas {
+		visit(name, schema)
+	}
+	for name, p := range doc.Components.Parameters {
+		visit("parameter "+name, p.Value.Schema)
+	}
+	for path, item := range doc.Paths.Map() {
+		for _, p := range item.Parameters {
+			visit(path+" "+p.Value.Name, p.Value.Schema)
+		}
+		for method, op := range item.Operations() {
+			for location, ref := range operationSchemas(method+" "+path, op) {
+				visit(location, ref)
+			}
+		}
+	}
+
+	return found
+}
+
+// operationSchemas returns the schemas of op's parameters, request body and responses, by location.
+func operationSchemas(location string, op *openapi3.Operation) map[string]*openapi3.SchemaRef {
+	schemas := map[string]*openapi3.SchemaRef{}
+	for _, p := range op.Parameters {
+		schemas[location+" "+p.Value.Name] = p.Value.Schema
+	}
+	if op.RequestBody != nil {
+		for mediaType, media := range op.RequestBody.Value.Content {
+			schemas[location+" request "+mediaType] = media.Schema
+		}
+	}
+	for status, response := range op.Responses.Map() {
+		for mediaType, media := range response.Value.Content {
+			schemas[location+" "+status+" "+mediaType] = media.Schema
+		}
+	}
+
+	return schemas
+}

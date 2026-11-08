@@ -54,9 +54,9 @@ func moderationQueueFromDomain(q domain.ModerationQueue) ModerationQueue {
 	}), Total: q.Total}
 }
 
-// RebaseConflict is the JSON representation of a conflict of a stale revision with its entity's current document:
-// each value is the JSON of what base, revision and current hold at the path, as a string, or null where the
-// element is missing.
+// RebaseConflict is the JSON representation of a conflict of a stale revision with its entity's current document,
+// in the editor format (domain.EditorConflicts): each value is the JSON of what base, revision and current hold at
+// the path, as a string, or null where the element is missing.
 type RebaseConflict struct {
 	Path         string  `json:"path"`
 	BaseJSON     *string `json:"base_json"`
@@ -90,6 +90,7 @@ type ModerationRevision struct {
 	Author                  *ModerationAuthor            `json:"author"`
 	Contributors            []string                     `json:"contributors"`
 	Reviewer                *ModerationAuthor            `json:"reviewer"`
+	RebasedBy               *ModerationAuthor            `json:"rebased_by"`
 	Summary                 string                       `json:"summary"`
 	ReviewNote              *string                      `json:"review_note"`
 	CreatedAt               time.Time                    `json:"created_at"`
@@ -135,11 +136,21 @@ func (e *editorDocuments) convert(doc domain.AnyDocument) domain.AnyEditorDocume
 
 func moderationRevisionFromDomain(r domain.ModerationRevision) (ModerationRevision, error) {
 	docs := editorDocuments{refs: r.References}
+	slugs := domain.NewSlugMap(r.References)
+	conflicts, err := domain.EditorConflicts(r.EntityType, r.Rebase.Conflicts, slugs)
+	if err != nil {
+		return ModerationRevision{}, fmt.Errorf("revision [%d] conflicts: %w", r.ID, err)
+	}
+	changed, err := domain.EditorFieldPaths(r.EntityType, r.ChangedPaths, slugs)
+	if err != nil {
+		return ModerationRevision{}, fmt.Errorf("revision [%d] changed paths: %w", r.ID, err)
+	}
 	view := ModerationRevision{
 		ID: r.ID, Status: r.Status, EntityType: r.EntityType, Entity: optional(r.Entity, editorEntityRefFromDomain),
 		Source: r.Source, Author: optional(r.Author, moderationAuthorFromDomain),
 		Contributors: append([]string{}, r.Contributors...), Reviewer: optional(r.Reviewer, moderationAuthorFromDomain),
-		Summary: r.Summary, ReviewNote: r.ReviewNote, CreatedAt: r.CreatedAt, SubmittedAt: r.SubmittedAt,
+		RebasedBy: optional(r.RebasedBy, moderationAuthorFromDomain),
+		Summary:   r.Summary, ReviewNote: r.ReviewNote, CreatedAt: r.CreatedAt, SubmittedAt: r.SubmittedAt,
 		ReviewedAt: r.ReviewedAt, RebasedAt: r.RebasedAt, BaseRevisionID: r.BaseRevisionID,
 		SubmittedBaseRevisionID: r.SubmittedBaseRevisionID, CurrentRevisionID: r.CurrentRevisionID, Stale: r.Stale,
 		Document: docs.convert(r.Document), SubmittedDocument: docs.convert(r.SubmittedDocument),
@@ -147,7 +158,7 @@ func moderationRevisionFromDomain(r domain.ModerationRevision) (ModerationRevisi
 		References: mapSlice(r.References, editorReferenceFromDomain),
 		LinkStates: mapSlice(r.LinkStates, linkStateFromDomain),
 		Rebase: RebasePreview{Status: r.Rebase.Status, MergedDocument: docs.convert(r.Rebase.MergedDocument),
-			Conflicts: mapSlice(r.Rebase.Conflicts, rebaseConflictFromDomain)},
+			Conflicts: mapSlice(conflicts, rebaseConflictFromDomain)},
 		PendingReferences: mapSlice(r.PendingReferences,
 			func(p domain.ModerationPendingReference) ModerationPendingReference {
 				return ModerationPendingReference{RevisionID: p.RevisionID, EntityType: p.EntityType,
@@ -155,7 +166,7 @@ func moderationRevisionFromDomain(r domain.ModerationRevision) (ModerationRevisi
 					Flags: mapSlice(p.Flags, flagFromDomain)}
 			}),
 		Flags: mapSlice(r.Flags, flagFromDomain), Duplicates: mapSlice(r.Duplicates, duplicateMatchFromDomain),
-		ChangedPaths: append([]string{}, r.ChangedPaths...),
+		ChangedPaths: mapSlice(changed, func(p domain.FieldPath) string { return string(p) }),
 	}
 	if docs.err != nil {
 		return ModerationRevision{}, fmt.Errorf("revision [%d]: %w", r.ID, docs.err)
@@ -187,7 +198,7 @@ func rawJSONString(raw []byte) *string {
 func writeModerationRevision(w http.ResponseWriter, r *http.Request, revision domain.ModerationRevision) {
 	view, err := moderationRevisionFromDomain(revision)
 	if err != nil {
-		writeInternalError(w, r, "unable to show moderation revision", err)
+		WriteInternalError(w, r, "unable to show moderation revision", err)
 		return
 	}
 	httpjson.WriteJSON(r.Context(), w, http.StatusOK, view)

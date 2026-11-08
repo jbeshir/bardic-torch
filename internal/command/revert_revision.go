@@ -29,13 +29,18 @@ type RevertTo struct {
 }
 
 // Execute reverts and returns the revision the revert leaves, as the principal sees it; a revert identical to one
-// already made is a replay. It fails with the errors of datasources.RevisionReverter.
+// already made is a replay. An interactive moderator's revert is approved at once, so a term whose name another
+// term of its facet has taken since fails with ErrDuplicateName; otherwise it fails with the errors of
+// datasources.RevisionReverter.
 func (c *RevertTo) Execute(ctx context.Context, req RevertRequest) (SubmittedRevision, error) {
 	actor := req.Principal.Actor()
 	result, err := c.Reverter.RevertTo(ctx, datasources.RevertRequest{
 		Actor: actor, RevisionID: req.RevisionID, Summary: req.Summary,
 		AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(),
 	})
+	if actor.Role == domain.RoleModerator && isNameDuplicate(err) {
+		return SubmittedRevision{}, ErrDuplicateName
+	}
 	if err != nil {
 		return SubmittedRevision{}, fmt.Errorf("reverting to revision: %w", err)
 	}

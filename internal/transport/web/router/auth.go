@@ -6,6 +6,7 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/transport/web/controller"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
@@ -30,8 +31,9 @@ type AuthValidator func(r *http.Request) (*Identity, error)
 // user and stores them as the request's principal. Requests no validator applies to continue anonymously; the
 // require* middleware decides whether a route accepts them.
 //
-// Invalid credentials get 401, and a failure to check credentials or resolve the user gets 500, with the
-// details logged rather than returned.
+// Invalid credentials get 401. A failure to check credentials or resolve the user gets 503 unavailable if the
+// database could not serve it, and 500 otherwise (controller.WriteInternalError), with the details logged rather
+// than returned.
 func authMiddleware(
 	validators []AuthValidator,
 	resolveUser command.Command[string, domain.User],
@@ -49,8 +51,7 @@ func authMiddleware(
 					"invalid credentials")
 				return
 			case err != nil:
-				logger.ErrorContext(ctx, "unable to check credentials", "error", err)
-				httpjson.WriteError(ctx, w, http.StatusInternalServerError, httpjson.CodeInternal, "internal error")
+				controller.WriteInternalError(w, r, "unable to check credentials", err)
 				return
 			case identity == nil:
 				next.ServeHTTP(w, r)
@@ -59,8 +60,8 @@ func authMiddleware(
 
 			user, err := resolveUser.Execute(ctx, identity.UserID)
 			if err != nil {
-				logger.ErrorContext(ctx, "unable to resolve user", "user_id", identity.UserID, "error", err)
-				httpjson.WriteError(ctx, w, http.StatusInternalServerError, httpjson.CodeInternal, "internal error")
+				logged := domain.ContextWithLogger(ctx, logger.With("user_id", identity.UserID))
+				controller.WriteInternalError(w, r.WithContext(logged), "unable to resolve user", err)
 				return
 			}
 

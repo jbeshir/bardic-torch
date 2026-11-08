@@ -102,6 +102,10 @@ func namedCredit(personID int64, role domain.CreditRole, note *string) domain.Do
 // noPageName is the no-page person's name, which only their own page shows.
 const noPageName = "Leakmark Nopage"
 
+// noPagePublicAlias is a public alias of the no-page person. A person who prefers no page is found only by name,
+// so no contributor's duplicate check compares it.
+const noPagePublicAlias = "Leakmark Nopage Public Alias"
+
 // noPageAdmirerName is the name of another no-page person, which only person lists and their own page show.
 const noPageAdmirerName = "Leakmark Nopage Admirer"
 
@@ -204,7 +208,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		LicensingStatus:  domain.LicensingStatusKnown,
 		LicensingNotesMD: new("Leakmark nopage licensing notes"),
 		Aliases: []domain.DocPersonAlias{
-			{Name: "Leakmark Nopage Public Alias", Kind: domain.PersonAliasKindStage, IsPublic: true},
+			{Name: noPagePublicAlias, Kind: domain.PersonAliasKindStage, IsPublic: true},
 			{Name: "Leakmark Nopage Legal Alias", Kind: domain.PersonAliasKindLegal},
 		},
 		Roles:          []domain.PersonRole{domain.PersonRoleJester},

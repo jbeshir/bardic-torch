@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -52,15 +53,21 @@ func (c RevisionSubmit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeSubmitted(w, r, result)
 }
 
-// flagCodesOrBadRequest checks that every code is a flag code. If one is not, it writes 400 invalid_request and
-// returns false; the caller should then return without writing.
+// flagCodesOrBadRequest checks that every code is a flag code, each given once, as the spec's uniqueItems says. If
+// not, it writes 400 invalid_request and returns false; the caller should then return without writing.
 func flagCodesOrBadRequest(w http.ResponseWriter, r *http.Request, codes []domain.FlagCode) bool {
-	for _, code := range codes {
-		if !code.Valid() {
-			httpjson.WriteError(r.Context(), w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
-				"invalid acknowledged_flags: not one of its allowed values")
-			return false
+	for k, code := range codes {
+		message := ""
+		switch {
+		case !code.Valid():
+			message = "invalid acknowledged_flags: not one of its allowed values"
+		case slices.Contains(codes[:k], code):
+			message = "invalid acknowledged_flags: must not repeat a flag"
+		default:
+			continue
 		}
+		httpjson.WriteError(r.Context(), w, http.StatusBadRequest, httpjson.CodeInvalidRequest, message)
+		return false
 	}
 
 	return true

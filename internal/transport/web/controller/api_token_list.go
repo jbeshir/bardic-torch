@@ -27,7 +27,7 @@ func (c APITokenList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := c.Lister.ListUserActiveAPITokens(ctx, principal.User.ID)
 	if err != nil {
-		writeInternalError(w, r, "unable to list API tokens", err)
+		WriteInternalError(w, r, "unable to list API tokens", err)
 		return
 	}
 

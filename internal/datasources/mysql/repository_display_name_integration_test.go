@@ -6,8 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
+	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -72,4 +75,53 @@ func TestRepository_UpdateDisplayName_KeyUnique(t *testing.T) {
 	require.NoError(t, repo.SetDisplayNameKey(ctx, second, nil))
 	require.ErrorIs(t, repo.SetDisplayNameKey(ctx, "auth0|missing", nil), datasources.ErrNotFound)
 	require.ErrorIs(t, repo.UpdateDisplayName(ctx, "auth0|missing", "Ash"), datasources.ErrNotFound)
+}
+
+// TestRepository_DisplayNameKey_BlankLetter checks that a name holding a blank letter, stored before such names
+// were refused, has the key of the name it looks like, so that it cannot be taken beside that name.
+func TestRepository_DisplayNameKey_BlankLetter(t *testing.T) {
+	t.Parallel()
+	repo := newRepository(t)
+	const first, second = "auth0|first", "auth0|second"
+	ensureUser(t, repo, first, "Morwen")
+	ensureUser(t, repo, second, "Bard second")
+
+	require.ErrorIs(t, repo.UpdateDisplayName(t.Context(), second, "Morwen\u3164"), datasources.ErrDisplayNameTaken)
+	assert.Equal(t, "Bard second", getUser(t, repo, second).DisplayName)
+}
+
+// TestBackfillDisplayNameKeys_KeyTooLongForColumn checks that a stored name whose key would not fit the
+// display_name_key column, as code that did not refuse such names may have left, does not fail the backfill, and
+// is left without a key.
+func TestBackfillDisplayNameKeys_KeyTooLongForColumn(t *testing.T) {
+	t.Parallel()
+	db := catalogtest.Writable(t)
+	repo := mysql.New(db)
+	const oversized, other = "auth0|oversized", "auth0|other"
+	_, err := db.ExecContext(t.Context(), "INSERT INTO users (id, display_name, role, created_at) "+
+		"VALUES (?, ?, 'contributor', ?)", oversized, strings.Repeat("ﷺ", 18), baseTime)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), "INSERT INTO users (id, display_name, role, created_at) "+
+		"VALUES (?, 'Wren', 'contributor', ?)", other, baseTime)
+	require.NoError(t, err)
+
+	backfill := &command.BackfillDisplayNameKeys{Lister: repo, Setter: repo}
+	_, err = backfill.Execute(t.Context(), command.Empty{})
+	require.NoError(t, err)
+
+	keys := displayNameKeys(t, repo)
+	assert.Nil(t, keys[oversized])
+	assert.Equal(t, new("wren"), keys[other])
+}
+
+// TestMigrations_DisplayNameKeyWidth checks that the display_name_key column holds exactly the longest key
+// NormalizeDisplayName accepts, so that the two cannot drift apart.
+func TestMigrations_DisplayNameKeyWidth(t *testing.T) {
+	t.Parallel()
+
+	var width int
+	require.NoError(t, catalogtest.Writable(t).QueryRowContext(t.Context(), "SELECT CHARACTER_MAXIMUM_LENGTH "+
+		"FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' "+
+		"AND column_name = 'display_name_key'").Scan(&width))
+	assert.Equal(t, domain.MaxDisplayNameKeyRunes, width)
 }

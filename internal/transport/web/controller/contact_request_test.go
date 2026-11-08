@@ -41,8 +41,7 @@ var (
 	testContactRequest = domain.ContactRequest{ID: 12, Kind: domain.ContactRequestKindCorrection,
 		Name: new("Wren Placeholder"), Email: new("wren@example.org"),
 		Message: new("The second verse is credited to the wrong person."), Status: domain.ContactRequestStatusResolved,
-		CreatedAt: testNow, ResolvedAt: &testNow, ResolvedBy: &domain.ModerationAuthor{ID: "auth0|moderator",
-			DisplayName: "Rowan", Role: domain.RoleModerator}, Note: new("Credit corrected.")}
+		CreatedAt: testNow, ResolvedAt: &testNow, ResolvedBy: &testModerator, Note: new("Credit corrected.")}
 	testPurgedContactRequest = domain.ContactRequest{ID: 11, Kind: domain.ContactRequestKindGeneral,
 		Status: domain.ContactRequestStatusDismissed, CreatedAt: testNow, ResolvedAt: &testNow, Purged: true}
 )
@@ -96,6 +95,8 @@ func TestContactSubmit_ServeHTTP(t *testing.T) {
 			"invalid email: must be an address of the form local@domain, without spaces", true),
 		contactCase("no_message", contactMessage, `""`, "message is required", false),
 		contactCase("blank_message", contactMessage, `"  \n "`, "message is required", true),
+		contactCase("message_control_character", contactMessage, `"Hello\u001b[2J"`,
+			"invalid message: must not contain a control character", true),
 		contactCase("message_too_long", contactMessage, `"`+strings.Repeat("a", 5001)+`"`,
 			"invalid message: must be at most 5000 characters", false),
 		contactCase("url_too_long", contactURL, `"https://example.org/`+strings.Repeat("a", 2040)+`"`,
@@ -182,7 +183,7 @@ func TestContactRequestResolve_ServeHTTP(t *testing.T) {
 	t.Parallel()
 
 	base := revisionCase{method: http.MethodPost, target: contactRequestsPath + "/12",
-		pathValues: map[string]string{"request_id": "12"}, body: `{"status":"resolved","note":"Credit corrected."}`}
+		pathValues: map[string]string{requestIDVar: "12"}, body: `{"status":"resolved","note":"Credit corrected."}`}
 	ok := base
 	ok.name, ok.wantStatus, ok.wantBody = "ok", http.StatusOK, contactRequestBody
 	anonymous := base
@@ -190,8 +191,8 @@ func TestContactRequestResolve_ServeHTTP(t *testing.T) {
 	anonymous.wantStatus, anonymous.wantBody = http.StatusUnauthorized, unauthenticatedBody
 	badID := base
 	badID.name, badID.pathValues, badID.invalidRequest, badID.notCalled = badIDCase,
-		map[string]string{"request_id": "0"}, true, true
-	badID.wantStatus, badID.wantBody = http.StatusBadRequest, invalidID("request_id")
+		map[string]string{requestIDVar: "0"}, true, true
+	badID.wantStatus, badID.wantBody = http.StatusBadRequest, invalidID(requestIDVar)
 	tooLarge := base
 	tooLarge.name, tooLarge.invalidRequest, tooLarge.notCalled = tooLargeCase, true, true
 	tooLarge.body = `{"note":"` + strings.Repeat("a", httpjson.MaxBodyBytes) + `"}`
@@ -203,6 +204,7 @@ func TestContactRequestResolve_ServeHTTP(t *testing.T) {
 		badBodyCase(base, "reopen", `{"status":"open"}`, "invalid status: must be resolved or dismissed"),
 		badBodyCase(base, "note_too_long", `{"status":"dismissed","note":"`+strings.Repeat("a", 2001)+`"}`,
 			"invalid note: must be at most 2000 characters"),
+		controlCharacterCase(base, "note", `{"status":"dismissed","note":"Done\u202e."}`),
 	}, errorCases(base,
 		revisionCase{name: notFoundCase, err: datasources.ErrNotFound, wantStatus: http.StatusNotFound,
 			wantBody: `{"code":"not_found","message":"contact request not found"}`},

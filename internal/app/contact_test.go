@@ -128,7 +128,24 @@ func TestContactVerifierFromEnv_EmptyHostnamesSkipsTheCheck(t *testing.T) {
 	t.Setenv(turnstileHostnamesEnv, "")
 	client, _ := loopbackSiteverify(t, passingAnswer("example.com"))
 
-	require.NoError(t, contactVerifierFromEnv(t.Context(), client).VerifyTurnstile(t.Context(), testTurnstileToken))
+	var logs bytes.Buffer
+	ctx := domain.ContextWithLogger(t.Context(), slog.New(slog.NewJSONHandler(&logs, nil)))
+	require.NoError(t, contactVerifierFromEnv(ctx, client).VerifyTurnstile(t.Context(), testTurnstileToken))
+	assert.Equal(t, 1, strings.Count(logs.String(), "\n"), "one record")
+	assert.Contains(t, logs.String(), `"level":"WARN","msg":"the contact form accepts Turnstile tokens minted on `+
+		`any hostname: TURNSTILE_HOSTNAMES is empty, which only development should do"`)
+}
+
+// Not parallel: it sets environment variables.
+func TestContactVerifierFromEnv_HostnamesIgnoreCase(t *testing.T) {
+	t.Setenv(turnstileSecretKeyEnv, testTurnstileSecret)
+	t.Setenv(turnstileHostnamesEnv, "BardicTorch.org")
+	client, _ := loopbackSiteverify(t, passingAnswer("bardictorch.org"))
+
+	var logs bytes.Buffer
+	ctx := domain.ContextWithLogger(t.Context(), slog.New(slog.NewJSONHandler(&logs, nil)))
+	require.NoError(t, contactVerifierFromEnv(ctx, client).VerifyTurnstile(t.Context(), testTurnstileToken))
+	assert.Empty(t, logs.String(), "an allowlist logs nothing at startup")
 }
 
 // TestContactSubmit_NeverLogsPII sends contact requests through the production handler, with the production

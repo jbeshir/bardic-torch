@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -70,6 +71,20 @@ const (
 	// The code of a contact request whose Turnstile token does not pass (D21).
 	CodeTurnstileFailed ErrorCode = "turnstile_failed"
 )
+
+// ErrorCodeValues returns every error code, in declaration order: the codes the spec's error bodies enumerate
+// (TestSpec_InlineEnumsMatchCode).
+func ErrorCodeValues() []ErrorCode {
+	return []ErrorCode{
+		CodeInvalidRequest, CodeUnsupportedMediaType, CodeRequestTooLarge, CodeUnauthenticated, CodeUserBlocked,
+		CodeAPIAuthNotAllowed, CodeModeratorRequired, CodeNotFound, CodeMethodNotAllowed, CodeConflict,
+		CodeAPIAuthLimitReached, CodeInternal, CodeUnavailable, CodeInvalidDocument, CodeNotDraft, CodeNotPending,
+		CodeRebaseRequired, CodeEntityGone, CodeAlreadyCurrent, CodePendingLimitReached, CodeDraftLimitReached,
+		CodePossibleDuplicate, CodeDuplicateBlocked, CodeHiddenDataConflict, CodePendingReferenceFlagged,
+		CodeUnacknowledgedFlags, CodeDuplicateName, CodeStale, CodeDisplayNameTaken, CodeDisplayNameReserved,
+		CodeReportLimitReached, CodeTurnstileFailed,
+	}
+}
 
 type errorBody struct {
 	Code    ErrorCode `json:"code"`
@@ -194,6 +209,20 @@ func writeDecodeError(ctx context.Context, w http.ResponseWriter, err error, pre
 	WriteError(ctx, w, status, code, message)
 }
 
+// logDecodeError logs, at debug level, why a body could not be decoded: the error's Go type and, for a JSON syntax
+// or type error, its byte offset and the field at fault. Never the error's text, which may quote the body (an
+// unknown field's name, or a value a field's own decoder refused).
 func logDecodeError(ctx context.Context, err error) {
-	domain.LoggerFromContext(ctx).DebugContext(ctx, "unable to decode request body", "error", err)
+	attrs := []any{"error_type", fmt.Sprintf("%T", err)}
+	var (
+		syntaxErr *json.SyntaxError
+		typeErr   *json.UnmarshalTypeError
+	)
+	switch {
+	case errors.As(err, &syntaxErr):
+		attrs = append(attrs, "offset", syntaxErr.Offset)
+	case errors.As(err, &typeErr):
+		attrs = append(attrs, "offset", typeErr.Offset, "field", typeErr.Field)
+	}
+	domain.LoggerFromContext(ctx).DebugContext(ctx, "unable to decode request body", attrs...)
 }

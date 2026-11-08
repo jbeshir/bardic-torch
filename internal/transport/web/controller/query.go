@@ -252,7 +252,7 @@ func writeSearchError(w http.ResponseWriter, r *http.Request, msg string, err er
 		return
 	}
 
-	writeInternalError(w, r, msg, err)
+	WriteInternalError(w, r, msg, err)
 }
 
 // slugParamOrBadRequest returns the query parameter name, which must be a slug, or nil if it is not set. If it

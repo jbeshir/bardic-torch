@@ -71,8 +71,8 @@ func specEnums() map[string][]string {
 // TestSpec_EnumSchemasMatchDomain checks that every named enum schema in the spec lists exactly the values, in
 // the order, of the domain vocabulary it describes, so that a value added in the domain and the database without
 // the spec (or the reverse) fails here rather than breaking the contract in production. A new enum schema must be
-// added to specEnums. Inline enums (error codes, the changed-field names of each entity type, the entity type
-// tags of a response) describe no domain vocabulary and are not compared.
+// added to specEnums. The inline enums of error codes, problem codes and roles are compared by
+// TestSpec_InlineEnumsMatchCode (httpjson).
 func TestSpec_EnumSchemasMatchDomain(t *testing.T) {
 	t.Parallel()
 

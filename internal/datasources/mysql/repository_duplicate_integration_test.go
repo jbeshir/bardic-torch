@@ -13,6 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// hushedPiper is the name of a person who prefers no page, with a public and a hidden alias.
+const hushedPiper = "Hushed Piper"
+
 func TestRepository_FindDuplicates(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -25,6 +28,12 @@ func TestRepository_FindDuplicates(t *testing.T) {
 		URL: new("https://example.org/songbook")}})
 	pending := f.newPending(t, actorWren, newPieceDocument("The Unsung Wren"))
 	f.c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Unapproved Wren"}, Unapproved: true})
+	hushed := f.c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: hushedPiper,
+		Status: domain.PersonStatusPrefersNoPage, StatusSourceURL: new("https://example.org/hushed/request"),
+		Aliases: []domain.DocPersonAlias{
+			{Name: "Piper of the Fen", Kind: domain.PersonAliasKindStage, IsPublic: true},
+			{Name: "Hushed Legalname", Kind: domain.PersonAliasKindLegal},
+		}}})
 
 	person := func(name string) domain.DuplicateCandidate {
 		return domain.NewDuplicateCandidate(newPersonDocument(name))
@@ -62,6 +71,18 @@ func TestRepository_FindDuplicates(t *testing.T) {
 		{"a person who prefers no page blocks", person(quietHarper), false, []domain.DuplicateMatch{{
 			EntityType: domain.EntityTypePerson, Slug: f.quiet.Slug, Name: quietHarper,
 			Matched: domain.DuplicateFieldName, Blocked: true}}},
+		{"never an alias of a person who prefers no page for a contributor", person("piper of the fen"), false,
+			[]domain.DuplicateMatch{}},
+		{"nor their hidden alias", person("Hushed Legalname"), false, []domain.DuplicateMatch{}},
+		{"their name for a contributor", person("hushed piper"), false, []domain.DuplicateMatch{{
+			EntityType: domain.EntityTypePerson, Slug: hushed.Slug, Name: hushedPiper,
+			Matched: domain.DuplicateFieldName, Blocked: true}}},
+		{"their public alias for a moderator", person("piper of the fen"), true, []domain.DuplicateMatch{{
+			EntityType: domain.EntityTypePerson, Slug: hushed.Slug, Name: hushedPiper,
+			Matched: domain.DuplicateFieldAlias, Blocked: true}}},
+		{"their hidden alias for a moderator", person("Hushed Legalname"), true, []domain.DuplicateMatch{{
+			EntityType: domain.EntityTypePerson, Slug: hushed.Slug, Name: hushedPiper,
+			Matched: domain.DuplicateFieldAlias, Blocked: true}}},
 		{"no unapproved entity", person("Unapproved Wren"), true, []domain.DuplicateMatch{}},
 		{"no pending new entity for a contributor", piece("The Unsung Wren"), false, []domain.DuplicateMatch{}},
 		{"pending new entities for a moderator", piece("the unsung wren"), true, []domain.DuplicateMatch{

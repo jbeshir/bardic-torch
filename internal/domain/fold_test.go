@@ -43,7 +43,11 @@ func TestDuplicateKey(t *testing.T) {
 func TestDisplayNameKey(t *testing.T) {
 	t.Parallel()
 
-	for _, s := range []string{"Morwen", "MORWEN", "Mor wen", "Mor.wen", "Mor-wen!", "  mor_wen ", "Mórwen", "Mor'wen"} {
+	// A blank letter (a Hangul filler, also after compatibility decomposition) has no part in the key.
+	for _, s := range []string{
+		"Morwen", "MORWEN", "Mor wen", "Mor.wen", "Mor-wen!", "  mor_wen ", "Mórwen", "Mor'wen", "Morwen\u3164",
+		"Mor\uffa0wen", "\u115fMorwen\u1160",
+	} {
 		assert.Equal(t, "morwen", DisplayNameKey(s), s)
 	}
 	assert.Equal(t, "bard0a1b2c3d", DisplayNameKey("Bard 0a1b2c3d"))

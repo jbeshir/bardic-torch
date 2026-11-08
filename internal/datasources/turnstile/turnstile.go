@@ -38,7 +38,8 @@ var _ datasources.TurnstileVerifier = (*Verifier)(nil)
 // concurrent requests can pass the open-request cap, whose count is not locked (a soft backstop until BE5's rate
 // limits).
 type Verifier struct {
-	secret    string
+	secret string
+	// hostnames are lower case.
 	hostnames []string
 	client    *http.Client
 	endpoint  string
@@ -46,12 +47,17 @@ type Verifier struct {
 }
 
 // New returns a Verifier that verifies tokens with secret through client. A token passes only if Cloudflare
-// accepts it, it was minted for one of hostnames (any hostname, if hostnames is empty) and for the action
-// domain.TurnstileActionContact.
+// accepts it, it was minted for one of hostnames, compared without regard to case (any hostname, if hostnames is
+// empty), and for the action domain.TurnstileActionContact.
 func New(secret string, hostnames []string, client *http.Client) *Verifier {
+	lowered := make([]string, len(hostnames))
+	for i, hostname := range hostnames {
+		lowered[i] = strings.ToLower(hostname)
+	}
+
 	return &Verifier{
 		secret:    secret,
-		hostnames: hostnames,
+		hostnames: lowered,
 		client:    client,
 		endpoint:  siteverifyURL,
 		slots:     make(chan struct{}, domain.MaxConcurrentTurnstileVerifications),
@@ -97,7 +103,7 @@ func (v *Verifier) VerifyTurnstile(ctx context.Context, token string) error {
 			"error_codes", answer.ErrorCodes)
 		return fmt.Errorf("%w: error codes [%s]", datasources.ErrTurnstileUnavailable,
 			strings.Join(answer.ErrorCodes, ", "))
-	case len(v.hostnames) > 0 && !slices.Contains(v.hostnames, answer.Hostname),
+	case len(v.hostnames) > 0 && !slices.Contains(v.hostnames, strings.ToLower(answer.Hostname)),
 		answer.Action != domain.TurnstileActionContact:
 		logger.WarnContext(ctx, "turnstile token minted for another hostname or action",
 			"hostname", answer.Hostname, "action", answer.Action)

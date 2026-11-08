@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // Role is a user's permission level.
 type Role string
@@ -14,10 +17,9 @@ const (
 
 // ParseRole returns the Role named by s, or an error if s is not a known role.
 func ParseRole(s string) (Role, error) {
-	switch r := Role(s); r {
-	case RoleContributor, RoleModerator:
+	if r := Role(s); slices.Contains(RoleValues(), r) {
 		return r, nil
-	default:
-		return "", fmt.Errorf("unknown role [%s]", s)
 	}
+
+	return "", fmt.Errorf("unknown role [%s]", s)
 }

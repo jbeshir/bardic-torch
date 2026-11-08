@@ -32,6 +32,11 @@ func newSetUserBlockedMocks(t *testing.T) setUserBlockedMocks {
 	return m
 }
 
+// blockRequest is an interactive moderator's request to block or unblock resolvedUserID.
+func blockRequest(blocked bool) SetUserBlockedRequest {
+	return SetUserBlockedRequest{Principal: interactiveMod, UserID: resolvedUserID, Blocked: blocked}
+}
+
 // expectSet expects one block or unblock of resolvedUserID, returning err.
 func (m setUserBlockedMocks) expectSet(blocked bool, err error) {
 	if blocked {
@@ -58,7 +63,7 @@ func TestSetUserBlocked_ReturnsUpdatedUser(t *testing.T) {
 			m.expectSet(blocked, nil)
 			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(stored, nil)
 
-			user, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: blocked})
+			user, err := m.cmd.Execute(t.Context(), blockRequest(blocked))
 
 			require.NoError(t, err)
 			assert.Equal(t, stored, user)
@@ -77,7 +82,7 @@ func TestSetUserBlocked_UnknownUserIsNotFound(t *testing.T) {
 			m.expectSet(blocked, datasources.ErrNotFound)
 			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(domain.User{}, datasources.ErrNotFound)
 
-			_, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: blocked})
+			_, err := m.cmd.Execute(t.Context(), blockRequest(blocked))
 
 			require.ErrorIs(t, err, datasources.ErrNotFound)
 			require.NotErrorIs(t, err, ErrModeratorNotBlockable)
@@ -97,7 +102,7 @@ func TestSetUserBlocked_ModeratorIsNotBlockable(t *testing.T) {
 			m.expectSet(blocked, datasources.ErrNotFound)
 			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(moderator, nil)
 
-			_, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: blocked})
+			_, err := m.cmd.Execute(t.Context(), blockRequest(blocked))
 
 			require.ErrorIs(t, err, ErrModeratorNotBlockable)
 		})
@@ -123,7 +128,7 @@ func TestSetUserBlocked_RetriesContributorCreatedDuringUpdate(t *testing.T) {
 			m.expectSet(blocked, nil)
 			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(updated, nil).Once()
 
-			user, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: blocked})
+			user, err := m.cmd.Execute(t.Context(), blockRequest(blocked))
 
 			require.NoError(t, err)
 			assert.Equal(t, updated, user)
@@ -140,7 +145,7 @@ func TestSetUserBlocked_ContributorNeverMatchingFails(t *testing.T) {
 	m.expectSet(true, datasources.ErrNotFound)
 	m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(contributor, nil).Twice()
 
-	_, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: true})
+	_, err := m.cmd.Execute(t.Context(), blockRequest(true))
 
 	require.ErrorIs(t, err, errContributorNotMatched)
 	require.NotErrorIs(t, err, ErrModeratorNotBlockable)
@@ -158,7 +163,7 @@ func TestSetUserBlocked_DatasourceErrors(t *testing.T) {
 			m := newSetUserBlockedMocks(t)
 			m.expectSet(blocked, dbErr)
 
-			_, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: blocked})
+			_, err := m.cmd.Execute(t.Context(), blockRequest(blocked))
 
 			require.ErrorIs(t, err, dbErr)
 		})
@@ -170,7 +175,7 @@ func TestSetUserBlocked_DatasourceErrors(t *testing.T) {
 			m.expectSet(blocked, nil)
 			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(domain.User{}, dbErr)
 
-			_, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{UserID: resolvedUserID, Blocked: blocked})
+			_, err := m.cmd.Execute(t.Context(), blockRequest(blocked))
 
 			require.ErrorIs(t, err, dbErr)
 		})
@@ -182,4 +187,26 @@ func blockedName(blocked bool) string {
 		return "block"
 	}
 	return "unblock"
+}
+
+// TestSetUserBlocked_ModeratorRequired checks that only an interactive moderator may block or unblock: a
+// contributor, and a moderator's API token, which has contributor powers only, are refused before any datasource
+// is called.
+func TestSetUserBlocked_ModeratorRequired(t *testing.T) {
+	t.Parallel()
+
+	principals := map[string]domain.Principal{"auth0_contributor": contributor, "moderator_token": moderatorToken}
+	for name, principal := range principals {
+		for _, blocked := range []bool{true, false} {
+			t.Run(name+"_"+blockedName(blocked), func(t *testing.T) {
+				t.Parallel()
+
+				m := newSetUserBlockedMocks(t)
+				_, err := m.cmd.Execute(t.Context(), SetUserBlockedRequest{Principal: principal, UserID: resolvedUserID,
+					Blocked: blocked})
+
+				require.ErrorIs(t, err, domain.ErrModeratorRequired)
+			})
+		}
+	}
 }

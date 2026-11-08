@@ -145,7 +145,7 @@ func (v *importValidator) system(c *entityCheck, ids map[int64]bool, slugs map[s
 	c.require(!v.revisions[rev.ID], "revision.id", "is not unique")
 	v.revisions[rev.ID] = true
 	c.require(IsImportSummary(rev.Summary), "revision.summary", "is not an import summary")
-	c.varchar(rev.Summary, maxSummaryLength, "revision.summary", true)
+	c.varchar(rev.Summary, MaxSummaryLength, "revision.summary", true)
 	c.require(!rev.CreatedAt.IsZero(), "revision.created_at", "is not set")
 	c.require(len(rev.Contributors) <= maxContributorsCount, "revision.contributors", "has too many entries")
 	for k, name := range rev.Contributors {

@@ -430,7 +430,7 @@ func (c *docCheck) contents(doc any, summary string, incomplete bool) {
 		}
 	})
 	c.strings(reflect.ValueOf(doc), "")
-	c.varchar(summary, maxSummaryLength, "/summary", false)
+	c.varchar(summary, MaxSummaryLength, "/summary", false)
 	c.strings(reflect.ValueOf(summary), "/summary")
 }
 

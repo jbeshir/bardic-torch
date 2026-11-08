@@ -45,6 +45,18 @@ func CheckTextCharacters(s string) error {
 	return nil
 }
 
+// IsBlankLetter reports whether r renders blank, or not at all, while counting as a letter or a symbol, so that a
+// name holding it looks like the name without it: the Hangul fillers (U+115F, U+1160, U+3164, U+FFA0), the
+// braille blank (U+2800) and the other default-ignorable code points.
+func IsBlankLetter(r rune) bool {
+	switch r {
+	case 0x115f, 0x1160, 0x3164, 0xffa0, 0x2800:
+		return true
+	}
+
+	return unicode.Is(unicode.Other_Default_Ignorable_Code_Point, r)
+}
+
 // IsControlCharacter reports whether r is a character imported text must not hold, as it can rewrite how a
 // terminal or a page shows the text after it: a C0 or C1 control other than tab and line feed (NUL, ESC), or a
 // bidirectional embedding, override or isolate (U+202A–U+202E, U+2066–U+2069).

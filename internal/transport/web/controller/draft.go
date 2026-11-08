@@ -71,7 +71,7 @@ func draftFromDomain(result command.DraftResult) (Draft, error) {
 func writeDraft(w http.ResponseWriter, r *http.Request, status int, result command.DraftResult) {
 	body, err := draftFromDomain(result)
 	if err != nil {
-		writeInternalError(w, r, "unable to show draft", err)
+		WriteInternalError(w, r, "unable to show draft", err)
 		return
 	}
 	httpjson.WriteJSON(r.Context(), w, status, body)

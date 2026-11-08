@@ -37,12 +37,22 @@ const (
 )
 
 // docField is a field of a document type as diff and merge see it: the JSON names of the document fields it is
-// made of (several for a group) and, for a list, the key of its elements.
+// made of (several for a group) and, for a list, the key of its elements. For a list whose element keys start with
+// the internal ID of a referenced entity, ref is that entity's type (EditorConflicts names it by slug instead).
 type docField struct {
 	path  string
 	names []string
 	kind  fieldKind
 	key   func(e reflect.Value) string
+	ref   EntityType
+}
+
+// referencing is f with element keys that start with the ID of an entity of type t.
+func (f docField) referencing(t EntityType) docField {
+	out := f
+	out.ref = t
+
+	return out
 }
 
 func scalar(name string) docField { return docField{path: name, names: []string{name}} }
@@ -86,15 +96,17 @@ var (
 		scalar("title"), scalar("kind"), set("secondary_kinds", keyOfValue), scalar("conservation"),
 		scalar("is_stub"), scalar("notes_md"), scalar("version_notes_md"),
 		group("licensing", "licensing_status", "licence", "licensing_notes_md"), scalar("historical_source_md"),
-		group("period", "period_start", "period_end"), keyed("aliases", keyOfAliasText), keyed("terms", keyOfTerm),
-		keyed("relations", keyOfPieceRelation), scalar("credits"), keyed("links", keyOfLink),
+		group("period", "period_start", "period_end"), keyed("aliases", keyOfAliasText),
+		keyed("terms", keyOfTerm).referencing(EntityTypeTerm),
+		keyed("relations", keyOfPieceRelation).referencing(EntityTypePiece), scalar("credits"), keyed("links", keyOfLink),
 		keyed("preferences", keyOfPreference),
 	}
 	personFields = []docField{
 		scalar("name"), scalar("kind"), group("status", "status", "status_date", "status_source_url"),
 		scalar("pronouns"), scalar("notes_md"), group("licensing", "licensing_status", "licensing_notes_md"),
 		scalar("is_stub"), keyed("aliases", keyOfAliasName), set("roles", keyOfValue),
-		set("affiliation_ids", keyOfValue), keyed("relations", keyOfPersonRelation), keyed("links", keyOfLink),
+		set("affiliation_ids", keyOfValue).referencing(EntityTypeTerm),
+		keyed("relations", keyOfPersonRelation).referencing(EntityTypePerson), keyed("links", keyOfLink),
 		keyed("preferences", keyOfPreference),
 	}
 	termFields = []docField{

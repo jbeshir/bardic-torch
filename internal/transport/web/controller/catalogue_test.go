@@ -111,13 +111,14 @@ type invalidIDCase struct {
 // invalidIDCases are the invalid values of the ID path value name.
 func invalidIDCases(name string) []invalidIDCase {
 	body := `{"code":"invalid_request","message":"invalid ` + name + `: must be an integer from 1 to ` +
-		`9223372036854775807"}`
+		`9007199254740991"}`
 	return []invalidIDCase{
 		{name: "zero", pathID: "0", wantBody: body},
 		{name: "negative", pathID: "-1", wantBody: body},
 		{name: "signed", pathID: "+1", wantBody: body},
 		{name: "fraction", pathID: "1.5", wantBody: body},
 		{name: "not_integer", pathID: "songbook", wantBody: body},
+		{name: "above_largest_safe_integer", pathID: "9007199254740992", wantBody: body},
 		{name: "overflow", pathID: "9223372036854775808", wantBody: body},
 	}
 }

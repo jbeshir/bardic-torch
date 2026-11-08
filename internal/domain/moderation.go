@@ -83,7 +83,9 @@ type ModerationRevision struct {
 	Author       *ModerationAuthor
 	Contributors []string
 	// Reviewer is the moderator who approved or rejected the revision, if any.
-	Reviewer    *ModerationAuthor
+	Reviewer *ModerationAuthor
+	// RebasedBy is the moderator who last rebased the revision, if any (with RebasedAt).
+	RebasedBy   *ModerationAuthor
 	Summary     string
 	ReviewNote  *string
 	CreatedAt   time.Time
@@ -119,7 +121,7 @@ type ModerationRevision struct {
 	// compared (D13); none otherwise.
 	Duplicates []DuplicateMatch
 	// ChangedPaths are what Document changes from BaseDocument (from the default document for a new entity).
-	ChangedPaths []string
+	ChangedPaths []FieldPath
 }
 
 // ModerationLinkAttachment is an entity a link is attached to, as a moderator sees it: by slug, with its title or

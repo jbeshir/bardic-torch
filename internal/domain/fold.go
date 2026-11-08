@@ -89,10 +89,11 @@ func DuplicateKey(s string) string {
 }
 
 // DisplayNameKey is the key display names are unique by: DuplicateKey without any character that is not a
-// letter or a digit, so that "Mor.wen", "Mor wen" and "MORWEN" are one name.
+// letter or a digit, so that "Mor.wen", "Mor wen" and "MORWEN" are one name. Blank letters (IsBlankLetter) are
+// dropped too, so that a stored name holding one has the key of the name it looks like.
 func DisplayNameKey(name string) string {
 	return strings.Map(func(r rune) rune {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+		if (unicode.IsLetter(r) || unicode.IsDigit(r)) && !IsBlankLetter(r) {
 			return r
 		}
 

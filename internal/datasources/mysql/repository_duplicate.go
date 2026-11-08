@@ -89,7 +89,9 @@ func (c *catalogueReader) pieceDuplicateNames(ctx context.Context) []domain.Dupl
 }
 
 // personDuplicateNames returns public persons' names and public aliases, and with includeHidden their hidden
-// aliases too; a match on a person who prefers no page is blocked.
+// aliases too; a match on a person who prefers no page is blocked. Without includeHidden, a person who prefers no
+// page is compared by name only, never by an alias, so that a contributor cannot learn whose alias a name is
+// (docs/PLAN.md §5.1 "Duplicate check").
 func (c *catalogueReader) personDuplicateNames(ctx context.Context, includeHidden bool) []domain.DuplicateName {
 	var names []domain.DuplicateName
 	for _, row := range limitedNames(ctx, c, "person names", c.q.ListPersonNames) {
@@ -101,9 +103,12 @@ func (c *catalogueReader) personDuplicateNames(ctx context.Context, includeHidde
 		return c.q.ListPersonAliasNames(ctx, includeHidden)
 	}
 	for _, row := range limitedNames(ctx, c, "person aliases", aliases) {
+		noPage := row.Status == queries.PersonsStatusPrefersNoPage
+		if noPage && !includeHidden {
+			continue
+		}
 		names = append(names, duplicateName(domain.DuplicateMatch{EntityType: domain.EntityTypePerson, Slug: row.Slug,
-			Name: row.Name, Matched: domain.DuplicateFieldAlias,
-			Blocked: row.Status == queries.PersonsStatusPrefersNoPage}, row.Alias))
+			Name: row.Name, Matched: domain.DuplicateFieldAlias, Blocked: noPage}, row.Alias))
 	}
 
 	return names
@@ -215,7 +220,7 @@ func pendingDuplicateNames(candidate domain.DuplicateCandidate, pending []pendin
 func (r *Repository) ListHiddenAliasNames(ctx context.Context) ([]string, error) {
 	names, err := r.queries.ListHiddenAliasNames(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("listing hidden alias names: %w", err)
+		return nil, fmt.Errorf("listing hidden alias names: %w", unavailableIfDisconnected(err))
 	}
 
 	return names, nil

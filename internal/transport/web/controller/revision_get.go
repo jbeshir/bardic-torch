@@ -60,13 +60,13 @@ func (c RevisionGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeInternalError(w, r, "unable to get revision", err)
+		WriteInternalError(w, r, "unable to get revision", err)
 		return
 	}
 
 	body, err := revisionFromDomain(revision)
 	if err != nil {
-		writeInternalError(w, r, "unable to show revision", err)
+		WriteInternalError(w, r, "unable to show revision", err)
 		return
 	}
 	httpjson.WriteJSON(ctx, w, http.StatusOK, body)

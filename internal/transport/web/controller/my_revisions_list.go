@@ -48,7 +48,7 @@ func (c MyRevisionsList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Query:     datasources.MyRevisionQuery{Status: status, EntityType: entityType, Page: page},
 	})
 	if err != nil {
-		writeInternalError(w, r, "unable to list revisions", err)
+		WriteInternalError(w, r, "unable to list revisions", err)
 		return
 	}
 	httpjson.WriteJSON(r.Context(), w, http.StatusOK, MyRevisionList{

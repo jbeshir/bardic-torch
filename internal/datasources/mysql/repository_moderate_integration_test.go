@@ -243,6 +243,12 @@ func TestRepository_RebaseRevision(t *testing.T) {
 	assert.Equal(t, songDocument(f).Preferences, rebased.Preferences, "the preferences come from current")
 	assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM revisions WHERE id = ? AND rebased_by_user_id = ? "+
 		"AND rebased_at IS NOT NULL", ours.RevisionID, rowanUserID))
+	view, err := f.repo.GetModerationRevision(t.Context(), ours.RevisionID)
+	require.NoError(t, err)
+	require.NotNil(t, view.RebasedBy, "the moderation view names who rebased it")
+	assert.Equal(t, rowanUserID, view.RebasedBy.ID)
+	assert.Equal(t, domain.RoleModerator, view.RebasedBy.Role)
+	assert.NotNil(t, view.RebasedAt)
 	mine, err := f.repo.GetMyRevision(t.Context(), actorWren, ours.RevisionID)
 	require.NoError(t, err)
 	assert.Equal(t, songTitle, mine.BaseSnapshot.(domain.PieceSnapshot).Title,
