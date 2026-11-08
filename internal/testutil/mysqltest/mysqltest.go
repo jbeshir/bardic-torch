@@ -60,7 +60,8 @@ func NewDatabaseURL(t testing.TB) string {
 // CreateDatabase creates a migrated database as NewDatabaseURL does, but not tied to a test: the caller must
 // call drop once no test uses it. It is for a database several tests share (see catalogtest.Shared). No connection
 // is kept open between the two: the admin connection is opened for the CREATE and again for the DROP, so a database
-// that lives as long as the test binary does not also hold an admin connection that long.
+// that lives as long as the test binary does not also hold an admin connection that long. The DROP so needs a new
+// connection; on a server out of connections it fails, failing the test, and leaves the database behind.
 func CreateDatabase(ctx context.Context) (dbURL string, drop func(context.Context) error, err error) {
 	dbURL, cfg, err := newDatabaseConfig()
 	if err != nil {
@@ -108,17 +109,19 @@ func adminExec(ctx context.Context, adminCfg *mysqldriver.Config, statement stri
 // size (mysql.ProductionPool keeps ten idle connections) per test database ran a 20-core machine's suite out of
 // connections: the databases catalogtest keeps for later tests and its shared databases live as long as the test
 // binary, and their idle connections added up. A test pool so keeps one idle connection, enough for a test's
-// statements one after another, and opens at most four, enough for the forced race tests (a transaction holding
-// rows, the write waiting for them and the query watching it wait) and few enough that the tests running at once
-// in every binary stay far under the server's limit. Connections never expire: a test database lives for one test
-// binary at most.
+// statements one after another, and opens at most four, as many as the forced race tests hold at once (a
+// transaction holding rows, two approvals waiting for them and the query watching them wait: approveTogether), and
+// few enough that the tests running at once in every binary stay far under the server's limit; a test that needs
+// more at once waits for one of its own to be released instead. Connections never expire: a test database lives for
+// one test binary at most.
 func Pool() mysql.PoolLimits {
 	return mysql.PoolLimits{MaxOpenConns: 4, MaxIdleConns: 1}
 }
 
-// adminPool is the limits of an admin pool: one connection for one CREATE or DROP DATABASE, closed with the pool.
+// adminPool is the limits of an admin pool: one connection, kept from Connect's ping for the one CREATE or DROP
+// DATABASE, and closed with the pool.
 func adminPool() mysql.PoolLimits {
-	return mysql.PoolLimits{MaxOpenConns: 1}
+	return mysql.PoolLimits{MaxOpenConns: 1, MaxIdleConns: 1}
 }
 
 // Connect opens a connection pool to the database at dbURL, with the application's session settings and the

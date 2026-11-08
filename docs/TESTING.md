@@ -593,8 +593,9 @@ Under `-race` on a default-settings server this cut `internal/datasources/mysql`
 - **Pool limits** (`TestConnect_AppliesPoolLimits`, `TestNewDatabase_PoolIsBounded`): `Connect` gives the pool the
   limits it is passed (`mysql.ProductionPool` for the application), and a test database's pool has the smaller
   `mysqltest.Pool` (see "Connection budget").
-- **Refused connections** (unit, `internal/testutil/refusingmysql`): a TCP server that answers every connection
-  with a MySQL ERR packet in place of the handshake, as a server at `max_connections` does.
+- **Refused connections** (unit, `internal/testutil/refusingmysql`; `refusingmysql.DB` is a pool to it): a TCP
+  server that answers every connection with a MySQL ERR packet in place of the handshake, as a server at
+  `max_connections` does.
   `TestRepository_TooManyConnectionsIsUnavailable` checks that reads, the auth lookups and a write against it fail
   with `datasources.ErrUnavailable` (alongside `TestRepository_ReadOnly_DatabaseDownIsUnavailable` for a closed
   port), `TestUnavailableIfDisconnected` that errors 1040, 1203 and 1053 are unavailable and other MySQL errors are

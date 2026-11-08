@@ -4,10 +4,14 @@
 package refusingmysql
 
 import (
+	"database/sql"
 	"errors"
 	"net"
 	"sync"
 	"testing"
+	"time"
+
+	mysqldriver "github.com/go-sql-driver/mysql"
 )
 
 // ErConCount and Message are ER_CON_COUNT_ERROR and its message, the error a server at max_connections sends.
@@ -52,4 +56,21 @@ func Listen(t testing.TB) string {
 	})
 
 	return listener.Addr().String()
+}
+
+// DB returns a pool to a server Listen started, closed when the test finishes. Its connections time out after two
+// seconds, so a test fails rather than hangs if the server stops answering.
+func DB(t testing.TB) *sql.DB {
+	t.Helper()
+
+	cfg := mysqldriver.NewConfig()
+	cfg.Net, cfg.Addr, cfg.DBName, cfg.Timeout = "tcp", Listen(t), "bardic_torch", 2*time.Second
+	connector, err := mysqldriver.NewConnector(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := sql.OpenDB(connector)
+	t.Cleanup(func() { _ = db.Close() })
+
+	return db
 }
