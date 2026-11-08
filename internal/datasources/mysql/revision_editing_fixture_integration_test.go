@@ -166,13 +166,44 @@ func (f *editingFixture) saveDraft(
 	return saved
 }
 
-// submit submits the draft id, failing the test on an error.
+// submit submits the draft id as SubmitRevision does, failing the test on an error.
 func (f *editingFixture) submit(t *testing.T, actor domain.Actor, id int64) datasources.SubmitResult {
 	t.Helper()
-	result, err := f.repo.SubmitDraft(t.Context(), f.submitRequest(t, actor, id))
+	result, err := f.submitChecked(t, f.submitRequest(t, actor, id))
 	require.NoError(t, err)
 
 	return result
+}
+
+// submitChecked submits req as SubmitRevision does: a submission refused for lacking the duplicate checks of the
+// pending references an inline approval approves alongside is checked and submitted again.
+func (f *editingFixture) submitChecked(t *testing.T, req datasources.SubmitRequest) (datasources.SubmitResult, error) {
+	t.Helper()
+	result, err := f.repo.SubmitDraft(t.Context(), req)
+	var unchecked *datasources.UncheckedPendingReferencesError
+	if !errors.As(err, &unchecked) {
+		return result, err
+	}
+	req.PendingReferenceDuplicates = f.pendingReferenceChecks(t, unchecked)
+
+	return f.repo.SubmitDraft(t.Context(), req)
+}
+
+// pendingReferenceChecks returns the duplicate checks SubmitRevision makes of the pending references unchecked
+// names: as moderators check them, each one's own placeholder left out.
+func (f *editingFixture) pendingReferenceChecks(
+	t *testing.T, unchecked *datasources.UncheckedPendingReferencesError,
+) map[int64]datasources.DuplicateCheck {
+	t.Helper()
+	checks := map[int64]datasources.DuplicateCheck{}
+	for id, ref := range unchecked.References {
+		matches, err := f.repo.FindDuplicates(t.Context(), ref.Candidate, true)
+		require.NoError(t, err)
+		checks[id] = datasources.DuplicateCheck{Candidate: ref.Candidate,
+			Matches: domain.MatchesOtherThan(matches, ref.Entity)}
+	}
+
+	return checks
 }
 
 // submitRequest is the actor's submission of the draft id now, with the duplicate check SubmitRevision makes.

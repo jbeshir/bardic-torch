@@ -36,9 +36,9 @@ func TestPlanRebase(t *testing.T) {
 	resolved, _ := EditableDocument(personID, person, vis)
 	resolved.NotesMD = ptr("Resolved.")
 	state := func(current *PersonDocument) RebaseState[PersonDocument] {
-		return RebaseState[PersonDocument]{ID: personID, Keys: countingKeys(), Resolved: resolved, Sent: AllEditorFieldsSent,
-			Revision: person, Current: current, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
-			Summary: testSummary, Today: validToday}
+		return RebaseState[PersonDocument]{Resolved: resolved, Revision: person, Current: current,
+			RebaseInputs: RebaseInputs{ID: personID, Keys: countingKeys(), Sent: AllEditorFieldsSent, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
+				Summary: testSummary, Today: validToday}}
 	}
 
 	t.Run("ResolvedKept", func(t *testing.T) {
@@ -78,9 +78,9 @@ func TestPlanRebase_PreferencesFromDocument(t *testing.T) {
 		preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceNoRecording,
 			PreferenceChoiceOralOnly),
 	}
-	doc, err := PlanRebase(RebaseState[PersonDocument]{ID: personID, Keys: countingKeys(), Resolved: resolved, Sent: AllEditorFieldsSent,
-		Revision: planPerson(), Current: &current, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
-		Summary: testSummary, Today: validToday})
+	doc, err := PlanRebase(RebaseState[PersonDocument]{Resolved: resolved, Revision: planPerson(), Current: &current,
+		RebaseInputs: RebaseInputs{ID: personID, Keys: countingKeys(), Sent: AllEditorFieldsSent, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
+			Summary: testSummary, Today: validToday}})
 	require.NoError(t, err, "%v", problemsOrNil(err))
 	assert.Equal(t, []DocPreference{
 		preference(PreferenceDimensionRecording, preferenceSource, PreferenceChoiceOralOnly,
@@ -99,9 +99,9 @@ func TestPlanRebase_AbsentPreferencesKeepCurrent(t *testing.T) {
 	resolved := planPerson()
 	resolved.Preferences = nil // a client built before preferences existed sends none
 	state := func(current *PersonDocument) RebaseState[PersonDocument] {
-		return RebaseState[PersonDocument]{ID: personID, Keys: countingKeys(), Resolved: resolved, Sent: EditorFieldsSent{},
-			Revision: revision, Current: current, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
-			Summary: testSummary, Today: validToday}
+		return RebaseState[PersonDocument]{Resolved: resolved, Revision: revision, Current: current,
+			RebaseInputs: RebaseInputs{ID: personID, Keys: countingKeys(), Sent: EditorFieldsSent{}, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
+				Summary: testSummary, Today: validToday}}
 	}
 
 	doc, err := PlanRebase(state(&current))
@@ -123,9 +123,9 @@ func TestPlanRevert(t *testing.T) {
 	target.NotesMD = ptr("The old notes.")
 	target.Preferences = nil
 	state := func(role Role) RevertState[PersonDocument] {
-		return RevertState[PersonDocument]{ID: personID, Target: target, Current: current,
+		return RevertState[PersonDocument]{Target: target, Current: current, RevertInputs: RevertInputs{ID: personID,
 			Visibility: editorVisibility(t, role), Refs: testRefs(), HiddenAliases: []string{legalName},
-			Summary: testSummary, Today: validToday}
+			Summary: testSummary, Today: validToday}}
 	}
 
 	t.Run("Contributor", func(t *testing.T) {
@@ -161,8 +161,8 @@ func TestPlanRevert(t *testing.T) {
 		old := fullPiece()
 		old.Conservation = DocConservation{Status: ConservationStatusEndangered,
 			SourceURL: ptr("https://example.org/wren/endangered")}
-		s := RevertState[PieceDocument]{ID: pieceID, Target: old, Current: piece,
-			Visibility: editorVisibility(t, RoleContributor), Refs: testRefs(), Today: validToday}
+		s := RevertState[PieceDocument]{Target: old, Current: piece, RevertInputs: RevertInputs{ID: pieceID,
+			Visibility: editorVisibility(t, RoleContributor), Refs: testRefs(), Today: validToday}}
 		_, err := PlanRevert(s)
 		assert.True(t, hasProblem(t, err, ProblemReasonRequired), "%v", err)
 

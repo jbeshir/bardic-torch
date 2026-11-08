@@ -157,16 +157,32 @@ func (c *ApproveRevision) duplicates(
 		}
 	}
 	for _, ref := range revision.PendingReferences {
-		candidate := domain.NewDuplicateCandidate(ref.Document)
-		matches, err := c.Duplicates.FindDuplicates(ctx, candidate, true)
+		check, err := pendingReferenceCheck(ctx, c.Duplicates, ref.RevisionID,
+			datasources.PendingReferenceCandidate{Entity: ref.Entity,
+				Candidate: domain.NewDuplicateCandidate(ref.Document)})
 		if err != nil {
-			return nil, fmt.Errorf("finding duplicates of pending reference [%d]: %w", ref.RevisionID, err)
+			return nil, err
 		}
-		checks[ref.RevisionID] = datasources.DuplicateCheck{Candidate: candidate,
-			Matches: domain.MatchesOtherThan(matches, ref.Entity)}
+		checks[ref.RevisionID] = check
 	}
 
 	return checks, nil
+}
+
+// pendingReferenceCheck is the duplicate check of ref, a pending new term or person created by the revision
+// revisionID that an approval approves alongside, as moderators check it: hidden aliases and other pending new
+// entities compared, its own placeholder left out.
+func pendingReferenceCheck(
+	ctx context.Context, finder datasources.DuplicateFinder, revisionID int64, ref datasources.PendingReferenceCandidate,
+) (datasources.DuplicateCheck, error) {
+	matches, err := finder.FindDuplicates(ctx, ref.Candidate, true)
+	if err != nil {
+		return datasources.DuplicateCheck{}, fmt.Errorf("finding duplicates of pending reference [%d]: %w", revisionID,
+			err)
+	}
+
+	return datasources.DuplicateCheck{Candidate: ref.Candidate, Matches: domain.MatchesOtherThan(matches,
+		ref.Entity)}, nil
 }
 
 // RejectRevisionRequest is Principal's rejection of the pending revision RevisionID with a review note for its

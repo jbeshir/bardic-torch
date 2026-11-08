@@ -2776,8 +2776,9 @@ paths:
             edits or references no longer exists (`entity_gone`); or, for an interactive moderator, the entity
             changed since the base in a way that conflicts (`rebase_required`), the submission's flags are not
             acknowledged (`unacknowledged_flags`) or conflict with hidden data (`hidden_data_conflict`), a
-            pending new entity it references has flags (`pending_reference_flagged`), or, the submission being
-            approved at once, another term of its facet has taken the term's name (`duplicate_name`).
+            pending new entity it references has flags or may duplicate another entity (`pending_reference_flagged`),
+            or, the submission being approved at once, another term of its facet has taken the term's name
+            (`duplicate_name`).
           content:
             application/json:
               schema:

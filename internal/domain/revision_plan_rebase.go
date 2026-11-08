@@ -6,13 +6,18 @@ import "slices"
 // resolved the conflicts in, edited from their editable view, the revision's document, and the entity's current
 // document, which the rebase moves the revision onto, nil for a new entity.
 type RebaseState[D Document] struct {
-	// ID is the entity's ID.
-	ID       int64
 	Resolved D
-	// Sent says which editor fields the resolved document carried: one it did not keeps the current document's.
-	Sent     EditorFieldsSent
 	Revision D
 	Current  *D
+	RebaseInputs
+}
+
+// RebaseInputs are the parts of a RebaseState that are not documents, the same for every document type.
+type RebaseInputs struct {
+	// ID is the entity's ID.
+	ID int64
+	// Sent says which editor fields the resolved document carried: one it did not keeps the current document's.
+	Sent EditorFieldsSent
 	// Author is the role the revision was submitted with, for the contributor restrictions.
 	Author Role
 	// Visibility is what the moderator sees.
@@ -47,10 +52,15 @@ func PlanRebase[D Document](s RebaseState[D]) (D, error) {
 
 // RevertState is what planning a revert of an entity to an earlier approved document of it needs.
 type RevertState[D Document] struct {
-	// ID is the entity's ID.
-	ID      int64
 	Target  D
 	Current D
+	RevertInputs
+}
+
+// RevertInputs are the parts of a RevertState that are not documents, the same for every document type.
+type RevertInputs struct {
+	// ID is the entity's ID.
+	ID int64
 	// Visibility is what the reverting actor sees; its role decides whether the revert is a contributor's.
 	Visibility EditorVisibility
 	Refs       ReferenceIndex
@@ -65,8 +75,13 @@ type RevertState[D Document] struct {
 type RevertPlan[D Document] struct {
 	Document  D
 	Submitted D
-	Received  ElementKeySet
-	Flags     []Flag
+	RevertOutcome
+}
+
+// RevertOutcome are the parts of a RevertPlan that are not documents, the same for every document type.
+type RevertOutcome struct {
+	Received ElementKeySet
+	Flags    []Flag
 }
 
 // PlanRevert plans a revert: the document is RevertDocument(target, current), based on the current document.
@@ -77,7 +92,7 @@ type RevertPlan[D Document] struct {
 func PlanRevert[D Document](s RevertState[D]) (RevertPlan[D], error) {
 	doc := RevertDocument(s.Target, s.Current)
 	projection, received := EditableDocument(s.ID, doc, s.Visibility)
-	plan := RevertPlan[D]{Document: doc, Submitted: projection, Received: received}
+	plan := RevertPlan[D]{Document: doc, Submitted: projection, RevertOutcome: RevertOutcome{Received: received}}
 	if s.Visibility.Role == RoleModerator {
 		return plan, nil
 	}

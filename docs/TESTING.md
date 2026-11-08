@@ -271,8 +271,9 @@ with `go tool`, so nothing needs installing.
   `TestQueries_LockingReadsCarryTheHint` (every `FOR UPDATE`/`FOR SHARE` in `queries.sql` carries
   `MAX_EXECUTION_TIME`).
 - **Revision documents** (`internal/datasources/mysql/revision_documents_test.go`, no database):
-  `TestRevisionStatesMirrorDomain` (each run-time-kind state and plan has a field for every field of the domain type
-  it mirrors), `TestEncodeFlags_NilIsEmptyArray` and `TestDecodeJSONColumn_EmptyIsZero`.
+  `TestEncodeFlags_NilIsEmptyArray` and `TestDecodeJSONColumn_EmptyIsZero`. The planners' states are the domain's
+  own (`domain.SubmitState` and the others), built by the run-time kind from their `…Inputs` and the documents, so
+  no mirror needs a guard.
 - **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list
   statements (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are
   built in Go, so a fake `statementRunner` records each statement. The tests pin the round trips (at most three for a

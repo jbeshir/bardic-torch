@@ -52,11 +52,16 @@ func (e *PendingReferenceFlaggedError) Error() string {
 // SubmitState is what planning a submission needs: the document as its author sent it, the full document
 // of the draft's own base and what the author can see.
 type SubmitState[D Document] struct {
-	// ID is the entity's ID, 0 for a new entity.
-	ID        int64
 	Submitted D
 	// Base is the full document of the draft's base revision, nil for a new entity.
 	Base *D
+	SubmitInputs
+}
+
+// SubmitInputs are the parts of a SubmitState that are not documents, the same for every document type.
+type SubmitInputs struct {
+	// ID is the entity's ID, 0 for a new entity.
+	ID int64
 	// Received are the keys of the projection the author was given (the draft's received keys).
 	Received   ElementKeySet
 	Visibility EditorVisibility
@@ -122,14 +127,19 @@ type PendingReference struct {
 
 // ApprovalState is what planning an approval needs, as read under the approval's locks.
 type ApprovalState[D Document] struct {
-	// ID is the entity's ID.
-	ID int64
 	// Revision is the revision's full document.
 	Revision D
 	// Base is the document of the revision's base, nil if it has none (a new entity).
 	Base *D
 	// Current is the entity's current document, nil for a new entity.
 	Current *D
+	ApprovalInputs
+}
+
+// ApprovalInputs are the parts of an ApprovalState that are not documents, the same for every document type.
+type ApprovalInputs struct {
+	// ID is the entity's ID.
+	ID int64
 	// BaseRevisionID and CurrentRevisionID are the revision's base and the entity's current revision.
 	BaseRevisionID    *int64
 	CurrentRevisionID *int64
@@ -166,7 +176,12 @@ type ApprovalOptions struct {
 type ApprovalPlan[D Document] struct {
 	// Document is the document to write: the revision's, or its merge with the current document if Rebased.
 	Document D
-	Rebased  bool
+	ApprovalOutcome
+}
+
+// ApprovalOutcome are the parts of an ApprovalPlan that are not documents, the same for every document type.
+type ApprovalOutcome struct {
+	Rebased bool
 	// Summary is the summary to publish.
 	Summary string
 	// PendingReferences are the pending entities approved alongside, parents first.
@@ -236,7 +251,7 @@ func PlanApproval[D Document](s ApprovalState[D], opts ApprovalOptions) (Approva
 	if problems := validateDocument(doc, v); len(problems) > 0 {
 		return ApprovalPlan[D]{}, &DocumentError{Problems: problems}
 	}
-	plan := ApprovalPlan[D]{Document: doc, Rebased: rebased, Summary: summary}
+	plan := ApprovalPlan[D]{Document: doc, ApprovalOutcome: ApprovalOutcome{Rebased: rebased, Summary: summary}}
 	for _, ref := range s.PendingReferences {
 		plan.PendingReferences = append(plan.PendingReferences, ref.Entity)
 	}

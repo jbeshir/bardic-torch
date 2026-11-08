@@ -50,7 +50,12 @@ func (c *catalogueReader) approveRevision(ctx context.Context, req datasources.A
 		}
 	}
 
-	return c.approve(ctx, in)
+	pending, err := c.lockPendingReferences(ctx, in)
+	if err != nil {
+		return err
+	}
+
+	return c.approve(ctx, in, pending)
 }
 
 // lockModeratedRevision locks the revision id FOR UPDATE and checks the actor may take the moderation action on it
@@ -83,8 +88,10 @@ type approvalInput struct {
 	authorID   string
 	// author is the role the revision was submitted with: a contributor's, unless an interactive moderator's
 	// submission or revert is approved at once.
-	author         domain.Role
-	entity         domain.EntityRef
+	author domain.Role
+	entity domain.EntityRef
+	// slug is a pending reference's placeholder slug, empty for the revision approved.
+	slug           string
 	kind           documentKind
 	doc            domain.AnyDocument
 	baseRevisionID *int64
@@ -96,8 +103,8 @@ type approvalInput struct {
 	reviewer        string
 	options         domain.ApprovalOptions
 	// duplicates are the duplicate checks of the new entities the approval may approve, by revision ID
-	// (datasources.ApproveRequest). An inline approval, of an interactive moderator's own submission or revert,
-	// holds only its own revision's: its pending references were checked at their own submission.
+	// (datasources.ApproveRequest): its own entity's and those of the pending references approved alongside, which an
+	// inline approval, of an interactive moderator's own submission, takes from datasources.SubmitRequest.
 	duplicates map[uint64]datasources.DuplicateCheck
 	now        time.Time
 }
@@ -125,16 +132,12 @@ func (c *catalogueReader) pendingApproval(ctx context.Context, id uint64) (appro
 	}, c.err
 }
 
-// approve approves the locked pending revision in (docs/PLAN.md §5.1 "Approval"): it finds and locks the pending new
-// terms and persons the revision references and their creating revisions, then the entity rows: its own, those
-// placeholders and the terms of the facets a term document approved belongs to FOR UPDATE, and what the revision,
-// the pending references and the entity's current document reference FOR SHARE. It plans the approval of each
-// (domain.PlanApproval), and writes them, the pending references first.
-func (c *catalogueReader) approve(ctx context.Context, in approvalInput) error {
-	pending, err := c.lockPendingReferences(ctx, in)
-	if err != nil {
-		return err
-	}
+// approve approves the locked pending revision in (docs/PLAN.md §5.1 "Approval"), with pending, the pending new terms
+// and persons it references whose creating revisions the caller locked (lockPendingReferences). It locks the entity
+// rows: its own, those placeholders and the terms of the facets a term document approved belongs to FOR UPDATE, and
+// what the revision, the pending references and the entity's current document reference FOR SHARE. It plans the
+// approval of each (domain.PlanApproval), and writes them, the pending references first.
+func (c *catalogueReader) approve(ctx context.Context, in approvalInput, pending []approvalInput) error {
 	written := []domain.EntityRef{in.entity}
 	refs := referencesOf(in.kind, in.entity.ID, in.doc)
 	for _, p := range pending {
@@ -227,7 +230,7 @@ func (c *catalogueReader) lockPendingReferences(ctx context.Context, in approval
 		if p.entity != e.entity || p.authorID != in.authorID {
 			continue
 		}
-		p.reviewer, p.now = in.reviewer, in.now
+		p.slug, p.reviewer, p.now = e.slug, in.reviewer, in.now
 		out = append(out, p)
 	}
 
@@ -345,19 +348,20 @@ func (c *catalogueReader) approvalDocuments(
 	return docs, nil
 }
 
-// plannedApproval is an approval planned: of the revision approved, its plan and the current document it replaces
-// (nil for a new entity).
+// plannedApproval is an approval planned: of the revision approved, the document to write, the rest of its plan
+// and the current document it replaces (nil for a new entity).
 type plannedApproval struct {
-	in      approvalInput
-	plan    approvalPlan
-	current domain.AnyDocument
+	in       approvalInput
+	document domain.AnyDocument
+	outcome  domain.ApprovalOutcome
+	current  domain.AnyDocument
 }
 
 // planApprovals plans the approval of the revision in and of each pending reference approved alongside it. A
 // pending reference whose own approval would be refused, or which may duplicate another entity, refuses the approval
 // with *domain.PendingReferenceFlaggedError: the moderator approves or rejects it on its own first (docs/PLAN.md
-// §5.1 "Approval"). A new entity approved whose duplicate check is missing or of other names refuses it with
-// datasources.ErrDocumentChanged.
+// §5.1 "Approval"), and so does an inline approval's. A new entity approved whose duplicate check is missing or of
+// other names refuses it with datasources.ErrDocumentChanged.
 func (c *catalogueReader) planApprovals(
 	ctx context.Context, in approvalInput, docs approvalDocuments, pending []approvalInput,
 ) ([]plannedApproval, error) {
@@ -370,18 +374,18 @@ func (c *catalogueReader) planApprovals(
 	ownRefs := ownPendingRefs(own)
 	hidden := fetchAll(ctx, c, "hidden aliases", c.q.ListHiddenAliasNames)
 
-	state := c.approvalState(ctx, in, ownRefs, hidden, in.doc, docs.base, docs.current)
-	state.currentRevisionID = docs.currentRevisionID
-	state.pendingReferences = refs
+	inputs := c.approvalInputs(ctx, in, ownRefs, hidden, in.doc, docs.base, docs.current)
+	inputs.CurrentRevisionID = docs.currentRevisionID
+	inputs.PendingReferences = refs
 	if docs.current == nil {
-		if err := in.checkDuplicates(in.revisionID, in.doc, &state); err != nil {
+		if err := in.checkDuplicates(in.revisionID, in.doc, &inputs); err != nil {
 			return nil, err
 		}
 	}
 	if c.err != nil {
 		return nil, c.err
 	}
-	plan, err := in.kind.planApproval(state, in.options)
+	doc, outcome, err := in.kind.planApproval(inputs, in.doc, docs.base, docs.current, in.options)
 	if err != nil {
 		return nil, err
 	}
@@ -392,38 +396,59 @@ func (c *catalogueReader) planApprovals(
 	}
 	plans := make([]plannedApproval, 0, len(pending)+1)
 	for i, p := range pending {
-		s := c.approvalState(ctx, p, ownRefs, hidden, p.doc, nil, nil)
+		refInputs := c.approvalInputs(ctx, p, ownRefs, hidden, p.doc, nil, nil)
 		if c.err != nil {
 			return nil, c.err
 		}
-		if in.author != domain.RoleModerator {
-			if err := in.checkDuplicates(p.revisionID, p.doc, &s); err != nil {
-				return nil, err
-			}
+		if err := in.checkDuplicates(p.revisionID, p.doc, &refInputs); err != nil {
+			return nil, err
 		}
-		refPlan, err := p.kind.planApproval(s, domain.ApprovalOptions{AcknowledgedFlags: reviewNoteAcknowledged,
-			ReviewNote: in.options.ReviewNote})
+		refDoc, refOutcome, err := p.kind.planApproval(refInputs, p.doc, nil, nil,
+			domain.ApprovalOptions{AcknowledgedFlags: reviewNoteAcknowledged, ReviewNote: in.options.ReviewNote})
 		if err != nil {
 			return nil, pendingReferenceRefused(refs[i], err)
 		}
 		p.options = in.options
-		plans = append(plans, plannedApproval{in: p, plan: refPlan})
+		plans = append(plans, plannedApproval{in: p, document: refDoc, outcome: refOutcome})
 	}
 
-	return append(plans, plannedApproval{in: in, plan: plan, current: docs.current}), nil
+	return append(plans, plannedApproval{in: in, document: doc, outcome: outcome, current: docs.current}), nil
 }
 
 // checkDuplicates sets the duplicate state of the approval of the new entity whose revision revisionID holds the
 // locked document doc from in's duplicate check of it: possible_duplicate for any match, and blocked for a match on
 // a person who prefers no page. A check that is missing, or of other names than doc's, is
 // datasources.ErrDocumentChanged.
-func (in approvalInput) checkDuplicates(revisionID uint64, doc domain.AnyDocument, state *approvalState) error {
+func (in approvalInput) checkDuplicates(
+	revisionID uint64, doc domain.AnyDocument, inputs *domain.ApprovalInputs,
+) error {
 	check, ok := in.duplicates[revisionID]
 	if !ok || !check.Candidate.Equal(domain.NewDuplicateCandidate(doc)) {
 		return fmt.Errorf("duplicate check of revision [%d]: %w", revisionID, datasources.ErrDocumentChanged)
 	}
-	state.possibleDuplicate = len(check.Matches) > 0
-	state.duplicateBlocked = slices.ContainsFunc(check.Matches, func(m domain.DuplicateMatch) bool { return m.Blocked })
+	inputs.PossibleDuplicate = len(check.Matches) > 0
+	inputs.DuplicateBlocked = slices.ContainsFunc(check.Matches, func(m domain.DuplicateMatch) bool { return m.Blocked })
+
+	return nil
+}
+
+// uncheckedPendingReferences refuses the inline approval of in, approving the locked pending references pending
+// alongside, if the duplicate check of any of them is missing or of other names than its locked document's, with a
+// *datasources.UncheckedPendingReferencesError naming each such reference.
+func (c *catalogueReader) uncheckedPendingReferences(in approvalInput, pending []approvalInput) error {
+	unchecked := map[int64]datasources.PendingReferenceCandidate{}
+	for _, p := range pending {
+		candidate := domain.NewDuplicateCandidate(p.doc)
+		if check, ok := in.duplicates[p.revisionID]; !ok || !check.Candidate.Equal(candidate) {
+			unchecked[c.signedID(p.revisionID)] = datasources.PendingReferenceCandidate{
+				Entity:    domain.RevisionEntity{Type: p.entity.Type, ID: p.entity.ID, Slug: p.slug, IsNew: true},
+				Candidate: candidate,
+			}
+		}
+	}
+	if len(unchecked) > 0 {
+		return &datasources.UncheckedPendingReferencesError{References: unchecked}
+	}
 
 	return nil
 }
@@ -451,13 +476,13 @@ func pendingReferenceRefused(ref domain.PendingReference, err error) error {
 	return err
 }
 
-// approvalState loads what planning the approval of in's document doc needs, its author's pending references
-// being own: what validation knows of what doc (and base and current, if not nil) references, and the hidden
-// links among doc's links.
-func (c *catalogueReader) approvalState(
+// approvalInputs loads what planning the approval of in's document doc needs besides the documents, its author's
+// pending references being own: what validation knows of what doc (and base and current, if not nil) references,
+// and the hidden links among doc's links.
+func (c *catalogueReader) approvalInputs(
 	ctx context.Context, in approvalInput, own domain.OwnPendingRefs, hidden []string,
 	doc, base, current domain.AnyDocument,
-) approvalState {
+) domain.ApprovalInputs {
 	refs := referencesOf(in.kind, in.entity.ID, doc)
 	for _, d := range []domain.AnyDocument{base, current} {
 		if d != nil {
@@ -465,32 +490,36 @@ func (c *catalogueReader) approvalState(
 		}
 	}
 
-	return approvalState{
-		id: in.entity.ID, revision: doc, base: base, current: current, baseRevisionID: in.baseRevisionID,
-		author: in.author, refs: c.referenceIndex(ctx, refs, own, doc), hiddenAliases: hidden,
-		hiddenLinkURLs: c.hiddenLinkURLs(ctx, refs), summary: in.summary, storedFlags: in.storedFlags, today: dateOf(in.now),
+	return domain.ApprovalInputs{
+		ID: in.entity.ID, BaseRevisionID: in.baseRevisionID, Author: in.author,
+		Refs: c.referenceIndex(ctx, refs, own, doc), HiddenAliases: hidden, HiddenLinkURLs: c.hiddenLinkURLs(ctx, refs),
+		Summary: in.summary, StoredFlags: in.storedFlags, Today: dateOf(in.now),
 	}
 }
 
-// writeApprovals writes the planned approvals, in order (docs/PLAN.md §5.1 "Approval"): each entity's rows, its
-// conservation history, the closure of each facet given new parents, then each entity's current revision and its
-// revision approved. A missing foreign-key parent (MySQL error 1452: a referenced placeholder was deleted) is
-// datasources.ErrEntityGone.
+// writeApprovals writes the planned approvals, in order (docs/PLAN.md §5.1 "Approval"): the links rows of every
+// approved document in one ascending pass, each entity's rows, its conservation history, the closure of each facet
+// given new parents, then each entity's current revision and its revision approved. A missing foreign-key parent
+// (MySQL error 1452: a referenced placeholder was deleted) is datasources.ErrEntityGone.
 func (c *catalogueReader) writeApprovals(
 	ctx context.Context, docs approvalDocuments, plans []plannedApproval,
 	facets map[domain.Facet]map[int64]*int64,
 ) error {
 	w := &entityWriter{ctx: ctx, q: c.q}
+	entities := make([]approvedEntity, len(plans))
+	for i, p := range plans {
+		entities[i] = approvedEntity{entity: p.in.entity, doc: p.document, current: p.current}
+	}
+	w.writeAll(entities)
 	rebuilt := map[domain.Facet]bool{}
 	for _, p := range plans {
-		w.write(approvedEntity{entity: p.in.entity, doc: p.plan.document, current: p.current})
-		if change := p.plan.conservationChange; change != nil {
+		if change := p.outcome.ConservationChange; change != nil {
 			w.conservationChange(p.in.entity.ID, *change, c.signedID(p.in.revisionID), p.in.now)
 		}
-		if term, ok := p.plan.document.(domain.TermDocument); ok {
+		if term, ok := p.document.(domain.TermDocument); ok {
 			facets[term.Facet][p.in.entity.ID] = term.ParentID
-			if p.plan.termFacetRebuild != nil {
-				rebuilt[*p.plan.termFacetRebuild] = true
+			if p.outcome.TermFacetRebuild != nil {
+				rebuilt[*p.outcome.TermFacetRebuild] = true
 			}
 		}
 	}
@@ -499,7 +528,7 @@ func (c *catalogueReader) writeApprovals(
 	}
 	for _, p := range plans {
 		base := p.in.baseRevisionID
-		if p.plan.rebased {
+		if p.outcome.Rebased {
 			base = docs.currentRevisionID
 		}
 		c.writeApprovedRevision(w, p, base)
@@ -526,12 +555,12 @@ func approvalWriteError(err error) error {
 // writeApprovedRevision makes the approved revision of p its entity's current revision, and stores it approved
 // with its plan's document and summary, on base, dated by its approval.
 func (c *catalogueReader) writeApprovedRevision(w *entityWriter, p plannedApproval, base *int64) {
-	snapshot, err := encodeJSON(p.plan.document)
+	snapshot, err := encodeJSON(p.document)
 	if err != nil {
 		w.fail(err)
 		return
 	}
-	summary := p.plan.summary
+	summary := p.outcome.Summary
 	if summary == "" {
 		summary = p.in.fallbackSummary
 	}

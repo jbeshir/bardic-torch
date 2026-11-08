@@ -121,9 +121,9 @@ func (c *catalogueReader) rebase(ctx context.Context, req datasources.RebaseRequ
 	if c.err != nil {
 		return c.err
 	}
-	doc, err := in.kind.planRebase(rebaseState{id: in.entity.ID, resolved: req.Document, sent: req.Sent,
-		revision: in.doc, current: current,
-		author: in.author, vis: vis, refs: index, summary: summary, today: dateOf(req.Now), keys: req.Keys})
+	doc, err := in.kind.planRebase(domain.RebaseInputs{ID: in.entity.ID, Sent: req.Sent, Author: in.author,
+		Visibility: vis, Refs: index, Summary: summary, Today: dateOf(req.Now), Keys: req.Keys},
+		req.Document, in.doc, current)
 	if err != nil {
 		return err
 	}
@@ -198,18 +198,18 @@ func (c *catalogueReader) revert(ctx context.Context, req datasources.RevertRequ
 	if c.err != nil {
 		return datasources.SubmitResult{}, c.err
 	}
-	plan, err := t.kind.planRevert(revertState{id: t.entity.ID, target: t.doc, current: t.current, vis: vis,
-		refs: index, hiddenAliases: hidden, summary: req.Summary, today: dateOf(req.Now)})
+	doc, submitted, outcome, err := t.kind.planRevert(domain.RevertInputs{ID: t.entity.ID, Visibility: vis, Refs: index,
+		HiddenAliases: hidden, Summary: req.Summary, Today: dateOf(req.Now)}, t.doc, t.current)
 	if err != nil {
 		return datasources.SubmitResult{}, err
 	}
-	if replay, ok, err := c.revertReplay(ctx, req, t, plan.document, status); ok || err != nil {
+	if replay, ok, err := c.revertReplay(ctx, req, t, doc, status); ok || err != nil {
 		return replay, err
 	}
 	if err := c.supersedeForRevert(ctx, req.Actor, t, status); err != nil {
 		return datasources.SubmitResult{}, err
 	}
-	id, err := c.insertRevert(ctx, req, t, plan)
+	id, err := c.insertRevert(ctx, req, t, doc, submitted, outcome)
 	if err != nil {
 		return datasources.SubmitResult{}, err
 	}
@@ -218,12 +218,14 @@ func (c *catalogueReader) revert(ctx context.Context, req datasources.RevertRequ
 		return result, c.err
 	}
 
+	// A revert approves no pending reference alongside: its document merges approved documents, which reference no
+	// pending entity, and a reference to one would be refused by its validation.
 	return result, c.approve(ctx, approvalInput{
 		revisionID: id, authorID: req.Actor.UserID, author: domain.RoleModerator, entity: t.entity, kind: t.kind,
-		doc: plan.document, baseRevisionID: &t.currentID, summary: req.Summary,
+		doc: doc, baseRevisionID: &t.currentID, summary: req.Summary,
 		fallbackSummary: revertSummary(req, t), reviewer: req.Actor.UserID,
 		options: domain.ApprovalOptions{AcknowledgedFlags: req.AcknowledgedFlags}, now: req.Now,
-	})
+	}, nil)
 }
 
 // supersedeForRevert checks a pending revert against the actor's pending cap, not counting the pending revision of
@@ -413,30 +415,31 @@ func revertSummary(req datasources.RevertRequest, t revertTarget) string {
 }
 
 // insertRevert inserts the revision of a planned revert, pending, on the entity's current revision: the full
-// document, its author's projection of it and that projection's keys.
+// document doc, its author's projection of it submitted, and outcome's keys of that projection and flags.
 func (c *catalogueReader) insertRevert(
-	ctx context.Context, req datasources.RevertRequest, t revertTarget, plan revertPlan,
+	ctx context.Context, req datasources.RevertRequest, t revertTarget, doc, submitted domain.AnyDocument,
+	outcome domain.RevertOutcome,
 ) (uint64, error) {
-	snapshot, err := encodeJSON(plan.document)
+	snapshot, err := encodeJSON(doc)
 	if err != nil {
 		return 0, err
 	}
-	submitted, err := encodeJSON(plan.submitted)
+	submittedJSON, err := encodeJSON(submitted)
 	if err != nil {
 		return 0, err
 	}
-	flagsJSON, err := encodeFlags(plan.flags)
+	flagsJSON, err := encodeFlags(outcome.Flags)
 	if err != nil {
 		return 0, err
 	}
-	keys, err := encodeJSON(plan.received)
+	keys, err := encodeJSON(outcome.Received)
 	if err != nil {
 		return 0, err
 	}
 	id, err := c.q.InsertRevertRevision(ctx, queries.InsertRevertRevisionParams{
 		EntityType: t.row.EntityType, EntityID: t.row.EntityID, BaseRevisionID: nullableID(&t.currentID),
 		AuthorUserID: sql.NullString{String: req.Actor.UserID, Valid: true}, SnapshotJson: snapshot,
-		SubmittedSnapshotJson: submitted, FlagsJson: flagsJSON, ReceivedKeysJson: keys,
+		SubmittedSnapshotJson: submittedJSON, FlagsJson: flagsJSON, ReceivedKeysJson: keys,
 		Summary: revertSummary(req, t), CreatedAt: req.Now, SubmittedAt: nullTime(req.Now),
 	})
 	if err != nil {

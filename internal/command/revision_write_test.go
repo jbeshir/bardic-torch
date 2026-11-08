@@ -304,6 +304,60 @@ func TestSubmitRevision_RechecksAChangedDraft(t *testing.T) {
 	require.ErrorIs(t, err, datasources.ErrUnavailable)
 }
 
+// TestSubmitRevision_ChecksPendingReferencesOfAnInlineApproval covers an interactive moderator's submission, approved
+// at once with the pending new persons it references: the write names those it has no duplicate check of, which are
+// checked as moderators check them (hidden aliases compared, the pending person's own placeholder left out) and sent
+// with the retry; a write still naming them gives up as unavailable.
+func TestSubmitRevision_ChecksPendingReferencesOfAnInlineApproval(t *testing.T) {
+	t.Parallel()
+
+	const hazelExample = "Hazel Example"
+
+	moderator := interactiveMod.Actor()
+	pendingPerson := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: hazelExample}
+	ref := datasources.PendingReferenceCandidate{
+		Entity:    domain.RevisionEntity{Type: domain.EntityTypePerson, ID: 31, Slug: "pending-person-31", IsNew: true},
+		Candidate: domain.NewDuplicateCandidate(pendingPerson),
+	}
+	own := domain.DuplicateMatch{EntityType: domain.EntityTypePerson, Slug: ref.Entity.Slug, Name: hazelExample,
+		Matched: domain.DuplicateFieldName}
+	public := domain.DuplicateMatch{EntityType: domain.EntityTypePerson, Slug: "hazel-example", Name: hazelExample,
+		Matched: domain.DuplicateFieldName}
+	unchecked := &datasources.UncheckedPendingReferencesError{
+		References: map[int64]datasources.PendingReferenceCandidate{77: ref},
+	}
+	flagged := &domain.PendingReferenceFlaggedError{RevisionID: 77,
+		Flags: []domain.Flag{{Code: domain.FlagPossibleDuplicate}}}
+
+	m := newSubmitMocks(t)
+	m.drafts.EXPECT().GetDraft(mock.Anything, moderator, testDraftID).Return(testExisting, nil).Twice()
+	m.finder.EXPECT().FindDuplicates(mock.Anything, ref.Candidate, true).
+		Return([]domain.DuplicateMatch{own, public}, nil).Once()
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.MatchedBy(func(r datasources.SubmitRequest) bool {
+		return r.PendingReferenceDuplicates == nil
+	})).Return(datasources.SubmitResult{}, unchecked).Once()
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.MatchedBy(func(r datasources.SubmitRequest) bool {
+		return assert.ObjectsAreEqual(map[int64]datasources.DuplicateCheck{
+			77: {Candidate: ref.Candidate, Matches: []domain.DuplicateMatch{public}},
+		}, r.PendingReferenceDuplicates)
+	})).Return(datasources.SubmitResult{}, flagged).Once()
+
+	_, err := m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: interactiveMod, DraftID: testDraftID})
+	var got *domain.PendingReferenceFlaggedError
+	require.ErrorAs(t, err, &got)
+	assert.Equal(t, flagged, got)
+
+	m = newSubmitMocks(t)
+	m.drafts.EXPECT().GetDraft(mock.Anything, moderator, testDraftID).Return(testExisting, nil).
+		Times(maxDuplicateRechecks + 1)
+	m.finder.EXPECT().FindDuplicates(mock.Anything, ref.Candidate, true).Return([]domain.DuplicateMatch{}, nil).
+		Times(maxDuplicateRechecks + 1)
+	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.Anything).Return(datasources.SubmitResult{}, unchecked).
+		Times(maxDuplicateRechecks + 1)
+	_, err = m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: interactiveMod, DraftID: testDraftID})
+	require.ErrorIs(t, err, datasources.ErrUnavailable)
+}
+
 func TestSubmitRevision_Errors(t *testing.T) {
 	t.Parallel()
 

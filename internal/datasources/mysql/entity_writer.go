@@ -241,24 +241,35 @@ type approvedEntity struct {
 	current domain.AnyDocument
 }
 
-// write replaces the rows of the entity with its approved document: the entity row (and a new
-// entity's slug), its own child rows, its links, link attachments and owned performances. The entity's row is
-// locked FOR UPDATE.
+// write replaces the rows of the entity with its approved document (writeAll).
 func (w *entityWriter) write(e approvedEntity) {
+	w.writeAll([]approvedEntity{e})
+}
+
+// writeAll replaces the rows of each entity with its approved document, in order: the entity row (and a new
+// entity's slug), its own child rows, its links, link attachments and owned performances. The entities' rows are
+// locked FOR UPDATE. The links rows of every document are upserted first, in one ascending normalized URL pass
+// (upsertLinks), so that a write of several entities locks them in the global order.
+func (w *entityWriter) writeAll(entities []approvedEntity) {
+	links := make([]entityLinks, len(entities))
+	for i, e := range entities {
+		links[i] = approvedLinks(e)
+	}
+	linkIDs := w.upsertLinks(links)
+	for i, e := range entities {
+		w.writeEntity(e, linkIDs[i])
+	}
+}
+
+// writeEntity replaces the rows of the entity with its approved document, the IDs of whose links rows, in the order
+// of its links, are linkIDs.
+func (w *entityWriter) writeEntity(e approvedEntity, linkIDs []uint64) {
 	id := e.entity.ID
 	switch d := e.doc.(type) {
 	case domain.PieceDocument:
-		var current *domain.PieceDocument
-		if c, ok := e.current.(domain.PieceDocument); ok {
-			current = &c
-		}
-		w.writePiece(id, d, current)
+		w.writePiece(id, d, e.current == nil, linkIDs)
 	case domain.PersonDocument:
-		var current *domain.PersonDocument
-		if c, ok := e.current.(domain.PersonDocument); ok {
-			current = &c
-		}
-		w.writePerson(id, d, current)
+		w.writePerson(id, d, e.current == nil, linkIDs)
 	case domain.TermDocument:
 		w.writeTerm(id, d, e.current == nil)
 	case domain.CollectionDocument:
@@ -268,7 +279,34 @@ func (w *entityWriter) write(e approvedEntity) {
 	}
 }
 
-func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, current *domain.PieceDocument) {
+// entityLinks are the editor-owned parts of an approved document's links, and those of its entity's current
+// document, nil for a new entity or a document without links.
+type entityLinks struct {
+	links, prev []domain.DocLink
+}
+
+// approvedLinks returns the links of the approved entity e's documents.
+func approvedLinks(e approvedEntity) entityLinks {
+	var out entityLinks
+	switch d := e.doc.(type) {
+	case domain.PieceDocument:
+		part := func(l domain.DocPieceLink) domain.DocLink { return l.DocLink }
+		out.links = docLinks(d.Links, part)
+		if current, ok := e.current.(domain.PieceDocument); ok {
+			out.prev = docLinks(current.Links, part)
+		}
+	case domain.PersonDocument:
+		part := func(l domain.DocPersonLink) domain.DocLink { return l.DocLink }
+		out.links = docLinks(d.Links, part)
+		if current, ok := e.current.(domain.PersonDocument); ok {
+			out.prev = docLinks(current.Links, part)
+		}
+	}
+
+	return out
+}
+
+func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, isNew bool, linkIDs []uint64) {
 	sortTitle := domain.SortTitle(d.Title)
 	key := w.id(id)
 	p := queries.UpdatePieceFromDocumentParams{Title: d.Title, SortTitle: sortTitle,
@@ -280,7 +318,7 @@ func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, current *dom
 		PeriodStart: nullInt16(d.PeriodStart),
 		PeriodEnd:   nullInt16(d.PeriodEnd), ID: key}
 	w.exec("pieces", func() error { return requireMatched(w.q.UpdatePieceFromDocument(w.ctx, p)) })
-	if current == nil {
+	if isNew {
 		w.allocateSlug(domain.SlugEntityTypePiece, id, d.Title, func(ctx context.Context, slug string, rowID uint64) error {
 			return w.q.TrySetSlugPiece(ctx, queries.TrySetSlugPieceParams{Slug: slug, ID: rowID})
 		})
@@ -298,11 +336,6 @@ func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, current *dom
 	w.exec("piece_preferences", func() error { return w.q.DeletePiecePreferences(w.ctx, key) })
 	w.piecePreferences(id, d.Preferences)
 
-	var prev []domain.DocLink
-	if current != nil {
-		prev = docLinks(current.Links, func(l domain.DocPieceLink) domain.DocLink { return l.DocLink })
-	}
-	linkIDs := w.upsertLinks(docLinks(d.Links, func(l domain.DocPieceLink) domain.DocLink { return l.DocLink }), prev)
 	w.exec("link_attachments", func() error { return w.q.DeleteLinkAttachmentsOfPiece(w.ctx, w.nullID(id)) })
 	w.exec("performances", func() error { return w.q.DeletePerformancesOwnedByPiece(w.ctx, w.nullID(id)) })
 	for k, l := range d.Links {
@@ -313,7 +346,7 @@ func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, current *dom
 	}
 }
 
-func (w *entityWriter) writePerson(id int64, d domain.PersonDocument, current *domain.PersonDocument) {
+func (w *entityWriter) writePerson(id int64, d domain.PersonDocument, isNew bool, linkIDs []uint64) {
 	key := w.id(id)
 	p := queries.UpdatePersonFromDocumentParams{Name: d.Name, SortName: d.Name,
 		SortLetter: string(domain.SortLetter(d.Name)), Kind: queries.PersonsKind(d.Kind),
@@ -322,7 +355,7 @@ func (w *entityWriter) writePerson(id int64, d domain.PersonDocument, current *d
 		NotesMd: nullString(d.NotesMD), LicensingNotesMd: nullString(d.LicensingNotesMD),
 		LicensingStatus: queries.PersonsLicensingStatus(d.LicensingStatus), IsStub: d.IsStub, ID: key}
 	w.exec("persons", func() error { return requireMatched(w.q.UpdatePersonFromDocument(w.ctx, p)) })
-	if current == nil {
+	if isNew {
 		w.allocateSlug(domain.SlugEntityTypePerson, id, d.Name, func(ctx context.Context, slug string, rowID uint64) error {
 			return w.q.TrySetSlugPerson(ctx, queries.TrySetSlugPersonParams{Slug: slug, ID: rowID})
 		})
@@ -338,11 +371,6 @@ func (w *entityWriter) writePerson(id int64, d domain.PersonDocument, current *d
 	w.exec("person_preferences", func() error { return w.q.DeletePersonPreferences(w.ctx, key) })
 	w.personPreferences(id, d.Preferences)
 
-	var prev []domain.DocLink
-	if current != nil {
-		prev = docLinks(current.Links, func(l domain.DocPersonLink) domain.DocLink { return l.DocLink })
-	}
-	linkIDs := w.upsertLinks(docLinks(d.Links, func(l domain.DocPersonLink) domain.DocLink { return l.DocLink }), prev)
 	w.exec("link_attachments", func() error { return w.q.DeleteLinkAttachmentsOfPerson(w.ctx, w.nullID(id)) })
 	w.exec("performances", func() error { return w.q.DeletePerformancesOwnedByPerson(w.ctx, w.nullID(id)) })
 	for k, l := range d.Links {
@@ -412,39 +440,46 @@ func docLinks[L any](links []L, part func(L) domain.DocLink) []domain.DocLink {
 	return out
 }
 
-// upsertLinks writes the links rows of a document's links, given the links of the entity's current document prev
-// (nil for a new entity), and returns their IDs, in the order of links. Rows are locked in ascending normalized URL
-// order: each is inserted with the link's fields if there is none, and an existing row's shared fields are
-// written by the link write rule (domain.LinkRowUpdate). A row's hidden and liveness state is never written.
-func (w *entityWriter) upsertLinks(links, prev []domain.DocLink) []uint64 {
-	normalized := make([]string, len(links))
-	for i, l := range links {
-		n, err := domain.NormalizeURL(l.URL)
-		if err != nil {
-			w.fail(fmt.Errorf("link [%d]: %w", i, err))
-			return make([]uint64, len(links))
+// upsertLinks writes the links rows of the links of several documents, each given the links of its entity's current
+// document, and returns their IDs, per document in the order of its links. Rows are locked in one ascending
+// normalized URL pass over every document's links: each is inserted with the link's fields if there is none, and an
+// existing row's shared fields are written by the link write rule (domain.LinkRowUpdate), a URL two documents
+// link being written for each in turn. A row's hidden and liveness state is never written.
+func (w *entityWriter) upsertLinks(docs []entityLinks) [][]uint64 {
+	type occurrence struct {
+		doc, link  int
+		normalized string
+	}
+	ids := make([][]uint64, len(docs))
+	var all []occurrence
+	for i, d := range docs {
+		ids[i] = make([]uint64, len(d.links))
+		for k, l := range d.links {
+			n, err := domain.NormalizeURL(l.URL)
+			if err != nil {
+				w.fail(fmt.Errorf("link [%d]: %w", k, err))
+				return ids
+			}
+			all = append(all, occurrence{doc: i, link: k, normalized: n})
 		}
-		normalized[i] = n
 	}
-	previous := map[string]domain.DocLink{}
-	for _, l := range prev {
-		if n, err := domain.NormalizeURL(l.URL); err == nil {
-			previous[n] = l
+	previous := make([]map[string]domain.DocLink, len(docs))
+	for i, d := range docs {
+		previous[i] = map[string]domain.DocLink{}
+		for _, l := range d.prev {
+			if n, err := domain.NormalizeURL(l.URL); err == nil {
+				previous[i][n] = l
+			}
 		}
 	}
-	order := make([]int, len(links))
-	for i := range order {
-		order[i] = i
-	}
-	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(normalized[a], normalized[b]) })
+	slices.SortStableFunc(all, func(a, b occurrence) int { return cmp.Compare(a.normalized, b.normalized) })
 
-	ids := make([]uint64, len(links))
-	for _, i := range order {
+	for _, o := range all {
 		var prevLink *domain.DocLink
-		if l, ok := previous[normalized[i]]; ok {
+		if l, ok := previous[o.doc][o.normalized]; ok {
 			prevLink = &l
 		}
-		ids[i] = w.upsertLink(links[i], normalized[i], prevLink)
+		ids[o.doc][o.link] = w.upsertLink(docs[o.doc].links[o.link], o.normalized, prevLink)
 	}
 
 	return ids

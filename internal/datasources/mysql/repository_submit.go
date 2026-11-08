@@ -26,8 +26,9 @@ var errBaseNotApproved = errors.New("draft base is not an approved revision of i
 
 // SubmitDraft submits one of the actor's drafts. In one transaction, in the global lock order, it
 // locks the author's users row (the pending cap); the draft and the author's pending revision of the entity it
-// supersedes, by ascending ID; then the entity row FOR UPDATE and the rows of the entities the documents reference
-// FOR SHARE. A draft already submitted is a replay, returned as it is. The submission is planned on the draft's own
+// supersedes, by ascending ID; for an interactive moderator, the revisions creating the pending new terms and persons
+// approved alongside; then the entity row FOR UPDATE and the rows of the entities the documents reference FOR SHARE,
+// in one pass. A draft already submitted is a replay, returned as it is. The submission is planned on the draft's own
 // base, never merged with the current document (domain.PlanSubmit), stored as pending with the author's document
 // kept beside it, and supersedes the author's pending revision of the entity. A new entity gets its placeholder.
 // An interactive moderator's submission is approved at once, in the same transaction.
@@ -56,16 +57,12 @@ func (r *Repository) submitDraft(
 	if s.result.Replayed {
 		return s.result, nil
 	}
-	docs, err := c.loadSubmission(ctx, s.draft, s.result.Status == domain.RevisionStatusApproved)
+	docs, pending, err := c.loadSubmission(ctx, req, s)
 	if err != nil {
 		return datasources.SubmitResult{}, err
 	}
-	if !s.draft.EntityID.Valid && !req.Duplicates.Candidate.Equal(domain.NewDuplicateCandidate(docs.submitted)) {
-		return datasources.SubmitResult{}, fmt.Errorf("duplicate check of draft [%d]: %w", s.draft.ID,
-			datasources.ErrDocumentChanged)
-	}
 	if s.result.Status == domain.RevisionStatusApproved {
-		return s.result, c.submitApproved(ctx, req, s, docs)
+		return s.result, c.submitApproved(ctx, req, s, docs, pending)
 	}
 
 	if err := c.checkPendingCap(ctx, s.draft.AuthorUserID, s.superseded); err != nil {
@@ -84,14 +81,79 @@ func (r *Repository) submitDraft(
 	return s.result, err
 }
 
+// loadSubmission decodes the locked draft of the submission s and loads its base's document, locks the revisions
+// of the pending references an inline approval approves alongside (lockInlinePendingReferences), then the entity
+// rows (lockSubmissionEntities), and compares the names of a new entity's locked document with those req checked,
+// refusing a change with datasources.ErrDocumentChanged. It returns the documents and those pending references.
+func (c *catalogueReader) loadSubmission(
+	ctx context.Context, req datasources.SubmitRequest, s submission,
+) (submissionDocuments, []approvalInput, error) {
+	docs, err := c.decodeDraft(ctx, s.draft)
+	if err != nil {
+		return submissionDocuments{}, nil, err
+	}
+	inline := s.result.Status == domain.RevisionStatusApproved
+	var pending []approvalInput
+	if inline {
+		if pending, err = c.lockInlinePendingReferences(ctx, req, s, docs); err != nil {
+			return submissionDocuments{}, nil, err
+		}
+	}
+	if err := c.lockSubmissionEntities(ctx, docs, inline, pending); err != nil {
+		return submissionDocuments{}, nil, err
+	}
+	if !s.draft.EntityID.Valid && !req.Duplicates.Candidate.Equal(domain.NewDuplicateCandidate(docs.submitted)) {
+		return submissionDocuments{}, nil, fmt.Errorf("duplicate check of draft [%d]: %w", s.draft.ID,
+			datasources.ErrDocumentChanged)
+	}
+
+	return docs, pending, nil
+}
+
+// lockInlinePendingReferences locks, for the submission s of an interactive moderator, which is approved at once,
+// the revisions creating the pending new terms and persons of theirs that the draft's document references
+// (lockPendingReferences), before any entity row: in the global lock order, revisions come first. The document is
+// the draft's as submitted, which restoring a moderator's draft (planSubmission) adds no pending reference to: it
+// puts back only what the client did not send, from the draft's base, an approved document, which references no
+// pending entity. The moderator's duplicate check of each of them must be in req, else the submission is refused
+// with a *datasources.UncheckedPendingReferencesError naming those to check (docs/PLAN.md §5.1 "Duplicate check").
+func (c *catalogueReader) lockInlinePendingReferences(
+	ctx context.Context, req datasources.SubmitRequest, s submission, draft submissionDocuments,
+) ([]approvalInput, error) {
+	in := approvalInput{revisionID: s.draft.ID, authorID: req.Actor.UserID, entity: draft.entity, kind: draft.kind,
+		doc: draft.submitted, reviewer: req.Actor.UserID, duplicates: pendingReferenceChecks(req), now: req.Now}
+	pending, err := c.lockPendingReferences(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+
+	return pending, c.uncheckedPendingReferences(in, pending)
+}
+
+// pendingReferenceChecks returns the duplicate checks of the pending references of an inline approval of the
+// submission req by the IDs of their revisions, as approvalInput holds them.
+func pendingReferenceChecks(req datasources.SubmitRequest) map[uint64]datasources.DuplicateCheck {
+	checks := map[uint64]datasources.DuplicateCheck{}
+	for id, check := range req.PendingReferenceDuplicates {
+		if key, ok := positiveID(id); ok {
+			checks[key] = check
+		}
+	}
+
+	return checks
+}
+
 // submitApproved submits an interactive moderator's draft, which is approved at once: restored like any
 // submission (a moderator is withheld nothing, so only what their client did not send is put back), stored as
 // pending, then approved inline by the approval writer, the moderator its reviewer, in the same transaction, so that
 // a refused approval leaves the draft a draft. The pending cap does not apply: the revision does not stay pending.
-// The duplicate check of a new entity's draft, which submitDraft compared with the locked draft, is the
-// approval's: restoring a moderator's draft adds no name.
+// pending are the pending references it approves alongside, locked (lockInlinePendingReferences). The duplicate
+// check of a new entity's draft, which loadSubmission compared with the locked draft, is the approval's: restoring a
+// moderator's draft adds no name; so are those of the pending references, which the approval checks as any
+// approval does (docs/PLAN.md §5.1 "Duplicate check").
 func (c *catalogueReader) submitApproved(
 	ctx context.Context, req datasources.SubmitRequest, s submission, docs submissionDocuments,
+	pending []approvalInput,
 ) error {
 	doc, flags, err := c.planSubmission(ctx, req, docs, s.draft)
 	if err != nil {
@@ -102,7 +164,7 @@ func (c *catalogueReader) submitApproved(
 		return err
 	}
 
-	duplicates := map[uint64]datasources.DuplicateCheck{}
+	duplicates := pendingReferenceChecks(req)
 	if !s.draft.EntityID.Valid {
 		duplicates[s.draft.ID] = datasources.DuplicateCheck{Candidate: domain.NewDuplicateCandidate(doc),
 			Matches: req.Duplicates.Matches}
@@ -114,7 +176,7 @@ func (c *catalogueReader) submitApproved(
 		storedFlags: flags, reviewer: req.Actor.UserID,
 		options: domain.ApprovalOptions{AcknowledgedFlags: req.AcknowledgedFlags}, duplicates: duplicates,
 		now: req.Now,
-	})
+	}, pending)
 }
 
 // submission is a draft being submitted, locked: its row, the ID of the pending revision it supersedes (0 if
@@ -230,13 +292,8 @@ func (d submissionDocuments) references() domain.SnapshotReferences {
 	return refs
 }
 
-// loadSubmission decodes the draft's document and loads its base's, then takes the submission's entity locks
-// (docs/PLAN.md §5.1 "Approval"): the draft's entity row FOR UPDATE, which must still exist, and the rows of the
-// entities either document references FOR SHARE. A submission approved at once (inline) also locks the terms of a
-// term's facet, first among the terms, as its approval does.
-func (c *catalogueReader) loadSubmission(ctx context.Context, draft queries.GetRevisionRow, inline bool) (
-	submissionDocuments, error,
-) {
+// decodeDraft decodes the locked draft's document and loads its base's.
+func (c *catalogueReader) decodeDraft(ctx context.Context, draft queries.GetRevisionRow) (submissionDocuments, error) {
 	entityType := enumOf[domain.EntityType](c, draft.EntityType)
 	kind, submitted, err := decodeRevision(entityType, draft.SnapshotJson)
 	if err != nil {
@@ -247,15 +304,35 @@ func (c *catalogueReader) loadSubmission(ctx context.Context, draft queries.GetR
 	if docs.base, err = c.draftBaseDocument(ctx, kind, docs.entity, draft.BaseRevisionID); err != nil {
 		return submissionDocuments{}, err
 	}
-	var facets []domain.Facet
-	if inline {
-		facets = rebuiltFacets(docs.submitted)
-	}
-	if _, err := c.lockOwnEntity(ctx, docs.entity, docs.references(), facets); err != nil {
-		return submissionDocuments{}, err
-	}
 
 	return docs, nil
+}
+
+// lockSubmissionEntities takes the entity locks of the submission of docs (docs/PLAN.md §5.1 "Approval"), in one
+// lockEntities pass: the draft's entity row FOR UPDATE, which must still exist, and the rows of the entities either
+// document references FOR SHARE. A submission approved at once (inline) also locks, as its approval does, the
+// placeholders of pending, the pending references it approves alongside, FOR UPDATE, what they reference FOR SHARE,
+// and the terms of the facet of each term approved, first among the terms.
+func (c *catalogueReader) lockSubmissionEntities(
+	ctx context.Context, docs submissionDocuments, inline bool, pending []approvalInput,
+) error {
+	locks := entityLocks{written: []domain.EntityRef{docs.entity}, refs: docs.references()}
+	if inline {
+		locks.facets = rebuiltFacets(append([]domain.AnyDocument{docs.submitted}, pendingDocuments(pending)...)...)
+		for _, p := range pending {
+			locks.written = append(locks.written, p.entity)
+			p.kind.addReferences(p.entity.ID, p.doc, &locks.refs)
+		}
+	}
+	locked, err := c.lockEntities(ctx, locks)
+	if err != nil {
+		return err
+	}
+	if _, ok := locked.rows[docs.entity]; docs.entity.ID != 0 && !ok {
+		return fmt.Errorf("%s [%d]: %w", docs.entity.Type, docs.entity.ID, datasources.ErrEntityGone)
+	}
+
+	return nil
 }
 
 // writeSubmission writes a planned submission: a new entity's placeholder, the superseded revision withdrawn, and
@@ -311,10 +388,10 @@ func (c *catalogueReader) planSubmission(
 		return nil, nil, c.err
 	}
 
-	return docs.kind.planSubmit(submitState{
-		id: docs.entity.ID, submitted: docs.submitted, base: docs.base, received: received, vis: vis, refs: index,
-		hiddenAliases: hidden, summary: draft.Summary, today: dateOf(req.Now), keys: req.Keys,
-	})
+	return docs.kind.planSubmit(domain.SubmitInputs{
+		ID: docs.entity.ID, Received: received, Visibility: vis, Refs: index, HiddenAliases: hidden,
+		Summary: draft.Summary, Today: dateOf(req.Now), Keys: req.Keys,
+	}, docs.submitted, docs.base)
 }
 
 // dateOf is the UTC date of t.

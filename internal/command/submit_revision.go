@@ -53,19 +53,31 @@ type SubmitRevision struct {
 // transaction, which refuses a draft changed since (datasources.ErrDocumentChanged): the check is then made again,
 // up to maxDuplicateRechecks times, and after that the submission fails with datasources.ErrUnavailable. An
 // interactive moderator's submission is approved at once, so a term whose name another term of its facet has
-// taken fails with ErrDuplicateName. Otherwise it fails with the errors of datasources.RevisionSubmitter.
+// taken fails with ErrDuplicateName. It approves the pending new terms and persons it references alongside, each
+// checked for duplicates as moderators check them: the submission names those whose checks it lacks
+// (datasources.UncheckedPendingReferencesError), which are then made and the submission retried as above, and one
+// that may duplicate another entity fails it with *domain.PendingReferenceFlaggedError. Otherwise it fails with the
+// errors of datasources.RevisionSubmitter.
 func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest) (SubmittedRevision, error) {
 	actor := req.Principal.Actor()
 	var result datasources.SubmitResult
+	var referenceChecks map[int64]datasources.DuplicateCheck
 	err := withDuplicateRechecks(func() error {
 		duplicates, err := c.duplicates(ctx, actor, req)
 		if err != nil {
 			return err
 		}
 		result, err = c.Submitter.SubmitDraft(ctx, datasources.SubmitRequest{
-			Actor: actor, DraftID: req.DraftID, Duplicates: duplicates,
+			Actor: actor, DraftID: req.DraftID, Duplicates: duplicates, PendingReferenceDuplicates: referenceChecks,
 			AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(), Keys: c.Keys,
 		})
+		var unchecked *datasources.UncheckedPendingReferencesError
+		if errors.As(err, &unchecked) {
+			if referenceChecks, err = c.pendingReferenceChecks(ctx, unchecked); err != nil {
+				return err
+			}
+			return fmt.Errorf("submitting draft: %w", unchecked)
+		}
 		if actor.Role == domain.RoleModerator && isNameDuplicate(err) {
 			return ErrDuplicateName
 		}
@@ -79,6 +91,24 @@ func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest)
 	}
 
 	return submitted(ctx, c.Revisions, actor, result)
+}
+
+// pendingReferenceChecks makes the duplicate checks an interactive moderator's submission, approved at once, was
+// refused for lacking (docs/PLAN.md §5.1 "Duplicate check"): those of the pending new terms and persons it approves
+// alongside, as moderators check them, by the IDs of their revisions.
+func (c *SubmitRevision) pendingReferenceChecks(
+	ctx context.Context, unchecked *datasources.UncheckedPendingReferencesError,
+) (map[int64]datasources.DuplicateCheck, error) {
+	checks := make(map[int64]datasources.DuplicateCheck, len(unchecked.References))
+	for id, ref := range unchecked.References {
+		check, err := pendingReferenceCheck(ctx, c.Duplicates, id, ref)
+		if err != nil {
+			return nil, err
+		}
+		checks[id] = check
+	}
+
+	return checks, nil
 }
 
 // maxDuplicateRechecks is how many times a write refused with datasources.ErrDocumentChanged is tried again with

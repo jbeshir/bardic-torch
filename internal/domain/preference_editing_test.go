@@ -175,9 +175,9 @@ func TestSubmit_AbsentPreferencesKeepBase(t *testing.T) {
 			sub, keys := EditableDocument(personID, base, vis)
 			sub.Preferences = nil
 			sub.NotesMD = ptr("Edited by an older client.")
-			plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Keys: countingKeys(), Submitted: sub, Base: &base,
-				Received: EditorFieldsSent{}.ReceivedKeys(keys), Visibility: vis, Refs: testRefs(),
-				Summary: testSummary, Today: validToday})
+			plan, err := PlanSubmit(SubmitState[PersonDocument]{Submitted: sub, Base: &base,
+				SubmitInputs: SubmitInputs{ID: personID, Keys: countingKeys(), Received: EditorFieldsSent{}.ReceivedKeys(keys), Visibility: vis, Refs: testRefs(),
+					Summary: testSummary, Today: validToday}})
 			require.NoError(t, err, "%v", problemsOrNil(err))
 			assert.Equal(t, base.Preferences, plan.Document.Preferences)
 			assert.Equal(t, ptr("Edited by an older client."), plan.Document.NotesMD)
@@ -228,9 +228,9 @@ func TestPlanSubmit_PreferenceFlags(t *testing.T) {
 			base.Preferences = shownPreferences()
 			sub, keys := EditableDocument(personID, base, vis)
 			tt.edit(&sub)
-			plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Keys: countingKeys(), Submitted: sub, Base: &base,
-				Received: keys, Visibility: vis, Refs: testRefs(), HiddenAliases: []string{legalName},
-				Summary: testSummary, Today: validToday})
+			plan, err := PlanSubmit(SubmitState[PersonDocument]{Submitted: sub, Base: &base,
+				SubmitInputs: SubmitInputs{ID: personID, Keys: countingKeys(), Received: keys, Visibility: vis, Refs: testRefs(), HiddenAliases: []string{legalName},
+					Summary: testSummary, Today: validToday}})
 			require.NoError(t, err, "%v", problemsOrNil(err))
 			assert.Equal(t, tt.want, plan.Flags)
 		})
@@ -241,8 +241,8 @@ func TestPlanSubmit_PreferenceFlags(t *testing.T) {
 		base := planPerson()
 		base.Preferences = testPreferences()
 		sub, keys := EditableDocument(personID, base, vis)
-		plan, err := PlanSubmit(SubmitState[PersonDocument]{ID: personID, Keys: countingKeys(), Submitted: sub, Base: &base,
-			Received: keys, Visibility: vis, Refs: testRefs(), Summary: testSummary, Today: validToday})
+		plan, err := PlanSubmit(SubmitState[PersonDocument]{Submitted: sub, Base: &base,
+			SubmitInputs: SubmitInputs{ID: personID, Keys: countingKeys(), Received: keys, Visibility: vis, Refs: testRefs(), Summary: testSummary, Today: validToday}})
 		require.NoError(t, err, "%v", problemsOrNil(err))
 		assert.Equal(t, testPreferences(), plan.Document.Preferences, "restored")
 		assert.Empty(t, plan.Flags, "a hidden source the base has already raises no flag")

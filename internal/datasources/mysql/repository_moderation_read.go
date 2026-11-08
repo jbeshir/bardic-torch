@@ -404,13 +404,13 @@ func (c *catalogueReader) moderationFlags(
 		baseRevisionID: revision.BaseRevisionID, summary: row.Summary, storedFlags: stored,
 	}
 	hidden := fetchAll(ctx, c, "hidden aliases", c.q.ListHiddenAliasNames)
-	state := c.approvalState(ctx, in, ownPendingRefs(pending), hidden, docs.doc, docs.base, docs.current)
-	state.currentRevisionID = revision.CurrentRevisionID
-	state.possibleDuplicate = len(revision.Duplicates) > 0
+	inputs := c.approvalInputs(ctx, in, ownPendingRefs(pending), hidden, docs.doc, docs.base, docs.current)
+	inputs.CurrentRevisionID = revision.CurrentRevisionID
+	inputs.PossibleDuplicate = len(revision.Duplicates) > 0
 	if c.err != nil {
 		return nil, c.err
 	}
-	flags := kind.approvalFlags(state)
+	flags := kind.approvalFlags(inputs, docs.doc, docs.base, docs.current)
 	if flags == nil {
 		flags = []domain.Flag{}
 	}

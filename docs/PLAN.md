@@ -485,7 +485,9 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   refuses the approval with `pending_reference_flagged` (its `flags` include `possible_duplicate`), and the
   moderator approves that revision on its own first. The check is made outside the write transaction, on the
   document version the write then locks: the write compares the names checked with its locked document's, and a
-  change between the two is checked again and retried, at most twice, then 503 `unavailable`.
+  change between the two is checked again and retried, at most twice, then 503 `unavailable`. A moderator's own
+  submission approved at once learns its pending references only under its locks: the write names those it has no
+  check of, and the submit checks them and retries the same way.
 - **New entities** are placeholder rows created at submit with no document content (§4.1). At first approval the
   writer allocates the real slug (`Slugify`, then `-2`, `-3`…), fixed thereafter, and the sort keys. A rejected
   or withdrawn new entity's placeholder is deleted with its children when no other pending revision has it; its
@@ -499,11 +501,12 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     locked in the same pass: the current revision is read before the lock and checked under it. The revisions of
     pending references come from an unlocked read, so once locked they are read again, and any found anew (a
     superseding revision) locked too, at most three rounds, then the approval is refused as changed (above). A
-    moderator's own submission or revert approved at once takes its facet lock with its entity rows too;
-  - rows discovered later can still deadlock: the pending references of such an inline approval (locked after its
-    entity rows), the current document of an entity approved since it was read, the `links` rows of a pending
-    reference approved alongside (upserted per entity), and the S-locks foreign-key checks
-    take at the end of a transaction on `users` rows — the reviewer's on approve and reject, the author's on a
+    moderator's own submission approved at once locks the revisions of the pending references it approves alongside
+    (found from its draft's document) before any entity row, and takes their rows, its facet lock and its own entity
+    row in one entity pass, as an approval does. The `links` rows of every document an approval writes, its own and
+    its pending references', are upserted in one ascending pass by normalized URL;
+  - rows discovered later can still deadlock: the current document of an entity approved since it was read, and the
+    S-locks foreign-key checks take at the end of a transaction on `users` rows — the reviewer's on approve and reject, the author's on a
     moderator's revert, and the resolver's on a link report. A deadlock (1213) or lock-wait timeout (1205) is
     retried at most twice;
   - referenced public entities are locked `FOR SHARE`, so a concurrent opt-out or placeholder delete waits or is
@@ -515,8 +518,9 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   with `…/rebase`;
   - pending terms and persons of the revision's author that the document references (recursively) are approved alongside, parents first, only
     when they carry no flag of their own and pass the duplicate check; otherwise 409 `pending_reference_flagged`,
-    and the moderator handles that revision first. A moderator's own submission or revert approved at once does
-    not check its pending references for duplicates again: they were checked at their own submission;
+    and the moderator handles that revision first. A moderator's own submission approved at once checks them too
+    (`pending_reference_flagged`); a revert approves no pending reference, since the documents it merges are approved
+    ones;
   - the entity's own child rows are deleted and reinserted from the document by the writer the importer shares;
     the facet's closure is rebuilt when a term is new or moved; conservation history is appended;
   - links are upserted by normalized URL; the shared fields are written only where this editor changed them, or

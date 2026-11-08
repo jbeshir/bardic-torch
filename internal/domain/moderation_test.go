@@ -18,9 +18,10 @@ func TestDefaultDocument(t *testing.T) {
 func TestApprovalFlags(t *testing.T) {
 	t.Parallel()
 	flags := ApprovalFlags(ApprovalState[EventDocument]{
-		Revision: EventDocument{Name: "Midsummer Fair"}, HiddenAliases: []string{"Wren Placeholder"},
-		Summary: aliasSummary, PossibleDuplicate: true,
-		StoredFlags: []Flag{{Code: FlagHiddenDataConflict, Path: "/name"}, {Code: FlagPossibleDuplicate}},
+		Revision: EventDocument{Name: "Midsummer Fair"}, ApprovalInputs: ApprovalInputs{
+			HiddenAliases: []string{"Wren Placeholder"}, Summary: aliasSummary, PossibleDuplicate: true,
+			StoredFlags: []Flag{{Code: FlagHiddenDataConflict, Path: "/name"}, {Code: FlagPossibleDuplicate}},
+		},
 	})
 
 	assert.Equal(t, []Flag{

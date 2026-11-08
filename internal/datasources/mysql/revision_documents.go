@@ -27,35 +27,28 @@ type documentKind interface {
 	projectedView(id int64, doc domain.AnyDocument, vis domain.EditorVisibility) (domain.Snapshot, error)
 	// view is the public view of doc.
 	view(id int64, doc domain.AnyDocument, vis domain.SnapshotVisibility) (domain.Snapshot, error)
-	// planSubmit plans a contributor's submission (domain.PlanSubmit): the full document to store and its flags.
-	planSubmit(s submitState) (domain.AnyDocument, []domain.Flag, error)
-	// planApproval plans an approval (domain.PlanApproval).
-	planApproval(s approvalState, opts domain.ApprovalOptions) (approvalPlan, error)
-	// planRebase plans a rebase (domain.PlanRebase): the document to store.
-	planRebase(s rebaseState) (domain.AnyDocument, error)
-	// planRevert plans a revert (domain.PlanRevert).
-	planRevert(s revertState) (revertPlan, error)
-	// approvalFlags are the flags approving a revision gates on (domain.ApprovalFlags).
-	approvalFlags(s approvalState) []domain.Flag
+	// planSubmit plans a submission of submitted on base, nil for a new entity (domain.PlanSubmit): the full
+	// document to store and its flags.
+	planSubmit(in domain.SubmitInputs, submitted, base domain.AnyDocument) (domain.AnyDocument, []domain.Flag, error)
+	// planApproval plans the approval of revision, on base and replacing current, each nil for none
+	// (domain.PlanApproval): the document to write and the rest of the plan.
+	planApproval(in domain.ApprovalInputs, revision, base, current domain.AnyDocument, opts domain.ApprovalOptions) (
+		domain.AnyDocument, domain.ApprovalOutcome, error)
+	// planRebase plans the rebase of revision as resolved onto current, nil for a new entity (domain.PlanRebase):
+	// the document to store.
+	planRebase(in domain.RebaseInputs, resolved, revision, current domain.AnyDocument) (domain.AnyDocument, error)
+	// planRevert plans a revert to target from current (domain.PlanRevert): the full document of the new revision,
+	// its author's projection of it, and the rest of the plan.
+	planRevert(in domain.RevertInputs, target, current domain.AnyDocument) (
+		domain.AnyDocument, domain.AnyDocument, domain.RevertOutcome, error)
+	// approvalFlags are the flags approving revision gates on, as planApproval would find them
+	// (domain.ApprovalFlags).
+	approvalFlags(in domain.ApprovalInputs, revision, base, current domain.AnyDocument) []domain.Flag
 	// merge merges ours, a revision, and theirs, the current document, both edits of base (domain.MergeDocuments).
 	merge(base, ours, theirs domain.AnyDocument) (domain.AnyDocument, []domain.RebaseConflict)
 	// changedPaths are what doc changes from base, or from the default document for a nil base
 	// (domain.DiffDocuments).
 	changedPaths(base, doc domain.AnyDocument) []domain.FieldPath
-}
-
-// submitState is domain.SubmitState for a document of a kind known at run time; base is nil for a new entity.
-type submitState struct {
-	id            int64
-	submitted     domain.AnyDocument
-	base          domain.AnyDocument
-	received      domain.ElementKeySet
-	vis           domain.EditorVisibility
-	refs          domain.ReferenceIndex
-	hiddenAliases []string
-	summary       string
-	today         domain.Date
-	keys          domain.KeySource
 }
 
 // editorDocument is a document type, which is also an AnyDocument.
@@ -129,14 +122,11 @@ func (k kindOf[D, S]) viewOf(id int64, d D, vis domain.SnapshotVisibility) (doma
 	return view, nil
 }
 
-func (k kindOf[D, S]) planSubmit(s submitState) (domain.AnyDocument, []domain.Flag, error) {
-	state := domain.SubmitState[D]{ID: s.id, Submitted: s.submitted.(D), Received: s.received, Visibility: s.vis,
-		Refs: s.refs, HiddenAliases: s.hiddenAliases, Summary: s.summary, Today: s.today, Keys: s.keys}
-	if s.base != nil {
-		base := s.base.(D)
-		state.Base = &base
-	}
-	plan, err := domain.PlanSubmit(state)
+func (k kindOf[D, S]) planSubmit(
+	in domain.SubmitInputs, submitted, base domain.AnyDocument,
+) (domain.AnyDocument, []domain.Flag, error) {
+	plan, err := domain.PlanSubmit(domain.SubmitState[D]{Submitted: submitted.(D), Base: optional[D](base),
+		SubmitInputs: in})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -268,66 +258,6 @@ func decodeRevision(entityType domain.EntityType, snapshot []byte) (documentKind
 	return kind, doc, nil
 }
 
-// approvalState is domain.ApprovalState for documents of a kind known at run time; base and current are nil for
-// none.
-type approvalState struct {
-	id                                int64
-	revision, base, current           domain.AnyDocument
-	baseRevisionID, currentRevisionID *int64
-	author                            domain.Role
-	refs                              domain.ReferenceIndex
-	hiddenAliases                     []string
-	hiddenLinkURLs                    map[string]bool
-	summary                           string
-	storedFlags                       []domain.Flag
-	pendingReferences                 []domain.PendingReference
-	possibleDuplicate                 bool
-	duplicateBlocked                  bool
-	today                             domain.Date
-}
-
-// approvalPlan is domain.ApprovalPlan for a document of a kind known at run time.
-type approvalPlan struct {
-	document           domain.AnyDocument
-	rebased            bool
-	summary            string
-	conservationChange *domain.ConservationChange
-	termFacetRebuild   *domain.Facet
-}
-
-// rebaseState is domain.RebaseState for documents of a kind known at run time.
-type rebaseState struct {
-	id                 int64
-	resolved, revision domain.AnyDocument
-	sent               domain.EditorFieldsSent
-	// current is nil for a new entity.
-	current domain.AnyDocument
-	author  domain.Role
-	vis     domain.EditorVisibility
-	refs    domain.ReferenceIndex
-	summary string
-	today   domain.Date
-	keys    domain.KeySource
-}
-
-// revertState is domain.RevertState for documents of a kind known at run time.
-type revertState struct {
-	id              int64
-	target, current domain.AnyDocument
-	vis             domain.EditorVisibility
-	refs            domain.ReferenceIndex
-	hiddenAliases   []string
-	summary         string
-	today           domain.Date
-}
-
-// revertPlan is domain.RevertPlan for documents of a kind known at run time.
-type revertPlan struct {
-	document, submitted domain.AnyDocument
-	received            domain.ElementKeySet
-	flags               []domain.Flag
-}
-
 // optional returns doc as a *D, nil for none.
 func optional[D editorDocument](doc domain.AnyDocument) *D {
 	if doc == nil {
@@ -338,19 +268,17 @@ func optional[D editorDocument](doc domain.AnyDocument) *D {
 	return &d
 }
 
-// approvalStateOf is s as a domain.ApprovalState of documents of type D.
-func approvalStateOf[D editorDocument](s approvalState) domain.ApprovalState[D] {
-	return domain.ApprovalState[D]{
-		ID: s.id, Revision: s.revision.(D), Base: optional[D](s.base), Current: optional[D](s.current),
-		BaseRevisionID: s.baseRevisionID, CurrentRevisionID: s.currentRevisionID, Author: s.author, Refs: s.refs,
-		HiddenAliases: s.hiddenAliases, HiddenLinkURLs: s.hiddenLinkURLs, Summary: s.summary,
-		StoredFlags: s.storedFlags, PendingReferences: s.pendingReferences, PossibleDuplicate: s.possibleDuplicate,
-		DuplicateBlocked: s.duplicateBlocked, Today: s.today,
-	}
+// approvalState is the domain.ApprovalState of documents of type D of in and the documents revision, base and
+// current, the last two nil for none.
+func approvalState[D editorDocument](in domain.ApprovalInputs, revision, base, current domain.AnyDocument,
+) domain.ApprovalState[D] {
+	return domain.ApprovalState[D]{Revision: revision.(D), Base: optional[D](base), Current: optional[D](current),
+		ApprovalInputs: in}
 }
 
-func (k kindOf[D, S]) approvalFlags(s approvalState) []domain.Flag {
-	return domain.ApprovalFlags(approvalStateOf[D](s))
+func (k kindOf[D, S]) approvalFlags(in domain.ApprovalInputs, revision, base, current domain.AnyDocument,
+) []domain.Flag {
+	return domain.ApprovalFlags(approvalState[D](in, revision, base, current))
 }
 
 func (k kindOf[D, S]) merge(base, ours, theirs domain.AnyDocument) (domain.AnyDocument, []domain.RebaseConflict) {
@@ -368,20 +296,22 @@ func (k kindOf[D, S]) changedPaths(base, doc domain.AnyDocument) []domain.FieldP
 	return domain.DiffDocuments(from, doc.(D))
 }
 
-func (k kindOf[D, S]) planApproval(s approvalState, opts domain.ApprovalOptions) (approvalPlan, error) {
-	plan, err := domain.PlanApproval(approvalStateOf[D](s), opts)
+func (k kindOf[D, S]) planApproval(
+	in domain.ApprovalInputs, revision, base, current domain.AnyDocument, opts domain.ApprovalOptions,
+) (domain.AnyDocument, domain.ApprovalOutcome, error) {
+	plan, err := domain.PlanApproval(approvalState[D](in, revision, base, current), opts)
 	if err != nil {
-		return approvalPlan{}, err
+		return nil, domain.ApprovalOutcome{}, err
 	}
 
-	return approvalPlan{document: plan.Document, rebased: plan.Rebased, summary: plan.Summary,
-		conservationChange: plan.ConservationChange, termFacetRebuild: plan.TermFacetRebuild}, nil
+	return plan.Document, plan.ApprovalOutcome, nil
 }
 
-func (k kindOf[D, S]) planRebase(s rebaseState) (domain.AnyDocument, error) {
-	doc, err := domain.PlanRebase(domain.RebaseState[D]{ID: s.id, Resolved: s.resolved.(D), Sent: s.sent,
-		Revision: s.revision.(D), Current: optional[D](s.current),
-		Author: s.author, Visibility: s.vis, Refs: s.refs, Summary: s.summary, Today: s.today, Keys: s.keys})
+func (k kindOf[D, S]) planRebase(in domain.RebaseInputs, resolved, revision, current domain.AnyDocument) (
+	domain.AnyDocument, error,
+) {
+	doc, err := domain.PlanRebase(domain.RebaseState[D]{Resolved: resolved.(D), Revision: revision.(D),
+		Current: optional[D](current), RebaseInputs: in})
 	if err != nil {
 		return nil, err
 	}
@@ -389,13 +319,13 @@ func (k kindOf[D, S]) planRebase(s rebaseState) (domain.AnyDocument, error) {
 	return doc, nil
 }
 
-func (k kindOf[D, S]) planRevert(s revertState) (revertPlan, error) {
-	plan, err := domain.PlanRevert(domain.RevertState[D]{ID: s.id, Target: s.target.(D), Current: s.current.(D),
-		Visibility: s.vis, Refs: s.refs, HiddenAliases: s.hiddenAliases, Summary: s.summary, Today: s.today})
+func (k kindOf[D, S]) planRevert(in domain.RevertInputs, target, current domain.AnyDocument) (
+	domain.AnyDocument, domain.AnyDocument, domain.RevertOutcome, error,
+) {
+	plan, err := domain.PlanRevert(domain.RevertState[D]{Target: target.(D), Current: current.(D), RevertInputs: in})
 	if err != nil {
-		return revertPlan{}, err
+		return nil, nil, domain.RevertOutcome{}, err
 	}
 
-	return revertPlan{document: plan.Document, submitted: plan.Submitted, received: plan.Received,
-		flags: plan.Flags}, nil
+	return plan.Document, plan.Submitted, plan.RevertOutcome, nil
 }

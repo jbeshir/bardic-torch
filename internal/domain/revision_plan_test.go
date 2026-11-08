@@ -23,10 +23,11 @@ const (
 // currentID; base == current when currentID is importRevisionID.
 func pieceApproval(base, revision, current PieceDocument, currentID int64) ApprovalState[PieceDocument] {
 	return ApprovalState[PieceDocument]{
-		ID: pieceID, Revision: revision, Base: &base, Current: &current,
-		BaseRevisionID: ptr(importRevisionID), CurrentRevisionID: ptr(currentID),
-		Author: RoleContributor, Refs: testRefs(), HiddenAliases: []string{legalName}, Summary: testSummary,
-		Today: validToday,
+		Revision: revision, Base: &base, Current: &current, ApprovalInputs: ApprovalInputs{
+			ID: pieceID, BaseRevisionID: ptr(importRevisionID), CurrentRevisionID: ptr(currentID),
+			Author: RoleContributor, Refs: testRefs(), HiddenAliases: []string{legalName}, Summary: testSummary,
+			Today: validToday,
+		},
 	}
 }
 
@@ -323,9 +324,9 @@ func TestPlanApproval(t *testing.T) {
 
 // termApproval is the approval of a term document of entity id, whose current document is current.
 func termApproval(id int64, revision, current TermDocument) ApprovalState[TermDocument] {
-	return ApprovalState[TermDocument]{ID: id, Revision: revision, Base: &current, Current: &current,
-		BaseRevisionID: ptr(currentRevisionID), CurrentRevisionID: ptr(currentRevisionID), Author: RoleContributor,
-		Refs: testRefs(), Summary: testSummary, Today: validToday}
+	return ApprovalState[TermDocument]{Revision: revision, Base: &current, Current: &current,
+		ApprovalInputs: ApprovalInputs{ID: id, BaseRevisionID: ptr(currentRevisionID), CurrentRevisionID: ptr(currentRevisionID), Author: RoleContributor,
+			Refs: testRefs(), Summary: testSummary, Today: validToday}}
 }
 
 func TestPlanApproval_Terms(t *testing.T) {
@@ -473,9 +474,10 @@ func TestCheckReviewNote(t *testing.T) {
 func submitState[D Document](t *testing.T, id int64, submitted D, base *D, received ElementKeySet) SubmitState[D] {
 	t.Helper()
 
-	return SubmitState[D]{ID: id, Keys: countingKeys(), Submitted: submitted, Base: base, Received: received,
+	return SubmitState[D]{Submitted: submitted, Base: base, SubmitInputs: SubmitInputs{ID: id, Keys: countingKeys(),
+		Received:   received,
 		Visibility: editorVisibility(t, RoleContributor), Refs: testRefs(), HiddenAliases: []string{legalName},
-		Summary: testSummary, Today: validToday}
+		Summary: testSummary, Today: validToday}}
 }
 
 func TestPlanSubmit(t *testing.T) {

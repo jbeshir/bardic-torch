@@ -3,6 +3,7 @@ package datasources
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -108,16 +109,43 @@ type DraftDiscarder interface {
 // (docs/PLAN.md §5.1 "Duplicate check"): any match is stored as a possible_duplicate flag, and for an interactive
 // moderator, whose submission is approved at once, they are the approval's (ApproveRequest). A draft of a new entity
 // whose locked document's names are not those checked is refused with ErrDocumentChanged; for any other draft
-// Duplicates is not read. AcknowledgedFlags are an interactive moderator's acknowledgements of their submission's
-// flags.
+// Duplicates is not read. PendingReferenceDuplicates are, for an interactive moderator, the moderator duplicate
+// checks of the pending new terms and persons their submission approves alongside, by the ID of the revision
+// creating each: one missing, or of other names than the locked document's, is refused with an
+// *UncheckedPendingReferencesError naming what to check. AcknowledgedFlags are an interactive moderator's
+// acknowledgements of their submission's flags.
 type SubmitRequest struct {
-	Actor             domain.Actor
-	DraftID           int64
-	Duplicates        DuplicateCheck
-	AcknowledgedFlags []domain.FlagCode
-	Now               time.Time
+	Actor                      domain.Actor
+	DraftID                    int64
+	Duplicates                 DuplicateCheck
+	PendingReferenceDuplicates map[int64]DuplicateCheck
+	AcknowledgedFlags          []domain.FlagCode
+	Now                        time.Time
 	// Keys issues the keys of the submission's new performances.
 	Keys domain.KeySource
+}
+
+// UncheckedPendingReferencesError is an interactive moderator's submission, approved at once, refused because it
+// approves pending new terms or persons alongside whose duplicate checks the request lacks or holds for other names
+// (SubmitRequest.PendingReferenceDuplicates). References are what to check, by the ID of the revision creating each.
+// It is also ErrDocumentChanged: the write did not happen, and the caller checks them and retries.
+type UncheckedPendingReferencesError struct {
+	References map[int64]PendingReferenceCandidate
+}
+
+func (e *UncheckedPendingReferencesError) Error() string {
+	return fmt.Sprintf("%d pending references need a duplicate check", len(e.References))
+}
+
+func (e *UncheckedPendingReferencesError) Unwrap() error {
+	return ErrDocumentChanged
+}
+
+// PendingReferenceCandidate is a pending new term or person to check for duplicates: the entity, with its
+// placeholder slug, whose own placeholder its check leaves out (domain.MatchesOtherThan), and its names.
+type PendingReferenceCandidate struct {
+	Entity    domain.RevisionEntity
+	Candidate domain.DuplicateCandidate
 }
 
 // SubmitResult is the revision a submission leaves: Replayed is set when the draft had already been submitted, and
@@ -134,7 +162,7 @@ type SubmitResult struct {
 // . It returns ErrNotFound unless the draft is the actor's, domain.ErrNotDraft for a rejected or withdrawn
 // revision, a *domain.DocumentError, ErrPendingLimitReached, ErrEntityGone and ErrDocumentChanged. An interactive
 // moderator's submission is approved at once, inline: a stale one is merged, and the approval's errors are its
-// errors (RevisionApprover), the draft staying a draft.
+// errors (RevisionApprover), the draft staying a draft, as is *UncheckedPendingReferencesError.
 type RevisionSubmitter interface {
 	SubmitDraft(ctx context.Context, req SubmitRequest) (SubmitResult, error)
 }
