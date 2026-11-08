@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"reflect"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
@@ -14,11 +15,11 @@ import (
 type documentKind interface {
 	decode(data []byte) (domain.AnyDocument, error)
 	addReferences(id int64, doc domain.AnyDocument, refs *domain.SnapshotReferences)
-	// editable is the projection of doc the caller may edit, with the keys of what it shows (D5).
+	// editable is the projection of doc the caller may edit, with the keys of what it shows.
 	editable(id int64, doc domain.AnyDocument, vis domain.EditorVisibility) (domain.AnyDocument, domain.ElementKeySet)
-	// author is what the author of the submitted document doc, who received the keys received, is shown of it (D6).
+	// author is what the author of the submitted document doc, who received the keys received, is shown of it.
 	author(id int64, doc domain.AnyDocument, received domain.ElementKeySet, vis domain.EditorVisibility) domain.AnyDocument
-	// authorView is the author's view of the submitted document doc (D6).
+	// authorView is the author's view of the submitted document doc.
 	authorView(id int64, doc domain.AnyDocument, received domain.ElementKeySet, vis domain.EditorVisibility) (
 		domain.Snapshot, error)
 	// projectedView is the same construction over a base document doc, of which the author received the
@@ -220,17 +221,50 @@ func encodeJSON(v any) (json.RawMessage, error) {
 	return data, nil
 }
 
-// decodeReceivedKeys decodes a revision's received keys; a revision with none received nothing.
-func decodeReceivedKeys(data json.RawMessage) (domain.ElementKeySet, error) {
-	keys := domain.ElementKeySet{}
-	if len(data) == 0 {
-		return keys, nil
-	}
-	if err := json.Unmarshal(data, &keys); err != nil {
-		return nil, fmt.Errorf("decoding received keys: %w", err)
+// encodeFlags encodes a revision's flags for its JSON column; no flags are an empty list, never null.
+func encodeFlags(flags []domain.Flag) (json.RawMessage, error) {
+	if flags == nil {
+		flags = []domain.Flag{}
 	}
 
-	return keys, nil
+	return encodeJSON(flags)
+}
+
+// decodeJSONColumn decodes the JSON column what, which holds a T: no data is the zero value of T, and a list or
+// map is never nil.
+func decodeJSONColumn[T any](what string, data []byte) (T, error) {
+	var v T
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &v); err != nil {
+			var zero T
+
+			return zero, fmt.Errorf("decoding %s: %w", what, err)
+		}
+	}
+	rv := reflect.ValueOf(&v).Elem()
+	switch {
+	case rv.Kind() == reflect.Slice && rv.IsNil():
+		rv.Set(reflect.MakeSlice(rv.Type(), 0, 0))
+	case rv.Kind() == reflect.Map && rv.IsNil():
+		rv.Set(reflect.MakeMap(rv.Type()))
+	}
+
+	return v, nil
+}
+
+// decodeRevision returns the documentKind of the revisions of entityType and the document in snapshot, the stored
+// snapshot of one.
+func decodeRevision(entityType domain.EntityType, snapshot []byte) (documentKind, domain.AnyDocument, error) {
+	kind, err := kindFor(entityType)
+	if err != nil {
+		return nil, nil, err
+	}
+	doc, err := kind.decode(snapshot)
+	if err != nil {
+		return nil, nil, fmt.Errorf("snapshot: %w", err)
+	}
+
+	return kind, doc, nil
 }
 
 // approvalState is domain.ApprovalState for documents of a kind known at run time; base and current are nil for

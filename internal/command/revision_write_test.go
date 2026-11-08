@@ -49,7 +49,7 @@ func TestSaveDraft_NewEntityListsDuplicates(t *testing.T) {
 		return r.Entity == nil && r.EntityType == domain.EntityTypePiece
 	})).Return(datasources.SavedDraft{Draft: testNewDraft, Created: true}, nil)
 	finder := mocks.NewDuplicateFinder(t)
-	// A contributor's duplicates never compare hidden aliases (D13).
+	// A contributor's duplicates never compare hidden aliases.
 	finder.EXPECT().FindDuplicates(mock.Anything, domain.NewDuplicateCandidate(testPiece), false).
 		Return([]domain.DuplicateMatch{testDuplicate}, nil)
 
@@ -170,7 +170,7 @@ func TestSubmitRevision_ActsAsTheEffectiveRole(t *testing.T) {
 			m := newSubmitMocks(t)
 			m.drafts.EXPECT().GetDraft(mock.Anything, pc.actor, testDraftID).Return(testExisting, nil)
 			// Only an interactive moderator's acknowledgements are passed on: an API token's submission is a
-			// contributor's, which is pending (T52).
+			// contributor's, which is pending.
 			var wantAcknowledged []domain.FlagCode
 			if pc.actor.Role == domain.RoleModerator {
 				wantAcknowledged = acknowledged
@@ -224,7 +224,7 @@ func TestSubmitRevision_Duplicates(t *testing.T) {
 			acknowledge: true},
 		{name: "api_token_moderator_unacknowledged", principal: moderatorToken,
 			matches: []domain.DuplicateMatch{testDuplicate}, wantDupErr: true},
-		// Moderators need no acknowledgement: possible_duplicate is one of their flags (D13).
+		// Moderators need no acknowledgement: possible_duplicate is one of their flags.
 		{name: "moderator", principal: interactiveMod, matches: []domain.DuplicateMatch{testDuplicate}},
 		{name: "blocked", principal: contributor, matches: []domain.DuplicateMatch{testDuplicate, testBlockedDupe},
 			acknowledge: true, wantErr: domain.ErrDuplicateBlocked},
@@ -337,7 +337,7 @@ func TestSubmitRevision_Errors(t *testing.T) {
 }
 
 // TestSubmitRevision_ContributorNeverSeesFlags checks that a contributor's submission returns only their view of
-// the revision, which has no flags (D19): the flags it stored are the moderators'.
+// the revision, which has no flags: the flags it stored are the moderators'.
 func TestSubmitRevision_ContributorNeverSeesFlags(t *testing.T) {
 	t.Parallel()
 

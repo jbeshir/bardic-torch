@@ -33,14 +33,9 @@ func (c *catalogueReader) pendingNewEntities(ctx context.Context, userID string,
 	entities := make([]pendingNewEntity, 0, len(rows))
 	for _, row := range rows {
 		entityType := enumOf[domain.EntityType](c, row.EntityType)
-		kind, err := kindFor(entityType)
+		_, doc, err := decodeRevision(entityType, row.SnapshotJson)
 		if err != nil {
-			c.fail(err)
-			return nil
-		}
-		doc, err := kind.decode(row.SnapshotJson)
-		if err != nil {
-			c.fail(fmt.Errorf("pending revision [%d] snapshot: %w", row.ID, err))
+			c.fail(fmt.Errorf("pending revision [%d]: %w", row.ID, err))
 			return nil
 		}
 		slug := row.PieceSlug
@@ -58,7 +53,7 @@ func (c *catalogueReader) pendingNewEntities(ctx context.Context, userID string,
 	return entities
 }
 
-// ownPendingRefs are the pending new terms and persons among entities, as their author sees them (D5): under
+// ownPendingRefs are the pending new terms and persons among entities, as their author sees them: under
 // their placeholder slugs, with the names their pending documents give them.
 func ownPendingRefs(entities []pendingNewEntity) domain.OwnPendingRefs {
 	own := domain.OwnPendingRefs{Terms: map[int64]domain.TermSummary{}, Persons: map[int64]domain.PersonSummary{}}
@@ -136,7 +131,7 @@ func (c *catalogueReader) resolveEditorRefs(
 		}
 	}
 	if !moderator {
-		// A contributor's own pending new terms and persons, by placeholder slug (D5).
+		// A contributor's own pending new terms and persons, by placeholder slug.
 		slugs := map[domain.EntityType][]string{domain.EntityTypeTerm: refs.TermSlugs,
 			domain.EntityTypePerson: refs.PersonSlugs}
 		into := map[domain.EntityType]map[string]int64{domain.EntityTypeTerm: resolved.Terms,
@@ -312,7 +307,7 @@ func documentTitle(doc domain.AnyDocument) string {
 }
 
 // editorVisibility loads what decides what the actor sees of the documents of entity id (0 for a new entity) of
-// kind (D5): the current visibility of what they reference, the hidden links among their links, the actor's own
+// kind: the current visibility of what they reference, the hidden links among their links, the actor's own
 // pending new terms and persons among own, and the actor's role.
 func (c *catalogueReader) editorVisibility(
 	ctx context.Context, actor domain.Actor, id int64, kind documentKind, own []pendingNewEntity,
@@ -322,15 +317,9 @@ func (c *catalogueReader) editorVisibility(
 	for _, doc := range docs {
 		kind.addReferences(id, doc, &refs)
 	}
-	hidden := map[string]bool{}
-	for _, state := range c.linkStates(ctx, refs.LinkURLs) {
-		if state.isHidden {
-			hidden[state.normalizedURL] = true
-		}
-	}
-
 	return domain.EditorVisibility{SnapshotVisibility: c.visibility(ctx, refs),
-		OwnPending: ownPendingRefs(ownPendingFor(actor, own)), HiddenLinkURLs: hidden, Role: actor.Role}
+		OwnPending: ownPendingRefs(ownPendingFor(actor, own)), HiddenLinkURLs: c.hiddenLinkURLs(ctx, refs),
+		Role: actor.Role}
 }
 
 // linkState is the state of the link with a normalized URL.
@@ -364,7 +353,7 @@ func (c *catalogueReader) linkStates(ctx context.Context, urls []string) map[str
 }
 
 // documentLinkStates returns the states of the links of doc, by the document's URLs: for an interactive moderator
-// only (D8), and empty otherwise.
+// only, and empty otherwise.
 func (c *catalogueReader) documentLinkStates(
 	ctx context.Context, actor domain.Actor, id int64, kind documentKind, doc domain.AnyDocument,
 ) []domain.LinkState {

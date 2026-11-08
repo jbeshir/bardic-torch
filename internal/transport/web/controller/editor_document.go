@@ -10,7 +10,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
-// Editor-format documents (D5) are sent and received as the domain's Editor*Document types, whose JSON names are
+// Editor-format documents are sent and received as the domain's Editor*Document types, whose JSON names are
 // the editor format's. An object carrying a document has its entity_type beside it, which says which of the five
 // shapes the document has.
 

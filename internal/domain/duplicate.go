@@ -2,7 +2,7 @@ package domain
 
 import "slices"
 
-// The duplicate check on create (D13): a new entity's names are compared, by DuplicateKey, with the names of the
+// The duplicate check on create: a new entity's names are compared, by DuplicateKey, with the names of the
 // existing entities of its type. Contributor-facing checks never compare with hidden aliases, which would make
 // them an oracle for hidden data; moderator views do.
 
@@ -67,7 +67,7 @@ func (c DuplicateCandidate) Equal(other DuplicateCandidate) bool {
 }
 
 // DuplicateMatch is an existing entity a new one may duplicate: by slug, or a collection by ID, with its title or
-// name. Blocked is set for a person who prefers no page, which a new person may not duplicate (D13).
+// name. Blocked is set for a person who prefers no page, which a new person may not duplicate.
 type DuplicateMatch struct {
 	EntityType   EntityType
 	Slug         string

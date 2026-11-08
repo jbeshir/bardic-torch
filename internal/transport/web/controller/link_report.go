@@ -2,7 +2,6 @@ package controller
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -66,9 +65,6 @@ func (c LinkReportCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, linkNotFoundMessage)
-	case errors.Is(err, datasources.ErrReportLimitReached):
-		httpjson.WriteError(ctx, w, http.StatusConflict, httpjson.CodeReportLimitReached,
-			fmt.Sprintf("a user may have at most %d open link reports", domain.MaxOpenLinkReports))
 	case err != nil:
 		writeRevisionError(w, r, "link report", err)
 	default:
@@ -158,14 +154,11 @@ func (c LinkReportResolve) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	report, err := c.Command.Execute(ctx, command.ResolveLinkReportRequest{
 		Principal: principal, ReportID: reportID, Status: body.Status, Note: body.Note, HideLink: body.HideLink,
 	})
-	switch {
-	case errors.Is(err, datasources.ErrReportNotOpen):
-		httpjson.WriteError(ctx, w, http.StatusConflict, httpjson.CodeConflict, "the link report is not open")
-	case err != nil:
+	if err != nil {
 		writeRevisionError(w, r, "link report", err)
-	default:
-		httpjson.WriteJSON(ctx, w, http.StatusOK, linkReportFromDomain(report))
+		return
 	}
+	httpjson.WriteJSON(ctx, w, http.StatusOK, linkReportFromDomain(report))
 }
 
 // ModerationLinkGet handles GET /v1/moderation/links?url=, any link by URL as moderators see it.
@@ -197,10 +190,6 @@ func (c ModerationLinkGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	link, err := c.Command.Execute(ctx, command.ModerationLinkRequest{Principal: principal, URL: url})
-	if errors.Is(err, datasources.ErrNotFound) {
-		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, linkNotFoundMessage)
-		return
-	}
 	if err != nil {
 		writeRevisionError(w, r, "link", err)
 		return

@@ -219,11 +219,11 @@ with `go tool`, so nothing needs installing.
   infoboxes, Collections page URLs and performance items with performers, per page and in total.
 - **Revision engine** (`internal/domain`, pure functions over hand-built documents and visibilities; the test IDs
   are those of the BE4 plan's tables):
-  - the state machine: `TestCheckTransition` (one subtest per transition row, T01–T54) and
+  - the state machine: `TestCheckTransition` (one subtest per transition) and
     `TestCheckTransition_Exhaustive` (every role × author × status × action against an independent legal list);
   - document validation: `Test<Type>Document_Validate` per type (every row also checks that no problem holds a
     document value), `TestValidate_*` (problems never hold values; unchanged no-page credits and relations stay
-    editable, added ones are refused; restored references need only exist), `TestSourcedFields` (SF01–SF15, each as
+    editable, added ones are refused; restored references need only exist), `TestSourcedFields` (one row per sourced-field rule, each as
     contributor and moderator × a present, absent and each invalid source URL), `TestDraftProblems` (the structural
     checks of a draft) and `TestValidateSubmission_*` (two-phase validation: a rename to a hidden alias answers as
     a rename to a fresh name and only flags it, caps count visible elements, a hidden licensing source never
@@ -241,7 +241,7 @@ with `go tool`, so nothing needs installing.
   - diff and merge: `TestMerge` (R rows), `TestMerge_Properties`, `TestDiffDocuments` and
     `TestMergeFields_CoverEveryDocumentField` (every document field is in a merge table, so a new field fails
     until it is classified);
-  - planning: `TestPlanSubmit`, `TestPlanApproval` (R01–R52), `TestPlanApproval_Terms`, `TestPlanApproval_FlagsGate`,
+  - planning: `TestPlanSubmit`, `TestPlanApproval` (one row per approval rule), `TestPlanApproval_Terms`, `TestPlanApproval_FlagsGate`,
     `TestPlanRebase`, `TestPlanRevert`, `TestRevertDocument`, `TestCheckReviewNote` and `TestLinkRowUpdate` (each
     row of the link write rule);
   - duplicates and display names: `TestDuplicateKey` (apostrophes, ł/ø/æ/ß, NFC/NFD), `TestFindDuplicates`,
@@ -260,6 +260,9 @@ with `go tool`, so nothing needs installing.
   (`internal/app`: `WriteTxDeadline` stays under the server's `WriteTimeout`) and
   `TestQueries_LockingReadsCarryTheHint` (every `FOR UPDATE`/`FOR SHARE` in `queries.sql` carries
   `MAX_EXECUTION_TIME`).
+- **Revision documents** (`internal/datasources/mysql/revision_documents_test.go`, no database):
+  `TestRevisionStatesMirrorDomain` (each run-time-kind state and plan has a field for every field of the domain type
+  it mirrors), `TestEncodeFlags_NilIsEmptyArray` and `TestDecodeJSONColumn_EmptyIsZero`.
 - **Search and needs-work builders** (`internal/datasources/mysql/search_sql_test.go`, no database): the list
   statements (`search_sql.go`, `piece_search.go`, `person_search.go`, `collection_list.go`, `needs_work.go`) are
   built in Go, so a fake `statementRunner` records each statement. The tests pin the round trips (at most three for a
@@ -335,7 +338,9 @@ with `go tool`, so nothing needs installing.
   the real verifier calling a loopback siteverify, for every outcome (success, each invalid field, malformed JSON,
   an unknown field, 413, each Turnstile failure, disabled, the cap, a busy and a failing database) and captures
   slog at DEBUG: no record and no response holds the name, email, message, URL or token.
-- **Deployment files** (`internal/app/deploy_files_test.go`): `TestEnvDistListsEveryEnvVar` parses the non-test
+- **Deployment files** (`internal/app/deploy_files_test.go`): `TestNoUnresolvablePlanIDs` fails on a citation of an implementation-plan row (D, T, R, W or SF followed by a
+  number) in any Go, SQL, Markdown or OpenAPI file, so that comments state the rule or cite docs/PLAN.md;
+  `TestEnvDistListsEveryEnvVar` parses the non-test
   Go code under `cmd/` and `internal/` (except `internal/testutil`) and fails unless `.env.dist` lists exactly
   the environment variables it reads. `TestAppJSON`, `TestProcfile` and `TestDockerfile_MatchesDokkuConfiguration`
   pin the dokku configuration: the predeploy migration, the `/readyz` startup check, the web command, and a
@@ -496,7 +501,8 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
 - **Setup** (`internal/app/app_integration_test.go`): `TestSetup_BootstrapsModeratorsAndServes` (Setup from the
   environment bootstraps the moderators, serves `/readyz` on a real listener and returns after cancel, purges
   expired contact requests at startup and answers 503 on `/v1/contact` with an empty Turnstile secret),
-  `TestSetup_BootstrapFailureFailsStartup` and `TestStoredTime_RoundTripsThroughDatabase` (a clock with a
+  `TestSetup_GivesOwnerlessPerformancesTheirOwner` (Setup gives a performance stored without an owner its piece as
+  owner),   `TestSetup_BootstrapFailureFailsStartup` and `TestStoredTime_RoundTripsThroughDatabase` (a clock with a
   fractional second stores and returns the same whole-second `created_at`).
 
 `internal/testutil/mysqltest` gives each test its own database: `mysqltest.NewDatabase(t)` (a `*sql.DB`) or
@@ -551,7 +557,7 @@ Under `-race` on a default-settings server this cut `internal/datasources/mysql`
   `_CatalogueTablesAreEveryCatalogueTable`. `TestCatalogueImportValidate_MirrorsSchema` plants one violation of each
   constraint class `Validate` mirrors (a collation-folded UNIQUE, a child primary key, a VARCHAR width, a CHECK) and
   checks that `Validate` rejects it and MySQL, given it unvalidated, refuses it with that class's error number. Every
-  MySQL error of the import (a refused row, the lock, the commit) is an `ImportDatabaseError` without the server's
+  MySQL error of the import (a refused row, the lock, the commit) is a `DatabaseError` without the server's
   message. `catalogtest`'s `c.Import(imp)` writes an import through the writer.
   `TestRun_ApplyThenApplyAgainRefuses` (`cmd/import-mediawiki`) applies through the command line and refuses a
   second run.

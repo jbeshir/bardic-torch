@@ -23,7 +23,7 @@ func (r *Repository) txReader(tx *sql.Tx) *catalogueReader {
 	return &catalogueReader{q: r.queries.WithTx(tx), run: txRunner(tx)}
 }
 
-// SaveDraft saves a draft (D1), under a lock on the author's users row, which makes one draft per author and
+// SaveDraft saves a draft, under a lock on the author's users row, which makes one draft per author and
 // entity and serialises the draft count. A new draft of an existing entity has the request's base, or the current
 // revision, and records the keys of what its author received: those of the pending revision it starts from, if
 // its base is that revision's submitted base, and otherwise those of the base's projection.
@@ -35,7 +35,7 @@ func (r *Repository) SaveDraft(ctx context.Context, req datasources.SaveDraftReq
 		return err
 	})
 	if err != nil {
-		return datasources.SavedDraft{}, withoutServerMessage(fmt.Sprintf("saving draft of %s", req.EntityType), err)
+		return datasources.SavedDraft{}, databaseError(fmt.Sprintf("saving draft of %s", req.EntityType), err)
 	}
 
 	return saved, nil
@@ -190,7 +190,7 @@ func (c *catalogueReader) draftBase(
 	return base, received, c.err
 }
 
-// baseProblem is the error for a draft base that is not an approved revision of the entity (D1).
+// baseProblem is the error for a draft base that is not an approved revision of the entity.
 func baseProblem() error {
 	return &domain.DocumentError{Problems: []domain.DocumentProblem{
 		{Path: "/base_revision_id", Code: domain.ProblemUnknownReference},
@@ -223,7 +223,7 @@ func (r *Repository) UpdateDraft(ctx context.Context, req datasources.UpdateDraf
 		return err
 	})
 	if err != nil {
-		return domain.Draft{}, withoutServerMessage(fmt.Sprintf("updating draft [%d]", req.ID), err)
+		return domain.Draft{}, databaseError(fmt.Sprintf("updating draft [%d]", req.ID), err)
 	}
 
 	return draft, nil
@@ -264,7 +264,7 @@ func (r *Repository) DiscardDraft(ctx context.Context, actor domain.Actor, id in
 		return requireMatched(c.q.DeleteDraft(ctx, row.ID))
 	})
 	if err != nil {
-		return withoutServerMessage(fmt.Sprintf("discarding draft [%d]", id), err)
+		return databaseError(fmt.Sprintf("discarding draft [%d]", id), err)
 	}
 
 	return nil
@@ -289,7 +289,7 @@ func (c *catalogueReader) ownRevision(ctx context.Context, actor domain.Actor, i
 	return row, nil
 }
 
-// lockOwnRevision locks the revision id FOR UPDATE and checks the actor may take action on it (D2): it returns
+// lockOwnRevision locks the revision id FOR UPDATE and checks the actor may take action on it: it returns
 // datasources.ErrNotFound unless the actor is its author, and the transition's error otherwise.
 func (c *catalogueReader) lockOwnRevision(
 	ctx context.Context, actor domain.Actor, id int64, action domain.RevisionAction,
@@ -338,15 +338,11 @@ func (c *catalogueReader) draft(
 		return domain.Draft{}, fmt.Errorf("fetching draft: %w", err)
 	}
 	entityType := enumOf[domain.EntityType](c, row.EntityType)
-	kind, err := kindFor(entityType)
+	kind, doc, err := decodeRevision(entityType, row.SnapshotJson)
 	if err != nil {
-		return domain.Draft{}, err
+		return domain.Draft{}, fmt.Errorf("draft: %w", err)
 	}
-	doc, err := kind.decode(row.SnapshotJson)
-	if err != nil {
-		return domain.Draft{}, fmt.Errorf("draft snapshot: %w", err)
-	}
-	received, err := decodeReceivedKeys(row.ReceivedKeysJson)
+	received, err := decodeJSONColumn[domain.ElementKeySet]("received keys", row.ReceivedKeysJson)
 	if err != nil {
 		return domain.Draft{}, err
 	}

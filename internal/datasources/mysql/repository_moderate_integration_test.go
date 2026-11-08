@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRepository_SubmitDraft_ModeratorApproved covers D3: an interactive moderator's submission is approved at once,
-// with the moderator its reviewer, and keeps what the moderator could not see (the preferences, W37).
+// TestRepository_SubmitDraft_ModeratorApproved covers an interactive moderator's submission approved at once,
+// with the moderator its reviewer, and keeps what the moderator could not see (the preferences).
 func TestRepository_SubmitDraft_ModeratorApproved(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -40,7 +40,7 @@ func TestRepository_SubmitDraft_ModeratorApproved(t *testing.T) {
 	token := editAndSubmit(t, f, actorRowanToken, *pieceKey(f.song.Slug), func(d *domain.PieceDocument) {
 		d.IsStub = true
 	})
-	assert.Equal(t, domain.RevisionStatusPending, token.Status, "D25: an API token's submission is pending")
+	assert.Equal(t, domain.RevisionStatusPending, token.Status, "an API token's submission is pending")
 }
 
 // TestRepository_SubmitDraft_ModeratorNewEntity checks that a moderator's new entity is approved at once, its
@@ -56,8 +56,8 @@ func TestRepository_SubmitDraft_ModeratorNewEntity(t *testing.T) {
 	assert.Equal(t, "Winter Revel", event.Name)
 }
 
-// TestRepository_SubmitDraft_ModeratorStale covers R28 (a stale moderator submission merged cleanly) and R29 (a
-// conflicting one refused, the draft still a draft).
+// TestRepository_SubmitDraft_ModeratorStale covers a stale moderator submission merged cleanly and a
+// conflicting one refused, the draft still a draft.
 func TestRepository_SubmitDraft_ModeratorStale(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -71,7 +71,7 @@ func TestRepository_SubmitDraft_ModeratorStale(t *testing.T) {
 	result := f.submit(t, actorRowan, clean.Draft.ID)
 	assert.Equal(t, domain.RevisionStatusApproved, result.Status)
 	stored := f.stored(t, result.RevisionID)
-	assert.Equal(t, other.RevisionID, stored.base.Int64, "R28: rebased")
+	assert.Equal(t, other.RevisionID, stored.base.Int64, "rebased")
 	merged := f.storedPiece(t, result.RevisionID)
 	assert.True(t, merged.IsStub)
 	assert.Equal(t, new(editedNotes), merged.NotesMD)
@@ -84,10 +84,10 @@ func TestRepository_SubmitDraft_ModeratorStale(t *testing.T) {
 	_, err := f.repo.SubmitDraft(t.Context(), datasources.SubmitRequest{Actor: actorRowan,
 		DraftID: conflict.Draft.ID, Now: f.tick()})
 	require.ErrorIs(t, err, domain.ErrRebaseRequired)
-	assert.Equal(t, statusDraft, f.stored(t, conflict.Draft.ID).status, "R29: the draft is still a draft")
+	assert.Equal(t, statusDraft, f.stored(t, conflict.Draft.ID).status, "the draft is still a draft")
 }
 
-// TestRepository_SubmitDraft_ModeratorSupersedes covers T49: a moderator's submission supersedes their own pending
+// TestRepository_SubmitDraft_ModeratorSupersedes covers that a moderator's submission supersedes their own pending
 // revision of the entity, made with an API token.
 func TestRepository_SubmitDraft_ModeratorSupersedes(t *testing.T) {
 	t.Parallel()
@@ -101,8 +101,8 @@ func TestRepository_SubmitDraft_ModeratorSupersedes(t *testing.T) {
 	assert.True(t, f.storedPiece(t, result.RevisionID).IsStub, "the pending starting point's edit is kept")
 }
 
-// TestRepository_SubmitDraft_ModeratorRules covers SF14 (sourced fields bind moderators too) and the moderator's
-// own flags (D19), which need acknowledging.
+// TestRepository_SubmitDraft_ModeratorRules covers that sourced fields bind moderators too and the moderator's
+// own flags, which need acknowledging.
 func TestRepository_SubmitDraft_ModeratorRules(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -116,7 +116,7 @@ func TestRepository_SubmitDraft_ModeratorRules(t *testing.T) {
 	require.ErrorAs(t, err, &problems)
 	assert.True(t, slices.ContainsFunc(problems.Problems, func(p domain.DocumentProblem) bool {
 		return p.Code == domain.ProblemSourceRequired
-	}), "SF14: %v", problems.Problems)
+	}), "%v", problems.Problems)
 
 	doc = f.editable(t, actorRowan, key).Document.(domain.PersonDocument)
 	doc.NotesMD = new("Plays with " + morwenLegal + ".")
@@ -134,7 +134,7 @@ func TestRepository_SubmitDraft_ModeratorRules(t *testing.T) {
 	assert.Equal(t, domain.RevisionStatusApproved, result.Status)
 }
 
-// TestRepository_SubmitDraft_ModeratorOthersPendingTerm covers R35 at approval: a document referencing another
+// TestRepository_SubmitDraft_ModeratorOthersPendingTerm covers, at approval: a document referencing another
 // user's pending new term is refused (unknown_reference), even a moderator's, who may see it.
 func TestRepository_SubmitDraft_ModeratorOthersPendingTerm(t *testing.T) {
 	t.Parallel()
@@ -191,7 +191,7 @@ func TestRepository_RejectRevision(t *testing.T) {
 }
 
 // TestRepository_RejectRevision_DeletesPlaceholder checks that rejecting a new piece deletes its placeholder, with
-// its child rows (D14), and keeps the revision.
+// its child rows, and keeps the revision.
 func TestRepository_RejectRevision_DeletesPlaceholder(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -215,8 +215,8 @@ func (f *editingFixture) rebase(
 		CurrentRevisionID: current, Document: doc, Summary: summary, Now: f.tick()})
 }
 
-// TestRepository_RebaseRevision covers R27 (a rebase then an approval) and R49 (the rebase keeps what the author
-// submitted, and the base they edited from).
+// TestRepository_RebaseRevision covers a rebase then an approval, and that the rebase keeps what the author
+// submitted and the base they edited from.
 func TestRepository_RebaseRevision(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -235,7 +235,7 @@ func TestRepository_RebaseRevision(t *testing.T) {
 	after := f.stored(t, ours.RevisionID)
 	assert.Equal(t, statusPending, after.status)
 	assert.Equal(t, theirs.RevisionID, after.base.Int64)
-	assert.Equal(t, before.submittedBase, after.submittedBase, "R49: the submitted base is kept")
+	assert.Equal(t, before.submittedBase, after.submittedBase, "the submitted base is kept")
 	assert.Equal(t, f.song.RevisionID, after.submittedBase.Int64)
 	assert.JSONEq(t, before.submitted, after.submitted, "what the author submitted is kept")
 	rebased := f.storedPiece(t, ours.RevisionID)
@@ -252,14 +252,14 @@ func TestRepository_RebaseRevision(t *testing.T) {
 	mine, err := f.repo.GetMyRevision(t.Context(), actorWren, ours.RevisionID)
 	require.NoError(t, err)
 	assert.Equal(t, songTitle, mine.BaseSnapshot.(domain.PieceSnapshot).Title,
-		"R49: the author's views compare with the base they edited from")
+		"the author's views compare with the base they edited from")
 
 	f.mustApprove(t, ours.RevisionID)
 	assert.Equal(t, resolvedTitle, f.publicPiece(t, f.song.Slug).Title)
 	assert.Equal(t, "Resolved against Ash's.", f.reviewed(t, ours.RevisionID).summary)
 }
 
-// TestRepository_RebaseRevision_Stale covers R26: a rebase resolved against a current revision that is no longer
+// TestRepository_RebaseRevision_Stale covers: a rebase resolved against a current revision that is no longer
 // the entity's.
 func TestRepository_RebaseRevision_Stale(t *testing.T) {
 	t.Parallel()
@@ -276,7 +276,7 @@ func TestRepository_RebaseRevision_Stale(t *testing.T) {
 	require.ErrorIs(t, f.rebase(t, theirs.RevisionID, &theirs.RevisionID, resolved, nil), domain.ErrNotPending)
 }
 
-// TestRepository_RebaseRevision_Validated covers SF13: the resolved document is validated against the current one.
+// TestRepository_RebaseRevision_Validated covers that the resolved document is validated against the current one.
 func TestRepository_RebaseRevision_Validated(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -312,7 +312,7 @@ func (f *editingFixture) revert(t *testing.T, actor domain.Actor, id int64, summ
 		Now: f.tick()})
 }
 
-// TestRepository_RevertTo covers reverts to the import revision (R37): a contributor's is pending on the current
+// TestRepository_RevertTo covers reverts to the import revision: a contributor's is pending on the current
 // revision, a moderator's approved; a replay returns the revision it created; the current revision is
 // datasources.ErrAlreadyCurrent.
 func TestRepository_RevertTo(t *testing.T) {
@@ -352,7 +352,7 @@ func TestRepository_RevertTo(t *testing.T) {
 		Replayed: true}, replayed)
 }
 
-// TestRepository_RevertTo_HiddenAliasStaysHidden covers R38: an alias hidden since the target revision stays
+// TestRepository_RevertTo_HiddenAliasStaysHidden covers: an alias hidden since the target revision stays
 // hidden.
 func TestRepository_RevertTo_HiddenAliasStaysHidden(t *testing.T) {
 	t.Parallel()
@@ -374,7 +374,7 @@ func TestRepository_RevertTo_HiddenAliasStaysHidden(t *testing.T) {
 	assert.Equal(t, result.RevisionID, f.currentRevision(t, "persons", f.morwen.ID))
 }
 
-// TestRepository_RevertTo_ReasonRequired covers SF12: reverting a conservation status change needs a summary as its
+// TestRepository_RevertTo_ReasonRequired covers that reverting a conservation status change needs a summary as its
 // reason.
 func TestRepository_RevertTo_ReasonRequired(t *testing.T) {
 	t.Parallel()

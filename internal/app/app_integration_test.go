@@ -168,3 +168,40 @@ func seedContactRequests(t *testing.T, repository *mysql.Repository) (retained, 
 
 	return retained, purged
 }
+
+// Not parallel: it sets environment variables.
+func TestSetup_GivesOwnerlessPerformancesTheirOwner(t *testing.T) {
+	databaseURL := mysqltest.NewDatabaseURL(t)
+	setSetupEnv(t, databaseURL, "auth0|m1")
+	db, err := mysqltest.Connect(t.Context(), databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	exec := func(query string, args ...any) int64 {
+		t.Helper()
+		result, err := db.ExecContext(t.Context(), query, args...)
+		require.NoError(t, err)
+		id, err := result.LastInsertId()
+		require.NoError(t, err)
+
+		return id
+	}
+	pieceID := exec("INSERT INTO pieces (slug, title, sort_title, sort_letter, kind) " +
+		"VALUES ('the-copper-kettle', 'The Copper Kettle', 'Copper Kettle', 'C', 'song')")
+	linkID := exec("INSERT INTO links (url, normalized_url) VALUES ('https://example.org/kettle', " +
+		"'https://example.org/kettle')")
+	exec("INSERT INTO link_attachments (link_id, piece_id, role, position) VALUES (?, ?, 'performance', 0)",
+		linkID, pieceID)
+	// A performance as a release that does not set owners stores it.
+	performanceID := exec("INSERT INTO performances (link_id, piece_id, description_verbatim) VALUES (?, ?, "+
+		"'Sung at the revel')", linkID, pieceID)
+
+	components, err := Setup(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = components[0].(*server.Server).Listener.Close() })
+
+	var owner *int64
+	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT owner_piece_id FROM performances WHERE id = ?",
+		performanceID).Scan(&owner))
+	require.NotNil(t, owner)
+	assert.Equal(t, pieceID, *owner)
+}

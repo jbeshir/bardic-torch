@@ -10,7 +10,7 @@ import (
 
 var _ Command[RevisionRequest, domain.MyRevision] = (*GetMyRevision)(nil)
 
-// GetMyRevision returns one of the principal's own revisions, drafts included, with its views (D6).
+// GetMyRevision returns one of the principal's own revisions, drafts included, with its views.
 type GetMyRevision struct {
 	Getter datasources.MyRevisionGetter
 }

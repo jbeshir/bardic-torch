@@ -22,7 +22,7 @@ UPDATE users
 SET display_name = ?, display_name_key = ?
 WHERE id = ?;
 
--- A new user's display name key (D20), set after the insert so that a key another user holds, which the UNIQUE
+-- A new user's display name key, set after the insert so that a key another user holds, which the UNIQUE
 -- index refuses, leaves it NULL without refusing the user. Only a user still named name with no key matches.
 
 -- name: SetMissingDisplayNameKey :exec
@@ -676,7 +676,7 @@ VALUES (?, ?, ?);
 -- Revisions: editing, drafts and submissions
 --
 -- Drafts and pending revisions are private to their author (and pending ones to moderators). A pending new entity
--- is a placeholder row with no current revision and no content (D14); only its author, through these queries, and
+-- is a placeholder row with no current revision and no content; only its author, through these queries, and
 -- moderators may reference or address it. Every locking read carries MAX_EXECUTION_TIME(4000), lockingReadMillis,
 -- which overrides the session's two-second limit so that the lock wait timeout (1205) ends a wait first.
 -- ============================================
@@ -874,7 +874,7 @@ SELECT id, normalized_url, is_hidden, liveness
 FROM links
 WHERE normalized_url IN (sqlc.slice('normalized_urls'));
 
--- Placeholders of pending new entities hold no content (D14): their slugs are random, their names empty.
+-- Placeholders of pending new entities hold no content: their slugs are random, their names empty.
 
 -- name: InsertPiecePlaceholder :execlastid
 INSERT INTO pieces (slug, title, sort_title, sort_letter, kind)
@@ -919,7 +919,7 @@ WHERE r.author_user_id = sqlc.arg(author_user_id)
     AND (sqlc.narg(entity_type) IS NULL OR r.entity_type = sqlc.narg(entity_type));
 
 -- ============================================
--- Duplicate check on create (D13)
+-- Duplicate check on create
 --
 -- The whole name set of an entity type, compared in Go by domain.DuplicateKey; each query stops at 20001 rows,
 -- one more than the design expects (maxDuplicateNames), so that reaching it is noticed.
@@ -983,7 +983,7 @@ WHERE NOT is_public
 ORDER BY id;
 
 -- A pending new entity's placeholder is deleted, with its child rows, when its revision leaves pending without
--- approval and no other pending revision has it (D14); one that has been approved since is kept.
+-- approval and no other pending revision has it; one that has been approved since is kept.
 
 -- name: DeletePiecePlaceholder :exec
 DELETE FROM pieces WHERE id = ? AND current_revision_id IS NULL;
@@ -1001,11 +1001,11 @@ DELETE FROM collections WHERE id = ? AND current_revision_id IS NULL;
 DELETE FROM events WHERE id = ? AND current_revision_id IS NULL;
 
 -- ============================================
--- Revisions: approval, rejection, rebase and revert (D9, D10, D14, D15)
+-- Revisions: approval, rejection, rebase and revert
 --
 -- The approval writer replaces an entity's row and child rows with its approved document: the entity row is
 -- updated in place, its own child rows deleted and inserted again (the import's inserts), its links upserted by
--- normalized URL and its link attachments and owned performances replaced (D16, D17). A links row is never
+-- normalized URL and its link attachments and owned performances replaced. A links row is never
 -- deleted, and its system and moderator state (is_hidden, liveness, last_checked_at, archived_url) is never
 -- written, so approving cannot un-hide a link or undo a liveness check.
 -- ============================================
@@ -1119,7 +1119,7 @@ DELETE FROM performances WHERE owner_piece_id = ?;
 DELETE FROM performances WHERE owner_person_id = ?;
 
 -- The links row of a normalized URL, inserted with the document's fields if there is none: either way the row is
--- locked and its ID returned (LAST_INSERT_ID), and its fields are then written by the link write rule (D17).
+-- locked and its ID returned (LAST_INSERT_ID), and its fields are then written by the link write rule.
 
 -- name: UpsertLink :execlastid
 INSERT INTO links (url, normalized_url, title, description, platform, place_type, collection_id, locator)
@@ -1136,7 +1136,7 @@ UPDATE links
 SET url = ?, title = ?, description = ?, platform = ?, place_type = ?, collection_id = ?, locator = ?
 WHERE id = ?;
 
--- Every term of a facet, locked, for rebuilding its closure (D15 step 5).
+-- Every term of a facet, locked, for rebuilding its closure.
 
 -- name: LockTermsOfFacet :many
 SELECT /*+ MAX_EXECUTION_TIME(4000) */ id, parent_id
@@ -1149,7 +1149,7 @@ FOR UPDATE;
 DELETE FROM term_ancestors
 WHERE descendant_id IN (sqlc.slice('ids'));
 
--- An approved revision is dated by its approval (created_at = reviewed_at, D1), so that history, ordered by
+-- An approved revision is dated by its approval (created_at = reviewed_at), so that history, ordered by
 -- created_at, lists the current revision first.
 
 -- name: ApproveRevisionRow :execrows
@@ -1170,7 +1170,7 @@ SET snapshot_json = ?, base_revision_id = ?, summary = ?, flags_json = ?, rebase
 WHERE id = ? AND status = 'pending';
 
 -- A revert is a new pending revision on the current revision, holding its author's document (the projection of
--- the revert) beside the full document (D10).
+-- the revert) beside the full document.
 
 -- name: InsertRevertRevision :execlastid
 INSERT INTO revisions (entity_type, entity_id, base_revision_id, submitted_base_revision_id, author_user_id, source,
@@ -1184,7 +1184,7 @@ VALUES (sqlc.arg(entity_type), sqlc.arg(entity_id), sqlc.arg(base_revision_id), 
 -- ============================================
 -- Moderation reads
 --
--- Moderator views (D8): the queue of pending revisions, a revision of any status but draft with every document in
+-- Moderator views: the queue of pending revisions, a revision of any status but draft with every document in
 -- full, and a link with every entity it is attached to. User IDs are served here, so that moderators can block.
 -- ============================================
 
@@ -1257,9 +1257,9 @@ FROM links
 WHERE normalized_url = ?;
 
 -- ============================================
--- Link reports (D21)
+-- Link reports
 --
--- Writes lock in the D15 order: the reporter's users row, then the link row, then report rows.
+-- Writes lock in the global lock order: the reporter's users row, then the link row, then report rows.
 -- ============================================
 
 -- A visible link: not hidden, with a public attachment, so that it is shown on a public page. The link row is
@@ -1343,7 +1343,7 @@ SET status = 'resolved', resolved_by_user_id = ?, resolved_at = ?, resolution_no
 WHERE link_id = ? AND status = 'open';
 
 -- ============================================
--- Contact requests (D21)
+-- Contact requests
 --
 -- The sender's name, email, message and url are personal data: never logged, and purged ContactRetention after
 -- resolution.
@@ -1395,3 +1395,25 @@ WHERE id = ? AND status = 'open';
 UPDATE contact_requests
 SET name = NULL, email = NULL, message = NULL, url = NULL, purged_at = sqlc.arg(now)
 WHERE status IN ('resolved', 'dismissed') AND resolved_at < sqlc.arg(cutoff) AND purged_at IS NULL;
+
+-- ============================================
+-- Performance owners
+-- ============================================
+
+-- A performance with neither owner was stored by a release that does not set them. A performance of a piece's own
+-- link is owned by the piece; every other one by the person whose document lists the link, the lowest-ID person if
+-- more than one does. These are the statements of migration 010.
+
+-- name: BackfillPerformanceOwnersOfPieces :execrows
+UPDATE performances perf
+SET perf.owner_piece_id = perf.piece_id
+WHERE perf.owner_piece_id IS NULL AND perf.owner_person_id IS NULL AND perf.piece_id IS NOT NULL AND EXISTS (
+    SELECT 1 FROM link_attachments a WHERE a.link_id = perf.link_id AND a.piece_id = perf.piece_id);
+
+-- name: BackfillPerformanceOwnersOfPersons :execrows
+UPDATE performances perf
+JOIN (SELECT link_id, MIN(person_id) AS person_id
+      FROM link_attachments WHERE person_id IS NOT NULL GROUP BY link_id) owner
+    ON owner.link_id = perf.link_id
+SET perf.owner_person_id = owner.person_id
+WHERE perf.owner_piece_id IS NULL AND perf.owner_person_id IS NULL;

@@ -34,7 +34,7 @@ type AuthorRef struct {
 	Role        domain.Role `json:"role"`
 }
 
-// MyRevision is the JSON representation of one of the caller's own revisions with its views (D6): the author's
+// MyRevision is the JSON representation of one of the caller's own revisions with its views: the author's
 // view of what they submitted and of the base they edited, or for an approved revision the public views.
 type MyRevision struct {
 	MyRevisionSummary

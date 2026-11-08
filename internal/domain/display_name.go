@@ -28,7 +28,7 @@ const MaxDisplayNameKeyRunes = 255
 // ErrInvalidDisplayName is wrapped by the error NormalizeDisplayName returns for a name it rejects.
 var ErrInvalidDisplayName = errors.New("invalid display name")
 
-// ErrDisplayNameReserved is returned by CheckDisplayNameReserved for a name a user may not choose (D20).
+// ErrDisplayNameReserved is returned by CheckDisplayNameReserved for a name a user may not choose.
 var ErrDisplayNameReserved = errors.New("display name is reserved")
 
 // reservedDisplayNameKeys are the DisplayNameKeys of names that claim an authority or a role no user has.

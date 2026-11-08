@@ -17,7 +17,7 @@ var (
 	_ Command[ModerationLinkRequest, domain.ModerationLink] = (*GetModerationLink)(nil)
 )
 
-// ReportLinkRequest is Principal's report of the link a public page shows with URL (D21).
+// ReportLinkRequest is Principal's report of the link a public page shows with URL.
 type ReportLinkRequest struct {
 	Principal domain.Principal
 	URL       string
@@ -32,7 +32,7 @@ type ReportedLink struct {
 	Created bool
 }
 
-// ReportLink reports a visible link. Any user who is not blocked may, with either credential (D25).
+// ReportLink reports a visible link. Any user who is not blocked may, with either credential.
 type ReportLink struct {
 	Reporter datasources.LinkReporter
 	Now      func() time.Time

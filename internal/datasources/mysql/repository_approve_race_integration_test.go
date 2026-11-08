@@ -62,7 +62,7 @@ func oneOf(t *testing.T, errs []error, want error) int {
 	return 1
 }
 
-// TestRepository_ApproveRevision_ConcurrentDoubleApprove covers R23: of two approvals of one revision, exactly one
+// TestRepository_ApproveRevision_ConcurrentDoubleApprove covers two concurrent approvals of one revision: of the two of one revision, exactly one
 // succeeds; the other waits for the revision's lock and sees it approved.
 func TestRepository_ApproveRevision_ConcurrentDoubleApprove(t *testing.T) {
 	t.Parallel()
@@ -78,7 +78,7 @@ func TestRepository_ApproveRevision_ConcurrentDoubleApprove(t *testing.T) {
 	}
 }
 
-// TestRepository_ApproveRevision_ConcurrentSameEntity covers R25: two approvals of two revisions of one entity, on
+// TestRepository_ApproveRevision_ConcurrentSameEntity covers: two approvals of two revisions of one entity, on
 // one base. The second waits for the entity row and sees the first's revision current: a clean merge keeps both
 // edits (no lost update), a conflict is refused.
 func TestRepository_ApproveRevision_ConcurrentSameEntity(t *testing.T) {
@@ -118,7 +118,7 @@ func TestRepository_ApproveRevision_ConcurrentSameEntity(t *testing.T) {
 	}
 }
 
-// TestRepository_ApproveRevision_WithdrawRace covers R24: an approval and its author's withdrawal of one revision;
+// TestRepository_ApproveRevision_WithdrawRace covers: an approval and its author's withdrawal of one revision;
 // whichever locks the revision first wins, and the other sees it no longer pending.
 func TestRepository_ApproveRevision_WithdrawRace(t *testing.T) {
 	t.Parallel()
@@ -187,7 +187,7 @@ func lockDeadlocks(t *testing.T, db *sql.DB) int64 {
 
 // TestRepository_ApproveRevision_CrossingApprovals runs a piece approval crediting a person and an approval of that
 // person with a performance of the piece concurrently, 50 times. Both succeed every time: the foreign-key checks'
-// shared locks may deadlock them (D15), which withWriteTx retries. The deadlocks are counted, never asserted absent.
+// shared locks may deadlock them, which withWriteTx retries. The deadlocks are counted, never asserted absent.
 func TestRepository_ApproveRevision_CrossingApprovals(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -294,7 +294,7 @@ func TestRepository_ApproveRevision_ForeignKeyParentGone(t *testing.T) {
 		"rolled back")
 }
 
-// TestRepository_RevertTo_ConcurrentSubmit covers T33 under concurrency, 20 times: a contributor's revert and their
+// TestRepository_RevertTo_ConcurrentSubmit covers, under concurrency, 20 times: a contributor's revert and their
 // submission of the same entity. The users row serialises them: one supersedes the other, one pending revision
 // remains, and the cap counts it once.
 func TestRepository_RevertTo_ConcurrentSubmit(t *testing.T) {
@@ -330,7 +330,7 @@ func TestRepository_RevertTo_ConcurrentSubmit(t *testing.T) {
 	}
 }
 
-// TestRepository_RevertTo_ConcurrentApprove covers T34 under concurrency: a moderator's revert and an approval of
+// TestRepository_RevertTo_ConcurrentApprove covers, under concurrency: a moderator's revert and an approval of
 // another revision of the entity. The entity row serialises them; the later one sees the earlier's revision
 // current, so the revert is always based on the current revision, and the approval is merged onto it or refused.
 func TestRepository_RevertTo_ConcurrentApprove(t *testing.T) {

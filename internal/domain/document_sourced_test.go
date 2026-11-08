@@ -85,120 +85,120 @@ func TestSourcedFields(t *testing.T) {
 		return func(d *PieceDocument) { d.Conservation = DocConservation{Status: status, SourceURL: source} }
 	}
 	rows := []sourcedRow{
-		{id: "SF01", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licensing_notes_changed", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {
 				d.LicensingNotesMD = ptr("Ask before recording.")
 			}), s), a, "")
 		}, path: "/licensing_notes_md", code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "SF01b cleared", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licensing_notes_cleared", validate: func(a Role, s *string) []DocumentProblem {
 			base := pieceWith(func(d *PieceDocument) { d.LicensingNotesMD = ptr("Ask first.") })
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {
 				d.LicensingNotesMD = ptr("")
 			}), s), a, "")
 		}, invalidPath: pathLicensingLinkURL},
-		{id: "SF01b removed", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licensing_notes_removed", validate: func(a Role, s *string) []DocumentProblem {
 			base := pieceWith(func(d *PieceDocument) { d.LicensingNotesMD = ptr("Ask first.") })
 			return validatePiece(&base, withLicensingLink(validPiece(), s), a, "")
 		}, invalidPath: pathLicensingLinkURL},
-		{id: "SF02", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licence_changed_with_known_status", validate: func(a Role, s *string) []DocumentProblem {
 			base := pieceWith(known)
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {
 				known(d)
 				d.Licence = ptr(LicenceCCBYSA)
 			}), s), a, "")
 		}, path: pathLicence, code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "SF02b", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licence_needs_known_status", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, withLicensingLink(pieceWith(func(d *PieceDocument) {
 				d.Licence = ptr(LicenceCCBY)
 			}), s), a, "")
 		}, path: pathLicence, always: ProblemLicenceNeedsKnown, invalidPath: pathLicensingLinkURL},
-		{id: "SF03", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licensing_status_known", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, withLicensingLink(pieceWith(known), s), a, "")
 		}, path: pathLicensingStatus, code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "SF04 notes", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "person_licensing_notes_changed", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, withPersonLicensingLink(personWith(func(d *PersonDocument) {
 				d.LicensingNotesMD = ptr("Ask before recording.")
 			}), s), a)
 		}, path: "/licensing_notes_md", code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "SF04 status", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "person_licensing_status_known", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, withPersonLicensingLink(personWith(func(d *PersonDocument) {
 				d.LicensingStatus = LicensingStatusKnown
 			}), s), a)
 		}, path: pathLicensingStatus, code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "SF05", validate: func(a Role, s *string) []DocumentProblem {
-			base := personWith(deceased(s)) // SF05b when absent: an existing document that violates S5
+		{id: "deceased_status_needs_source", validate: func(a Role, s *string) []DocumentProblem {
+			base := personWith(deceased(s)) // an existing document that violates the source rule when s is absent
 			return validatePerson(&base, personWith(deceased(s)), a)
 		}, path: pathStatusSource, code: ProblemSourceRequired, invalidPath: pathStatusSource},
-		{id: "SF06", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "prefers_no_page_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, personWith(func(d *PersonDocument) {
 				d.Status, d.StatusSourceURL = PersonStatusPrefersNoPage, s
 			}), a)
 		}, path: pathStatusSource, code: ProblemSourceRequired, invalidPath: pathStatusSource},
-		{id: "SF06b", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "status_source_removed", validate: func(a Role, s *string) []DocumentProblem {
 			base := personWith(deceased(ptr(validSource + "/obituary")))
 			return validatePerson(&base, personWith(func(d *PersonDocument) { d.StatusSourceURL = s }), a)
 		}, path: pathStatusSource, code: ProblemSourceRequired, invalidPath: pathStatusSource},
-		{id: "SF07", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "status_date_without_status_change", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, personWith(func(d *PersonDocument) {
 				d.StatusDate, d.StatusSourceURL = &validToday, s
 			}), a)
 		}, path: "/status_date", always: ProblemDateNeedsStatus, invalidPath: pathStatusSource},
-		{id: "SF08", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "conservation_status_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, pieceWith(conservation(ConservationStatusEndangered, s)), a, "Assessed.")
 		}, path: pathConservationSource, code: ProblemSourceRequired, invalidPath: pathConservationSource},
-		{id: "SF08 reason", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "conservation_blank_reason", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, pieceWith(conservation(ConservationStatusEndangered, s)), a, " ")
 		}, path: pathSummary, always: ProblemReasonRequired, invalidPath: pathConservationSource},
-		{id: "SF08b", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "conservation_status_changed_without_reason", validate: func(a Role, s *string) []DocumentProblem {
 			base := pieceWith(conservation(ConservationStatusEndangered, ptr(validSource)))
 			return validatePiece(&base, pieceWith(conservation(ConservationStatusRestricted, s)), a, "")
 		}, path: pathSummary, always: ProblemReasonRequired, invalidPath: pathConservationSource},
-		{id: "SF08c", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "conservation_unchanged_status_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := pieceWith(conservation(ConservationStatusLowRisk, s))
 			return validatePiece(&base, pieceWith(conservation(ConservationStatusLowRisk, s)), a, "")
 		}, path: pathConservationSource, code: ProblemSourceRequired, invalidPath: pathConservationSource},
-		{id: "SF09", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "new_piece_conservation_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			return validatePiece(nil, pieceWith(conservation(ConservationStatusLowRisk, s)), a, "New piece.")
 		}, path: pathConservationSource, code: ProblemSourceRequired, invalidPath: pathConservationSource},
-		{id: "SF09 reason", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "new_piece_conservation_without_reason", validate: func(a Role, s *string) []DocumentProblem {
 			return validatePiece(nil, pieceWith(conservation(ConservationStatusLowRisk, s)), a, "")
 		}, path: pathSummary, always: ProblemReasonRequired, invalidPath: pathConservationSource},
-		{id: "SF10 piece", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "piece_preference_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPiece()
 			return validatePiece(&base, pieceWith(func(d *PieceDocument) {
 				d.Preferences = []DocPreference{{Dimension: PreferenceDimensionRecording, Value: []byte(`{}`),
 					SourceURL: deref(s)}}
 			}), a, "")
 		}, path: pathPreferenceSource, code: ProblemSourceRequired, invalidPath: pathPreferenceSource},
-		{id: "SF10 person", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "person_preference_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, personWith(func(d *PersonDocument) {
 				d.Preferences = []DocPreference{{Dimension: PreferenceDimensionLicensing, Value: []byte(`{}`),
 					SourceURL: deref(s)}}
 			}), a)
 		}, path: pathPreferenceSource, code: ProblemSourceRequired, invalidPath: pathPreferenceSource},
-		{id: "SF11", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "unchanged_status_source_not_required", validate: func(a Role, s *string) []DocumentProblem {
 			base := personWith(func(d *PersonDocument) { d.StatusSourceURL = s })
 			return validatePerson(&base, personWith(func(d *PersonDocument) { d.StatusSourceURL = s }), a)
 		}, invalidPath: pathStatusSource},
-		{id: "SF12", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "reverted_conservation_without_reason", validate: func(a Role, s *string) []DocumentProblem {
 			current := pieceWith(conservation(ConservationStatusLowRisk, ptr(validSource+"/current")))
 			return validatePiece(&current, pieceWith(conservation(ConservationStatusEndangered, s)), a, "")
 		}, path: pathSummary, always: ProblemReasonRequired, invalidPath: pathConservationSource},
-		{id: "SF12 with a summary", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "reverted_conservation_with_summary", validate: func(a Role, s *string) []DocumentProblem {
 			current := pieceWith(conservation(ConservationStatusLowRisk, ptr(validSource+"/current")))
 			return validatePiece(&current, pieceWith(conservation(ConservationStatusEndangered, s)), a, "Reverted.")
 		}, path: pathConservationSource, code: ProblemSourceRequired, invalidPath: pathConservationSource},
-		{id: "SF13", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "licence_changed_after_known_status", validate: func(a Role, s *string) []DocumentProblem {
 			current := pieceWith(known)
 			resolved := withLicensingLink(pieceWith(func(d *PieceDocument) {
 				known(d)
@@ -206,11 +206,11 @@ func TestSourcedFields(t *testing.T) {
 			}), s)
 			return validatePiece(&current, resolved, a, "")
 		}, path: pathLicence, code: ProblemSourceRequired, invalidPath: pathLicensingLinkURL},
-		{id: "SF14", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "person_deceased_needs_source", validate: func(a Role, s *string) []DocumentProblem {
 			base := validPerson()
 			return validatePerson(&base, personWith(deceased(s)), a)
 		}, path: pathStatusSource, code: ProblemSourceRequired, invalidPath: pathStatusSource},
-		{id: "SF15", validate: func(a Role, s *string) []DocumentProblem {
+		{id: "merged_licensing_link", validate: func(a Role, s *string) []DocumentProblem {
 			// The revision set the status to known with a licensing link; the clean merge with current, which
 			// deleted that link meanwhile, keeps the link only when s is set.
 			current := validPiece()

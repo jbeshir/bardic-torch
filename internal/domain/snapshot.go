@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 )
@@ -257,7 +258,7 @@ func (p DocPerformance) addReferences(refs *SnapshotReferences) {
 }
 
 // appendID appends *id to ids if id is not nil.
-func appendID(ids []int64, id *int64) []int64 {
+func appendID[T cmp.Ordered](ids []T, id *T) []T {
 	if id == nil {
 		return ids
 	}

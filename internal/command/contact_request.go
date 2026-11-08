@@ -21,7 +21,7 @@ var (
 // contact form is disabled, Turnstile cannot verify the token, or too many requests are open. Nothing is stored.
 var ErrContactUnavailable = errors.New("the contact form is unavailable")
 
-// ContactSubmission is a message sent through the public contact form (D21), already validated. Name, Email,
+// ContactSubmission is a message sent through the public contact form, already validated. Name, Email,
 // Message, URL and TurnstileToken are personal data or secrets: they are never logged or named in an error.
 // URL is stored absolute: one typed without a scheme ("www.example.org/x") gets https (domain.WithScheme).
 type ContactSubmission struct {

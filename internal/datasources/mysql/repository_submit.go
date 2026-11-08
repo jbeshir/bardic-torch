@@ -21,16 +21,16 @@ var (
 )
 
 // errBaseNotApproved is a draft whose base is not an approved revision of its entity, which saving a draft never
-// stores (R19): an invariant broken, not a caller's mistake.
+// stores: an invariant broken, not a caller's mistake.
 var errBaseNotApproved = errors.New("draft base is not an approved revision of its entity")
 
-// SubmitDraft submits one of the actor's drafts (D2, D5, D15). In one transaction, in the global lock order, it
+// SubmitDraft submits one of the actor's drafts. In one transaction, in the global lock order, it
 // locks the author's users row (the pending cap); the draft and the author's pending revision of the entity it
 // supersedes, by ascending ID; then the entity row FOR UPDATE and the rows of the entities the documents reference
 // FOR SHARE. A draft already submitted is a replay, returned as it is. The submission is planned on the draft's own
 // base, never merged with the current document (domain.PlanSubmit), stored as pending with the author's document
 // kept beside it, and supersedes the author's pending revision of the entity. A new entity gets its placeholder.
-// An interactive moderator's submission is approved at once, in the same transaction (D3).
+// An interactive moderator's submission is approved at once, in the same transaction.
 func (r *Repository) SubmitDraft(ctx context.Context, req datasources.SubmitRequest) (datasources.SubmitResult, error) {
 	var result datasources.SubmitResult
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -39,7 +39,7 @@ func (r *Repository) SubmitDraft(ctx context.Context, req datasources.SubmitRequ
 		return err
 	})
 	if err != nil {
-		return datasources.SubmitResult{}, withoutServerMessage(fmt.Sprintf("submitting draft [%d]", req.DraftID), err)
+		return datasources.SubmitResult{}, databaseError(fmt.Sprintf("submitting draft [%d]", req.DraftID), err)
 	}
 
 	return result, nil
@@ -68,14 +68,8 @@ func (r *Repository) submitDraft(
 		return s.result, c.submitApproved(ctx, req, s, docs)
 	}
 
-	count, err := c.q.CountPendingRevisions(ctx, queries.CountPendingRevisionsParams{
-		AuthorUserID: s.draft.AuthorUserID, ExcludedID: s.superseded,
-	})
-	if err != nil {
-		return datasources.SubmitResult{}, fmt.Errorf("counting pending revisions: %w", err)
-	}
-	if count >= domain.MaxOpenPendingRevisions {
-		return datasources.SubmitResult{}, datasources.ErrPendingLimitReached
+	if err := c.checkPendingCap(ctx, s.draft.AuthorUserID, s.superseded); err != nil {
+		return datasources.SubmitResult{}, err
 	}
 
 	doc, flags, err := c.planSubmission(ctx, req, docs, s.draft)
@@ -90,7 +84,7 @@ func (r *Repository) submitDraft(
 	return s.result, err
 }
 
-// submitApproved submits an interactive moderator's draft, which is approved at once (D3): restored like any
+// submitApproved submits an interactive moderator's draft, which is approved at once: restored like any
 // submission (only the preferences were withheld), stored as pending, then approved inline by the approval writer,
 // the moderator its reviewer, in the same transaction, so that a refused approval leaves the draft a draft. The
 // pending cap does not apply: the revision does not stay pending. The duplicate check of a new entity's draft, which
@@ -199,14 +193,9 @@ func (c *catalogueReader) supersededCandidate(ctx context.Context, draft queries
 	if !draft.EntityID.Valid || draft.Status != queries.RevisionsStatusDraft {
 		return 0, nil
 	}
-	pending, err := c.q.GetUserPendingForEntity(ctx, queries.GetUserPendingForEntityParams{
-		AuthorUserID: draft.AuthorUserID, EntityType: draft.EntityType, EntityID: draft.EntityID,
-	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("fetching superseded revision: %w", err)
+	pending, found, err := c.userPendingFor(ctx, draft.AuthorUserID.String, draft.EntityType, draft.EntityID)
+	if !found || err != nil {
+		return 0, err
 	}
 
 	return pending.ID, nil
@@ -248,14 +237,12 @@ func (c *catalogueReader) loadSubmission(ctx context.Context, draft queries.GetR
 	submissionDocuments, error,
 ) {
 	entityType := enumOf[domain.EntityType](c, draft.EntityType)
-	kind, err := kindFor(entityType)
+	kind, submitted, err := decodeRevision(entityType, draft.SnapshotJson)
 	if err != nil {
-		return submissionDocuments{}, err
+		return submissionDocuments{}, fmt.Errorf("draft [%d]: %w", draft.ID, err)
 	}
-	docs := submissionDocuments{kind: kind, entity: domain.EntityRef{Type: entityType, ID: draft.EntityID.Int64}}
-	if docs.submitted, err = kind.decode(draft.SnapshotJson); err != nil {
-		return submissionDocuments{}, fmt.Errorf("draft snapshot: %w", err)
-	}
+	docs := submissionDocuments{kind: kind, entity: domain.EntityRef{Type: entityType, ID: draft.EntityID.Int64},
+		submitted: submitted}
 	if docs.base, err = c.draftBaseDocument(ctx, kind, docs.entity, draft.BaseRevisionID); err != nil {
 		return submissionDocuments{}, err
 	}
@@ -283,17 +270,15 @@ func (c *catalogueReader) writeSubmission(
 		}
 		entity.ID = id
 	}
-	if s.superseded != 0 {
-		if err := requireMatched(c.q.WithdrawRevision(ctx, s.superseded)); err != nil {
-			return domain.EntityRef{}, fmt.Errorf("superseding revision [%d]: %w", s.superseded, err)
-		}
+	if err := c.withdrawSuperseded(ctx, s.superseded); err != nil {
+		return domain.EntityRef{}, err
 	}
 
 	return entity, c.storeSubmission(ctx, req, s.draft, entity, doc, flags)
 }
 
 // draftBaseDocument returns the document of a draft's base, nil for none (a new entity). The base must be an
-// approved revision of the draft's entity (R19).
+// approved revision of the draft's entity.
 func (c *catalogueReader) draftBaseDocument(
 	ctx context.Context, kind documentKind, entity domain.EntityRef, baseID sql.NullInt64,
 ) (domain.AnyDocument, error) {
@@ -313,7 +298,7 @@ func (c *catalogueReader) draftBaseDocument(
 func (c *catalogueReader) planSubmission(
 	ctx context.Context, req datasources.SubmitRequest, docs submissionDocuments, draft queries.GetRevisionRow,
 ) (domain.AnyDocument, []domain.Flag, error) {
-	received, err := decodeReceivedKeys(draft.ReceivedKeysJson)
+	received, err := decodeJSONColumn[domain.ElementKeySet]("received keys", draft.ReceivedKeysJson)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -415,7 +400,7 @@ func (c *catalogueReader) collectionReferences(
 	}
 }
 
-// insertPlaceholder inserts the placeholder of the pending new entity doc describes (D14), holding no content:
+// insertPlaceholder inserts the placeholder of the pending new entity doc describes, holding no content:
 // a random slug, empty names, and for a term its depth-0 closure row, without which public_terms would hold it.
 func (c *catalogueReader) insertPlaceholder(ctx context.Context, doc domain.AnyDocument) (int64, error) {
 	slug, err := placeholderSlug(doc.EntityType())
@@ -450,7 +435,7 @@ func (c *catalogueReader) insertPlaceholder(ctx context.Context, doc domain.AnyD
 	return id, nil
 }
 
-// placeholderSlug returns a new placeholder slug for a pending new entity of entityType (D14):
+// placeholderSlug returns a new placeholder slug for a pending new entity of entityType:
 // pending-<type>-<32 hex digits>, from crypto/rand.
 func placeholderSlug(entityType domain.EntityType) (string, error) {
 	random := make([]byte, 16)
@@ -462,7 +447,7 @@ func placeholderSlug(entityType domain.EntityType) (string, error) {
 }
 
 // storeSubmission stores the draft as pending: the full document doc and its flags, the author's document as
-// submitted, the time, and the draft's base as both its base and its submitted base (D5).
+// submitted, the time, and the draft's base as both its base and its submitted base.
 func (c *catalogueReader) storeSubmission(
 	ctx context.Context, req datasources.SubmitRequest, draft queries.GetRevisionRow, entity domain.EntityRef,
 	doc domain.AnyDocument, flags []domain.Flag,
@@ -471,10 +456,7 @@ func (c *catalogueReader) storeSubmission(
 	if err != nil {
 		return err
 	}
-	if flags == nil {
-		flags = []domain.Flag{}
-	}
-	flagsJSON, err := encodeJSON(flags)
+	flagsJSON, err := encodeFlags(flags)
 	if err != nil {
 		return err
 	}
@@ -489,8 +471,8 @@ func (c *catalogueReader) storeSubmission(
 	return nil
 }
 
-// WithdrawRevision withdraws one of the actor's pending revisions (D2). It locks the revision, then its entity's
-// row (D15), and deletes a pending new entity's placeholder if no other pending revision has it (D14); the revision
+// WithdrawRevision withdraws one of the actor's pending revisions. It locks the revision, then its entity's
+// row, and deletes a pending new entity's placeholder if no other pending revision has it; the revision
 // row stays.
 func (r *Repository) WithdrawRevision(ctx context.Context, actor domain.Actor, id int64) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -504,14 +486,14 @@ func (r *Repository) WithdrawRevision(ctx context.Context, actor domain.Actor, i
 		})
 	})
 	if err != nil {
-		return withoutServerMessage(fmt.Sprintf("withdrawing revision [%d]", id), err)
+		return databaseError(fmt.Sprintf("withdrawing revision [%d]", id), err)
 	}
 
 	return nil
 }
 
 // deleteUnusedPlaceholder deletes the placeholder of the pending new entity, which its revision revisionID has left
-// pending without being approved, unless another pending revision has it (D14).
+// pending without being approved, unless another pending revision has it.
 func (c *catalogueReader) deleteUnusedPlaceholder(
 	ctx context.Context, entity domain.EntityRef, revisionID uint64,
 ) error {
@@ -528,7 +510,7 @@ func (c *catalogueReader) deleteUnusedPlaceholder(
 	return c.deletePlaceholder(ctx, entity)
 }
 
-// leavePending ends the locked pending revision row without approving it, by write (D14): it locks the revision's
+// leavePending ends the locked pending revision row without approving it, by write: it locks the revision's
 // entity row, writes, and deletes a pending new entity's placeholder if no other pending revision has it.
 func (c *catalogueReader) leavePending(ctx context.Context, row queries.LockRevisionsRow, write func() error) error {
 	entity := domain.EntityRef{Type: enumOf[domain.EntityType](c, row.EntityType), ID: row.EntityID.Int64}

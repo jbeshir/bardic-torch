@@ -320,7 +320,7 @@ func (c *catalogueReader) peekCurrent(
 func (c *catalogueReader) lockedCurrent(
 	ctx context.Context, kind documentKind, e domain.EntityRef, own entityRow, peeked currentDocument,
 ) (currentDocument, error) {
-	if equalIDs(own.currentRevision, peeked.id) {
+	if domain.EqualPointers(own.currentRevision, peeked.id) {
 		return peeked, nil
 	}
 	if own.currentRevision == nil {

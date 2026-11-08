@@ -23,7 +23,7 @@ var (
 	ErrDocumentType = errors.New("document is not of the entity's type")
 )
 
-// EditorRefResolver converts references between the editor format and documents (D5) for a caller: a piece,
+// EditorRefResolver converts references between the editor format and documents for a caller: a piece,
 // person, term, collection or event they may reference is public, or one of their own pending new terms or
 // persons (by placeholder slug); an interactive moderator may reference every entity.
 type EditorRefResolver interface {
@@ -37,7 +37,7 @@ type EditorRefResolver interface {
 	) ([]domain.EditorReference, error)
 }
 
-// EditableDocumentGetter returns the document an actor starts editing an entity from (D5), returning ErrNotFound
+// EditableDocumentGetter returns the document an actor starts editing an entity from, returning ErrNotFound
 // if the entity is neither public nor the actor's own pending new entity.
 type EditableDocumentGetter interface {
 	GetEditable(ctx context.Context, actor domain.Actor, key domain.EntityKey) (domain.Editable, error)
@@ -62,7 +62,7 @@ type SavedDraft struct {
 	Created bool
 }
 
-// DraftSaver saves a draft (D1). An author holds one draft per existing entity: saving another replaces its
+// DraftSaver saves a draft. An author holds one draft per existing entity: saving another replaces its
 // document and summary, keeping its ID and base. It returns ErrNotFound if the entity is not one the actor may
 // edit, a *domain.DocumentError (unknown_reference at /base_revision_id) if the base is not an approved revision of
 // the entity, and ErrDraftLimitReached when a new draft would exceed domain.MaxDrafts.
@@ -113,17 +113,17 @@ type SubmitRequest struct {
 }
 
 // SubmitResult is the revision a submission leaves: Replayed is set when the draft had already been submitted, and
-// the revision is returned as it is (D2).
+// the revision is returned as it is.
 type SubmitResult struct {
 	RevisionID int64
 	Status     domain.RevisionStatus
 	Replayed   bool
 }
 
-// RevisionSubmitter submits a draft (D2, D5): it restores what was withheld from its author onto the draft's own
+// RevisionSubmitter submits a draft: it restores what was withheld from its author onto the draft's own
 // base, never merging it with the current document, validates it in two phases (domain.PlanSubmit) and stores it
 // as pending, superseding the author's pending revision of the entity. A new entity gets its placeholder row
-// (D14). It returns ErrNotFound unless the draft is the actor's, domain.ErrNotDraft for a rejected or withdrawn
+// . It returns ErrNotFound unless the draft is the actor's, domain.ErrNotDraft for a rejected or withdrawn
 // revision, a *domain.DocumentError, ErrPendingLimitReached, ErrEntityGone and ErrDocumentChanged. An interactive
 // moderator's submission is approved at once, inline: a stale one is merged, and the approval's errors are its
 // errors (RevisionApprover), the draft staying a draft.
@@ -132,7 +132,7 @@ type RevisionSubmitter interface {
 }
 
 // RevisionWithdrawer withdraws one of the actor's pending revisions, deleting its new entity's placeholder if no
-// other pending revision has it (D14). It returns ErrNotFound unless the revision is the actor's and
+// other pending revision has it. It returns ErrNotFound unless the revision is the actor's and
 // domain.ErrNotPending if it is not pending.
 type RevisionWithdrawer interface {
 	WithdrawRevision(ctx context.Context, actor domain.Actor, id int64) error
@@ -151,19 +151,19 @@ type MyRevisionLister interface {
 	ListMyRevisions(ctx context.Context, actor domain.Actor, query MyRevisionQuery) (domain.MyRevisionList, error)
 }
 
-// MyRevisionGetter returns one of the actor's own revisions with its views (D6), returning ErrNotFound unless it
+// MyRevisionGetter returns one of the actor's own revisions with its views, returning ErrNotFound unless it
 // is theirs.
 type MyRevisionGetter interface {
 	GetMyRevision(ctx context.Context, actor domain.Actor, id int64) (domain.MyRevision, error)
 }
 
-// PendingVersionGetter returns the actor's pending revision of an entity with its views (D6), returning
+// PendingVersionGetter returns the actor's pending revision of an entity with its views, returning
 // ErrNotFound if they have none, or the entity is neither public nor their own pending new entity.
 type PendingVersionGetter interface {
 	GetPendingVersion(ctx context.Context, actor domain.Actor, key domain.EntityKey) (domain.MyRevision, error)
 }
 
-// DuplicateFinder returns the existing entities a new one may duplicate (D13), comparing the candidate's names with
+// DuplicateFinder returns the existing entities a new one may duplicate, comparing the candidate's names with
 // every public entity of its type: pieces' titles and aliases, persons' names and public aliases (persons who
 // prefer no page included, as blocked matches), the terms of its facet, collections' names and URLs, events'
 // names. With includeHidden, for moderator views only, it also compares hidden aliases and the pending new
@@ -183,7 +183,7 @@ type DuplicateCheck struct {
 }
 
 // HiddenAliasLister lists the names of every hidden alias, which moderator flags look for in revisions' text
-// (D19).
+// .
 type HiddenAliasLister interface {
 	ListHiddenAliasNames(ctx context.Context) ([]string, error)
 }

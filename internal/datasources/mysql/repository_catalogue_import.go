@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"math"
 
-	mysqldriver "github.com/go-sql-driver/mysql"
-
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -39,30 +37,8 @@ const importLockName = "LEFT(CONCAT('bardic-torch-import:', DATABASE()), 64)"
 // above the session's innodb_lock_wait_timeout (lockWaitTimeoutSeconds), which bounds the wait instead.
 const lockWaitMillis = 60000
 
-// ImportDatabaseError is returned, wrapped, for every MySQL error of an import (a refused row, a failed lock or
-// commit). It names the step and the MySQL error number but not the server's message, which can quote the
-// row's values ("Duplicate entry '…'") and so may hold a private name.
-type ImportDatabaseError struct {
-	Step   string
-	Number uint16
-}
-
-func (e *ImportDatabaseError) Error() string {
-	return fmt.Sprintf("%s: MySQL error %d", e.Step, e.Number)
-}
-
 // errImportLockFailed is returned when GET_LOCK fails (returns NULL) rather than finding the lock taken.
 var errImportLockFailed = errors.New("the import lock could not be requested")
-
-// withoutServerMessage is err for step, as an ImportDatabaseError if it is a MySQL error.
-func withoutServerMessage(step string, err error) error {
-	var mysqlErr *mysqldriver.MySQLError
-	if errors.As(err, &mysqlErr) {
-		return &ImportDatabaseError{Step: step, Number: mysqlErr.Number}
-	}
-
-	return fmt.Errorf("%s: %w", step, err)
-}
 
 // errImportUnknownLink is returned, wrapped, when a document's link has no links row in the import, which
 // CatalogueImport.Validate rules out.
@@ -76,13 +52,13 @@ var errImportUnknownLink = errors.New("link has no links row in the import")
 func (r *Repository) ImportCatalogue(ctx context.Context, imp domain.CatalogueImport) error {
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
-		return withoutServerMessage("connecting for the catalogue import", err)
+		return databaseError("connecting for the catalogue import", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	var locked sql.NullInt64
 	if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK("+importLockName+", 0)").Scan(&locked); err != nil {
-		return withoutServerMessage("taking the import lock", err)
+		return databaseError("taking the import lock", err)
 	}
 	switch {
 	case !locked.Valid:
@@ -106,7 +82,7 @@ func releaseImportLock(ctx context.Context, conn *sql.Conn) {
 func (r *Repository) importInTransaction(ctx context.Context, conn *sql.Conn, imp domain.CatalogueImport) error {
 	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
-		return withoutServerMessage("beginning the catalogue import", err)
+		return databaseError("beginning the catalogue import", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -118,12 +94,12 @@ func (r *Repository) importInTransaction(ctx context.Context, conn *sql.Conn, im
 	if w.err != nil {
 		var writeErr *writeError
 		if errors.As(w.err, &writeErr) {
-			return fmt.Errorf("importing catalogue: %w", withoutServerMessage("writing "+writeErr.table, writeErr.err))
+			return fmt.Errorf("importing catalogue: %w", databaseError("writing "+writeErr.table, writeErr.err))
 		}
 		return fmt.Errorf("importing catalogue: %w", w.err)
 	}
 	if err := tx.Commit(); err != nil {
-		return withoutServerMessage("committing the catalogue import", err)
+		return databaseError("committing the catalogue import", err)
 	}
 
 	return nil
@@ -139,7 +115,7 @@ func requireEmptyCatalogue(ctx context.Context, tx *sql.Tx) error {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 		case err != nil:
-			return withoutServerMessage("locking "+table, err)
+			return databaseError("locking "+table, err)
 		default:
 			return fmt.Errorf("%w: %s has rows", datasources.ErrCatalogueNotEmpty, table)
 		}
@@ -318,13 +294,9 @@ func (w *importWriter) events(events []domain.ImportedEvent) {
 func (w *importWriter) persons(persons []domain.ImportedPerson) {
 	for _, person := range persons {
 		d := person.Doc
-		var statusDate sql.NullTime
-		if d.StatusDate != nil {
-			statusDate = sql.NullTime{Time: d.StatusDate.Time, Valid: true}
-		}
 		p := queries.InsertImportedPersonParams{ID: w.id(person.ID), Slug: person.Slug, Name: d.Name,
 			SortName: person.SortName, SortLetter: string(person.SortLetter), Kind: queries.PersonsKind(d.Kind),
-			Status: queries.PersonsStatus(d.Status), StatusDate: statusDate,
+			Status: queries.PersonsStatus(d.Status), StatusDate: nullDate(d.StatusDate),
 			StatusSourceUrl: nullString(d.StatusSourceURL), Pronouns: nullString(d.Pronouns),
 			NotesMd: nullString(d.NotesMD), LicensingNotesMd: nullString(d.LicensingNotesMD),
 			LicensingStatus: queries.PersonsLicensingStatus(d.LicensingStatus), IsStub: d.IsStub,
@@ -352,16 +324,12 @@ func (w *importWriter) persons(persons []domain.ImportedPerson) {
 func (w *importWriter) pieces(pieces []domain.ImportedPiece) {
 	for _, piece := range pieces {
 		d := piece.Doc
-		var licence queries.NullPiecesLicence
-		if d.Licence != nil {
-			licence = queries.NullPiecesLicence{PiecesLicence: queries.PiecesLicence(*d.Licence), Valid: true}
-		}
 		p := queries.InsertImportedPieceParams{ID: w.id(piece.ID), Slug: piece.Slug, Title: d.Title,
 			SortTitle: piece.SortTitle, SortLetter: string(piece.SortLetter), Kind: queries.PiecesKind(d.Kind),
 			ConservationStatus: queries.PiecesConservationStatus(d.Conservation.Status), IsStub: d.IsStub,
 			NotesMd: nullString(d.NotesMD), VersionNotesMd: nullString(d.VersionNotesMD),
 			LicensingNotesMd: nullString(d.LicensingNotesMD),
-			LicensingStatus:  queries.PiecesLicensingStatus(d.LicensingStatus), Licence: licence,
+			LicensingStatus:  queries.PiecesLicensingStatus(d.LicensingStatus), Licence: nullLicence(d.Licence),
 			HistoricalSourceMd: nullString(d.HistoricalSourceMD), PeriodStart: nullInt16(d.PeriodStart),
 			PeriodEnd: nullInt16(d.PeriodEnd), LegacyHadInlineLyrics: piece.LegacyHadInlineLyrics,
 			CurrentRevisionID: revisionID(piece.Revision), LegacyWikiPageid: w.legacyPageID(piece.Legacy),
@@ -416,13 +384,10 @@ func (w *importWriter) links(imp domain.CatalogueImport) {
 			return
 		}
 		w.linkIDs[normalized] = row.ID
-		var placeType queries.NullLinksPlaceType
-		if l.PlaceType != nil {
-			placeType = queries.NullLinksPlaceType{LinksPlaceType: queries.LinksPlaceType(*l.PlaceType), Valid: true}
-		}
-		p := queries.InsertImportedLinkParams{ID: w.id(row.ID), Url: l.URL, NormalizedUrl: normalized,
-			Title: nullString(l.Title), Description: nullString(l.Description), Platform: nullString(l.Platform),
-			PlaceType: placeType, CollectionID: nullableID(l.CollectionID), Locator: nullString(l.Locator),
+		fields := linkFields(l)
+		p := queries.InsertImportedLinkParams{ID: w.id(row.ID), Url: fields.Url, NormalizedUrl: normalized,
+			Title: fields.Title, Description: fields.Description, Platform: fields.Platform,
+			PlaceType: fields.PlaceType, CollectionID: fields.CollectionID, Locator: fields.Locator,
 			IsHidden: row.IsHidden}
 		w.exec("links", func() error { return w.q.InsertImportedLink(w.ctx, p) })
 	}

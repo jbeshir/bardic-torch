@@ -386,9 +386,9 @@ func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 
 	err := mysql.New(db).ImportCatalogue(t.Context(), imp)
 
-	var writeErr *mysql.ImportDatabaseError
+	var writeErr *mysql.DatabaseError
 	require.ErrorAs(t, err, &writeErr)
-	assert.Equal(t, mysql.ImportDatabaseError{Step: "writing " + tablePerformers, Number: 1062}, *writeErr)
+	assert.Equal(t, mysql.DatabaseError{Step: "writing " + tablePerformers, Number: 1062}, *writeErr)
 	assert.NotContains(t, err.Error(), "Duplicate", "the server's message, which quotes values, is not kept")
 	assert.Equal(t, emptyCounts(nil), tableRowCounts(t, db), "every table is rolled back")
 }

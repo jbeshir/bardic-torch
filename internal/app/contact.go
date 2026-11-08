@@ -10,7 +10,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// Environment variables that configure the contact form's Turnstile verification (D21).
+// Environment variables that configure the contact form's Turnstile verification.
 const (
 	turnstileSecretKeyEnv = "TURNSTILE_SECRET_KEY"
 	turnstileHostnamesEnv = "TURNSTILE_HOSTNAMES"

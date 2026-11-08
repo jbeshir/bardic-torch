@@ -122,7 +122,7 @@ func routes(deps Dependencies) []route {
 		{method: http.MethodGet, path: "/v1/needs-work",
 			handler: controller.NeedsWorkListGet{Lister: deps.PublicNeedsWorkLister}},
 		// The contact form needs no account: like the catalogue reads, it answers whatever credentials a request
-		// carries. Turnstile, not authentication, keeps automated senders out (D21).
+		// carries. Turnstile, not authentication, keeps automated senders out.
 		{method: http.MethodPost, path: "/v1/contact",
 			handler: controller.ContactSubmit{Command: deps.SubmitContactRequest}},
 
@@ -131,7 +131,7 @@ func routes(deps Dependencies) []route {
 			Command: deps.UpdateDisplayName,
 		})},
 
-		// Moderation, for interactive moderators only (D25). User IDs contain "|", which clients send percent-encoded
+		// Moderation, for interactive moderators only. User IDs contain "|", which clients send percent-encoded
 		// as %7C. The approve, reject and rebase routes coexist with the public GET /v1/revisions/{revision_id},
 		// which has another method and path depth.
 		{method: http.MethodPut, path: "/v1/users/{user_id}/blocked", authenticated: true,
@@ -154,7 +154,7 @@ func routes(deps Dependencies) []route {
 			handler: requireInteractiveModerator(controller.ModerationLinkGet{Command: deps.GetModerationLink})},
 		{method: http.MethodPut, path: "/v1/links/{link_id}/hidden", authenticated: true,
 			handler: requireInteractiveModerator(controller.LinkHiddenSet{Command: deps.SetLinkHidden})},
-		// Contact requests hold personal data, which only interactive moderators see (D21, D25).
+		// Contact requests hold personal data, which only interactive moderators see.
 		{method: http.MethodGet, path: "/v1/moderation/contact-requests", authenticated: true,
 			handler: requireInteractiveModerator(controller.ContactRequestsList{Command: deps.ListContactRequests})},
 		{method: http.MethodPost, path: "/v1/moderation/contact-requests/{request_id}", authenticated: true,
@@ -169,7 +169,7 @@ func routes(deps Dependencies) []route {
 			handler: requireNonAPIToken(controller.APITokenRevoke{Revoker: deps.APITokenRevoker, Now: deps.Now})},
 
 		// Revisions: the caller's own editable documents, drafts, submissions and revisions. API tokens act with
-		// contributor powers (D25), which the commands apply. The editable and pending documents of each entity
+		// contributor powers, which the commands apply. The editable and pending documents of each entity
 		// type have literal last segments, so they coexist with the public {slug} and history routes; placeholder
 		// slugs address the caller's own pending new entities.
 		editableRoute("pieces", "{slug}", domain.EntityTypePiece, deps),

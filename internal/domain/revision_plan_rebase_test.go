@@ -59,7 +59,7 @@ func TestPlanRebase(t *testing.T) {
 		require.NoError(t, err, "%v", problemsOrNil(err))
 		assert.Equal(t, person.Preferences, doc.Preferences)
 	})
-	t.Run("SF13_SourcedFieldCheckedAgainstCurrent", func(t *testing.T) {
+	t.Run("SourcedFieldCheckedAgainstCurrent", func(t *testing.T) {
 		t.Parallel()
 		s := state(&person)
 		s.Resolved.Status, s.Resolved.StatusSourceURL = PersonStatusDeceased, nil
@@ -108,7 +108,7 @@ func TestPlanRevert(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, plan.Flags, Flag{Code: FlagHiddenAliasInSummary, Path: pathSummaryFlag})
 	})
-	t.Run("SF12_ReasonRequired", func(t *testing.T) {
+	t.Run("ReasonRequired", func(t *testing.T) {
 		t.Parallel()
 		piece := fullPiece()
 		old := fullPiece()

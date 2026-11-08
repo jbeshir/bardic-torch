@@ -48,7 +48,7 @@ const (
 	CodeAPIAuthLimitReached  ErrorCode = "token_limit_reached"
 	CodeInternal             ErrorCode = "internal"
 	CodeUnavailable          ErrorCode = "unavailable"
-	// The codes of revision writes (D2, D4, D12, D13, D15, D19).
+	// The codes of revision writes.
 	CodeInvalidDocument         ErrorCode = "invalid_document"
 	CodeNotDraft                ErrorCode = "not_draft"
 	CodeNotPending              ErrorCode = "not_pending"
@@ -64,11 +64,11 @@ const (
 	CodeUnacknowledgedFlags     ErrorCode = "unacknowledged_flags"
 	CodeDuplicateName           ErrorCode = "duplicate_name"
 	CodeStale                   ErrorCode = "stale"
-	// The codes of PATCH /v1/me (D20) and of link reports (D21).
+	// The codes of PATCH /v1/me and of link reports.
 	CodeDisplayNameTaken    ErrorCode = "display_name_taken"
 	CodeDisplayNameReserved ErrorCode = "display_name_reserved"
 	CodeReportLimitReached  ErrorCode = "report_limit_reached"
-	// The code of a contact request whose Turnstile token does not pass (D21).
+	// The code of a contact request whose Turnstile token does not pass.
 	CodeTurnstileFailed ErrorCode = "turnstile_failed"
 )
 

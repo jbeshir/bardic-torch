@@ -147,7 +147,7 @@ var (
 		unresolvable:              internalError,
 	}}
 	// interactiveModerator operations are behind requireInteractiveModerator: moderators only, and not with an API
-	// token (D25).
+	// token.
 	interactiveModerator = access{authenticated: true, outcomes: map[principal]outcome{
 		anonymous:                 unauthenticated,
 		unrecognisedCredentials:   unauthenticated,

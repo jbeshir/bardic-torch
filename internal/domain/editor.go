@@ -6,7 +6,7 @@ import (
 	"slices"
 )
 
-// The editor format (D5) is how documents are edited through the API: each stored document's fields, except
+// The editor format is how documents are edited through the API: each stored document's fields, except
 // schema_version and preferences (which no one edits until their shape is defined), with references to pieces,
 // persons, terms and events by slug instead of internal ID. Collections are referenced by ID, as they are
 // addressed. A pending new term or person of the caller's is referenced by its placeholder slug.
@@ -545,7 +545,7 @@ func (e EditorPieceDocument) References() EditorRefs {
 		refs.PieceSlugs = append(refs.PieceSlugs, r.Piece)
 	}
 	for _, c := range e.Credits {
-		refs.PersonSlugs = appendSlug(refs.PersonSlugs, c.Person)
+		refs.PersonSlugs = appendID(refs.PersonSlugs, c.Person)
 	}
 	for _, l := range e.Links {
 		refs.CollectionIDs = appendID(refs.CollectionIDs, l.CollectionID)
@@ -566,7 +566,7 @@ func (e EditorPersonDocument) References() EditorRefs {
 	for _, l := range e.Links {
 		refs.CollectionIDs = appendID(refs.CollectionIDs, l.CollectionID)
 		for _, p := range l.Performances {
-			refs.PieceSlugs = appendSlug(refs.PieceSlugs, p.Piece)
+			refs.PieceSlugs = appendID(refs.PieceSlugs, p.Piece)
 			p.addReferences(&refs)
 		}
 	}
@@ -576,26 +576,17 @@ func (e EditorPersonDocument) References() EditorRefs {
 
 // References returns the references e makes.
 func (e EditorTermDocument) References() EditorRefs {
-	return EditorRefs{TermSlugs: appendSlug(appendSlug(nil, e.Parent), e.RelatedAffiliation)}
+	return EditorRefs{TermSlugs: appendID(appendID(nil, e.Parent), e.RelatedAffiliation)}
 }
 
 // References returns the references e makes.
 func (e EditorCollectionDocument) References() EditorRefs {
-	return EditorRefs{TermSlugs: appendSlug(nil, e.Region), CollectionIDs: appendID(nil, e.ParentID)}
+	return EditorRefs{TermSlugs: appendID(nil, e.Region), CollectionIDs: appendID(nil, e.ParentID)}
 }
 
 func (p EditorPerformance) addReferences(refs *EditorRefs) {
-	refs.EventSlugs = appendSlug(refs.EventSlugs, p.Event)
+	refs.EventSlugs = appendID(refs.EventSlugs, p.Event)
 	refs.PersonSlugs = append(refs.PersonSlugs, p.Performers...)
-}
-
-// appendSlug appends *slug to slugs if slug is not nil.
-func appendSlug(slugs []string, slug *string) []string {
-	if slug == nil {
-		return slugs
-	}
-
-	return append(slugs, *slug)
 }
 
 // AnyEditorDocument is an editor document of one of the five types, for values whose entity type is known only at

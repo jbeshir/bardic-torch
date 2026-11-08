@@ -154,36 +154,36 @@ func TestEditable(t *testing.T) {
 		got  any
 		want any
 	}{
-		{id: "W01_HiddenAliasAbsent", got: first(EditableDocument(personID, fullPerson(), contributor)).Aliases,
+		{id: "hidden_alias_absent", got: first(EditableDocument(personID, fullPerson(), contributor)).Aliases,
 			want: personProjection().Aliases},
-		{id: "W02_ModeratorSeesHiddenAlias", got: first(EditableDocument(personID, fullPerson(), moderator)),
+		{id: "moderator_sees_hidden_alias", got: first(EditableDocument(personID, fullPerson(), moderator)),
 			want: withoutPreferences(fullPerson())},
-		{id: "W08_HiddenLinkAbsent", got: linkURLs(first(EditableDocument(pieceID, fullPiece(), contributor))),
+		{id: "hidden_link_absent", got: linkURLs(first(EditableDocument(pieceID, fullPiece(), contributor))),
 			want: []string{validPiece().Links[0].URL, songbookPageURL}},
-		{id: "W11_NoPageCreditAbsent", got: first(EditableDocument(pieceID, fullPiece(), contributor)).Credits,
+		{id: "no_page_credit_absent", got: first(EditableDocument(pieceID, fullPiece(), contributor)).Credits,
 			want: pieceProjection().Credits},
-		{id: "W12_NoPagePerformerAbsent",
+		{id: "no_page_performer_absent",
 			got:  first(EditableDocument(pieceID, fullPiece(), contributor)).Links[0].Performances[0].PerformerIDs,
 			want: []int64{refPerson}},
-		{id: "W13_NoPagePersonIdentityOnly", got: first(EditableDocument(refNoPagePerson, noPagePerson(), contributor)),
+		{id: "no_page_person_identity_only", got: first(EditableDocument(refNoPagePerson, noPagePerson(), contributor)),
 			want: identityOnly(noPagePerson())},
-		{id: "W13b_NoPageNowIdentityOnly", got: first(EditableDocument(refNoPagePerson, validPerson(), contributor)),
+		{id: "no_page_now_identity_only", got: first(EditableDocument(refNoPagePerson, validPerson(), contributor)),
 			want: identityOnly(validPerson())},
-		{id: "W16_PreferencesAbsentForEveryone",
+		{id: "preferences_absent_for_everyone",
 			got: first(EditableDocument(pieceID, fullPiece(), moderator)).Preferences, want: []DocPreference(nil)},
-		{id: "W17_OthersPendingTermAbsent", got: first(EditableDocument(pieceID, fullPiece(), contributor)).Terms,
+		{id: "others_pending_term_absent", got: first(EditableDocument(pieceID, fullPiece(), contributor)).Terms,
 			want: pieceProjection().Terms},
-		{id: "W18_OwnPendingTermPresent",
+		{id: "own_pending_term_present",
 			got: slices.Contains(first(EditableDocument(pieceID, fullPiece(), contributor)).Terms,
 				DocPieceTerm{TermID: refOwnTerm}), want: true},
-		{id: "W19_HiddenCollectionNulled",
+		{id: "hidden_collection_nulled",
 			got: first(EditableDocument(pieceID, fullPiece(), contributor)).Links[1].CollectionID, want: (*int64)(nil)},
-		{id: "W20_CurrentName", got: first(EditableDocument(personID, fullPerson(), contributor)).Name,
+		{id: "current_name", got: first(EditableDocument(personID, fullPerson(), contributor)).Name,
 			want: fullPerson().Name},
-		{id: "W36_OwnPendingPersonCredited",
+		{id: "own_pending_person_credited",
 			got: slices.ContainsFunc(first(EditableDocument(pieceID, fullPiece(), contributor)).Credits,
 				func(c DocCredit) bool { return c.PersonID != nil && *c.PersonID == refOwnPerson }), want: true},
-		{id: "W40_APITokenModeratorIsContributor",
+		{id: "api_token_moderator_is_contributor",
 			got:  first(EditableDocument(pieceID, fullPiece(), editorVisibility(t, RoleContributor))),
 			want: pieceProjection()},
 		{id: "Piece", got: first(EditableDocument(pieceID, fullPiece(), contributor)), want: pieceProjection()},
@@ -294,20 +294,20 @@ func TestRestore(t *testing.T) {
 		return names
 	}
 
-	t.Run("W03_Untouched", func(t *testing.T) {
+	t.Run("untouched", func(t *testing.T) {
 		t.Parallel()
 		got, flags := restorePerson(func(*PersonDocument) {})
 		assert.Equal(t, fullPerson(), got)
 		assert.Empty(t, flags)
 	})
-	t.Run("W04_AfterNearestSurvivingPredecessor", func(t *testing.T) {
+	t.Run("after_nearest_surviving_predecessor", func(t *testing.T) {
 		t.Parallel()
 		got, _ := restorePerson(func(d *PersonDocument) { d.Aliases = d.Aliases[:1] })
 		assert.Equal(t, []string{secondAliasName, legalName}, aliasNames(got))
 		got, _ = restorePerson(func(d *PersonDocument) { d.Aliases = d.Aliases[1:] })
 		assert.Equal(t, []string{legalName, morwenTheBard}, aliasNames(got), "first, with no predecessor left")
 	})
-	t.Run("W05_AliasCollision", func(t *testing.T) {
+	t.Run("alias_collision", func(t *testing.T) {
 		t.Parallel()
 		typed := DocPersonAlias{Name: strings.ToLower(legalName), Kind: PersonAliasKindNickname, IsPublic: true}
 		got, flags := restorePerson(func(d *PersonDocument) { d.Aliases = append(slices.Clone(d.Aliases), typed) })
@@ -315,13 +315,13 @@ func TestRestore(t *testing.T) {
 			"the contributor's alias is kept, the hidden one not added")
 		assert.Equal(t, []Flag{{Code: FlagHiddenAliasCollision, Path: "/aliases/2"}}, flags)
 	})
-	t.Run("W09_HiddenLinkRestored", func(t *testing.T) {
+	t.Run("hidden_link_restored", func(t *testing.T) {
 		t.Parallel()
 		got, flags := restorePiece(func(*PieceDocument) {})
 		assert.Equal(t, fullPiece(), got)
 		assert.Empty(t, flags)
 	})
-	t.Run("W10_LinkCollision", func(t *testing.T) {
+	t.Run("link_collision", func(t *testing.T) {
 		t.Parallel()
 		respelled := strings.Replace(hiddenLinkURL, "example", "EXAMPLE", 1)
 		got, flags := restorePiece(func(d *PieceDocument) {
@@ -330,12 +330,12 @@ func TestRestore(t *testing.T) {
 		assert.Equal(t, []string{validPiece().Links[0].URL, songbookPageURL, respelled}, linkURLs(got))
 		assert.Equal(t, []Flag{{Code: FlagHiddenLinkCollision, Path: pathThirdLink}}, flags)
 	})
-	t.Run("W11_NoPageCreditRestored", func(t *testing.T) {
+	t.Run("no_page_credit_restored", func(t *testing.T) {
 		t.Parallel()
 		got, _ := restorePiece(func(d *PieceDocument) { d.Credits = slices.Clone(d.Credits[:2]) })
 		assert.Equal(t, fullPiece().Credits[:3], got.Credits, "restored after its predecessor; the deleted credit stays deleted")
 	})
-	t.Run("W12_PerformerRestored", func(t *testing.T) {
+	t.Run("performer_restored", func(t *testing.T) {
 		t.Parallel()
 		got, _ := restorePiece(func(*PieceDocument) {})
 		assert.Equal(t, []int64{refPerson, refNoPagePerson}, got.Links[0].Performances[0].PerformerIDs)
@@ -414,7 +414,7 @@ func TestRestore(t *testing.T) {
 			assert.Equal(t, []Flag{{Code: FlagHiddenDataConflict, Path: pathFirstLinkPerformances}}, flags, name)
 		}
 	})
-	t.Run("W14_NoPageProfileFromBase", func(t *testing.T) {
+	t.Run("no_page_profile_from_base", func(t *testing.T) {
 		t.Parallel()
 		base := noPagePerson()
 		sub, keys := EditableDocument(refNoPagePerson, base, vis)
@@ -423,7 +423,7 @@ func TestRestore(t *testing.T) {
 		assert.Equal(t, base, got, "the profile is the base's, the notes ignored")
 		assert.Empty(t, flags)
 	})
-	t.Run("W15_NoPageStatusChange", func(t *testing.T) {
+	t.Run("no_page_status_change", func(t *testing.T) {
 		t.Parallel()
 		base := noPagePerson()
 		sub, keys := EditableDocument(refNoPagePerson, base, vis)
@@ -433,19 +433,19 @@ func TestRestore(t *testing.T) {
 		want.Status, want.StatusSourceURL = sub.Status, sub.StatusSourceURL
 		assert.Equal(t, want, got, "the identity is the contributor's")
 	})
-	t.Run("W16_PreferencesRestored", func(t *testing.T) {
+	t.Run("preferences_restored", func(t *testing.T) {
 		t.Parallel()
 		got, _ := restorePiece(func(d *PieceDocument) {
 			d.Preferences = []DocPreference{{Dimension: PreferenceDimensionLicensing, SourceURL: linkA}}
 		})
 		assert.Equal(t, testPreferences(), got.Preferences, "copied whole from the base")
 	})
-	t.Run("W17_OthersPendingTermRestored", func(t *testing.T) {
+	t.Run("others_pending_term_restored", func(t *testing.T) {
 		t.Parallel()
 		got, _ := restorePiece(func(*PieceDocument) {})
 		assert.Equal(t, fullPiece().Terms, got.Terms)
 	})
-	t.Run("W19_CollectionRestoredWhileNull", func(t *testing.T) {
+	t.Run("collection_restored_while_null", func(t *testing.T) {
 		t.Parallel()
 		got, _ := restorePiece(func(*PieceDocument) {})
 		assert.Equal(t, ptr(refHiddenColl), got.Links[2].CollectionID)
@@ -455,7 +455,7 @@ func TestRestore(t *testing.T) {
 		})
 		assert.Equal(t, ptr(refCollection), got.Links[2].CollectionID, "the contributor's value wins")
 	})
-	t.Run("W36_OwnPendingCreditKept", func(t *testing.T) {
+	t.Run("own_pending_credit_kept", func(t *testing.T) {
 		t.Parallel()
 		got, _ := restorePiece(func(*PieceDocument) {})
 		assert.Equal(t, fullPiece().Credits[3], got.Credits[3])
@@ -472,7 +472,7 @@ func TestRestore(t *testing.T) {
 		assert.Equal(t, fullPerson().Links[0].Performances[1:], person.Links[0].Performances,
 			"the withheld performance of a piece that is not public is restored")
 	})
-	t.Run("R32_UnhiddenBeforeSubmit", func(t *testing.T) {
+	t.Run("unhidden_before_submit", func(t *testing.T) {
 		t.Parallel()
 		now := vis
 		now.HiddenLinkURLs = nil
@@ -514,12 +514,12 @@ func TestRestore_RoundTrip(t *testing.T) {
 	}
 }
 
-// roundTrip checks restore(editable(d), d, keys(editable(d))) = d (W21).
+// roundTrip checks restore(editable(d), d, keys(editable(d))) = d.
 func roundTrip[D Document](t *testing.T, id int64, doc D, vis EditorVisibility) {
 	t.Helper()
 	editable, keys := EditableDocument(id, doc, vis)
 	got, flags := RestoreDocument(id, editable, &doc, keys, vis)
-	assert.Equal(t, doc, got, "W21 %T as %s", doc, vis.Role)
+	assert.Equal(t, doc, got, "%T as %s", doc, vis.Role)
 	assert.Empty(t, flags)
 }
 
@@ -531,6 +531,26 @@ func TestRestore_PreferencesEveryActor(t *testing.T) {
 	editable, keys := EditableDocument(pieceID, base, vis)
 	editable.NotesMD = ptr("A moderator's edit.")
 	got, _ := RestoreDocument(pieceID, editable, &base, keys, vis)
-	assert.Equal(t, testPreferences(), got.Preferences, "W37: preferences restored for a moderator too")
+	assert.Equal(t, testPreferences(), got.Preferences, "preferences restored for a moderator too")
 	assert.Equal(t, base.Links, got.Links, "a moderator is withheld nothing else")
+}
+
+// TestDocReferences_KeysMatchRestoreKeys checks that the key of each reference of a full piece and a full person is
+// one of the keys restore records for what a moderator is shown, so that a reference key can be looked up in a
+// draft's received keys.
+func TestDocReferences_KeysMatchRestoreKeys(t *testing.T) {
+	t.Parallel()
+
+	moderator := editorVisibility(t, RoleModerator)
+	_, pieceKeys := EditableDocument(pieceID, fullPiece(), moderator)
+	for _, r := range documentReferences(fullPiece()) {
+		assert.True(t, pieceKeys[r.Key], "piece reference %s has key %s, which restore does not record", r.Path, r.Key)
+	}
+	_, personKeys := EditableDocument(personID, fullPerson(), moderator)
+	for _, r := range documentReferences(fullPerson()) {
+		assert.True(t, personKeys[r.Key], "person reference %s has key %s, which restore does not record", r.Path,
+			r.Key)
+	}
+	assert.NotEmpty(t, documentReferences(fullPiece()))
+	assert.NotEmpty(t, documentReferences(fullPerson()))
 }

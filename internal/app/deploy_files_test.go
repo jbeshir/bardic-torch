@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -304,4 +305,66 @@ func TestDockerfile_MatchesDokkuConfiguration(t *testing.T) {
 	assert.Contains(t, instructions["COPY"], "Procfile app.json /app/")
 	require.NotEmpty(t, instructions["WORKDIR"])
 	assert.Equal(t, "/app", instructions["WORKDIR"][len(instructions["WORKDIR"])-1])
+}
+
+// planIDPattern matches the IDs of the implementation plan's rows (decisions D1 to D25, transitions T01, rules R01,
+// writer rows W01, sourced-field rules SF01), which the repository cannot resolve: a comment or test name states the
+// rule itself, or refers to a docs/PLAN.md section.
+var planIDPattern = regexp.MustCompile(`(?:^|[^A-Za-z0-9])(?:D[0-9]{1,2}|[TRW][0-9]{2}[a-z]?|SF[0-9]{2}[a-z]?)(?:$|[^A-Za-z0-9])`)
+
+// notPlanIDs are the lines that match planIDPattern and are something else, by file and the text that matches.
+// This file is not scanned: it holds the pattern and this table.
+var notPlanIDs = []struct{ file, text, reason string }{
+	{"docs/PLAN.md", "D1 and MiniMax", "Cloudflare D1, a product removed from the feed skeleton"},
+	{"internal/domain/text_test.go", "R2-D2", "a droid's name, as an example of text with letters and digits"},
+}
+
+func TestNoUnresolvablePlanIDs(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot()
+	scanned := 0
+	for _, dir := range []string{"cmd", "internal", "migrations", "docs", "openapi"} {
+		err := fs.WalkDir(root, dir, func(name string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() || name == "internal/app/deploy_files_test.go" {
+				return nil
+			}
+			switch path.Ext(name) {
+			case ".go", ".sql", ".md", ".yaml":
+			default:
+				return nil
+			}
+			src, err := fs.ReadFile(root, name)
+			if err != nil {
+				return err
+			}
+			scanned++
+			for i, line := range strings.Split(string(src), "\n") {
+				match := planIDPattern.FindString(line)
+				if match == "" || allowedPlanID(name, line) {
+					continue
+				}
+				assert.Failf(t, "plan ID", "%s:%d cites %q, which the repository does not define: state the rule, or "+
+					"cite a docs/PLAN.md section", name, i+1, match)
+			}
+
+			return nil
+		})
+		require.NoError(t, err)
+	}
+	assert.Greater(t, scanned, 100, "the scan must find the repository's files")
+}
+
+// allowedPlanID is whether the line of file is one of notPlanIDs.
+func allowedPlanID(file, line string) bool {
+	for _, allowed := range notPlanIDs {
+		if file == allowed.file && strings.Contains(line, allowed.text) {
+			return true
+		}
+	}
+
+	return false
 }

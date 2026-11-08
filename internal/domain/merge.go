@@ -8,7 +8,7 @@ import (
 	"slices"
 )
 
-// FieldPath names what a diff found changed, or where a merge found a conflict (D9): a field by its JSON name
+// FieldPath names what a diff found changed, or where a merge found a conflict: a field by its JSON name
 // ("title"), a group of fields by the group's name ("licensing", "conservation"), an element of a keyed list by its
 // element key ("links[https://example.org/a]") and the order of a keyed list's elements ("links#order").
 type FieldPath string
@@ -67,7 +67,7 @@ func set(name string, key func(reflect.Value) string) docField {
 	return docField{path: name, names: []string{name}, kind: setField, key: key}
 }
 
-// The element keys of the lists (D9).
+// The element keys of the lists.
 var (
 	// keyOfValue keys a list of values (kinds, roles, IDs) by the value.
 	keyOfValue = func(e reflect.Value) string { return fmt.Sprint(e.Interface()) }
@@ -88,7 +88,7 @@ var (
 	}
 )
 
-// The fields of each document type. A group keeps a sourced value and its source together (D11), so that a merge
+// The fields of each document type. A group keeps a sourced value and its source together, so that a merge
 // never takes them from different sides. Every field but schema_version is in exactly one docField
 // (TestMergeFields_CoverEveryDocumentField).
 var (
@@ -150,8 +150,8 @@ func DiffDocuments[D Document](a, b D) []FieldPath {
 	return paths
 }
 
-// MergeDocuments merges ours (a revision) and theirs (the current document), both edits of base, field by field
-// (D9). A field one side changed takes that side's value; a field both changed to equal values takes it; a field
+// MergeDocuments merges ours (a revision) and theirs (the current document), both edits of base, field by field.
+// A field one side changed takes that side's value; a field both changed to equal values takes it; a field
 // both changed differently is a conflict. Keyed lists merge element by element, with the order of the side that
 // reordered them and each element the other side added after its nearest preceding element; sets merge as sets
 // and never conflict. With conflicts the merged document is incomplete, and only the conflicts are meaningful.

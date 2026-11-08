@@ -86,7 +86,7 @@ func TestAuthorView(t *testing.T) {
 		return d
 	}
 
-	t.Run("W05_W33_TypedCollidingAliasShown", func(t *testing.T) {
+	t.Run("TypedCollidingAliasShown", func(t *testing.T) {
 		t.Parallel()
 		typed := DocPersonAlias{Name: strings.ToLower(legalName), Kind: PersonAliasKindNickname, IsPublic: true}
 		view := personView(t, personID, withAlias(typed), personKeys, vis, public)
@@ -97,20 +97,20 @@ func TestAuthorView(t *testing.T) {
 		view := personView(t, personID, fullPerson(), personKeys, vis, public)
 		assert.NotContains(t, viewAliasNames(view), legalName)
 	})
-	t.Run("W07_TypedLegalAliasNeverShown", func(t *testing.T) {
+	t.Run("TypedLegalAliasNeverShown", func(t *testing.T) {
 		t.Parallel()
 		typed := DocPersonAlias{Name: otherLegalName, Kind: PersonAliasKindLegal}
 		view := personView(t, personID, withAlias(typed), personKeys, vis, public)
 		assert.Equal(t, []string{secondAliasName, morwenTheBard}, viewAliasNames(view))
 	})
-	t.Run("W10_W32_TypedHiddenURLShown", func(t *testing.T) {
+	t.Run("TypedHiddenURLShown", func(t *testing.T) {
 		t.Parallel()
 		view := pieceView(withLink(respelled), pieceKeys, vis, public)
 		assert.Contains(t, viewLinkURLs(view), respelled, "as typed")
 		view = pieceView(withLink(hiddenLinkURL), pieceKeys, vis, public)
 		assert.Contains(t, viewLinkURLs(view), hiddenLinkURL, "whether or not it was in the base")
 	})
-	t.Run("W11_NoPageCreditNeverShown", func(t *testing.T) {
+	t.Run("NoPageCreditNeverShown", func(t *testing.T) {
 		t.Parallel()
 		received := withEntries(pieceKeys, ElementKeySet{creditKeys(fullPiece().Credits)[1]: true})
 		submitted := piece
@@ -121,7 +121,7 @@ func TestAuthorView(t *testing.T) {
 			assert.True(t, c.Person == nil || c.Person.Slug != "rowan")
 		}
 	})
-	t.Run("W15_NoPageNowIdentityOnly", func(t *testing.T) {
+	t.Run("NoPageNowIdentityOnly", func(t *testing.T) {
 		t.Parallel()
 		sub, keys := EditableDocument(refNoPagePerson, noPagePerson(), vis)
 		sub.Status, sub.StatusSourceURL = PersonStatusActive, ptr("https://example.org/opt-in")
@@ -129,7 +129,7 @@ func TestAuthorView(t *testing.T) {
 		assert.Nil(t, view.Profile)
 		assert.Equal(t, PersonStatusActive, view.Status)
 	})
-	t.Run("W34_ReceivedLinkHiddenSince", func(t *testing.T) {
+	t.Run("ReceivedLinkHiddenSince", func(t *testing.T) {
 		t.Parallel()
 		now := vis
 		hidden, err := NormalizeURL(songbookPageURL)
@@ -138,7 +138,7 @@ func TestAuthorView(t *testing.T) {
 		doc := AuthorDocument(pieceID, piece, pieceKeys, now)
 		assert.NotContains(t, linkURLs(doc), songbookPageURL, "the pending starting point drops it too")
 	})
-	t.Run("W35_PendingRename", func(t *testing.T) {
+	t.Run("PendingRename", func(t *testing.T) {
 		t.Parallel()
 		renamed := person
 		renamed.Name = "Morwen Newname"
@@ -155,12 +155,12 @@ func TestAuthorView(t *testing.T) {
 		}
 		assert.Equal(t, []string{"merry", "period-origin", "pending-term-1"}, slugs)
 	})
-	t.Run("W36_OwnPendingPersonCredited", func(t *testing.T) {
+	t.Run("OwnPendingPersonCredited", func(t *testing.T) {
 		t.Parallel()
 		view := pieceView(piece, pieceKeys, vis, public)
 		assert.Equal(t, "pending-person-1", view.Credits[2].Person.Slug)
 	})
-	t.Run("W38_PreviewEqualsViewAfterSubmit", func(t *testing.T) {
+	t.Run("PreviewEqualsViewAfterSubmit", func(t *testing.T) {
 		t.Parallel()
 		draft := withLink(respelled)
 		preview := pieceView(draft, pieceKeys, vis, public)

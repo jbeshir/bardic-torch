@@ -16,7 +16,7 @@ var (
 	ErrContactRequestNotOpen = errors.New("the contact request is not open")
 )
 
-// NewContactRequest is a message sent through the contact form (D21). Name, Email, Message and URL are personal
+// NewContactRequest is a message sent through the contact form. Name, Email, Message and URL are personal
 // data, which must never be logged or named in an error.
 type NewContactRequest struct {
 	Kind    domain.ContactRequestKind

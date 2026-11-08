@@ -35,12 +35,9 @@ func (c RevisionRevert) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var summary string
-	if body.Summary != nil {
-		summary = *body.Summary
-	}
 	result, err := c.Command.Execute(r.Context(), command.RevertRequest{
-		Principal: req.Principal, RevisionID: req.ID, Summary: summary, AcknowledgedFlags: body.AcknowledgedFlags,
+		Principal: req.Principal, RevisionID: req.ID, Summary: valueOrEmpty(body.Summary),
+		AcknowledgedFlags: body.AcknowledgedFlags,
 	})
 	if err != nil {
 		writeRevisionError(w, r, "revision", err)

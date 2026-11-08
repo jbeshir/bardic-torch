@@ -68,7 +68,7 @@ func TestCatalogueImportValidate_MirrorsSchema(t *testing.T) {
 
 			require.ErrorIs(t, imp.Validate(), domain.ErrInvalidImport, "Validate rejects it")
 			err := mysql.New(catalogtest.Writable(t)).ImportCatalogue(t.Context(), imp)
-			var dbErr *mysql.ImportDatabaseError
+			var dbErr *mysql.DatabaseError
 			require.ErrorAs(t, err, &dbErr, "MySQL rejects it")
 			assert.Equal(t, tc.number, dbErr.Number)
 		})

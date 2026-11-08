@@ -19,7 +19,7 @@ var (
 	_ datasources.LinkHiddenSetter   = (*Repository)(nil)
 )
 
-// InsertLinkReport stores a user's report of a visible link (D21). Under the reporter's users row lock, which
+// InsertLinkReport stores a user's report of a visible link. Under the reporter's users row lock, which
 // serialises their reports, it locks the visible link by its normalized URL FOR SHARE, so that it cannot be hidden
 // before the report commits, then returns the reporter's open report of it or counts their open reports and
 // inserts. The URL is never named in errors: it may be a hidden link's.
@@ -73,7 +73,7 @@ func (r *Repository) InsertLinkReport(
 		return nil
 	})
 	if err != nil {
-		return domain.LinkReportReceipt{}, false, withoutServerMessage("reporting link", err)
+		return domain.LinkReportReceipt{}, false, databaseError("reporting link", err)
 	}
 
 	return receipt, created, nil
@@ -104,13 +104,13 @@ func (r *Repository) ListLinkReports(
 		return c.err
 	})
 	if err != nil {
-		return domain.LinkReportList{}, fmt.Errorf("listing link reports: %w", err)
+		return domain.LinkReportList{}, databaseError("listing link reports", err)
 	}
 
 	return list, nil
 }
 
-// ResolveLinkReport resolves or dismisses an open link report (D21). It reads the report's link without a lock,
+// ResolveLinkReport resolves or dismisses an open link report. It reads the report's link without a lock,
 // locks the link row, then the report row, and checks the report is still open; with HideLink it then hides the
 // link, resolving its other open reports. It returns the report as the transaction leaves it.
 func (r *Repository) ResolveLinkReport(
@@ -153,13 +153,13 @@ func (r *Repository) ResolveLinkReport(
 		return err
 	})
 	if err != nil {
-		return domain.LinkReport{}, withoutServerMessage(fmt.Sprintf("resolving link report [%d]", req.ReportID), err)
+		return domain.LinkReport{}, databaseError(fmt.Sprintf("resolving link report [%d]", req.ReportID), err)
 	}
 
 	return report, nil
 }
 
-// SetLinkHidden hides or shows a link (D21): it locks the link row, sets its hidden state and, when hiding it,
+// SetLinkHidden hides or shows a link: it locks the link row, sets its hidden state and, when hiding it,
 // resolves its open reports. It returns the link as the transaction leaves it.
 func (r *Repository) SetLinkHidden(
 	ctx context.Context, req datasources.SetLinkHiddenRequest,
@@ -182,7 +182,7 @@ func (r *Repository) SetLinkHidden(
 		return err
 	})
 	if err != nil {
-		return domain.ModerationLink{}, withoutServerMessage(fmt.Sprintf("setting link [%d] hidden", req.LinkID), err)
+		return domain.ModerationLink{}, databaseError(fmt.Sprintf("setting link [%d] hidden", req.LinkID), err)
 	}
 
 	return link, nil

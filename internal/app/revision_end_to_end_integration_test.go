@@ -190,7 +190,7 @@ const (
 )
 
 // TestHTTP_RevisionEndToEnd runs a contributor's whole revision flow through the production handler over a real
-// database, once with an Auth0 session and once with an API token (D25), and checks that a blocked contributor is
+// database, once with an Auth0 session and once with an API token, and checks that a blocked contributor is
 // refused every step of it.
 func TestHTTP_RevisionEndToEnd(t *testing.T) {
 	t.Parallel()

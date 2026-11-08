@@ -50,7 +50,7 @@ func TestRepository_FindDuplicates(t *testing.T) {
 		includeHidden bool
 		want          []domain.DuplicateMatch
 	}{
-		{"a folded title (W26)", piece("The Wrens Song"), false,
+		{"a folded title", piece("The Wrens Song"), false,
 			[]domain.DuplicateMatch{match(domain.EntityTypePiece, f.song.Slug, songTitle, domain.DuplicateFieldTitle)}},
 		{"an alias", piece("the larks air"), false,
 			[]domain.DuplicateMatch{match(domain.EntityTypePiece, ai.Slug, "Ai", domain.DuplicateFieldAlias)}},

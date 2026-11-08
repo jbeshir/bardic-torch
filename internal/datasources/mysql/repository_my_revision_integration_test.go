@@ -59,7 +59,7 @@ func TestRepository_ListMyRevisions(t *testing.T) {
 	assert.Equal(t, approved, byType.Revisions[0].ID)
 }
 
-// TestRepository_GetMyRevision_AuthorView checks the author's view of their pending revision (D6, §6.4 at the
+// TestRepository_GetMyRevision_AuthorView checks the author's view of their pending revision (§6.4 at the
 // repository level): what they typed is shown, what was withheld is not, and what they received is redacted by
 // the current state.
 func TestRepository_GetMyRevision_AuthorView(t *testing.T) {
@@ -79,8 +79,8 @@ func TestRepository_GetMyRevision_AuthorView(t *testing.T) {
 	assert.Equal(t, editedNotes, *view.NotesMD)
 	require.Len(t, view.Links, 2)
 	assert.Equal(t, songLyricsURL, view.Links[0].URL)
-	assert.Equal(t, typedURL, view.Links[1].URL, "a typed URL of a hidden link, as typed (W10, W32)")
-	require.Len(t, view.Credits, 1, "the credit of the person who prefers no page is never shown (W11)")
+	assert.Equal(t, typedURL, view.Links[1].URL, "a typed URL of a hidden link, as typed")
+	require.Len(t, view.Credits, 1, "the credit of the person who prefers no page is never shown")
 	assert.Equal(t, morwenName, view.Credits[0].Person.Name)
 	base := revision.BaseSnapshot.(domain.PieceSnapshot)
 	assert.Equal(t, songNotes, *base.NotesMD)
@@ -88,7 +88,7 @@ func TestRepository_GetMyRevision_AuthorView(t *testing.T) {
 	assert.Equal(t, &f.song.RevisionID, revision.SubmittedBaseRevisionID)
 	assert.Empty(t, revision.PendingReferences)
 
-	// A link the author received is hidden since: dropped from their view (W34).
+	// A link the author received is hidden since: dropped from their view.
 	f.c.SetLinkState(songLyricsURL, catalogtest.LinkState{IsHidden: true})
 	revision, err = f.repo.GetMyRevision(t.Context(), actorWren, result.RevisionID)
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestRepository_GetMyRevision_AuthorView(t *testing.T) {
 	require.ErrorIs(t, err, datasources.ErrNotFound, "moderators read revisions through the moderation view")
 }
 
-// TestRepository_GetMyRevision_TypedAlias checks W33 and W07: a typed public alias equal to a hidden base alias is
+// TestRepository_GetMyRevision_TypedAlias checks that a typed public alias equal to a hidden base alias is
 // shown to its author, a typed legal alias never is, and the base's hidden alias never is.
 func TestRepository_GetMyRevision_TypedAlias(t *testing.T) {
 	t.Parallel()
@@ -134,7 +134,7 @@ func TestRepository_GetMyRevision_SubmittedBase(t *testing.T) {
 	moved := f.c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: f.song.ID,
 		Snapshot: current, BaseRevisionID: f.song.RevisionID})
 	f.c.Exec("UPDATE pieces SET current_revision_id = ? WHERE id = ?", moved, f.song.ID)
-	// A rebase moves the base, never the submitted base (R49's author half).
+	// A rebase moves the base, never the submitted base (the rebase keeps the submitted base).
 	f.c.Exec("UPDATE revisions SET base_revision_id = ? WHERE id = ?", moved, result.RevisionID)
 
 	revision, err := f.repo.GetMyRevision(t.Context(), actorWren, result.RevisionID)
@@ -166,7 +166,7 @@ func TestRepository_GetMyRevision_Approved(t *testing.T) {
 	assert.Len(t, profile.Links, 1, "no hidden link")
 }
 
-// TestRepository_Draft_PreviewIsTheAuthorView checks W38: a draft's preview shows a typed hidden-link URL, and equals
+// TestRepository_Draft_PreviewIsTheAuthorView checks that a draft's preview shows a typed hidden-link URL, and equals
 // the author's view after submit.
 func TestRepository_Draft_PreviewIsTheAuthorView(t *testing.T) {
 	t.Parallel()

@@ -32,7 +32,7 @@ const (
 	viewerOther revisionViewer = "B"
 	// viewerModerator is moderator M in an Auth0 session.
 	viewerModerator revisionViewer = "M"
-	// viewerModeratorToken is the same moderator with an API token, a contributor (D25).
+	// viewerModeratorToken is the same moderator with an API token, a contributor.
 	viewerModeratorToken revisionViewer = "MT"
 )
 
@@ -411,8 +411,8 @@ func masked(v any) any {
 	}
 }
 
-// provenance is the D6 provenance row: A types into a draft of wren a public alias equal to a hidden alias and the
-// hidden link in another spelling, and receives a link that is hidden after the draft is saved. The draft's
+// provenance covers A typing into a draft of wren a public alias equal to a hidden alias and the
+// hidden link in another spelling, and receiving a link that is hidden after the draft is saved. The draft's
 // preview shows what A typed and never the received link, and so do the submit's response here and, in the
 // matrix's rows, the pending version, the author view and the editable document. It returns the submitted
 // revision's ID.
@@ -437,7 +437,7 @@ func (w revisionLeakWorld) provenance(t *testing.T, fx revisionLeakFixture) int6
 	draftID := objectID(t, draft, "id")
 
 	catalogtest.New(t, w.db).SetLinkState(hiddenLaterURL, catalogtest.LinkState{IsHidden: true})
-	// The draft's document is the editor document as A saved it (D7); its preview and references are the views
+	// The draft's document is the editor document as A saved it; its preview and references are the views
 	// built from it, which redact what A received by the current state.
 	saved := sendOK[jsonObject](t, w.e, http.MethodGet, idPath("/v1/drafts/", draftID), a, "", http.StatusOK)
 	views := encodeJSON(t, jsonObject{"preview": saved["preview"], "references": saved["references"]})

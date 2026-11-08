@@ -21,7 +21,7 @@ type UserGetter interface {
 }
 
 // UserEnsurer creates a contributor from user unless a user with its ID already exists, and returns the
-// stored user. A new user's display name key is stored too, unless another user has it (D20). An existing user is
+// stored user. A new user's display name key is stored too, unless another user has it. An existing user is
 // returned unchanged.
 type UserEnsurer interface {
 	EnsureUser(ctx context.Context, user NewUser) (domain.User, error)

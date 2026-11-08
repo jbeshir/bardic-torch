@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-// The limits on a contact request's fields (D21). Name and email are the widths of their columns; a Turnstile
+// The limits on a contact request's fields. Name and email are the widths of their columns; a Turnstile
 // token is at most Cloudflare's maximum.
 const (
 	// MaxContactNameLength is the most characters a contact request's name may have.

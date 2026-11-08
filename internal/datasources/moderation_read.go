@@ -26,7 +26,7 @@ type ModerationQueueLister interface {
 	ListModerationQueue(ctx context.Context, query ModerationQueueQuery) (domain.ModerationQueue, error)
 }
 
-// ModerationRevisionGetter returns a revision of any status but draft as a moderator sees it (D8), returning
+// ModerationRevisionGetter returns a revision of any status but draft as a moderator sees it, returning
 // ErrNotFound for no such revision and for a draft, which is private to its author.
 type ModerationRevisionGetter interface {
 	GetModerationRevision(ctx context.Context, id int64) (domain.ModerationRevision, error)

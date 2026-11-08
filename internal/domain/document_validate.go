@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// The element caps of a document (D12), and the bounds of its numbers.
+// The element caps of a document, and the bounds of its numbers.
 const (
 	maxAliases               = 100
 	maxPieceTerms            = 100
@@ -25,7 +25,7 @@ const (
 	maxCollectionParentDepth = 10
 )
 
-// ValidationContext is what validating a document of type D needs besides the document (D12).
+// ValidationContext is what validating a document of type D needs besides the document.
 type ValidationContext[D Document] struct {
 	// Author is the role of the revision's author: the contributor restrictions apply to a contributor's
 	// documents, whoever validates them.
@@ -116,7 +116,7 @@ func DefaultDocument[D Document]() D {
 	return doc
 }
 
-// ValidateSubmission validates a contributor's submission in two phases (D12), so that validation is never an
+// ValidateSubmission validates a contributor's submission in two phases, so that validation is never an
 // oracle for what the contributor could not see:
 //  1. editor, the document as submitted (before restore), compared with editorPrevious, the projection of the
 //     base the contributor edited. Its problems, with paths into the document the contributor sees, are the
@@ -158,7 +158,7 @@ func validateDocument[D Document](doc D, v ValidationContext[D]) []DocumentProbl
 	return nil
 }
 
-// Validate returns the problems of a piece document (D11, D12).
+// Validate returns the problems of a piece document.
 func (d PieceDocument) Validate(v ValidationContext[PieceDocument]) []DocumentProblem {
 	prev := DefaultPieceDocument()
 	if v.Previous != nil {
@@ -256,7 +256,7 @@ func (c *docCheck) performances(k int, performances []DocPerformance) {
 	}
 }
 
-// Validate returns the problems of a person document (D5, D11, D12).
+// Validate returns the problems of a person document.
 func (d PersonDocument) Validate(v ValidationContext[PersonDocument]) []DocumentProblem {
 	prev := DefaultPersonDocument()
 	if v.Previous != nil {
@@ -296,7 +296,7 @@ func (d PersonDocument) Validate(v ValidationContext[PersonDocument]) []Document
 	return c.problems
 }
 
-// personStatus checks a person's status (D11 S5–S7): any status but active, and any change of status, needs a
+// personStatus checks a person's status: any status but active, and any change of status, needs a
 // valid source; only a status other than active has a date, which is not after today.
 func (c *docCheck) personStatus(d, prev PersonDocument, today Date) {
 	c.sourceURL(d.StatusSourceURL, "/status_source_url")
@@ -307,7 +307,7 @@ func (c *docCheck) personStatus(d, prev PersonDocument, today Date) {
 	c.check(d.StatusDate == nil || !d.StatusDate.After(today.Time), "/status_date", ProblemOutOfRange)
 }
 
-// Validate returns the problems of a term document (D12).
+// Validate returns the problems of a term document.
 func (d TermDocument) Validate(v ValidationContext[TermDocument]) []DocumentProblem {
 	c := newDocCheck(d, v.Previous, v.Refs, v.ID)
 	c.document(d, d.SchemaVersion, v.Summary)
@@ -340,7 +340,7 @@ func (d TermDocument) Validate(v ValidationContext[TermDocument]) []DocumentProb
 	return c.problems
 }
 
-// Validate returns the problems of a collection document (D12).
+// Validate returns the problems of a collection document.
 func (d CollectionDocument) Validate(v ValidationContext[CollectionDocument]) []DocumentProblem {
 	c := newDocCheck(d, v.Previous, v.Refs, v.ID)
 	c.document(d, d.SchemaVersion, v.Summary)
@@ -355,7 +355,7 @@ func (d CollectionDocument) Validate(v ValidationContext[CollectionDocument]) []
 	return c.problems
 }
 
-// Validate returns the problems of an event document (D12).
+// Validate returns the problems of an event document.
 func (d EventDocument) Validate(v ValidationContext[EventDocument]) []DocumentProblem {
 	c := newDocCheck(d, v.Previous, v.Refs, v.ID)
 	c.document(d, d.SchemaVersion, v.Summary)
@@ -491,7 +491,7 @@ func (c *docCheck) links(links []DocLink) {
 	urls := make([]string, 0, len(links))
 	for k, l := range links {
 		path := fmt.Sprintf("/links/%d", k)
-		c.check(isValidURL(l.URL), path+"/url", ProblemInvalidURL)
+		c.check(IsValidURL(l.URL), path+"/url", ProblemInvalidURL)
 		urls = append(urls, linkKey(l.URL))
 		c.optionalVarchar(l.Title, maxLinkTitleLength, path+"/title")
 		c.text(l.Description, path+"/description")
@@ -526,7 +526,7 @@ func (c *docCheck) performance(p DocPerformance, path string) {
 
 // personAliases checks a person's aliases: each a name, unique and not the person's name (as the collation
 // compares them), and, of a contributor's document, each alias the edit adds or changes is hidden exactly when it
-// is a legal name (D5): a contributor cannot publish a legal name or hide another.
+// is a legal name: a contributor cannot publish a legal name or hide another.
 func (c *docCheck) personAliases(d, prev PersonDocument, author Role) {
 	c.cap(len(d.Aliases), maxAliases, "/aliases")
 	before := map[string]DocPersonAlias{}
@@ -553,22 +553,13 @@ func (c *docCheck) identityOnly(d, prev PersonDocument) {
 	dv, pv := reflect.ValueOf(d), reflect.ValueOf(prev)
 	for i := range dv.NumField() {
 		f := dv.Type().Field(i)
-		if !slices.Contains(identityFields, jsonFieldName(f)) && !sameValue(dv.Field(i), pv.Field(i)) {
+		if !slices.Contains(identityFields, jsonFieldName(f)) && !equalValues(dv.Field(i), pv.Field(i)) {
 			c.report(documentPaths.field("", f), ProblemWithheldFieldChanged)
 		}
 	}
 }
 
-// sameValue reports whether a and b are deeply equal, an empty list being equal to none.
-func sameValue(a, b reflect.Value) bool {
-	if a.Kind() == reflect.Slice && a.Len() == 0 && b.Len() == 0 {
-		return true
-	}
-
-	return reflect.DeepEqual(a.Interface(), b.Interface())
-}
-
-// pieceSources checks a piece's sourced fields (D11 S1–S3, S8, S9, S11).
+// pieceSources checks a piece's sourced fields (licensing, conservation and source URLs).
 func (c *docCheck) pieceSources(d, prev PieceDocument, summary string) {
 	links := make([]DocLink, 0, len(d.Links))
 	for _, l := range d.Links {
@@ -576,7 +567,7 @@ func (c *docCheck) pieceSources(d, prev PieceDocument, summary string) {
 	}
 	licensed := hasLicensingSource(links)
 	c.licensingSources(d.LicensingNotesMD, prev.LicensingNotesMD, d.LicensingStatus, prev.LicensingStatus, licensed)
-	if d.Licence != nil && !equalPointers(d.Licence, prev.Licence) {
+	if d.Licence != nil && !EqualPointers(d.Licence, prev.Licence) {
 		c.check(licensed, "/licence", ProblemSourceRequired)
 	}
 	c.sourceURL(d.Conservation.SourceURL, "/conservation/source_url")
@@ -589,10 +580,10 @@ func (c *docCheck) pieceSources(d, prev PieceDocument, summary string) {
 	}
 }
 
-// licensingSources checks the licensing rules pieces and persons share (D11 S1, S3, S4): changed licensing notes
+// licensingSources checks the licensing rules pieces and persons share: changed licensing notes
 // that are not empty, and a licensing status changed to known, need a licensing source.
 func (c *docCheck) licensingSources(notes, prevNotes *string, status, prevStatus LicensingStatus, licensed bool) {
-	if notes != nil && *notes != "" && !equalPointers(notes, prevNotes) {
+	if notes != nil && *notes != "" && !EqualPointers(notes, prevNotes) {
 		c.check(licensed, "/licensing_notes_md", ProblemSourceRequired)
 	}
 	if status == LicensingStatusKnown && prevStatus != LicensingStatusKnown {
@@ -604,11 +595,11 @@ func (c *docCheck) licensingSources(notes, prevNotes *string, status, prevStatus
 // URL.
 func hasLicensingSource(links []DocLink) bool {
 	return slices.ContainsFunc(links, func(l DocLink) bool {
-		return slices.Contains(l.Roles, LinkRoleLicensingSource) && isValidURL(l.URL)
+		return slices.Contains(l.Roles, LinkRoleLicensingSource) && IsValidURL(l.URL)
 	})
 }
 
-// preferences checks preference profiles: each dimension once, and each added or changed one sourced (D11 S10).
+// preferences checks preference profiles: each dimension once, and each added or changed one sourced.
 func (c *docCheck) preferences(prefs, prev []DocPreference) {
 	dims := make([]string, 0, len(prefs))
 	for k, p := range prefs {
@@ -623,9 +614,9 @@ func (c *docCheck) preferences(prefs, prev []DocPreference) {
 	c.unique(dims, "/preferences")
 }
 
-// sourceURL checks a source URL field that is set: it must be a valid URL (D11 S11).
+// sourceURL checks a source URL field that is set: it must be a valid URL.
 func (c *docCheck) sourceURL(s *string, path string) {
-	c.check(s == nil || isValidURL(*s), path, ProblemInvalidURL)
+	c.check(s == nil || IsValidURL(*s), path, ProblemInvalidURL)
 }
 
 // requireSource checks that a source URL field a rule requires is set; sourceURL checks that it is valid.
@@ -633,9 +624,9 @@ func (c *docCheck) requireSource(s *string, path string) {
 	c.check(s != nil && *s != "", path, ProblemSourceRequired)
 }
 
-// isValidURL reports whether s is a valid source or link URL: at most MaxURLLength bytes, without control
+// IsValidURL reports whether s is a valid source or link URL: at most MaxURLLength bytes, without control
 // characters, and an absolute http(s) URL that NormalizeURL accepts.
-func isValidURL(s string) bool {
+func IsValidURL(s string) bool {
 	if len(s) > MaxURLLength || strings.ContainsFunc(s, IsControlCharacter) {
 		return false
 	}
@@ -644,13 +635,14 @@ func isValidURL(s string) bool {
 	return err == nil
 }
 
-func equalPointers[T comparable](a, b *T) bool {
+// EqualPointers is whether two optional values are both nil or equal.
+func EqualPointers[T comparable](a, b *T) bool {
 	return a == nil && b == nil || a != nil && b != nil && *a == *b
 }
 
 // references checks the references of a document: each must exist and not be to the entity itself, and each the
 // edit adds or changes must be to an entity its author may reference (public, or the author's own pending new term
-// or person) and follow the rules of its field (D12). A reference that is unchanged needs only to exist, so that a
+// or person) and follow the rules of its field. A reference that is unchanged needs only to exist, so that a
 // person's choosing not to have a page, for example, does not make every piece crediting them uneditable.
 func (c *docCheck) references(refs []DocReference) {
 	for _, r := range refs {

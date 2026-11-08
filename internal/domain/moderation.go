@@ -2,7 +2,7 @@ package domain
 
 import "time"
 
-// ModerationAuthor is a user as moderator views show them (D8): with their user ID, so that a moderator can block
+// ModerationAuthor is a user as moderator views show them: with their user ID, so that a moderator can block
 // them, their role and whether they are blocked. User IDs appear only in moderator views.
 type ModerationAuthor struct {
 	ID          string
@@ -36,7 +36,7 @@ type ModerationQueue struct {
 	Total int64
 }
 
-// RebaseStatus is what approving a pending revision would do with its document (D9).
+// RebaseStatus is what approving a pending revision would do with its document.
 type RebaseStatus string
 
 // The rebase statuses.
@@ -59,7 +59,7 @@ type RebasePreview struct {
 }
 
 // ModerationPendingReference is a pending new term or person of a revision's author that the revision's document
-// references, which approving the revision approves alongside it unless it carries a flag of its own (D15).
+// references, which approving the revision approves alongside it unless it carries a flag of its own.
 type ModerationPendingReference struct {
 	RevisionID int64
 	EntityType EntityType
@@ -69,7 +69,7 @@ type ModerationPendingReference struct {
 	Flags []Flag
 }
 
-// ModerationRevision is a revision as a moderator sees it (D8): every document in full, hidden aliases and hidden
+// ModerationRevision is a revision as a moderator sees it: every document in full, hidden aliases and hidden
 // links included, with what approving it involves. Its documents may hold hidden data, so it is served to
 // interactive moderators only.
 type ModerationRevision struct {
@@ -118,7 +118,7 @@ type ModerationRevision struct {
 	// Flags are the flags approving the revision gates on, for a pending revision; else the flags stored on it.
 	Flags []Flag
 	// Duplicates are the entities a pending new entity may duplicate, hidden aliases and other pending new entities
-	// compared (D13); none otherwise.
+	// compared; none otherwise.
 	Duplicates []DuplicateMatch
 	// ChangedPaths are what Document changes from BaseDocument (from the default document for a new entity).
 	ChangedPaths []FieldPath

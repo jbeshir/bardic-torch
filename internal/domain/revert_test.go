@@ -20,7 +20,7 @@ func TestRevertDocument(t *testing.T) {
 	}
 	current.NotesMD = ptr("Current notes.")
 
-	t.Run("R38_AliasHiddenSinceStaysHidden", func(t *testing.T) {
+	t.Run("AliasHiddenSinceStaysHidden", func(t *testing.T) {
 		t.Parallel()
 		got := RevertDocument(target, current)
 		assert.Equal(t, []DocPersonAlias{
@@ -45,7 +45,7 @@ func TestRevertDocument(t *testing.T) {
 		assert.Contains(t, linkURLs(RevertDocument(piece, currentPiece)), hiddenLinkURL,
 			"links hidden since stay in the document, hidden by their state")
 	})
-	t.Run("R37_DiffShowsRevertedFields", func(t *testing.T) {
+	t.Run("DiffShowsRevertedFields", func(t *testing.T) {
 		t.Parallel()
 		got := RevertDocument(target, current)
 		assert.Equal(t, []FieldPath{"notes_md", "aliases[morwen the bard]", "aliases[wren r. placeholder]"},

@@ -10,15 +10,13 @@ import (
 	"slices"
 	"time"
 
-	mysqldriver "github.com/go-sql-driver/mysql"
-
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // entityWriter writes catalogue rows: the per-table inserts of an entity's child rows, which the import and the
 // approval writer share, and the approval writer's replacement of an entity's rows with its approved document
-// (D15 step 7). The first error stops it: every later write is skipped, and err holds the error.
+// . The first error stops it: every later write is skipped, and err holds the error.
 type entityWriter struct {
 	ctx context.Context
 	q   *queries.Queries
@@ -26,7 +24,7 @@ type entityWriter struct {
 }
 
 // writeError is a failed write of a table, wrapping the database's error: callers name the step and the MySQL
-// error number of an error leaving them (withoutServerMessage), never the server's message.
+// error number of an error leaving them (databaseError), never the server's message.
 type writeError struct {
 	table string
 	err   error
@@ -242,7 +240,7 @@ type approvedEntity struct {
 	current domain.AnyDocument
 }
 
-// write replaces the rows of the entity with its approved document (D15 step 7): the entity row (and a new
+// write replaces the rows of the entity with its approved document: the entity row (and a new
 // entity's slug), its own child rows, its links, link attachments and owned performances. The entity's row is
 // locked FOR UPDATE.
 func (w *entityWriter) write(e approvedEntity) {
@@ -270,10 +268,6 @@ func (w *entityWriter) write(e approvedEntity) {
 }
 
 func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, current *domain.PieceDocument) {
-	var licence queries.NullPiecesLicence
-	if d.Licence != nil {
-		licence = queries.NullPiecesLicence{PiecesLicence: queries.PiecesLicence(*d.Licence), Valid: true}
-	}
 	sortTitle := domain.SortTitle(d.Title)
 	key := w.id(id)
 	p := queries.UpdatePieceFromDocumentParams{Title: d.Title, SortTitle: sortTitle,
@@ -281,8 +275,9 @@ func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, current *dom
 		ConservationStatus: queries.PiecesConservationStatus(d.Conservation.Status), IsStub: d.IsStub,
 		NotesMd: nullString(d.NotesMD), VersionNotesMd: nullString(d.VersionNotesMD),
 		LicensingNotesMd: nullString(d.LicensingNotesMD), LicensingStatus: queries.PiecesLicensingStatus(d.LicensingStatus),
-		Licence: licence, HistoricalSourceMd: nullString(d.HistoricalSourceMD), PeriodStart: nullInt16(d.PeriodStart),
-		PeriodEnd: nullInt16(d.PeriodEnd), ID: key}
+		Licence: nullLicence(d.Licence), HistoricalSourceMd: nullString(d.HistoricalSourceMD),
+		PeriodStart: nullInt16(d.PeriodStart),
+		PeriodEnd:   nullInt16(d.PeriodEnd), ID: key}
 	w.exec("pieces", func() error { return requireMatched(w.q.UpdatePieceFromDocument(w.ctx, p)) })
 	if current == nil {
 		w.allocateSlug(domain.SlugEntityTypePiece, id, d.Title, func(ctx context.Context, slug string, rowID uint64) error {
@@ -318,15 +313,12 @@ func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, current *dom
 }
 
 func (w *entityWriter) writePerson(id int64, d domain.PersonDocument, current *domain.PersonDocument) {
-	var statusDate sql.NullTime
-	if d.StatusDate != nil {
-		statusDate = sql.NullTime{Time: d.StatusDate.Time, Valid: true}
-	}
 	key := w.id(id)
 	p := queries.UpdatePersonFromDocumentParams{Name: d.Name, SortName: d.Name,
 		SortLetter: string(domain.SortLetter(d.Name)), Kind: queries.PersonsKind(d.Kind),
-		Status: queries.PersonsStatus(d.Status), StatusDate: statusDate, StatusSourceUrl: nullString(d.StatusSourceURL),
-		Pronouns: nullString(d.Pronouns), NotesMd: nullString(d.NotesMD), LicensingNotesMd: nullString(d.LicensingNotesMD),
+		Status: queries.PersonsStatus(d.Status), StatusDate: nullDate(d.StatusDate),
+		StatusSourceUrl: nullString(d.StatusSourceURL), Pronouns: nullString(d.Pronouns),
+		NotesMd: nullString(d.NotesMD), LicensingNotesMd: nullString(d.LicensingNotesMD),
 		LicensingStatus: queries.PersonsLicensingStatus(d.LicensingStatus), IsStub: d.IsStub, ID: key}
 	w.exec("persons", func() error { return requireMatched(w.q.UpdatePersonFromDocument(w.ctx, p)) })
 	if current == nil {
@@ -421,8 +413,8 @@ func docLinks[L any](links []L, part func(L) domain.DocLink) []domain.DocLink {
 
 // upsertLinks writes the links rows of a document's links, given the links of the entity's current document prev
 // (nil for a new entity), and returns their IDs, in the order of links. Rows are locked in ascending normalized URL
-// order (D15): each is inserted with the link's fields if there is none, and an existing row's shared fields are
-// written by the link write rule (domain.LinkRowUpdate, D17). A row's hidden and liveness state is never written.
+// order: each is inserted with the link's fields if there is none, and an existing row's shared fields are
+// written by the link write rule (domain.LinkRowUpdate). A row's hidden and liveness state is never written.
 func (w *entityWriter) upsertLinks(links, prev []domain.DocLink) []uint64 {
 	normalized := make([]string, len(links))
 	for i, l := range links {
@@ -490,15 +482,37 @@ func (w *entityWriter) upsertLink(l domain.DocLink, normalized string, prev *dom
 	return key
 }
 
-// linkFields are the shared fields of a links row holding l.
-func linkFields(l domain.DocLink) queries.GetLinkFieldsRow {
-	var placeType queries.NullLinksPlaceType
-	if l.PlaceType != nil {
-		placeType = queries.NullLinksPlaceType{LinksPlaceType: queries.LinksPlaceType(*l.PlaceType), Valid: true}
+// nullLicence returns an optional licence as the type of the licence column.
+func nullLicence(l *domain.Licence) queries.NullPiecesLicence {
+	if l == nil {
+		return queries.NullPiecesLicence{}
 	}
 
+	return queries.NullPiecesLicence{PiecesLicence: queries.PiecesLicence(*l), Valid: true}
+}
+
+// nullDate returns an optional date as the type of the date columns.
+func nullDate(d *domain.Date) sql.NullTime {
+	if d == nil {
+		return sql.NullTime{}
+	}
+
+	return sql.NullTime{Time: d.Time, Valid: true}
+}
+
+// nullPlaceType returns an optional link place type as the type of the place_type column.
+func nullPlaceType(t *domain.LinkPlaceType) queries.NullLinksPlaceType {
+	if t == nil {
+		return queries.NullLinksPlaceType{}
+	}
+
+	return queries.NullLinksPlaceType{LinksPlaceType: queries.LinksPlaceType(*t), Valid: true}
+}
+
+// linkFields are the shared fields of a links row holding l.
+func linkFields(l domain.DocLink) queries.GetLinkFieldsRow {
 	return queries.GetLinkFieldsRow{Url: l.URL, Title: nullString(l.Title), Description: nullString(l.Description),
-		Platform: nullString(l.Platform), PlaceType: placeType, CollectionID: nullableID(l.CollectionID),
+		Platform: nullString(l.Platform), PlaceType: nullPlaceType(l.PlaceType), CollectionID: nullableID(l.CollectionID),
 		Locator: nullString(l.Locator)}
 }
 
@@ -516,28 +530,10 @@ func docLinkOf(row queries.GetLinkFieldsRow) domain.DocLink {
 }
 
 // maxSlugTries is how many slugs from a new entity's name its first approval tries before it falls back to
-// "<entity type>-<id>" (D14).
+// "<entity type>-<id>".
 const maxSlugTries = 50
 
-// The MySQL errors the writer handles.
-const (
-	// erDuplicateEntry is ER_DUP_ENTRY: a UNIQUE index already holds the value.
-	erDuplicateEntry = 1062
-	// erNoReferencedRow is ER_NO_REFERENCED_ROW_2: a foreign key's parent row does not exist.
-	erNoReferencedRow = 1452
-)
-
-// mysqlErrorNumber returns the MySQL error number of err, 0 if it is not a MySQL error.
-func mysqlErrorNumber(err error) uint16 {
-	var mysqlErr *mysqldriver.MySQLError
-	if errors.As(err, &mysqlErr) {
-		return mysqlErr.Number
-	}
-
-	return 0
-}
-
-// allocateSlug gives the new entity id of type t named name its slug (D14): the first of domain.EntitySlug's
+// allocateSlug gives the new entity id of type t named name its slug: the first of domain.EntitySlug's
 // candidates that set stores without a duplicate-key error, up to maxSlugTries, and then "<entity type>-<id>".
 func (w *entityWriter) allocateSlug(
 	t domain.SlugEntityType, id int64, name string, set func(ctx context.Context, slug string, id uint64) error,

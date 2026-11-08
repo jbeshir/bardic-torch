@@ -66,7 +66,7 @@ func (r *Repository) ListMyRevisions(
 	return list, nil
 }
 
-// GetMyRevision returns one of the actor's own revisions with its views (D6).
+// GetMyRevision returns one of the actor's own revisions with its views.
 func (r *Repository) GetMyRevision(ctx context.Context, actor domain.Actor, id int64) (domain.MyRevision, error) {
 	var revision domain.MyRevision
 	err := r.readOnly(ctx, func(c *catalogueReader) error {
@@ -87,7 +87,7 @@ func (r *Repository) GetMyRevision(ctx context.Context, actor domain.Actor, id i
 	return revision, nil
 }
 
-// GetPendingVersion returns the actor's pending revision of the entity key addresses, with its views (D6).
+// GetPendingVersion returns the actor's pending revision of the entity key addresses, with its views.
 func (r *Repository) GetPendingVersion(
 	ctx context.Context, actor domain.Actor, key domain.EntityKey,
 ) (domain.MyRevision, error) {
@@ -97,12 +97,13 @@ func (r *Repository) GetPendingVersion(
 		if err != nil {
 			return err
 		}
-		pending, err := c.q.GetUserPendingForEntity(ctx, queries.GetUserPendingForEntityParams{
-			AuthorUserID: nullString(&actor.UserID), EntityType: queries.RevisionsEntityType(key.Type),
-			EntityID: nullableID(&target.entity.ID),
-		})
+		pending, found, err := c.userPendingFor(ctx, actor.UserID, queries.RevisionsEntityType(key.Type),
+			nullableID(&target.entity.ID))
 		if err != nil {
-			return lookupError("pending revision", err)
+			return err
+		}
+		if !found {
+			return datasources.ErrNotFound
 		}
 		row, err := c.q.GetRevision(ctx, pending.ID)
 		if err != nil {
@@ -151,7 +152,7 @@ func (row myRevisionRow) authorDocument(kind documentKind) (domain.AnyDocument, 
 	return doc, nil
 }
 
-// viewedBase is the base the author's views compare the revision with: the base they edited from (D5), which a
+// viewedBase is the base the author's views compare the revision with: the base they edited from, which a
 // rebase never moves.
 func (row myRevisionRow) viewedBase() sql.NullInt64 {
 	if row.submittedBase.Valid {
@@ -202,7 +203,7 @@ func (c *catalogueReader) myRevisionSummary(
 	}, nil
 }
 
-// myRevision returns a revision with its author's views (D6): of what they submitted, as their author view
+// myRevision returns a revision with its author's views: of what they submitted, as their author view
 // (domain.AuthorDocument and domain.AuthorVisibility), and the same construction over the base they edited from;
 // or for an approved revision the public views.
 func (c *catalogueReader) myRevision(
@@ -231,7 +232,7 @@ func (c *catalogueReader) myRevision(
 	if err != nil {
 		return domain.MyRevision{}, err
 	}
-	received, err := decodeReceivedKeys(row.ReceivedKeysJson)
+	received, err := decodeJSONColumn[domain.ElementKeySet]("received keys", row.ReceivedKeysJson)
 	if err != nil {
 		return domain.MyRevision{}, err
 	}
@@ -280,7 +281,7 @@ func (c *catalogueReader) myRevisionDocuments(
 	return doc, base, err
 }
 
-// myRevisionViews returns the views of a revision of status and of its base (nil for none) for its author (D6): of
+// myRevisionViews returns the views of a revision of status and of its base (nil for none) for its author: of
 // an approved revision the public views, and otherwise the author's view of what they submitted, having received
 // received, and the same construction over the base.
 func myRevisionViews(

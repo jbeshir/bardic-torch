@@ -17,7 +17,7 @@ ALTER TABLE `revisions`
         REFERENCES `revisions` (`id`),
     ADD CONSTRAINT `chk_revisions_entity_unless_draft` CHECK (`entity_id` IS NOT NULL OR `status` = 'draft');
 
--- Which document owns each performance: the piece's or the person's (D16).
+-- Which document owns each performance: the piece's or the person's.
 ALTER TABLE `performances`
     ADD COLUMN `owner_piece_id` BIGINT UNSIGNED NULL,
     ADD COLUMN `owner_person_id` BIGINT UNSIGNED NULL,
@@ -41,7 +41,7 @@ JOIN (SELECT `link_id`, MIN(`person_id`) AS `person_id`
 SET perf.`owner_person_id` = owner.`person_id`
 WHERE perf.`owner_piece_id` IS NULL;
 
--- Display-name impersonation control (D20): the folded key, unique; NULL until written.
+-- Display-name impersonation control: the folded key, unique; NULL until written.
 ALTER TABLE `users`
     ADD COLUMN `display_name_key` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NULL,
     ADD UNIQUE INDEX `idx_display_name_key` (`display_name_key`);
@@ -69,7 +69,7 @@ CREATE TABLE `link_reports` (
 CREATE TABLE `contact_requests` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `kind` ENUM('takedown', 'opt_out', 'correction', 'general') NOT NULL,
-    -- name, email, message and url are personal data: nulled 180 days after resolution (D21).
+    -- name, email, message and url are personal data: nulled 180 days after resolution.
     `name` VARCHAR(255) NULL,
     `email` VARCHAR(254) NULL,
     `message` TEXT NULL,

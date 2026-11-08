@@ -2,7 +2,7 @@ package domain
 
 import "time"
 
-// Actor is who acts on revisions: a user, with their effective role (D25). A moderator acting with an API token
+// Actor is who acts on revisions: a user, with their effective role. A moderator acting with an API token
 // acts as a contributor.
 type Actor struct {
 	UserID string
@@ -67,7 +67,7 @@ type StartingPoint string
 const (
 	// StartingPointCurrent is the entity's current document.
 	StartingPointCurrent StartingPoint = "current"
-	// StartingPointPending is the caller's pending revision of the entity, as its author sees it (D5).
+	// StartingPointPending is the caller's pending revision of the entity, as its author sees it.
 	StartingPointPending StartingPoint = "pending"
 )
 
@@ -92,7 +92,7 @@ type PendingRef struct {
 	SubmittedAt time.Time
 }
 
-// Editable is the document a caller starts an edit of an entity from (D5): the projection of the current document
+// Editable is the document a caller starts an edit of an entity from: the projection of the current document
 // without what the caller may not see, or of the author document of their pending revision of it, with its base.
 type Editable struct {
 	Entity RevisionEntity
@@ -110,7 +110,7 @@ type Editable struct {
 	Pending *PendingRef
 }
 
-// Draft is a draft as its author saved it (D1).
+// Draft is a draft as its author saved it.
 type Draft struct {
 	ID         int64
 	EntityType EntityType
@@ -154,7 +154,7 @@ type MyRevisionSummary struct {
 	SubmittedBaseRevisionID *int64
 }
 
-// MyRevision is one of a caller's own revisions with its views (D6): the author's view of what they submitted, and
+// MyRevision is one of a caller's own revisions with its views: the author's view of what they submitted, and
 // the same view of the base they edited from; for an approved revision, the public views.
 type MyRevision struct {
 	MyRevisionSummary

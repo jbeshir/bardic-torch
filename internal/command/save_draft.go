@@ -28,7 +28,7 @@ type SavedDraft struct {
 	Created bool
 }
 
-// SaveDraft saves a draft (D1): one per author and existing entity, replacing the author's draft of the entity if
+// SaveDraft saves a draft: one per author and existing entity, replacing the author's draft of the entity if
 // they have one.
 type SaveDraft struct {
 	Resolver   datasources.EditorRefResolver

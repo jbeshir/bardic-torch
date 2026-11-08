@@ -64,7 +64,7 @@ func requireModerator(next http.Handler) http.Handler {
 	}))
 }
 
-// requireInteractiveModerator lets only moderators who are not using an API token through (D25): contributors get
+// requireInteractiveModerator lets only moderators who are not using an API token through: contributors get
 // 403 moderator_required, whichever credential they use, and a moderator's API token 403 api_token_not_allowed.
 // Every moderator operation uses it, because a leaked API token must not moderate or read moderator views.
 func requireInteractiveModerator(next http.Handler) http.Handler {

@@ -103,10 +103,10 @@ func TestMerge(t *testing.T) {
 	normalizedNew, err := NormalizeURL(linkNew)
 	require.NoError(t, err)
 	rows := []mergeRow{
-		{id: "R01_NotStale", ours: func(d PieceDocument) PieceDocument {
+		{id: "NotStale", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.NotesMD = ptr("Ours.") })
 		}, theirs: same, check: func(t *testing.T, m PieceDocument) { assert.Equal(t, "Ours.", *m.NotesMD) }},
-		{id: "R02_DisjointScalars", ours: func(d PieceDocument) PieceDocument {
+		{id: "DisjointScalars", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.NotesMD = ptr("Ours.") })
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.Title = theirsTitle })
@@ -114,96 +114,96 @@ func TestMerge(t *testing.T) {
 			assert.Equal(t, "Ours.", *m.NotesMD)
 			assert.Equal(t, theirsTitle, m.Title)
 		}},
-		{id: "R03_SameScalarDifferent", ours: func(d PieceDocument) PieceDocument {
+		{id: "SameScalarDifferent", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.Title = "Ours" })
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.Title = theirsTitle })
 		}, conflicts: []FieldPath{fieldTitle}},
-		{id: "R04_SameScalarEqual", ours: func(d PieceDocument) PieceDocument {
+		{id: "SameScalarEqual", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.Title = "Both" })
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.Title = "Both" })
 		}, check: func(t *testing.T, m PieceDocument) { assert.Equal(t, "Both", m.Title) }},
-		{id: "R05_SourcedGroupNeverSplit", ours: func(d PieceDocument) PieceDocument {
+		{id: "SourcedGroupNeverSplit", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.LicensingNotesMD = ptr("Ask first.") })
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) {
 				d.LicensingStatus, d.Licence = LicensingStatusKnown, ptr(LicenceCCBY)
 			})
 		}, conflicts: []FieldPath{"licensing"}},
-		{id: "R06_ConservationOneSide", ours: func(d PieceDocument) PieceDocument {
+		{id: "ConservationOneSide", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) {
 				d.Conservation = DocConservation{Status: ConservationStatusEndangered, SourceURL: ptr(linkA)}
 			})
 		}, theirs: same, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, DocConservation{Status: ConservationStatusEndangered, SourceURL: ptr(linkA)}, m.Conservation)
 		}},
-		{id: "R07_BothAddDifferentLinks", ours: func(d PieceDocument) PieceDocument {
+		{id: "BothAddDifferentLinks", ours: func(d PieceDocument) PieceDocument {
 			return withLinks(d, d.Links[0], pieceLink(linkNew, "New"), d.Links[1], d.Links[2])
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return addLink(d, pieceLink(linkNewToo, "New too"))
 		}, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, []string{linkA, linkNew, linkB, linkC, linkNewToo}, linkURLsOf(m))
 		}},
-		{id: "R08_SameURLDifferentTitles", ours: func(d PieceDocument) PieceDocument {
+		{id: "SameURLDifferentTitles", ours: func(d PieceDocument) PieceDocument {
 			return addLink(d, pieceLink(linkNew, "Ours"))
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return addLink(d, pieceLink(linkNew, theirsTitle))
 		}, conflicts: []FieldPath{FieldPath("links[" + normalizedNew + "]")}},
-		{id: "R09_SameURLRespelled", ours: func(d PieceDocument) PieceDocument {
+		{id: "SameURLRespelled", ours: func(d PieceDocument) PieceDocument {
 			return addLink(d, pieceLink(linkNew, "New"))
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return addLink(d, pieceLink(strings.Replace(linkNew, "example", "EXAMPLE", 1), "New"))
 		}, conflicts: []FieldPath{FieldPath("links[" + normalizedNew + "]")}},
-		{id: "R09b_SameURLEqual", ours: func(d PieceDocument) PieceDocument {
+		{id: "SameURLEqual", ours: func(d PieceDocument) PieceDocument {
 			return addLink(d, pieceLink(linkNew, "New"))
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return addLink(d, pieceLink(linkNew, "New"))
 		}, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, []string{linkA, linkB, linkC, linkNew}, linkURLsOf(m), "added once")
 		}},
-		{id: "R10_EditVersusDelete", ours: func(d PieceDocument) PieceDocument {
+		{id: "EditVersusDelete", ours: func(d PieceDocument) PieceDocument {
 			return retitleLink(d, linkA, "Retitled")
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return removeLink(d, linkA)
 		}, conflicts: []FieldPath{FieldPath("links[" + normalizedA + "]")}},
-		{id: "R11_DeleteUnchanged", ours: func(d PieceDocument) PieceDocument {
+		{id: "DeleteUnchanged", ours: func(d PieceDocument) PieceDocument {
 			return removeLink(d, linkA)
 		}, theirs: same, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, []string{linkB, linkC}, linkURLsOf(m))
 		}},
-		{id: "R12_ReorderVersusAdd", ours: func(d PieceDocument) PieceDocument {
+		{id: "ReorderVersusAdd", ours: func(d PieceDocument) PieceDocument {
 			return orderLinks(d, linkC, linkA, linkB)
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return withLinks(d, d.Links[0], pieceLink(linkNew, "New"), d.Links[1], d.Links[2])
 		}, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, []string{linkC, linkA, linkNew, linkB}, linkURLsOf(m))
 		}},
-		{id: "R13_BothReorder", ours: func(d PieceDocument) PieceDocument {
+		{id: "BothReorder", ours: func(d PieceDocument) PieceDocument {
 			return orderLinks(d, linkC, linkA, linkB)
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return orderLinks(d, linkB, linkA, linkC)
 		}, conflicts: []FieldPath{"links#order"}},
-		{id: "R13b_BothReorderEqually", ours: func(d PieceDocument) PieceDocument {
+		{id: "BothReorderEqually", ours: func(d PieceDocument) PieceDocument {
 			return orderLinks(d, linkC, linkA, linkB)
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return orderLinks(d, linkC, linkA, linkB)
 		}, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, []string{linkC, linkA, linkB}, linkURLsOf(m))
 		}},
-		{id: "R14_CreditsUnitList", ours: func(d PieceDocument) PieceDocument {
+		{id: "CreditsUnitList", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.Credits = d.Credits[:1] })
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.Credits = d.Credits[1:] })
 		}, conflicts: []FieldPath{"credits"}},
-		{id: "R15_SetAddVersusRemove", ours: func(d PieceDocument) PieceDocument {
+		{id: "SetAddVersusRemove", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.SecondaryKinds = []PieceKind{PieceKindPoem, PieceKindStory} })
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.SecondaryKinds = nil })
 		}, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, []PieceKind{PieceKindStory}, m.SecondaryKinds)
 		}},
-		{id: "R16_AliasesSameKey", ours: func(d PieceDocument) PieceDocument {
+		{id: "AliasesSameKey", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) {
 				d.Aliases = append(slices.Clone(d.Aliases), DocPieceAlias{Text: "Wren the Bold", Kind: PieceAliasKindNickname})
 			})
@@ -212,14 +212,14 @@ func TestMerge(t *testing.T) {
 				d.Aliases = append(slices.Clone(d.Aliases), DocPieceAlias{Text: "wren the bold", Kind: PieceAliasKindNickname})
 			})
 		}, conflicts: []FieldPath{"aliases[wren the bold]"}},
-		{id: "R31_WithheldLinkUnchanged", ours: func(d PieceDocument) PieceDocument {
+		{id: "WithheldLinkUnchanged", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.NotesMD = ptr("Ours.") })
 		}, theirs: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.Title = theirsTitle })
 		}, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, []string{linkA, linkB, linkC}, linkURLsOf(m), "a link neither side changed stays")
 		}},
-		{id: "R33_TermReferenceUnchanged", ours: func(d PieceDocument) PieceDocument {
+		{id: "TermReferenceUnchanged", ours: func(d PieceDocument) PieceDocument {
 			return edit(d, func(d *PieceDocument) { d.NotesMD = ptr("Ours.") })
 		}, theirs: same, check: func(t *testing.T, m PieceDocument) {
 			assert.Equal(t, mergeBase().Terms, m.Terms)
@@ -267,7 +267,7 @@ func TestMerge_Person(t *testing.T) {
 	theirs := base
 	theirs.Aliases = slices.Delete(slices.Clone(base.Aliases), 1, 2)
 
-	t.Run("R30_WithheldAliasDeletedByCurrent", func(t *testing.T) {
+	t.Run("WithheldAliasDeletedByCurrent", func(t *testing.T) {
 		t.Parallel()
 		merged, conflicts := MergeDocuments(base, ours, theirs)
 		assert.Empty(t, conflicts)

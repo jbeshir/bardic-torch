@@ -38,7 +38,7 @@ func TestRepository_ResolveEditorRefs(t *testing.T) {
 	assert.Equal(t, map[string]int64{f.ballads.Slug: f.ballads.ID, ownTerm.Entity.Slug: ownTerm.Entity.ID},
 		resolved.Terms, "another user's placeholder is answered as an unknown slug")
 	assert.Equal(t, map[string]int64{f.fair.Slug: f.fair.ID}, resolved.Events,
-		"an own pending event is not a reference anyone may make (D5)")
+		"an own pending event is not a reference anyone may make")
 	assert.Equal(t, map[int64]bool{f.archive.ID: true}, resolved.Collections)
 
 	// The same unknown_reference answer for a slug that does not exist and another user's placeholder.
@@ -63,7 +63,7 @@ func TestRepository_ResolveEditorRefs(t *testing.T) {
 	assert.Equal(t, unapproved.ID, moderator.Pieces[unapproved.Slug])
 	token, err := f.repo.ResolveEditorRefs(t.Context(), actorRowanToken, refs)
 	require.NoError(t, err)
-	assert.NotContains(t, token.Terms, othersTerm.Entity.Slug, "an API token acts as a contributor (D25)")
+	assert.NotContains(t, token.Terms, othersTerm.Entity.Slug, "an API token acts as a contributor")
 }
 
 func TestRepository_EditorReferences(t *testing.T) {
@@ -166,7 +166,7 @@ func TestRepository_GetEditable_Moderator(t *testing.T) {
 	assert.Len(t, morwen.Aliases, 2)
 
 	token := f.editable(t, actorRowanToken, *pieceKey(f.song.Slug))
-	assert.Equal(t, withheldSong(f), token.Document, "an API-token moderator gets the contributor projection (W40)")
+	assert.Equal(t, withheldSong(f), token.Document, "an API-token moderator gets the contributor projection")
 	assert.Empty(t, token.LinkStates)
 }
 
@@ -202,7 +202,7 @@ func TestRepository_GetEditable_PendingStartingPoint(t *testing.T) {
 	key := *pieceKey(f.song.Slug)
 	result := editAndSubmit(t, f, actorWren, key, func(d *domain.PieceDocument) {
 		d.NotesMD = new(editedNotes)
-		// A typed URL of a hidden link, in another spelling (W10/W32).
+		// A typed URL of a hidden link, in another spelling.
 		d.Links = append(d.Links, domain.DocPieceLink{DocLink: domain.DocLink{URL: "https://EXAMPLE.org/wren/hidden",
 			Roles: []domain.LinkRole{domain.LinkRolePerformance}}})
 	})
@@ -222,7 +222,7 @@ func TestRepository_GetEditable_PendingStartingPoint(t *testing.T) {
 	assert.Equal(t, "https://EXAMPLE.org/wren/hidden", doc.Links[1].URL, "the typed URL is kept")
 	assert.Len(t, doc.Credits, 1, "what was withheld stays withheld")
 
-	// A link the author received is hidden since: dropped from the starting point (W34).
+	// A link the author received is hidden since: dropped from the starting point.
 	f.c.SetLinkState(songLyricsURL, catalogtest.LinkState{IsHidden: true})
 	doc = f.editable(t, actorWren, key).Document.(domain.PieceDocument)
 	require.Len(t, doc.Links, 1)

@@ -36,8 +36,10 @@ var referenceTypes = map[referenceUse]EntityType{
 
 // DocReference is one reference of a document to another entity: the entity's type and ID, the path of the
 // reference (DocumentProblem paths) and its element key, which identifies the reference across two versions of the
-// document, as restore and merge identify elements: a credit by its person, role and part (and occurrence), a
-// performer within its performance, a link's collection within its link.
+// document. The keys of a piece's or a person's references are the element keys restore records for what it
+// shows (ElementKeySet), so a reference's key is one of a draft's received keys; merge identifies elements by
+// other keys, on purpose: by the collation key of a name, for example, which is what makes two spellings one
+// element.
 type DocReference struct {
 	Path string
 	Key  string
@@ -48,7 +50,7 @@ type DocReference struct {
 
 // ChangedReferences returns the references of next that the edit from prev adds or changes: those whose element
 // key is not a key of a reference of prev. With no prev (a new entity) every reference is changed. The rules on
-// what a document may reference apply to these only; a reference that is unchanged needs only to exist (D12).
+// what a document may reference apply to these only; a reference that is unchanged needs only to exist.
 func ChangedReferences[D Document](prev *D, next D) []DocReference {
 	var before map[string]bool
 	if prev != nil {
@@ -101,21 +103,16 @@ func (l *referenceList) optional(id *int64, path, key string, use referenceUse) 
 
 func (l *referenceList) piece(d PieceDocument) {
 	for k, t := range d.Terms {
-		l.add(t.TermID, fmt.Sprintf("/terms/%d/term", k), fmt.Sprintf("term:%d", t.TermID), usePieceTerm)
+		l.add(t.TermID, fmt.Sprintf("/terms/%d/term", k), termElementKey(t), usePieceTerm)
 	}
 	for k, r := range d.Relations {
-		l.add(r.ToPieceID, fmt.Sprintf("/relations/%d/piece", k), fmt.Sprintf("relation:%d:%s", r.ToPieceID, r.Type),
-			usePieceRelation)
+		l.add(r.ToPieceID, fmt.Sprintf("/relations/%d/piece", k), pieceRelationKey(r), usePieceRelation)
 	}
-	occurrences := map[string]int{}
+	keys := creditKeys(d.Credits)
 	for k, c := range d.Credits {
-		if c.PersonID == nil {
-			continue
+		if c.PersonID != nil {
+			l.add(*c.PersonID, fmt.Sprintf("/credits/%d/person", k), keys[k], useCredit)
 		}
-		key := elementKey("credit", *c.PersonID, c.Role, c.Part)
-		l.add(*c.PersonID, fmt.Sprintf("/credits/%d/person", k), fmt.Sprintf("%s#%d", key, occurrences[key]),
-			useCredit)
-		occurrences[key]++
 	}
 	for k, link := range d.Links {
 		l.link(link.DocLink, k)
@@ -127,11 +124,10 @@ func (l *referenceList) piece(d PieceDocument) {
 
 func (l *referenceList) person(d PersonDocument) {
 	for k, id := range d.AffiliationIDs {
-		l.add(id, fmt.Sprintf("/affiliations/%d", k), fmt.Sprintf("affiliation:%d", id), useAffiliation)
+		l.add(id, fmt.Sprintf("/affiliations/%d", k), affiliationElementKey(id), useAffiliation)
 	}
 	for k, r := range d.Relations {
-		l.add(r.ToPersonID, fmt.Sprintf("/relations/%d/person", k),
-			fmt.Sprintf("relation:%d:%s", r.ToPersonID, r.Type), usePersonRelation)
+		l.add(r.ToPersonID, fmt.Sprintf("/relations/%d/person", k), personRelationKey(r), usePersonRelation)
 	}
 	for k, link := range d.Links {
 		l.link(link.DocLink, k)
@@ -144,23 +140,23 @@ func (l *referenceList) person(d PersonDocument) {
 func (l *referenceList) link(link DocLink, k int) {
 	if link.CollectionID != nil {
 		l.add(*link.CollectionID, fmt.Sprintf("/links/%d/collection_id", k),
-			elementKey("collection", linkKey(link.URL), *link.CollectionID), useLinkCollection)
+			collectionKey(link.URL, *link.CollectionID), useLinkCollection)
 	}
 }
 
 // performance adds the references of a performance at path of the link with URL url, of the piece pieceID if it
-// is a performance of a person's link: its event, its piece and its performers, each keyed within the performance
-// key (description, year, event and piece).
+// is a performance of a person's link: its event, its piece and its performers, each keyed as restore keys it,
+// within the performance key (description, year and piece), which is also the key of the piece reference.
 func (l *referenceList) performance(p DocPerformance, pieceID *int64, url, path string) {
-	key := elementKey("performance", linkKey(url), p.DescriptionVerbatim, p.Year, p.EventID, pieceID)
 	if p.EventID != nil {
-		l.add(*p.EventID, path+"/event", key+":event", usePerformanceEvent)
+		l.add(*p.EventID, path+"/event", eventKey(url, p, pieceID, *p.EventID), usePerformanceEvent)
 	}
 	if pieceID != nil {
-		l.add(*pieceID, path+"/piece", key+":piece", usePerformancePiece)
+		l.add(*pieceID, path+"/piece", performanceKey(url, p, pieceID), usePerformancePiece)
 	}
+	keys := performerKeys(url, p, pieceID)(p.PerformerIDs)
 	for k, id := range p.PerformerIDs {
-		l.add(id, fmt.Sprintf("%s/performers/%d", path, k), fmt.Sprintf("%s:performer:%d", key, id), usePerformer)
+		l.add(id, fmt.Sprintf("%s/performers/%d", path, k), keys[k], usePerformer)
 	}
 }
 

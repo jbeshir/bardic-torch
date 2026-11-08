@@ -56,11 +56,11 @@ func problemsOf(t *testing.T, err error) []DocumentProblem {
 }
 
 // TestPlanApproval holds every §6.2 row but those the repository alone decides, which its integration tests in
-// internal/datasources/mysql hold: R19 (a draft base that is not an approved revision,
-// TestRepository_SubmitDraft_BaseNotApproved), R22 (the entity row gone, TestRepository_ApproveRevision_EntityGone),
-// R26 (a rebase against a current revision that moved, TestRepository_RebaseRevision_Stale), R46 (history order,
-// TestRepository_ApproveRevision_HistoryOrder) and R49 (a rebase keeps the submitted base,
-// TestRepository_RebaseRevision).
+// internal/datasources/mysql hold: a draft base that is not an approved revision
+// (TestRepository_SubmitDraft_BaseNotApproved), the entity row gone (TestRepository_ApproveRevision_EntityGone),
+// a rebase against a current revision that moved (TestRepository_RebaseRevision_Stale), history order
+// (TestRepository_ApproveRevision_HistoryOrder) and a rebase keeping the submitted base
+// (TestRepository_RebaseRevision).
 func TestPlanApproval(t *testing.T) {
 	t.Parallel()
 
@@ -109,14 +109,14 @@ func TestPlanApproval(t *testing.T) {
 	licensingLink := DocPieceLink{DocLink: DocLink{URL: linkNew, Roles: []LinkRole{LinkRoleLicensingSource}}}
 
 	rows := []approvalRow{
-		{id: "R01_NotStale", state: notStale, check: func(t *testing.T, plan ApprovalPlan[PieceDocument], err error) {
+		{id: "not_stale", state: notStale, check: func(t *testing.T, plan ApprovalPlan[PieceDocument], err error) {
 			require.NoError(t, err)
 			assert.False(t, plan.Rebased)
 			assert.Equal(t, withNotes(base), plan.Document)
 		}},
-		{id: "R02_DisjointScalars", state: staleClean, check: assertRebased},
-		{id: "R03_Conflict", state: staleConflict, err: ErrRebaseRequired},
-		{id: "R06_ConservationChange", state: func() ApprovalState[PieceDocument] {
+		{id: "disjoint_scalars", state: staleClean, check: assertRebased},
+		{id: "conflict", state: staleConflict, err: ErrRebaseRequired},
+		{id: "conservation_change", state: func() ApprovalState[PieceDocument] {
 			rev := edit(base, func(d *PieceDocument) {
 				d.Conservation = DocConservation{Status: ConservationStatusEndangered, SourceURL: ptr(linkA)}
 			})
@@ -127,19 +127,19 @@ func TestPlanApproval(t *testing.T) {
 			assert.Equal(t, &ConservationChange{Status: ConservationStatusEndangered, SourceURL: ptr(linkA),
 				Reason: testSummary}, plan.ConservationChange)
 		}},
-		{id: "R06b_NoConservationChange", state: notStale,
+		{id: "no_conservation_change", state: notStale,
 			check: func(t *testing.T, plan ApprovalPlan[PieceDocument], err error) {
 				require.NoError(t, err)
 				assert.Nil(t, plan.ConservationChange)
 			}},
-		{id: "R17_ImportBaseClean", state: staleClean, check: assertRebased},
-		{id: "R17_ImportBaseConflict", state: staleConflict, err: ErrRebaseRequired},
-		{id: "R18_ImportBaseIsCurrent", state: notStale,
+		{id: "import_base_clean", state: staleClean, check: assertRebased},
+		{id: "import_base_conflict", state: staleConflict, err: ErrRebaseRequired},
+		{id: "import_base_is_current", state: notStale,
 			check: func(t *testing.T, plan ApprovalPlan[PieceDocument], err error) {
 				require.NoError(t, err)
 				assert.False(t, plan.Rebased)
 			}},
-		{id: "R20_NewEntity", state: func() ApprovalState[PieceDocument] {
+		{id: "new_entity", state: func() ApprovalState[PieceDocument] {
 			s := notStale()
 			s.Base, s.Current, s.BaseRevisionID, s.CurrentRevisionID = nil, nil, nil, nil
 
@@ -148,20 +148,20 @@ func TestPlanApproval(t *testing.T) {
 			require.NoError(t, err)
 			assert.False(t, plan.Rebased)
 		}},
-		{id: "R21_DeletedPlaceholderReferenced", state: addTerm(unknownID),
+		{id: "deleted_placeholder_referenced", state: addTerm(unknownID),
 			check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
 				assert.Equal(t, []DocumentProblem{{Path: pathNewTerm, Code: ProblemUnknownReference}}, problemsOf(t, err))
 			}},
-		{id: "R23_DoubleApprove", state: notStale, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], _ error) {
+		{id: "double_approve", state: notStale, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], _ error) {
 			_, err := CheckTransition(TransitionInput{Role: RoleModerator, From: approved, Action: RevisionActionApprove})
 			require.ErrorIs(t, err, ErrNotPending, "the second approval sees the first's status under the lock")
 		}},
-		{id: "R24_ApproveAfterWithdraw", state: notStale, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], _ error) {
+		{id: "approve_after_withdraw", state: notStale, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], _ error) {
 			_, err := CheckTransition(TransitionInput{Role: RoleModerator, From: withdrawn, Action: RevisionActionApprove})
 			require.ErrorIs(t, err, ErrNotPending)
 		}},
-		{id: "R25_ConcurrentApprovalSeesStale", state: staleClean, check: assertRebased},
-		{id: "R27_RebaseThenApprove", state: func() ApprovalState[PieceDocument] {
+		{id: "concurrent_approval_sees_stale", state: staleClean, check: assertRebased},
+		{id: "rebase_then_approve", state: func() ApprovalState[PieceDocument] {
 			resolved := withTitle(withNotes(base), "Resolved")
 			s := pieceApproval(withTitle(base, theirsTitle), resolved, withTitle(base, theirsTitle), currentRevisionID)
 			s.BaseRevisionID = ptr(currentRevisionID)
@@ -172,51 +172,51 @@ func TestPlanApproval(t *testing.T) {
 			assert.False(t, plan.Rebased)
 			assert.Equal(t, "Resolved", plan.Document.Title)
 		}},
-		{id: "R28_ModeratorSubmitStaleClean", state: func() ApprovalState[PieceDocument] {
+		{id: "moderator_submit_stale_clean", state: func() ApprovalState[PieceDocument] {
 			s := staleClean()
 			s.Author = RoleModerator
 
 			return s
 		}, check: assertRebased},
-		{id: "R29_ModeratorSubmitStaleConflict", state: func() ApprovalState[PieceDocument] {
+		{id: "moderator_submit_stale_conflict", state: func() ApprovalState[PieceDocument] {
 			s := staleConflict()
 			s.Author = RoleModerator
 
 			return s
 		}, err: ErrRebaseRequired},
-		{id: "R33_TermParentChangedElsewhere", state: func() ApprovalState[PieceDocument] {
+		{id: "term_parent_changed_elsewhere", state: func() ApprovalState[PieceDocument] {
 			return withRefs(staleClean(), func(r *ReferenceIndex) {
 				r.Terms = withEntries(r.Terms, map[int64]ReferencedTerm{refMood: {ReferencedEntity: public,
 					Facet: FacetMood, Name: moodName, ParentID: ptr(refTopic)}})
 			})
 		}, check: assertRebased},
-		{id: "R34_OwnPendingTermAlongside", state: pending(ownTerm),
+		{id: "own_pending_term_alongside", state: pending(ownTerm),
 			check: func(t *testing.T, plan ApprovalPlan[PieceDocument], err error) {
 				require.NoError(t, err, "references_pending needs no acknowledgement")
 				assert.Equal(t, []EntityRef{ownTerm.Entity}, plan.PendingReferences)
 			}},
-		{id: "R35_OthersPendingTerm", state: addTerm(refOthersTerm),
+		{id: "others_pending_term", state: addTerm(refOthersTerm),
 			check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
 				assert.Equal(t, []DocumentProblem{{Path: pathNewTerm, Code: ProblemUnknownReference}}, problemsOf(t, err))
 			}},
-		{id: "R36_PendingParentFirst", state: pending(parentTerm, ownTerm),
+		{id: "pending_parent_first", state: pending(parentTerm, ownTerm),
 			check: func(t *testing.T, plan ApprovalPlan[PieceDocument], err error) {
 				require.NoError(t, err)
 				assert.Equal(t, []EntityRef{parentTerm.Entity, ownTerm.Entity}, plan.PendingReferences)
 			}},
-		{id: "R41_HiddenAliasCollision", state: func() ApprovalState[PieceDocument] {
+		{id: "hidden_alias_collision", state: func() ApprovalState[PieceDocument] {
 			s := notStale()
 			s.StoredFlags = []Flag{{Code: FlagHiddenAliasCollision, Path: pathSecondAlias}}
 
 			return s
 		}, opts: ApprovalOptions{AcknowledgedFlags: []FlagCode{FlagHiddenAliasCollision}}, err: ErrHiddenDataConflict},
-		{id: "R41b_HiddenDataConflict", state: func() ApprovalState[PieceDocument] {
+		{id: "hidden_data_conflict", state: func() ApprovalState[PieceDocument] {
 			s := notStale()
 			s.StoredFlags = []Flag{{Code: FlagHiddenDataConflict, Path: pathSecondAlias + "/name"}}
 
 			return s
 		}, err: ErrHiddenDataConflict},
-		{id: "R42_SummaryFlagWithoutOverride", state: func() ApprovalState[PieceDocument] {
+		{id: "summary_flag_without_override", state: func() ApprovalState[PieceDocument] {
 			s := notStale()
 			s.Summary = aliasSummary
 
@@ -227,7 +227,7 @@ func TestPlanApproval(t *testing.T) {
 				require.ErrorAs(t, err, &flagsErr)
 				assert.Equal(t, []Flag{{Code: FlagHiddenAliasInSummary, Path: pathSummary}}, flagsErr.Flags)
 			}},
-		{id: "R43_CleanOverride", state: func() ApprovalState[PieceDocument] {
+		{id: "clean_override", state: func() ApprovalState[PieceDocument] {
 			s := notStale()
 			s.Summary = aliasSummary
 
@@ -237,7 +237,7 @@ func TestPlanApproval(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, cleanSummary, plan.Summary, "the history shows the override")
 			}},
-		{id: "R43b_OverrideHoldsAlias", state: func() ApprovalState[PieceDocument] {
+		{id: "override_holds_alias", state: func() ApprovalState[PieceDocument] {
 			s := notStale()
 			s.Summary = aliasSummary
 
@@ -247,31 +247,31 @@ func TestPlanApproval(t *testing.T) {
 				var flagsErr *UnacknowledgedFlagsError
 				require.ErrorAs(t, err, &flagsErr, "the override is checked too")
 			}},
-		{id: "R44_NewPieceSlugAndSortKeys", state: notStale, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], _ error) {
+		{id: "new_piece_slug_and_sort_keys", state: notStale, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], _ error) {
 			assert.Equal(t, "the-wren-s-song", Slugify(validPiece().Title), "the writer numbers a taken slug -2")
 			assert.Equal(t, "Wren's Song", SortTitle(validPiece().Title))
 			assert.Equal(t, Letter("W"), SortLetter(SortTitle(validPiece().Title)))
 		}},
-		{id: "R47_CleanMergeFailsValidation", state: func() ApprovalState[PieceDocument] {
+		{id: "clean_merge_fails_validation", state: func() ApprovalState[PieceDocument] {
 			withLink := addLink(base, licensingLink)
 			rev := edit(withLink, func(d *PieceDocument) { d.LicensingStatus = LicensingStatusKnown })
 
 			return pieceApproval(withLink, rev, base, currentRevisionID)
 		}, check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
 			assert.Equal(t, []DocumentProblem{{Path: pathLicensingStatus, Code: ProblemSourceRequired}},
-				problemsOf(t, err), "SF15: merged cleanly, and not approved")
+				problemsOf(t, err), "merged cleanly, and not approved")
 		}},
-		{id: "R50_FlaggedPendingReference", state: pending(PendingReference{Entity: ownTerm.Entity,
+		{id: "flagged_pending_reference", state: pending(PendingReference{Entity: ownTerm.Entity,
 			RevisionID: termRevision, Flags: []Flag{{Code: FlagHiddenAliasInSummary, Path: pathSummary}}}),
 			check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
 				var refErr *PendingReferenceFlaggedError
 				require.ErrorAs(t, err, &refErr)
 				assert.Equal(t, termRevision, refErr.RevisionID)
 			}},
-		{id: "R50b_ApprovedOnItsOwnFirst", state: pending(), check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
+		{id: "approved_on_its_own_first", state: pending(), check: func(t *testing.T, _ ApprovalPlan[PieceDocument], err error) {
 			require.NoError(t, err, "once the term is approved it is no pending reference")
 		}},
-		{id: "R51_PendingEvent", state: func() ApprovalState[PieceDocument] {
+		{id: "pending_event", state: func() ApprovalState[PieceDocument] {
 			rev := edit(base, func(d *PieceDocument) {
 				d.Links = slices.Clone(d.Links)
 				d.Links[0].Performances = []DocPerformance{{EventID: ptr(refPendingEvent), DescriptionVerbatim: "At a feast"}}
@@ -282,7 +282,7 @@ func TestPlanApproval(t *testing.T) {
 			assert.Equal(t, []DocumentProblem{{Path: pathFirstPerformanceEvent, Code: ProblemUnknownReference}},
 				problemsOf(t, err))
 		}},
-		{id: "R52_UnchangedNoPageCredit", state: func() ApprovalState[PieceDocument] {
+		{id: "unchanged_no_page_credit", state: func() ApprovalState[PieceDocument] {
 			credited := edit(base, func(d *PieceDocument) {
 				d.Credits = append(slices.Clone(d.Credits), DocCredit{PersonID: ptr(refNoPagePerson),
 					Role: CreditRoleTune, Attribution: AttributionNamed, Certainty: CertaintyCertain})
@@ -327,11 +327,11 @@ func TestPlanApproval_Terms(t *testing.T) {
 		problem *DocumentProblem
 		rebuild bool
 	}{
-		{id: "R39_Cycle", state: termApproval(refMood, termReferencing(refMoodGrandchild, 0), root),
+		{id: "cycle", state: termApproval(refMood, termReferencing(refMoodGrandchild, 0), root),
 			problem: &DocumentProblem{Path: pathTermParent, Code: ProblemCycle}},
-		{id: "R40_TooDeep", state: termApproval(termID, termReferencing(refMoodLeaf, 0), validTerm()),
+		{id: "too_deep", state: termApproval(termID, termReferencing(refMoodLeaf, 0), validTerm()),
 			problem: &DocumentProblem{Path: pathTermParent, Code: ProblemTooDeep}},
-		{id: "R45_NameTakenSinceSubmit", state: func() ApprovalState[TermDocument] {
+		{id: "name_taken_since_submit", state: func() ApprovalState[TermDocument] {
 			s := termApproval(0, root, root)
 			s.Base, s.Current, s.BaseRevisionID, s.CurrentRevisionID = nil, nil, nil, nil
 
@@ -399,7 +399,7 @@ func TestPlanApproval_FlagsGate(t *testing.T) {
 		{name: "StoredContentFlagsAreFoundAgain", state: state(func(s *ApprovalState[PieceDocument]) {
 			s.StoredFlags = []Flag{{Code: FlagHiddenAliasInSummary, Path: pathSummary}}
 		})},
-		{name: "W24_HiddenAliasInText", state: state(func(s *ApprovalState[PieceDocument]) {
+		{name: "hidden_alias_in_text", state: state(func(s *ApprovalState[PieceDocument]) {
 			s.Revision = edit(base, func(d *PieceDocument) { d.NotesMD = ptr("Sung by Wren Placeholder.") })
 		}), flags: []Flag{{Code: FlagHiddenAliasInText, Path: pathNotes}}},
 		{name: "UnchangedTextNotFlagged", state: state(func(s *ApprovalState[PieceDocument]) {
@@ -410,16 +410,16 @@ func TestPlanApproval_FlagsGate(t *testing.T) {
 			s.Revision = addLink(base, pieceLink(hiddenLinkURL, "Hidden"))
 			s.HiddenLinkURLs = map[string]bool{hidden: true}
 		}), flags: []Flag{{Code: FlagHiddenLinkAttached, Path: "/links/3"}}},
-		{name: "W26_PossibleDuplicate", state: state(func(s *ApprovalState[PieceDocument]) {
+		{name: "possible_duplicate", state: state(func(s *ApprovalState[PieceDocument]) {
 			s.PossibleDuplicate = true
 		}), flags: []Flag{{Code: FlagPossibleDuplicate}}},
-		{name: "W26_PossibleDuplicateAcknowledged", state: state(func(s *ApprovalState[PieceDocument]) {
+		{name: "possible_duplicate_acknowledged", state: state(func(s *ApprovalState[PieceDocument]) {
 			s.PossibleDuplicate = true
 		}), opts: ApprovalOptions{AcknowledgedFlags: []FlagCode{FlagPossibleDuplicate}}},
-		{name: "W25_DuplicateBlocked", state: state(func(s *ApprovalState[PieceDocument]) {
+		{name: "duplicate_blocked", state: state(func(s *ApprovalState[PieceDocument]) {
 			s.DuplicateBlocked = true
 		}), opts: ApprovalOptions{AcknowledgedFlags: []FlagCode{FlagPossibleDuplicate}}, err: ErrDuplicateBlocked},
-		{name: "W23_ModeratorSummary", state: state(func(s *ApprovalState[PieceDocument]) {
+		{name: "moderator_summary", state: state(func(s *ApprovalState[PieceDocument]) {
 			s.Author, s.Summary = RoleModerator, aliasSummary
 		}), flags: []Flag{{Code: FlagHiddenAliasInSummary, Path: pathSummary}}},
 		{name: "ReviewNoteHoldsAlias", state: state(func(*ApprovalState[PieceDocument]) {}),
@@ -482,14 +482,14 @@ func TestPlanSubmit(t *testing.T) {
 		return PlanSubmit(submitState(t, personID, sub, &person, personKeys))
 	}
 
-	t.Run("W03_Restored", func(t *testing.T) {
+	t.Run("restored", func(t *testing.T) {
 		t.Parallel()
 		plan, err := submitPerson(t, func(*PersonDocument) {})
 		require.NoError(t, err)
 		assert.Equal(t, person, plan.Document)
 		assert.Empty(t, plan.Flags)
 	})
-	t.Run("W06_PublicLegalAlias", func(t *testing.T) {
+	t.Run("public_legal_alias", func(t *testing.T) {
 		t.Parallel()
 		_, err := submitPerson(t, func(d *PersonDocument) {
 			d.Aliases = append(slices.Clone(d.Aliases), DocPersonAlias{Name: otherLegalName,
@@ -497,7 +497,7 @@ func TestPlanSubmit(t *testing.T) {
 		})
 		assert.Equal(t, []DocumentProblem{{Path: "/aliases/2/is_public", Code: ProblemAliasVisibility}}, problemsOf(t, err))
 	})
-	t.Run("W07_HiddenLegalAlias", func(t *testing.T) {
+	t.Run("hidden_legal_alias", func(t *testing.T) {
 		t.Parallel()
 		_, err := submitPerson(t, func(d *PersonDocument) {
 			d.Aliases = append(slices.Clone(d.Aliases), DocPersonAlias{Name: otherLegalName,
@@ -505,7 +505,7 @@ func TestPlanSubmit(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
-	t.Run("W22_SummaryHoldsHiddenAlias", func(t *testing.T) {
+	t.Run("summary_holds_hidden_alias", func(t *testing.T) {
 		t.Parallel()
 		s := submitState(t, personID, personEditor, &person, personKeys)
 		s.Summary = aliasSummary
@@ -513,7 +513,7 @@ func TestPlanSubmit(t *testing.T) {
 		require.NoError(t, err, "the contributor is told nothing")
 		assert.Equal(t, []Flag{{Code: FlagHiddenAliasInSummary, Path: pathSummary}}, plan.Flags)
 	})
-	t.Run("W24_NewPersonNamedAsHiddenAlias", func(t *testing.T) {
+	t.Run("new_person_named_as_hidden_alias", func(t *testing.T) {
 		t.Parallel()
 		d := validPerson()
 		d.Name = legalName
@@ -521,7 +521,7 @@ func TestPlanSubmit(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []Flag{{Code: FlagHiddenAliasInText, Path: pathName}}, plan.Flags)
 	})
-	t.Run("W27_RenameToHiddenAlias", func(t *testing.T) {
+	t.Run("rename_to_hidden_alias", func(t *testing.T) {
 		t.Parallel()
 		hiddenPlan, hiddenErr := submitPerson(t, func(d *PersonDocument) { d.Name = legalName })
 		freshPlan, freshErr := submitPerson(t, func(d *PersonDocument) { d.Name = "Ash Fresh-Name" })
@@ -530,7 +530,7 @@ func TestPlanSubmit(t *testing.T) {
 		assert.Contains(t, hiddenPlan.Flags, Flag{Code: FlagHiddenDataConflict, Path: pathSecondAlias + "/name"})
 		assert.Empty(t, freshPlan.Flags)
 	})
-	t.Run("W28_CapsCountVisibleElements", func(t *testing.T) {
+	t.Run("caps_count_visible_elements", func(t *testing.T) {
 		t.Parallel()
 		many := person
 		many.Aliases = []DocPersonAlias{hiddenLegalName, {Name: otherLegalName, Kind: PersonAliasKindLegal}}
@@ -545,7 +545,7 @@ func TestPlanSubmit(t *testing.T) {
 		require.NoError(t, err, "99 visible aliases")
 		assert.Equal(t, []Flag{{Code: FlagHiddenDataConflict, Path: pathAliases}}, plan.Flags)
 	})
-	t.Run("W30_EditorPaths", func(t *testing.T) {
+	t.Run("editor_paths", func(t *testing.T) {
 		t.Parallel()
 		_, err := submitPerson(t, func(d *PersonDocument) {
 			d.Aliases = slices.Clone(d.Aliases)
@@ -553,7 +553,7 @@ func TestPlanSubmit(t *testing.T) {
 		})
 		assert.Equal(t, []DocumentProblem{{Path: pathSecondAlias + "/name", Code: ProblemBlank}}, problemsOf(t, err))
 	})
-	t.Run("W29_HiddenLicensingSource", func(t *testing.T) {
+	t.Run("hidden_licensing_source", func(t *testing.T) {
 		t.Parallel()
 		base := addLink(validPiece(), DocPieceLink{DocLink: DocLink{URL: hiddenLinkURL,
 			Roles: []LinkRole{LinkRoleLicensingSource}}})
@@ -562,7 +562,7 @@ func TestPlanSubmit(t *testing.T) {
 		_, err := PlanSubmit(submitState(t, pieceID, editor, &base, keys))
 		assert.Equal(t, []DocumentProblem{{Path: pathLicensingStatus, Code: ProblemSourceRequired}}, problemsOf(t, err))
 	})
-	t.Run("W31_RestoredNoPageCredit", func(t *testing.T) {
+	t.Run("restored_no_page_credit", func(t *testing.T) {
 		t.Parallel()
 		base := edit(validPiece(), func(d *PieceDocument) {
 			d.Credits = append(slices.Clone(d.Credits), DocCredit{PersonID: ptr(refNoPagePerson),
@@ -594,7 +594,7 @@ func TestPlanSubmit(t *testing.T) {
 		assert.Equal(t, editor.Links[0].Performances, plan.Document.Links[0].Performances, "kept as submitted")
 		assert.Equal(t, []Flag{{Code: FlagHiddenDataConflict, Path: pathFirstLinkPerformances}}, plan.Flags)
 	})
-	t.Run("W10_LinkCollisionFlag", func(t *testing.T) {
+	t.Run("link_collision_flag", func(t *testing.T) {
 		t.Parallel()
 		base := addLink(validPiece(), pieceLink(hiddenLinkURL, "Hidden"))
 		editor, keys := EditableDocument(pieceID, base, editorVisibility(t, RoleContributor))
@@ -611,7 +611,7 @@ func TestPlanSubmit(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []Flag{{Code: FlagReferencesPending, Path: pathNewTerm}}, plan.Flags)
 	})
-	t.Run("W37_ModeratorPreferencesRestored", func(t *testing.T) {
+	t.Run("moderator_preferences_restored", func(t *testing.T) {
 		t.Parallel()
 		base := fullPiece()
 		vis := editorVisibility(t, RoleModerator)
@@ -632,7 +632,7 @@ func TestPlanSubmit_StaleBaseNoMerge(t *testing.T) {
 	editor, keys := EditableDocument(pieceID, base, editorVisibility(t, RoleContributor))
 	plan, err := PlanSubmit(submitState(t, pieceID, withNotes(editor), &base, keys))
 	require.NoError(t, err)
-	assert.Equal(t, withNotes(base), plan.Document, "R48: planned on the draft's own base, whatever is current")
+	assert.Equal(t, withNotes(base), plan.Document, "planned on the draft's own base, whatever is current")
 }
 
 func TestFlagsAfterRebase(t *testing.T) {

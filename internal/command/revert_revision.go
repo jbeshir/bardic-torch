@@ -11,7 +11,7 @@ import (
 
 var _ Command[RevertRequest, SubmittedRevision] = (*RevertTo)(nil)
 
-// RevertRequest is Principal's revert of an entity to its approved revision RevisionID (D10), with Summary, which
+// RevertRequest is Principal's revert of an entity to its approved revision RevisionID, with Summary, which
 // may be empty. AcknowledgedFlags are an interactive moderator's, as in SubmitRevisionRequest.
 type RevertRequest struct {
 	Principal         domain.Principal

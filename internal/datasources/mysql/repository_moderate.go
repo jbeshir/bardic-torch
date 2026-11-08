@@ -18,15 +18,15 @@ var (
 	_ datasources.RevisionReverter = (*Repository)(nil)
 )
 
-// RejectRevision rejects a pending revision (D2): it locks the revision, checks the review note (D19), then locks
+// RejectRevision rejects a pending revision: it locks the revision, checks the review note, then locks
 // its entity's row, rejects it and deletes a pending new entity's placeholder if no other pending revision has it
-// (D14).
+// .
 func (r *Repository) RejectRevision(ctx context.Context, req datasources.RejectRequest) error {
 	err := r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return r.txReader(tx).rejectRevision(ctx, req)
 	})
 	if err != nil {
-		return withoutServerMessage(fmt.Sprintf("rejecting revision [%d]", req.RevisionID), err)
+		return databaseError(fmt.Sprintf("rejecting revision [%d]", req.RevisionID), err)
 	}
 
 	return nil
@@ -65,7 +65,7 @@ func (r *Repository) RebaseRevision(ctx context.Context, req datasources.RebaseR
 		return r.txReader(tx).rebaseRevision(ctx, req)
 	})
 	if err != nil {
-		return withoutServerMessage(fmt.Sprintf("rebasing revision [%d]", req.RevisionID), err)
+		return databaseError(fmt.Sprintf("rebasing revision [%d]", req.RevisionID), err)
 	}
 
 	return nil
@@ -99,7 +99,7 @@ func (c *catalogueReader) rebase(ctx context.Context, req datasources.RebaseRequ
 	if err != nil {
 		return err
 	}
-	if !equalIDs(own.currentRevision, req.CurrentRevisionID) {
+	if !domain.EqualPointers(own.currentRevision, req.CurrentRevisionID) {
 		return datasources.ErrStale
 	}
 	locked, err := c.lockedCurrent(ctx, in.kind, in.entity, own, peeked)
@@ -146,7 +146,7 @@ func (c *catalogueReader) rebase(ctx context.Context, req datasources.RebaseRequ
 	return nil
 }
 
-// RevertTo reverts an entity to one of its approved revisions (D10), in the global lock order: the actor's users
+// RevertTo reverts an entity to one of its approved revisions, in the global lock order: the actor's users
 // row (a contributor's pending cap), their pending revision of the entity, which the revert supersedes (found by an
 // unlocked read and checked again once locked), then the entity row FOR UPDATE, whose current revision the revert
 // is based on, and the rows the documents reference FOR SHARE. A contributor's revert is stored pending; an
@@ -159,7 +159,7 @@ func (r *Repository) RevertTo(ctx context.Context, req datasources.RevertRequest
 		return err
 	})
 	if err != nil {
-		return datasources.SubmitResult{}, withoutServerMessage(fmt.Sprintf("reverting to revision [%d]",
+		return datasources.SubmitResult{}, databaseError(fmt.Sprintf("reverting to revision [%d]",
 			req.RevisionID), err)
 	}
 
@@ -234,23 +234,11 @@ func (c *catalogueReader) supersedeForRevert(
 	if status != domain.RevisionStatusPending {
 		return nil
 	}
-	count, err := c.q.CountPendingRevisions(ctx, queries.CountPendingRevisionsParams{
-		AuthorUserID: sql.NullString{String: actor.UserID, Valid: true}, ExcludedID: t.superseded,
-	})
-	if err != nil {
-		return fmt.Errorf("counting pending revisions: %w", err)
-	}
-	if count >= domain.MaxOpenPendingRevisions {
-		return datasources.ErrPendingLimitReached
-	}
-	if t.superseded == 0 {
-		return nil
-	}
-	if err := requireMatched(c.q.WithdrawRevision(ctx, t.superseded)); err != nil {
-		return fmt.Errorf("superseding revision [%d]: %w", t.superseded, err)
+	if err := c.checkPendingCap(ctx, sql.NullString{String: actor.UserID, Valid: true}, t.superseded); err != nil {
+		return err
 	}
 
-	return nil
+	return c.withdrawSuperseded(ctx, t.superseded)
 }
 
 // revertStatus is the status of the revision a revert by the request's actor creates: pending, or approved for an
@@ -326,11 +314,8 @@ func (c *catalogueReader) revertTargetOf(ctx context.Context, id int64) (revertT
 	}
 	t := revertTarget{row: row, entity: domain.EntityRef{Type: enumOf[domain.EntityType](c, row.EntityType),
 		ID: row.EntityID.Int64}}
-	if t.kind, err = kindFor(t.entity.Type); err != nil {
-		return revertTarget{}, err
-	}
-	if t.doc, err = t.kind.decode(row.SnapshotJson); err != nil {
-		return revertTarget{}, fmt.Errorf("revision snapshot: %w", err)
+	if t.kind, t.doc, err = decodeRevision(t.entity.Type, row.SnapshotJson); err != nil {
+		return revertTarget{}, fmt.Errorf("revision [%d]: %w", id, err)
 	}
 
 	return t, c.err
@@ -342,15 +327,9 @@ func (c *catalogueReader) lockSuperseded(ctx context.Context, actor domain.Actor
 	if _, err := c.q.LockUser(ctx, actor.UserID); err != nil {
 		return fmt.Errorf("locking user: %w", lookupError("user", err))
 	}
-	author := sql.NullString{String: actor.UserID, Valid: true}
-	pending, err := c.q.GetUserPendingForEntity(ctx, queries.GetUserPendingForEntityParams{
-		AuthorUserID: author, EntityType: t.row.EntityType, EntityID: t.row.EntityID,
-	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("fetching superseded revision: %w", err)
+	pending, found, err := c.userPendingFor(ctx, actor.UserID, t.row.EntityType, t.row.EntityID)
+	if !found || err != nil {
+		return err
 	}
 	rows, err := c.q.LockRevisions(ctx, []uint64{pending.ID})
 	if err != nil {
@@ -370,7 +349,7 @@ func (c *catalogueReader) lockSuperseded(ctx context.Context, actor domain.Actor
 	return nil
 }
 
-// revertReplay returns the revision a replayed revert already created (D10), and whether the revert is one: for a
+// revertReplay returns the revision a replayed revert already created, and whether the revert is one: for a
 // pending revert, the actor's pending revision of the entity holding the same document on the same base; for an
 // approved one, the current revision holding the same document, if the actor authored it.
 func (c *catalogueReader) revertReplay(
@@ -434,7 +413,7 @@ func revertSummary(req datasources.RevertRequest, t revertTarget) string {
 }
 
 // insertRevert inserts the revision of a planned revert, pending, on the entity's current revision: the full
-// document, its author's projection of it and that projection's keys (D10).
+// document, its author's projection of it and that projection's keys.
 func (c *catalogueReader) insertRevert(
 	ctx context.Context, req datasources.RevertRequest, t revertTarget, plan revertPlan,
 ) (uint64, error) {
@@ -446,11 +425,7 @@ func (c *catalogueReader) insertRevert(
 	if err != nil {
 		return 0, err
 	}
-	flags := plan.flags
-	if flags == nil {
-		flags = []domain.Flag{}
-	}
-	flagsJSON, err := encodeJSON(flags)
+	flagsJSON, err := encodeFlags(plan.flags)
 	if err != nil {
 		return 0, err
 	}
@@ -473,9 +448,4 @@ func (c *catalogueReader) insertRevert(
 	}
 
 	return key, nil
-}
-
-// equalIDs is whether two optional IDs are both nil or equal.
-func equalIDs(a, b *int64) bool {
-	return a == nil && b == nil || a != nil && b != nil && *a == *b
 }

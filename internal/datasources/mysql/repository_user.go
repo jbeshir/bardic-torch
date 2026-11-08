@@ -38,7 +38,7 @@ func (r *Repository) GetUser(ctx context.Context, userID string) (domain.User, e
 
 // EnsureUser creates a contributor from user unless a user with its ID already exists, and returns the
 // stored user. Concurrent calls for the same ID create one user. A new user's display name key is set after the
-// insert, and left NULL if another user has it (D20).
+// insert, and left NULL if another user has it.
 func (r *Repository) EnsureUser(ctx context.Context, user datasources.NewUser) (domain.User, error) {
 	err := r.queries.InsertUserIfMissing(ctx, queries.InsertUserIfMissingParams{
 		ID:          user.ID,

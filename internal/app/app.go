@@ -25,8 +25,8 @@ type Component interface {
 }
 
 // Setup connects to the database, promotes the moderators named in BOOTSTRAP_MODERATOR_USER_IDS, stores missing
-// or stale display name keys, purges the contact requests past their retention, and returns the components to run,
-// configured from the environment.
+// or stale display name keys, gives the performances with no owner their owner, purges the contact requests past
+// their retention, and returns the components to run, configured from the environment.
 func Setup(ctx context.Context) ([]Component, error) {
 	dbConfig, err := mysql.ConfigFromURL(MustGetEnvAsString(ctx, "DATABASE_URL"))
 	if err != nil {
@@ -49,6 +49,12 @@ func Setup(ctx context.Context) ([]Component, error) {
 	if _, err := backfill.Execute(ctx, command.Empty{}); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("backfilling display name keys: %w", err)
+	}
+
+	owners := &command.BackfillPerformanceOwners{Backfiller: repository}
+	if _, err := owners.Execute(ctx, command.Empty{}); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("backfilling performance owners: %w", err)
 	}
 
 	purge := &command.PurgeContactRequests{Purger: repository, Now: now}

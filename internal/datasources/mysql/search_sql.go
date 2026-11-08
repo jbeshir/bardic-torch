@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	mysqldriver "github.com/go-sql-driver/mysql"
-
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -30,9 +28,6 @@ type sqlFragment string
 // is the same, so the hint changes nothing there; it keeps searches, the costliest statements and the ones whose
 // shape a request chooses, capped on a connection that has lifted the session limit, such as a writer's.
 const executionTimeHint sqlFragment = "/*+ MAX_EXECUTION_TIME(" + maxExecutionTimeMillis + ") */"
-
-// erQueryTimeout is MySQL's ER_QUERY_TIMEOUT: a statement exceeded its maximum execution time.
-const erQueryTimeout = 3024
 
 // statement is a SQL statement under construction and its arguments, one per placeholder.
 type statement struct {
@@ -96,8 +91,7 @@ func txRunner(tx *sql.Tx) statementRunner {
 // queryError returns err, marked as datasources.ErrQueryTimeout if the server stopped the statement for running
 // too long.
 func queryError(err error) error {
-	var mysqlErr *mysqldriver.MySQLError
-	if errors.As(err, &mysqlErr) && mysqlErr.Number == erQueryTimeout {
+	if mysqlErrorNumber(err) == erQueryTimeout {
 		return fmt.Errorf("%w: %w", datasources.ErrQueryTimeout, err)
 	}
 

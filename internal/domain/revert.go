@@ -1,7 +1,7 @@
 package domain
 
 // RevertDocument returns the document of a revert to target, an earlier approved document of the entity whose
-// current document is current (D10): target's, except that an alias hidden in current, or absent from current and
+// current document is current: target's, except that an alias hidden in current, or absent from current and
 // hidden in target, stays hidden, so that an old document never re-publishes an alias a moderator has hidden since
 // (fail closed), and that the preferences are current's. A link hidden since stays in the document: its hidden
 // state is the link's, which no document writes.

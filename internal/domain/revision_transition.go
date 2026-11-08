@@ -24,10 +24,10 @@ var (
 	ErrModeratorRequired = errors.New("moderator required")
 )
 
-// TransitionInput is what decides whether an action on a revision is allowed (D2). Blocking is not an input: a
+// TransitionInput is what decides whether an action on a revision is allowed. Blocking is not an input: a
 // blocked user's requests are refused before they reach a revision.
 type TransitionInput struct {
-	// Role is the actor's effective role: a moderator using an API token acts as a contributor (D25).
+	// Role is the actor's effective role: a moderator using an API token acts as a contributor.
 	Role Role
 	// IsAuthor is whether the actor is the revision's author.
 	IsAuthor bool
@@ -56,7 +56,7 @@ var pendingActions = map[RevisionAction]RevisionStatus{
 	RevisionActionRebase:   RevisionStatusPending,
 }
 
-// CheckTransition decides an action on a revision (D2): it returns the status the action leaves the revision in,
+// CheckTransition decides an action on a revision: it returns the status the action leaves the revision in,
 // or why the action is refused. Discarding a draft deletes it, and returns the empty status. Submitting a revision
 // its author already submitted is a replay, which leaves its status unchanged. Reverting to an approved revision
 // returns the status of the revision the revert creates: pending, or approved for a moderator.
@@ -86,7 +86,7 @@ func CheckTransition(t TransitionInput) (RevisionStatus, error) {
 	return draftTransition(t.Role, from, t.Action)
 }
 
-// submittedStatus is the status of a revision an actor of role submits: a moderator's is approved at once (D3).
+// submittedStatus is the status of a revision an actor of role submits: a moderator's is approved at once.
 func submittedStatus(role Role) RevisionStatus {
 	if role == RoleModerator {
 		return RevisionStatusApproved

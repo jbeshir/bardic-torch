@@ -12,7 +12,7 @@ import (
 
 var _ Command[Empty, Empty] = (*BackfillDisplayNameKeys)(nil)
 
-// BackfillDisplayNameKeys stores every user's display name key (D20): users created before keys existed, and users
+// BackfillDisplayNameKeys stores every user's display name key: users created before keys existed, and users
 // renamed by code that did not set them (a rollback), have none or a stale one. It runs at startup and is
 // idempotent.
 type BackfillDisplayNameKeys struct {

@@ -186,7 +186,7 @@ func reportNote(t *testing.T, f *editingFixture, id int64) string {
 }
 
 // TestRepository_LinkHideResolveRace hides a link while resolving one of its reports with hide_link, 50 times,
-// both released together. Both lock the link row first (D21), so they never deadlock: setLinkHidden always
+// both released together. Both lock the link row first, so they never deadlock: setLinkHidden always
 // succeeds, and resolveLinkReport succeeds unless the hide committed first and resolved the report, when it gets
 // ErrReportNotOpen. Either way the link ends hidden and the report resolved.
 func TestRepository_LinkHideResolveRace(t *testing.T) {

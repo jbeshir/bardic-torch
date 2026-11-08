@@ -16,7 +16,7 @@ var (
 	ErrTurnstileUnavailable = errors.New("turnstile verification unavailable")
 )
 
-// TurnstileVerifier checks a Cloudflare Turnstile token server-side (D21). It returns nil if the token passes,
+// TurnstileVerifier checks a Cloudflare Turnstile token server-side. It returns nil if the token passes,
 // and otherwise an error wrapping ErrTurnstileRejected or ErrTurnstileUnavailable. The token is a single-use
 // secret: it is never logged or named in an error.
 type TurnstileVerifier interface {

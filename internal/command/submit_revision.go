@@ -15,7 +15,7 @@ var _ Command[SubmitRevisionRequest, SubmittedRevision] = (*SubmitRevision)(nil)
 
 // SubmitRevisionRequest is Principal's submission of their draft DraftID. AcknowledgeDuplicates confirms that a new
 // entity is not a duplicate of the entities its draft's names match. AcknowledgedFlags are an interactive
-// moderator's acknowledgements of their submission's flags (D3, D19); a contributor's are ignored, since
+// moderator's acknowledgements of their submission's flags; a contributor's are ignored, since
 // contributors never see flags.
 type SubmitRevisionRequest struct {
 	Principal             domain.Principal
@@ -25,7 +25,7 @@ type SubmitRevisionRequest struct {
 }
 
 // PossibleDuplicateError is a contributor's submission of a new entity whose names match Duplicates, which they
-// have not acknowledged (D13).
+// have not acknowledged.
 type PossibleDuplicateError struct {
 	Duplicates []domain.DuplicateMatch
 }
@@ -34,8 +34,8 @@ func (e *PossibleDuplicateError) Error() string {
 	return fmt.Sprintf("the new entity may duplicate %d others", len(e.Duplicates))
 }
 
-// SubmitRevision submits a draft (D2): a contributor's (or any API token's) becomes pending, an interactive
-// moderator's is approved at once (D3).
+// SubmitRevision submits a draft: a contributor's (or any API token's) becomes pending, an interactive
+// moderator's is approved at once.
 type SubmitRevision struct {
 	Drafts     datasources.DraftGetter
 	Duplicates datasources.DuplicateFinder

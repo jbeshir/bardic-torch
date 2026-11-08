@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The principals the revision commands act for, and the actors they act as (D25): an API token has contributor
+// The principals the revision commands act for, and the actors they act as: an API token has contributor
 // powers only, so a moderator's token acts as a contributor.
 var (
 	moderatorUser       = domain.User{ID: "google-oauth2|moderator", Role: domain.RoleModerator}
@@ -175,7 +175,7 @@ func TestGetDraft_Duplicates(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, DraftResult{Draft: testExisting, Duplicates: []domain.DuplicateMatch{}}, got)
 
-			// A new entity's: only an interactive moderator's include hidden aliases and pending entities (D13).
+			// A new entity's: only an interactive moderator's include hidden aliases and pending entities.
 			drafts.EXPECT().GetDraft(mock.Anything, pc.actor, testDraftID).Return(testNewDraft, nil).Once()
 			finder := mocks.NewDuplicateFinder(t)
 			finder.EXPECT().FindDuplicates(mock.Anything, domain.NewDuplicateCandidate(testPiece),

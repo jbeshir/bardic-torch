@@ -39,7 +39,7 @@ type FlagsError struct {
 	Flags   []Flag             `json:"flags"`
 }
 
-// Flag is the JSON representation of a flag on a revision (D19), with the path of what raised it, if anything in
+// Flag is the JSON representation of a flag on a revision, with the path of what raised it, if anything in
 // particular did.
 type Flag struct {
 	Code domain.FlagCode `json:"code"`
@@ -99,6 +99,12 @@ var revisionErrorAnswers = []struct {
 		"the entity's current revision has changed: resolve against the new current revision"}},
 	{command.ErrDuplicateName, revisionErrorAnswer{http.StatusConflict, httpjson.CodeDuplicateName,
 		"another term of the facet has this name"}},
+	{datasources.ErrReportNotOpen, revisionErrorAnswer{http.StatusConflict, httpjson.CodeConflict,
+		"the link report is not open"}},
+	{datasources.ErrContactRequestNotOpen, revisionErrorAnswer{http.StatusConflict, httpjson.CodeConflict,
+		"the contact request is not open"}},
+	{datasources.ErrReportLimitReached, revisionErrorAnswer{http.StatusConflict, httpjson.CodeReportLimitReached,
+		fmt.Sprintf("a user may have at most %d open link reports", domain.MaxOpenLinkReports)}},
 	{domain.ErrModeratorRequired, revisionErrorAnswer{http.StatusForbidden, httpjson.CodeModeratorRequired,
 		moderatorRequiredMessage}},
 }

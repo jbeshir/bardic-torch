@@ -3,7 +3,6 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -27,7 +26,7 @@ func (r *Repository) ApproveRevision(ctx context.Context, req datasources.Approv
 		return r.txReader(tx).approveRevision(ctx, req)
 	})
 	if err != nil {
-		return withoutServerMessage(fmt.Sprintf("approving revision [%d]", req.RevisionID), err)
+		return databaseError(fmt.Sprintf("approving revision [%d]", req.RevisionID), err)
 	}
 
 	return nil
@@ -55,7 +54,7 @@ func (c *catalogueReader) approveRevision(ctx context.Context, req datasources.A
 }
 
 // lockModeratedRevision locks the revision id FOR UPDATE and checks the actor may take the moderation action on it
-// (D2), returning datasources.ErrNotFound if there is no such revision (or it is a draft, which moderators never
+// , returning datasources.ErrNotFound if there is no such revision (or it is a draft, which moderators never
 // see).
 func (c *catalogueReader) lockModeratedRevision(
 	ctx context.Context, actor domain.Actor, id int64, action domain.RevisionAction,
@@ -91,7 +90,7 @@ type approvalInput struct {
 	baseRevisionID *int64
 	summary        string
 	// fallbackSummary is published if the approved summary is empty: a revert's default summary, which its
-	// validation does not see (D10).
+	// validation does not see.
 	fallbackSummary string
 	storedFlags     []domain.Flag
 	reviewer        string
@@ -110,15 +109,11 @@ func (c *catalogueReader) pendingApproval(ctx context.Context, id uint64) (appro
 		return approvalInput{}, fmt.Errorf("fetching revision: %w", err)
 	}
 	entityType := enumOf[domain.EntityType](c, row.EntityType)
-	kind, err := kindFor(entityType)
+	kind, doc, err := decodeRevision(entityType, row.SnapshotJson)
 	if err != nil {
-		return approvalInput{}, err
+		return approvalInput{}, fmt.Errorf("revision [%d]: %w", id, err)
 	}
-	doc, err := kind.decode(row.SnapshotJson)
-	if err != nil {
-		return approvalInput{}, fmt.Errorf("revision snapshot: %w", err)
-	}
-	flags, err := decodeFlags(row.FlagsJson)
+	flags, err := decodeJSONColumn[[]domain.Flag]("flags", row.FlagsJson)
 	if err != nil {
 		return approvalInput{}, err
 	}
@@ -128,19 +123,6 @@ func (c *catalogueReader) pendingApproval(ctx context.Context, id uint64) (appro
 		entity: domain.EntityRef{Type: entityType, ID: row.EntityID.Int64}, kind: kind, doc: doc,
 		baseRevisionID: int64Ptr(row.BaseRevisionID), summary: row.Summary, storedFlags: flags,
 	}, c.err
-}
-
-// decodeFlags decodes a revision's stored flags; a revision with none stored has none.
-func decodeFlags(data []byte) ([]domain.Flag, error) {
-	var flags []domain.Flag
-	if len(data) == 0 {
-		return flags, nil
-	}
-	if err := json.Unmarshal(data, &flags); err != nil {
-		return nil, fmt.Errorf("decoding flags: %w", err)
-	}
-
-	return flags, nil
 }
 
 // approve approves the locked pending revision in (docs/PLAN.md §5.1 "Approval"): it finds and locks the pending new
@@ -482,17 +464,11 @@ func (c *catalogueReader) approvalState(
 			in.kind.addReferences(in.entity.ID, d, &refs)
 		}
 	}
-	hiddenLinks := map[string]bool{}
-	for _, state := range c.linkStates(ctx, refs.LinkURLs) {
-		if state.isHidden {
-			hiddenLinks[state.normalizedURL] = true
-		}
-	}
 
 	return approvalState{
 		id: in.entity.ID, revision: doc, base: base, current: current, baseRevisionID: in.baseRevisionID,
 		author: in.author, refs: c.referenceIndex(ctx, refs, own, doc), hiddenAliases: hidden,
-		hiddenLinkURLs: hiddenLinks, summary: in.summary, storedFlags: in.storedFlags, today: dateOf(in.now),
+		hiddenLinkURLs: c.hiddenLinkURLs(ctx, refs), summary: in.summary, storedFlags: in.storedFlags, today: dateOf(in.now),
 	}
 }
 
@@ -548,7 +524,7 @@ func approvalWriteError(err error) error {
 }
 
 // writeApprovedRevision makes the approved revision of p its entity's current revision, and stores it approved
-// with its plan's document and summary, on base, dated by its approval (D1).
+// with its plan's document and summary, on base, dated by its approval.
 func (c *catalogueReader) writeApprovedRevision(w *entityWriter, p plannedApproval, base *int64) {
 	snapshot, err := encodeJSON(p.plan.document)
 	if err != nil {

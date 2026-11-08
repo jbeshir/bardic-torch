@@ -14,7 +14,7 @@ func TestPrincipal_Actor(t *testing.T) {
 
 	assert.Equal(t, Actor{UserID: moderator.ID, Role: RoleModerator},
 		Principal{User: moderator, Method: AuthMethodAuth0}.Actor())
-	// An API token has contributor powers only (D25).
+	// An API token has contributor powers only.
 	assert.Equal(t, Actor{UserID: moderator.ID, Role: RoleContributor},
 		Principal{User: moderator, Method: AuthMethodAPIToken}.Actor())
 	assert.Equal(t, Actor{UserID: contributor.ID, Role: RoleContributor},

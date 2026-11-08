@@ -15,7 +15,7 @@ var (
 	// ErrHiddenDataConflict is an approval of a revision flagged hidden_alias_collision or hidden_data_conflict:
 	// approving it would publish a hidden name or write data that is only invalid because of hidden data.
 	ErrHiddenDataConflict = errors.New("hidden data conflict")
-	// ErrDuplicateBlocked is an approval of a new person matching a person who prefers no page (D13).
+	// ErrDuplicateBlocked is an approval of a new person matching a person who prefers no page.
 	ErrDuplicateBlocked = errors.New("duplicate of a person who prefers no page")
 )
 
@@ -39,7 +39,7 @@ func (e *UnacknowledgedFlagsError) Error() string {
 }
 
 // PendingReferenceFlaggedError is an approval of a revision referencing a pending new term or person whose own
-// revision, RevisionID, is flagged: it must be approved on its own first (D15).
+// revision, RevisionID, is flagged: it must be approved on its own first.
 type PendingReferenceFlaggedError struct {
 	RevisionID int64
 	Flags      []Flag
@@ -49,7 +49,7 @@ func (e *PendingReferenceFlaggedError) Error() string {
 	return fmt.Sprintf("pending reference [%d] is flagged", e.RevisionID)
 }
 
-// SubmitState is what planning a submission needs (D5, D12): the document as its author sent it, the full document
+// SubmitState is what planning a submission needs: the document as its author sent it, the full document
 // of the draft's own base and what the author can see.
 type SubmitState[D Document] struct {
 	// ID is the entity's ID, 0 for a new entity.
@@ -74,8 +74,8 @@ type SubmitPlan[D Document] struct {
 	Flags    []Flag
 }
 
-// PlanSubmit plans a submission (D5, D12). It restores the submitted document onto the draft's own base, never
-// merging it with the current document: a stale base is approval's to handle (D9). An interactive moderator's
+// PlanSubmit plans a submission. It restores the submitted document onto the draft's own base, never
+// merging it with the current document: a stale base is approval's to handle. An interactive moderator's
 // submission is then approved at once and planned with PlanApproval, which validates it. A contributor's (or an
 // API token's) is validated in two phases (ValidateSubmission): the problems of the submitted document are the
 // only ones returned, as a *DocumentError; those only the restored document has become hidden_data_conflict
@@ -117,7 +117,7 @@ type PendingReference struct {
 	Flags      []Flag
 }
 
-// ApprovalState is what planning an approval needs, as read under the approval's locks (D15).
+// ApprovalState is what planning an approval needs, as read under the approval's locks.
 type ApprovalState[D Document] struct {
 	// ID is the entity's ID.
 	ID int64
@@ -144,7 +144,7 @@ type ApprovalState[D Document] struct {
 	// PendingReferences are the pending new terms and persons the document references, parents first.
 	PendingReferences []PendingReference
 	// PossibleDuplicate is whether a new entity may duplicate another, and DuplicateBlocked whether it is a new
-	// person matching a person who prefers no page, by name or by any alias (D13).
+	// person matching a person who prefers no page, by name or by any alias.
 	PossibleDuplicate bool
 	DuplicateBlocked  bool
 	Today             Date
@@ -159,7 +159,7 @@ type ApprovalOptions struct {
 	ReviewNote string
 }
 
-// ApprovalPlan is what an approval writes (D15).
+// ApprovalPlan is what an approval writes.
 type ApprovalPlan[D Document] struct {
 	// Document is the document to write: the revision's, or its merge with the current document if Rebased.
 	Document D
@@ -197,7 +197,7 @@ func FlagsAfterRebase(stored []Flag) []Flag {
 	return kept
 }
 
-// PlanApproval plans an approval (D9, D15, D19). A stale revision is merged with the current document, and a
+// PlanApproval plans an approval. A stale revision is merged with the current document, and a
 // conflict is ErrRebaseRequired. Then the flags gate it: a hidden-data flag is ErrHiddenDataConflict, a no-page
 // duplicate ErrDuplicateBlocked, a flagged pending reference *PendingReferenceFlaggedError, and any flag but
 // references_pending that is not acknowledged an *UnacknowledgedFlagsError, as is a hidden_alias_in_summary flag
@@ -242,7 +242,7 @@ func PlanApproval[D Document](s ApprovalState[D], opts ApprovalOptions) (Approva
 	return plan, nil
 }
 
-// ApprovalFlags returns the flags approving the revision of s gates on (D19), as PlanApproval finds them: the
+// ApprovalFlags returns the flags approving the revision of s gates on, as PlanApproval finds them: the
 // flags only its submission could find, kept from StoredFlags; those of the document approval would write (the
 // revision's clean merge with the current document if it is stale, else the revision's own); and
 // possible_duplicate. Moderator views show them before the moderator approves.
@@ -267,7 +267,7 @@ func approvalFlags[D Document](s ApprovalState[D], doc D, matcher NameMatcher) [
 // approvalDocument is the document an approval writes: the revision's if it is not stale, or its clean merge with
 // the current document, and whether it was merged. A revision is stale when its base is not the current revision.
 func approvalDocument[D Document](s ApprovalState[D]) (D, bool, error) {
-	if equalPointers(s.BaseRevisionID, s.CurrentRevisionID) {
+	if EqualPointers(s.BaseRevisionID, s.CurrentRevisionID) {
 		return s.Revision, false, nil
 	}
 	if s.Base == nil || s.Current == nil {
@@ -311,7 +311,7 @@ func approvalSummary(flags []Flag, summary string, opts ApprovalOptions, matcher
 // pathSummaryFlag is the path of a flag on a revision's summary.
 const pathSummaryFlag = "/summary"
 
-// CheckReviewNote checks a moderator's review note, which the revision's author reads (D19): one holding a hidden
+// CheckReviewNote checks a moderator's review note, which the revision's author reads: one holding a hidden
 // alias is an *UnacknowledgedFlagsError with the hidden_alias_in_review_note flag, unless acknowledged.
 func CheckReviewNote(note string, matcher NameMatcher, acknowledged []FlagCode) error {
 	if len(matcher.Find(note)) > 0 && !slices.Contains(acknowledged, FlagHiddenAliasInReviewNote) {
@@ -335,7 +335,7 @@ func documentChanges[D Document](doc D, current *D, summary string) (*Conservati
 				Reason: summary}, nil
 		}
 	case TermDocument:
-		if current == nil || !equalPointers(any(*current).(TermDocument).ParentID, d.ParentID) {
+		if current == nil || !EqualPointers(any(*current).(TermDocument).ParentID, d.ParentID) {
 			return nil, &d.Facet
 		}
 	}

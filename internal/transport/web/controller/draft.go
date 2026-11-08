@@ -10,7 +10,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
-// Draft is the JSON representation of a draft, as its author saved it (D1).
+// Draft is the JSON representation of a draft, as its author saved it.
 type Draft struct {
 	ID         int64             `json:"id"`
 	EntityType domain.EntityType `json:"entity_type"`
@@ -27,7 +27,7 @@ type Draft struct {
 	Preview any `json:"preview"`
 }
 
-// DuplicateMatch is the JSON representation of an entity a new one may duplicate (D13): its address, its name, and
+// DuplicateMatch is the JSON representation of an entity a new one may duplicate: its address, its name, and
 // which of its names matched.
 type DuplicateMatch struct {
 	EntityType   domain.EntityType     `json:"entity_type"`

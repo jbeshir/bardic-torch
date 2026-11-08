@@ -129,7 +129,7 @@ func TestRepository_SubmitDraft_PendingLimit(t *testing.T) {
 	f.submit(t, actorAsh, f.saveDraft(t, actorAsh, nil, newEventDocument("Ash's revel")).Draft.ID)
 }
 
-// TestRepository_SubmitDraft_StaleBase checks R48: a contributor's submission on a base that is no longer current
+// TestRepository_SubmitDraft_StaleBase checks: a contributor's submission on a base that is no longer current
 // is stored on that base, merged with nothing.
 func TestRepository_SubmitDraft_StaleBase(t *testing.T) {
 	t.Parallel()
@@ -155,7 +155,7 @@ func TestRepository_SubmitDraft_StaleBase(t *testing.T) {
 	assert.Equal(t, editedNotes, *full.NotesMD)
 }
 
-// TestRepository_SubmitDraft_BaseNotApproved checks R19: bases are approved revisions, so a draft whose base is not
+// TestRepository_SubmitDraft_BaseNotApproved checks: bases are approved revisions, so a draft whose base is not
 // one is a broken invariant, an internal error, never a caller's error.
 func TestRepository_SubmitDraft_BaseNotApproved(t *testing.T) {
 	t.Parallel()
@@ -179,7 +179,7 @@ func TestRepository_SubmitDraft_BaseNotApproved(t *testing.T) {
 	assert.Equal(t, "draft", f.stored(t, draft.Draft.ID).status)
 }
 
-// TestRepository_SubmitDraft_RenameToHiddenAlias checks W27: renaming a person to one of their own hidden aliases is
+// TestRepository_SubmitDraft_RenameToHiddenAlias checks that renaming a person to one of their own hidden aliases is
 // pending with a hidden_data_conflict flag only moderators see, and everything the author is answered is as for a
 // rename to a fresh name.
 func TestRepository_SubmitDraft_RenameToHiddenAlias(t *testing.T) {
@@ -347,7 +347,7 @@ func TestRepository_WithdrawRevision_DeletesPlaceholder(t *testing.T) {
 	assert.Equal(t, "Sea Songs", revision.Title)
 }
 
-// TestRepository_WithdrawRevision_AfterSupersede checks T44 then T43: the revision withdrawn is not the one that
+// TestRepository_WithdrawRevision_AfterSupersede checks a withdrawal after a supersede: the revision withdrawn is not the one that
 // created the placeholder, which is deleted all the same.
 func TestRepository_WithdrawRevision_AfterSupersede(t *testing.T) {
 	t.Parallel()

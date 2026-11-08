@@ -32,7 +32,7 @@ type ApproveRequest struct {
 	Now        time.Time
 }
 
-// RevisionApprover approves a pending revision (D9, D15): under the global lock order it merges a stale revision
+// RevisionApprover approves a pending revision: under the global lock order it merges a stale revision
 // with the current document, validates it (domain.PlanApproval), approves the pending new terms and persons it
 // references alongside it, and writes the entity's rows. It returns ErrNotFound for no such revision,
 // domain.ErrNotPending, ErrEntityGone, domain.ErrRebaseRequired, domain.ErrHiddenDataConflict,
@@ -53,8 +53,8 @@ type RejectRequest struct {
 }
 
 // RevisionRejecter rejects a pending revision, deleting its new entity's placeholder if no other pending revision
-// has it (D14). It returns ErrNotFound for no such revision, domain.ErrNotPending, and a
-// *domain.UnacknowledgedFlagsError for a review note holding a hidden alias that is not acknowledged (D19).
+// has it. It returns ErrNotFound for no such revision, domain.ErrNotPending, and a
+// *domain.UnacknowledgedFlagsError for a review note holding a hidden alias that is not acknowledged.
 type RevisionRejecter interface {
 	RejectRevision(ctx context.Context, req RejectRequest) error
 }
@@ -72,7 +72,7 @@ type RebaseRequest struct {
 	Now               time.Time
 }
 
-// RevisionRebaser rebases a pending revision (D9): it stores the resolved document, validated against the current
+// RevisionRebaser rebases a pending revision: it stores the resolved document, validated against the current
 // document, as the revision's document on the current revision, keeping it pending and keeping what its author
 // submitted. It returns ErrNotFound for no such revision, domain.ErrNotPending, ErrStale, ErrEntityGone and a
 // *domain.DocumentError.
@@ -80,7 +80,7 @@ type RevisionRebaser interface {
 	RebaseRevision(ctx context.Context, req RebaseRequest) error
 }
 
-// RevertRequest is a revert of an entity to its approved revision RevisionID by the actor (D10). The revision's
+// RevertRequest is a revert of an entity to its approved revision RevisionID by the actor. The revision's
 // summary is Summary, or "Revert to revision <id>." if it is empty; validation sees the summary as given, so a
 // conservation status change needs one as its reason. AcknowledgedFlags are an interactive moderator's.
 type RevertRequest struct {
@@ -91,7 +91,7 @@ type RevertRequest struct {
 	Now               time.Time
 }
 
-// RevisionReverter reverts an entity to one of its approved revisions (D10), creating a new revision based on the
+// RevisionReverter reverts an entity to one of its approved revisions, creating a new revision based on the
 // current one: pending for a contributor (or an API token), superseding their pending revision of the entity;
 // approved at once for an interactive moderator. A revert identical to the caller's pending revision of the entity
 // (or for a moderator, to the current revision, which they authored) is a replay, returned as it is. It returns

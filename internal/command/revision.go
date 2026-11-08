@@ -11,7 +11,7 @@ import (
 )
 
 // The revision commands act for a principal with their effective role (domain.Principal.Actor): a request made with
-// an API token has contributor powers only, whatever its user's role (D25).
+// an API token has contributor powers only, whatever its user's role.
 
 // EntityRequest is a request by Principal about the entity Key.
 type EntityRequest struct {
@@ -26,14 +26,14 @@ type RevisionRequest struct {
 }
 
 // DraftResult is a draft with the entities its document may duplicate: for a draft of a new entity, the matches
-// of domain.FindDuplicates (D13); for a draft of an existing entity, none.
+// of domain.FindDuplicates; for a draft of an existing entity, none.
 type DraftResult struct {
 	Draft      domain.Draft
 	Duplicates []domain.DuplicateMatch
 }
 
 // SubmittedRevision is the revision a submission or a revert leaves, as its author sees it. Replayed is set when
-// the request had already been carried out, and the revision is returned as it is (D2, D10).
+// the request had already been carried out, and the revision is returned as it is.
 type SubmittedRevision struct {
 	Revision domain.MyRevision
 	Replayed bool
@@ -62,7 +62,7 @@ func toDocument(
 }
 
 // draftResult returns draft with the entities it may duplicate: for a draft of a new entity, the public entities
-// its names match, and for an interactive moderator also hidden aliases and pending new entities (D13); none for
+// its names match, and for an interactive moderator also hidden aliases and pending new entities; none for
 // a draft of an existing entity.
 func draftResult(
 	ctx context.Context, finder datasources.DuplicateFinder, actor domain.Actor, draft domain.Draft,

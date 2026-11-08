@@ -108,7 +108,7 @@ func contactMessageOrBadRequest(w http.ResponseWriter, r *http.Request, body Con
 		return false
 	case !textOrBadRequest(w, r, "url", body.URL, domain.MaxURLLength):
 		return false
-	case body.URL != nil && !validURL(*body.URL):
+	case body.URL != nil && !domain.IsValidURL(*body.URL):
 		return invalidContactField(w, r, "invalid url: must be an http or https URL")
 	case body.TurnstileToken == "":
 		return invalidContactField(w, r, "turnstile_token is required")
@@ -124,12 +124,6 @@ func contactMessageOrBadRequest(w http.ResponseWriter, r *http.Request, body Con
 func invalidContactField(w http.ResponseWriter, r *http.Request, message string) bool {
 	httpjson.WriteError(r.Context(), w, http.StatusBadRequest, httpjson.CodeInvalidRequest, message)
 	return false
-}
-
-// validURL reports whether s is a URL domain.NormalizeURL accepts.
-func validURL(s string) bool {
-	_, err := domain.NormalizeURL(s)
-	return err == nil
 }
 
 // ContactRequest is the JSON representation of a contact request, as moderators see it.
@@ -247,14 +241,11 @@ func (c ContactRequestResolve) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	request, err := c.Command.Execute(ctx, command.ResolveContactRequestRequest{
 		Principal: principal, RequestID: requestID, Status: body.Status, Note: body.Note,
 	})
-	switch {
-	case errors.Is(err, datasources.ErrContactRequestNotOpen):
-		httpjson.WriteError(ctx, w, http.StatusConflict, httpjson.CodeConflict, "the contact request is not open")
-	case err != nil:
+	if err != nil {
 		writeRevisionError(w, r, "contact request", err)
-	default:
-		domain.LoggerFromContext(ctx).InfoContext(ctx, "resolved contact request",
-			"contact_request_id", request.ID, "kind", request.Kind, "status", request.Status)
-		httpjson.WriteJSON(ctx, w, http.StatusOK, contactRequestFromDomain(request))
+		return
 	}
+	domain.LoggerFromContext(ctx).InfoContext(ctx, "resolved contact request",
+		"contact_request_id", request.ID, "kind", request.Kind, "status", request.Status)
+	httpjson.WriteJSON(ctx, w, http.StatusOK, contactRequestFromDomain(request))
 }

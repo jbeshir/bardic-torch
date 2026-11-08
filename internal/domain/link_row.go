@@ -1,7 +1,7 @@
 package domain
 
 // LinkRowUpdate returns the shared fields (URL, title, description, platform, place type, collection and locator)
-// a links row gets when an approval writes next, a link of the approved document (D17). row is the row with next's
+// a links row gets when an approval writes next, a link of the approved document. row is the row with next's
 // normalized URL, nil if there is none, and prev the link with the same key in the entity's current document, nil
 // if the entity's current document has none (a newly attached link, or a new entity):
 //   - no row: every field from next;
@@ -34,7 +34,7 @@ func LinkRowUpdate(row, prev *DocLink, next DocLink) DocLink {
 // rowField is a nullable field of a links row after writing next, the field being get of a link: next's value if
 // next changed it from prev, or, with no prev, if the row has none; the row's value otherwise.
 func rowField[T comparable](row *T, prev *DocLink, get func(DocLink) *T, next DocLink) *T {
-	if prev != nil && !equalPointers(get(*prev), get(next)) || prev == nil && row == nil {
+	if prev != nil && !EqualPointers(get(*prev), get(next)) || prev == nil && row == nil {
 		return get(next)
 	}
 

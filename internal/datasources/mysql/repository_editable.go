@@ -14,7 +14,7 @@ import (
 
 var _ datasources.EditableDocumentGetter = (*Repository)(nil)
 
-// GetEditable returns the document the actor starts an edit of the entity key addresses from (D5): the author
+// GetEditable returns the document the actor starts an edit of the entity key addresses from: the author
 // document of their pending revision of it on that revision's submitted base, or else the projection of its
 // current document on the current revision. Either is without what the actor may not see; an interactive
 // moderator sees everything but preferences, with the links' states.
@@ -100,26 +100,21 @@ type pendingStart struct {
 	received    domain.ElementKeySet
 }
 
-// pendingStart returns the starting point the actor's pending revision of the entity target gives (D5): its author
+// pendingStart returns the starting point the actor's pending revision of the entity target gives: its author
 // document, on its submitted base, with its received keys; or nil if the actor has no pending revision of it.
 func (c *catalogueReader) pendingStart(
 	ctx context.Context, actor domain.Actor, kind documentKind, target editTarget, pending []pendingNewEntity,
 ) (*pendingStart, error) {
-	row, err := c.q.GetUserPendingForEntity(ctx, queries.GetUserPendingForEntityParams{
-		AuthorUserID: nullString(&actor.UserID), EntityType: queries.RevisionsEntityType(target.entity.Type),
-		EntityID: nullableID(&target.entity.ID),
-	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("fetching pending revision: %w", err)
+	row, found, err := c.userPendingFor(ctx, actor.UserID, queries.RevisionsEntityType(target.entity.Type),
+		nullableID(&target.entity.ID))
+	if !found || err != nil {
+		return nil, err
 	}
 	submitted, err := kind.decode(row.SubmittedSnapshotJson)
 	if err != nil {
 		return nil, fmt.Errorf("pending revision [%d] submitted snapshot: %w", row.ID, err)
 	}
-	received, err := decodeReceivedKeys(row.ReceivedKeysJson)
+	received, err := decodeJSONColumn[domain.ElementKeySet]("received keys", row.ReceivedKeysJson)
 	if err != nil {
 		return nil, fmt.Errorf("pending revision [%d]: %w", row.ID, err)
 	}

@@ -9,8 +9,8 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
-// The moderator views (D8). They hold hidden aliases, hidden links and user IDs, so only the moderator operations,
-// which only interactive moderators reach (D25), serve them.
+// The moderator views. They hold hidden aliases, hidden links and user IDs, so only the moderator operations,
+// which only interactive moderators reach, serve them.
 
 // ModerationAuthor is the JSON representation of a user as moderator views show them.
 type ModerationAuthor struct {
@@ -80,7 +80,7 @@ type ModerationPendingReference struct {
 	Flags      []Flag                   `json:"flags"`
 }
 
-// ModerationRevision is the JSON representation of a revision as a moderator sees it (D8).
+// ModerationRevision is the JSON representation of a revision as a moderator sees it.
 type ModerationRevision struct {
 	ID                      int64                        `json:"id"`
 	Status                  domain.RevisionStatus        `json:"status"`

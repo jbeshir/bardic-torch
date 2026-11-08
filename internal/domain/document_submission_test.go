@@ -79,7 +79,7 @@ func TestValidateSubmission_CapsCountVisibleElements(t *testing.T) {
 func TestValidateSubmission_HiddenLicensingSource(t *testing.T) {
 	t.Parallel()
 
-	// SF03b and W29: the piece's only licensing source is a hidden link, withheld from the contributor.
+	// The piece's only licensing source is a hidden link, withheld from the contributor.
 	base := withLicensingLink(validPiece(), ptr("https://example.org/hidden-licence"))
 	projection := validPiece()
 	editor := pieceWith(func(d *PieceDocument) { d.LicensingStatus = LicensingStatusKnown })
@@ -98,7 +98,7 @@ func TestValidateSubmission_HiddenLicensingSource(t *testing.T) {
 func TestValidateSubmission_EditorPaths(t *testing.T) {
 	t.Parallel()
 
-	// W30: a problem after a withheld element is at its index in the document the contributor sees.
+	// A problem after a withheld element is at its index in the document the contributor sees.
 	base, projection := personWithHiddenAlias()
 	editor := projection
 	editor.Aliases = append(append([]DocPersonAlias{}, projection.Aliases...),
@@ -113,7 +113,7 @@ func TestValidateSubmission_EditorPaths(t *testing.T) {
 func TestValidateSubmission_RestoredNoPageCredit(t *testing.T) {
 	t.Parallel()
 
-	// W31: a piece crediting a person who has since chosen to have no page; the credit is withheld from the
+	// A piece crediting a person who has since chosen to have no page; the credit is withheld from the
 	// contributor and restored unchanged, so it needs only to exist.
 	base := validPiece()
 	base.Credits = append(base.Credits, DocCredit{PersonID: ptr(refNoPagePerson), Role: CreditRoleTune,
@@ -135,7 +135,7 @@ func TestValidateSubmission_RestoredNoPageCredit(t *testing.T) {
 func TestValidateSubmission_NoPageProfileNotesIgnored(t *testing.T) {
 	t.Parallel()
 
-	// W14: notes a contributor sends for a no-page person are not a problem in phase 1, as restore discards them.
+	// Notes a contributor sends for a no-page person are not a problem in phase 1, as restore discards them.
 	base := validPerson()
 	base.Status, base.StatusSourceURL = PersonStatusPrefersNoPage, ptr(validSource)
 	projection := PersonDocument{SchemaVersion: DocumentSchemaVersion, Name: base.Name, Kind: base.Kind,

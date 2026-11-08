@@ -92,7 +92,7 @@ func TestRepository_ApproveRevision_NotStale(t *testing.T) {
 
 	stored := f.stored(t, result.RevisionID)
 	assert.Equal(t, statusApproved, stored.status)
-	assert.Equal(t, f.song.RevisionID, stored.base.Int64, "R01: not stale, approved as is")
+	assert.Equal(t, f.song.RevisionID, stored.base.Int64, "not stale, approved as is")
 	want := songDocument(f)
 	want.NotesMD = new(editedNotes)
 	assert.Equal(t, want, f.storedPiece(t, result.RevisionID), "the full document: withheld elements restored")
@@ -100,7 +100,7 @@ func TestRepository_ApproveRevision_NotStale(t *testing.T) {
 	assert.Equal(t, rowanUserID, r.reviewer)
 	assert.Equal(t, approvalNote, r.note)
 	assert.Equal(t, approvedAt, r.reviewedAt.Time.UTC())
-	assert.Equal(t, approvedAt, r.createdAt.Time.UTC(), "D1: dated by its approval")
+	assert.Equal(t, approvedAt, r.createdAt.Time.UTC(), "dated by its approval")
 	assert.Equal(t, result.RevisionID, f.currentRevision(t, "pieces", f.song.ID))
 	assert.Equal(t, new(editedNotes), f.publicPiece(t, f.song.Slug).NotesMD)
 	assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM links WHERE is_hidden AND normalized_url LIKE ?",
@@ -119,8 +119,8 @@ func TestRepository_ApproveRevision_NotStale(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrModeratorRequired, "an API token has contributor powers only")
 }
 
-// TestRepository_ApproveRevision_Stale covers R02 and R25 (a clean merge after another approval of the entity), R03
-// (a conflict) and R17 (the base is the import revision, as every fixture entity's is).
+// TestRepository_ApproveRevision_Stale covers a clean merge after another approval of the entity, a conflict,
+// and a base that is the import revision, as every fixture entity's is.
 func TestRepository_ApproveRevision_Stale(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -146,7 +146,7 @@ func TestRepository_ApproveRevision_Stale(t *testing.T) {
 	assert.Equal(t, ours.RevisionID, f.currentRevision(t, "pieces", f.song.ID))
 }
 
-// TestRepository_ApproveRevision_EntityGone covers R22: the revision's own placeholder is gone.
+// TestRepository_ApproveRevision_EntityGone covers: the revision's own placeholder is gone.
 func TestRepository_ApproveRevision_EntityGone(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -157,7 +157,7 @@ func TestRepository_ApproveRevision_EntityGone(t *testing.T) {
 	assert.Equal(t, statusPending, f.stored(t, pending.ID).status)
 }
 
-// TestRepository_ApproveRevision_DeletedPendingReference covers R21: the placeholder of a term the revision
+// TestRepository_ApproveRevision_DeletedPendingReference covers: the placeholder of a term the revision
 // references was deleted by its creating revision's rejection.
 func TestRepository_ApproveRevision_DeletedPendingReference(t *testing.T) {
 	t.Parallel()
@@ -176,7 +176,7 @@ func TestRepository_ApproveRevision_DeletedPendingReference(t *testing.T) {
 		Code: domain.ProblemUnknownReference})
 }
 
-// TestRepository_ApproveRevision_PendingReferences covers R34 and R36: pending new terms, a parent chain, and a
+// TestRepository_ApproveRevision_PendingReferences covers: pending new terms, a parent chain, and a
 // pending new person, approved alongside the piece referencing them, parents first, with the closure rebuilt.
 func TestRepository_ApproveRevision_PendingReferences(t *testing.T) {
 	t.Parallel()
@@ -220,7 +220,7 @@ func TestRepository_ApproveRevision_PendingReferences(t *testing.T) {
 	assert.Equal(t, "Bird Laments", term.DisplayName)
 }
 
-// TestRepository_ApproveRevision_FlaggedPendingReference covers R50: a pending term flagged on its own refuses the
+// TestRepository_ApproveRevision_FlaggedPendingReference covers: a pending term flagged on its own refuses the
 // approval of a piece referencing it, which writes nothing, until the term is approved on its own.
 func TestRepository_ApproveRevision_FlaggedPendingReference(t *testing.T) {
 	t.Parallel()
@@ -245,11 +245,11 @@ func TestRepository_ApproveRevision_FlaggedPendingReference(t *testing.T) {
 
 	require.NoError(t, f.approve(t, term.RevisionID, domain.ApprovalOptions{
 		AcknowledgedFlags: []domain.FlagCode{domain.FlagHiddenAliasInSummary}, Summary: new("Laments.")}))
-	assert.Equal(t, "Laments.", f.reviewed(t, term.RevisionID).summary, "R43: the override is published")
+	assert.Equal(t, "Laments.", f.reviewed(t, term.RevisionID).summary, "the override is published")
 	f.mustApprove(t, piece.RevisionID)
 }
 
-// TestRepository_ApproveRevision_NewPiece covers R44 (the slug allocated from the title, after a collision) and the
+// TestRepository_ApproveRevision_NewPiece covers the slug allocated from the title, after a collision, and the
 // sort keys.
 func TestRepository_ApproveRevision_NewPiece(t *testing.T) {
 	t.Parallel()
@@ -276,7 +276,7 @@ func TestRepository_ApproveRevision_NewPiece(t *testing.T) {
 	assert.Equal(t, "T", letter)
 }
 
-// TestRepository_ApproveRevision_HistoryOrder covers R46: a revision drafted before another but approved after it
+// TestRepository_ApproveRevision_HistoryOrder covers: a revision drafted before another but approved after it
 // is dated by its approval, and listed first.
 func TestRepository_ApproveRevision_HistoryOrder(t *testing.T) {
 	t.Parallel()
@@ -324,7 +324,7 @@ func TestRepository_ApproveRevision_Conservation(t *testing.T) {
 }
 
 // TestRepository_ApproveRevision_Links checks the link upsert by normalized URL: a respelled URL reuses its row and
-// respells it, a hidden row stays hidden, a row is never deleted, and the D17 field rule.
+// respells it, a hidden row stays hidden, a row is never deleted, and the link write rule for shared fields.
 func TestRepository_ApproveRevision_Links(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -368,7 +368,7 @@ func TestRepository_ApproveRevision_Links(t *testing.T) {
 }
 
 // TestRepository_ApproveRevision_Performances checks that an approval replaces exactly the performances its
-// entity's document owns (D16).
+// entity's document owns.
 func TestRepository_ApproveRevision_Performances(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -409,15 +409,15 @@ func TestRepository_ApproveRevision_Performances(t *testing.T) {
 		"ON p.id = pp.performance_id WHERE p.owner_piece_id = ?", f.song.ID), "performers replaced with them")
 }
 
-// TestRepository_ApproveRevision_Flags covers R41 (hidden_alias_collision), R42 (hidden_alias_in_summary
-// acknowledged without an override) and the review note gate.
+// TestRepository_ApproveRevision_Flags covers the flags hidden_alias_collision, hidden_alias_in_summary
+// (acknowledged without an override) and the review note gate.
 func TestRepository_ApproveRevision_Flags(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
 	collided := editAndSubmit(t, f, actorWren, *personKey(f.morwen.Slug), func(d *domain.PersonDocument) {
 		d.NotesMD = new(editedNotes)
 	})
-	// The flag a restore collision stores at submit (D5), which only the submission can find.
+	// The flag a restore collision stores at submit, which only the submission can find.
 	f.c.Exec("UPDATE revisions SET flags_json = ? WHERE id = ?",
 		`[{"code": "hidden_alias_collision", "path": "/aliases/2"}]`, collided.RevisionID)
 	require.ErrorIs(t, f.approve(t, collided.RevisionID, domain.ApprovalOptions{}), domain.ErrHiddenDataConflict)
@@ -431,7 +431,7 @@ func TestRepository_ApproveRevision_Flags(t *testing.T) {
 	ack := []domain.FlagCode{domain.FlagHiddenAliasInSummary}
 	var unacknowledged *domain.UnacknowledgedFlagsError
 	require.ErrorAs(t, f.approve(t, summarised.RevisionID, domain.ApprovalOptions{AcknowledgedFlags: ack}),
-		&unacknowledged, "R42: no override")
+		&unacknowledged, "no override")
 	require.ErrorAs(t, f.approve(t, summarised.RevisionID, domain.ApprovalOptions{AcknowledgedFlags: ack,
 		Summary: new(cleanSummaryText), ReviewNote: "Mind " + morwenLegal}), &unacknowledged, "the review note")
 	assert.Equal(t, []domain.Flag{{Code: domain.FlagHiddenAliasInReviewNote, Path: "/review_note"}},
@@ -441,12 +441,12 @@ func TestRepository_ApproveRevision_Flags(t *testing.T) {
 	history, err := f.repo.ListPublicHistory(t.Context(), domain.SlugEntityTypePiece, f.song.Slug,
 		domain.Page{Limit: 10})
 	require.NoError(t, err)
-	assert.Equal(t, cleanSummaryText, history.Revisions[0].Summary, "R43: the public history shows the override")
+	assert.Equal(t, cleanSummaryText, history.Revisions[0].Summary, "the public history shows the override")
 }
 
 const cleanSummaryText = "A clean summary."
 
-// TestRepository_ApproveRevision_NoPageCredit covers R52: a credit to a person who has since come to prefer no page
+// TestRepository_ApproveRevision_NoPageCredit covers: a credit to a person who has since come to prefer no page
 // stays when another field is approved, and reads leave it out.
 func TestRepository_ApproveRevision_NoPageCredit(t *testing.T) {
 	t.Parallel()
@@ -481,8 +481,8 @@ func TestRepository_ApproveRevision_SearchAfterCommit(t *testing.T) {
 	assert.Equal(t, kestrelTitle, list.Pieces[0].Title)
 }
 
-// TestRepository_ApproveRevision_HiddenDataConflict covers R41b: a revision flagged hidden_data_conflict at submit
-// (W27) is refused.
+// TestRepository_ApproveRevision_HiddenDataConflict covers that a revision flagged hidden_data_conflict at submit
+// is refused.
 func TestRepository_ApproveRevision_HiddenDataConflict(t *testing.T) {
 	t.Parallel()
 	f := newEditingFixture(t)
@@ -495,7 +495,7 @@ func TestRepository_ApproveRevision_HiddenDataConflict(t *testing.T) {
 	require.ErrorIs(t, f.approve(t, result.RevisionID, domain.ApprovalOptions{}), domain.ErrHiddenDataConflict)
 }
 
-// TestRepository_ApproveRevision_TermNameTaken covers R45: a new term whose name a term of its facet approved
+// TestRepository_ApproveRevision_TermNameTaken covers: a new term whose name a term of its facet approved
 // since its submission has is refused.
 func TestRepository_ApproveRevision_TermNameTaken(t *testing.T) {
 	t.Parallel()
@@ -664,4 +664,37 @@ func TestRepository_ApproveRevision_ReferenceSupersededWhileLocking(t *testing.T
 	assert.Equal(t, statusWithdrawn, f.stored(t, first.ID).status)
 	assert.Equal(t, statusApproved, f.stored(t, second.RevisionID).status)
 	assert.Equal(t, second.RevisionID, f.currentRevision(t, "terms", first.Entity.ID))
+}
+
+// TestRepository_BackfillPerformanceOwners checks that a performance with no owner, as a release that does not set
+// owners stores it, is given its owner, and so is replaced by an approval of its entity instead of staying beside
+// the copy the approval writes.
+func TestRepository_BackfillPerformanceOwners(t *testing.T) {
+	t.Parallel()
+	f := newEditingFixture(t)
+	owned := editAndSubmit(t, f, actorRowan, *pieceKey(f.song.Slug), func(d *domain.PieceDocument) {
+		d.Links[0].Performances = []domain.DocPerformance{{DescriptionVerbatim: "Sung before"}}
+	})
+	require.Equal(t, domain.RevisionStatusApproved, owned.Status)
+	_, err := f.db.ExecContext(t.Context(), "UPDATE performances SET owner_piece_id = NULL WHERE owner_piece_id = ?",
+		f.song.ID)
+	require.NoError(t, err)
+	perfCount := func() int {
+		return f.count(t, "SELECT COUNT(*) FROM performances WHERE piece_id = ?", f.song.ID)
+	}
+	require.Equal(t, 1, perfCount())
+
+	backfilled, err := f.repo.BackfillPerformanceOwners(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), backfilled)
+	assert.Equal(t, 1, f.count(t, "SELECT COUNT(*) FROM performances WHERE owner_piece_id = ?", f.song.ID))
+	again, err := f.repo.BackfillPerformanceOwners(t.Context())
+	require.NoError(t, err)
+	assert.Zero(t, again, "idempotent")
+
+	replaced := editAndSubmit(t, f, actorRowan, *pieceKey(f.song.Slug), func(d *domain.PieceDocument) {
+		d.Links[0].Performances = []domain.DocPerformance{{DescriptionVerbatim: "Sung after"}}
+	})
+	require.Equal(t, domain.RevisionStatusApproved, replaced.Status)
+	assert.Equal(t, 1, perfCount(), "the approval replaced the performance instead of adding a second copy")
 }

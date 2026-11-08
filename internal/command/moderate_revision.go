@@ -11,7 +11,7 @@ import (
 )
 
 // The moderator commands act only for an interactive moderator: a principal whose effective role
-// (domain.Principal.Actor) is moderator, which an API token never has (D25). The router lets no one else reach
+// (domain.Principal.Actor) is moderator, which an API token never has. The router lets no one else reach
 // them; each command also refuses anyone else with domain.ErrModeratorRequired.
 
 // ErrDuplicateName is an approval of a term whose name another term of its facet has taken: approving a
@@ -49,7 +49,7 @@ func moderationRevision(
 	return revision, nil
 }
 
-// GetModerationRevision returns a revision of any status but draft as moderators see it (D8).
+// GetModerationRevision returns a revision of any status but draft as moderators see it.
 type GetModerationRevision struct {
 	Getter datasources.ModerationRevisionGetter
 }
@@ -98,7 +98,7 @@ type ApproveRevisionRequest struct {
 	Options    domain.ApprovalOptions
 }
 
-// ApproveRevision approves a pending revision (D9, D15) and returns it as moderators then see it.
+// ApproveRevision approves a pending revision and returns it as moderators then see it.
 type ApproveRevision struct {
 	Revisions  datasources.ModerationRevisionGetter
 	Duplicates datasources.DuplicateFinder
@@ -170,7 +170,7 @@ func (c *ApproveRevision) duplicates(
 }
 
 // RejectRevisionRequest is Principal's rejection of the pending revision RevisionID with a review note for its
-// author; AcknowledgedFlags may acknowledge a hidden alias in the note (D19).
+// author; AcknowledgedFlags may acknowledge a hidden alias in the note.
 type RejectRevisionRequest struct {
 	Principal         domain.Principal
 	RevisionID        int64
@@ -213,7 +213,7 @@ type RebaseRevisionRequest struct {
 	Summary           *string
 }
 
-// RebaseRevision rebases a pending revision (D9) and returns it as moderators then see it.
+// RebaseRevision rebases a pending revision and returns it as moderators then see it.
 type RebaseRevision struct {
 	Resolver  datasources.EditorRefResolver
 	Revisions datasources.ModerationRevisionGetter

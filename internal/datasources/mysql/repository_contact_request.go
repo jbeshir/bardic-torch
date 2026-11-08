@@ -18,7 +18,7 @@ var (
 	_ datasources.ContactRequestPurger   = (*Repository)(nil)
 )
 
-// CreateContactRequest stores an open contact request (D21), refusing it while domain.MaxOpenContactRequests are
+// CreateContactRequest stores an open contact request, refusing it while domain.MaxOpenContactRequests are
 // open. The count is not locked: concurrent requests can exceed the cap by about as many as are inserting at once,
 // and the Turnstile verifier's slots do not bound that, since a slot is released before the insert. It is a soft
 // backstop against spam; BE5 adds rate limits. Errors never hold the request's fields, or the server's message,
@@ -45,7 +45,7 @@ func (r *Repository) CreateContactRequest(ctx context.Context, request datasourc
 		return nil
 	})
 	if err != nil {
-		return 0, withoutServerMessage("creating contact request", err)
+		return 0, databaseError("creating contact request", err)
 	}
 
 	return id, nil
@@ -85,13 +85,13 @@ func (r *Repository) ListContactRequests(
 		return c.err
 	})
 	if err != nil {
-		return domain.ContactRequestList{}, withoutServerMessage("listing contact requests", err)
+		return domain.ContactRequestList{}, databaseError("listing contact requests", err)
 	}
 
 	return list, nil
 }
 
-// ResolveContactRequest resolves or dismisses an open contact request (D21): it locks the request's row, checks
+// ResolveContactRequest resolves or dismisses an open contact request: it locks the request's row, checks
 // it is still open and updates it. It returns the request as the transaction leaves it.
 func (r *Repository) ResolveContactRequest(
 	ctx context.Context, req datasources.ResolveContactRequestRequest,
@@ -121,7 +121,7 @@ func (r *Repository) ResolveContactRequest(
 		return err
 	})
 	if err != nil {
-		return domain.ContactRequest{}, withoutServerMessage(
+		return domain.ContactRequest{}, databaseError(
 			fmt.Sprintf("resolving contact request [%d]", req.RequestID), err)
 	}
 
@@ -143,7 +143,7 @@ func (r *Repository) PurgeContactRequests(ctx context.Context, now time.Time) (i
 		return nil
 	})
 	if err != nil {
-		return 0, withoutServerMessage("purging contact requests", err)
+		return 0, databaseError("purging contact requests", err)
 	}
 
 	return purged, nil

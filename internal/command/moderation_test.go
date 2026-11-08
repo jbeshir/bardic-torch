@@ -30,7 +30,7 @@ var (
 )
 
 // TestModeratorCommands_RequireAnInteractiveModerator checks that every moderator command refuses a contributor
-// and a moderator's API token (D25) before it reads or writes anything: the mocks fail the test if they are
+// and a moderator's API token before it reads or writes anything: the mocks fail the test if they are
 // called.
 func TestModeratorCommands_RequireAnInteractiveModerator(t *testing.T) {
 	t.Parallel()
@@ -271,7 +271,7 @@ func TestApproveRevision_Errors(t *testing.T) {
 		{"hidden_data_conflict", testModerationRevision, domain.ErrHiddenDataConflict, domain.ErrHiddenDataConflict},
 		{"entity_gone", testModerationRevision, datasources.ErrEntityGone, datasources.ErrEntityGone},
 		{"unavailable", testModerationRevision, datasources.ErrUnavailable, datasources.ErrUnavailable},
-		// A term's name taken in its facet since it was submitted is duplicate_name (R45); another entity's
+		// A term's name taken in its facet since it was submitted is duplicate_name; another entity's
 		// duplicate name is a document problem.
 		{"term_name_taken", term, nameTaken, ErrDuplicateName},
 		{"piece_name_problem", testModerationRevision, nameTaken, nameTaken},
@@ -379,7 +379,7 @@ func TestRebaseRevision_UnresolvedReference(t *testing.T) {
 		documentErr.Problems)
 }
 
-// TestReportLink checks that any principal reports as their user, whatever their credential (D25).
+// TestReportLink checks that any principal reports as their user, whatever their credential.
 func TestReportLink(t *testing.T) {
 	t.Parallel()
 

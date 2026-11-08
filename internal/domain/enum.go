@@ -143,6 +143,11 @@ var (
 	personSortValues = []PersonSort{
 		PersonSortName, PersonSortRelevance,
 	}
+	flagCodeValues = []FlagCode{
+		FlagHiddenAliasInSummary, FlagHiddenAliasInText, FlagHiddenAliasInReviewNote, FlagHiddenAliasCollision,
+		FlagHiddenLinkCollision, FlagHiddenLinkAttached, FlagHiddenDataConflict, FlagPossibleDuplicate,
+		FlagReferencesPending,
+	}
 )
 
 // Valid reports whether e is a known EntityType.

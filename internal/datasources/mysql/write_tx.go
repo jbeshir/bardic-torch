@@ -3,20 +3,10 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
-	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
-)
-
-// The MySQL errors a write transaction is retried for.
-const (
-	// errDeadlock is ER_LOCK_DEADLOCK: InnoDB rolled the transaction back to break a deadlock.
-	errDeadlock = 1213
-	// errLockWaitTimeout is ER_LOCK_WAIT_TIMEOUT: a lock was not granted within innodb_lock_wait_timeout.
-	errLockWaitTimeout = 1205
 )
 
 // The budget of a write transaction, which must end before the server's WriteTimeout, or the client sees a
@@ -64,12 +54,12 @@ func (r *Repository) withWriteTx(ctx context.Context, fn func(ctx context.Contex
 			return fmt.Errorf("%w: write transaction passed its deadline", datasources.ErrUnavailable)
 		}
 
-		var mysqlErr *mysqldriver.MySQLError
-		if !errors.As(err, &mysqlErr) || (mysqlErr.Number != errDeadlock && mysqlErr.Number != errLockWaitTimeout) {
+		number := mysqlErrorNumber(err)
+		if number != errDeadlock && number != errLockWaitTimeout {
 			return unavailableIfDisconnected(err)
 		}
 		if attempt == maxWriteTxRetries {
-			return fmt.Errorf("%w: write transaction: MySQL error %d", datasources.ErrUnavailable, mysqlErr.Number)
+			return fmt.Errorf("%w: write transaction: MySQL error %d", datasources.ErrUnavailable, number)
 		}
 	}
 }

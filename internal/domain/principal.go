@@ -16,7 +16,7 @@ type Principal struct {
 	Method AuthMethod
 }
 
-// Actor is who the principal acts as on revisions: their user with their effective role (D25). An API token has
+// Actor is who the principal acts as on revisions: their user with their effective role. An API token has
 // contributor powers only, whatever its user's role, so moderation needs an interactive session.
 func (p Principal) Actor() Actor {
 	role := p.User.Role

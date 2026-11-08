@@ -9,7 +9,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
-// Editable is the JSON representation of the document the caller starts an edit of an entity from (D5).
+// Editable is the JSON representation of the document the caller starts an edit of an entity from.
 type Editable struct {
 	EntityType     domain.EntityType        `json:"entity_type"`
 	Entity         EditorEntityRef          `json:"entity"`

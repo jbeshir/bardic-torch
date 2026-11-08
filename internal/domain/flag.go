@@ -2,7 +2,7 @@ package domain
 
 import "slices"
 
-// FlagCode is a moderator flag on a revision (D19): something the moderator must see, and for most flags
+// FlagCode is a moderator flag on a revision: something the moderator must see, and for most flags
 // acknowledge, before approving. Flags are never shown to the revision's contributor, so raising one is never an
 // oracle for hidden data.
 type FlagCode string
@@ -24,7 +24,7 @@ const (
 	// FlagHiddenDataConflict is raised when validation of the restored document finds a problem that validation
 	// of the document as the contributor submitted it did not: one caused by data the contributor could not see.
 	FlagHiddenDataConflict FlagCode = "hidden_data_conflict"
-	// FlagPossibleDuplicate is raised when a new entity may duplicate another (D13).
+	// FlagPossibleDuplicate is raised when a new entity may duplicate another.
 	FlagPossibleDuplicate FlagCode = "possible_duplicate"
 	// FlagReferencesPending is raised when the revision references pending new terms or persons.
 	FlagReferencesPending FlagCode = "references_pending"
@@ -35,13 +35,6 @@ const (
 type Flag struct {
 	Code FlagCode `json:"code"`
 	Path string   `json:"path"`
-}
-
-// flagCodeValues are the flag codes, in declaration order.
-var flagCodeValues = []FlagCode{
-	FlagHiddenAliasInSummary, FlagHiddenAliasInText, FlagHiddenAliasInReviewNote, FlagHiddenAliasCollision,
-	FlagHiddenLinkCollision, FlagHiddenLinkAttached, FlagHiddenDataConflict, FlagPossibleDuplicate,
-	FlagReferencesPending,
 }
 
 // Valid reports whether f is a known FlagCode.

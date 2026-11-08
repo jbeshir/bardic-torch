@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// The moderation operations' auth matrix rows: every one is for interactive moderators only (D25), and a link
+// The moderation operations' auth matrix rows: every one is for interactive moderators only, and a link
 // report is any user's.
 
 // matrixLinkID and matrixReportID are the link and link report the moderation operations act on.
@@ -175,7 +175,7 @@ var matrixContactRequest = domain.ContactRequest{
 }
 
 // contactMatrix are the rows of the contact form, which is public, and of the contact request inbox, which is for
-// interactive moderators only (D25), added to authMatrix.
+// interactive moderators only, added to authMatrix.
 func contactMatrix() map[openapitest.Operation]matrixRow {
 	return map[openapitest.Operation]matrixRow{
 		{Method: http.MethodPost, Path: "/v1/contact"}: {

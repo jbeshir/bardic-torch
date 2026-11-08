@@ -2,7 +2,7 @@ package domain
 
 import "maps"
 
-// AuthorDocument returns what the author of a submitted document of entity id is shown of it (D6), by provenance:
+// AuthorDocument returns what the author of a submitted document of entity id is shown of it, by provenance:
 // every element whose key is not in received, which the author typed, is kept whatever its hidden state; every
 // element whose key is in received came from the projection, and is withheld as the current state withholds it
 // from the author. So nothing the author typed vanishes because it equals hidden data, and nothing they received
@@ -15,7 +15,7 @@ func AuthorDocument[D Document](id int64, submitted D, received ElementKeySet, v
 	return projectDocument(p, submitted)
 }
 
-// AuthorVisibility returns the visibility the views of an author document of entity entityID are built with (D6):
+// AuthorVisibility returns the visibility the views of an author document of entity entityID are built with:
 // public, plus the author's own pending new terms and persons, the links the author typed (shown as typed), the
 // public aliases the author typed and, for a person, the name the document gives them. A typed alias that is not
 // public is never shown, not even to its author.

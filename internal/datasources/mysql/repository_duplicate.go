@@ -16,10 +16,10 @@ var (
 )
 
 // maxDuplicateNames is the most names of one kind the duplicate check expects to compare; each name query reads one
-// more row than it, so that reaching it is noticed and the design revisited (D13).
+// more row than it, so that reaching it is noticed and the design revisited.
 const maxDuplicateNames = 20000
 
-// FindDuplicates returns the existing entities the candidate may duplicate (D13), comparing its names with the whole
+// FindDuplicates returns the existing entities the candidate may duplicate, comparing its names with the whole
 // name set of its entity type, in Go, by domain.DuplicateKey: committed rows only, outside any write transaction.
 func (r *Repository) FindDuplicates(
 	ctx context.Context, candidate domain.DuplicateCandidate, includeHidden bool,

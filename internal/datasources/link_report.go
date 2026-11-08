@@ -16,7 +16,7 @@ var (
 	ErrReportNotOpen = errors.New("the link report is not open")
 )
 
-// NewLinkReport is a user's report of the visible link whose URL normalizes to URL's (D21).
+// NewLinkReport is a user's report of the visible link whose URL normalizes to URL's.
 type NewLinkReport struct {
 	ReporterUserID string
 	URL            string

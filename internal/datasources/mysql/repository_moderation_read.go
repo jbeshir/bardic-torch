@@ -67,15 +67,11 @@ func (r *Repository) ListModerationQueue(
 
 func (c *catalogueReader) queueItem(ctx context.Context, row queries.ListModerationQueueRow) (domain.QueueItem, error) {
 	entityType := enumOf[domain.EntityType](c, row.EntityType)
-	kind, err := kindFor(entityType)
+	_, doc, err := decodeRevision(entityType, row.SnapshotJson)
 	if err != nil {
-		return domain.QueueItem{}, err
+		return domain.QueueItem{}, fmt.Errorf("revision [%d]: %w", row.ID, err)
 	}
-	doc, err := kind.decode(row.SnapshotJson)
-	if err != nil {
-		return domain.QueueItem{}, fmt.Errorf("revision [%d] snapshot: %w", row.ID, err)
-	}
-	flags, err := decodeFlags(row.FlagsJson)
+	flags, err := decodeJSONColumn[[]domain.Flag]("flags", row.FlagsJson)
 	if err != nil {
 		return domain.QueueItem{}, fmt.Errorf("revision [%d]: %w", row.ID, err)
 	}
@@ -91,7 +87,7 @@ func (c *catalogueReader) queueItem(ctx context.Context, row queries.ListModerat
 	return domain.QueueItem{
 		ID: c.signedID(row.ID), EntityType: entityType, Entity: entity, Title: documentTitle(doc),
 		Summary: row.Summary, Author: author, SubmittedAt: row.SubmittedAt.Time,
-		Stale: !equalIDs(int64Ptr(row.BaseRevisionID), current), IsNew: current == nil, Flags: flagCodes(flags),
+		Stale: !domain.EqualPointers(int64Ptr(row.BaseRevisionID), current), IsNew: current == nil, Flags: flagCodes(flags),
 	}, nil
 }
 
@@ -154,7 +150,7 @@ func (c *catalogueReader) entityAndCurrent(
 		IsNew: row.currentRevision == nil}, row.currentRevision, nil
 }
 
-// GetModerationRevision returns a revision of any status but draft as a moderator sees it (D8).
+// GetModerationRevision returns a revision of any status but draft as a moderator sees it.
 func (r *Repository) GetModerationRevision(ctx context.Context, id int64) (domain.ModerationRevision, error) {
 	key, ok := positiveID(id)
 	if !ok {
@@ -209,7 +205,8 @@ func (c *catalogueReader) moderationRevision(
 		return domain.ModerationRevision{}, err
 	}
 	revision.EntityType, revision.Entity, revision.CurrentRevisionID = entityType, entity, current
-	revision.Stale = revision.Status == domain.RevisionStatusPending && !equalIDs(revision.BaseRevisionID, current)
+	revision.Stale = revision.Status == domain.RevisionStatusPending &&
+		!domain.EqualPointers(revision.BaseRevisionID, current)
 	docs, err := c.moderationDocuments(ctx, kind, row, current)
 	if err != nil {
 		return domain.ModerationRevision{}, err
@@ -319,7 +316,7 @@ func (c *catalogueReader) moderationDocuments(
 	return docs, nil
 }
 
-// rebasePreview is what approving a revision would do with its document (D9): merge a stale revision that has a
+// rebasePreview is what approving a revision would do with its document: merge a stale revision that has a
 // base with the current document, cleanly or with conflicts. A revision that is not stale, or has no base or
 // current document to merge with, needs no rebase.
 func rebasePreview(kind documentKind, stale bool, docs moderationDocuments) domain.RebasePreview {
@@ -339,7 +336,7 @@ func rebasePreview(kind documentKind, stale bool, docs moderationDocuments) doma
 
 // authorPendingReferences returns the pending new terms and persons of the user authorID (none for an imported
 // revision) that doc, the document of the entity own of kind, references, directly or through one another's
-// documents, each after those its own document references: those approving it would approve alongside (D15).
+// documents, each after those its own document references: those approving it would approve alongside.
 func (c *catalogueReader) authorPendingReferences(
 	ctx context.Context, kind documentKind, own domain.EntityRef, authorID string, doc domain.AnyDocument,
 ) []pendingNewEntity {
@@ -360,12 +357,9 @@ func (c *catalogueReader) moderationPendingReferences(
 		if err != nil {
 			return nil, fmt.Errorf("fetching pending reference [%d]: %w", p.revisionID, err)
 		}
-		flags, err := decodeFlags(row.FlagsJson)
+		flags, err := decodeJSONColumn[[]domain.Flag]("flags", row.FlagsJson)
 		if err != nil {
 			return nil, fmt.Errorf("pending reference [%d]: %w", p.revisionID, err)
-		}
-		if flags == nil {
-			flags = []domain.Flag{}
 		}
 		out = append(out, domain.ModerationPendingReference{
 			RevisionID: c.signedID(p.revisionID), EntityType: p.entity.Type,
@@ -378,7 +372,7 @@ func (c *catalogueReader) moderationPendingReferences(
 }
 
 // moderationDuplicates returns the entities a pending new entity may duplicate, hidden aliases and the other
-// pending new entities compared (D13), as approving it would find them; none for any other revision.
+// pending new entities compared, as approving it would find them; none for any other revision.
 func (c *catalogueReader) moderationDuplicates(
 	ctx context.Context, revision domain.ModerationRevision,
 ) []domain.DuplicateMatch {
@@ -397,14 +391,11 @@ func (c *catalogueReader) moderationFlags(
 	ctx context.Context, kind documentKind, row queries.GetModerationRevisionRow, revision domain.ModerationRevision,
 	docs moderationDocuments, pending []pendingNewEntity,
 ) ([]domain.Flag, error) {
-	stored, err := decodeFlags(row.FlagsJson)
+	stored, err := decodeJSONColumn[[]domain.Flag]("flags", row.FlagsJson)
 	if err != nil {
 		return nil, fmt.Errorf("revision [%d]: %w", row.ID, err)
 	}
 	if revision.Status != domain.RevisionStatusPending || revision.Entity == nil {
-		if stored == nil {
-			stored = []domain.Flag{}
-		}
 		return stored, nil
 	}
 	in := approvalInput{

@@ -10,7 +10,7 @@ import (
 
 var _ Command[EntityRequest, domain.MyRevision] = (*GetPendingVersion)(nil)
 
-// GetPendingVersion returns the principal's pending revision of an entity, as its author sees it (D6).
+// GetPendingVersion returns the principal's pending revision of an entity, as its author sees it.
 type GetPendingVersion struct {
 	Getter datasources.PendingVersionGetter
 }

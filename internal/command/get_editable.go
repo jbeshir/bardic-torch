@@ -10,7 +10,7 @@ import (
 
 var _ Command[EntityRequest, domain.Editable] = (*GetEditable)(nil)
 
-// GetEditable returns the document the principal starts an edit of an entity from (D5): what they may see of the
+// GetEditable returns the document the principal starts an edit of an entity from: what they may see of the
 // current document, or of their pending revision of it.
 type GetEditable struct {
 	Getter datasources.EditableDocumentGetter
