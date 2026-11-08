@@ -117,7 +117,7 @@ func run(ctx context.Context, args []string, databaseURL func() string, stdout i
 	if err != nil {
 		return fmt.Errorf("parsing DATABASE_URL: %w", err)
 	}
-	db, err := mysql.Connect(ctx, cfg)
+	db, err := mysql.Connect(ctx, cfg, mysql.ProductionPool())
 	if err != nil {
 		return err
 	}

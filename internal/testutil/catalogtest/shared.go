@@ -91,7 +91,7 @@ func (s *Shared[F]) create(t testing.TB) {
 		t.Fatal(err)
 	}
 	cfg.Params["transaction_read_only"] = "ON"
-	readOnly, err := mysql.Connect(ctx, cfg)
+	readOnly, err := mysqltest.ConnectConfig(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

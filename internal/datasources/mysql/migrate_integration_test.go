@@ -37,9 +37,10 @@ func TestMigrations_UpDownUp(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	cfg, err := mysql.ConfigFromURL(mysqltest.NewDatabaseURL(t))
+	dbURL := mysqltest.NewDatabaseURL(t)
+	cfg, err := mysql.ConfigFromURL(dbURL)
 	require.NoError(t, err)
-	db, err := mysql.Connect(ctx, cfg)
+	db, err := mysqltest.Connect(ctx, dbURL)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 

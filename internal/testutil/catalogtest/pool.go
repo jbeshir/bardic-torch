@@ -45,14 +45,13 @@ func Writable(t testing.TB) *sql.DB {
 			t.Errorf("catalogtest: emptying a Writable database: %v", err)
 			return
 		}
-		reusable.mu.Lock()
-		defer reusable.mu.Unlock()
-		reusable.free = append(reusable.free, p)
+		release(p)
 	})
 
 	return p.db
 }
 
+// takeFree takes a database from the pool, nil if there is none, and lets its pool keep idle connections again.
 func takeFree() *pooledDatabase {
 	reusable.mu.Lock()
 	defer reusable.mu.Unlock()
@@ -61,8 +60,19 @@ func takeFree() *pooledDatabase {
 	}
 	p := reusable.free[len(reusable.free)-1]
 	reusable.free = reusable.free[:len(reusable.free)-1]
+	p.db.SetMaxIdleConns(mysqltest.Pool().MaxIdleConns)
 
 	return p
+}
+
+// release hands p back to the pool. Its pool closes its idle connections while no test uses it: the pool holds as
+// many databases as tests have run at once, for as long as the test binary runs, and their idle connections would
+// otherwise hold that many of the server's connections throughout.
+func release(p *pooledDatabase) {
+	p.db.SetMaxIdleConns(0)
+	reusable.mu.Lock()
+	defer reusable.mu.Unlock()
+	reusable.free = append(reusable.free, p)
 }
 
 func createPooled(t testing.TB) *pooledDatabase {

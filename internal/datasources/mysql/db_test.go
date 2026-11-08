@@ -131,7 +131,7 @@ func TestConnect_UnreachableDatabase(t *testing.T) {
 	cfg, err := ConfigFromURL("mysql://user@" + listener.Addr().String() + "/" + testDBName)
 	require.NoError(t, err)
 
-	db, err := Connect(t.Context(), cfg)
+	db, err := Connect(t.Context(), cfg, ProductionPool())
 	assert.Nil(t, db)
 	assert.ErrorContains(t, err, "checking MySQL DB connection")
 }

@@ -3,9 +3,11 @@
 package mysql_test
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,4 +45,27 @@ func TestConnect_SelectTimeLimit(t *testing.T) {
 	var slept int64
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT slept FROM probe_writes").Scan(&slept))
 	assert.Equal(t, int64(0), slept)
+}
+
+// TestConnect_AppliesPoolLimits checks that Connect gives the pool the limits it is passed, here the application's.
+func TestConnect_AppliesPoolLimits(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := mysql.ConfigFromURL(mysqltest.NewDatabaseURL(t))
+	require.NoError(t, err)
+	limits := mysql.ProductionPool()
+	db, err := mysql.Connect(t.Context(), cfg, limits)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	assert.Equal(t, limits.MaxOpenConns, db.Stats().MaxOpenConnections)
+	conns := make([]*sql.Conn, limits.MaxOpenConns)
+	for i := range conns {
+		conns[i], err = db.Conn(t.Context())
+		require.NoError(t, err)
+	}
+	for _, conn := range conns {
+		require.NoError(t, conn.Close())
+	}
+	assert.Equal(t, limits.MaxIdleConns, db.Stats().Idle, "every released connection up to the cap stays idle")
 }

@@ -35,9 +35,7 @@ func setSetupEnv(t *testing.T, databaseURL, bootstrapModerators string) {
 func connectRepository(t *testing.T, databaseURL string) *mysql.Repository {
 	t.Helper()
 
-	cfg, err := mysql.ConfigFromURL(databaseURL)
-	require.NoError(t, err)
-	db, err := mysql.Connect(t.Context(), cfg)
+	db, err := mysqltest.Connect(t.Context(), databaseURL)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 

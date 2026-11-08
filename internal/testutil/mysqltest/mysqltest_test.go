@@ -72,3 +72,27 @@ func TestCreateDatabase_MigratedUntilDropped(t *testing.T) {
 	require.NoError(t, drop(t.Context()))
 	requireDropped(t, name)
 }
+
+// TestNewDatabase_PoolIsBounded checks that a test database's pool has Pool's limits rather than the application's:
+// with the application's ten idle connections per test database, the suite ran the server out of connections.
+func TestNewDatabase_PoolIsBounded(t *testing.T) {
+	t.Parallel()
+
+	db := NewDatabase(t)
+	limits := Pool()
+	assert.Equal(t, limits.MaxOpenConns, db.Stats().MaxOpenConnections)
+
+	// More connections at once than the pool keeps idle: all but MaxIdleConns are closed once they are released.
+	conns := make([]*sql.Conn, limits.MaxOpenConns)
+	for i := range conns {
+		conn, err := db.Conn(t.Context())
+		require.NoError(t, err)
+		conns[i] = conn
+	}
+	assert.Equal(t, limits.MaxOpenConns, db.Stats().OpenConnections)
+	for _, conn := range conns {
+		require.NoError(t, conn.Close())
+	}
+	assert.Equal(t, limits.MaxIdleConns, db.Stats().OpenConnections)
+	assert.Less(t, limits.MaxIdleConns, limits.MaxOpenConns)
+}

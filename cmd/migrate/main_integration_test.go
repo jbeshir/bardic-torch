@@ -99,9 +99,7 @@ func TestMigrateRun_UpWithDirtySchemaFails(t *testing.T) {
 func setSchemaVersion(t *testing.T, databaseURL string, version uint, dirty bool) {
 	t.Helper()
 
-	cfg, err := mysql.ConfigFromURL(databaseURL)
-	require.NoError(t, err)
-	db, err := mysql.Connect(t.Context(), cfg)
+	db, err := mysqltest.Connect(t.Context(), databaseURL)
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 

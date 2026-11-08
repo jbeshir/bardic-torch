@@ -278,6 +278,14 @@ inside them. `migrate` clears it on its own connections, as golang-migrate waits
 `GET_LOCK`. `import-mediawiki --apply` raises it to 60 seconds for its locking reads of the empty tables, which may
 wait for a running write. Nothing needs configuring on the server.
 
+The API's connection pool (`mysql.ProductionPool`) opens at most 10 connections, keeps up to 10 idle for at most 5
+minutes, and replaces each after 30 minutes. The service's server is the stock image, so `max_connections` is 151;
+the most that connect at once are the old and new containers during a deploy, the predeploy `migrate` (one
+connection), an `import-mediawiki --apply` (also 10) and a `mysql:connect` session, about 32. A server that is out
+of connections anyway (`Error 1040: Too many connections`) makes requests answer 503 `unavailable`, like one that
+cannot be reached, and `/readyz` fails. Scaling `web` beyond one process adds 10 per process; keep the total well
+under 151, or raise `max_connections` on the service.
+
 Make the database default `utf8mb4` / `utf8mb4_0900_ai_ci`, as in development, the integration tests and CI.
 dokku-mysql configures its server with `utf8mb4_unicode_ci`, so without this a table or column whose migration
 omits `COLLATE` would compare and sort text differently in production than in every test:

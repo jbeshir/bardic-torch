@@ -25,8 +25,8 @@ const AdminURLEnv = "TEST_MYSQL_ADMIN_URL"
 
 const databaseNamePrefix = "bt_test_"
 
-// NewDatabase creates a migrated database as NewDatabaseURL does and returns a connection pool to it,
-// configured as the application configures its own. The pool is closed when the test finishes.
+// NewDatabase creates a migrated database as NewDatabaseURL does and returns a connection pool to it (Connect),
+// with the application's session settings and the limits of Pool. The pool is closed when the test finishes.
 func NewDatabase(t testing.TB) *sql.DB {
 	t.Helper()
 
@@ -58,7 +58,9 @@ func NewDatabaseURL(t testing.TB) string {
 }
 
 // CreateDatabase creates a migrated database as NewDatabaseURL does, but not tied to a test: the caller must
-// call drop once no test uses it. It is for a database several tests share (see catalogtest.Shared).
+// call drop once no test uses it. It is for a database several tests share (see catalogtest.Shared). No connection
+// is kept open between the two: the admin connection is opened for the CREATE and again for the DROP, so a database
+// that lives as long as the test binary does not also hold an admin connection that long.
 func CreateDatabase(ctx context.Context) (dbURL string, drop func(context.Context) error, err error) {
 	dbURL, cfg, err := newDatabaseConfig()
 	if err != nil {
@@ -67,19 +69,12 @@ func CreateDatabase(ctx context.Context) (dbURL string, drop func(context.Contex
 
 	adminCfg := cfg.Clone()
 	adminCfg.DBName = ""
-	admin, err := mysql.Connect(ctx, adminCfg)
-	if err != nil {
-		return "", nil, fmt.Errorf("connecting to %s: %w", AdminURLEnv, err)
-	}
-
 	quotedName := "`" + cfg.DBName + "`"
-	if _, err := admin.ExecContext(ctx, "CREATE DATABASE "+quotedName); err != nil {
-		_ = admin.Close()
+	if err := adminExec(ctx, adminCfg, "CREATE DATABASE "+quotedName); err != nil {
 		return "", nil, fmt.Errorf("creating test database: %w", err)
 	}
 	drop = func(ctx context.Context) error {
-		defer func() { _ = admin.Close() }()
-		if _, err := admin.ExecContext(ctx, "DROP DATABASE "+quotedName); err != nil {
+		if err := adminExec(ctx, adminCfg, "DROP DATABASE "+quotedName); err != nil {
 			return fmt.Errorf("dropping test database: %w", err)
 		}
 
@@ -93,13 +88,54 @@ func CreateDatabase(ctx context.Context) (dbURL string, drop func(context.Contex
 	return dbURL, drop, nil
 }
 
-// Connect opens a connection pool to the database at dbURL, configured as the application configures its own.
+// adminExec runs statement on a connection of its own to the server of adminCfg, closed before it returns.
+func adminExec(ctx context.Context, adminCfg *mysqldriver.Config, statement string) error {
+	admin, err := mysql.Connect(ctx, adminCfg, adminPool())
+	if err != nil {
+		return fmt.Errorf("connecting to %s: %w", AdminURLEnv, err)
+	}
+	defer func() { _ = admin.Close() }()
+	if _, err := admin.ExecContext(ctx, statement); err != nil {
+		return fmt.Errorf("running %s: %w", statement, err)
+	}
+
+	return nil
+}
+
+// Pool returns the limits of the pools the helpers open. Every package's test binary runs its tests in parallel
+// (go test's -parallel, GOMAXPROCS by default) and go test runs several such binaries at once (-p, also GOMAXPROCS),
+// all against one server, whose max_connections is 151 when it is the stock mysql:8.4. A pool of the application's
+// size (mysql.ProductionPool keeps ten idle connections) per test database ran a 20-core machine's suite out of
+// connections: the databases catalogtest keeps for later tests and its shared databases live as long as the test
+// binary, and their idle connections added up. A test pool so keeps one idle connection, enough for a test's
+// statements one after another, and opens at most four, enough for the forced race tests (a transaction holding
+// rows, the write waiting for them and the query watching it wait) and few enough that the tests running at once
+// in every binary stay far under the server's limit. Connections never expire: a test database lives for one test
+// binary at most.
+func Pool() mysql.PoolLimits {
+	return mysql.PoolLimits{MaxOpenConns: 4, MaxIdleConns: 1}
+}
+
+// adminPool is the limits of an admin pool: one connection for one CREATE or DROP DATABASE, closed with the pool.
+func adminPool() mysql.PoolLimits {
+	return mysql.PoolLimits{MaxOpenConns: 1}
+}
+
+// Connect opens a connection pool to the database at dbURL, with the application's session settings and the
+// limits of Pool.
 func Connect(ctx context.Context, dbURL string) (*sql.DB, error) {
 	cfg, err := mysql.ConfigFromURL(dbURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing test database URL: %w", err)
 	}
-	db, err := mysql.Connect(ctx, cfg)
+
+	return ConnectConfig(ctx, cfg)
+}
+
+// ConnectConfig opens a connection pool as Connect does, from a config rather than a URL, for a test that changes
+// the config (catalogtest.Shared's read-only pool).
+func ConnectConfig(ctx context.Context, cfg *mysqldriver.Config) (*sql.DB, error) {
+	db, err := mysql.Connect(ctx, cfg, Pool())
 	if err != nil {
 		return nil, fmt.Errorf("connecting to test database: %w", err)
 	}

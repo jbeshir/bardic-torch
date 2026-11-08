@@ -535,6 +535,27 @@ Run against real MySQL 8.4 by the `test-integration*` targets:
 `TEST_MYSQL_ADMIN_URL`, applies every migration, and drops it when the test ends, so integration tests can run
 in parallel. A missing `TEST_MYSQL_ADMIN_URL` fails the test rather than skipping it.
 
+#### Connection budget
+
+Every package's test binary runs its tests in parallel and `go test` runs several binaries at once, all against
+one server, and both default to `GOMAXPROCS`: a 20-core machine runs `-p 20 -parallel 20`, a 2-core CI runner
+`-p 2 -parallel 2`. Every connection of every pool, idle ones included, takes one of the server's
+`max_connections`, which is 151 on the stock `mysql:8.4` (podman, CI and the local mode all use the default). So
+the test helpers keep few connections, whatever the parallelism:
+
+- a test database's pool (`mysqltest.NewDatabase`, `Connect`, `ConnectConfig`, and so `catalogtest.Writable` and
+  `Shared`) has `mysqltest.Pool`'s limits, at most 4 open and 1 idle, not the application's 10 and 10;
+- `catalogtest.Writable`'s databases close their idle connection while they wait in the pool for the next test;
+- `mysqltest.CreateDatabase` opens an admin connection for the `CREATE DATABASE` and again for the `DROP`, and keeps
+  none in between.
+
+Before these, the databases `catalogtest` keeps for the whole test binary each held an admin connection and up to
+ten idle ones, and a 20-core `make test-integration` reached the server's 151 (`Error 1040: Too many connections`,
+as 500s in `TestHTTP_LeakMatrix`). To see the suite's peak, poll `SHOW GLOBAL STATUS LIKE 'Threads_connected'` (or
+read `Max_used_connections` at the end) during a run; on a machine with fewer cores, `GOMAXPROCS=20 make
+test-integration-local` runs it with a 20-core machine's parallelism. A new helper that opens a pool uses
+`mysqltest.Pool` (through `mysqltest.Connect` or `ConnectConfig`), never `mysql.ProductionPool`.
+
 ### Catalogue tests
 
 A migrated database is expensive (timings under [Integration test modes](#integration-test-modes)), and MySQL
@@ -569,6 +590,9 @@ Under `-race` on a default-settings server this cut `internal/datasources/mysql`
   `max_execution_time` 2000, the server stops a `SELECT SLEEP(5)` after 2 s, and an `INSERT … SELECT SLEEP(3)`
   runs to the end. `TestMigratorConfig` (unit) checks that the migrator clears the limit, and
   `TestFetch_QueryTimeout` that a sqlc read the server stops is `datasources.ErrQueryTimeout`.
+- **Pool limits** (`TestConnect_AppliesPoolLimits`, `TestNewDatabase_PoolIsBounded`): `Connect` gives the pool the
+  limits it is passed (`mysql.ProductionPool` for the application), and a test database's pool has the smaller
+  `mysqltest.Pool` (see "Connection budget").
 - **Catalogue import writer** (`repository_catalogue_import_integration_test.go`, the scrubbed import on a shared
   fixture and on private databases): `TestRepository_ImportCatalogue_WritesEverything` (the row count of every
   catalogue table, closure self rows, approved import revisions with no author, each entity's own current
