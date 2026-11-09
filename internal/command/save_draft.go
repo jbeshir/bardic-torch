@@ -22,6 +22,9 @@ type SaveDraftRequest struct {
 	// Sent says which editor fields Document carried: one it did not keeps the base's when the draft is submitted.
 	Sent    domain.EditorFieldsSent
 	Summary string
+	// Source is where the draft comes from, which its revision keeps (docs/PLAN.md §4): RevisionSourceUser or
+	// RevisionSourceMCP; the zero value is RevisionSourceUser.
+	Source domain.RevisionSource
 }
 
 // SavedDraft is a saved draft, and whether saving created it rather than replacing the principal's draft of the
@@ -53,7 +56,7 @@ func (c *SaveDraft) Execute(ctx context.Context, req SaveDraftRequest) (SavedDra
 	saved, err := c.Saver.SaveDraft(ctx, datasources.SaveDraftRequest{
 		Actor: actor, EntityType: doc.EntityType(), Entity: req.Entity, BaseRevisionID: req.BaseRevisionID,
 		Document: domain.CanonicalAnyDocument(doc), Sent: req.Sent, Summary: req.Summary,
-		Now: c.Now(),
+		Source: req.Source, Now: c.Now(),
 	})
 	if err != nil {
 		return SavedDraft{}, fmt.Errorf("saving draft: %w", err)

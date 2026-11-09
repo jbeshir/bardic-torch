@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,6 +19,9 @@ import (
 
 // leakmark is in argument values the server must never echo or log.
 const leakmark = "leakmark-argument"
+
+// markedPublicID is a public ID, which leakmark is not, holding the marker too.
+const markedPublicID = "leakmarkleakmark"
 
 // TestMCP_ArgumentValidation checks that arguments the tool's input schema refuses are a tool error 400
 // invalid_request naming the argument, never its value, and reach no operation.
@@ -276,45 +280,129 @@ func TestMCP_ToolDispatchKeepsRequestContext(t *testing.T) {
 	assert.Equal(t, "198.51.100.7:4711", api.requests()[0].request.RemoteAddr)
 }
 
-// TestMCP_NoArgumentLogging checks that tool calls log one line each, through the MCP request's logger, naming
-// the tool, the route it reached and the status, and never an argument value or a result.
-func TestMCP_NoArgumentLogging(t *testing.T) {
-	t.Parallel()
+// mcpLogLine is the line a tool call logs.
+type mcpLogLine struct {
+	Msg       string `json:"msg"`
+	Tool      string `json:"tool"`
+	Status    int    `json:"status"`
+	ToolRoute string `json:"tool_route"`
+	RequestID string `json:"request_id"`
+}
+
+// callLogged calls tool with arguments through handler, under a logger of its own, and returns the call's log.
+func callLogged(t *testing.T, handler http.Handler, tool, arguments string) string {
+	t.Helper()
 
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&logs, nil)).With("request_id", "a-request-id")
+	req := mcpRequest(t, toolCallMessage(tool, arguments))
+	req = req.WithContext(domain.ContextWithLogger(req.Context(), logger))
+	rec := openapitest.New(t).Serve(t, handler, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	return logs.String()
+}
+
+// TestMCP_NoArgumentLogging checks that every tool's call logs one line, through the MCP request's logger, naming
+// the tool, the route it reached and the status, and never an argument value or a result: each tool is called
+// with leakmark in every argument that can hold it (markedArguments) and in the body, and answered with a result
+// holding it too.
+func TestMCP_NoArgumentLogging(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t, respondJSON(http.StatusOK, `{"title":"`+leakmark+`-result"}`))
 	handler := api.handler(t)
-	for _, arguments := range []string{
-		`{"q":"` + leakmark + `"}`,
-		`{"q":"` + leakmark + `","limit":1000}`,
-		`{"` + leakmark + `":true}`,
-	} {
-		req := mcpRequest(t, toolCallMessage(toolSearchPieces, arguments))
-		req = req.WithContext(domain.ContextWithLogger(req.Context(), logger))
-		rec := openapitest.New(t).Serve(t, handler, req)
-		require.Equal(t, http.StatusOK, rec.Code)
+	tools := testToolset(t)
+	for _, tl := range tools.tools {
+		for key, op := range tl.operations {
+			t.Run(tl.Name+" "+key, func(t *testing.T) {
+				t.Parallel()
+
+				logs := callLogged(t, handler, tl.Name, markedArguments(t, op, key))
+				assert.NotContains(t, logs, leakmark)
+				assert.NotContains(t, logs, markedPublicID)
+				var line mcpLogLine
+				require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(logs)), &line), logs)
+				assert.Equal(t, mcpLogLine{Msg: "mcp tool called", Tool: tl.Name, Status: http.StatusOK,
+					ToolRoute: op.path, RequestID: "a-request-id"}, line)
+			})
+		}
 	}
 
-	assert.NotContains(t, logs.String(), leakmark)
-	lines := bytes.Split(bytes.TrimSpace(logs.Bytes()), []byte("\n"))
-	require.Len(t, lines, 3, logs.String())
-	type logLine struct {
-		Msg       string `json:"msg"`
-		Tool      string `json:"tool"`
-		Status    int    `json:"status"`
-		ToolRoute string `json:"tool_route"`
-		RequestID string `json:"request_id"`
+	t.Run("refused", func(t *testing.T) {
+		t.Parallel()
+
+		for _, arguments := range []string{`{"q":"` + leakmark + `","limit":1000}`, `{"` + leakmark + `":true}`} {
+			logs := callLogged(t, handler, toolSearchPieces, arguments)
+			assert.NotContains(t, logs, leakmark)
+			var line mcpLogLine
+			require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(logs)), &line), logs)
+			assert.Equal(t, mcpLogLine{Msg: "mcp tool called", Tool: toolSearchPieces, Status: http.StatusBadRequest,
+				RequestID: "a-request-id"}, line, "a refused call reaches no route")
+		}
+	})
+}
+
+// markedArguments are arguments of a call of op, chosen by entity type key (empty for a tool of one operation),
+// that pass its validation: each parameter whose schema accepts a string holding leakmark gets one, each other
+// required parameter a value its schema accepts, and the body, if op takes one, an object holding leakmark.
+func markedArguments(t *testing.T, op operation, key string) string {
+	t.Helper()
+
+	args := map[string]any{}
+	if key != "" {
+		args[entityTypeArgument] = key
 	}
-	var first, refused logLine
-	require.NoError(t, json.Unmarshal(lines[0], &first))
-	require.NoError(t, json.Unmarshal(lines[1], &refused))
-	assert.Equal(t, logLine{
-		Msg: "mcp tool called", Tool: toolSearchPieces, Status: http.StatusOK, ToolRoute: piecesPath,
-		RequestID: "a-request-id",
-	}, first)
-	assert.Equal(t, logLine{Msg: "mcp tool called", Tool: toolSearchPieces, Status: http.StatusBadRequest,
-		RequestID: "a-request-id"}, refused, "a refused call reaches no route")
+	for _, p := range op.parameters {
+		value, ok := acceptedValue(op, p)
+		require.True(t, ok || !p.required, "no value is accepted for the required parameter %s", p.name)
+		if ok {
+			args[p.name] = value
+		}
+	}
+	if op.hasBody {
+		args[bodyArgument] = map[string]any{leakmark: leakmark + "-body"}
+	}
+	data, err := json.Marshal(args)
+	require.NoError(t, err)
+
+	return string(data)
+}
+
+// acceptedValue is the first value of p's candidates its validator accepts: strings and arrays holding leakmark
+// first, then a positive integer, a boolean and its schema's enum values.
+func acceptedValue(op operation, p parameter) (any, bool) {
+	candidates := []any{leakmark, markedPublicID, []any{leakmark}, float64(51), true}
+	candidates = append(candidates, enumValues(op, p.schema)...)
+	for _, c := range candidates {
+		if op.validators[p.name].Validate(c) == nil {
+			return c, true
+		}
+	}
+
+	return nil, false
+}
+
+// enumValues are the values of schema's enum, or its items', following one reference to op's definitions; a
+// value is offered alone and as an array of one.
+func enumValues(op operation, schema object) []any {
+	if ref, ok := schema["$ref"].(string); ok {
+		if def, ok := op.defs[strings.TrimPrefix(ref, "#/$defs/")].(object); ok {
+			schema = def
+		}
+	}
+	if items, ok := schema["items"].(object); ok {
+		values := enumValues(op, items)
+		out := make([]any, 0, len(values))
+		for _, v := range values {
+			out = append(out, []any{v})
+		}
+
+		return out
+	}
+	values, _ := schema["enum"].([]any)
+
+	return values
 }
 
 func toolNamed(t *testing.T, tools *Toolset, name string) tool {

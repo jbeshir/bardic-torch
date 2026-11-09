@@ -452,7 +452,8 @@ func (c *catalogueReader) insertRevert(
 		EntityType: t.row.EntityType, EntityID: t.row.EntityID, BaseRevisionID: nullableID(&t.currentID),
 		AuthorUserID: sql.NullString{String: req.Actor.UserID, Valid: true}, SnapshotJson: snapshot,
 		SubmittedSnapshotJson: submittedJSON, FlagsJson: flagsJSON, ReceivedKeysJson: keys,
-		Summary: revertSummary(req, t), CreatedAt: req.Now, SubmittedAt: nullTime(req.Now),
+		Source: revisionSource(req.Source), Summary: revertSummary(req, t), CreatedAt: req.Now,
+		SubmittedAt: nullTime(req.Now),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("storing revert: %w", err)

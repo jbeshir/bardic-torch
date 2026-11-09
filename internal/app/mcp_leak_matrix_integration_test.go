@@ -181,9 +181,10 @@ func TestHTTP_MCPLeakMatrix(t *testing.T) {
 // TestHTTP_MCPRevisionLeakMatrix calls every authenticated read tool with the arguments of every
 // revisionLeakMatrix request of its operation, over the revision leak fixture. A's API token (AT) and the
 // moderator's (MT) get the REST response to the same request, which passes the same checks, so MT gets the
-// contributor projection; every other viewer, and the blocked user, is refused by the route. A hidden link's
-// report is not found, byte for byte as a URL no link has. No record the handler logged holds a marked string or
-// an argument value.
+// contributor projection; every other viewer, and the blocked user, is refused by the route. Then AT and MT call
+// every write tool (mcpWriteCases), each matched with the REST response to the same write on twin state and scanned
+// the same way; a hidden link's report is not found, byte for byte as a URL no link has. No record the handler
+// logged holds a marked string or an argument value.
 func TestHTTP_MCPRevisionLeakMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -221,7 +222,7 @@ func TestHTTP_MCPRevisionLeakMatrix(t *testing.T) {
 		})
 	}
 
-	w.assertHiddenLinkToolReportIsUnknown(t)
+	arguments = append(arguments, w.assertWriteToolsMatchREST(t, fx)...)
 	w.logs.requireNoMarkedLogs(t)
 	w.logs.requireNoneSince(t, offset, arguments)
 }

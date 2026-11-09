@@ -1903,7 +1903,7 @@ func (q *Queries) InsertContactRequest(ctx context.Context, arg InsertContactReq
 const insertDraft = `-- name: InsertDraft :execlastid
 INSERT INTO revisions (entity_type, entity_id, base_revision_id, author_user_id, source, status, snapshot_json,
     received_keys_json, summary, created_at, updated_at)
-VALUES (?, ?, ?, ?, 'user', 'draft', ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)
 `
 
 type InsertDraftParams struct {
@@ -1911,6 +1911,7 @@ type InsertDraftParams struct {
 	EntityID         sql.NullInt64
 	BaseRevisionID   sql.NullInt64
 	AuthorUserID     sql.NullString
+	Source           RevisionsSource
 	SnapshotJson     json.RawMessage
 	ReceivedKeysJson []byte
 	Summary          string
@@ -1924,6 +1925,7 @@ func (q *Queries) InsertDraft(ctx context.Context, arg InsertDraftParams) (int64
 		arg.EntityID,
 		arg.BaseRevisionID,
 		arg.AuthorUserID,
+		arg.Source,
 		arg.SnapshotJson,
 		arg.ReceivedKeysJson,
 		arg.Summary,
@@ -2621,7 +2623,7 @@ INSERT INTO revisions (entity_type, entity_id, base_revision_id, submitted_base_
     status, snapshot_json, submitted_snapshot_json, flags_json, received_keys_json, summary, created_at, updated_at,
     submitted_at)
 VALUES (?, ?, ?, ?,
-    ?, 'user', 'pending', ?, ?,
+    ?, ?, 'pending', ?, ?,
     ?, ?, ?, ?, ?,
     ?)
 `
@@ -2631,6 +2633,7 @@ type InsertRevertRevisionParams struct {
 	EntityID              sql.NullInt64
 	BaseRevisionID        sql.NullInt64
 	AuthorUserID          sql.NullString
+	Source                RevisionsSource
 	SnapshotJson          json.RawMessage
 	SubmittedSnapshotJson []byte
 	FlagsJson             []byte
@@ -2649,6 +2652,7 @@ func (q *Queries) InsertRevertRevision(ctx context.Context, arg InsertRevertRevi
 		arg.BaseRevisionID,
 		arg.BaseRevisionID,
 		arg.AuthorUserID,
+		arg.Source,
 		arg.SnapshotJson,
 		arg.SubmittedSnapshotJson,
 		arg.FlagsJson,

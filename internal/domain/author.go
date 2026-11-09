@@ -5,20 +5,23 @@ import "maps"
 // AuthorDocument returns what the author of a submitted document of entity id is shown of it, by provenance:
 // every element whose key is not in received, which the author typed, is kept whatever its hidden state; every
 // element whose key is in received came from the projection, and is withheld as the current state withholds it
-// from the author. So nothing the author typed vanishes because it equals hidden data, and nothing they received
-// survives a later takedown. The same document is the starting point of an edit of a pending revision, and the
-// preview of a draft.
+// from the author. A received preference or scalar source the author edited to another URL counts as typed
+// (receivedAsSubmitted). So nothing the author typed vanishes because it equals hidden data, and nothing they
+// received survives a later takedown. The same document is the starting point of an edit of a pending revision,
+// and the preview of a draft.
 func AuthorDocument[D Document](id int64, submitted D, received ElementKeySet, vis EditorVisibility) D {
+	asReceived := receivedAsSubmitted(submitted, received)
 	p := &projector{id: id, vis: vis, kept: ElementKeySet{},
-		withheld: func(key string, hiddenNow bool) bool { return hiddenNow && received[key] }}
+		withheld: func(key string, hiddenNow bool) bool { return hiddenNow && asReceived[key] }}
 
 	return projectDocument(p, submitted)
 }
 
 // AuthorVisibility returns the visibility the views of an author document of entity entityID are built with:
 // public, plus the author's own pending new terms and persons, the links the author typed (shown as typed), the
-// public aliases the author typed and, for a person, the name the document gives them. A typed alias that is not
-// public is never shown, not even to its author.
+// sources the author typed (preferences, status and conservation sources, shown even when a hidden link's URL, so
+// that the author's view is no oracle for hidden links), the public aliases the author typed and, for a person, the
+// name the document gives them. A typed alias that is not public is never shown, not even to its author.
 func AuthorVisibility[D Document](authorDoc D, received ElementKeySet, public SnapshotVisibility, own OwnPendingRefs,
 	entityID int64,
 ) SnapshotVisibility {
@@ -35,6 +38,7 @@ func AuthorVisibility[D Document](authorDoc D, received ElementKeySet, public Sn
 			vis.VisibleLinks[normalized] = url
 		}
 	}
+	vis.HiddenSources = withoutTypedSources(public.HiddenSources, authorDoc, receivedAsSubmitted(authorDoc, received))
 	if d, ok := any(authorDoc).(PersonDocument); ok {
 		aliases := withEntries(public.PublicAliases[entityID], map[string]bool{d.Name: true})
 		for _, a := range d.Aliases {
@@ -72,4 +76,17 @@ func linkURLs[D Document](doc D) []string {
 	}
 
 	return urls
+}
+
+// withoutTypedSources is hidden without the normalized URLs of the sources of authorDoc the author typed, those
+// whose key is not in asReceived.
+func withoutTypedSources[D Document](hidden map[string]bool, authorDoc D, asReceived ElementKeySet) map[string]bool {
+	out := maps.Clone(hidden)
+	for _, e := range sourceElements(authorDoc) {
+		if normalized, err := NormalizeURL(e.url); err == nil && !asReceived[e.key] {
+			delete(out, normalized)
+		}
+	}
+
+	return out
 }

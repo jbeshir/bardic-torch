@@ -18,6 +18,9 @@ type RevertRequest struct {
 	RevisionID        int64
 	Summary           string
 	AcknowledgedFlags []domain.FlagCode
+	// Source is where the revert comes from (docs/PLAN.md §4): RevisionSourceUser or RevisionSourceMCP; the zero
+	// value is RevisionSourceUser.
+	Source domain.RevisionSource
 }
 
 // RevertTo reverts an entity to one of its approved revisions with a new revision: pending for a contributor (or
@@ -42,7 +45,7 @@ func (c *RevertTo) Execute(ctx context.Context, req RevertRequest) (SubmittedRev
 func (c *RevertTo) revert(ctx context.Context, actor domain.Actor, req RevertRequest) (SubmittedRevision, error) {
 	result, err := c.Reverter.RevertTo(ctx, datasources.RevertRequest{
 		Actor: actor, RevisionID: req.RevisionID, Summary: req.Summary,
-		AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(),
+		AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Source: req.Source, Now: c.Now(),
 	})
 	if actor.Role == domain.RoleModerator && isNameDuplicate(err) {
 		return SubmittedRevision{}, ErrDuplicateName

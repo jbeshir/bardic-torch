@@ -91,7 +91,9 @@ type RevertRequest struct {
 	RevisionID        int64
 	Summary           string
 	AcknowledgedFlags []domain.FlagCode
-	Now               time.Time
+	// Source is where the revert comes from: RevisionSourceUser (the zero value) or RevisionSourceMCP.
+	Source domain.RevisionSource
+	Now    time.Time
 }
 
 // RevisionReverter reverts an entity to one of its approved revisions, creating a new revision based on the

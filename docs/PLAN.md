@@ -166,6 +166,7 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
 **Workflow tables:**
 - **`revisions`**: `id`, `entity_type`, `entity_id`, `base_revision_id`, `author_user_id`, `source` (user / import / mcp), `status` (draft / pending / approved / rejected / withdrawn), `snapshot_json`, `summary`, `reviewer_user_id`, `reviewed_at`, `review_note`, `created_at`, and from BE4 (migration 010) `submitted_snapshot_json`, `submitted_base_revision_id`, `received_keys_json`, `flags_json`, `updated_at`, `submitted_at`, `rebased_by_user_id` and `rebased_at`.
   - The snapshot is the full document, including owned child rows. Links appear inline by URL as entered (the normalized URL is derived; §4.1).
+  - `source` is `mcp` for a revision whose draft was created, or a revert made, through the MCP server (§5.1 MCP), and `user` for one through the rest of the API. A draft's source is fixed when it is created: updating, submitting, rebasing and approving it keep it, so a draft created over REST and submitted over MCP stays `user`.
   - Drafts are revisions with `status = draft` (§5.1). `entity_id` is NULL only for a draft of a new entity (a CHECK).
   - `submitted_snapshot_json` is the author's document as submitted, `submitted_base_revision_id` the base they edited from (never changed, unlike `base_revision_id`, which a rebase moves), and `received_keys_json` the element keys of the editable projection the author was given. Together they build the author's views (§5.1). They are NULL for imported and interactive-moderator revisions.
   - `flags_json` holds a submission's moderator flags (§5.1). `submitted_at` is what queue age is measured from, and `updated_at` is the last draft save.
@@ -223,10 +224,13 @@ the DDL is in `migrations/003`–`009`.
   document URL is compared by its percent-encoding and never reaches the ASCII column as it is (which MySQL
   refuses, error 3988); the column is binary (`ascii_bin`), so the comparison is exact.
   A source URL outside a document's links follows the same rule (`domain.ShownSource`, fail closed): a preference
-  whose `source_url` is a hidden link's (in any spelling) or does not normalize is dropped from every read,
-  snapshot and author's view, and a person's `status_source_url` or a conservation `source_url` (the piece's, in
-  snapshots, and each `conservation_history` entry's) is served as null. Contributors' editable views withhold
-  them too (§5.1 "Editable projection"), and a submission attaching one is flagged `hidden_link_attached`.
+  whose `source_url` is a hidden link's (in any spelling) or does not normalize is dropped from every read and
+  snapshot, and a person's `status_source_url` or a conservation `source_url` (the piece's, in snapshots, and each
+  `conservation_history` entry's) is served as null. An author's view applies this only to the sources the author
+  received and left unchanged; a source they typed, or a received one they edited to another URL, is shown as
+  typed, so that the view is no oracle for hidden links (§5.1 "Author's view").
+  Contributors' editable views withhold them too (§5.1 "Editable projection"), and a submission attaching one is
+  flagged `hidden_link_attached`.
 - **Slugs** are ASCII `[a-z0-9]+(-[a-z0-9]+)*`, at most 191 characters and unique per table. Term slugs keep the
   wiki's disambiguation suffix (`12th-century` in origin, `12th-century-topic` in topic), while `display_name`
   drops it. The importer's `domain.Slugify` uses NFKD, strips marks, transliterates the letters NFKD leaves whole
@@ -437,7 +441,8 @@ BE4's transaction (lock order, pending references, links, performances, retries)
 BE4 built the revision engine and the moderation, link-report and contact endpoints (migration 010). These
 decisions refine §4, §5 and §6. Two rules hold throughout:
 - **Validation is never an oracle for hidden data.** A problem caused by data the caller could not see is a
-  moderator flag, never a contributor error.
+  moderator flag, never a contributor error. Nor is an author's view: a source the author typed is shown as
+  typed even when it is a hidden link's URL, as a typed link is (§5.1 "Author's view").
 - **Reference rules apply only to references an edit adds or changes.** Unchanged or restored references are
   checked only for existence, so a person opting out of a page never makes other entities uneditable.
 
@@ -502,7 +507,10 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
 - **Author's view** (`…/pending`, `/v1/me/revisions[/{revision_id}]`, a draft's `preview`) is defined by
   provenance: elements the author typed are kept whatever their hidden state, and elements they received are
   redacted by the current state, through the public `New*Snapshot` views extended with their own pending terms
-  and persons, their typed links and public aliases and their pending rename. A typed `legal` alias is never shown.
+  and persons, their typed links, sources and public aliases and their pending rename. A typed `legal` alias is
+  never shown. A source (a preference's, a status or conservation source) counts as received only while it still
+  has the URL the projection showed, which the projection records among the received keys; a received key
+  recorded without that URL (a projection made before BE5's review fixes) counts as received, failing closed.
   The base view and `changed_fields` use `submitted_base_revision_id`. An approved revision's view is its public
   view.
 - **Fields and merge.** A field is a top-level document key, with groups (piece `licensing`, `period`,

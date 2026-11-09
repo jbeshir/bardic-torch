@@ -295,14 +295,14 @@ func (p *projector) person(d PersonDocument) PersonDocument {
 // element the current state withholds from them (hidden aliases and links, preferences, status and conservation
 // sources that are a hidden link, references to entities they may not see, a no-page person's profile), each
 // performance with its key, derived
-// for one stored without (key_source.go). It also returns the keys of the elements it shows, the received keys of a
-// draft made from it.
+// for one stored without (key_source.go). It also returns the keys of the elements it shows, with the URL of each
+// source it shows (receivedSourceKey): the received keys of a draft made from it.
 func EditableDocument[D Document](id int64, doc D, vis EditorVisibility) (D, ElementKeySet) {
 	p := &projector{id: id, vis: vis, kept: ElementKeySet{},
 		withheld: func(_ string, hiddenNow bool) bool { return hiddenNow }}
 	out := withPerformanceKeys(p, projectDocument(p, doc))
 
-	return out, p.kept
+	return out, withReceivedSources(p.kept, out)
 }
 
 // effectiveKey is the key of a performance of the link with URL url, of piece pieceID if not nil, as the projector's

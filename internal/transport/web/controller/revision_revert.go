@@ -37,7 +37,7 @@ func (c RevisionRevert) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	result, err := c.Command.Execute(r.Context(), command.RevertRequest{
 		Principal: req.Principal, RevisionID: req.ID, Summary: domain.WithLineBreaksNormalized(valueOrEmpty(body.Summary)),
-		AcknowledgedFlags: body.AcknowledgedFlags,
+		AcknowledgedFlags: body.AcknowledgedFlags, Source: domain.RevisionSourceFromContext(r.Context()),
 	})
 	if err != nil {
 		writeRevisionError(w, r, "revision", err)

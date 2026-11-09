@@ -105,6 +105,49 @@ func TestHTTP_MCPEndToEnd(t *testing.T) {
 	assert.Equal(t, string(domain.RevisionStatusApproved), approved[statusField])
 	event = structured(t, w.e.callTool(t, contributor, "get_event", map[string]any{slugParam: moot.Slug}))
 	assert.Equal(t, mcpE2EDescription, event[descriptionField])
+
+	assertRevisionSources(t, w, contributor, moderator, moot, revisionID)
+}
+
+// assertRevisionSources checks the source of the contributor's revisions (docs/PLAN.md §4): revisionID, whose
+// draft the contributor created over MCP, is mcp, and so is their revert of moot over MCP; a draft created over
+// REST is user, even when submitted over MCP, and so is a revert over REST.
+func assertRevisionSources(t *testing.T, w revisionWorld, contributor, moderator string, moot catalogtest.Ref,
+	revisionID int64,
+) {
+	t.Helper()
+
+	sourceOf := func(id int64) any {
+		viaMCP := structured(t, w.e.callTool(t, contributor, "get_my_revision", map[string]any{revisionIDParam: id}))
+		viaREST := sendOK[jsonObject](t, w.e, http.MethodGet, idPath("/v1/me/revisions/", id), contributor, "",
+			http.StatusOK)
+		assert.Equal(t, viaREST["source"], viaMCP["source"])
+
+		return viaMCP["source"]
+	}
+	revertBody := `{"summary":"Restore the first version.","acknowledged_flags":[]}`
+
+	assert.Equal(t, string(domain.RevisionSourceMCP), sourceOf(revisionID), "a revision whose draft was created over MCP")
+	reverted := structured(t, w.e.callTool(t, contributor, "revert_revision",
+		map[string]any{revisionIDParam: moot.RevisionID, bodyArgument: json.RawMessage(revertBody)}))
+	assert.Equal(t, string(domain.RevisionSourceMCP), sourceOf(objectID(t, reverted, "id")), "a revert over MCP")
+
+	fair := catalogtest.New(t, w.db).Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Autumn Fair"}})
+	editable := sendOK[jsonObject](t, w.e, http.MethodGet, editablePath("events", fair.Slug), contributor, "",
+		http.StatusOK)
+	draft := saveDraft(t, w.e, contributor, draftRequest(t, domain.EntityTypeEvent, entitySlug(fair.Slug), nil,
+		editedDocument(t, editable, jsonObject{descriptionField: "An autumn fair."}), "Describe the fair."))
+	submitted := structured(t, w.e.callTool(t, contributor, "submit_draft",
+		map[string]any{bodyArgument: json.RawMessage(submitBody(objectID(t, draft, "id")))}))
+	fairEdit := objectID(t, submitted, "id")
+	assert.Equal(t, string(domain.RevisionSourceUser), sourceOf(fairEdit),
+		"a draft created over REST and submitted over MCP")
+
+	sendOK[jsonObject](t, w.e, http.MethodPost, idPath("/v1/revisions/", fairEdit)+"/approve", moderator,
+		`{"acknowledged_flags":[]}`, http.StatusOK)
+	restRevert := sendOK[jsonObject](t, w.e, http.MethodPost, idPath("/v1/revisions/", fair.RevisionID)+"/revert",
+		contributor, revertBody, http.StatusCreated)
+	assert.Equal(t, string(domain.RevisionSourceUser), sourceOf(objectID(t, restRevert, "id")), "a revert over REST")
 }
 
 // revisionIDs are the IDs of a list of the caller's revisions.
@@ -124,15 +167,14 @@ func revisionIDs(t *testing.T, list jsonObject) []int64 {
 
 // TestMCP_ArgumentsCannotReachOtherOperations calls tools as a contributor's API token with arguments that would
 // address other routes if they were pasted into the path: each call answers with its own operation's result (not
-// found) or refuses the arguments, and every request it made was routed to the tool's own operation. An unknown
-// slug is among them, so that some calls do reach an operation.
+// found) or refuses the arguments, and every request each call made was routed to that tool's own operation (or
+// was the call itself, to /v1/mcp). An unknown slug is among them, so that some calls do reach an operation.
 func TestMCP_ArgumentsCannotReachOtherOperations(t *testing.T) {
 	t.Parallel()
 
 	logs, logger := newLogCapture()
 	w := newRevisionWorld(t, logger, "facebook|mcp-traversal-moderator")
 	token := w.apiToken(t, w.auth0(t, "google-oauth2|mcp-traversal-contributor"))
-	offset := len(logs.String())
 
 	traversals := []string{"../moderation/queue", "x%2Feditable", "x/../../tokens", "a?include_blocked=true",
 		"x/history", "..", ".", "no-such-piece"}
@@ -156,13 +198,14 @@ func TestMCP_ArgumentsCannotReachOtherOperations(t *testing.T) {
 		call{"get_collection", map[string]any{collectionIDParam: "1?x=y"}},
 	)
 
-	templates := map[string]bool{mcpPath: true}
+	reached := false
 	for _, c := range calls {
-		to := toolNamed(t, c.tool)
-		for _, op := range to.Operations {
-			templates[op.Path] = true
+		own := map[string]bool{mcpPath: true}
+		for _, op := range toolNamed(t, c.tool).Operations {
+			own[op.Path] = true
 		}
 		t.Run(c.tool+" "+encodeJSON(t, c.args), func(t *testing.T) {
+			before := len(logs.String())
 			toolError := w.e.callTool(t, token, c.tool, c.args).toolError(t)
 			switch toolError["code"] {
 			case "not_found":
@@ -172,13 +215,24 @@ func TestMCP_ArgumentsCannotReachOtherOperations(t *testing.T) {
 			default:
 				t.Errorf("neither the operation's not found nor a refusal: %v", toolError)
 			}
+			routes := loggedRoutes(t, logs.String()[before:])
+			require.Contains(t, routes, mcpPath, "the call was not logged, so the routes checked prove nothing")
+			for _, route := range routes {
+				assert.True(t, own[route], "%s reached %s, not its own operation", c.tool, route)
+			}
+			reached = reached || slices.Contains(routes, pieceRoute)
 		})
 	}
+	assert.True(t, reached, "no call reached an operation, so the routes checked prove nothing")
+}
+
+// loggedRoutes are the routes, and the tool routes, of the log records in logs.
+func loggedRoutes(t *testing.T, logs string) []string {
+	t.Helper()
 
 	var routes []string
-	for line := range strings.Lines(logs.String()[offset:]) {
+	for line := range strings.Lines(logs) {
 		var record struct {
-			Msg       string `json:"msg"`
 			Route     string `json:"route"`
 			ToolRoute string `json:"tool_route"`
 		}
@@ -189,12 +243,8 @@ func TestMCP_ArgumentsCannotReachOtherOperations(t *testing.T) {
 			}
 		}
 	}
-	require.NotEmpty(t, routes)
-	for _, route := range routes {
-		assert.True(t, templates[route], "a call reached %s", route)
-	}
-	assert.True(t, slices.Contains(routes, pieceRoute), "no call reached an operation, so the routes "+
-		"checked prove nothing")
+
+	return routes
 }
 
 // toolNamed returns the tool named name.

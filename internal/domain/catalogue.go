@@ -57,7 +57,9 @@ const (
 	RevisionSourceUser RevisionSource = "user"
 	// RevisionSourceImport is a revision created by the MediaWiki importer.
 	RevisionSourceImport RevisionSource = "import"
-	// RevisionSourceMCP is a revision a user submitted through the MCP server.
+	// RevisionSourceMCP is a revision whose draft a user created, or a revert a user made, through the MCP server. A
+	// draft's source is fixed when it is created: updating, submitting, rebasing and approving it keep it, so a draft
+	// created through the API and submitted through the MCP server is RevisionSourceUser.
 	RevisionSourceMCP RevisionSource = "mcp"
 )
 

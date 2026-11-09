@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -210,9 +211,10 @@ func (fs withheldFields[D]) withheldSourcePaths(base, projection D) map[string]b
 	return paths
 }
 
-// scalarSource is the value of a scalar source field at its path, nil for null.
+// scalarSource is the value of a scalar source field at its path, with its element key, nil for null.
 type scalarSource struct {
 	path string
+	key  string
 	url  *string
 }
 
@@ -220,7 +222,7 @@ type scalarSource struct {
 func (fs withheldFields[D]) sourcesOf(d D) []scalarSource {
 	sources := make([]scalarSource, 0, len(fs.sources))
 	for _, f := range fs.sources {
-		sources = append(sources, scalarSource{path: f.path, url: *f.source(&d)})
+		sources = append(sources, scalarSource{path: f.path, key: f.elementKey(), url: *f.source(&d)})
 	}
 
 	return sources
@@ -364,4 +366,82 @@ func documentSources[D Document](doc D) []scalarSource {
 	}
 
 	return nil
+}
+
+// sourceElement is an element of a document with a source URL outside its links, a preference or a scalar source,
+// by its element key.
+type sourceElement struct {
+	key string
+	url string
+}
+
+// sourceElements are the elements of doc with a source URL: its preferences and its scalar sources that are set.
+func sourceElements[D Document](doc D) []sourceElement {
+	var prefs []DocPreference
+	switch d := any(doc).(type) {
+	case PieceDocument:
+		prefs = d.Preferences
+	case PersonDocument:
+		prefs = d.Preferences
+	}
+	elements := make([]sourceElement, 0, len(prefs))
+	for _, p := range prefs {
+		elements = append(elements, sourceElement{key: preferenceElementKey(p), url: p.SourceURL})
+	}
+	for _, s := range documentSources(doc) {
+		if s.url != nil {
+			elements = append(elements, sourceElement{key: s.key, url: *s.url})
+		}
+	}
+
+	return elements
+}
+
+// receivedSourceKey is the key a projection records for the source of the element of key it shows, which is
+// normalized to normalized: with it the author's views tell a source left as received from one the author edited
+// (receivedAsSubmitted).
+func receivedSourceKey(key, normalized string) string {
+	return elementKey("received_source", key, normalized)
+}
+
+// withReceivedSources is kept with the receivedSourceKey of every source of doc, a projection, that normalizes.
+func withReceivedSources[D Document](kept ElementKeySet, doc D) ElementKeySet {
+	out := maps.Clone(kept)
+	for _, e := range sourceElements(doc) {
+		if normalized, err := NormalizeURL(e.url); err == nil {
+			out[receivedSourceKey(e.key, normalized)] = true
+		}
+	}
+
+	return out
+}
+
+// receivedAsSubmitted is received without the keys of the sources of submitted the author edited: a preference or
+// scalar source whose key is received, but whose URL no longer normalizes to the one the projection showed, is the
+// author's own, as one they typed (docs/PLAN.md §5.1, "Author's view"). A received key without a recorded URL (a
+// projection made before they were recorded) stays received: it fails closed.
+func receivedAsSubmitted[D Document](submitted D, received ElementKeySet) ElementKeySet {
+	out := maps.Clone(received)
+	for _, e := range sourceElements(submitted) {
+		if received[e.key] && sourceEdited(e, received) {
+			delete(out, e.key)
+		}
+	}
+
+	return out
+}
+
+// sourceEdited is whether received records a URL for the source of e, and not the URL e now has.
+func sourceEdited(e sourceElement, received ElementKeySet) bool {
+	if normalized, err := NormalizeURL(e.url); err == nil && received[receivedSourceKey(e.key, normalized)] {
+		return false
+	}
+	prefix := elementKey("received_source", e.key)
+	for key := range received {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+
+	return false
 }

@@ -65,7 +65,8 @@ func (r *Repository) saveDraft(
 
 	draft := queries.InsertDraftParams{
 		EntityType: queries.RevisionsEntityType(req.EntityType), AuthorUserID: nullString(&req.Actor.UserID),
-		SnapshotJson: snapshot, Summary: req.Summary, CreatedAt: req.Now, UpdatedAt: nullTime(req.Now),
+		SnapshotJson: snapshot, Summary: req.Summary, Source: revisionSource(req.Source), CreatedAt: req.Now,
+		UpdatedAt: nullTime(req.Now),
 	}
 	if req.Entity == nil {
 		if req.BaseRevisionID != nil {
@@ -103,6 +104,16 @@ func (c *catalogueReader) saveEntityDraft(
 	draft.EntityID, draft.BaseRevisionID = nullableID(&target.entity.ID), nullableID(base)
 
 	return c.insertDraft(ctx, req.Actor, draft, req.Sent.ReceivedKeys(received), pending)
+}
+
+// revisionSource is the stored source of a revision a request creates, from source: RevisionSourceUser for the
+// zero value.
+func revisionSource(source domain.RevisionSource) queries.RevisionsSource {
+	if source == "" {
+		return queries.RevisionsSourceUser
+	}
+
+	return queries.RevisionsSource(source)
 }
 
 // insertDraft inserts a new draft, which received received, unless its author holds domain.MaxDrafts drafts.

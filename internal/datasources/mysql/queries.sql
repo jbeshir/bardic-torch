@@ -800,7 +800,7 @@ WHERE entity_type = ? AND entity_id = ? AND status = 'pending' AND id <> sqlc.ar
 -- name: InsertDraft :execlastid
 INSERT INTO revisions (entity_type, entity_id, base_revision_id, author_user_id, source, status, snapshot_json,
     received_keys_json, summary, created_at, updated_at)
-VALUES (?, ?, ?, ?, 'user', 'draft', ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?);
 
 -- name: UpdateDraftDocument :execrows
 UPDATE revisions
@@ -1242,7 +1242,7 @@ INSERT INTO revisions (entity_type, entity_id, base_revision_id, submitted_base_
     status, snapshot_json, submitted_snapshot_json, flags_json, received_keys_json, summary, created_at, updated_at,
     submitted_at)
 VALUES (sqlc.arg(entity_type), sqlc.arg(entity_id), sqlc.arg(base_revision_id), sqlc.arg(base_revision_id),
-    sqlc.arg(author_user_id), 'user', 'pending', sqlc.arg(snapshot_json), sqlc.arg(submitted_snapshot_json),
+    sqlc.arg(author_user_id), sqlc.arg(source), 'pending', sqlc.arg(snapshot_json), sqlc.arg(submitted_snapshot_json),
     sqlc.arg(flags_json), sqlc.arg(received_keys_json), sqlc.arg(summary), sqlc.arg(created_at), sqlc.arg(submitted_at),
     sqlc.arg(submitted_at));
 

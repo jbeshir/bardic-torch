@@ -6828,8 +6828,10 @@ components:
     RevisionSource:
       type: string
       description: |
-        Where a revision came from: submitted by a `user` through the API or through the `mcp` server, or an
-        `import` from the old wiki.
+        Where a revision came from: `mcp` when its draft was created, or the revert made, through the MCP server
+        (`POST /v1/mcp`); `user` when through the rest of the API; `import` from the old wiki. A draft's source is
+        fixed when it is created: updating, submitting, rebasing and approving it keep it, so a draft created
+        through the API and submitted through the MCP server is `user`.
       enum: [user, import, mcp]
       examples:
         - import

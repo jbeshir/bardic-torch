@@ -90,13 +90,15 @@ func (d dispatcher) serve(op operation, args arguments) (int, string, *sdk.CallT
 	}
 	// The request must be routed to the tool's own operation, as built: never redirected, and never to another
 	// route an argument's value reaches.
-	if template, ok := d.lookup(req); !ok || template != op.path {
+	template, ok := d.lookup(req)
+	if !ok || template != op.path {
 		return refuse(&argumentError{message: notAddressedMessage})
 	}
 
 	rec := &responseBuffer{header: http.Header{}, status: http.StatusOK}
 	d.inner.ServeHTTP(rec, req)
-	return rec.status, op.path, rec.result()
+	// The route logged is the one the router chose, so that a log shows where a call went whatever the pin did.
+	return rec.status, template, rec.result()
 }
 
 // refuse answers arguments the tool refuses with a 400 invalid_request tool error.
@@ -111,7 +113,8 @@ func refuse(err error) (int, string, *sdk.CallToolResult) {
 }
 
 // request builds the REST request of op from args: path parameters percent-encoded into the path template, query
-// parameters in the query string, and the body. It carries the outer request's context, credentials and peer.
+// parameters in the query string, and the body. It carries the outer request's context, marked as the MCP
+// server's (domain.ContextWithRevisionSource), credentials and peer.
 func (d dispatcher) request(op operation, args arguments) (*http.Request, error) {
 	path := op.path
 	query := url.Values{}
@@ -139,7 +142,8 @@ func (d dispatcher) request(op operation, args arguments) (*http.Request, error)
 	if raw, ok := args.raw[bodyArgument]; ok {
 		body = raw
 	}
-	req, err := http.NewRequestWithContext(d.outer.Context(), op.method, target, bytes.NewReader(body))
+	ctx := domain.ContextWithRevisionSource(d.outer.Context(), domain.RevisionSourceMCP)
+	req, err := http.NewRequestWithContext(ctx, op.method, target, bytes.NewReader(body))
 	if err != nil {
 		return nil, &argumentError{message: notAddressedMessage}
 	}

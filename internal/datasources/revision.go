@@ -56,7 +56,10 @@ type SaveDraftRequest struct {
 	// draft's received keys (UpdateDraftRequest), so its submission keeps the base's.
 	Sent    domain.EditorFieldsSent
 	Summary string
-	Now     time.Time
+	// Source is where a draft the request creates comes from: RevisionSourceUser (the zero value) or
+	// RevisionSourceMCP. A draft replaced keeps its own, fixed at its creation.
+	Source domain.RevisionSource
+	Now    time.Time
 }
 
 // SavedDraft is a saved draft, and whether saving created it rather than replacing the author's draft of the

@@ -50,6 +50,7 @@ func (c DraftCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	saved, err := c.Command.Execute(r.Context(), command.SaveDraftRequest{
 		Principal: principal, Entity: entity, BaseRevisionID: body.BaseRevisionID, Document: doc,
 		Sent: sent, Summary: domain.WithLineBreaksNormalized(body.Summary),
+		Source: domain.RevisionSourceFromContext(r.Context()),
 	})
 	if err != nil {
 		writeRevisionError(w, r, "entity", err)

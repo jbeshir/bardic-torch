@@ -100,6 +100,8 @@ type revisionLeakFixture struct {
 	westmarch, archive, moot catalogtest.Ref
 	// pendingTermSlug is the placeholder slug of A's pending new term.
 	pendingTermSlug string
+	// pieceEdit is A's pending edit of the piece.
+	pieceEdit int64
 	// pieceDraft is A's draft of a new piece.
 	pieceDraft int64
 	// renameToAlias is A's (withdrawn) rename of wren to a hidden alias, flagged hidden_data_conflict.
@@ -325,6 +327,7 @@ func (w revisionLeakWorld) seedAuthorRevisions(t *testing.T, fx revisionLeakFixt
 	fx.pendingTermSlug, ok = entity["slug"].(string)
 	require.True(t, ok, "the pending new term has a placeholder slug")
 
+	fx.pieceEdit = piece
 	fx.pieceDraft = objectID(t, saveDraft(t, w.e, a, draftRequest(t, domain.EntityTypePiece, nil, nil,
 		newPieceDocument(draftTitle), "A new piece.")), "id")
 
@@ -333,6 +336,7 @@ func (w revisionLeakWorld) seedAuthorRevisions(t *testing.T, fx revisionLeakFixt
 
 	renameToAlias, renameToFresh := w.validationOracle(t, fx)
 	w.duplicateOracle(t)
+	w.typedSourceOracle(t, fx)
 	fx.renameToAlias = renameToAlias
 	fx.rejected = w.rejectedEdit(t, fx)
 	provenance := w.provenance(t, fx)
