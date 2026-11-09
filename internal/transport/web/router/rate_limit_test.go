@@ -62,21 +62,21 @@ func (c *limitClock) Advance(d time.Duration) {
 	c.now = c.now.Add(d)
 }
 
-// testRateLimits returns a limiter for every tier, each allowing tier, timed by now; each limiter is named after its
-// RateLimits field.
-func testRateLimits(burst int, now func() time.Time) RateLimits {
-	tier := func(name string) *ratelimit.Limiter {
-		return ratelimit.New(ratelimit.Tier{Name: name, Burst: burst, Interval: limitedInterval, MaxKeys: 100}, now)
+// testRateLimits returns a limiter for every tier, each allowing burst requests, timed by now; each limiter is
+// named after its ratelimit.Limiters field.
+func testRateLimits(burst int, now func() time.Time) ratelimit.Limiters {
+	tier := func(name string) ratelimit.Tier {
+		return ratelimit.Tier{Name: name, Burst: burst, Interval: limitedInterval, MaxKeys: 100}
 	}
-	return RateLimits{
+	return ratelimit.NewLimiters(ratelimit.Tiers{
 		Contact: tier("Contact"), ContactUnattributed: tier("ContactUnattributed"), LinkReport: tier("LinkReport"),
 		DraftWrite: tier("DraftWrite"), RevisionWrite: tier("RevisionWrite"), RepertoireWrite: tier("RepertoireWrite"),
 		ProfileWrite: tier("ProfileWrite"), MCP: tier("MCP"),
-	}
+	}, now)
 }
 
 // unlimitedRateLimits are rate limits the routing tests never reach.
-func unlimitedRateLimits() RateLimits {
+func unlimitedRateLimits() ratelimit.Limiters {
 	return testRateLimits(1<<30, time.Now)
 }
 
@@ -93,7 +93,7 @@ func (c unavailableCommand[Req, Res]) Execute(context.Context, Req) (Res, error)
 // limitFixture is a router whose rate-limited operations count the requests that reach them.
 type limitFixture struct {
 	clock   *limitClock
-	limits  RateLimits
+	limits  ratelimit.Limiters
 	calls   atomic.Int64
 	handler http.Handler
 }
@@ -193,7 +193,7 @@ type rateLimitCase struct {
 	target   string
 	body     string
 	// tier is the limiter the operation spends from, and other one it must not.
-	tier, other func(RateLimits) *ratelimit.Limiter
+	tier, other func(ratelimit.Limiters) *ratelimit.Limiter
 	as          func(*http.Request, limitedCaller)
 	byUser      bool
 	// reached is the status of a request that reaches the operation, if not the 503 of its unavailable command.
@@ -228,18 +228,18 @@ var testMCPTools = sync.OnceValue(func() *mcp.Toolset {
 const limitedRepertoireEntry = "/v1/me/repertoire/the-copper-kettle"
 
 func rateLimitCases() []rateLimitCase {
-	profile := func(l RateLimits) *ratelimit.Limiter { return l.ProfileWrite }
-	draft := func(l RateLimits) *ratelimit.Limiter { return l.DraftWrite }
-	revision := func(l RateLimits) *ratelimit.Limiter { return l.RevisionWrite }
-	linkReport := func(l RateLimits) *ratelimit.Limiter { return l.LinkReport }
-	repertoire := func(l RateLimits) *ratelimit.Limiter { return l.RepertoireWrite }
-	mcpTier := func(l RateLimits) *ratelimit.Limiter { return l.MCP }
-	contact := func(l RateLimits) *ratelimit.Limiter { return l.Contact }
-	unattributed := func(l RateLimits) *ratelimit.Limiter { return l.ContactUnattributed }
+	profile := func(l ratelimit.Limiters) *ratelimit.Limiter { return l.ProfileWrite }
+	draft := func(l ratelimit.Limiters) *ratelimit.Limiter { return l.DraftWrite }
+	revision := func(l ratelimit.Limiters) *ratelimit.Limiter { return l.RevisionWrite }
+	linkReport := func(l ratelimit.Limiters) *ratelimit.Limiter { return l.LinkReport }
+	repertoire := func(l ratelimit.Limiters) *ratelimit.Limiter { return l.RepertoireWrite }
+	mcpTier := func(l ratelimit.Limiters) *ratelimit.Limiter { return l.MCP }
+	contact := func(l ratelimit.Limiters) *ratelimit.Limiter { return l.Contact }
+	unattributed := func(l ratelimit.Limiters) *ratelimit.Limiter { return l.ContactUnattributed }
 	const event = `{"name":"Midwinter Revel","kind":"event","description_md":null}`
 	const contactBody = `{"kind":"general","email":"a@b","message":"Hello.","turnstile_token":"t"}`
 
-	byUser := func(name, method, template, target, body string, tier func(RateLimits) *ratelimit.Limiter) rateLimitCase {
+	byUser := func(name, method, template, target, body string, tier func(ratelimit.Limiters) *ratelimit.Limiter) rateLimitCase {
 		return rateLimitCase{name: name, method: method, template: template, target: target, body: body, tier: tier,
 			other: profile, as: asUser, byUser: true}
 	}

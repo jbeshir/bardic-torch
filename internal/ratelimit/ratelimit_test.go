@@ -254,3 +254,51 @@ func bucketKeys(l *Limiter) []string {
 	}
 	return keys
 }
+
+// TestLimiter_SweepsAtCapAtMostOncePerInterval checks that a limiter at its cap whose buckets are all spent, so
+// that a sweep frees nothing, does not sweep them all again for every new key: a thousand new keys within a
+// second of each other sweep at most once, and each still gets room by eviction.
+func TestLimiter_SweepsAtCapAtMostOncePerInterval(t *testing.T) {
+	t.Parallel()
+
+	const maxKeys, newKeys = 2_000, 1_000
+	clock := newFakeClock()
+	l := New(Tier{Name: testTier, Burst: 1, Interval: time.Hour, MaxKeys: maxKeys}, clock.Now)
+	for i := range maxKeys {
+		requireAllowed(t, l, fmt.Sprintf("spent-%d", i), 1)
+	}
+	clock.Advance(time.Second)
+
+	sweeps := 0
+	for i := range newKeys {
+		clock.Advance(time.Microsecond)
+		swept := l.swept
+		requireAllowed(t, l, fmt.Sprintf("new-%d", i), 1)
+		if !l.swept.Equal(swept) {
+			sweeps++
+		}
+	}
+
+	assert.LessOrEqual(t, sweeps, 1, "sweeps at the cap within a second")
+	assert.Len(t, l.buckets, maxKeys)
+}
+
+// TestNewLimiters_OneLimiterPerTier checks that NewLimiters builds every limiter from its own tier, and that every
+// tier has a limiter.
+func TestNewLimiters_OneLimiterPerTier(t *testing.T) {
+	t.Parallel()
+
+	tiers := DefaultTiers()
+	limiters := reflect.ValueOf(NewLimiters(tiers, time.Now))
+	tierValues := reflect.ValueOf(tiers)
+	require.Equal(t, tierValues.NumField(), limiters.NumField(), "every tier needs a limiter")
+
+	for i := range tierValues.NumField() {
+		name := tierValues.Type().Field(i).Name
+		tier, ok := tierValues.Field(i).Interface().(Tier)
+		require.True(t, ok)
+		limiter, ok := limiters.FieldByName(name).Interface().(*Limiter)
+		require.Truef(t, ok, "no limiter %s", name)
+		assert.Equalf(t, tier.Name, limiter.Name(), "limiter %s", name)
+	}
+}

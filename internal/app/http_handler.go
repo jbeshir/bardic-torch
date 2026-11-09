@@ -7,6 +7,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/ratelimit"
 	"github.com/jbeshir/bardic-torch/internal/transport/mcp"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 )
@@ -22,6 +23,7 @@ type HTTPDependencies struct {
 	DisplayNameUpdater             datasources.DisplayNameUpdater
 	UserBlocker                    datasources.UserBlocker
 	UserUnblocker                  datasources.UserUnblocker
+	PublicIDSetter                 datasources.PublicIDSetter
 	APITokenCreator                datasources.APITokenCreator
 	ActiveAPITokenCounter          datasources.ActiveAPITokenCounter
 	ActiveAPITokenLister           datasources.ActiveAPITokenLister
@@ -77,7 +79,7 @@ type HTTPDependencies struct {
 	ContactRequestDismisser        datasources.ContactRequestDismisser
 	ContactRequestPurger           datasources.ContactRequestPurger
 	TurnstileVerifier              datasources.TurnstileVerifier
-	RateLimits                     router.RateLimits
+	RateLimits                     ratelimit.Limiters
 	ClientIP                       router.ClientIPConfig
 	MCPTools                       *mcp.Toolset
 	Now                            func() time.Time
@@ -100,10 +102,12 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 			Getter:  deps.UserGetter,
 		},
 		SetUserBlocked: &command.SetUserBlocked{
-			Blocker:   deps.UserBlocker,
-			Unblocker: deps.UserUnblocker,
-			Getter:    deps.UserGetter,
-			Now:       deps.Now,
+			Blocker:        deps.UserBlocker,
+			Unblocker:      deps.UserUnblocker,
+			Getter:         deps.UserGetter,
+			PublicIDSetter: deps.PublicIDSetter,
+			PublicIDs:      domain.RandomPublicID,
+			Now:            deps.Now,
 		},
 		CreateAPIToken: &command.CreateAPIToken{
 			Counter: deps.ActiveAPITokenCounter,

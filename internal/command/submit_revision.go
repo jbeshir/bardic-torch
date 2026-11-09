@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -55,9 +56,10 @@ type SubmitRevision struct {
 // interactive moderator's submission is approved at once, so a term whose name another term of its facet has
 // taken fails with ErrDuplicateName. It approves the pending new terms and persons it references alongside, each
 // checked for duplicates as moderators check them: the submission names those whose checks it lacks
-// (datasources.UncheckedPendingReferencesError), which are then made and the submission retried as above, and one
-// that may duplicate another entity fails it with *domain.PendingReferenceFlaggedError. Otherwise it fails with the
-// errors of datasources.RevisionSubmitter. A moderator no longer one once their users row is locked submits as a
+// (datasources.UncheckedPendingReferencesError), which are then made and the submission retried as above, keeping
+// the checks already made; the first such retry, of a submission that sent no checks, is not counted. One that may
+// duplicate another entity fails it with *domain.PendingReferenceFlaggedError. Otherwise it fails with the errors
+// of datasources.RevisionSubmitter. A moderator no longer one once their users row is locked submits as a
 // contributor (asLockedRole).
 func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest) (SubmittedRevision, error) {
 	return asLockedRole(req.Principal.Actor(), func(actor domain.Actor) (SubmittedRevision, error) {
@@ -70,22 +72,32 @@ func (c *SubmitRevision) submit(
 	ctx context.Context, actor domain.Actor, req SubmitRevisionRequest,
 ) (SubmittedRevision, error) {
 	var result datasources.SubmitResult
+	// referenceChecks are the checks of the pending references made so far, kept across the retries: a retry
+	// adds the checks its refusal named to those still valid.
 	var referenceChecks map[int64]datasources.DuplicateCheck
 	err := withDuplicateRechecks(func() error {
 		duplicates, err := c.duplicates(ctx, actor, req)
 		if err != nil {
 			return err
 		}
-		result, err = c.Submitter.SubmitDraft(ctx, datasources.SubmitRequest{
-			Actor: actor, DraftID: req.DraftID, Duplicates: duplicates, PendingReferenceDuplicates: referenceChecks,
-			AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(), Keys: c.Keys,
-		})
-		var unchecked *datasources.UncheckedPendingReferencesError
-		if errors.As(err, &unchecked) {
-			if referenceChecks, err = c.pendingReferenceChecks(ctx, unchecked); err != nil {
+		for {
+			result, err = c.Submitter.SubmitDraft(ctx, datasources.SubmitRequest{
+				Actor: actor, DraftID: req.DraftID, Duplicates: duplicates, PendingReferenceDuplicates: referenceChecks,
+				AcknowledgedFlags: moderatorAcknowledgements(actor, req.AcknowledgedFlags), Now: c.Now(), Keys: c.Keys,
+			})
+			var unchecked *datasources.UncheckedPendingReferencesError
+			if !errors.As(err, &unchecked) {
+				break
+			}
+			// The first refusal is of a submission that sent no checks: it says what to check, so it is no
+			// recheck, and the submission is made again at once.
+			firstRound := referenceChecks == nil
+			if referenceChecks, err = c.pendingReferenceChecks(ctx, referenceChecks, unchecked); err != nil {
 				return err
 			}
-			return fmt.Errorf("submitting draft: %w", unchecked)
+			if !firstRound {
+				return fmt.Errorf("submitting draft: %w", unchecked)
+			}
 		}
 		if actor.Role == domain.RoleModerator && isNameDuplicate(err) {
 			return ErrDuplicateName
@@ -104,11 +116,13 @@ func (c *SubmitRevision) submit(
 
 // pendingReferenceChecks makes the duplicate checks an interactive moderator's submission, approved at once, was
 // refused for lacking (docs/PLAN.md §5.1 "Duplicate check"): those of the pending new terms and persons it approves
-// alongside, as moderators check them, by the IDs of their revisions.
+// alongside, as moderators check them, by the IDs of their revisions. It returns them with the checks made before,
+// a fresh check replacing an earlier one of the same reference.
 func (c *SubmitRevision) pendingReferenceChecks(
-	ctx context.Context, unchecked *datasources.UncheckedPendingReferencesError,
+	ctx context.Context, made map[int64]datasources.DuplicateCheck, unchecked *datasources.UncheckedPendingReferencesError,
 ) (map[int64]datasources.DuplicateCheck, error) {
-	checks := make(map[int64]datasources.DuplicateCheck, len(unchecked.References))
+	checks := make(map[int64]datasources.DuplicateCheck, len(made)+len(unchecked.References))
+	maps.Copy(checks, made)
 	for id, ref := range unchecked.References {
 		check, err := pendingReferenceCheck(ctx, c.Duplicates, id, ref)
 		if err != nil {

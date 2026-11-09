@@ -31,13 +31,19 @@ type SetUserBlocked struct {
 	Blocker   datasources.UserBlocker
 	Unblocker datasources.UserUnblocker
 	Getter    datasources.UserGetter
-	Now       func() time.Time
+	// PublicIDSetter and PublicIDs give a user without a public ID one before they are returned, as ResolveUser
+	// does.
+	PublicIDSetter datasources.PublicIDSetter
+	PublicIDs      domain.PublicIDSource
+	Now            func() time.Time
 }
 
 // Execute blocks or unblocks req.UserID and returns the user. Blocking a blocked user keeps the time they were
 // first blocked. A principal other than an interactive moderator returns domain.ErrModeratorRequired, before
 // anything is read or written. An unknown user returns an error wrapping datasources.ErrNotFound, and a moderator,
-// including the caller, returns ErrModeratorNotBlockable.
+// including the caller, returns ErrModeratorNotBlockable. The write locks the moderator's users row first, so a
+// moderator demoted since their request was authenticated is refused with domain.ErrModeratorRequired. A user
+// without a public ID, created before public IDs and with no request since, is given one before they are returned.
 func (c *SetUserBlocked) Execute(ctx context.Context, req SetUserBlockedRequest) (domain.User, error) {
 	if _, err := moderatorActor(req.Principal); err != nil {
 		return domain.User{}, err
@@ -58,7 +64,7 @@ func (c *SetUserBlocked) Execute(ctx context.Context, req SetUserBlockedRequest)
 
 	switch {
 	case matched:
-		return user, nil
+		return c.withPublicID(ctx, user)
 	case user.Role == domain.RoleModerator:
 		return domain.User{}, ErrModeratorNotBlockable
 	default:
@@ -87,9 +93,9 @@ func (c *SetUserBlocked) setBlockedAndGet(ctx context.Context, req SetUserBlocke
 func (c *SetUserBlocked) setBlocked(ctx context.Context, req SetUserBlockedRequest) (bool, error) {
 	var err error
 	if req.Blocked {
-		err = c.Blocker.BlockUser(ctx, req.UserID, c.Now())
+		err = c.Blocker.BlockUser(ctx, req.Principal.User.ID, req.UserID, c.Now())
 	} else {
-		err = c.Unblocker.UnblockUser(ctx, req.UserID)
+		err = c.Unblocker.UnblockUser(ctx, req.Principal.User.ID, req.UserID)
 	}
 
 	switch {
@@ -100,4 +106,24 @@ func (c *SetUserBlocked) setBlocked(ctx context.Context, req SetUserBlockedReque
 	default:
 		return true, nil
 	}
+}
+
+// withPublicID returns user, first giving them a public ID if they have none (withFreshPublicID) and reading them
+// again: the spec's User always has one.
+func (c *SetUserBlocked) withPublicID(ctx context.Context, user domain.User) (domain.User, error) {
+	if user.PublicID != "" {
+		return user, nil
+	}
+	err := withFreshPublicID(ctx, user.ID, c.PublicIDs, func(publicID string) error {
+		return c.PublicIDSetter.SetUserPublicIDIfMissing(ctx, user.ID, publicID)
+	})
+	if err != nil {
+		return domain.User{}, fmt.Errorf("setting a public ID: %w", err)
+	}
+	user, err = c.Getter.GetUser(ctx, user.ID)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("getting user: %w", err)
+	}
+
+	return user, nil
 }

@@ -99,7 +99,7 @@ func Setup(ctx context.Context) ([]Component, error) {
 	}
 
 	deps := repositoryHTTPDependencies(repository, authValidators, verifier,
-		rateLimits(ratelimit.DefaultTiers(), time.Now))
+		ratelimit.NewLimiters(ratelimit.DefaultTiers(), time.Now))
 	deps.ClientIP = clientIP
 	deps.MCPTools = mcpTools
 
@@ -111,7 +111,7 @@ func Setup(ctx context.Context) ([]Component, error) {
 // derived from the socket peer alone.
 func repositoryHTTPDependencies(
 	repository *mysql.Repository, authValidators []router.AuthValidator, verifier datasources.TurnstileVerifier,
-	limits router.RateLimits,
+	limits ratelimit.Limiters,
 ) HTTPDependencies {
 	return HTTPDependencies{
 		Pinger:                         repository,
@@ -121,6 +121,7 @@ func repositoryHTTPDependencies(
 		DisplayNameUpdater:             repository,
 		UserBlocker:                    repository,
 		UserUnblocker:                  repository,
+		PublicIDSetter:                 repository,
 		APITokenCreator:                repository,
 		ActiveAPITokenCounter:          repository,
 		ActiveAPITokenLister:           repository,

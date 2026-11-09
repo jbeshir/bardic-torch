@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
-	"github.com/jbeshir/bardic-torch/internal/ratelimit"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 )
 
@@ -16,20 +14,6 @@ const (
 	trustedProxyCIDRsEnv = "TRUSTED_PROXY_CIDRS"
 	feProxySecretEnv     = "FE_PROXY_SECRET"
 )
-
-// rateLimits returns a limiter for each of tiers, timed by now.
-func rateLimits(tiers ratelimit.Tiers, now func() time.Time) router.RateLimits {
-	return router.RateLimits{
-		Contact:             ratelimit.New(tiers.Contact, now),
-		ContactUnattributed: ratelimit.New(tiers.ContactUnattributed, now),
-		LinkReport:          ratelimit.New(tiers.LinkReport, now),
-		DraftWrite:          ratelimit.New(tiers.DraftWrite, now),
-		RevisionWrite:       ratelimit.New(tiers.RevisionWrite, now),
-		RepertoireWrite:     ratelimit.New(tiers.RepertoireWrite, now),
-		ProfileWrite:        ratelimit.New(tiers.ProfileWrite, now),
-		MCP:                 ratelimit.New(tiers.MCP, now),
-	}
-}
 
 // clientIPConfigFromEnv returns how the API derives a client's IP: TRUSTED_PROXY_CIDRS, comma-separated networks
 // in CIDR notation, are the reverse proxies whose X-Forwarded-For is believed, and FE_PROXY_SECRET is the secret

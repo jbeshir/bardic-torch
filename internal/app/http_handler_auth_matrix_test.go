@@ -290,7 +290,7 @@ var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(),
 			body:          blockBody,
 			successStatus: http.StatusOK,
 			expectSuccess: func(m handlerMocks, _ string) {
-				m.blocker.EXPECT().BlockUser(mock.Anything, blockTargetID, handlerNow).Return(nil)
+				m.blocker.EXPECT().BlockUser(mock.Anything, moderatorID, blockTargetID, handlerNow).Return(nil)
 				m.users.EXPECT().GetUser(mock.Anything, blockTargetID).Return(storedUser(blockTargetID), nil)
 			},
 		},

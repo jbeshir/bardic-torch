@@ -10,6 +10,7 @@ import (
 
 	"github.com/jbeshir/bardic-torch/internal/datasources/mocks"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/ratelimit"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
@@ -120,7 +121,7 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 }
 
 // newLimitedHandlerMocks returns the mocks and the production handler over them, limited by limits.
-func newLimitedHandlerMocks(t *testing.T, limits router.RateLimits) handlerMocks {
+func newLimitedHandlerMocks(t *testing.T, limits ratelimit.Limiters) handlerMocks {
 	m := handlerMocks{
 		pinger:              mocks.NewPinger(t),
 		users:               mocks.NewUserGetter(t),
@@ -197,6 +198,7 @@ func newLimitedHandlerMocks(t *testing.T, limits router.RateLimits) handlerMocks
 		DisplayNameUpdater:             m.displayNames,
 		UserBlocker:                    m.blocker,
 		UserUnblocker:                  m.unblocker,
+		PublicIDSetter:                 mocks.NewPublicIDSetter(t),
 		APITokenCreator:                m.creator,
 		ActiveAPITokenCounter:          m.counter,
 		ActiveAPITokenLister:           m.lister,

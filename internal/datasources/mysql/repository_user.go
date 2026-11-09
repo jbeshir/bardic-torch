@@ -146,28 +146,53 @@ func displayNameKeyError(err error) error {
 	return err
 }
 
-// BlockUser blocks a contributor, keeping the original time if it is already blocked. It returns
-// datasources.ErrNotFound if there is no contributor with the ID.
-func (r *Repository) BlockUser(ctx context.Context, userID string, blockedAt time.Time) error {
-	err := requireMatched(r.queries.BlockUser(ctx, queries.BlockUserParams{
-		BlockedAt: nullTime(blockedAt),
-		ID:        userID,
-	}))
+// BlockUser blocks a contributor for the moderator moderatorUserID, keeping the original time if it is already
+// blocked (setUserBlocked). It returns datasources.ErrNotFound if there is no contributor with the ID.
+func (r *Repository) BlockUser(ctx context.Context, moderatorUserID, userID string, blockedAt time.Time) error {
+	err := r.setUserBlocked(ctx, moderatorUserID, func(ctx context.Context, q *queries.Queries) (int64, error) {
+		return q.BlockUser(ctx, queries.BlockUserParams{BlockedAt: nullTime(blockedAt), ID: userID})
+	})
 	if err != nil {
-		return fmt.Errorf("blocking contributor [%s]: %w", userID, unavailableIfDisconnected(err))
+		return fmt.Errorf("blocking contributor [%s]: %w", userID, err)
 	}
 
 	return nil
 }
 
-// UnblockUser unblocks a contributor, returning datasources.ErrNotFound if there is no contributor with the
-// ID.
-func (r *Repository) UnblockUser(ctx context.Context, userID string) error {
-	if err := requireMatched(r.queries.UnblockUser(ctx, userID)); err != nil {
-		return fmt.Errorf("unblocking contributor [%s]: %w", userID, unavailableIfDisconnected(err))
+// UnblockUser unblocks a contributor for the moderator moderatorUserID (setUserBlocked), returning
+// datasources.ErrNotFound if there is no contributor with the ID.
+func (r *Repository) UnblockUser(ctx context.Context, moderatorUserID, userID string) error {
+	err := r.setUserBlocked(ctx, moderatorUserID, func(ctx context.Context, q *queries.Queries) (int64, error) {
+		return q.UnblockUser(ctx, userID)
+	})
+	if err != nil {
+		return fmt.Errorf("unblocking contributor [%s]: %w", userID, err)
 	}
 
 	return nil
+}
+
+// setUserBlocked runs update, a single-row update of a contributor's users row reporting the rows it matched, as a
+// moderator-only write: it first locks the users row of moderatorUserID (lockModerator), refusing a moderator
+// demoted or blocked since their request was authenticated, and one with no row with domain.ErrModeratorRequired.
+// The contributor's row is the second users row it locks, after the moderator's; that cannot deadlock with a
+// contributor's own writes, which lock no users row but theirs (docs/PLAN.md §5.1 "Approval"). An update matching no
+// row is datasources.ErrNotFound.
+func (r *Repository) setUserBlocked(
+	ctx context.Context, moderatorUserID string, update func(ctx context.Context, q *queries.Queries) (int64, error),
+) error {
+	return r.withWriteTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		c := r.txReader(tx)
+		err := c.lockModerator(ctx, moderatorUserID)
+		if errors.Is(err, datasources.ErrNotFound) {
+			return domain.ErrModeratorRequired
+		}
+		if err != nil {
+			return err
+		}
+
+		return requireMatched(update(ctx, c.q))
+	})
 }
 
 func convertUser(row queries.GetUserRow) (domain.User, error) {

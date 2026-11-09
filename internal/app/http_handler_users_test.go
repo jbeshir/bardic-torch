@@ -30,7 +30,7 @@ func TestNewHTTPHandler_UserBlockedRouteTargets(t *testing.T) {
 			body:     blockBody,
 			targetID: blockTargetID,
 			expect: func(m handlerMocks, targetID string) {
-				m.blocker.EXPECT().BlockUser(mock.Anything, targetID, handlerNow).Return(nil)
+				m.blocker.EXPECT().BlockUser(mock.Anything, moderatorID, targetID, handlerNow).Return(nil)
 				m.users.EXPECT().GetUser(mock.Anything, targetID).Return(storedUser(targetID), nil)
 			},
 			wantStatus: http.StatusOK,
@@ -43,7 +43,7 @@ func TestNewHTTPHandler_UserBlockedRouteTargets(t *testing.T) {
 			body:     `{"blocked":false}`,
 			targetID: blockTargetID,
 			expect: func(m handlerMocks, targetID string) {
-				m.unblocker.EXPECT().UnblockUser(mock.Anything, targetID).Return(nil)
+				m.unblocker.EXPECT().UnblockUser(mock.Anything, moderatorID, targetID).Return(nil)
 				m.users.EXPECT().GetUser(mock.Anything, targetID).Return(storedUser(targetID), nil)
 			},
 			wantStatus: http.StatusOK,
@@ -56,7 +56,7 @@ func TestNewHTTPHandler_UserBlockedRouteTargets(t *testing.T) {
 			body:     blockBody,
 			targetID: "auth0|a/b",
 			expect: func(m handlerMocks, targetID string) {
-				m.blocker.EXPECT().BlockUser(mock.Anything, targetID, handlerNow).Return(datasources.ErrNotFound)
+				m.blocker.EXPECT().BlockUser(mock.Anything, moderatorID, targetID, handlerNow).Return(datasources.ErrNotFound)
 				m.users.EXPECT().GetUser(mock.Anything, targetID).Return(domain.User{}, datasources.ErrNotFound)
 			},
 			wantStatus: http.StatusNotFound,
@@ -68,7 +68,7 @@ func TestNewHTTPHandler_UserBlockedRouteTargets(t *testing.T) {
 			body:     blockBody,
 			targetID: moderatorID,
 			expect: func(m handlerMocks, targetID string) {
-				m.blocker.EXPECT().BlockUser(mock.Anything, targetID, handlerNow).Return(datasources.ErrNotFound)
+				m.blocker.EXPECT().BlockUser(mock.Anything, moderatorID, targetID, handlerNow).Return(datasources.ErrNotFound)
 				m.users.EXPECT().GetUser(mock.Anything, targetID).Return(storedUser(targetID), nil).Once()
 			},
 			wantStatus: http.StatusConflict,

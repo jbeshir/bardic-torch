@@ -33,10 +33,11 @@ func changedMidWrite(t *testing.T, f *editingFixture, userID, update string, wri
 }
 
 const (
-	blockUser   = "UPDATE users SET blocked_at = '2026-03-01 12:00:00' WHERE id = ?"
-	demoteUser  = "UPDATE users SET role = 'contributor' WHERE id = ?"
-	countWrens  = "SELECT COUNT(*) FROM revisions WHERE author_user_id = ?"
-	openReports = "SELECT COUNT(*) FROM link_reports WHERE status = 'open'"
+	blockUser    = "UPDATE users SET blocked_at = '2026-03-01 12:00:00' WHERE id = ?"
+	demoteUser   = "UPDATE users SET role = 'contributor' WHERE id = ?"
+	countWrens   = "SELECT COUNT(*) FROM revisions WHERE author_user_id = ?"
+	openReports  = "SELECT COUNT(*) FROM link_reports WHERE status = 'open'"
+	blockedUsers = "SELECT COUNT(*) FROM users WHERE id = ? AND blocked_at IS NOT NULL"
 )
 
 // TestRepository_UserLockedWrites_BlockedMidRequest requires every write that locks its author's users row to
@@ -214,6 +215,26 @@ func TestRepository_ModeratorWrites_DemotedActorRefused(t *testing.T) {
 			},
 			unchanged: func(t *testing.T, f *editingFixture) {
 				assert.Equal(t, 2, f.count(t, "SELECT COUNT(*) FROM contact_requests WHERE status = 'open'"))
+			},
+		},
+		{
+			name: "block_user",
+			prepare: func(_ *testing.T, f *editingFixture) func(ctx context.Context) error {
+				return func(ctx context.Context) error { return f.repo.BlockUser(ctx, rowanUserID, wrenUserID, f.now) }
+			},
+			unchanged: func(t *testing.T, f *editingFixture) {
+				assert.Zero(t, f.count(t, blockedUsers, wrenUserID))
+			},
+		},
+		{
+			name: "unblock_user",
+			prepare: func(t *testing.T, f *editingFixture) func(ctx context.Context) error {
+				_, err := f.db.ExecContext(t.Context(), blockUser, wrenUserID)
+				require.NoError(t, err)
+				return func(ctx context.Context) error { return f.repo.UnblockUser(ctx, rowanUserID, wrenUserID) }
+			},
+			unchanged: func(t *testing.T, f *editingFixture) {
+				assert.Equal(t, 1, f.count(t, blockedUsers, wrenUserID))
 			},
 		},
 	}

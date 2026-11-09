@@ -12,12 +12,14 @@ import (
 var ErrRepertoireLimitReached = errors.New("repertoire limit reached")
 
 // RepertoireEntryWrite is a user's entry for the public piece with slug PieceSlug, with their notes and its
-// visibility. MaxEntries is how many entries the user's repertoire may hold (domain.MaxRepertoireEntries).
+// visibility.
 type RepertoireEntryWrite struct {
 	UserID     string
 	PieceSlug  string
 	Notes      *string
 	Visibility domain.RepertoireVisibility
+	// MaxEntries is how many entries the user's repertoire may hold. Production always passes
+	// domain.MaxRepertoireEntries; it is a field so that tests can shrink the cap rather than fill thousands of entries.
 	MaxEntries int
 	Now        time.Time
 }

@@ -135,7 +135,7 @@ func TestRepository_PutRepertoireEntry(t *testing.T) {
 	})
 
 	t.Run("blocked at the lock", func(t *testing.T) {
-		require.NoError(t, f.repo.BlockUser(t.Context(), wrenUserID, f.now))
+		require.NoError(t, f.repo.BlockUser(t.Context(), rowanUserID, wrenUserID, f.now))
 		_, _, err := f.put(t, wrenUserID, f.reel.Slug, nil, public, maxEntries)
 		require.ErrorIs(t, err, datasources.ErrUserBlocked)
 		require.ErrorIs(t, f.repo.DeleteRepertoireEntry(t.Context(), wrenUserID, f.song.Slug),
@@ -147,7 +147,8 @@ func TestRepository_PutRepertoireEntry(t *testing.T) {
 }
 
 // TestRepository_PutRepertoireEntry_ConcurrentCap requires two concurrent new entries of a repertoire one short of
-// its cap to be serialised by the users row lock: one is added and the other refused.
+// its cap to be serialised by the users row lock: one is added and the other refused. A holder locks the users row
+// until both writes are seen waiting for it, so that both read the repertoire only after it commits, and race.
 func TestRepository_PutRepertoireEntry_ConcurrentCap(t *testing.T) {
 	t.Parallel()
 	f := newRepertoireFixture(t)
@@ -155,18 +156,22 @@ func TestRepository_PutRepertoireEntry_ConcurrentCap(t *testing.T) {
 	_, _, err := f.put(t, wrenUserID, f.song.Slug, nil, domain.RepertoireVisibilityPrivate, maxEntries)
 	require.NoError(t, err)
 
-	errs := make(chan error, 2)
+	holder := holdRows(t, f.db, "SELECT id FROM users WHERE id = ? FOR UPDATE", wrenUserID)
+	writes := make([]<-chan error, 0, 2)
 	for _, slug := range []string{f.ballad.Slug, f.reel.Slug} {
 		entry := datasources.RepertoireEntryWrite{UserID: wrenUserID, PieceSlug: slug,
 			Visibility: domain.RepertoireVisibilityPublic, MaxEntries: maxEntries, Now: f.now}
-		go func() {
-			_, _, err := f.repo.PutRepertoireEntry(t.Context(), entry)
-			errs <- err
-		}()
+		writes = append(writes, started(t.Context(), func(ctx context.Context) error {
+			_, _, err := f.repo.PutRepertoireEntry(ctx, entry)
+			return err
+		}))
 	}
+	waitUntilBlocked(t, f.db, 2)
+	holder.commit()
+
 	var added, refused int
-	for range 2 {
-		err := <-errs
+	for _, done := range writes {
+		err := <-done
 		if err == nil {
 			added++
 			continue
@@ -297,7 +302,7 @@ func TestRepository_ListPublicRepertoire(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.RepertoireOwner{DisplayName: contactModeratorName, Role: domain.RoleModerator}, moderator.Owner)
 
-	require.NoError(t, f.repo.BlockUser(ctx, wrenUserID, f.now))
+	require.NoError(t, f.repo.BlockUser(ctx, rowanUserID, wrenUserID, f.now))
 	for name, publicID := range map[string]string{
 		"blocked": wrenPublicID, "only private entries": ashPublicID, "unknown public ID": "unknownunknown22",
 	} {

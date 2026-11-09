@@ -567,12 +567,15 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
     its pending references', are upserted in one ascending pass by normalized URL;
   - every write that locks a `users` row checks the row again under the lock, since the request was authenticated
     before it: a user blocked since is refused with 403 `user_blocked`. Moderator-only writes (approve, reject,
-    rebase, hiding or showing a link, resolving or dismissing a link report, dismissing a contact request) lock the
-    acting moderator's row first, before any revision, and refuse a user no longer a moderator with 403
-    `moderator_required`, writing nothing. Whether a moderator's own submission or revert is approved at once follows
-    the role their locked row holds: if it no longer holds the moderator role, the transaction is refused and run
-    again once as a contributor's, which stays pending (fail closed); a role changed again on that attempt is 503
-    `unavailable`;
+    rebase, hiding or showing a link, resolving or dismissing a link report, dismissing one contact request or
+    several at once, blocking or unblocking a user) lock the acting moderator's row first, before any revision, and
+    refuse a user no longer a moderator with 403 `moderator_required`, writing nothing. Blocking or unblocking then
+    updates the target's `users` row, a second `users` row after the actor's; it cannot deadlock with a
+    contributor's own writes, which lock no `users` row but theirs, and only matches a contributor (two moderators
+    naming each other at once can deadlock, which is retried, below, and ends in 409 as for any moderator target).
+    Whether a moderator's own submission or revert is approved at once follows the role their locked row holds: if
+    it no longer holds the moderator role, the transaction is refused and run again once as a contributor's, which
+    stays pending (fail closed); a role changed again on that attempt is 503 `unavailable`;
   - rows discovered later can still deadlock: the current document of an entity approved since it was read, and the
     S-locks foreign-key checks take at the end of a transaction on `users` rows other than the actor's, which
     those writes lock first. A deadlock (1213) or lock-wait timeout (1205) is retried at most twice;
@@ -695,7 +698,8 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   once a minute, so an FE not yet sending the headers cannot throttle the whole site to 5 an hour. IPv6 keys are
   the /56 network. Neither header is logged. **Memory is bounded:** each tier holds at most 50 000 keys (contact)
   or 10 000 (user tiers), about 150 bytes each; a sweep each minute forgets refilled buckets, and a new key at the
-  cap sweeps at once and otherwise evicts the least recently seen of 64 sampled keys, so a new key is never
+  cap sweeps, unless a sweep ran in the last second (a sweep visits every bucket under the tier's mutex, and at a cap
+  of spent buckets frees nothing), and otherwise evicts the least recently seen of 64 sampled keys, so a new key is never
   refused. Limits reset on every deploy, dokku's zero-downtime deploy briefly runs old and new containers together
   (limits double for that window), and scaling `web` multiplies them; rules that must hold exactly (the link-report
   cooldown, the repertoire cap) are in MySQL. An MCP request spends the user's MCP tier (burst 60, then 120 a minute), and each tool call also spends the tier of

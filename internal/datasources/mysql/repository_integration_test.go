@@ -27,6 +27,17 @@ func newRepository(t *testing.T) *mysql.Repository {
 	return mysql.New(catalogtest.Writable(t))
 }
 
+// blockerID is the moderator who blocks and unblocks users in the users tests (promoteBlocker).
+const blockerID = "auth0|blocker"
+
+// promoteBlocker makes blockerID a moderator, who may block and unblock users.
+func promoteBlocker(t *testing.T, repo *mysql.Repository) {
+	t.Helper()
+
+	require.NoError(t, repo.PromoteToModerator(t.Context(), datasources.NewUser{ID: blockerID, DisplayName: "Blocker",
+		CreatedAt: baseTime}))
+}
+
 func ensureUser(t *testing.T, repo *mysql.Repository, userID, displayName string) domain.User {
 	t.Helper()
 
@@ -93,7 +104,7 @@ func TestRepository_EnsureUser_PreservesExistingUser(t *testing.T) {
 	require.NoError(t, repo.PromoteToModerator(ctx, datasources.NewUser{ID: moderatorID, DisplayName: "Other",
 		CreatedAt: baseTime}))
 	ensureUser(t, repo, "auth0|blocked", "Original")
-	require.NoError(t, repo.BlockUser(ctx, "auth0|blocked", baseTime.Add(time.Hour)))
+	require.NoError(t, repo.BlockUser(ctx, moderatorID, "auth0|blocked", baseTime.Add(time.Hour)))
 	ensureUser(t, repo, "auth0|renamed", "Original")
 	require.NoError(t, repo.UpdateDisplayName(ctx, "auth0|renamed", "Renamed"))
 
@@ -169,11 +180,12 @@ func TestRepository_UserIDsTrailingSpacesAreSignificant(t *testing.T) {
 	repo := newRepository(t)
 	ctx := t.Context()
 	ensureUser(t, repo, "auth0|abc", "Original")
+	promoteBlocker(t, repo)
 	const padded = "auth0|abc "
 
 	_, err := repo.GetUser(ctx, padded)
 	require.ErrorIs(t, err, datasources.ErrNotFound)
-	require.ErrorIs(t, repo.BlockUser(ctx, padded, baseTime), datasources.ErrNotFound)
+	require.ErrorIs(t, repo.BlockUser(ctx, blockerID, padded, baseTime), datasources.ErrNotFound)
 	require.ErrorIs(t, repo.UpdateDisplayName(ctx, padded, "Renamed"), datasources.ErrNotFound)
 
 	assert.Equal(t, "Padded", ensureUser(t, repo, padded, "Padded").DisplayName)
@@ -239,7 +251,8 @@ func TestRepository_PromoteToModerator_UnblocksBlockedContributor(t *testing.T) 
 	ctx := t.Context()
 
 	ensured := ensureUser(t, repo, bootstrappedID, "Chosen name")
-	require.NoError(t, repo.BlockUser(ctx, bootstrappedID, baseTime.Add(time.Hour)))
+	promoteBlocker(t, repo)
+	require.NoError(t, repo.BlockUser(ctx, blockerID, bootstrappedID, baseTime.Add(time.Hour)))
 
 	require.NoError(t, repo.PromoteToModerator(ctx, datasources.NewUser{
 		ID:          bootstrappedID,
@@ -275,17 +288,18 @@ func TestRepository_BlockUnblock_ReblockKeepsFirstBlockedAt(t *testing.T) {
 	ctx := t.Context()
 	firstBlock := baseTime.Add(time.Hour)
 	ensureUser(t, repo, "auth0|contributor", "Contributor")
+	promoteBlocker(t, repo)
 
-	require.NoError(t, repo.BlockUser(ctx, "auth0|contributor", firstBlock))
-	require.NoError(t, repo.BlockUser(ctx, "auth0|contributor", firstBlock.Add(time.Hour)))
+	require.NoError(t, repo.BlockUser(ctx, blockerID, "auth0|contributor", firstBlock))
+	require.NoError(t, repo.BlockUser(ctx, blockerID, "auth0|contributor", firstBlock.Add(time.Hour)))
 	assert.Equal(t, &firstBlock, getUser(t, repo, "auth0|contributor").BlockedAt)
 
-	require.NoError(t, repo.UnblockUser(ctx, "auth0|contributor"))
+	require.NoError(t, repo.UnblockUser(ctx, blockerID, "auth0|contributor"))
 	assert.False(t, getUser(t, repo, "auth0|contributor").IsBlocked())
-	require.NoError(t, repo.UnblockUser(ctx, "auth0|contributor"))
+	require.NoError(t, repo.UnblockUser(ctx, blockerID, "auth0|contributor"))
 
 	secondBlock := firstBlock.Add(2 * time.Hour)
-	require.NoError(t, repo.BlockUser(ctx, "auth0|contributor", secondBlock))
+	require.NoError(t, repo.BlockUser(ctx, blockerID, "auth0|contributor", secondBlock))
 	assert.Equal(t, &secondBlock, getUser(t, repo, "auth0|contributor").BlockedAt)
 }
 
@@ -296,10 +310,11 @@ func TestRepository_BlockUnblock_ModeratorTargetMatchesNoRows(t *testing.T) {
 	ctx := t.Context()
 	require.NoError(t, repo.PromoteToModerator(ctx, datasources.NewUser{ID: moderatorID, DisplayName: "Moderator",
 		CreatedAt: baseTime}))
+	promoteBlocker(t, repo)
 	before := getUser(t, repo, moderatorID)
 
-	require.ErrorIs(t, repo.BlockUser(ctx, moderatorID, baseTime.Add(time.Hour)), datasources.ErrNotFound)
-	require.ErrorIs(t, repo.UnblockUser(ctx, moderatorID), datasources.ErrNotFound)
+	require.ErrorIs(t, repo.BlockUser(ctx, blockerID, moderatorID, baseTime.Add(time.Hour)), datasources.ErrNotFound)
+	require.ErrorIs(t, repo.UnblockUser(ctx, blockerID, moderatorID), datasources.ErrNotFound)
 	assert.Equal(t, before, getUser(t, repo, moderatorID))
 }
 
@@ -309,9 +324,27 @@ func TestRepository_BlockUnblock_UnknownUserMatchesNoRows(t *testing.T) {
 	repo := newRepository(t)
 	ctx := t.Context()
 	ensureUser(t, repo, "auth0|known", "Known")
+	promoteBlocker(t, repo)
 
-	require.ErrorIs(t, repo.BlockUser(ctx, "auth0|unknown", baseTime), datasources.ErrNotFound)
-	require.ErrorIs(t, repo.UnblockUser(ctx, "auth0|unknown"), datasources.ErrNotFound)
-	require.ErrorIs(t, repo.BlockUser(ctx, "AUTH0|KNOWN", baseTime), datasources.ErrNotFound)
+	require.ErrorIs(t, repo.BlockUser(ctx, blockerID, "auth0|unknown", baseTime), datasources.ErrNotFound)
+	require.ErrorIs(t, repo.UnblockUser(ctx, blockerID, "auth0|unknown"), datasources.ErrNotFound)
+	require.ErrorIs(t, repo.BlockUser(ctx, blockerID, "AUTH0|KNOWN", baseTime), datasources.ErrNotFound)
 	assert.False(t, getUser(t, repo, "auth0|known").IsBlocked())
+}
+
+// TestRepository_BlockUnblock_ActorMustBeModerator requires a block or unblock by a contributor, or by a user with
+// no row, to be refused with domain.ErrModeratorRequired, leaving the target as it was.
+func TestRepository_BlockUnblock_ActorMustBeModerator(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepository(t)
+	ctx := t.Context()
+	ensureUser(t, repo, "auth0|target", "Target")
+	ensureUser(t, repo, "auth0|contributor", "Contributor")
+
+	for _, actor := range []string{"auth0|contributor", "auth0|unknown"} {
+		require.ErrorIs(t, repo.BlockUser(ctx, actor, "auth0|target", baseTime), domain.ErrModeratorRequired, actor)
+		require.ErrorIs(t, repo.UnblockUser(ctx, actor, "auth0|target"), domain.ErrModeratorRequired, actor)
+	}
+	assert.False(t, getUser(t, repo, "auth0|target").IsBlocked())
 }

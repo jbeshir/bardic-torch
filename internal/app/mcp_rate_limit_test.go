@@ -86,7 +86,7 @@ func TestMCPInnerRequestsCountTowardRouteTiers(t *testing.T) {
 
 			tiers, names := openTiers(t)
 			row.tier(&tiers).Burst = 1
-			m := newLimitedHandlerMocks(t, rateLimits(tiers, handlerClock))
+			m := newLimitedHandlerMocks(t, ratelimit.NewLimiters(tiers, handlerClock))
 			matrix := authMatrix[row.op]
 			to := byOperation[row.op]
 			target := expandPath(row.op.Path, matrix.pathParams) + matrix.query
@@ -131,7 +131,7 @@ func TestMCP_ServerTierLimitsToolCalls(t *testing.T) {
 
 	tiers, _ := openTiers(t)
 	tiers.MCP.Burst = 1
-	m := newLimitedHandlerMocks(t, rateLimits(tiers, handlerClock))
+	m := newLimitedHandlerMocks(t, ratelimit.NewLimiters(tiers, handlerClock))
 	op := openapitest.Operation{Method: http.MethodGet, Path: pieceRoute}
 	matrix := authMatrix[op]
 	message := mcpToolCallMessage(t, "get_piece",
@@ -182,7 +182,7 @@ func TestMCPBatchCannotPassServerTier(t *testing.T) {
 
 	tiers, _ := openTiers(t)
 	tiers.MCP = ratelimit.DefaultTiers().MCP
-	m := newLimitedHandlerMocks(t, rateLimits(tiers, handlerClock))
+	m := newLimitedHandlerMocks(t, ratelimit.NewLimiters(tiers, handlerClock))
 	op := openapitest.Operation{Method: http.MethodGet, Path: pieceRoute}
 	matrix := authMatrix[op]
 	message := mcpToolCallMessage(t, "get_piece",

@@ -47,16 +47,16 @@ func (_m *UserUnblocker) EXPECT() *UserUnblocker_Expecter {
 }
 
 // UnblockUser provides a mock function for the type UserUnblocker
-func (_mock *UserUnblocker) UnblockUser(ctx context.Context, userID string) error {
-	ret := _mock.Called(ctx, userID)
+func (_mock *UserUnblocker) UnblockUser(ctx context.Context, moderatorUserID string, userID string) error {
+	ret := _mock.Called(ctx, moderatorUserID, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UnblockUser")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, moderatorUserID, userID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -70,12 +70,13 @@ type UserUnblocker_UnblockUser_Call struct {
 
 // UnblockUser is a helper method to define mock.On call
 //   - ctx context.Context
+//   - moderatorUserID string
 //   - userID string
-func (_e *UserUnblocker_Expecter) UnblockUser(ctx any, userID any) *UserUnblocker_UnblockUser_Call {
-	return &UserUnblocker_UnblockUser_Call{Call: _e.mock.On("UnblockUser", ctx, userID)}
+func (_e *UserUnblocker_Expecter) UnblockUser(ctx any, moderatorUserID any, userID any) *UserUnblocker_UnblockUser_Call {
+	return &UserUnblocker_UnblockUser_Call{Call: _e.mock.On("UnblockUser", ctx, moderatorUserID, userID)}
 }
 
-func (_c *UserUnblocker_UnblockUser_Call) Run(run func(ctx context.Context, userID string)) *UserUnblocker_UnblockUser_Call {
+func (_c *UserUnblocker_UnblockUser_Call) Run(run func(ctx context.Context, moderatorUserID string, userID string)) *UserUnblocker_UnblockUser_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -85,9 +86,14 @@ func (_c *UserUnblocker_UnblockUser_Call) Run(run func(ctx context.Context, user
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -98,7 +104,7 @@ func (_c *UserUnblocker_UnblockUser_Call) Return(err error) *UserUnblocker_Unblo
 	return _c
 }
 
-func (_c *UserUnblocker_UnblockUser_Call) RunAndReturn(run func(ctx context.Context, userID string) error) *UserUnblocker_UnblockUser_Call {
+func (_c *UserUnblocker_UnblockUser_Call) RunAndReturn(run func(ctx context.Context, moderatorUserID string, userID string) error) *UserUnblocker_UnblockUser_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -11,18 +11,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
-// RateLimits are the limiters of the rate-limited routes, one per tier (ratelimit.Tiers says what each limits).
-type RateLimits struct {
-	Contact             *ratelimit.Limiter
-	ContactUnattributed *ratelimit.Limiter
-	LinkReport          *ratelimit.Limiter
-	DraftWrite          *ratelimit.Limiter
-	RevisionWrite       *ratelimit.Limiter
-	RepertoireWrite     *ratelimit.Limiter
-	ProfileWrite        *ratelimit.Limiter
-	MCP                 *ratelimit.Limiter
-}
-
 // rateLimitedMessage is the message of every 429 response. Like the rest of the response, it names neither the
 // tier nor the key.
 const rateLimitedMessage = "too many requests; retry after the number of seconds in the Retry-After header"
@@ -46,7 +34,7 @@ func limitedByUser(limiter *ratelimit.Limiter, next http.Handler) http.Handler {
 // one, which allows more, as until the FE attributes its requests every user's are from the FE's IPs. The first
 // unattributed request of a minute is logged at warn, naming only the tier.
 func limitedByClientIP(
-	limits RateLimits, cfg ClientIPConfig, now func() time.Time, next http.Handler,
+	limits ratelimit.Limiters, cfg ClientIPConfig, now func() time.Time, next http.Handler,
 ) http.Handler {
 	warning := &throttledWarning{every: unattributedWarningEvery, now: now}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

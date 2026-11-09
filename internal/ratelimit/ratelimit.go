@@ -4,9 +4,9 @@
 // A bucket holds up to a tier's burst of tokens and gains one token every interval. Each allowed request spends
 // one; a request finding the bucket empty is refused, and told how long until the next token. Every tier caps how
 // many keys it holds, so memory stays bounded whatever keys clients send: a minute's sweep forgets the buckets
-// that have refilled, which hold nothing a fresh bucket would not, and a new key arriving at the cap first sweeps
-// at once and then, if the tier is still full, evicts the least recently seen of a sample of keys. A new key is
-// never refused for want of room.
+// that have refilled, which hold nothing a fresh bucket would not, and a new key arriving at the cap first sweeps,
+// unless a sweep ran in the last second, and then, if the tier is still full, evicts the least recently seen of a
+// sample of keys. A new key is never refused for want of room.
 package ratelimit
 
 import (
@@ -16,6 +16,11 @@ import (
 
 // sweepEvery is how often a limiter forgets the buckets that have refilled.
 const sweepEvery = time.Minute
+
+// capSweepEvery is how often, at most, a limiter at its key cap sweeps to make room for a new key. A sweep visits
+// every bucket under the limiter's mutex, and at a cap whose buckets are all spent it frees nothing, so a new key
+// arriving sooner goes straight to eviction.
+const capSweepEvery = time.Second
 
 // evictionSample is how many keys a full limiter samples to choose the one to evict.
 const evictionSample = 64
@@ -112,6 +117,32 @@ func New(tier Tier, now func() time.Time) *Limiter {
 	return &Limiter{tier: tier, now: now, buckets: map[string]*bucket{}, swept: now()}
 }
 
+// Limiters are the limiters of the rate-limited routes, one per tier of Tiers, which says what each limits.
+type Limiters struct {
+	Contact             *Limiter
+	ContactUnattributed *Limiter
+	LinkReport          *Limiter
+	DraftWrite          *Limiter
+	RevisionWrite       *Limiter
+	RepertoireWrite     *Limiter
+	ProfileWrite        *Limiter
+	MCP                 *Limiter
+}
+
+// NewLimiters returns a limiter for each of tiers, timed by now. It panics as New does.
+func NewLimiters(tiers Tiers, now func() time.Time) Limiters {
+	return Limiters{
+		Contact:             New(tiers.Contact, now),
+		ContactUnattributed: New(tiers.ContactUnattributed, now),
+		LinkReport:          New(tiers.LinkReport, now),
+		DraftWrite:          New(tiers.DraftWrite, now),
+		RevisionWrite:       New(tiers.RevisionWrite, now),
+		RepertoireWrite:     New(tiers.RepertoireWrite, now),
+		ProfileWrite:        New(tiers.ProfileWrite, now),
+		MCP:                 New(tiers.MCP, now),
+	}
+}
+
 // Name is the limiter's tier's name.
 func (l *Limiter) Name() string {
 	return l.tier.Name
@@ -183,14 +214,16 @@ func (l *Limiter) sweep(now time.Time) {
 	l.swept = now
 }
 
-// makeRoom makes room for a new key if the limiter holds its cap: it sweeps, and if that frees nothing, it
-// evicts the least recently seen of a sample of keys. Map iteration order is unspecified and varies between
-// iterations, so the sample does too.
+// makeRoom makes room for a new key if the limiter holds its cap: it sweeps, unless it swept less than
+// capSweepEvery ago, and if that frees nothing, it evicts the least recently seen of a sample of keys. Map
+// iteration order is unspecified and varies between iterations, so the sample does too.
 func (l *Limiter) makeRoom(now time.Time) {
 	if len(l.buckets) < l.tier.MaxKeys {
 		return
 	}
-	l.sweep(now)
+	if now.Sub(l.swept) >= capSweepEvery {
+		l.sweep(now)
+	}
 	if len(l.buckets) < l.tier.MaxKeys {
 		return
 	}

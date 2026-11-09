@@ -1,7 +1,10 @@
 package command
 
 import (
+	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -331,7 +334,7 @@ func TestSubmitRevision_ChecksPendingReferencesOfAnInlineApproval(t *testing.T) 
 		Flags: []domain.Flag{{Code: domain.FlagPossibleDuplicate}}}
 
 	m := newSubmitMocks(t)
-	m.drafts.EXPECT().GetDraft(mock.Anything, moderator, testDraftID).Return(testExisting, nil).Twice()
+	m.drafts.EXPECT().GetDraft(mock.Anything, moderator, testDraftID).Return(testExisting, nil).Once()
 	m.finder.EXPECT().FindDuplicates(mock.Anything, ref.Candidate, true).
 		Return([]domain.DuplicateMatch{own, public}, nil).Once()
 	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.MatchedBy(func(r datasources.SubmitRequest) bool {
@@ -352,9 +355,9 @@ func TestSubmitRevision_ChecksPendingReferencesOfAnInlineApproval(t *testing.T) 
 	m.drafts.EXPECT().GetDraft(mock.Anything, moderator, testDraftID).Return(testExisting, nil).
 		Times(maxDuplicateRechecks + 1)
 	m.finder.EXPECT().FindDuplicates(mock.Anything, ref.Candidate, true).Return([]domain.DuplicateMatch{}, nil).
-		Times(maxDuplicateRechecks + 1)
+		Times(maxDuplicateRechecks + 2)
 	m.submitter.EXPECT().SubmitDraft(mock.Anything, mock.Anything).Return(datasources.SubmitResult{}, unchecked).
-		Times(maxDuplicateRechecks + 1)
+		Times(maxDuplicateRechecks + 2)
 	_, err = m.cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: interactiveMod, DraftID: testDraftID})
 	require.ErrorIs(t, err, datasources.ErrUnavailable)
 }
@@ -588,4 +591,100 @@ func TestRevertTo_DemotedModeratorGoesPending(t *testing.T) {
 	_, err = (&RevertTo{Reverter: reverter, Revisions: mocks.NewMyRevisionGetter(t), Now: fixedClock}).Execute(
 		t.Context(), RevertRequest{Principal: interactiveMod, RevisionID: testRevisionID})
 	require.ErrorIs(t, err, datasources.ErrUnavailable)
+}
+
+// pendingReferenceSubmitter refuses, as SubmitDraft does, a submission lacking a check of any current pending
+// reference for its current names (datasources.UncheckedPendingReferencesError). renames holds, by call number,
+// the names reference 78 has from that call on: the moderator renames it in another tab while they submit.
+type pendingReferenceSubmitter struct {
+	current map[int64]datasources.PendingReferenceCandidate
+	renames map[int]datasources.PendingReferenceCandidate
+	sent    [][]int64
+}
+
+func (s *pendingReferenceSubmitter) SubmitDraft(
+	_ context.Context, req datasources.SubmitRequest,
+) (datasources.SubmitResult, error) {
+	s.sent = append(s.sent, slices.Sorted(maps.Keys(req.PendingReferenceDuplicates)))
+	if renamed, ok := s.renames[len(s.sent)]; ok {
+		s.current[78] = renamed
+	}
+	unchecked := map[int64]datasources.PendingReferenceCandidate{}
+	for id, ref := range s.current {
+		if check, ok := req.PendingReferenceDuplicates[id]; !ok || !check.Candidate.Equal(ref.Candidate) {
+			unchecked[id] = ref
+		}
+	}
+	if len(unchecked) > 0 {
+		return datasources.SubmitResult{}, &datasources.UncheckedPendingReferencesError{References: unchecked}
+	}
+
+	return datasources.SubmitResult{RevisionID: testDraftID, Status: domain.RevisionStatusApproved}, nil
+}
+
+// TestSubmitRevision_PendingReferenceChecksKeptAcrossRetries requires the checks of an inline approval's pending
+// references to be kept across its retries, so that a retry sends the checks still valid with the fresh ones: a
+// rename of one of two references costs one recheck, not every check. The first, check-less round is not a
+// recheck, so maxDuplicateRechecks renames are survived, and one more gives up as unavailable.
+func TestSubmitRevision_PendingReferenceChecksKeptAcrossRetries(t *testing.T) {
+	t.Parallel()
+
+	person := func(id int64, name string) datasources.PendingReferenceCandidate {
+		return datasources.PendingReferenceCandidate{
+			Entity: domain.RevisionEntity{Type: domain.EntityTypePerson, ID: id, Slug: fmt.Sprintf("pending-person-%d", id),
+				IsNew: true},
+			Candidate: domain.NewDuplicateCandidate(domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion,
+				Name: name}),
+		}
+	}
+	renamed := func(calls ...int) map[int]datasources.PendingReferenceCandidate {
+		renames := map[int]datasources.PendingReferenceCandidate{}
+		for i, call := range calls {
+			renames[call] = person(32, fmt.Sprintf("Ash Example Renamed %d", i+1))
+		}
+		return renames
+	}
+	both := []int64{77, 78}
+
+	for _, tc := range []struct {
+		name     string
+		renames  map[int]datasources.PendingReferenceCandidate
+		wantSent [][]int64
+		wantErr  error
+	}{
+		{name: "one rename", renames: renamed(2), wantSent: [][]int64{nil, both, both}},
+		{name: "a rename per recheck", renames: renamed(2, 3), wantSent: [][]int64{nil, both, both, both}},
+		{name: "one rename too many", renames: renamed(2, 3, 4), wantSent: [][]int64{nil, both, both, both},
+			wantErr: datasources.ErrUnavailable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := &pendingReferenceSubmitter{
+				current: map[int64]datasources.PendingReferenceCandidate{
+					77: person(31, "Hazel Example"), 78: person(32, "Ash Example"),
+				},
+				renames: tc.renames,
+			}
+			drafts, finder := mocks.NewDraftGetter(t), mocks.NewDuplicateFinder(t)
+			revisions := mocks.NewMyRevisionGetter(t)
+			drafts.EXPECT().GetDraft(mock.Anything, interactiveMod.Actor(), testDraftID).Return(testExisting, nil)
+			finder.EXPECT().FindDuplicates(mock.Anything, mock.Anything, true).Return([]domain.DuplicateMatch{}, nil)
+			if tc.wantErr == nil {
+				revisions.EXPECT().GetMyRevision(mock.Anything, interactiveMod.Actor(), testDraftID).
+					Return(domain.MyRevision{}, nil).Once()
+			}
+			cmd := &SubmitRevision{Drafts: drafts, Duplicates: finder, Submitter: s, Revisions: revisions,
+				Now: fixedClock}
+
+			_, err := cmd.Execute(t.Context(), SubmitRevisionRequest{Principal: interactiveMod, DraftID: testDraftID})
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tc.wantSent, s.sent, "the references each call sent checks of")
+		})
+	}
 }

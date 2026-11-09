@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -36,31 +35,12 @@ func testMCPTools(t *testing.T) *mcp.Toolset {
 var embeddedMCPTools = sync.OnceValues(func() (*mcp.Toolset, error) { return mcp.NewToolset(openapi.Spec) })
 
 // unlimitedRateLimits are rate limits no test reaches, for the tests of everything but rate limiting.
-func unlimitedRateLimits() router.RateLimits {
+func unlimitedRateLimits() ratelimit.Limiters {
 	tier := ratelimit.Tier{Name: "unlimited", Burst: 1 << 30, Interval: time.Hour, MaxKeys: 1 << 16}
-	return rateLimits(ratelimit.Tiers{
+	return ratelimit.NewLimiters(ratelimit.Tiers{
 		Contact: tier, ContactUnattributed: tier, LinkReport: tier, DraftWrite: tier, RevisionWrite: tier,
 		RepertoireWrite: tier, ProfileWrite: tier, MCP: tier,
 	}, time.Now)
-}
-
-// TestRateLimits_OneLimiterPerTier checks that each route's limiter is built from its own tier.
-func TestRateLimits_OneLimiterPerTier(t *testing.T) {
-	t.Parallel()
-
-	tiers := ratelimit.DefaultTiers()
-	limits := reflect.ValueOf(rateLimits(tiers, time.Now))
-	tierValues := reflect.ValueOf(tiers)
-	require.Equal(t, tierValues.NumField(), limits.NumField(), "every tier needs a limiter")
-
-	for i := range tierValues.NumField() {
-		name := tierValues.Type().Field(i).Name
-		tier, ok := tierValues.Field(i).Interface().(ratelimit.Tier)
-		require.True(t, ok)
-		limiter, ok := limits.FieldByName(name).Interface().(*ratelimit.Limiter)
-		require.Truef(t, ok, "no limiter %s", name)
-		assert.Equalf(t, tier.Name, limiter.Name(), "limiter %s", name)
-	}
 }
 
 func TestClientIPConfigFromEnv(t *testing.T) {
@@ -137,7 +117,7 @@ func TestContactSubmit_RateLimitedBeforeTurnstile(t *testing.T) {
 	handler := NewHTTPHandler(HTTPDependencies{
 		ContactRequestCreator: creator,
 		TurnstileVerifier:     verifier,
-		RateLimits: rateLimits(ratelimit.Tiers{
+		RateLimits: ratelimit.NewLimiters(ratelimit.Tiers{
 			Contact: tier, ContactUnattributed: tier, LinkReport: tier, DraftWrite: tier, RevisionWrite: tier,
 			RepertoireWrite: tier, ProfileWrite: tier, MCP: tier,
 		}, func() time.Time { return handlerNow }),

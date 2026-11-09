@@ -8,6 +8,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
+	"github.com/jbeshir/bardic-torch/internal/ratelimit"
 	"github.com/jbeshir/bardic-torch/internal/transport/mcp"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/controller"
 )
@@ -74,7 +75,7 @@ type Dependencies struct {
 	MCPTools *mcp.Toolset
 	// RateLimits limit the routes docs/PLAN.md §5.1 "Rate limits" lists; ClientIP says how the contact form tells its
 	// clients apart.
-	RateLimits RateLimits
+	RateLimits ratelimit.Limiters
 	ClientIP   ClientIPConfig
 	Now        func() time.Time
 }

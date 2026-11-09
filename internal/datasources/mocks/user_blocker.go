@@ -48,16 +48,16 @@ func (_m *UserBlocker) EXPECT() *UserBlocker_Expecter {
 }
 
 // BlockUser provides a mock function for the type UserBlocker
-func (_mock *UserBlocker) BlockUser(ctx context.Context, userID string, blockedAt time.Time) error {
-	ret := _mock.Called(ctx, userID, blockedAt)
+func (_mock *UserBlocker) BlockUser(ctx context.Context, moderatorUserID string, userID string, blockedAt time.Time) error {
+	ret := _mock.Called(ctx, moderatorUserID, userID, blockedAt)
 
 	if len(ret) == 0 {
 		panic("no return value specified for BlockUser")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Time) error); ok {
-		r0 = returnFunc(ctx, userID, blockedAt)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, time.Time) error); ok {
+		r0 = returnFunc(ctx, moderatorUserID, userID, blockedAt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -71,13 +71,14 @@ type UserBlocker_BlockUser_Call struct {
 
 // BlockUser is a helper method to define mock.On call
 //   - ctx context.Context
+//   - moderatorUserID string
 //   - userID string
 //   - blockedAt time.Time
-func (_e *UserBlocker_Expecter) BlockUser(ctx any, userID any, blockedAt any) *UserBlocker_BlockUser_Call {
-	return &UserBlocker_BlockUser_Call{Call: _e.mock.On("BlockUser", ctx, userID, blockedAt)}
+func (_e *UserBlocker_Expecter) BlockUser(ctx any, moderatorUserID any, userID any, blockedAt any) *UserBlocker_BlockUser_Call {
+	return &UserBlocker_BlockUser_Call{Call: _e.mock.On("BlockUser", ctx, moderatorUserID, userID, blockedAt)}
 }
 
-func (_c *UserBlocker_BlockUser_Call) Run(run func(ctx context.Context, userID string, blockedAt time.Time)) *UserBlocker_BlockUser_Call {
+func (_c *UserBlocker_BlockUser_Call) Run(run func(ctx context.Context, moderatorUserID string, userID string, blockedAt time.Time)) *UserBlocker_BlockUser_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -87,14 +88,19 @@ func (_c *UserBlocker_BlockUser_Call) Run(run func(ctx context.Context, userID s
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 time.Time
+		var arg2 string
 		if args[2] != nil {
-			arg2 = args[2].(time.Time)
+			arg2 = args[2].(string)
+		}
+		var arg3 time.Time
+		if args[3] != nil {
+			arg3 = args[3].(time.Time)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -105,7 +111,7 @@ func (_c *UserBlocker_BlockUser_Call) Return(err error) *UserBlocker_BlockUser_C
 	return _c
 }
 
-func (_c *UserBlocker_BlockUser_Call) RunAndReturn(run func(ctx context.Context, userID string, blockedAt time.Time) error) *UserBlocker_BlockUser_Call {
+func (_c *UserBlocker_BlockUser_Call) RunAndReturn(run func(ctx context.Context, moderatorUserID string, userID string, blockedAt time.Time) error) *UserBlocker_BlockUser_Call {
 	_c.Call.Return(run)
 	return _c
 }

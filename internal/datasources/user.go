@@ -42,15 +42,18 @@ type DisplayNameUpdater interface {
 	UpdateDisplayName(ctx context.Context, userID, displayName string) error
 }
 
-// UserBlocker blocks a contributor, returning ErrNotFound if there is no contributor with the ID. Blocking
-// an already blocked contributor keeps the original blocked time.
+// UserBlocker blocks a contributor for the moderator moderatorUserID, returning ErrNotFound if there is no
+// contributor with the ID. Blocking an already blocked contributor keeps the original blocked time. Like every
+// moderator-only write, it first locks the moderator's users row, refusing one no longer a moderator or blocked
+// since their request was authenticated (domain.ErrModeratorRequired, ErrUserBlocked).
 type UserBlocker interface {
-	BlockUser(ctx context.Context, userID string, blockedAt time.Time) error
+	BlockUser(ctx context.Context, moderatorUserID, userID string, blockedAt time.Time) error
 }
 
-// UserUnblocker unblocks a contributor, returning ErrNotFound if there is no contributor with the ID.
+// UserUnblocker unblocks a contributor for the moderator moderatorUserID, returning ErrNotFound if there is no
+// contributor with the ID. It locks the moderator's users row first, as UserBlocker does.
 type UserUnblocker interface {
-	UnblockUser(ctx context.Context, userID string) error
+	UnblockUser(ctx context.Context, moderatorUserID, userID string) error
 }
 
 // ErrDisplayNameTaken is returned, wrapped, when another user's display name has the same domain.DisplayNameKey.

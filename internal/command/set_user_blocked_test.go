@@ -19,6 +19,7 @@ type setUserBlockedMocks struct {
 	blocker   *mocks.UserBlocker
 	unblocker *mocks.UserUnblocker
 	getter    *mocks.UserGetter
+	publicIDs *mocks.PublicIDSetter
 	cmd       *SetUserBlocked
 }
 
@@ -27,8 +28,10 @@ func newSetUserBlockedMocks(t *testing.T) setUserBlockedMocks {
 		blocker:   mocks.NewUserBlocker(t),
 		unblocker: mocks.NewUserUnblocker(t),
 		getter:    mocks.NewUserGetter(t),
+		publicIDs: mocks.NewPublicIDSetter(t),
 	}
-	m.cmd = &SetUserBlocked{Blocker: m.blocker, Unblocker: m.unblocker, Getter: m.getter, Now: fixedClock}
+	m.cmd = &SetUserBlocked{Blocker: m.blocker, Unblocker: m.unblocker, Getter: m.getter, PublicIDSetter: m.publicIDs,
+		PublicIDs: publicIDSequence(), Now: fixedClock}
 	return m
 }
 
@@ -40,9 +43,9 @@ func blockRequest(blocked bool) SetUserBlockedRequest {
 // expectSet expects one block or unblock of resolvedUserID, returning err.
 func (m setUserBlockedMocks) expectSet(blocked bool, err error) {
 	if blocked {
-		m.blocker.EXPECT().BlockUser(mock.Anything, resolvedUserID, fixedNow).Return(err).Once()
+		m.blocker.EXPECT().BlockUser(mock.Anything, moderatorUser.ID, resolvedUserID, fixedNow).Return(err).Once()
 	} else {
-		m.unblocker.EXPECT().UnblockUser(mock.Anything, resolvedUserID).Return(err).Once()
+		m.unblocker.EXPECT().UnblockUser(mock.Anything, moderatorUser.ID, resolvedUserID).Return(err).Once()
 	}
 }
 
@@ -54,7 +57,8 @@ func TestSetUserBlocked_ReturnsUpdatedUser(t *testing.T) {
 		t.Run(blockedName(blocked), func(t *testing.T) {
 			t.Parallel()
 
-			stored := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: fixedNow}
+			stored := domain.User{ID: resolvedUserID, PublicID: testPublicID, DisplayName: testDisplayName,
+				Role: domain.RoleContributor, CreatedAt: fixedNow}
 			if blocked {
 				// Blocking an already blocked user keeps the original time, which the stored user reflects.
 				stored.BlockedAt = &blockedAt
@@ -112,7 +116,8 @@ func TestSetUserBlocked_ModeratorIsNotBlockable(t *testing.T) {
 func TestSetUserBlocked_RetriesContributorCreatedDuringUpdate(t *testing.T) {
 	t.Parallel()
 
-	created := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: fixedNow}
+	created := domain.User{ID: resolvedUserID, PublicID: testPublicID, DisplayName: testDisplayName,
+		Role: domain.RoleContributor, CreatedAt: fixedNow}
 	for _, blocked := range []bool{true, false} {
 		t.Run(blockedName(blocked), func(t *testing.T) {
 			t.Parallel()
@@ -139,7 +144,8 @@ func TestSetUserBlocked_RetriesContributorCreatedDuringUpdate(t *testing.T) {
 func TestSetUserBlocked_ContributorNeverMatchingFails(t *testing.T) {
 	t.Parallel()
 
-	contributor := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: fixedNow}
+	contributor := domain.User{ID: resolvedUserID, PublicID: testPublicID, DisplayName: testDisplayName,
+		Role: domain.RoleContributor, CreatedAt: fixedNow}
 	m := newSetUserBlockedMocks(t)
 	m.expectSet(true, datasources.ErrNotFound)
 	m.expectSet(true, datasources.ErrNotFound)
@@ -208,5 +214,40 @@ func TestSetUserBlocked_ModeratorRequired(t *testing.T) {
 				require.ErrorIs(t, err, domain.ErrModeratorRequired)
 			})
 		}
+	}
+}
+
+// TestSetUserBlocked_AssignsMissingPublicID checks that a user without a public ID, created before public IDs and
+// with no request since, is given one before they are returned, as ResolveUser gives one (a taken ID is replaced
+// by a fresh one), and is read again with it.
+func TestSetUserBlocked_AssignsMissingPublicID(t *testing.T) {
+	t.Parallel()
+
+	for _, blocked := range []bool{true, false} {
+		t.Run(blockedName(blocked), func(t *testing.T) {
+			t.Parallel()
+
+			stored := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleContributor,
+				CreatedAt: fixedNow}
+			if blocked {
+				stored.BlockedAt = new(fixedNow)
+			}
+			withID := stored
+			withID.PublicID = secondPublicID
+			m := newSetUserBlockedMocks(t)
+			m.expectSet(blocked, nil)
+			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(stored, nil).Once()
+			m.publicIDs.EXPECT().SetUserPublicIDIfMissing(mock.Anything, resolvedUserID, firstPublicID).
+				Return(datasources.ErrPublicIDTaken).Once()
+			m.publicIDs.EXPECT().SetUserPublicIDIfMissing(mock.Anything, resolvedUserID, secondPublicID).
+				Return(nil).Once()
+			m.getter.EXPECT().GetUser(mock.Anything, resolvedUserID).Return(withID, nil).Once()
+
+			user, err := m.cmd.Execute(t.Context(), blockRequest(blocked))
+
+			require.NoError(t, err)
+			require.Truef(t, domain.IsPublicID(user.PublicID), "public_id %q", user.PublicID)
+			assert.Equal(t, withID, user)
+		})
 	}
 }
