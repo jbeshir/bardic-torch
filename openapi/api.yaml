@@ -6,8 +6,9 @@ info:
 
     Conventions:
     - Request and response bodies are JSON (`application/json`); property names are snake_case.
-    - Response objects are closed (`additionalProperties: false`): clients can rely on receiving exactly the
-      documented properties.
+    - Response objects are closed (`additionalProperties: false`) within a version of this document, but a minor
+      version may add response properties, enum values and statuses (1.1.0 did): clients must ignore properties
+      they do not know, and treat an enum value or status they do not know as an unknown case, not as an error.
     - Errors use the `Error` body, whose `code` is stable and machine-readable; `message` is for humans.
     - A path no operation matches gets 404 `not_found`; a known path with an unsupported method gets 405
       `method_not_allowed` with an `Allow` header listing the supported methods. Neither authenticates the
@@ -15,6 +16,8 @@ info:
     - Request headers over 16 KiB get a plain-text 431 from the server, before any operation runs.
     - A request whose path is not validly percent-encoded gets a plain-text 400 from the server, before any
       operation runs.
+    - `X-Bardic-Client-IP` and `X-Bardic-Proxy-Secret` are sent by the FE's server only, on the contact form (see
+      `submitContactRequest`); a browser must not send them.
     - Some writes are rate limited, per user (the contact form per client IP): each such operation lists 429
       `rate_limited`, with a `Retry-After` header in seconds. Public reads are not rate limited.
     - operationIds are camelCase.
@@ -1842,7 +1845,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RevisionHistory"
         "400":
-          $ref: "#/components/responses/InvalidHistoryRequest"
+          $ref: "#/components/responses/InvalidSlugPageRequest"
         "404":
           description: |
             No public piece has this address, so there is no history to show; the error code is `not_found`.
@@ -1882,7 +1885,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RevisionHistory"
         "400":
-          $ref: "#/components/responses/InvalidHistoryRequest"
+          $ref: "#/components/responses/InvalidSlugPageRequest"
         "404":
           description: |
             No public person has this address, so there is no history to show; the error code is `not_found`.
@@ -1922,7 +1925,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RevisionHistory"
         "400":
-          $ref: "#/components/responses/InvalidHistoryRequest"
+          $ref: "#/components/responses/InvalidSlugPageRequest"
         "404":
           description: |
             No public term has this address, so there is no history to show; the error code is `not_found`.
@@ -1962,7 +1965,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RevisionHistory"
         "400":
-          $ref: "#/components/responses/InvalidCollectionHistoryRequest"
+          $ref: "#/components/responses/InvalidCollectionPageRequest"
         "404":
           description: |
             No public collection has this address, so there is no history to show; the error code is `not_found`.
@@ -2002,7 +2005,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RevisionHistory"
         "400":
-          $ref: "#/components/responses/InvalidHistoryRequest"
+          $ref: "#/components/responses/InvalidSlugPageRequest"
         "404":
           description: |
             No public event has this address, so there is no history to show; the error code is `not_found`.
@@ -2043,7 +2046,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PersonPerformanceList"
         "400":
-          $ref: "#/components/responses/InvalidHistoryRequest"
+          $ref: "#/components/responses/InvalidSlugPageRequest"
         "404":
           description: No public person has this slug; the error code is `not_found`.
           content:
@@ -2082,7 +2085,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CollectionCitationList"
         "400":
-          $ref: "#/components/responses/InvalidCollectionHistoryRequest"
+          $ref: "#/components/responses/InvalidCollectionPageRequest"
         "404":
           description: No public collection has this ID; the error code is `not_found`.
           content:
@@ -2121,7 +2124,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/EventPerformanceList"
         "400":
-          $ref: "#/components/responses/InvalidHistoryRequest"
+          $ref: "#/components/responses/InvalidSlugPageRequest"
         "404":
           description: No public event has this slug; the error code is `not_found`.
           content:
@@ -2254,6 +2257,26 @@ paths:
         hour. IPv6 addresses are counted by their /56 network.
       operationId: submitContactRequest
       security: []
+      parameters:
+        - name: X-Bardic-Client-IP
+          in: header
+          required: false
+          description: |
+            The browser's IP, as the FE attributes it. Only the FE's server sends it, together with
+            `X-Bardic-Proxy-Secret`; the FE strips any copies a browser sent. Without the right secret it is ignored.
+          schema:
+            type: string
+            examples:
+              - 203.0.113.7
+        - name: X-Bardic-Proxy-Secret
+          in: header
+          required: false
+          description: |
+            The shared secret that proves the request comes from the FE's server (`FE_PROXY_SECRET`). FE server
+            only; strip client copies. It is never logged.
+          schema:
+            type: string
+            format: password
       requestBody:
         description: The message, how to reply, and the Turnstile token.
         required: true
@@ -3955,7 +3978,7 @@ components:
         $ref: "#/components/schemas/Letter"
 
   responses:
-    InvalidHistoryRequest:
+    InvalidSlugPageRequest:
       description: |
         The slug is not a valid slug, `limit` or `offset` is out of range, a parameter is given more than once,
         or the query string is not validly percent-encoded; the error code is `invalid_request`.
@@ -3966,7 +3989,7 @@ components:
           example:
             code: invalid_request
             message: "invalid limit: must be an integer from 1 to 100"
-    InvalidCollectionHistoryRequest:
+    InvalidCollectionPageRequest:
       description: |
         The `collection_id` is not a positive integer in decimal digits, `limit` or `offset` is out of range, a
         parameter is given more than once, or the query string is not validly percent-encoded; the error code is
@@ -6666,7 +6689,9 @@ components:
 
         A Creative Commons licence's URL is `https://creativecommons.org/licenses/<terms>/<licence_version>/`,
         where `<terms>` is the code without its `cc_` prefix and with `_` replaced by `-`: `by`, `by-sa`, `by-nc`,
-        `by-nc-sa`, `by-nd` or `by-nc-nd`. The URL is not a field: a client derives it. For `other`, the licence is
+        `by-nc-sa`, `by-nd` or `by-nc-nd`. The URL is not a field: a client derives it. The one exception is
+        version 1.0 of `cc_by_nc_nd`, which Creative Commons published as `by-nd-nc`:
+        `https://creativecommons.org/licenses/by-nd-nc/1.0/` (`by-nc-nd` starts at 2.0). For `other`, the licence is
         described by the piece's `licensing_source` link.
       enum: [pd, cc_by, cc_by_sa, cc_by_nc, cc_by_nc_sa, cc_by_nd, cc_by_nc_nd, arr, other]
       examples:
@@ -8097,10 +8122,12 @@ components:
       examples:
         - Sung at every revel since the founding of the barony.
 
-    EditorPerformance:
+    EditorPerformanceRequest:
       type: object
       description: >-
-        A performance a link records, with its event and performers by slug, and its key.
+        A performance a link records, as a request sends it: with its event and performers by slug, and its key, which
+        a new performance leaves out or sets to null. `EditorPerformance` is the response form, whose key is always
+        present.
       additionalProperties: false
       required: [event, year, uploader, description_verbatim, performers]
       properties:
@@ -8150,6 +8177,15 @@ components:
           uploader: null
           description_verbatim: Sung at Midwinter Revel by Morwen.
           performers: [morwen]
+
+    EditorPerformance:
+      description: >-
+        A performance a link records, as the API returns it: `EditorPerformanceRequest` with `key` always present,
+        null where the performance has no key yet (a document starting from the caller's pending revision or draft
+        holds the keys as sent).
+      allOf:
+        - $ref: "#/components/schemas/EditorPerformanceRequest"
+        - required: [key]
 
     EditorPieceDocumentRequest:
       type: object
@@ -8319,15 +8355,16 @@ components:
           type: array
           maxItems: 200
           items:
-            $ref: "#/components/schemas/EditorPieceLink"
+            $ref: "#/components/schemas/EditorPieceLinkRequest"
         preferences:
-          type: array
+          type: [array, "null"]
           maxItems: 8
           description: |
             The stated preference profile, each dimension at most once. A preference whose source is a link hidden
             for privacy is withheld from everyone but an interactive moderator, and kept when the document is
-            submitted. A client built before this field existed may leave it out: the document then keeps the
-            base's preferences (null means the same).
+            submitted. A client built before this field existed may leave it out, and a request may send null: the
+            document then keeps the base's preferences, whereas an empty list clears them. A response always carries
+            a list.
           items:
             $ref: "#/components/schemas/PreferenceEntry"
       examples:
@@ -8366,11 +8403,18 @@ components:
       allOf:
         - $ref: "#/components/schemas/EditorPieceDocumentRequest"
         - required: [preferences, licence_version]
+          properties:
+            links:
+              items:
+                $ref: "#/components/schemas/EditorPieceLink"
+            preferences:
+              type: array
 
-    EditorPieceLink:
+    EditorPieceLinkRequest:
       type: object
       description: |
-        A link attached to a piece, with the roles it has there and the performances of the piece it records.
+        A link attached to a piece, as a request sends it, with the roles it has there and the performances of the
+        piece it records. `EditorPieceLink` is the response form.
         A link is identified by its URL, normalized; its hidden state and liveness are not the document's.
       additionalProperties: false
       required: [url, title, description, platform, place_type, collection_id, locator, roles, performances]
@@ -8425,7 +8469,7 @@ components:
           type: array
           maxItems: 200
           items:
-            $ref: "#/components/schemas/EditorPerformance"
+            $ref: "#/components/schemas/EditorPerformanceRequest"
       examples:
         - url: https://example.org/the-copper-kettle
           title: null
@@ -8441,6 +8485,17 @@ components:
               uploader: null
               description_verbatim: Sung at Midwinter Revel by Morwen.
               performers: [morwen]
+
+    EditorPieceLink:
+      description: >-
+        A link attached to a piece, as the API returns it: `EditorPieceLinkRequest` whose performances all carry
+        their `key`.
+      allOf:
+        - $ref: "#/components/schemas/EditorPieceLinkRequest"
+        - properties:
+            performances:
+              items:
+                $ref: "#/components/schemas/EditorPerformance"
 
     EditorPersonDocumentRequest:
       type: object
@@ -8544,15 +8599,16 @@ components:
           type: array
           maxItems: 200
           items:
-            $ref: "#/components/schemas/EditorPersonLink"
+            $ref: "#/components/schemas/EditorPersonLinkRequest"
         preferences:
-          type: array
+          type: [array, "null"]
           maxItems: 8
           description: |
             The stated preference profile, each dimension at most once. A preference whose source is a link hidden
             for privacy is withheld from everyone but an interactive moderator, and kept when the document is
-            submitted. A client built before this field existed may leave it out: the document then keeps the
-            base's preferences (null means the same).
+            submitted. A client built before this field existed may leave it out, and a request may send null: the
+            document then keeps the base's preferences, whereas an empty list clears them. A response always carries
+            a list.
           items:
             $ref: "#/components/schemas/PreferenceEntry"
       examples:
@@ -8579,29 +8635,37 @@ components:
       allOf:
         - $ref: "#/components/schemas/EditorPersonDocumentRequest"
         - required: [preferences]
+          properties:
+            links:
+              items:
+                $ref: "#/components/schemas/EditorPersonLink"
+            preferences:
+              type: array
 
-    EditorPersonLink:
+    EditorPersonLinkRequest:
       type: object
-      description: A link attached to a person, with the performances it records, each of a piece or of none.
+      description: >-
+        A link attached to a person, as a request sends it, with the performances it records, each of a piece or of
+        none. `EditorPersonLink` is the response form.
       additionalProperties: false
       required: [url, title, description, platform, place_type, collection_id, locator, roles, performances]
       properties:
         url:
-          $ref: "#/components/schemas/EditorPieceLink/properties/url"
+          $ref: "#/components/schemas/EditorPieceLinkRequest/properties/url"
         title:
-          $ref: "#/components/schemas/EditorPieceLink/properties/title"
+          $ref: "#/components/schemas/EditorPieceLinkRequest/properties/title"
         description:
-          $ref: "#/components/schemas/EditorPieceLink/properties/description"
+          $ref: "#/components/schemas/EditorPieceLinkRequest/properties/description"
         platform:
-          $ref: "#/components/schemas/EditorPieceLink/properties/platform"
+          $ref: "#/components/schemas/EditorPieceLinkRequest/properties/platform"
         place_type:
-          $ref: "#/components/schemas/EditorPieceLink/properties/place_type"
+          $ref: "#/components/schemas/EditorPieceLinkRequest/properties/place_type"
         collection_id:
-          $ref: "#/components/schemas/EditorPieceLink/properties/collection_id"
+          $ref: "#/components/schemas/EditorPieceLinkRequest/properties/collection_id"
         locator:
-          $ref: "#/components/schemas/EditorPieceLink/properties/locator"
+          $ref: "#/components/schemas/EditorPieceLinkRequest/properties/locator"
         roles:
-          $ref: "#/components/schemas/EditorPieceLink/properties/roles"
+          $ref: "#/components/schemas/EditorPieceLinkRequest/properties/roles"
         performances:
           type: array
           maxItems: 200
@@ -8616,17 +8680,17 @@ components:
                   - $ref: "#/components/schemas/EditorSlug"
                   - type: "null"
               key:
-                $ref: "#/components/schemas/EditorPerformance/properties/key"
+                $ref: "#/components/schemas/EditorPerformanceRequest/properties/key"
               event:
-                $ref: "#/components/schemas/EditorPerformance/properties/event"
+                $ref: "#/components/schemas/EditorPerformanceRequest/properties/event"
               year:
-                $ref: "#/components/schemas/EditorPerformance/properties/year"
+                $ref: "#/components/schemas/EditorPerformanceRequest/properties/year"
               uploader:
-                $ref: "#/components/schemas/EditorPerformance/properties/uploader"
+                $ref: "#/components/schemas/EditorPerformanceRequest/properties/uploader"
               description_verbatim:
-                $ref: "#/components/schemas/EditorPerformance/properties/description_verbatim"
+                $ref: "#/components/schemas/EditorPerformanceRequest/properties/description_verbatim"
               performers:
-                $ref: "#/components/schemas/EditorPerformance/properties/performers"
+                $ref: "#/components/schemas/EditorPerformanceRequest/properties/performers"
       examples:
         - url: https://example.org/morwen
           title: Morwen's songs
@@ -8637,6 +8701,17 @@ components:
           locator: null
           roles: [website]
           performances: []
+
+    EditorPersonLink:
+      description: >-
+        A link attached to a person, as the API returns it: `EditorPersonLinkRequest` whose performances all carry
+        their `key`.
+      allOf:
+        - $ref: "#/components/schemas/EditorPersonLinkRequest"
+        - properties:
+            performances:
+              items:
+                required: [key]
 
     EditorTermDocument:
       type: object
@@ -9084,10 +9159,17 @@ components:
     EditorDocumentRequest:
       description: |
         A document in the editor format as a request sends it, in the shape of the `entity_type` beside it in the
-        enclosing object: `EditorDocument`, except that a piece's or person's `preferences` may be left out by a
-        client built before the field existed, which keeps the base's. Every other field is required, and a field
-        the document type does not have is 400 `invalid_request`. Its strings are taken as sent, without
-        normalisation: send line breaks as LF and text in NFC, since a carriage return or another control character
+        enclosing object: `EditorDocument`, except for three fields a client built before they existed may leave
+        out, so that its request keeps what the base holds:
+
+        - `preferences` of a piece or person: left out or null, it keeps the base's preferences; an empty list
+          clears them.
+        - `licence_version` of a piece: left out, it keeps the base's version; null clears it.
+        - `key` of a performance: left out or null, the performance is new, or matched by its description, year and
+          piece; a key from a response matches the performance it was received with.
+
+        Every other field is required, and a field the document type does not have is 400 `invalid_request`.
+        Its strings are taken as sent, without normalisation: send line breaks as LF and text in NFC, since a carriage return or another control character
         is 422 `invalid_document` `invalid_characters`.
       oneOf:
         - $ref: "#/components/schemas/EditorPieceDocumentRequest"
@@ -9832,8 +9914,7 @@ components:
     RepertoireVisibility:
       type: string
       description: |
-        Whether a repertoire entry is listed on its owner's public repertoire (`public`) or not (`private`, the
-        default for a new entry).
+        Whether a repertoire entry is listed on its owner's public repertoire (`public`) or not (`private`).
       enum: [private, public]
       examples:
         - private

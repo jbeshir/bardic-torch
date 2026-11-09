@@ -61,6 +61,20 @@ paths:
                         name: {type: string}
                   nullable:
                     type: [object, "null"]
+                  closed_intersection:
+                    allOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          name: {type: string}
+                      - properties:
+                          name: {type: string}
+                  open_intersection:
+                    allOf:
+                      - properties:
+                          name: {type: string}
+                      - properties:
+                          name: {type: string}
                   choice:
                     oneOf:
                       - type: object
@@ -75,6 +89,8 @@ paths:
 		"GET /things 200 application/json.list[]",
 		"GET /things 200 application/json.nullable",
 		"GET /things 200 application/json.open",
+		"GET /things 200 application/json.open_intersection.allOf[0]",
+		"GET /things 200 application/json.open_intersection.allOf[1]",
 	}, openResponseObjects(doc))
 }
 
@@ -101,26 +117,42 @@ func openResponseObjects(doc *openapi3.T) []string {
 }
 
 func openObjects(location string, ref *openapi3.SchemaRef, visited map[*openapi3.Schema]bool) []string {
+	return openObjectsIn(location, ref, visited, false)
+}
+
+// openObjectsIn is openObjects for a schema that is, if closedByParent, a member of an allOf that has a closed
+// object member. The intersection is closed whatever a member allows alone, so a member that only adds constraints
+// to properties the closed member declares is not open.
+func openObjectsIn(
+	location string, ref *openapi3.SchemaRef, visited map[*openapi3.Schema]bool, closedByParent bool,
+) []string {
 	if ref == nil || ref.Value == nil || visited[ref.Value] {
 		return nil
 	}
 	visited[ref.Value] = true
 
 	var open []string
-	if isOpenObject(ref.Value) {
+	if !closedByParent && isOpenObject(ref.Value) {
 		open = append(open, location)
 	}
+	closedMember := slices.ContainsFunc(ref.Value.AllOf, func(member *openapi3.SchemaRef) bool {
+		return member.Value != nil && isObject(member.Value) && !isOpenObject(member.Value)
+	})
 	for subLocation, sub := range subSchemas(location, ref.Value) {
-		open = append(open, openObjects(subLocation, sub, visited)...)
+		inAllOf := slices.ContainsFunc(ref.Value.AllOf, func(member *openapi3.SchemaRef) bool { return member == sub })
+		open = append(open, openObjectsIn(subLocation, sub, visited, closedMember && inAllOf)...)
 	}
 
 	return open
 }
 
+func isObject(schema *openapi3.Schema) bool {
+	return (schema.Type != nil && schema.Type.Includes(openapi3.TypeObject)) || len(schema.Properties) > 0
+}
+
 func isOpenObject(schema *openapi3.Schema) bool {
-	isObject := (schema.Type != nil && schema.Type.Includes(openapi3.TypeObject)) || len(schema.Properties) > 0
 	additional := schema.AdditionalProperties
-	return isObject && additional.Schema == nil && (additional.Has == nil || *additional.Has)
+	return isObject(schema) && additional.Schema == nil && (additional.Has == nil || *additional.Has)
 }
 
 // subSchemas returns the schemas directly nested in schema, keyed by their location.
@@ -291,4 +323,49 @@ func operationSchemas(location string, op *openapi3.Operation) map[string]*opena
 	}
 
 	return schemas
+}
+
+// TestSpec_ResponseEditorPerformanceRequiresKey requires every performance a response shows in the editor
+// format to carry its key: the response schemas of the editor documents reach EditorPerformance and
+// persons' link performances only through forms whose performances require `key`, whereas the request forms leave
+// it optional.
+func TestSpec_ResponseEditorPerformanceRequiresKey(t *testing.T) {
+	t.Parallel()
+
+	doc := New(t).doc
+	for _, name := range []string{"EditorPerformance", "EditorPieceLink", "EditorPersonLink"} {
+		assert.True(t, requiresPerformanceKey(doc.Components.Schemas[name]), "%s is a response form with a key", name)
+	}
+	for _, name := range []string{"EditorPerformanceRequest", "EditorPieceLinkRequest", "EditorPersonLinkRequest"} {
+		assert.False(t, requiresPerformanceKey(doc.Components.Schemas[name]), "%s is a request form without one", name)
+	}
+
+	// The documents the API returns use the response forms for their links.
+	for name, link := range map[string]string{"EditorPieceDocument": "EditorPieceLink",
+		"EditorPersonDocument": "EditorPersonLink"} {
+		var items []string
+		for _, member := range doc.Components.Schemas[name].Value.AllOf {
+			if links := member.Value.Properties["links"]; links != nil {
+				items = append(items, links.Value.Items.Ref)
+			}
+		}
+		assert.Contains(t, items, "#/components/schemas/"+link, name)
+	}
+}
+
+// requiresPerformanceKey is whether every performance of a link or editor performance schema must carry a key:
+// the schema, or its performances' items, requires `key` in the schema or in a member of its allOf.
+func requiresPerformanceKey(ref *openapi3.SchemaRef) bool {
+	if ref == nil || ref.Value == nil {
+		return false
+	}
+	schema := ref.Value
+	if slices.Contains(schema.Required, "key") {
+		return true
+	}
+	if performances := schema.Properties["performances"]; performances != nil && performances.Value.Items != nil &&
+		requiresPerformanceKey(performances.Value.Items) {
+		return true
+	}
+	return slices.ContainsFunc(schema.AllOf, requiresPerformanceKey)
 }

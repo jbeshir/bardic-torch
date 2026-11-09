@@ -235,6 +235,24 @@ Two authentication methods are supported, identified by the bearer token prefix:
   `https://api.bardictorch.org`. Can access every endpoint the user's role allows.
 - **API Token:** `Authorization: Bearer user_api|<token>`. Cannot manage tokens, and acts with a contributor's powers only: a moderator's token cannot moderate (403 `api_token_not_allowed`).
 
+### Rate limits
+
+Writes that could be abused are limited, per user (the contact form per client IP). A request over its limit gets
+429 `rate_limited` with a `Retry-After` header in seconds. A tier lets a caller make *burst* requests at once, and
+then the refill rate. Public reads are not limited. Each MCP tool call spends the `mcp_user` tier and also the tier of
+the REST operation it calls.
+
+| Tier | Operations | Burst | Then |
+|---|---|---|---|
+| `contact_ip` | `POST /v1/contact`, from a client IP the FE attributed | 3 | 5 an hour |
+| `contact_unattributed_ip` | `POST /v1/contact`, from any other client IP | 30 | 60 an hour |
+| `link_report_user` | `POST /v1/link-reports` | 10 | 10 an hour |
+| `draft_write_user` | `POST /v1/drafts`, `PUT /v1/drafts/{draft_id}` | 60 | 30 a minute |
+| `revision_write_user` | `POST /v1/revisions`, `POST /v1/revisions/{revision_id}/withdraw`, `POST /v1/revisions/{revision_id}/revert` | 30 | 60 an hour |
+| `repertoire_write_user` | `PUT /v1/me/repertoire/{slug}`, `DELETE /v1/me/repertoire/{slug}` | 60 | 60 a minute |
+| `profile_write_user` | `PATCH /v1/me` | 10 | 10 an hour |
+| `mcp_user` | `POST /v1/mcp` | 60 | 120 a minute |
+
 ## MCP
 
 The API is also an [MCP](https://modelcontextprotocol.io) server, for AI agents and scripts that act for a
