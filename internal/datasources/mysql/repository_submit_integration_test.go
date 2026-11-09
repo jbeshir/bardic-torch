@@ -480,7 +480,7 @@ func submitEdit[D domain.Document](
 	doc := f.editable(t, actor, key).Document.(D)
 	change(&doc)
 	draft, err := f.repo.SaveDraft(t.Context(), datasources.SaveDraftRequest{Actor: actor, EntityType: key.Type,
-		Entity: &key, Document: any(doc).(domain.AnyDocument), Sent: domain.AllEditorFieldsSent, Summary: summary,
+		Entity: &key, Document: any(doc).(domain.AnyDocument), Sent: domain.AllEditorFieldsSent(), Summary: summary,
 		Now: f.tick()})
 	require.NoError(t, err)
 	if between != nil {

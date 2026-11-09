@@ -213,7 +213,7 @@ func (f *editingFixture) rebase(
 	t.Helper()
 
 	return f.repo.RebaseRevision(t.Context(), datasources.RebaseRequest{Keys: domaintest.Keys(), Actor: actorRowan, RevisionID: id,
-		CurrentRevisionID: current, Document: doc, Sent: domain.AllEditorFieldsSent, Summary: summary,
+		CurrentRevisionID: current, Document: doc, Sent: domain.AllEditorFieldsSent(), Summary: summary,
 		Now: f.tick()})
 }
 

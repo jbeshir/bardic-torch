@@ -87,7 +87,7 @@ func decodeEditorDocument[D domain.AnyEditorDocument](
 // it.
 func editorFieldsSent(entityType domain.EntityType, raw json.RawMessage) domain.EditorFieldsSent {
 	if entityType != domain.EntityTypePiece && entityType != domain.EntityTypePerson {
-		return domain.AllEditorFieldsSent
+		return domain.AllEditorFieldsSent()
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {

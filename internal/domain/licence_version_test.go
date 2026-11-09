@@ -45,7 +45,7 @@ func TestEditorFieldsSent_ReceivedKeysLicenceVersion(t *testing.T) {
 	t.Parallel()
 
 	received := ElementKeySet{licenceVersionKey: true, linkElementKey(songbookPageURL): true}
-	assert.Equal(t, received, AllEditorFieldsSent.ReceivedKeys(received))
+	assert.Equal(t, received, AllEditorFieldsSent().ReceivedKeys(received))
 	assert.Equal(t, ElementKeySet{linkElementKey(songbookPageURL): true},
 		EditorFieldsSent{Preferences: true}.ReceivedKeys(received), "only the licence version's key is given up")
 }

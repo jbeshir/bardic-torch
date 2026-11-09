@@ -57,7 +57,7 @@ func TestRepository_UserLockedWrites_BlockedMidRequest(t *testing.T) {
 			prepare: func(_ *testing.T, f *editingFixture) func(ctx context.Context) error {
 				doc := newPieceDocument(unsungTitle)
 				req := datasources.SaveDraftRequest{Actor: actorWren, EntityType: doc.EntityType(), Document: doc,
-					Sent: domain.AllEditorFieldsSent, Summary: draftSummary, Now: f.tick()}
+					Sent: domain.AllEditorFieldsSent(), Summary: draftSummary, Now: f.tick()}
 				return func(ctx context.Context) error { _, err := f.repo.SaveDraft(ctx, req); return err }
 			},
 			unchanged: func(t *testing.T, f *editingFixture) {
@@ -151,7 +151,7 @@ func TestRepository_ModeratorWrites_DemotedActorRefused(t *testing.T) {
 				id := f.editedSong(t)
 				doc := f.editable(t, actorRowan, *pieceKey(f.song.Slug)).Document
 				req := datasources.RebaseRequest{Keys: domaintest.Keys(), Actor: actorRowan, RevisionID: id,
-					CurrentRevisionID: &f.song.RevisionID, Document: doc, Sent: domain.AllEditorFieldsSent,
+					CurrentRevisionID: &f.song.RevisionID, Document: doc, Sent: domain.AllEditorFieldsSent(),
 					Now: f.tick()}
 				return func(ctx context.Context) error { return f.repo.RebaseRevision(ctx, req) }
 			},

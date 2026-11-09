@@ -4532,6 +4532,56 @@ func (q *Queries) ListPieceAliases(ctx context.Context, pieceID uint64) ([]ListP
 	return items, nil
 }
 
+const listPieceCreditNames = `-- name: ListPieceCreditNames :many
+SELECT /*+ MAX_EXECUTION_TIME(2000) */ pi.slug, lp.id, lp.name
+FROM piece_credits pc
+JOIN pieces pi ON pi.id = pc.piece_id
+JOIN listed_persons lp ON lp.id = pc.person_id
+WHERE pi.slug IN (/*SLICE:slugs*/?)
+ORDER BY pi.slug, pc.position, pc.id
+`
+
+type ListPieceCreditNamesRow struct {
+	Slug string
+	ID   uint64
+	Name string
+}
+
+// The credits of the pieces with slugs that name a public person with a page (listed_persons), in credit order. It
+// carries the search statements' execution time hint (executionTimeHint), as a read of an anonymous page.
+func (q *Queries) ListPieceCreditNames(ctx context.Context, slugs []string) ([]ListPieceCreditNamesRow, error) {
+	query := listPieceCreditNames
+	var queryParams []interface{}
+	if len(slugs) > 0 {
+		for _, v := range slugs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:slugs*/?", strings.Repeat(",?", len(slugs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:slugs*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPieceCreditNamesRow
+	for rows.Next() {
+		var i ListPieceCreditNamesRow
+		if err := rows.Scan(&i.Slug, &i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPieceReferences = `-- name: ListPieceReferences :many
 
 SELECT id, current_revision_id IS NOT NULL AS is_public

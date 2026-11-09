@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
@@ -22,6 +23,9 @@ import (
 type fakeRunner struct {
 	statements []*statement
 	results    [][][]any
+	// credits answers ListPieceCreditNames, and creditSlugs records the slugs of each call.
+	credits     []queries.ListPieceCreditNamesRow
+	creditSlugs [][]string
 }
 
 func (f *fakeRunner) run(_ context.Context, s *statement, row rowFunc) error {
@@ -57,7 +61,13 @@ func (f *fakeRunner) run(_ context.Context, s *statement, row rowFunc) error {
 
 // reader returns a catalogueReader running statements with f.
 func (f *fakeRunner) reader() *catalogueReader {
-	return &catalogueReader{run: f.run}
+	return &catalogueReader{run: f.run, creditNameRows: f.creditNameRows}
+}
+
+func (f *fakeRunner) creditNameRows(_ context.Context, slugs []string) ([]queries.ListPieceCreditNamesRow, error) {
+	f.creditSlugs = append(f.creditSlugs, slugs)
+
+	return f.credits, nil
 }
 
 // requireWellFormed checks the rules every search statement follows: one placeholder per argument, and the
@@ -358,20 +368,21 @@ func TestPieceSearch_UnknownPerson(t *testing.T) {
 	}
 }
 
-func TestCreditNamesStatement(t *testing.T) {
+// TestCreditNames_NoSlugsNoQuery checks that a read of no pieces asks for no credits.
+func TestCreditNames_NoSlugsNoQuery(t *testing.T) {
 	t.Parallel()
 
-	s := creditNamesStatement([]string{testWildHeron, testAshGrove})
-	requireWellFormed(t, s)
-	assert.Equal(t, "SELECT "+string(executionTimeHint)+" pi.slug, lp.id, lp.name FROM piece_credits pc "+
-		"JOIN pieces pi ON pi.id = pc.piece_id JOIN listed_persons lp ON lp.id = pc.person_id "+
-		"WHERE pi.slug IN (?, ?) ORDER BY pi.slug, pc.position, pc.id", s.String())
-	assert.Equal(t, []any{testWildHeron, testAshGrove}, s.args)
-
-	// No pieces, no statement.
 	runner := &fakeRunner{}
 	assert.Empty(t, runner.reader().creditNames(t.Context(), nil))
-	assert.Empty(t, runner.statements)
+	assert.Empty(t, runner.creditSlugs)
+}
+
+// TestQueries_CreditNamesCarryTheExecutionTimeHint checks that the credit names query, which sqlc generates, has
+// the hint every statement of a piece search has.
+func TestQueries_CreditNamesCarryTheExecutionTimeHint(t *testing.T) {
+	t.Parallel()
+
+	assert.Contains(t, queryStatements(t)["ListPieceCreditNames"], string(executionTimeHint))
 }
 
 func TestPieceSearch_Rows(t *testing.T) {
@@ -391,20 +402,18 @@ func TestPieceSearch_Rows(t *testing.T) {
 			{"term", testWar, int64(2)},
 			{dimensionTotal, "", int64(2)},
 		},
+	}, credits: []queries.ListPieceCreditNamesRow{
 		// The credit lines, by slug, then credit order: a person credited twice is named once.
-		{
-			{testAshGrove, uint64(9), "Ash Tallow"},
-			{testWildHeron, wrenID, testWrenName},
-			{testWildHeron, uint64(8), "Rook Hallow"},
-			{testWildHeron, wrenID, testWrenName},
-		},
+		{Slug: testAshGrove, ID: 9, Name: "Ash Tallow"},
+		{Slug: testWildHeron, ID: wrenID, Name: testWrenName},
+		{Slug: testWildHeron, ID: 8, Name: "Rook Hallow"},
+		{Slug: testWildHeron, ID: wrenID, Name: testWrenName},
 	}}
 	c := runner.reader()
 	list := c.pieceList(t.Context(), datasources.PieceQuery{Sort: domain.PieceSortTitle})
 	require.NoError(t, c.err)
-	require.Len(t, runner.statements, 3)
-	assert.Equal(t, []any{testWildHeron, testAshGrove}, runner.statements[2].args)
-	requireWellFormed(t, runner.statements[2])
+	require.Len(t, runner.statements, 2)
+	assert.Equal(t, [][]string{{testWildHeron, testAshGrove}}, runner.creditSlugs)
 
 	assert.Equal(t, domain.PieceList{
 		Pieces: []domain.PieceSummary{

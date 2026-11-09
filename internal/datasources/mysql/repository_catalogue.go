@@ -59,7 +59,7 @@ func (r *Repository) readOnly(ctx context.Context, f func(c *catalogueReader) er
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if err := f(&catalogueReader{q: r.queries.WithTx(tx), run: txRunner(tx)}); err != nil {
+	if err := f(r.txReader(tx)); err != nil {
 		return unavailableIfDisconnected(err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -76,7 +76,10 @@ type catalogueReader struct {
 	q *queries.Queries
 	// run runs the statements built for searches, which sqlc cannot express.
 	run statementRunner
-	err error
+	// creditNameRows is q.ListPieceCreditNames, a field so that a piece search's unit tests, which have no
+	// database, can answer it.
+	creditNameRows func(ctx context.Context, slugs []string) ([]queries.ListPieceCreditNamesRow, error)
+	err            error
 }
 
 func (c *catalogueReader) fail(err error) {
@@ -271,19 +274,6 @@ func (c *catalogueReader) secondaryKinds(ctx context.Context, slugs []string) ma
 	return kinds
 }
 
-// creditNamesStatement selects (piece slug, person ID, person name) for each named credit, of a piece with one of
-// slugs, to a public person with a page (listed_persons), by slug, then position and ID. It is a built statement,
-// run with the reader's statement runner, so that a piece search's unit tests answer it like the search's own.
-func creditNamesStatement(slugs []string) *statement {
-	s := &statement{}
-	s.write("SELECT ", executionTimeHint, " pi.slug, lp.id, lp.name FROM piece_credits pc "+
-		"JOIN pieces pi ON pi.id = pc.piece_id JOIN listed_persons lp ON lp.id = pc.person_id WHERE pi.slug IN (")
-	list(s, slugs)
-	s.write(") ORDER BY pi.slug, pc.position, pc.id")
-
-	return s
-}
-
 // creditNames returns the credit lines of the pieces with slugs, by slug (domain.CreditNames). It runs no
 // statement for no slugs.
 func (c *catalogueReader) creditNames(ctx context.Context, slugs []string) map[string][]string {
@@ -293,15 +283,9 @@ func (c *catalogueReader) creditNames(ctx context.Context, slugs []string) map[s
 	}
 
 	credited := make(map[string][]domain.CreditedPerson)
-	c.query(ctx, "credit names", creditNamesStatement(slugs), func(scan func(dest ...any) error) error {
-		var slug, name string
-		var id uint64
-		if err := scan(&slug, &id, &name); err != nil {
-			return err
-		}
-		credited[slug] = append(credited[slug], domain.CreditedPerson{ID: c.signedID(id), Name: name})
-		return nil
-	})
+	for _, row := range fetch(ctx, c, "credit names", c.creditNameRows, slugs) {
+		credited[row.Slug] = append(credited[row.Slug], domain.CreditedPerson{ID: c.signedID(row.ID), Name: row.Name})
+	}
 	for slug, persons := range credited {
 		names[slug] = domain.CreditNames(persons)
 	}

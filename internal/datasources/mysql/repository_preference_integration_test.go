@@ -82,7 +82,7 @@ func TestRepository_UpdateDraft_ReceivedKeysOnlyShrink(t *testing.T) {
 
 	update(domain.EditorFieldsSent{})
 	assert.False(t, f.receivesPreference(t, saved.Draft.ID), "given up")
-	update(domain.AllEditorFieldsSent)
+	update(domain.AllEditorFieldsSent())
 	assert.False(t, f.receivesPreference(t, saved.Draft.ID), "never received again")
 	assert.Contains(t, f.stored(t, saved.Draft.ID).receivedKeys, songLyricsURL, "the other keys are kept")
 }

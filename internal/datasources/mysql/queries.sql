@@ -125,6 +125,16 @@ JOIN pieces p ON p.id = k.piece_id
 WHERE p.slug IN (sqlc.slice('slugs'))
 ORDER BY p.slug, k.kind;
 
+-- name: ListPieceCreditNames :many
+-- The credits of the pieces with slugs that name a public person with a page (listed_persons), in credit order. It
+-- carries the search statements' execution time hint (executionTimeHint), as a read of an anonymous page.
+SELECT /*+ MAX_EXECUTION_TIME(2000) */ pi.slug, lp.id, lp.name
+FROM piece_credits pc
+JOIN pieces pi ON pi.id = pc.piece_id
+JOIN listed_persons lp ON lp.id = pc.person_id
+WHERE pi.slug IN (sqlc.slice('slugs'))
+ORDER BY pi.slug, pc.position, pc.id;
+
 -- name: ListPieceAliases :many
 SELECT text, kind
 FROM piece_aliases

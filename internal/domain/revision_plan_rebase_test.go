@@ -37,7 +37,7 @@ func TestPlanRebase(t *testing.T) {
 	resolved.NotesMD = ptr("Resolved.")
 	state := func(current *PersonDocument) RebaseState[PersonDocument] {
 		return RebaseState[PersonDocument]{Resolved: resolved, Revision: person, Current: current,
-			RebaseInputs: RebaseInputs{ID: personID, Keys: countingKeys(), Sent: AllEditorFieldsSent, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
+			RebaseInputs: RebaseInputs{ID: personID, Keys: countingKeys(), Sent: AllEditorFieldsSent(), Author: RoleContributor, Visibility: vis, Refs: testRefs(),
 				Summary: testSummary, Today: validToday}}
 	}
 
@@ -79,7 +79,7 @@ func TestPlanRebase_PreferencesFromDocument(t *testing.T) {
 			PreferenceChoiceOralOnly),
 	}
 	doc, err := PlanRebase(RebaseState[PersonDocument]{Resolved: resolved, Revision: planPerson(), Current: &current,
-		RebaseInputs: RebaseInputs{ID: personID, Keys: countingKeys(), Sent: AllEditorFieldsSent, Author: RoleContributor, Visibility: vis, Refs: testRefs(),
+		RebaseInputs: RebaseInputs{ID: personID, Keys: countingKeys(), Sent: AllEditorFieldsSent(), Author: RoleContributor, Visibility: vis, Refs: testRefs(),
 			Summary: testSummary, Today: validToday}})
 	require.NoError(t, err, "%v", problemsOrNil(err))
 	assert.Equal(t, []DocPreference{

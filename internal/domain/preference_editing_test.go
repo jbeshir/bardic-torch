@@ -190,7 +190,7 @@ func TestEditorFieldsSent_ReceivedKeys(t *testing.T) {
 
 	received := ElementKeySet{preferenceElementKey(shownPreferences()[0]): true, profileKey: true,
 		linkElementKey(songbookPageURL): true}
-	assert.Equal(t, received, AllEditorFieldsSent.ReceivedKeys(received))
+	assert.Equal(t, received, AllEditorFieldsSent().ReceivedKeys(received))
 	assert.Equal(t, ElementKeySet{profileKey: true, linkElementKey(songbookPageURL): true},
 		EditorFieldsSent{}.ReceivedKeys(received), "only the preferences' keys are given up")
 	assert.Len(t, received, 3, "received is not changed")

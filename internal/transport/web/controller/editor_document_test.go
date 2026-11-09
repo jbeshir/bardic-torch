@@ -85,9 +85,9 @@ func TestDecodeEditorDocument_FieldsSent(t *testing.T) {
 		wantPrefs  int
 	}{
 		{name: "piece with preferences", entityType: domain.EntityTypePiece,
-			edit: map[string]any{keyPreferences: preferences}, want: domain.AllEditorFieldsSent, wantPrefs: 1},
+			edit: map[string]any{keyPreferences: preferences}, want: domain.AllEditorFieldsSent(), wantPrefs: 1},
 		{name: "piece with no preferences", entityType: domain.EntityTypePiece,
-			edit: map[string]any{keyPreferences: []any{}}, want: domain.AllEditorFieldsSent},
+			edit: map[string]any{keyPreferences: []any{}}, want: domain.AllEditorFieldsSent()},
 		{name: "piece without the field", entityType: domain.EntityTypePiece,
 			edit: map[string]any{keyPreferences: nil}, want: withoutPreferences},
 		{name: "piece with null", entityType: domain.EntityTypePiece,
@@ -96,11 +96,11 @@ func TestDecodeEditorDocument_FieldsSent(t *testing.T) {
 			edit: map[string]any{keyLicenceVersion: nil}, want: domain.EditorFieldsSent{Preferences: true}},
 		{name: "piece with a licence version", entityType: domain.EntityTypePiece,
 			edit: map[string]any{keyLicenceVersion: "4.0", keyLicence: "cc_by", keyLicensingStatus: "known"},
-			want: domain.AllEditorFieldsSent},
+			want: domain.AllEditorFieldsSent()},
 		{name: "piece with a null licence version", entityType: domain.EntityTypePiece,
-			edit: map[string]any{keyLicenceVersion: jsonNull}, want: domain.AllEditorFieldsSent},
+			edit: map[string]any{keyLicenceVersion: jsonNull}, want: domain.AllEditorFieldsSent()},
 		{name: "person with preferences", entityType: domain.EntityTypePerson,
-			edit: map[string]any{keyPreferences: preferences}, want: domain.AllEditorFieldsSent, wantPrefs: 1},
+			edit: map[string]any{keyPreferences: preferences}, want: domain.AllEditorFieldsSent(), wantPrefs: 1},
 		{name: "person without the field", entityType: domain.EntityTypePerson,
 			edit: map[string]any{keyPreferences: nil}, want: withoutPreferences},
 	}
@@ -127,7 +127,7 @@ func TestDecodeEditorDocument_FieldsSent(t *testing.T) {
 		_, sent, ok := editorDocumentToDomain(t.Context(), httptest.NewRecorder(), domain.EntityTypeEvent,
 			json.RawMessage(testEditorEventJSON))
 		require.True(t, ok)
-		assert.Equal(t, domain.AllEditorFieldsSent, sent)
+		assert.Equal(t, domain.AllEditorFieldsSent(), sent)
 	})
 	t.Run("an unknown field is still 400", func(t *testing.T) {
 		t.Parallel()
@@ -186,7 +186,7 @@ func TestDraftCreate_DocumentWithoutPreferences(t *testing.T) {
 		want domain.EditorFieldsSent
 	}{
 		{name: "without", edit: map[string]any{keyPreferences: nil}, want: withoutPreferences},
-		{name: "with", edit: map[string]any{}, want: domain.AllEditorFieldsSent},
+		{name: "with", edit: map[string]any{}, want: domain.AllEditorFieldsSent()},
 	} {
 		body := `{"entity_type":"piece","entity":null,"base_revision_id":null,"document":` +
 			string(editorDocumentJSON(t, domain.EntityTypePiece, tc.edit)) + `,"summary":""}`

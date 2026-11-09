@@ -12,6 +12,8 @@ import (
 
 var _ datasources.LinkCheckLocker = (*Repository)(nil)
 
+// The lock SQL is not in queries.sql: GET_LOCK and RELEASE_LOCK are session functions, run on one pinned connection.
+
 // linkCheckLockName is the advisory lock (GET_LOCK) a run of the link checker holds: one per database, as named
 // locks are server-wide. Lock names are at most 64 characters.
 const linkCheckLockName = "LEFT(CONCAT('bardic-torch-check-links:', DATABASE()), 64)"

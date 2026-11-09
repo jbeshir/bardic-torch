@@ -12,8 +12,15 @@ type EditorFieldsSent struct {
 	LicenceVersion bool
 }
 
-// AllEditorFieldsSent is a document that carried every editor field.
-var AllEditorFieldsSent = EditorFieldsSent{Preferences: true, LicenceVersion: true}
+// AllEditorFieldsSent returns the fields of a document that carried every editor field.
+func AllEditorFieldsSent() EditorFieldsSent {
+	return EditorFieldsSent{Preferences: true, LicenceVersion: true}
+}
+
+// All is whether the document carried every editor field.
+func (f EditorFieldsSent) All() bool {
+	return f == AllEditorFieldsSent()
+}
 
 // preferenceKeyPrefix starts the element key of every preference (preferenceElementKey).
 var preferenceKeyPrefix = elementKey("preference")

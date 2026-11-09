@@ -20,7 +20,9 @@ var (
 
 // txReader returns a catalogueReader reading in the write transaction tx.
 func (r *Repository) txReader(tx *sql.Tx) *catalogueReader {
-	return &catalogueReader{q: r.queries.WithTx(tx), run: txRunner(tx)}
+	q := r.queries.WithTx(tx)
+
+	return &catalogueReader{q: q, run: txRunner(tx), creditNameRows: q.ListPieceCreditNames}
 }
 
 // SaveDraft saves a draft, under a lock on the author's users row, which makes one draft per author and
@@ -208,7 +210,7 @@ func (c *catalogueReader) draftBase(
 // shrinkReceivedKeys removes from the received keys of the draft id the keys of the elements of the fields its
 // document did not carry (domain.EditorFieldsSent.ReceivedKeys), so that its submission keeps the base's.
 func (c *catalogueReader) shrinkReceivedKeys(ctx context.Context, id uint64, sent domain.EditorFieldsSent) error {
-	if sent == domain.AllEditorFieldsSent {
+	if sent.All() {
 		return nil
 	}
 	row, err := c.q.GetRevision(ctx, id)
