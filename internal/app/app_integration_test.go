@@ -4,7 +4,9 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -205,4 +207,62 @@ func TestSetup_GivesOwnerlessPerformancesTheirOwner(t *testing.T) {
 		performanceID).Scan(&owner))
 	require.NotNil(t, owner)
 	assert.Equal(t, pieceID, *owner)
+}
+
+// publicIDPattern is the shape of a public ID: 16 characters of the lower-case base32 alphabet.
+var publicIDPattern = regexp.MustCompile(`^[a-z2-7]{16}$`)
+
+// Not parallel: it sets environment variables.
+//
+// TestSetup_BackfillsPublicIDs checks that startup gives a user stored without a public ID one, before any
+// request, and that the user's own view returns it.
+func TestSetup_BackfillsPublicIDs(t *testing.T) {
+	databaseURL := mysqltest.NewDatabaseURL(t)
+	setSetupEnv(t, databaseURL, "auth0|m1")
+	db, err := mysqltest.Connect(t.Context(), databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	const userID = "auth0|older-user"
+	_, err = db.ExecContext(t.Context(),
+		"INSERT INTO users (id, display_name, created_at) VALUES (?, 'Older User', UTC_TIMESTAMP(6))", userID)
+	require.NoError(t, err)
+	secret := domain.APITokenPrefix + "older-user-secret"
+	hash := domain.HashAPITokenSecret(secret)
+	require.NoError(t, mysql.New(db).CreateAPIToken(t.Context(), datasources.NewAPIToken{
+		ID: "11111111-1111-4111-8111-111111111111", UserID: userID, TokenHash: hash, TokenPrefix: hash[:8],
+		CreatedAt: time.Now().UTC(),
+	}))
+
+	components, err := Setup(t.Context())
+	require.NoError(t, err)
+	httpServer, ok := components[0].(*server.Server)
+	require.True(t, ok, "the component is the HTTP server")
+	ctx, cancel := context.WithCancel(t.Context())
+	runErr := make(chan error, 1)
+	go func() { runErr <- httpServer.Run(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		assert.NoError(t, <-runErr)
+	})
+
+	// Before any request: startup alone set it.
+	var stored *string
+	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT public_id FROM users WHERE id = ?", userID).Scan(&stored))
+	require.NotNil(t, stored, "the startup backfill gave the user a public ID")
+	assert.Regexp(t, publicIDPattern, *stored)
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
+		"http://"+httpServer.Listener.Addr().String()+"/v1/me", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+secret)
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = res.Body.Close() }()
+	require.Equal(t, http.StatusOK, res.StatusCode)
+	var me struct {
+		PublicID string `json:"public_id"`
+	}
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&me))
+	assert.Equal(t, *stored, me.PublicID)
 }

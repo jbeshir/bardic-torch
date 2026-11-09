@@ -337,9 +337,12 @@ var authMatrix = withRows(revisionMatrix(), moderationMatrix(), contactMatrix(),
 		{Method: http.MethodGet, Path: piecesPath}: {
 			access:        public,
 			successStatus: http.StatusOK,
+			// The person filter is the same route and has its own query.
+			query: "?person=" + matrixSlug,
 			expectSuccess: func(m handlerMocks, _ string) {
 				m.pieceLister.EXPECT().ListPublicPieces(mock.Anything,
-					datasources.PieceQuery{Sort: domain.PieceSortTitle, Page: matrixPage}).Return(domain.PieceList{}, nil)
+					datasources.PieceQuery{PersonSlug: new(matrixSlug), Sort: domain.PieceSortTitle, Page: matrixPage}).
+					Return(domain.PieceList{}, nil)
 			},
 		},
 		{Method: http.MethodGet, Path: personsPath}: {

@@ -287,3 +287,71 @@ func TestRepository_BackfillPerformanceOwners_Import(t *testing.T) {
 	assert.Equal(t, int64(owned), backfilled)
 	assert.Equal(t, want, performanceOwners(t, db))
 }
+
+// tenthMigration is the last migration before the contributor extras (011 and 012).
+const tenthMigration = 10
+
+// TestMigrations_DownUpWithData rolls the two newest migrations back and forward over a database that holds rows
+// using their columns and table: the older rows survive, and the newer data is dropped, not left half-applied.
+func TestMigrations_DownUpWithData(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	dbURL := mysqltest.NewDatabaseURL(t)
+	cfg, err := mysql.ConfigFromURL(dbURL)
+	require.NoError(t, err)
+	db, err := mysqltest.Connect(ctx, dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	exec := func(query string, args ...any) {
+		t.Helper()
+		_, err := db.ExecContext(ctx, query, args...)
+		require.NoError(t, err, query)
+	}
+
+	exec("INSERT INTO users (id, display_name, created_at, public_id) VALUES ('auth0|seeded', 'Seeded', UTC_TIMESTAMP(), " +
+		"'abcdefghijklmnop')")
+	exec("INSERT INTO pieces (slug, title, sort_title, sort_letter, kind, licensing_status, licence, licence_version) " +
+		"VALUES ('the-copper-kettle', 'The Copper Kettle', 'Copper Kettle', 'C', 'song', 'known', 'cc_by', '4.0')")
+	exec("INSERT INTO repertoire (user_id, piece_id, notes, visibility, added_at, updated_at) " +
+		"SELECT 'auth0|seeded', id, 'My notes', 'public', UTC_TIMESTAMP(), UTC_TIMESTAMP() FROM pieces")
+	exec("INSERT INTO links (url, normalized_url, liveness_failures) VALUES ('https://example.org/kettle', " +
+		"'https://example.org/kettle', 2)")
+
+	m, err := mysql.NewMigrator(cfg)
+	require.NoError(t, err)
+	t.Cleanup(func() { _, _ = m.Close() })
+	newest, err := mysql.NewestMigrationVersion()
+	require.NoError(t, err)
+
+	require.NoError(t, m.Steps(-2))
+	version, dirty, err := m.Version()
+	require.NoError(t, err)
+	assert.Equal(t, uint(tenthMigration), version)
+	assert.False(t, dirty)
+	assert.NotContains(t, listTables(t, db, baseTable), "repertoire")
+	var title string
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT title FROM pieces WHERE slug = 'the-copper-kettle'").Scan(&title))
+	assert.Equal(t, "The Copper Kettle", title)
+
+	require.NoError(t, m.Up())
+	version, dirty, err = m.Version()
+	require.NoError(t, err)
+	assert.Equal(t, newest, version)
+	assert.False(t, dirty)
+	assert.ElementsMatch(t, migratedTables, listTables(t, db, baseTable))
+
+	// The older rows are still there, with the new columns empty again; the dropped table is empty.
+	var publicID, licenceVersion *string
+	var failures int
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT public_id FROM users WHERE id = 'auth0|seeded'").Scan(&publicID))
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT licence_version FROM pieces WHERE slug = 'the-copper-kettle'").
+		Scan(&licenceVersion))
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT liveness_failures FROM links").Scan(&failures))
+	assert.Nil(t, publicID)
+	assert.Nil(t, licenceVersion)
+	assert.Zero(t, failures)
+	var entries int
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM repertoire").Scan(&entries))
+	assert.Zero(t, entries)
+}
