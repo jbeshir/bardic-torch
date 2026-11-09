@@ -635,6 +635,18 @@ read `Max_used_connections` at the end) during a run; on a machine with fewer co
 test-integration-local` runs it with a 20-core machine's parallelism. A new helper that opens a pool uses
 `mysqltest.Pool` (through `mysqltest.Connect` or `ConnectConfig`), never `mysql.ProductionPool`.
 
+BE5's suite measured a peak of 51 to 71 connections at `GOMAXPROCS=20` (`Max_used_connections` polled during a
+run), with no error 1040. That is under the budget of 80 connections the suite aims for and well under 151, but above BE4's 48 to
+56: re-measure it next milestone, and before adding a pool or a parallel package.
+
+A test that reads an expensive statement while the host is starved of CPU can see the 2 s execution limit
+(`MAX_EXECUTION_TIME`, MySQL error 3024) end a statement that is not pathological. The API answers that with 500, as
+it does for any other query that exceeds its limit; that is documented behaviour, not a bug of the test's feature, and
+`TestHTTP_ImportedCatalogue` (the reads of the imported catalogue, the largest in the suite) is the one that has
+met it. If it fails with a 500, look for the WARN `query exceeded its execution time limit` in the server log
+before suspecting the code, and re-run on a quieter host. Whether the API should answer 503 under load is on the
+backlog.
+
 ### Catalogue tests
 
 A migrated database is expensive (timings under [Integration test modes](#integration-test-modes)), and MySQL
@@ -974,6 +986,8 @@ person's page shows it and the scan reports it, as it reports each planted place
    operation without one), whose datasource or command fails with an error wrapping `datasources.ErrUnavailable`;
    the auth middleware's 503 (a user lookup that fails so) is `TestRouter_UserLookupUnavailableIs503`, over every
    authenticated route.
+   A rate-limited operation (429) is also a row of the README's "Rate limits" table, which
+   `TestRateLimitTable_MatchesReadme` checks against `ratelimit.DefaultTiers()` and the spec.
 5. **Integration**: integration tests for every new query, and extend `TestHTTP_EndToEnd` when the endpoint
    changes a user-visible flow.
 6. **MCP tool** (when a contributor's token should reach the operation over MCP): add a row to the tool table in

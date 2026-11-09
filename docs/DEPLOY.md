@@ -324,7 +324,7 @@ dokku config:set --no-restart bardic-torch-api \
   BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>' \
   TURNSTILE_SECRET_KEY='<TURNSTILE_SECRET_KEY>' \
   TURNSTILE_HOSTNAMES=bardictorch.org,preview.bardictorch.org \
-  TRUSTED_PROXY_CIDRS=172.16.0.0/12 \
+  TRUSTED_PROXY_CIDRS=172.17.0.1/32 \
   FE_PROXY_SECRET='<FE_PROXY_SECRET>'
 ```
 
@@ -335,8 +335,11 @@ dokku config:set --no-restart bardic-torch-api \
   and the API logs a warning at startup. `TURNSTILE_HOSTNAMES` lists the hostnames a token must have been minted
   on, compared case-insensitively; empty disables that check (development only), and the API then logs a warning
   at startup.
-- `TRUSTED_PROXY_CIDRS` is the docker bridge network dokku's nginx connects from, and `FE_PROXY_SECRET` the
-  secret shared with the FE; see [Rate limits and client IPs](#rate-limits-and-client-ips). Either may be empty,
+- `TRUSTED_PROXY_CIDRS` is the address dokku's nginx connects to the app from: the gateway of the docker bridge
+  network the app's container is on, `172.17.0.1` on docker's default `bridge`. It is one address, not the whole
+  bridge range, on the assumption that nothing else on that network is trusted to set `X-Forwarded-For`: a wider
+  range such as `172.16.0.0/12` would trust every other container on a docker bridge. Confirm the address as in
+  [Rate limits and client IPs](#rate-limits-and-client-ips). `FE_PROXY_SECRET` is the secret shared with the FE; see [Rate limits and client IPs](#rate-limits-and-client-ips). Either may be empty,
   with a startup warning, but then contact form rate limits fall back to coarser keys. The API refuses to start
   if `TRUSTED_PROXY_CIDRS` holds something other than CIDR networks.
 - `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
@@ -360,8 +363,8 @@ The contact form's client IP comes from three places:
   never logs client IPs. So on the server, while a request is in flight (or a keep-alive connection is open), list
   the container's connections:
   `sudo nsenter -t $(docker inspect -f '{{.State.Pid}}' bardic-torch-api.web.1) -n ss -tn`, and confirm the
-  peer column is inside `TRUSTED_PROXY_CIDRS` (172.16.0.0/12 covers docker's default
-  bridge networks).
+  peer column is inside `TRUSTED_PROXY_CIDRS` (`172.17.0.1/32` is the gateway of docker's default
+  `bridge` network; if the peer is another address, set that one, and keep the range as narrow as that address).
 - **The FE.** The FE calls the API from its server, so every request arrives from Cloudflare's egress IPs. The FE
   sends the browser's IP (from `CF-Connecting-IP`) in `X-Bardic-Client-IP` and `FE_PROXY_SECRET` in
   `X-Bardic-Proxy-Secret` on every server-side call, and strips any copies a browser sent. Set the same
@@ -516,8 +519,9 @@ the FE and API deploy in three steps, in this order:
    two networks is accepted, the logs show no unattributed warning, and `ss -tn` shows the expected peer.
 3. **FE step 3.** An FE regenerated from spec 1.1.0, which sends `preferences`, `licence_version` and `key`.
 
-The FE built against the BE4 spec (FE3) keeps working on BE5 unchanged; adopting `key` belongs with shipping
-performance editing and is not a precondition of this deploy.
+The FE built against the BE4 spec (FE3) is the step-1 build only if it meets step 1 (tolerant decoding, 429
+handling, the proxy headers); if it does not, ship step 1 first. Adopting `key` belongs with shipping performance
+editing and is not a precondition of this deploy.
 
 **Rollback order.** Before step 3, BE4 can be rolled back directly ([Rollback](#rollback)): migrations 011 and 012 are
 additive and BE4 works against them. After step 3, roll the FE back to its step-1 build first, then the API,
