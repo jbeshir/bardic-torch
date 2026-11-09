@@ -93,9 +93,9 @@ Two new repos, both copied from the alignment-feed skeletons (layering, idioms, 
         the never checked first, then the oldest.
       - **Check.** It checks 4 at a time, at most one request per host per second, with one 15 s deadline per link
         covering every request and redirect (at most 5).
-      - **Write.** Each result is written as a compare-and-set on the `last_checked_at` it read and on
-        `is_hidden = FALSE`. So a link hidden or checked since selection is never written, and two runs count a
-        failure once.
+      - **Write.** Each result is written as a compare-and-set on the `last_checked_at` and `url` it read and on
+        `is_hidden = FALSE`. So a link hidden, checked or respelled (an approval rewriting `url` for the same
+        `normalized_url`) since selection is never written, and two runs count a failure once.
       - **Archive.** For up to `--archive-limit` (200) visible links with no `archived_url` that were never looked
         up, or not for 30 days, it asks the Wayback Machine's availability API, dead links first, one a second. A
         copy counts only if it is available, archived with status 200 and on `web.archive.org`; it is stored as

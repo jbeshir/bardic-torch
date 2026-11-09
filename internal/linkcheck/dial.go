@@ -29,11 +29,10 @@ type Resolver interface {
 // DialFunc connects to an address given as an IP and port, as (*net.Dialer).DialContext does.
 type DialFunc func(ctx context.Context, network, address string) (net.Conn, error)
 
-// guard connects to a host's addresses that allow accepts, on an allowed port, and to nothing else. It resolves
-// the host itself and dials the address it checked, never the name, so a name that resolves to another address
-// on a second lookup (DNS rebinding) cannot reach it.
+// guard connects to a host's addresses that PublicAddress accepts, on an allowed port, and to nothing else. It
+// resolves the host itself and dials the address it checked, never the name, so a name that resolves to another
+// address on a second lookup (DNS rebinding) cannot reach it.
 type guard struct {
-	allow    func(netip.Addr) bool
 	resolver Resolver
 	dial     DialFunc
 }
@@ -54,7 +53,7 @@ func (g guard) dialContext(ctx context.Context, network, address string) (net.Co
 
 	var lastErr error
 	for _, addr := range addrs {
-		if !g.allow(addr) {
+		if !PublicAddress(addr) {
 			continue
 		}
 		conn, err := g.dial(ctx, network, netip.AddrPortFrom(addr.WithZone("").Unmap(), port).String())

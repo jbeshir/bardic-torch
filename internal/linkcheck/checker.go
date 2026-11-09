@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/netip"
 	"net/url"
 	"strings"
 	"sync"
@@ -38,15 +37,13 @@ var errTooManyRedirects = errors.New("too many redirects")
 
 var _ datasources.LinkProber = (*Checker)(nil)
 
-// Config is the configuration of a Checker. Every field is required.
+// Config is the configuration of a Checker. Every field is required. A Checker always sends UserAgent and only
+// dials addresses PublicAddress accepts; no configuration widens either.
 type Config struct {
-	// UserAgent is sent with every request.
-	UserAgent string
-	// AllowAddress reports whether a connection may go to an address: PublicAddress in production.
-	AllowAddress func(netip.Addr) bool
 	// Resolver looks up host names: net.DefaultResolver in production.
 	Resolver Resolver
-	// Dial connects to an address AllowAddress accepted: GuardedDial(AllowAddress) in production.
+	// Dial connects to an address PublicAddress accepted: GuardedDial(PublicAddress) in production, which checks
+	// the socket's own address once more.
 	Dial DialFunc
 	// Deadline bounds the check of one link: LinkDeadline in production.
 	Deadline time.Duration
@@ -57,14 +54,13 @@ type Config struct {
 // Checker checks links, as HEAD and if that does not succeed GET, following up to five redirects. It uses no proxy,
 // keeps no cookies, sends no credentials, and reads at most 64 KiB of a body. It is safe for concurrent use.
 type Checker struct {
-	client    *http.Client
-	userAgent string
-	deadline  time.Duration
+	client   *http.Client
+	deadline time.Duration
 }
 
 // New returns a Checker with config.
 func New(config Config) *Checker {
-	g := guard{allow: config.AllowAddress, resolver: config.Resolver, dial: config.Dial}
+	g := guard{resolver: config.Resolver, dial: config.Dial}
 	transport := &http.Transport{
 		Proxy:                  nil,
 		DialContext:            g.dialContext,
@@ -80,8 +76,7 @@ func New(config Config) *Checker {
 			Transport:     spacedTransport{next: transport, spacer: spacer},
 			CheckRedirect: checkRedirect,
 		},
-		userAgent: config.UserAgent,
-		deadline:  config.Deadline,
+		deadline: config.Deadline,
 	}
 }
 
@@ -113,7 +108,7 @@ func (c *Checker) fetch(ctx context.Context, method string, u *url.URL) (int, er
 	if err != nil {
 		return 0, fmt.Errorf("%w: building the request", ErrRefused)
 	}
-	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("User-Agent", UserAgent)
 	req.Header.Set("Accept", "*/*")
 
 	resp, err := c.client.Do(req)

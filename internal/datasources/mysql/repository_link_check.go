@@ -39,7 +39,7 @@ func (r *Repository) ListLinksDueForCheck(
 	return targets, nil
 }
 
-// UpdateLinkCheck records a result if the link is visible and its last check time is the one expected.
+// UpdateLinkCheck records a result if the link is visible and its URL and last check time are the ones expected.
 func (r *Repository) UpdateLinkCheck(ctx context.Context, result datasources.LinkCheckResult) (bool, error) {
 	id, ok := positiveID(result.ID)
 	if !ok {
@@ -53,7 +53,7 @@ func (r *Repository) UpdateLinkCheck(ctx context.Context, result datasources.Lin
 		}
 		rows, err := r.queries.WithTx(tx).UpdateLinkCheck(ctx, queries.UpdateLinkCheckParams{
 			Liveness: queries.LinksLiveness(result.Liveness), LivenessFailures: result.Failures,
-			CheckedAt: nullTime(result.CheckedAt), ID: id, ExpectedLastCheckedAt: expected,
+			CheckedAt: nullTime(result.CheckedAt), ID: id, Url: result.ProbedURL, ExpectedLastCheckedAt: expected,
 		})
 		if err != nil {
 			return fmt.Errorf("updating link check: %w", err)

@@ -471,11 +471,14 @@ Rate limits (docs/PLAN.md §5.1 "Rate limits") are tested without real time or r
 
 The link checker (docs/PLAN.md §3, "cmd/check-links") never touches the network in a test. Its sites and the
 Wayback Machine are `httptest` servers on loopback. The checker reaches them only through its address allowlist
-hook. `linkcheck.Config` takes the `AllowAddress` allowlist, a `Resolver` and a `Dial` function, and all three are
-always set. A test keeps the production allowlist (`linkcheck.PublicAddress`) and gives a fake resolver that
+hook. `linkcheck.Config` takes a `Resolver` and a `Dial` function, both always set; the allowlist
+(`linkcheck.PublicAddress`) and the user agent are not configurable. A test gives a fake resolver that
 returns a public address such as `93.184.215.14`, plus a fake dialer that connects that address to the
 `httptest` listener. So the guard under test is the real one, and a test cannot reach anything else.
 `wayback.New(Config, *http.Client)` takes its base URL in `Config`, so a test points it at an `httptest` server.
+The checker's timing tests assert only bounds a loaded host cannot break (a lower bound on when a spaced request
+arrives, a deadline far beyond any scheduling delay, or which requests a site never saw), so they hold at
+`GOMAXPROCS=20` alongside the integration suite.
 
 - **Unit** (`internal/linkcheck`, `internal/datasources/wayback`, `internal/command`, `cmd/check-links`):
   - `TestPublicAddress` and `TestSafeDialer_RefusesInternalAddresses` cover the special-purpose ranges, IPv4-mapped,
@@ -487,7 +490,10 @@ returns a public address such as `93.184.215.14`, plus a fake dialer that connec
     credentials), loops and NXDOMAIN.
   - The checker's request tests are `TestChecker_HeadNon2xxRetriedWithGet`, `TestChecker_RedirectChainDeadline`
     (one deadline for the whole chain), `TestChecker_DiscardsBodyAfterLimit` (an endless body),
-    `TestChecker_SendsNoCookies` and `TestChecker_SpacesRequestsToAHost`.
+    `TestChecker_SendsNoCookies`, `TestChecker_SpacesRequestsToAHost` and `TestChecker_SpacingIsPerHost`.
+  - `TestNewCheckLinks_RefusesInternalAddresses` (`cmd/check-links`) checks the production wiring: the real
+    checker refuses a loopback `httptest` server and `http://127.0.0.1:443/` without a request, its dialer
+    refuses a loopback socket, and the Wayback client asks `https://archive.org/wayback/available`.
   - `TestWayback_Available` covers which archived copies are accepted, and errors that never quote the URL.
   - `TestCheckLinks` covers the liveness and failure-count rules, using an in-memory store with compare-and-set
     semantics and a fake prober.
@@ -502,7 +508,8 @@ returns a public address such as `93.184.215.14`, plus a fake dialer that connec
     frees it.
   - `TestCheckLinks_ConcurrentRunsCountOnce` makes two runs bypass the lock over one due set; the compare-and-set
     counts each failure once.
-  - `TestCheckLinks_HiddenAfterSelectionNotWritten` and `TestCheckLinks_SkipsHiddenLinks` cover hidden links.
+  - `TestCheckLinks_HiddenAfterSelectionNotWritten` and `TestCheckLinks_SkipsHiddenLinks` cover hidden links, and
+    `TestCheckLinks_RespelledAfterSelectionNotWritten` a link whose URL changed while it was probed.
 
 ### Integration tests (`//go:build integration`)
 

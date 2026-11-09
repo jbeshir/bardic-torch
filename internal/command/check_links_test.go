@@ -224,6 +224,7 @@ func TestCheckLinks(t *testing.T) {
 			}
 			want := *tc.want
 			want.ID, want.CheckedAt, want.ExpectedLastCheckedAt = 1, checkStamp, tc.target.LastCheckedAt
+			want.ProbedURL = linkURL(1)
 			assert.Equal(t, map[int64]datasources.LinkCheckResult{1: want}, links.written())
 			assert.Equal(t, map[datasources.LinkOutcome]int{tc.outcome: 1}, result.Outcomes)
 			assert.Equal(t, tc.wantWarn, strings.Contains(logs.String(), `"level":"WARN"`), logs.String())

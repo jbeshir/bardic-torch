@@ -153,14 +153,19 @@ func newCheckLinks(repository *mysql.Repository) *command.CheckLinks {
 	return &command.CheckLinks{
 		Locker: repository,
 		Links:  repository,
-		Prober: linkcheck.New(linkcheck.Config{
-			UserAgent: linkcheck.UserAgent, AllowAddress: linkcheck.PublicAddress, Resolver: net.DefaultResolver,
-			Dial: linkcheck.GuardedDial(linkcheck.PublicAddress), Deadline: linkcheck.LinkDeadline,
-			HostInterval: linkcheck.HostInterval,
-		}),
+		Prober: linkcheck.New(proberConfig()),
 		Archive: wayback.New(wayback.Config{BaseURL: waybackAvailabilityURL, UserAgent: linkcheck.UserAgent},
 			&http.Client{Timeout: waybackTimeout, Transport: &http.Transport{Proxy: nil}}),
 		Now: time.Now,
+	}
+}
+
+// proberConfig returns the production link checker's configuration: the system resolver, and a dialer that checks
+// the socket's own address against the allowlist once more.
+func proberConfig() linkcheck.Config {
+	return linkcheck.Config{
+		Resolver: net.DefaultResolver, Dial: linkcheck.GuardedDial(linkcheck.PublicAddress),
+		Deadline: linkcheck.LinkDeadline, HostInterval: linkcheck.HostInterval,
 	}
 }
 

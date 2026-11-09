@@ -27,6 +27,8 @@ type LinkCheckResult struct {
 	CheckedAt time.Time
 	// ExpectedLastCheckedAt is the LinkCheckTarget's LastCheckedAt.
 	ExpectedLastCheckedAt *time.Time
+	// ProbedURL is the LinkCheckTarget's URL, the one checked.
+	ProbedURL string
 }
 
 // LinkArchiveTarget is a visible link whose archived copy is due to be looked up.
@@ -48,8 +50,8 @@ type LinkChecker interface {
 	// ListLinksDueForCheck returns up to limit visible links never checked or last checked before checkedBefore:
 	// the never checked first, then the longest unchecked, then by ID.
 	ListLinksDueForCheck(ctx context.Context, checkedBefore time.Time, limit int32) ([]LinkCheckTarget, error)
-	// UpdateLinkCheck records a result, only if the link is still visible and its last check time is still the
-	// one the checker read. It returns false if nothing was written.
+	// UpdateLinkCheck records a result, only if the link is still visible and its URL and last check time are still
+	// the ones the checker read. It returns false if nothing was written.
 	UpdateLinkCheck(ctx context.Context, result LinkCheckResult) (bool, error)
 	// ListLinksDueForArchive returns up to limit visible links with no archived copy whose archive was never
 	// looked up or not since checkedBefore, dead links first.

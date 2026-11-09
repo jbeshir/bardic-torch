@@ -1512,8 +1512,9 @@ WHERE perf.owner_piece_id IS NULL AND perf.owner_person_id IS NULL;
 -- Link checks
 --
 -- The link checker (cmd/check-links) reads the links due for a check and writes each result back with a compare
--- and set on last_checked_at, so a result computed from a stale read never overwrites another run's. A hidden link
--- is neither read nor written: a takedown stops every outbound request for it.
+-- and set on last_checked_at and url, so a result computed from a stale read never overwrites another run's, and
+-- one probed on a URL an approval has since respelled is not recorded against the new one. A hidden link is neither
+-- read nor written: a takedown stops every outbound request for it.
 -- ============================================
 
 -- Links never checked come first, then the longest unchecked.
@@ -1529,7 +1530,8 @@ LIMIT ?;
 UPDATE links
 SET liveness = sqlc.arg(liveness), liveness_failures = sqlc.arg(liveness_failures),
     last_checked_at = sqlc.arg(checked_at)
-WHERE id = sqlc.arg(id) AND last_checked_at <=> sqlc.arg(expected_last_checked_at) AND is_hidden = FALSE;
+WHERE id = sqlc.arg(id) AND url = sqlc.arg(url) AND last_checked_at <=> sqlc.arg(expected_last_checked_at)
+    AND is_hidden = FALSE;
 
 -- Links with no archived copy whose archive was never looked up, or not since the cutoff: dead links first, because
 -- an archived copy is all that is left of them.

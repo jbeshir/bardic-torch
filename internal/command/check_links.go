@@ -33,8 +33,8 @@ var ErrLinkCheckOutage = errors.New("most of the first checks failed transiently
 
 // CheckLinks checks the visible links due for a check, records each result, then looks up archived copies of the
 // links due for an archive lookup (docs/PLAN.md §3, "cmd/check-links"). One run at a time holds the lock; every
-// write is also a compare-and-set, so a run without the lock, or a link hidden or checked since it was selected,
-// writes nothing. Logs name links by ID only, never by URL.
+// write is also a compare-and-set, so a run without the lock, or a link hidden, checked or respelled since it was
+// selected, writes nothing. Logs name links by ID only, never by URL.
 type CheckLinks struct {
 	Locker  datasources.LinkCheckLocker
 	Links   datasources.LinkChecker
@@ -63,8 +63,8 @@ type CheckLinksResult struct {
 	LockHeld bool
 	// Outcomes counts the checks recorded, by outcome.
 	Outcomes map[datasources.LinkOutcome]int
-	// NotRecorded counts the checks not recorded: the link was hidden or checked since it was selected, or the write
-	// failed.
+	// NotRecorded counts the checks not recorded: the link was hidden, checked or respelled since it was selected,
+	// or the write failed.
 	NotRecorded int
 	// ArchiveLookups counts the archive lookups recorded, and ArchivesFound those that found a copy.
 	ArchiveLookups, ArchivesFound int
@@ -252,7 +252,7 @@ func (c *CheckLinks) record(ctx context.Context, p probed, result *CheckLinksRes
 	liveness, failures := nextLiveness(p.target, p.outcome)
 	written, err := c.Links.UpdateLinkCheck(ctx, datasources.LinkCheckResult{
 		ID: p.target.ID, Liveness: liveness, Failures: failures, CheckedAt: c.Now().UTC().Truncate(time.Second),
-		ExpectedLastCheckedAt: p.target.LastCheckedAt,
+		ExpectedLastCheckedAt: p.target.LastCheckedAt, ProbedURL: p.target.URL,
 	})
 	switch {
 	case errors.Is(err, datasources.ErrUnavailable):
@@ -262,7 +262,8 @@ func (c *CheckLinks) record(ctx context.Context, p probed, result *CheckLinksRes
 	case err != nil:
 		return fmt.Errorf("recording a link check: %w", err)
 	case !written:
-		logger.InfoContext(ctx, "link hidden or checked since it was selected; not recorded", "link_id", p.target.ID)
+		logger.InfoContext(ctx, "link hidden, checked or respelled since it was selected; not recorded",
+			"link_id", p.target.ID)
 		result.NotRecorded++
 		return nil
 	}

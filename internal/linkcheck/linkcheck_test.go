@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"slices"
 	"sync"
 	"syscall"
 	"testing"
@@ -119,7 +120,7 @@ func newSite(t *testing.T, handler http.Handler) *site {
 // checker returns a Checker reaching the site with the production allowlist and deadline.
 func (s *site) checker(deadline time.Duration) *Checker {
 	return New(Config{
-		UserAgent: UserAgent, AllowAddress: PublicAddress, Resolver: s.resolver, Dial: s.dialer.dial,
+		Resolver: s.resolver, Dial: s.dialer.dial,
 		Deadline: deadline, HostInterval: 0,
 	})
 }
@@ -305,24 +306,36 @@ func TestChecker_HeadSuccessNeedsNoGet(t *testing.T) {
 	assert.Zero(t, gets)
 }
 
-// TestChecker_RedirectChainDeadline checks that one deadline covers a link's whole redirect chain: each hop is
-// well within it, but the chain is not.
+// TestChecker_RedirectChainDeadline checks that one deadline covers a link's whole redirect chain, and HEAD and GET
+// together: in the slow case each hop is well within the deadline, but the chain is not, so the chain is cut short
+// and no GET follows. Only lateness-proof facts are asserted: a loaded host can only make the slow chain slower,
+// and the fast case's deadline is far beyond any scheduling delay.
 func TestChecker_RedirectChainDeadline(t *testing.T) {
 	t.Parallel()
 
-	const deadline = 300 * time.Millisecond
 	for _, tc := range []struct {
-		name string
-		hop  time.Duration
-		want datasources.LinkOutcome
+		name     string
+		deadline time.Duration
+		hop      time.Duration
+		want     datasources.LinkOutcome
+		// wantWholeChain is whether the site sees every HEAD of the chain.
+		wantWholeChain bool
 	}{
-		{name: "fast chain within the deadline", hop: 0, want: datasources.LinkOutcomeOK},
-		{name: "slow chain past the deadline", hop: deadline / 4, want: datasources.LinkOutcomeUnreachable},
+		{name: "fast chain within the deadline", deadline: 10 * time.Second, hop: 0,
+			want: datasources.LinkOutcomeOK, wantWholeChain: true},
+		// Six hops of a quarter of the deadline each take one and a half deadlines, so the sixth is never asked for.
+		{name: "slow chain past the deadline", deadline: 300 * time.Millisecond, hop: 75 * time.Millisecond,
+			want: datasources.LinkOutcomeUnreachable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			var mu sync.Mutex
+			requests := map[string]int{}
 			s := newSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				requests[r.Method]++
+				mu.Unlock()
 				time.Sleep(tc.hop)
 				var hop int
 				_, _ = fmt.Sscanf(r.URL.Path, "/hop/%d", &hop)
@@ -333,9 +346,15 @@ func TestChecker_RedirectChainDeadline(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			start := time.Now()
-			assert.Equal(t, tc.want, s.checker(deadline).Probe(t.Context(), "http://kettle.example/hop/0"))
-			assert.Less(t, time.Since(start), deadline+time.Second, "the deadline covers HEAD and GET together")
+			assert.Equal(t, tc.want, s.checker(tc.deadline).Probe(t.Context(), "http://kettle.example/hop/0"))
+			mu.Lock()
+			defer mu.Unlock()
+			if tc.wantWholeChain {
+				assert.Equal(t, maxRedirects+1, requests[http.MethodHead], "every hop of the chain")
+			} else {
+				assert.Less(t, requests[http.MethodHead], maxRedirects+1, "no hop is asked for after the deadline")
+			}
+			assert.Zero(t, requests[http.MethodGet], "the deadline covers HEAD and GET together")
 		})
 	}
 }
@@ -391,27 +410,76 @@ func TestChecker_SendsNoCookies(t *testing.T) {
 	}
 }
 
+// arrivals is a site handler answering 200 that records when each request for each host arrived.
+type arrivals struct {
+	mu sync.Mutex
+	at map[string][]time.Time
+}
+
+func (a *arrivals) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	if a.at == nil {
+		a.at = map[string][]time.Time{}
+	}
+	a.at[r.Host] = append(a.at[r.Host], time.Now())
+	a.mu.Unlock()
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *arrivals) of(host string) []time.Time {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return append([]time.Time(nil), a.at[host]...)
+}
+
+// TestChecker_SpacesRequestsToAHost checks that the k-th request to a host reaches it no sooner than k intervals
+// after the first could be sent. Only that lower bound is asserted, which lateness cannot break.
 func TestChecker_SpacesRequestsToAHost(t *testing.T) {
 	t.Parallel()
 
 	const interval = 100 * time.Millisecond
-	s := newSite(t, statusHandler(http.StatusOK))
-	checker := New(Config{
-		UserAgent: UserAgent, AllowAddress: PublicAddress, Resolver: s.resolver, Dial: s.dialer.dial,
-		Deadline: LinkDeadline, HostInterval: interval,
-	})
+	site := &arrivals{}
+	s := newSite(t, site)
+	checker := New(Config{Resolver: s.resolver, Dial: s.dialer.dial, Deadline: LinkDeadline, HostInterval: interval})
 
 	start := time.Now()
 	var wg sync.WaitGroup
-	for range 3 {
-		wg.Go(func() { checker.Probe(t.Context(), kettlePage) })
+	outcomes := make([]datasources.LinkOutcome, 3)
+	for i := range outcomes {
+		wg.Go(func() { outcomes[i] = checker.Probe(t.Context(), kettlePage) })
 	}
 	wg.Wait()
-	assert.GreaterOrEqual(t, time.Since(start), 2*interval, "three requests to one host take two intervals")
 
-	start = time.Now()
-	checker.Probe(t.Context(), "http://harp.example/page")
-	assert.Less(t, time.Since(start), interval, "another host is not held up")
+	assert.Equal(t, []datasources.LinkOutcome{datasources.LinkOutcomeOK, datasources.LinkOutcomeOK,
+		datasources.LinkOutcomeOK}, outcomes)
+	got := site.of(kettleHost)
+	require.Len(t, got, 3, "one HEAD per check")
+	slices.SortFunc(got, time.Time.Compare)
+	for k, at := range got {
+		assert.GreaterOrEqual(t, at.Sub(start), time.Duration(k)*interval, "request %d to one host", k)
+	}
+}
+
+// TestChecker_SpacingIsPerHost checks that a host's turn, an hour away, holds up neither another host nor anything
+// but that host: the other host's check succeeds well within its deadline, and the host's own next check runs out
+// of time waiting without a request.
+func TestChecker_SpacingIsPerHost(t *testing.T) {
+	t.Parallel()
+
+	site := &arrivals{}
+	s := newSite(t, site)
+	checker := New(Config{Resolver: s.resolver, Dial: s.dialer.dial, Deadline: LinkDeadline, HostInterval: time.Hour})
+
+	assert.Equal(t, datasources.LinkOutcomeOK, checker.Probe(t.Context(), kettlePage))
+	assert.Equal(t, datasources.LinkOutcomeOK, checker.Probe(t.Context(), "http://harp.example/page"),
+		"another host is not held up")
+
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	assert.Equal(t, datasources.LinkOutcomeUnreachable, checker.Probe(ctx, kettlePage), "the host waits its turn")
+	assert.Len(t, site.of(kettleHost), 1)
+	assert.Len(t, site.of("harp.example"), 1)
 }
 
 func TestPublicAddress(t *testing.T) {
@@ -483,7 +551,6 @@ func TestSafeDialer_RefusesInternalAddresses(t *testing.T) {
 
 			dialer := &recordingDial{err: errors.New("dialled")}
 			g := guard{
-				allow:    PublicAddress,
 				resolver: &fakeResolver{addrs: map[string][]netip.Addr{kettleHost: {netip.MustParseAddr(tc.addr)}}},
 				dial:     dialer.dial,
 			}
@@ -505,7 +572,7 @@ func TestSafeDialer_SkipsInternalAddressesOfAHost(t *testing.T) {
 	t.Parallel()
 
 	dialer := &recordingDial{err: errors.New("dialled")}
-	g := guard{allow: PublicAddress, dial: dialer.dial, resolver: &fakeResolver{addrs: map[string][]netip.Addr{
+	g := guard{dial: dialer.dial, resolver: &fakeResolver{addrs: map[string][]netip.Addr{
 		kettleHost: {netip.MustParseAddr("10.0.0.1"), publicSiteAddr, netip.MustParseAddr("::1")},
 	}}}
 	_, _ = g.dialContext(t.Context(), "tcp", kettle443)
@@ -522,7 +589,7 @@ func TestSafeDialer_DialsTheCheckedAddress(t *testing.T) {
 		rebind: map[string][]netip.Addr{kettleHost: {netip.MustParseAddr(loopbackV4)}},
 	}
 	dialer := &recordingDial{err: errors.New("dialled")}
-	g := guard{allow: PublicAddress, resolver: resolver, dial: dialer.dial}
+	g := guard{resolver: resolver, dial: dialer.dial}
 
 	_, _ = g.dialContext(t.Context(), "tcp", kettle443)
 	_, err := g.dialContext(t.Context(), "tcp", kettle443)

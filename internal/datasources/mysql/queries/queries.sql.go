@@ -3958,8 +3958,9 @@ type ListLinksDueForCheckRow struct {
 // Link checks
 //
 // The link checker (cmd/check-links) reads the links due for a check and writes each result back with a compare
-// and set on last_checked_at, so a result computed from a stale read never overwrites another run's. A hidden link
-// is neither read nor written: a takedown stops every outbound request for it.
+// and set on last_checked_at and url, so a result computed from a stale read never overwrites another run's, and
+// one probed on a URL an approval has since respelled is not recorded against the new one. A hidden link is neither
+// read nor written: a takedown stops every outbound request for it.
 // ============================================
 // Links never checked come first, then the longest unchecked.
 func (q *Queries) ListLinksDueForCheck(ctx context.Context, arg ListLinksDueForCheckParams) ([]ListLinksDueForCheckRow, error) {
@@ -7598,7 +7599,8 @@ const updateLinkCheck = `-- name: UpdateLinkCheck :execrows
 UPDATE links
 SET liveness = ?, liveness_failures = ?,
     last_checked_at = ?
-WHERE id = ? AND last_checked_at <=> ? AND is_hidden = FALSE
+WHERE id = ? AND url = ? AND last_checked_at <=> ?
+    AND is_hidden = FALSE
 `
 
 type UpdateLinkCheckParams struct {
@@ -7606,6 +7608,7 @@ type UpdateLinkCheckParams struct {
 	LivenessFailures      uint8
 	CheckedAt             sql.NullTime
 	ID                    uint64
+	Url                   string
 	ExpectedLastCheckedAt sql.NullTime
 }
 
@@ -7615,6 +7618,7 @@ func (q *Queries) UpdateLinkCheck(ctx context.Context, arg UpdateLinkCheckParams
 		arg.LivenessFailures,
 		arg.CheckedAt,
 		arg.ID,
+		arg.Url,
 		arg.ExpectedLastCheckedAt,
 	)
 	if err != nil {

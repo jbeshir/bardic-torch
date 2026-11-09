@@ -2,10 +2,18 @@ package main
 
 import (
 	"bytes"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
+	"github.com/jbeshir/bardic-torch/internal/datasources"
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
+	"github.com/jbeshir/bardic-torch/internal/datasources/wayback"
+	"github.com/jbeshir/bardic-torch/internal/linkcheck"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -83,4 +91,45 @@ func TestRun_RefusesBadDatabaseURL(t *testing.T) {
 	require.Error(t, err)
 	err = run(t.Context(), []string{limitFlag, "0"}, "")
 	require.ErrorIs(t, err, ErrUsage)
+}
+
+// TestNewCheckLinks_RefusesInternalAddresses checks the production wiring of the checker's address guard, with no
+// external network: neither the checker nor its dialer reaches a loopback server, even on an allowed port, and the
+// archive client asks the Wayback Machine's own API through a client with no proxy.
+func TestNewCheckLinks_RefusesInternalAddresses(t *testing.T) {
+	t.Parallel()
+
+	var connections, requests atomic.Int32
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests.Add(1)
+	}))
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			connections.Add(1)
+		}
+	}
+	server.Start()
+	t.Cleanup(server.Close)
+
+	run := newCheckLinks(mysql.New(nil))
+	assert.NotEqual(t, datasources.LinkOutcomeOK, run.Prober.Probe(t.Context(), server.URL))
+	assert.Equal(t, datasources.LinkOutcomeRefused, run.Prober.Probe(t.Context(), "http://127.0.0.1:443/"),
+		"refused before dialing")
+
+	// The checker's guard refuses loopback before it dials, so only the dialer itself shows that it checks the
+	// socket's address too.
+	dial := proberConfig().Dial
+	for _, address := range []string{server.Listener.Addr().String(), "127.0.0.1:443"} {
+		conn, err := dial(t.Context(), "tcp", address)
+		if conn != nil {
+			_ = conn.Close()
+		}
+		require.ErrorIs(t, err, linkcheck.ErrRefused, address)
+	}
+	assert.Zero(t, connections.Load(), "connections the loopback server accepted")
+	assert.Zero(t, requests.Load(), "requests the loopback server answered")
+
+	assert.Equal(t, wayback.New(wayback.Config{
+		BaseURL: "https://archive.org/wayback/available", UserAgent: linkcheck.UserAgent,
+	}, &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{}}), run.Archive)
 }

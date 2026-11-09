@@ -108,7 +108,7 @@ func (s *linkSite) prober() *linkcheck.Checker {
 	target := s.site.Listener.Addr().String()
 
 	return linkcheck.New(linkcheck.Config{
-		UserAgent: linkcheck.UserAgent, AllowAddress: linkcheck.PublicAddress, Resolver: siteResolver{},
+		Resolver: siteResolver{},
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			if address != netip.AddrPortFrom(sitePublicAddr, 80).String() {
 				return nil, &net.OpError{Op: "dial", Net: network, Err: net.ErrClosed}
@@ -339,6 +339,43 @@ func TestCheckLinks_HiddenAfterSelectionNotWritten(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.NotRecorded)
 	assert.Equal(t, checkedLink{liveness: domain.LivenessUnknown, failures: 2}, linkState(t, db, id))
+}
+
+// respellingProber rewrites each link's URL before checking it, as an approval that respells a link to the same
+// normalized URL might mid-run.
+type respellingProber struct {
+	t     *testing.T
+	db    *sql.DB
+	inner datasources.LinkProber
+}
+
+func (p respellingProber) Probe(ctx context.Context, url string) datasources.LinkOutcome {
+	if _, err := p.db.ExecContext(ctx, "UPDATE links SET url = ? WHERE url = ?", url+"?respelled", url); err != nil {
+		p.t.Errorf("respelling the link: %v", err)
+	}
+
+	return p.inner.Probe(ctx, url)
+}
+
+// TestCheckLinks_RespelledAfterSelectionNotWritten checks that a result probed on a link's old URL is not recorded
+// once the link's URL has changed.
+func TestCheckLinks_RespelledAfterSelectionNotWritten(t *testing.T) {
+	t.Parallel()
+
+	db := catalogtest.Writable(t)
+	repo := mysql.New(db)
+	site := newLinkSite(t)
+	id := insertLink(t, db, "/gone", 2, false)
+
+	run := site.run(repo)
+	run.Prober = respellingProber{t: t, db: db, inner: run.Prober}
+	result, err := run.Execute(t.Context(), integrationRequest())
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.NotRecorded)
+	// The link is still visible, so its archive lookup, a later write of its own, goes ahead.
+	state := linkState(t, db, id)
+	assert.Equal(t, checkedLink{liveness: domain.LivenessUnknown, failures: 2},
+		checkedLink{liveness: state.liveness, failures: state.failures, checked: state.checked})
 }
 
 func TestCheckLinks_SkipsHiddenLinks(t *testing.T) {

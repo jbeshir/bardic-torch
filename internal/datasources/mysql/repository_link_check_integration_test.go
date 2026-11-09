@@ -141,9 +141,11 @@ func TestRepository_UpdateLinkCheck_CompareAndSet(t *testing.T) {
 	checkedAt := f.now
 
 	cases := []struct {
-		name        string
-		row         linkRow
-		expected    *time.Time
+		name     string
+		row      linkRow
+		expected *time.Time
+		// respelled is whether the link's URL changes after it was selected and probed.
+		respelled   bool
 		wantWritten bool
 	}{
 		{name: "matching stamp writes", row: linkRow{lastCheckedAt: &stamp}, expected: &stamp, wantWritten: true},
@@ -153,14 +155,22 @@ func TestRepository_UpdateLinkCheck_CompareAndSet(t *testing.T) {
 		{name: "nil stamp on a checked link writes nothing", row: linkRow{lastCheckedAt: &stamp}},
 		{name: "stamp on a never checked link writes nothing", row: linkRow{}, expected: &stamp},
 		{name: "hidden link writes nothing", row: linkRow{hidden: true, lastCheckedAt: &stamp}, expected: &stamp},
+		{name: "url changed after selection writes nothing", row: linkRow{lastCheckedAt: &stamp}, expected: &stamp,
+			respelled: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.row.archivedURL = new("https://web.archive.org/web/2020/https://example.org/kept")
 			tc.row.liveness = livenessOK
 			id := f.insert(t, tc.row)
+			probed := fmt.Sprintf("https://example.org/%d", id)
+			if tc.respelled {
+				_, err := f.db.ExecContext(t.Context(), "UPDATE links SET url = ? WHERE id = ?", probed+"?respelled", id)
+				require.NoError(t, err)
+			}
 			written, err := f.repo.UpdateLinkCheck(t.Context(), datasources.LinkCheckResult{ID: id,
-				Liveness: domain.LivenessDead, Failures: 3, CheckedAt: checkedAt, ExpectedLastCheckedAt: tc.expected})
+				Liveness: domain.LivenessDead, Failures: 3, CheckedAt: checkedAt, ExpectedLastCheckedAt: tc.expected,
+				ProbedURL: probed})
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantWritten, written)
 
