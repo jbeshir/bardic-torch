@@ -21,6 +21,12 @@ const MaxBodyBytes = httpjson.MaxDocumentBodyBytes + 4<<10
 // serverName is the name the server gives in its implementation info.
 const serverName = "bardic-torch"
 
+// protocolVersions are the MCP protocol versions the server serves, newest first: 2026-07-28 sessionless, and the
+// handshake versions from 2025-06-18, the first without JSON-RPC batches.
+func protocolVersions() []string {
+	return []string{"2026-07-28", "2025-11-25", "2025-06-18"}
+}
+
 // The MCP methods that need tools.
 const (
 	methodListTools = "tools/list"
@@ -39,8 +45,9 @@ type handler struct {
 // request to that operation's route. The caller authenticates requests before they reach it.
 //
 // It answers, as JSON errors, a body that is not application/json (415), an Accept without both
-// application/json and text/event-stream (406), and a body over MaxBodyBytes (413). The MCP SDK answers the
-// rest, with JSON-RPC responses and plain-text errors of its own.
+// application/json and text/event-stream (406), a body over MaxBodyBytes (413), a JSON-RPC batch (400), and a
+// request whose context has already ended (503). The MCP SDK answers the rest, with JSON-RPC responses and
+// plain-text errors of its own.
 func NewHandler(tools *Toolset, inner http.Handler, lookup Lookup) http.Handler {
 	return handler{tools: tools, inner: inner, lookup: lookup}
 }
@@ -63,7 +70,33 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// One message per request, so that one request spends the MCP rate limit for one tool call at most. The SDK
+	// would serve a batch under a missing protocol header, which it reads as 2025-03-26.
+	if isBatch(body) {
+		httpjson.WriteError(ctx, w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
+			"JSON-RPC batches are not supported")
+		return
+	}
+	// The SDK writes nothing once its request's context has ended, so a budget already spent, as by a slow
+	// upload, is answered here.
+	if ctx.Err() != nil {
+		httpjson.WriteError(ctx, w, http.StatusServiceUnavailable, httpjson.CodeUnavailable,
+			"the request took too long; try again")
+		return
+	}
 	r.Body = io.NopCloser(bytes.NewReader(body))
+
+	// The SDK runs on a context the request budget does not end, so that a tool call whose operation answers after
+	// the budget, as a write committed near it does, still gets that answer to the client; tool calls dispatch on
+	// the request's own context, so an operation past the budget answers 503 itself. A client gone still ends it.
+	sdkCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	defer cancel()
+	stop := context.AfterFunc(ctx, func() {
+		if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			cancel()
+		}
+	})
+	defer stop()
 
 	server := h.tools.server(dispatcher{outer: r, inner: h.inner, lookup: h.lookup}, body)
 	sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return server }, &sdk.StreamableHTTPOptions{
@@ -75,7 +108,13 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// cross-origin protection applies; behind a proxy every connection would otherwise look local.
 		DisableLocalhostProtection: true,
 		MaxRequestBodyBytes:        MaxBodyBytes,
-	}).ServeHTTP(&noStoreWriter{ResponseWriter: w}, r)
+	}).ServeHTTP(&noStoreWriter{ResponseWriter: w}, r.WithContext(sdkCtx))
+}
+
+// isBatch reports whether body is a JSON-RPC batch: a JSON array.
+func isBatch(body []byte) bool {
+	trimmed := bytes.TrimLeft(body, " \t\r\n")
+	return len(trimmed) > 0 && trimmed[0] == '['
 }
 
 // noStoreWriter keeps the API's Cache-Control: no-store on the SDK's responses, which set their own: tool results
@@ -141,7 +180,8 @@ func acceptsBoth(values []string) bool {
 func (ts *Toolset) server(d dispatcher, body []byte) *sdk.Server {
 	server := sdk.NewServer(&sdk.Implementation{Name: serverName, Version: ts.version}, &sdk.ServerOptions{
 		// Tools only: no logging, prompts or resources, and the tool list never changes.
-		Capabilities: &sdk.ServerCapabilities{Tools: &sdk.ToolCapabilities{}},
+		Capabilities:              &sdk.ServerCapabilities{Tools: &sdk.ToolCapabilities{}},
+		SupportedProtocolVersions: protocolVersions(),
 	})
 	for _, t := range ts.toolsFor(body) {
 		server.AddTool(t.sdkTool, func(_ context.Context, req *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
@@ -154,7 +194,7 @@ func (ts *Toolset) server(d dispatcher, body []byte) *sdk.Server {
 // toolsFor returns the tools the server needs to answer the JSON-RPC message body: every tool to list them, the
 // tool a call names (none if no tool has that name, which the SDK answers as unknown), and none for any other
 // method. Registering a tool costs a pass over its input schema, tens of kilobytes for the draft tools, so a call
-// pays only for its own tool. A body that is not one message gets every tool, and the SDK's answer.
+// pays only for its own tool. A body that does not decode gets every tool, and the SDK's answer.
 func (ts *Toolset) toolsFor(body []byte) []tool {
 	var message struct {
 		Method string `json:"method"`

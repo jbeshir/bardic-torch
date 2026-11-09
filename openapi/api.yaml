@@ -3636,9 +3636,10 @@ paths:
         - MCP
       summary: Call the MCP server
       description: |
-        The API's MCP server, over stateless Streamable HTTP (MCP protocol versions 2025-06-18, with the
-        `initialize` handshake, and 2026-07-28, sessionless): one JSON-RPC message per request, answered with
-        `application/json`, never an event stream. Only API tokens may call it, with contributor powers whatever
+        The API's MCP server, over stateless Streamable HTTP (MCP protocol versions 2026-07-28, sessionless, and
+        2025-11-25 and 2025-06-18, with the `initialize` handshake; no other): one JSON-RPC message per request,
+        answered with `application/json`, never an event stream. A JSON-RPC batch is refused (400
+        `invalid_request`) whatever the protocol header says, so one request makes one tool call at most. Only API tokens may call it, with contributor powers whatever
         their user's role; an Auth0 session gets 403 `api_token_required`. GET and DELETE are not served (405).
 
         The server offers tools only (`tools/list`, `tools/call`). Each tool calls one REST operation of this
@@ -3648,11 +3649,11 @@ paths:
         checked against it (the body must be an object, whose fields the operation checks) and percent-encoded
         into the operation's own path, so no value reaches another operation. A call that succeeds returns the
         operation's response body, as `structuredContent` and as text (a response without a body is its
-        `status` as text). Any other answer is a result with `isError` true and text content only: the
+        `status` as text); the text is the REST body only, so a 201 and a 200 look alike. Any other answer is a result with `isError` true and text content only: the
         operation's error body with its `status`, and on 429 `retry_after_seconds`. Refused arguments are such a
         result with status 400 `invalid_request`, naming the argument but never its value. No tool reaches a
         moderator, token, contact or account operation. An unknown tool, method or malformed message is a
-        JSON-RPC error.
+        JSON-RPC error (under 2026-07-28, an unknown method is HTTP 404).
 
         Each request spends the caller's MCP rate limit, and each tool call also spends the rate limit of the
         operation it calls.
@@ -3668,7 +3669,8 @@ paths:
           required: false
           description: |
             The MCP protocol version of the request: required by 2026-07-28, which also requires `Mcp-Method` and,
-            for `tools/call`, `Mcp-Name`. A version the server does not support is 400.
+            for `tools/call`, `Mcp-Name`. A version other than 2026-07-28, 2025-11-25 and 2025-06-18 is 400.
+            It may be absent on the handshake versions; a batch is refused all the same.
           schema:
             type: string
             examples:
@@ -3707,17 +3709,36 @@ paths:
           description: A notification, such as `notifications/initialized`, was accepted; there is no body.
         "400":
           description: |
-            The MCP SDK refused the message: an unsupported `Mcp-Protocol-Version`, a body that is not readable,
-            or a 2026-07-28 request whose headers do not match it. Some are plain text, others a JSON-RPC error.
+            The message was refused. A JSON-RPC batch (a body that is a JSON array), whatever the protocol header,
+            and a body that cannot be read, are JSON errors `invalid_request`. The MCP SDK refuses the rest: an
+            unsupported `Mcp-Protocol-Version` (the plain-text message lists the supported versions, 2026-07-28,
+            2025-11-25 and 2025-06-18), a malformed message, or a 2026-07-28 request whose headers do not match
+            it. Its refusals are plain text or a JSON-RPC error.
           content:
             text/plain:
               schema:
                 type: string
                 examples:
-                  - "Bad Request: Unsupported protocol version (supported versions: 2026-07-28,2025-11-25)"
+                  - "Bad Request: Unsupported protocol version (supported versions: 2026-07-28,2025-11-25,2025-06-18)"
             application/json:
               schema:
-                $ref: "#/components/schemas/McpResponse"
+                oneOf:
+                  - $ref: "#/components/schemas/McpResponse"
+                  - $ref: "#/components/schemas/Error"
+              examples:
+                batch:
+                  summary: A JSON-RPC batch
+                  value:
+                    code: invalid_request
+                    message: JSON-RPC batches are not supported
+                jsonRpcError:
+                  summary: The SDK refused the message
+                  value:
+                    jsonrpc: "2.0"
+                    id: 1
+                    error:
+                      code: -32602
+                      message: invalid params
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -3739,6 +3760,21 @@ paths:
                   value:
                     code: api_token_required
                     message: this endpoint can only be used with an API token
+        "404":
+          description: |
+            Under protocol 2026-07-28 only: the message calls a method MCP does not define, answered as a
+            JSON-RPC error with code -32601 (method not found), as that protocol requires. Other versions answer
+            it with 400.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpResponse"
+              example:
+                jsonrpc: "2.0"
+                id: 1
+                error:
+                  code: -32601
+                  message: 'JSON RPC not handled: "bardic/unknown" unsupported'
         "406":
           description: |
             The `Accept` header does not list both `application/json` and `text/event-stream`; the error code is
@@ -3782,7 +3818,26 @@ paths:
                 examples:
                   - failed connection
         "503":
-          $ref: "#/components/responses/DatabaseUnavailable"
+          description: |
+            The request may be retried; the error code is `unavailable`. It is answered only when the caller's
+            token or user cannot be looked up because the database is unavailable, or when the request's time
+            budget ran out before the MCP server started (as after a slow upload). A tool call whose operation
+            answers 503 is a tool result with `isError` and status 503, inside a 200.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                databaseUnavailable:
+                  summary: The caller's user could not be looked up
+                  value:
+                    code: unavailable
+                    message: the database is busy or cannot be reached; try again
+                budgetSpent:
+                  summary: The request's time budget ran out first
+                  value:
+                    code: unavailable
+                    message: the request took too long; try again
 
 components:
   securitySchemes:

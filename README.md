@@ -238,9 +238,10 @@ Two authentication methods are supported, identified by the bearer token prefix:
 ## MCP
 
 The API is also an [MCP](https://modelcontextprotocol.io) server, for AI agents and scripts that act for a
-contributor: `POST https://api.bardictorch.org/v1/mcp`, stateless Streamable HTTP (protocol 2025-06-18 and later).
-It takes API tokens only (an Auth0 token gets 403 `api_token_required`). Create one at `POST /v1/tokens` while
-signed in, then configure the client with the server URL and the header:
+contributor: `POST https://api.bardictorch.org/v1/mcp`, stateless Streamable HTTP (protocol versions 2026-07-28,
+2025-11-25 and 2025-06-18; one JSON-RPC message per request, so a batch is refused with 400). It takes API tokens
+only (an Auth0 token gets 403 `api_token_required`). Create one at `POST /v1/tokens` while signed in, then
+configure the client with the server URL and the header:
 
 ```json
 {
@@ -256,8 +257,9 @@ signed in, then configure the client with the server URL and the header:
 
 Each tool call is a request to the REST operation it names, with the caller's token, so it gets that operation's
 answer, permissions, validation and rate limits; a moderator's token acts as a contributor, and every submission is
-pending. Tool calls also count against the `mcp_user` limit (burst 60, then 120 a minute). A REST error is a tool
-result with `isError` and the error body, with its `status`, as text. Annotations: read-only tools only read;
+pending. Tool calls also count against the `mcp_user` limit (burst 60, then 120 a minute). A successful
+call's result is the REST response body only, not its status, so a 201 and a 200 look alike. A REST error is a
+tool result with `isError` and the error body, with its `status`, as text. Annotations: read-only tools only read;
 destructive ones remove or give up something the caller made; idempotent ones can be repeated with the same effect.
 
 | Tool | Description | Annotations |

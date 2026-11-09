@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -252,7 +253,8 @@ func TestMCP_ToolDispatchKeepsRequestContext(t *testing.T) {
 	type recordKey struct{}
 	record := &struct{ userID string }{userID: "auth0|morwen"}
 	logger := slog.New(slog.DiscardHandler).With("request_id", "a-request-id")
-	deadline := time.Now().Add(13 * time.Second)
+	// Far in the future, so that no run, however loaded, reaches it.
+	deadline := time.Now().Add(time.Hour)
 
 	api := newFakeAPI(t, respondJSON(http.StatusOK, `{}`))
 
@@ -343,13 +345,114 @@ func TestScalarValue(t *testing.T) {
 
 	for raw, want := range map[string]string{
 		`"a b/c"`: "a b/c", `true`: "true", `false`: "false", `42`: "42", `9007199254740991`: "9007199254740991",
+		`1e3`: "1000", `10.0`: "10", `-7`: "-7", `1.5e1`: "15", `-0`: "0", `9223372036854775807`: "9223372036854775807",
+		`-9.223372036854775808e18`: "-9223372036854775808", `2500e-2`: "25", `1E2`: "100",
 	} {
 		got, err := scalarValue("x", json.RawMessage(raw))
 		require.NoError(t, err, raw)
 		assert.Equal(t, want, got, raw)
 	}
-	for _, raw := range []string{`1.5`, `1e3`, `null`, `{}`} {
+	for _, raw := range []string{
+		`1.5`, `1e-1`, `-2.5e0`, `9223372036854775808`, `1e19`, `1e999999999`, `+1`, `01`, `0x10`, `"unterminated`,
+		`null`, `{}`,
+	} {
 		_, err := scalarValue("x", json.RawMessage(raw))
 		assert.Error(t, err, raw)
 	}
+}
+
+// expiringContext is a request context whose deadline passes when expire is called: a request budget that runs
+// out at the moment a test chooses, rather than after a wall-clock wait.
+type expiringContext struct {
+	context.Context
+
+	once sync.Once
+	done chan struct{}
+}
+
+func newExpiringContext(parent context.Context) *expiringContext {
+	return &expiringContext{Context: parent, done: make(chan struct{})}
+}
+
+func (c *expiringContext) expire() {
+	c.once.Do(func() { close(c.done) })
+}
+
+func (c *expiringContext) Deadline() (time.Time, bool) {
+	return time.Now(), true
+}
+
+func (c *expiringContext) Done() <-chan struct{} {
+	return c.done
+}
+
+func (c *expiringContext) Err() error {
+	select {
+	case <-c.done:
+		return context.DeadlineExceeded
+	default:
+		return nil
+	}
+}
+
+// TestMCP_DeadlineDuringCallKeepsResult checks that a tool call whose request budget runs out while its operation
+// runs still gets the operation's answer as its result: the operation sees its context end, answers anyway (as a
+// write that committed would), and the client is told what it answered rather than getting an empty response.
+func TestMCP_DeadlineDuringCallKeepsResult(t *testing.T) {
+	t.Parallel()
+
+	ctx := newExpiringContext(t.Context())
+	api := newFakeAPI(t, func(w http.ResponseWriter, r *http.Request) {
+		ctx.expire()
+		<-r.Context().Done()
+		// The answer comes well after the budget ran out, as a write retried past it would. The handler must wait for
+		// it whatever the delay; the delay only stops an answer racing the end of the budget from hiding a handler
+		// that gives up at that end.
+		time.Sleep(100 * time.Millisecond)
+		respondJSON(http.StatusCreated, draft51Arguments)(w, r)
+	})
+	req := mcpRequest(t, toolCallMessage(toolCreateDraft, `{"body":{}}`)).WithContext(ctx)
+	rec := openapitest.New(t).Serve(t, api.handler(t), req)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var response rpcResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response), "body=%q", rec.Body.String())
+	require.Nil(t, response.Error, rec.Body.String())
+	var result toolResult
+	require.NoError(t, json.Unmarshal(response.Result, &result))
+	assert.False(t, result.IsError)
+	require.Len(t, result.Content, 1)
+	assert.JSONEq(t, draft51Arguments, result.Content[0].Text)
+	assert.JSONEq(t, draft51Arguments, string(result.StructuredContent))
+	assert.Len(t, api.requests(), 1)
+}
+
+// TestMCP_ExpiredBudgetIs503 checks that a request whose budget has run out before the MCP server runs, as after a
+// slow upload, is a JSON 503 unavailable that calls no tool.
+func TestMCP_ExpiredBudgetIs503(t *testing.T) {
+	t.Parallel()
+
+	ctx := newExpiringContext(t.Context())
+	ctx.expire()
+	api := newFakeAPI(t, respondJSON(http.StatusCreated, draft51Arguments))
+	req := mcpRequest(t, toolCallMessage(toolCreateDraft, `{"body":{}}`)).WithContext(ctx)
+	rec := openapitest.New(t).Serve(t, api.handler(t), req)
+
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+	assert.Equal(t, wireMediaType, rec.Header().Get("Content-Type"))
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body), "body=%q", rec.Body.String())
+	assert.Equal(t, "unavailable", body[codeField])
+	assert.Empty(t, api.requests(), "a tool was called after the budget ran out")
+}
+
+// TestUnencodableResult pins the text of a result that could not be encoded: a 500 internal tool error.
+func TestUnencodableResult(t *testing.T) {
+	t.Parallel()
+
+	var text map[string]any
+	require.NoError(t, json.Unmarshal([]byte(unencodableResult()), &text))
+	assert.Equal(t, map[string]any{
+		"status": float64(500), "code": "internal", "message": "unable to encode the result",
+	}, text)
 }

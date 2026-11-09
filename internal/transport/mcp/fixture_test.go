@@ -31,8 +31,6 @@ const (
 
 const (
 	slugArgument     = "slug"
-	codeField        = "code"
-	messageField     = "message"
 	invalidDraftID   = "invalid argument: draft_id"
 	kettleArguments  = `{"slug":"the-copper-kettle"}`
 	draft51Arguments = `{"draft_id":51}`
@@ -46,6 +44,8 @@ const (
 	protocolHeader    = "Mcp-Protocol-Version"
 	handshakeProtocol = "2025-06-18"
 	sessionless       = "2026-07-28"
+	// batchingProtocol is the newest protocol version with JSON-RPC batches, which the server does not serve.
+	batchingProtocol  = "2025-03-26"
 	testAuthorization = "Bearer user_api|morwen-secret"
 )
 

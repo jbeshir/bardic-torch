@@ -12,6 +12,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -171,4 +172,35 @@ func httptestRequest(t *testing.T, method, target, body, authorization string) *
 	}
 	req.Header.Set("Authorization", authorization)
 	return req
+}
+
+// TestMCPBatchCannotPassServerTier checks that one request cannot buy more tool calls than the mcp_user tier
+// allows by batching them: a JSON-RPC batch of one call more than the tier's burst, sent without a protocol header
+// (which the MCP SDK would read as 2025-03-26, a version with batches), is refused before any call is dispatched.
+func TestMCPBatchCannotPassServerTier(t *testing.T) {
+	t.Parallel()
+
+	tiers, _ := openTiers(t)
+	tiers.MCP = ratelimit.DefaultTiers().MCP
+	m := newLimitedHandlerMocks(t, rateLimits(tiers, handlerClock))
+	op := openapitest.Operation{Method: http.MethodGet, Path: pieceRoute}
+	matrix := authMatrix[op]
+	message := mcpToolCallMessage(t, "get_piece",
+		toolArguments(t, toolsByOperation(t)[op], expandPath(op.Path, matrix.pathParams), ""))
+	calls := make([]string, tiers.MCP.Burst+1)
+	for i := range calls {
+		calls[i] = message
+	}
+
+	// The inner requests a batch would make each resolve the user and read the piece; none may happen.
+	m.users.EXPECT().GetUser(mock.Anything, contributorID).Return(storedUser(contributorID), nil).Maybe()
+	m.pieces.EXPECT().GetPublicPiece(mock.Anything, matrixSlug).Return(matrixPiece, nil).Maybe()
+	req := newMCPRequest(t.Context(), apiAuthContributor.authorization, "["+strings.Join(calls, ",")+"]")
+	req.Header.Del(mcpProtocolHeader)
+	rec := m.validate.ServeResponseOnly(t, m.handler, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code, "%.200s", rec.Body.String())
+	assert.JSONEq(t, `{"code":"invalid_request","message":"JSON-RPC batches are not supported"}`, rec.Body.String())
+	assert.Empty(t, m.pieces.Calls, "a batched call reached its operation")
+	assert.LessOrEqual(t, len(m.users.Calls), 1, "only the MCP request itself resolves the user")
 }

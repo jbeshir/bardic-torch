@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -18,12 +19,21 @@ import (
 // path is not in canonical form.
 type Lookup func(*http.Request) (string, bool)
 
+// The fields of a tool error's text: the REST error body's code and message, and the REST status, which is also
+// a field of a call's log line; on 429, the seconds to wait.
+const (
+	statusField     = "status"
+	codeField       = "code"
+	messageField    = "message"
+	retryAfterField = "retry_after_seconds"
+)
+
 // unencodableResult is the text of a result that could not be encoded, which a REST response decoded as JSON
 // never is.
-const unencodableResult = `{"status":500,"code":"internal","message":"unable to encode the result"}`
-
-// statusField is the name of the REST status, in a tool result's text and in the log line of a call.
-const statusField = "status"
+func unencodableResult() string {
+	return fmt.Sprintf(`{%q:%d,%q:%q,%q:%q}`, statusField, http.StatusInternalServerError, codeField,
+		httpjson.CodeInternal, messageField, "unable to encode the result")
+}
 
 // notAddressedMessage answers arguments that would make a request to anything but the tool's own operation.
 const notAddressedMessage = "the arguments do not address the tool's operation"
@@ -96,7 +106,7 @@ func refuse(err error) (int, string, *sdk.CallToolResult) {
 		message = argErr.message
 	}
 	return http.StatusBadRequest, "", errorResult(object{
-		statusField: http.StatusBadRequest, "code": httpjson.CodeInvalidRequest, "message": message,
+		statusField: http.StatusBadRequest, codeField: httpjson.CodeInvalidRequest, messageField: message,
 	})
 }
 
@@ -164,8 +174,9 @@ func parameterValues(p parameter, raw json.RawMessage) ([]string, error) {
 	return values, nil
 }
 
-// scalarValue returns the text a string, integer or boolean argument is sent as. An integer must be written in
-// decimal digits, as the REST operation reads it.
+// scalarValue returns the text a string, integer or boolean argument is sent as. An integer is sent in decimal
+// digits, as the REST operation reads it, however its JSON number is written: 1e3 and 1000.0 are 1000. A number
+// that is not an exact integer within int64 is refused.
 func scalarValue(name string, raw json.RawMessage) (string, error) {
 	trimmed := bytes.TrimSpace(raw)
 	var text string
@@ -175,10 +186,45 @@ func scalarValue(name string, raw json.RawMessage) (string, error) {
 	case string(trimmed) == "true" || string(trimmed) == "false":
 		return string(trimmed), nil
 	}
-	if n, err := strconv.ParseInt(string(trimmed), 10, 64); err == nil {
-		return strconv.FormatInt(n, 10), nil
+	if digits, ok := integerDigits(trimmed); ok {
+		return digits, nil
 	}
 	return "", &argumentError{message: "invalid argument: " + name}
+}
+
+// The bounds of a JSON number read as an integer, which an int64 is well within, so that its exact value is cheap:
+// neither a number of a megabyte of digits nor a short one such as 1e999999999 is ever worked out.
+const (
+	maxIntegerLength   = 64
+	maxIntegerExponent = 64
+)
+
+// integerDigits returns the decimal digits of the JSON number number, if it is an exact integer within int64.
+func integerDigits(number []byte) (string, bool) {
+	if !isBoundedNumber(number) {
+		return "", false
+	}
+	value, ok := new(big.Rat).SetString(string(number))
+	if !ok || !value.IsInt() || !value.Num().IsInt64() {
+		return "", false
+	}
+	return value.Num().String(), true
+}
+
+// isBoundedNumber reports whether number is a JSON number within maxIntegerLength and maxIntegerExponent.
+func isBoundedNumber(number []byte) bool {
+	if len(number) == 0 || len(number) > maxIntegerLength || !json.Valid(number) {
+		return false
+	}
+	if first := number[0]; first != '-' && (first < '0' || first > '9') {
+		return false
+	}
+	i := bytes.IndexAny(number, "eE")
+	if i < 0 {
+		return true
+	}
+	exponent, err := strconv.Atoi(string(number[i+1:]))
+	return err == nil && exponent >= -maxIntegerExponent && exponent <= maxIntegerExponent
 }
 
 // responseBuffer records the REST response to a tool call.
@@ -226,12 +272,12 @@ func (b *responseBuffer) result() *sdk.CallToolResult {
 
 	errorBody := object{}
 	if err := json.Unmarshal(body, &errorBody); err != nil {
-		errorBody = object{"code": httpjson.CodeInternal, "message": "the operation answered without an error body"}
+		errorBody = object{codeField: httpjson.CodeInternal, messageField: "the operation answered without an error body"}
 	}
 	errorBody[statusField] = b.status
 	if b.status == http.StatusTooManyRequests {
 		if seconds, err := strconv.Atoi(b.header.Get("Retry-After")); err == nil {
-			errorBody["retry_after_seconds"] = seconds
+			errorBody[retryAfterField] = seconds
 		}
 	}
 	return errorResult(errorBody)
@@ -247,7 +293,7 @@ func errorResult(body object) *sdk.CallToolResult {
 func textResult(body object) *sdk.CallToolResult {
 	text, err := json.Marshal(body)
 	if err != nil {
-		text = []byte(unencodableResult)
+		text = []byte(unencodableResult())
 	}
 	return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: string(text)}}}
 }

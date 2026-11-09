@@ -716,27 +716,35 @@ decisions refine §4, §5 and §6. Two rules hold throughout:
   answer 403 `api_token_not_allowed` to a moderator's token, because moderation and contact PII need an
   interactive Auth0 session; `setUserBlocked` follows the same rule. BE5's MCP server kept the rule: it has no
   moderator tools, and a moderator's token acts there as a contributor.
-- **MCP** (BE5): `POST /v1/mcp` is the API's MCP server, over stateless Streamable HTTP (protocol 2025-06-18 with
-  its `initialize` handshake, and sessionless 2026-07-28), answering `application/json` only. Only API tokens may
-  call it (an Auth0 session gets 403 `api_token_required`). It offers tools only, from one table
+- **MCP** (BE5): `POST /v1/mcp` is the API's MCP server, over stateless Streamable HTTP (protocol versions
+  2025-06-18 and 2025-11-25 with their `initialize` handshake, and sessionless 2026-07-28, pinned in the SDK
+  options; any other version header is 400), answering `application/json` only. One message per request: a JSON-RPC
+  batch is refused with 400 `invalid_request` whatever the protocol header (without one the SDK would serve it as
+  2025-03-26), so one request spends one MCP rate-limit token for one tool call at most. Only API tokens may call
+  it (an Auth0 session gets 403 `api_token_required`). It offers tools only, from one table
   (`internal/transport/mcp/tools.go`): the public catalogue reads, the caller's editable and pending documents,
-  drafts, submit, withdraw, revert, their own revisions, link reports and repertoire; never moderation, tokens,
-  the account or the contact form. It is a facade: each tool calls one REST operation (`get_editable` and
-  `get_pending` choose one by `entity_type`) as a request to the API's own router with the caller's token and the
-  MCP request's context (deadline, logger, request ID), so authorisation, rate limits, validation and privacy are
-  the operation's. Input schemas are derived from the OpenAPI spec at startup (path and query parameters, and the
-  body as `body`, with the component schemas bundled as `$defs`). The facade checks the arguments first (unknown,
+  drafts, submit, withdraw, revert, their own revisions, link reports and repertoire; never moderation, tokens, the
+  account or the contact form. It is a facade: each tool calls one REST operation (`get_editable` and `get_pending`
+  choose one by `entity_type`) as a request to the API's own router with the caller's token and the MCP request's
+  context (deadline, logger, request ID), so authorisation, rate limits, validation and privacy are the
+  operation's. Input schemas are derived from the OpenAPI spec at startup (path and query parameters, and the body
+  as `body`, with the component schemas bundled as `$defs`). The facade checks the arguments first (unknown,
   missing, and each path and query argument against its schema; the body must be an object, whose fields the
   operation checks) and refuses them as a tool error 400 `invalid_request` naming the argument, never its value;
   then it percent-encodes each path argument into the operation's template and requires the router to route the
-  request to that same template, so no value reaches another operation. A 2xx is the body as
-  `structuredContent` and as text (no body: its status); any other status is `isError` with text only, the REST
-  error body plus `status` (and `retry_after_seconds` on 429). No output schema is declared. Our own checks
-  answer first as JSON errors: 415 for a body not `application/json`, 406 `not_acceptable` for an Accept
-  without both `application/json` and `text/event-stream`, and 413 over 1 MiB + 4 KiB; the SDK's other refusals
-  are its plain-text or JSON-RPC 400s. DNS-rebinding protection is off (behind nginx every connection looks
-  local) and there is no cross-origin check (bearer tokens are never ambient). Each call logs one line through the
-  request's logger: the tool, the route it reached and the status, never arguments or results.
+  request to that same template, so no value reaches another operation. A 2xx is the body as `structuredContent`
+  and as text (no body: its status), the REST body only and not its status, so a 201 and a 200 look alike;
+  any other status is `isError` with text only, the REST error body plus `status` (and `retry_after_seconds` on
+  429). No output schema is declared. Our own checks answer first as JSON errors: 415 for a body not
+  `application/json`, 406 `not_acceptable` for an Accept without both `application/json` and `text/event-stream`,
+  and 413 over 1 MiB + 4 KiB; 400 `invalid_request` for a batch; 503 `unavailable` when the request budget ran out
+  before the SDK ran. The SDK runs on a context the budget does not end (a client gone still cancels it), while
+  tool calls dispatch on the request's deadlined context: an operation past the budget answers 503 itself as a tool
+  result, and an answer that comes after the budget (a write committed near it) still reaches the client. The SDK's
+  other refusals are its plain-text or JSON-RPC 400s, and under 2026-07-28 a 404 for a method MCP does not define.
+  DNS-rebinding protection is off (behind nginx every connection looks local) and there is no cross-origin check
+  (bearer tokens are never ambient). Each call logs one line through the request's logger: the tool, the route it
+  reached and the status, never arguments or results.
 - **Display names** (impersonation controls): `display_name_key` is the display name folded like duplicates with
   only letters and digits kept, unique, so `Mor.wen` and `MORWEN` collide (409 `display_name_taken`; this reveals
   that someone holds the name, which is public anyway). A new display name is 400 `invalid_request`, naming the

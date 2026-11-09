@@ -303,3 +303,111 @@ func mapKeys[V any](m map[string]V) []string {
 	}
 	return keys
 }
+
+// TestMCP_RefusesBatches checks that a JSON-RPC batch is refused with 400 invalid_request whatever the protocol
+// header says, before any tool is called: without a header the MCP SDK would read it as 2025-03-26, which allows
+// batches, and so would a 2025-03-26 header if the server negotiated that version.
+func TestMCP_RefusesBatches(t *testing.T) {
+	t.Parallel()
+
+	call := toolCallMessage(toolGetPiece, kettleArguments)
+	for _, tc := range []struct{ name, version string }{
+		{name: "no protocol header"},
+		{name: batchingProtocol, version: batchingProtocol},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			api := newFakeAPI(t, respondJSON(http.StatusOK, kettleArguments))
+			req := mcpRequest(t, "\n ["+call+","+call+"]")
+			req.Header.Del(protocolHeader)
+			if tc.version != "" {
+				req.Header.Set(protocolHeader, tc.version)
+			}
+			// The request is a batch, which the spec's request body does not allow, so only the response is checked.
+			rec := openapitest.New(t).ServeResponseOnly(t, api.handler(t), req)
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+			assert.Equal(t, wireMediaType, rec.Header().Get("Content-Type"))
+			assert.JSONEq(t, `{"code":"invalid_request","message":"JSON-RPC batches are not supported"}`,
+				rec.Body.String())
+			assert.Empty(t, api.requests(), "a batched call reached an operation")
+		})
+	}
+}
+
+// TestMCP_ProtocolVersions checks that the server serves exactly the protocol versions it documents: an older
+// version's header is a plain-text 400 naming exactly 2026-07-28, 2025-11-25 and 2025-06-18, and the handshake
+// versions among those serve tools/list.
+func TestMCP_ProtocolVersions(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		version    string
+		wantStatus int
+	}{
+		{version: "2024-11-05", wantStatus: http.StatusBadRequest},
+		{version: batchingProtocol, wantStatus: http.StatusBadRequest},
+		{version: "2025-06-18", wantStatus: http.StatusOK},
+		{version: "2025-11-25", wantStatus: http.StatusOK},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
+			t.Parallel()
+
+			api := newFakeAPI(t, respondJSON(http.StatusOK, `{}`))
+			req := mcpRequest(t, toolsListMessage)
+			req.Header.Set(protocolHeader, tc.version)
+			rec := openapitest.New(t).Serve(t, api.handler(t), req)
+
+			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
+			if tc.wantStatus == http.StatusBadRequest {
+				assert.Equal(t, "text/plain; charset=utf-8", rec.Header().Get("Content-Type"))
+				assert.Equal(t, "Bad Request: Unsupported protocol version "+
+					"(supported versions: 2026-07-28,2025-11-25,2025-06-18)\n", rec.Body.String())
+			}
+			assert.Empty(t, api.requests())
+		})
+	}
+}
+
+// TestMCP_UnknownMethod20260728 checks, against the spec, the answers to well-formed sessionless 2026-07-28
+// requests for methods other than the tools': a method MCP does not define is HTTP 404 with a JSON-RPC
+// method-not-found error, as that protocol requires, and resources/list, which MCP defines, is an empty list.
+func TestMCP_UnknownMethod20260728(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		method     string
+		wantStatus int
+	}{
+		{method: "bardic/unknown", wantStatus: http.StatusNotFound},
+		{method: "resources/list", wantStatus: http.StatusOK},
+	} {
+		t.Run(tc.method, func(t *testing.T) {
+			t.Parallel()
+
+			api := newFakeAPI(t, respondJSON(http.StatusOK, `{}`))
+			req := mcpRequest(t, sessionlessMessage(tc.method, `{}`))
+			req.Header.Set(protocolHeader, sessionless)
+			req.Header.Set("Mcp-Method", tc.method)
+			rec := openapitest.New(t).Serve(t, api.handler(t), req)
+
+			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
+			assert.Equal(t, wireMediaType, rec.Header().Get("Content-Type"))
+			var response rpcResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+			if tc.wantStatus == http.StatusNotFound {
+				require.NotNil(t, response.Error, rec.Body.String())
+				assert.Equal(t, -32601, response.Error.Code, "method not found")
+			} else {
+				require.Nil(t, response.Error, rec.Body.String())
+				var listed struct {
+					Resources []json.RawMessage `json:"resources"`
+				}
+				require.NoError(t, json.Unmarshal(response.Result, &listed))
+				assert.Empty(t, listed.Resources)
+			}
+			assert.Empty(t, api.requests())
+		})
+	}
+}
