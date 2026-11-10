@@ -49,7 +49,7 @@ The codebase follows a layered architecture: the transport layer handles HTTP, t
 business rules over small datasource interfaces, the domain layer defines core types, and the MySQL datasource
 implements those interfaces with sqlc. The legacy wiki importer adds three layers below the command layer:
 `internal/mediawiki` reads and parses the crawl, `internal/importer` maps it onto a domain `CatalogueImport` with
-the moderators' review, and `internal/scrub` writes the scrubbed copy the tests read. `cmd/import-mediawiki`
+the moderators' review, and `internal/scrub` scrubs lyrics and holds the lyric deny list the tests read. `cmd/import-mediawiki`
 validates the import and applies it through the `ApplyCatalogueImport` command, which writes it with the
 `CatalogueImporter` datasource in one transaction.
 
@@ -66,7 +66,7 @@ graph TD
     IMPCMD[cmd/import-mediawiki]
     MWIKI[mediawiki<br/>crawl parser]
     IMPORTER[importer<br/>CatalogueImport, review]
-    SCRUB[cmd/scrub-dump, scrub<br/>scrubbed test copy]
+    SCRUB[cmd/scrub-dump, scrub<br/>lyric scrubber, deny list]
 
     FE --> MW
     MW --> AUTH0
@@ -99,7 +99,7 @@ Four entrypoints share the internal packages:
 | `cmd/app/` | HTTP API server. At startup it promotes the bootstrap moderators. |
 | `cmd/migrate/` | Applies (`up`), rolls back (`down N`) or reports (`version`) the embedded schema migrations; dokku runs `migrate up` before every deploy, which applies nothing on a clean schema newer than its migrations (a rollback) |
 | `cmd/import-mediawiki/` | Imports the crawl of the legacy wiki (PLAN §7): `--dry-run` builds the import and the moderators' private review without a database; `--apply` writes it, once, into the empty catalogue at `DATABASE_URL` in one transaction. `--review PATH`, outside the repository, is required ([docs/DEPLOY.md](docs/DEPLOY.md), "Importing the legacy wiki") |
-| `cmd/scrub-dump/` | Regenerates the scrubbed copy of the crawl committed under `testdata/wiki-dump/`, which the importer's tests read ([docs/TESTING.md](docs/TESTING.md)) |
+| `cmd/scrub-dump/` | Replaces the inline lyrics of a crawl with placeholder lines and writes its lyric deny list. Lyric-only, so its output from a real crawl is private; the scrubbed copy committed under `testdata/wiki-dump/` is frozen and never regenerated ([docs/TESTING.md](docs/TESTING.md)) |
 
 ## Getting Started
 

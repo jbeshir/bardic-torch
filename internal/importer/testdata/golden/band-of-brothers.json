@@ -15,7 +15,7 @@
       },
       "is_stub": false,
       "notes_md": null,
-      "version_notes_md": "The words of this song are adapted from [name withheld], a play about events in the 1400s (15th Century).",
+      "version_notes_md": "The words of this song are adapted from Legal Name 022, a play about events in the 1400s (15th Century).",
       "licensing_status": "known",
       "licensing_notes_md": "- [Ken Theriot encourages performers to perform his work at Pennsic, without requiring permission](https://www.ravenboymusic.com/bards-or-budding-bards-get-rbm-sheet-music-before-pennsic/)",
       "licence": null,
@@ -68,7 +68,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 145,
+          "person_id": 160,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -95,7 +95,7 @@
       "links": [
         {
           "url": "https://www.ravenboymusic.com/band-of-brothers-song/",
-          "title": "Song page at [name withheld]",
+          "title": "Song page at Legal Name 053",
           "description": null,
           "platform": "ravenboymusic.com",
           "place_type": null,
@@ -108,7 +108,7 @@
         },
         {
           "url": "https://www.ravenboymusic.com/sheet-music/",
-          "title": "Download sheet music or song sheets at [name withheld]",
+          "title": "Download sheet music or song sheets at Legal Name 053",
           "description": null,
           "platform": "ravenboymusic.com",
           "place_type": null,
@@ -174,7 +174,7 @@
       "title": "Band of Brothers"
     },
     "revision": {
-      "id": 372,
+      "id": 391,
       "summary": "Imported from the wiki (page revision 458).",
       "contributors": [
         "Wiki User 01"
@@ -183,24 +183,6 @@
     }
   },
   "review": [
-    {
-      "id": "NAME-030",
-      "kind": "free_text",
-      "page": "Band of Brothers",
-      "text": "link https://www.ravenboymusic.com/band-of-brothers-song/, title: \"Legal Name 053\" was withheld. Context: \"Song page at [name withheld]\"."
-    },
-    {
-      "id": "NAME-031",
-      "kind": "free_text",
-      "page": "Band of Brothers",
-      "text": "link https://www.ravenboymusic.com/sheet-music/, title: \"Legal Name 053\" was withheld. Context: \"Download sheet music or song sheets at [name withheld]\"."
-    },
-    {
-      "id": "NAME-198",
-      "kind": "free_text",
-      "page": "Band of Brothers",
-      "text": "piece Band of Brothers, version notes: \"Legal Name 022\" was withheld. Context: \"The words of this song are adapted from [name withheld], a play about events in the 1400s (15th\"."
-    },
     {
       "id": "CREDIT-002",
       "kind": "missing_bard_category",
@@ -220,7 +202,7 @@
       "text": "credited_not_listed: \"Lisa Theriot\" (person Lisa Theriot)."
     },
     {
-      "id": "STUB-172",
+      "id": "STUB-190",
       "kind": "stub_person",
       "page": "Band of Brothers",
       "text": "Stub person \"William Shakespeare\" (historical), named on 1 page(s)."
@@ -256,7 +238,7 @@
       "text": "A performance item has no performer, event or year the importer could read: \"[https://www.youtube.com/watch?v=1Ct5749N4RM\u0026list=RD1Ct5749N4RM\u0026start_radio=1 Of…\"."
     },
     {
-      "id": "PERSON-188",
+      "id": "PERSON-203",
       "kind": "stub_kind",
       "page": "Band of Brothers",
       "text": "Stub person \"William Shakespeare\" (named on 1 page(s)) is guessed to be historical. Credited by an external link: check whether historical or a group."

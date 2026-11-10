@@ -85,7 +85,6 @@ func TestClassifyPersonAlias(t *testing.T) {
 	for _, tt := range tests {
 		got := ClassifyPersonAlias(AliasCandidate{Name: tt.name, Source: tt.source})
 		assert.Equal(t, tt.want, got, tt.name)
-		assert.Equal(t, tt.want.Kind == sca && tt.want.Confident, got.Public(), tt.name)
 	}
 }
 

@@ -20,7 +20,7 @@
         {
           "name": "Ambra Michelli",
           "kind": "legal",
-          "is_public": false
+          "is_public": true
         }
       ],
       "roles": [
@@ -36,7 +36,7 @@
       "links": [
         {
           "url": "https://www.ravenboymusic.com/9-2/samantha-moore/",
-          "title": "[name withheld] page",
+          "title": "Legal Name 053 page",
           "description": null,
           "platform": "ravenboymusic.com",
           "place_type": "author_site",
@@ -67,7 +67,7 @@
       "title": "Samantha Moore"
     },
     "revision": {
-      "id": 228,
+      "id": 232,
       "summary": "Imported from the wiki (page revision 975).",
       "contributors": [
         "Wiki User 01",
@@ -87,13 +87,7 @@
       "id": "ALIAS-003",
       "kind": "alias",
       "page": "Samantha Moore",
-      "text": "\"Ambra Michelli\": kind legal, hidden (source h1_lead, rule default, unsure)."
-    },
-    {
-      "id": "NAME-162",
-      "kind": "free_text",
-      "page": "Samantha Moore",
-      "text": "link https://www.ravenboymusic.com/9-2/samantha-moore/, title: \"Legal Name 053\" was withheld. Context: \"[name withheld] page\"."
+      "text": "\"Ambra Michelli\": kind legal (source h1_lead, rule default, unsure)."
     },
     {
       "id": "LINK-230",

@@ -133,11 +133,6 @@ func TestScrubbedPeople_Bards(t *testing.T) {
 	bards := map[string]BardRecord{}
 	for _, b := range people.Bards {
 		bards[b.Title] = b
-		for _, a := range b.Aliases {
-			if !a.IsPublic {
-				assert.NotEqual(t, a.Name, b.Title, "a hidden alias is never the name")
-			}
-		}
 	}
 
 	malkin := bards["Malkin Grey"]
@@ -157,5 +152,4 @@ func TestScrubbedPeople_Bards(t *testing.T) {
 		}
 	}
 	assert.Equal(t, domain.PersonAliasKindRedirect, redirect.Kind)
-	assert.True(t, redirect.IsPublic)
 }

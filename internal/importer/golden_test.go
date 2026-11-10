@@ -76,9 +76,3 @@ func TestGoldenPages(t *testing.T) {
 		})
 	}
 }
-
-func TestReviewGolden(t *testing.T) {
-	_, review := scrubbedImport(t)
-
-	compareGolden(t, filepath.Join("testdata", "import-review.golden.md"), RenderReview(review))
-}

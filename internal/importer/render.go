@@ -7,14 +7,13 @@ import (
 	"strings"
 )
 
-// reviewIntro opens the review: who it is for, how the import treats the wiki's data and that it is private.
+// reviewIntro opens the review: who it is for, what the review holds and that it is private.
 const reviewIntro = `For John and Fabian, the moderators: this lists everything the importer decided that the wiki
 does not state, so you can check it. Where the wiki is ambiguous the importer applied its best guess; change it
 in the catalogue after the import. Every item has an ID (such as ALIAS-007) to refer to it by.
 
-**Private: do not publish or commit this file.** It names hidden aliases and other possible legal names in clear,
-so that you can review them. It never contains lyrics: inline lyrics are dropped and only their page, section and
-line count are listed.`
+**Private: do not publish or commit this file.** It names people in clear, so that you can review it. It never
+contains lyrics: inline lyrics are dropped and only their page, section and line count are listed.`
 
 // RenderReview writes the review as Markdown: a title, the introduction and counts, then every section in a fixed
 // order, each item on its own line, and "None." for a section with no items.
@@ -34,7 +33,7 @@ func RenderReview(r Review) []byte {
 		{"Stub persons", r.Counts.StubPersons}, {"Terms", r.Counts.Terms}, {"Collections", r.Counts.Collections},
 		{"Collections page entries", r.Counts.CollectionEntries},
 		{"Pieces that had inline lyrics", r.Counts.InlineLyricsPieces},
-		{"Events", r.Counts.Events}, {"Links", r.Counts.Links}, {"Links imported hidden", r.Counts.HiddenLinks},
+		{"Events", r.Counts.Events}, {"Links", r.Counts.Links},
 		{"Revisions", r.Counts.Revisions},
 	} {
 		fmt.Fprintf(&b, "| %s | %d |\n", row.what, row.n)

@@ -268,7 +268,8 @@ func TestCatalogueImport_TermAncestors(t *testing.T) {
 // TestCatalogueImportValidate_RejectsWithheldPlaceholders: no name, title, alias, sort key, slug or uploader may
 // hold a withheld-text placeholder; only free text may.
 func TestCatalogueImportValidate_RejectsWithheldPlaceholders(t *testing.T) {
-	for _, withheld := range []string{WithheldName, WithheldEmail} {
+	{
+		withheld := WithheldEmail
 		in := "Song for " + withheld
 		for field, mutate := range map[string]func(*CatalogueImport){
 			"term 1: doc.name":              func(imp *CatalogueImport) { imp.Terms[0].Doc.Name = in },
@@ -290,7 +291,7 @@ func TestCatalogueImportValidate_RejectsWithheldPlaceholders(t *testing.T) {
 		}
 	}
 	notes := validImport()
-	notes.Pieces[0].Doc.NotesMD = ptr("Written for " + WithheldName + ".")
+	notes.Pieces[0].Doc.NotesMD = ptr("Written for " + WithheldEmail + ".")
 	require.NoError(t, notes.Validate(), "free text may hold a placeholder")
 }
 

@@ -73,7 +73,7 @@
       "title": "Dahrien Cordell"
     },
     "revision": {
-      "id": 255,
+      "id": 259,
       "summary": "Imported from the wiki (page revision 439).",
       "contributors": [
         "Wiki User 01"
@@ -83,7 +83,7 @@
   },
   "review": [
     {
-      "id": "STUB-175",
+      "id": "STUB-193",
       "kind": "malformed_url",
       "page": "Dahrien Cordell",
       "text": "Red link \"Https://youtu.be/oDRTvZHFl9o?si=Dk9IWBG3h9W0RmAy Recording by Cerian Cantwr on YouTube\" (namespace 0, malformed_url), from Dahrien Cordell: not imported."
@@ -101,19 +101,19 @@
       "text": "https://youtube.com/watch?v=oDRTvZHFl9o: its url differ from those Rite of Passage gives. One link holds the fields for every page: Rite of Passage's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title \"Recording by Cerian Cantwr on YouTube\", the description \"\" and the locator \"\"."
     },
     {
-      "id": "PERF-272",
+      "id": "PERF-271",
       "kind": "repeated",
       "page": "Dahrien Cordell",
       "text": "A performance item the piece page \"Rite of Passage\" already records on the same link: imported once, from the piece page."
     },
     {
-      "id": "PERF-273",
+      "id": "PERF-272",
       "kind": "repeated",
       "page": "Dahrien Cordell",
       "text": "A performance item the piece page \"One More Log\" already records on the same link: imported once, from the piece page."
     },
     {
-      "id": "PERF-274",
+      "id": "PERF-273",
       "kind": "repeated",
       "page": "Dahrien Cordell",
       "text": "A performance item the piece page \"One More Log\" already records on the same link: imported once, from the piece page."

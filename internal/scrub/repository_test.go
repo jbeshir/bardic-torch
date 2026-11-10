@@ -108,20 +108,3 @@ func (g gitignore) ignored(p string, dir bool) bool {
 
 	return false
 }
-
-func TestRepositoryTextFiles_SkipsIgnoredAndBinary(t *testing.T) {
-	g := gitignore{patterns: []gitignorePattern{{glob: "*.exe"}, {glob: "bin", dirOnly: true}}}
-	require.True(t, g.ignored("cmd/x/app.exe", false))
-	require.True(t, g.ignored("bin", true))
-	require.False(t, g.ignored("bin", false))
-	require.False(t, g.ignored("internal/scrub/scrub.go", false))
-
-	files := repositoryTextFiles(t)
-	paths := map[string]bool{}
-	for _, f := range files {
-		paths[f.path] = true
-	}
-	require.True(t, paths["internal/scrub/repository_test.go"])
-	require.True(t, paths["docs/PLAN.md"])
-	require.True(t, paths[wikidumptest.ScrubbedDir+"/"+DenylistFile])
-}

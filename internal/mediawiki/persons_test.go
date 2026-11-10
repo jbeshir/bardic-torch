@@ -43,7 +43,7 @@ func TestPersonIndex_FuzzyAliasEditDistance(t *testing.T) {
 
 	m := x.Match("Marian of Placeholderdale")
 
-	assert.Equal(t, PersonMatch{Kind: MatchFuzzy, Rule: RuleEditDistance, Person: heatherBard, Via: KeyPublicAlias,
+	assert.Equal(t, PersonMatch{Kind: MatchFuzzy, Rule: RuleEditDistance, Person: heatherBard, Via: KeyAlias,
 		Candidates: []PersonRef{heatherBard}}, m)
 	assert.Equal(t, MatchNone, x.Match("Mariam of Placeholderdaly").Kind, "two edits are no match")
 }
@@ -85,21 +85,6 @@ func TestPersonIndex_FirstTokenAmbiguousIsStub(t *testing.T) {
 	assert.Equal(t, PersonRef(wrenFirst), ref)
 	require.Len(t, persons.Stubs, 1)
 	assert.Equal(t, []MentionMatch{{Mention: mention, Match: m}}, persons.Matches)
-}
-
-func TestPersonIndex_HiddenAliasMatchesButIsNeverShown(t *testing.T) {
-	w := newWikiFixture()
-	x := indexOf(t, w, indexedBard(rowan, rowan+" ("+ash+")"))
-	mention := PersonMention{Name: PersonName{Name: ash, Form: NameText}, Page: aSong}
-
-	persons := ResolvePersons(x, []PersonMention{mention}, w.site())
-
-	ref, ok := persons.Resolve(mention.Name)
-	require.True(t, ok)
-	assert.Equal(t, PersonRef(rowan), ref, "the credit goes to the bard, under the bard's name")
-	assert.Empty(t, persons.Stubs, "no person is created under the hidden name")
-	assert.Equal(t, []MentionMatch{{Mention: mention, Match: PersonMatch{Kind: MatchExact, Person: rowan,
-		Via: KeyHiddenAlias}}}, persons.Matches, "the match is listed for review")
 }
 
 func TestResolvePersons_TextMatchesStubsOfLinkedNames(t *testing.T) {

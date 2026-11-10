@@ -29,16 +29,3 @@ func TestCorpus_ResearchCounts(t *testing.T) {
 
 	assert.Equal(t, researchCounts, Stats(ParseCorpus(d)))
 }
-
-func TestParseCorpus_PrivateNamesIgnoreInlineLyrics(t *testing.T) {
-	lyric := "<poem>\nsung by Wren Placeholder\nline two\nline three\nline four\n</poem>"
-	d := Dump{Pages: []Page{
-		{NS: NSMain, Title: "A Song", PageID: 1, Wikitext: "{{Infobox Song}}\n" + lyric +
-			"\n== Notes ==\nRecorded by Ash Placeholder on YouTube."},
-	}}
-
-	c := ParseCorpus(d)
-
-	assert.Equal(t, []PrivateName{{Text: "Ash Placeholder"}}, c.PrivateNames,
-		"a name in the dropped lyrics is no candidate: lyrics are never read")
-}

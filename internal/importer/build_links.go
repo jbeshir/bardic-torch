@@ -10,21 +10,14 @@ import (
 )
 
 // buildLinkRows makes one links row per normalised URL, with the canonical fields (mediawiki.Links.Canonical)
-// every document attaching it carries. A link whose URL holds a private name is hidden.
+// every document attaching it carries.
 func (b *builder) buildLinkRows() {
 	owners := b.canonicalOwners()
 	for k, f := range b.c.Links.Canonical {
 		page := owners[f.NormalizedURL]
 		l := b.docLink(page, f, nil)
 		b.links[f.NormalizedURL] = l
-		row := domain.ImportedLink{ID: int64(k + 1), Link: l, IsHidden: b.w.hidesURL(f.URL)}
-		if row.IsHidden {
-			b.review.HiddenNames = append(b.review.HiddenNames, item("link_url", page,
-				"The link %s holds a possible legal name in its URL: it is imported hidden.", f.URL))
-		} else if note := b.w.urlNote(f.URL); note != "" {
-			b.review.HiddenNames = append(b.review.HiddenNames, item("link_url_name", page,
-				"The link %s %s: check it names no one who should be hidden.", f.URL, note))
-		}
+		row := domain.ImportedLink{ID: int64(k + 1), Link: l}
 		b.out.Links = append(b.out.Links, row)
 	}
 }
@@ -51,7 +44,7 @@ func (b *builder) canonicalOwners() map[string]string {
 }
 
 // docLink is the document form of link fields, with roles: its URL without tracking parameters, which can tie a
-// shared link to the sharer, and its title and description withheld as free text.
+// shared link to the sharer, and its title and description as free text.
 func (b *builder) docLink(page string, f mediawiki.LinkFields, roles []domain.LinkRole) domain.DocLink {
 	entity := "link " + f.URL
 	l := domain.DocLink{URL: cleanURL(domain.WithoutTrackingParameters(f.URL)),
@@ -111,20 +104,14 @@ func (b *builder) personLinks(links []mediawiki.LinkRecord) []domain.DocPersonLi
 	return out
 }
 
-// performance is a performance's document form. Its description is kept as written, but for the names and
-// addresses withheld from it and its URLs' tracking parameters; an uploader with anything withheld is left out, and
-// listed.
+// performance is a performance's document form. Its description is kept as written, but for the addresses
+// withheld from it and its URLs' tracking parameters.
 func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 	entity := "performance item"
 	out := domain.DocPerformance{
 		Uploader:            b.free(p.Page, entity, "uploader", p.Uploader),
 		DescriptionVerbatim: b.freeText(p.Page, entity, "description", withoutTracking(p.DescriptionVerbatim)),
 		PerformerIDs:        []int64{},
-	}
-	if out.Uploader != nil && domain.HoldsWithheldText(*out.Uploader) {
-		out.Uploader = nil
-		b.review.HiddenNames = append(b.review.HiddenNames, item("uploader", p.Page, "A performance item's "+
-			"uploader is withheld: the performance is imported without an uploader."))
 	}
 	if id, ok := b.eventIDs[p.Event]; ok && p.Event != "" {
 		out.EventID = &id

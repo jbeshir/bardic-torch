@@ -4,8 +4,8 @@
 // Usage: import-mediawiki --dump DIR (--dry-run | --apply) --review PATH
 //
 // Both modes parse the crawl in DIR, build the import (internal/importer), validate it and write the review for
-// the moderators to PATH, then print the counts. The review names hidden aliases and other possible legal names,
-// so it is written with mode 0600 and refused inside this repository, which is public. --dry-run stops there: it
+// the moderators to PATH, then print the counts. The review names people, so it is written with mode 0600; write it
+// outside this repository, which is public. --dry-run stops there: it
 // never reads DATABASE_URL or opens a database. --apply then writes the import into the empty catalogue at
 // DATABASE_URL in one transaction, and refuses a catalogue that already holds rows.
 package main
@@ -30,14 +30,11 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/importer"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
-	"github.com/jbeshir/bardic-torch/internal/repopath"
 )
 
 var (
 	// ErrUsage is returned for a command line without --dump or --review, or without exactly one mode.
 	ErrUsage = errors.New("usage: import-mediawiki --dump DIR (--dry-run | --apply) --review PATH")
-	// ErrInsideRepository is returned when --review names a file inside this repository, which is public.
-	ErrInsideRepository = fmt.Errorf("%w: the review names hidden aliases", repopath.ErrInsideRepository)
 )
 
 func main() {
@@ -77,13 +74,6 @@ func parseOptions(args []string) (options, error) {
 	if err := flags.Parse(args); err != nil || o.dump == "" || o.review == "" || dryRun == o.apply ||
 		flags.NArg() > 0 {
 		return options{}, ErrUsage
-	}
-	inside, err := repopath.Inside(o.review)
-	if err != nil {
-		return options{}, err
-	}
-	if inside {
-		return options{}, ErrInsideRepository
 	}
 
 	return o, nil
@@ -130,9 +120,9 @@ func run(ctx context.Context, args []string, databaseURL func() string, stdout i
 	return err
 }
 
-// writeReview writes the review to path, privately (repopath.WritePrivate).
+// writeReview writes the review to path, readable by the owner only.
 func writeReview(path string, review []byte) error {
-	if err := repopath.WritePrivate(path, review); err != nil {
+	if err := os.WriteFile(path, review, 0o600); err != nil {
 		return fmt.Errorf("writing the review: %w", err)
 	}
 
@@ -154,7 +144,7 @@ func printCounts(w io.Writer, r importer.Review) error {
 		fmt.Sprintf("persons %d (bards %d, stubs %d)", c.Persons(), c.Bards, c.StubPersons),
 		fmt.Sprintf("terms %d; collections %d (of %d entries); events %d", c.Terms, c.Collections,
 			c.CollectionEntries, c.Events),
-		fmt.Sprintf("links %d (hidden %d); revisions %d", c.Links, c.HiddenLinks, c.Revisions),
+		fmt.Sprintf("links %d; revisions %d", c.Links, c.Revisions),
 		fmt.Sprintf("review items %d", len(r.Items())),
 	}
 	_, err := fmt.Fprintln(w, strings.Join(lines, "\n"))

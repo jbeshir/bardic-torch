@@ -109,7 +109,7 @@ func (b *builder) reviewCredits() {
 }
 
 func (b *builder) reviewRedLinks() {
-	for _, sp := range b.stubPieces {
+	for _, sp := range b.c.People.StubPieces {
 		persons := make([]string, 0, len(sp.Credits))
 		for _, c := range sp.Credits {
 			persons = append(persons, string(c.Person))
@@ -381,16 +381,9 @@ func (b *builder) reviewContributors() {
 		}
 	}
 	users := slices.Sorted(maps.Keys(edits))
-	hidden := map[string]bool{}
-	for _, n := range b.w.legal {
-		hidden[mediawiki.FoldName(n.Text)] = true
-	}
 	for _, u := range users {
 		flag := ""
-		switch {
-		case hidden[mediawiki.FoldName(u)] || b.w.holdsName(u):
-			flag = " It matches a hidden alias or possible legal name: consider hiding it."
-		case personNameShaped(u):
+		if personNameShaped(u) {
 			flag = " It is shaped like a personal name (capitalised words): it may be a legal name; check it may be " +
 				"credited publicly."
 		}
@@ -436,11 +429,6 @@ func (b *builder) counts() Counts {
 			c.StubPersons++
 		} else {
 			c.Bards++
-		}
-	}
-	for _, l := range b.out.Links {
-		if l.IsHidden {
-			c.HiddenLinks++
 		}
 	}
 	c.Revisions = int(b.rev)

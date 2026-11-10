@@ -29,9 +29,7 @@ func TestRenderReview_SectionsInOrder(t *testing.T) {
 		last = at
 	}
 	assert.Equal(t, len(r.sections()), strings.Count(out, "\nNone.\n"), "an empty section says so")
-	for _, title := range []string{"Hidden names withheld from public text", "Contact details withheld"} {
-		assert.Contains(t, out, ". "+title+"\n")
-	}
+	assert.Contains(t, out, ". Contact details withheld\n")
 }
 
 func TestRenderReview_Deterministic(t *testing.T) {
@@ -117,4 +115,19 @@ func TestReview_FlagsNameShapedContributors(t *testing.T) {
 	}
 	assert.True(t, flagged["Hazel Placeholder"])
 	assert.False(t, flagged["HazelP"])
+}
+
+// TestReview_SectionItemCounts pins how many items each section of the scrubbed copy's review holds, so that a change
+// to what the importer lists shows.
+func TestReview_SectionItemCounts(t *testing.T) {
+	_, review := scrubbedImport(t)
+
+	got := map[string]int{}
+	for _, it := range review.Items() {
+		got[strings.SplitN(it.ID, "-", 2)[0]]++
+	}
+
+	assert.Equal(t, map[string]int{"AMBIG": 5, "ALIAS": 27, "EMAIL": 4, "MATCH": 1, "CREDIT": 53, "STUB": 194, "TITLE": 41,
+		"DRIFT": 50, "LYRICS": 11, "LINK": 336, "PERF": 330, "PERSON": 204, "TERM": 30, "COLL": 75, "LICENCE": 26,
+		"MARKUP": 6, "USER": 14}, got)
 }

@@ -106,7 +106,7 @@
         },
         {
           "url": "https://cunnan.lochac.sca.org/index.php/The_SCA_Happy_Birthday_Song",
-          "title": "Lyrics on Cunnan (an SCA wiki hosted in Lochac) - version sourced from the '[name withheld]' songbook",
+          "title": "Lyrics on Cunnan (an SCA wiki hosted in Lochac) - version sourced from the 'Legal Name 073' songbook",
           "description": null,
           "platform": "cunnan.lochac.sca.org",
           "place_type": null,
@@ -132,7 +132,7 @@
         },
         {
           "url": "https://thereitis.org/the-birthday-dirge/",
-          "title": "Lyrics on [name withheld]'s blog",
+          "title": "Lyrics on Legal Name 074's blog",
           "description": null,
           "platform": "thereitis.org",
           "place_type": null,
@@ -175,7 +175,7 @@
           "description": null,
           "platform": "pdf",
           "place_type": "book",
-          "collection_id": 44,
+          "collection_id": 47,
           "locator": null,
           "roles": [
             "lyrics"
@@ -216,7 +216,7 @@
       "title": "Birthday Dirge"
     },
     "revision": {
-      "id": 427,
+      "id": 446,
       "summary": "Imported from the wiki (page revision 889).",
       "contributors": [
         "Wiki User 01"
@@ -225,24 +225,6 @@
     }
   },
   "review": [
-    {
-      "id": "NAME-086",
-      "kind": "free_text",
-      "page": "Birthday Dirge",
-      "text": "link https://cunnan.lochac.sca.org/index.php/The_SCA_Happy_Birthday_Song, title: \"Legal Name 073\" was withheld. Context: \"in Lochac) - version sourced from the '[name withheld]' songbook\"."
-    },
-    {
-      "id": "NAME-087",
-      "kind": "link_url_name",
-      "page": "Birthday Dirge",
-      "text": "The link https://www.eg.bucknell.edu/~lwittie/sca/song/filk/barbarian_birthday_dirge.html has a home directory (~user) in its path: check it names no one who should be hidden."
-    },
-    {
-      "id": "NAME-088",
-      "kind": "free_text",
-      "page": "Birthday Dirge",
-      "text": "link https://thereitis.org/the-birthday-dirge/, title: \"Legal Name 074\" was withheld. Context: \"Lyrics on [name withheld]'s blog\"."
-    },
     {
       "id": "TITLE-020",
       "kind": "alternate",

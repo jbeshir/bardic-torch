@@ -26,9 +26,9 @@ func TestBuild_ValidatesOutput(t *testing.T) {
 
 func TestBuild_ResearchCounts(t *testing.T) {
 	c := scrubbedCorpus(t)
-	imp, review := Build(c, buildTime)
+	imp, _ := Build(c, buildTime)
 
-	assert.Equal(t, researchCounts, importCounts(c, imp, review))
+	assert.Equal(t, researchCounts, importCounts(c, imp))
 }
 
 func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {
@@ -101,18 +101,6 @@ func TestBuild_NoLyricMarkerAnywhere(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, strings.ToLower(string(encoded)), lyricMarker)
 	assert.NotContains(t, strings.ToLower(string(RenderReview(review))), lyricMarker)
-}
-
-// TestBuild_NoPlaceholderInPublicFields checks that no name placeholder of the scrubbed copy, in any of its forms,
-// is in a public field: only hidden aliases, legacy columns and hidden links may hold one.
-func TestBuild_NoPlaceholderInPublicFields(t *testing.T) {
-	imp, _ := scrubbedImport(t)
-
-	assert.Empty(t, placeholderForm.FindAllString(publicJSON(t, imp), -1))
-	encoded, err := json.Marshal(imp)
-	require.NoError(t, err)
-	assert.NotEmpty(t, placeholderForm.FindAllString(string(encoded), -1),
-		"the hidden aliases still hold their placeholders")
 }
 
 // TestBuild_ContributorsAreCreditedPerPage: a piece page's revision credits its contributors, and a stub piece's

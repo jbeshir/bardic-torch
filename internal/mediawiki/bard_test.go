@@ -45,18 +45,16 @@ func TestParseBard_Aliases(t *testing.T) {
 		name   string
 		source AliasSource
 		kind   domain.PersonAliasKind
-		public bool
 	}
 	var got []alias
 	for _, a := range b.Aliases {
-		got = append(got, alias{a.Name, a.Source, a.Kind, a.IsPublic})
+		got = append(got, alias{a.Name, a.Source, a.Kind})
 	}
 	assert.Equal(t, []alias{
-		{ashOfTheVale, AliasFromH1Parenthetical, domain.PersonAliasKindSCA, true},
-		{ash, AliasFromH1Parenthetical, domain.PersonAliasKindLegal, false},
-		// A redirect equal to a hidden alias is hidden too; one classified as an SCA name is public.
-		{ash, AliasFromRedirect, domain.PersonAliasKindRedirect, false},
-		{"Rowan the Bold", AliasFromRedirect, domain.PersonAliasKindRedirect, true},
+		{ashOfTheVale, AliasFromH1Parenthetical, domain.PersonAliasKindSCA},
+		{ash, AliasFromH1Parenthetical, domain.PersonAliasKindLegal},
+		{ash, AliasFromRedirect, domain.PersonAliasKindRedirect},
+		{"Rowan the Bold", AliasFromRedirect, domain.PersonAliasKindRedirect},
 	}, got)
 	_, ambiguous := b.H1LeadAlias()
 	assert.False(t, ambiguous)
@@ -68,7 +66,6 @@ func TestParseBard_H1LeadIsAnAmbiguousAlias(t *testing.T) {
 	a, ok := b.H1LeadAlias()
 	require.True(t, ok)
 	assert.Equal(t, ash, a.Name)
-	assert.False(t, a.IsPublic, "an unsure H1 lead is hidden")
 	assert.Equal(t, wren, b.Title, "the page title stays the name")
 }
 

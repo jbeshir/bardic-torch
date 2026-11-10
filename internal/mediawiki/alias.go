@@ -139,12 +139,6 @@ type AliasClassification struct {
 	Rule      AliasRule
 }
 
-// Public reports whether an alias so classified may be public: only a confident classification as a kind other
-// than legal. Everything else is hidden and listed for review (fail closed).
-func (c AliasClassification) Public() bool {
-	return c.Confident && c.Kind != domain.PersonAliasKindLegal
-}
-
 var patronymicSuffixes = []string{"dottir", "datter"}
 
 // ClassifyPersonAlias classifies a bard's alias, failing closed. The first rule that applies wins:
@@ -154,8 +148,6 @@ var patronymicSuffixes = []string{"dottir", "datter"}
 //  3. a name with one of the particles legal names share (particleShared: de, la, van, mac…) is an SCA name,
 //     but not confidently;
 //  4. any other name is legal, not confidently.
-//
-// Only a confident non-legal classification is public (AliasClassification.Public).
 func ClassifyPersonAlias(c AliasCandidate) AliasClassification {
 	if c.Source == AliasFromLegalNameMarker || c.Source == AliasFromMundaneNameMarker {
 		return AliasClassification{Kind: domain.PersonAliasKindLegal, Confident: true, Rule: AliasRuleLegalMarker}

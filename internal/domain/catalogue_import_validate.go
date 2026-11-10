@@ -36,8 +36,8 @@ const (
 //     before it ends, a licence needs a known licensing status, nothing relates to itself;
 //   - each document link's URL normalises to a Links row whose fields it carries, roles aside;
 //   - the terms' parents have a closure (TermAncestors), and every summary is an import summary;
-//   - no name, title, alias, slug, sort key or uploader holds a withheld-text placeholder (HoldsWithheldText): a
-//     name the import withholds is dropped with its entity, never published as a placeholder.
+//   - no name, title, alias, slug, sort key or uploader holds a withheld-text placeholder (HoldsWithheldText):
+//     only free text may.
 //
 // It fails with ErrInvalidImport, naming the entity type, ID and field of the first problem, never its value.
 func (imp CatalogueImport) Validate() error {
@@ -117,7 +117,7 @@ func (c *entityCheck) require(ok bool, field, problem string) {
 }
 
 // name checks a name or title of the catalogue (a required VARCHAR(255)): it fits, and holds no withheld-text
-// placeholder (WithheldName, WithheldEmail), which only free text may hold.
+// placeholder (WithheldEmail), which only free text may hold.
 func (c *entityCheck) name(s, field string) {
 	c.varchar(s, maxNameLength, field, true)
 	c.require(!HoldsWithheldText(s), field, "holds a withheld-text placeholder")

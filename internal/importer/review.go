@@ -12,7 +12,7 @@ import (
 
 // Item is one entry of the import review: its stable ID (a section prefix and a number, "ALIAS-007"), what kind
 // of entry it is within its section, the wiki page it is about (empty for the wiki as a whole) and what the
-// importer found and did. Text never holds lyrics; it may name hidden aliases, as the review is private.
+// importer found and did. Text never holds lyrics; it may name people, as the review is private.
 type Item struct {
 	ID   string `json:"id"`
 	Kind string `json:"kind"`
@@ -33,7 +33,6 @@ type Counts struct {
 	Collections        int
 	Events             int
 	Links              int
-	HiddenLinks        int
 	Revisions          int
 }
 
@@ -47,7 +46,6 @@ type Review struct {
 	Counts        Counts
 	Ambiguities   []Item
 	Aliases       []Item
-	HiddenNames   []Item
 	Contacts      []Item
 	PersonMatches []Item
 	Credits       []Item
@@ -79,14 +77,9 @@ func (r *Review) sections() []reviewSection {
 	return []reviewSection{
 		{"Ambiguous records", "AMBIG", "Records the wiki leaves ambiguous (PLAN §2.9): the importer's guess, " +
 			"and the alternative.", &r.Ambiguities},
-		{"Alias classifications", "ALIAS", "Every alias of every person, with its kind, whether it is public " +
-			"and the rule that decided it. Unsure classifications come first; they are hidden until reviewed.",
+		{"Alias classifications", "ALIAS", "Every alias of every person, with its kind and the rule " +
+			"that decided it. Unsure classifications come first.",
 			&r.Aliases},
-		{"Hidden names withheld from public text", "NAME", "Every place a hidden alias or another possible " +
-			"legal name was found in public text and replaced with \"" + domain.WithheldName + "\"; every link " +
-			"imported hidden because its URL holds a legal name, and every other URL that may name a person; " +
-			"and every collection, event, stub person, stub piece, alias or uploader left out because its name " +
-			"holds a legal name. The context shows the text after withholding.", &r.HiddenNames},
 		{"Contact details withheld", "EMAIL", "Email addresses replaced with \"" + domain.WithheldEmail + "\". " +
 			"Restore any the person wants published.", &r.Contacts},
 		{"Fuzzy-matched persons", "MATCH", "Names matched to a person otherwise than exactly, with the " +
@@ -116,7 +109,7 @@ func (r *Review) sections() []reviewSection {
 		{"Markup and text problems", "MARKUP", "Broken markup repaired or found, and names with characters " +
 			"an editor could not enter.", &r.Markup},
 		{"Credited wiki contributors", "USER", "The wiki user names credited in revision history, flagged when " +
-			"one matches a private name or is shaped like a personal name. Check that none needs hiding.",
+			"one is shaped like a personal name. Check that each may be credited publicly.",
 			&r.Contributors},
 	}
 }

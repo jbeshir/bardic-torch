@@ -117,8 +117,6 @@ func TestGoldenAssert_SamanthaMoore(t *testing.T) {
 	person, items := goldenPerson(t, "Samantha Moore")
 
 	assert.Equal(t, "Samantha Moore", person.Doc.Name, "the title is the guess")
-	assert.Equal(t, []domain.DocPersonAlias{{Name: "Ambra Michelli", Kind: domain.PersonAliasKindLegal}},
-		person.Doc.Aliases, "the H1 lead is a hidden alias")
 	assert.Contains(t, kinds(items), "canonical_name", "listed as ambiguous")
 }
 
@@ -143,7 +141,7 @@ func TestGoldenAssert_BurningOfTara(t *testing.T) {
 }
 
 func TestGoldenAssert_MalkinGrey(t *testing.T) {
-	person, items := goldenPerson(t, "Malkin Grey")
+	person, _ := goldenPerson(t, "Malkin Grey")
 
 	assert.Equal(t, domain.PersonStatusDeceased, person.Doc.Status)
 	require.NotNil(t, person.Doc.StatusDate)
@@ -151,7 +149,6 @@ func TestGoldenAssert_MalkinGrey(t *testing.T) {
 	require.NotNil(t, person.Doc.StatusSourceURL)
 	assert.Equal(t, "http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/",
 		*person.Doc.StatusSourceURL, "the obituary the date is read from")
-	assert.Contains(t, kinds(items), "link_url", "the profile link naming the legal name is hidden")
 }
 
 func TestGoldenAssert_FightForTheMidrealm(t *testing.T) {

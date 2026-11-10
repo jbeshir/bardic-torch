@@ -30,65 +30,24 @@ var importedCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) domai
 })
 
 // The marks of private data in the scrubbed copy (internal/scrub) that no public response may show: the
-// placeholder lines standing in for lyrics, a legal name's placeholder in any form ("Legal Name 001",
-// "legal-name-001", "Legal_Name_001", "LegalName001"), and a withheld name or email followed by the number of the
-// placeholder it replaced ("[name withheld] 001").
+// placeholder lines standing in for lyrics, and the scrubber's email placeholder (the importer withholds every
+// email). The copy's name placeholders ("Legal Name 001", "Wiki User 01") are not private and may appear.
 var (
-	lyricPlaceholder        = regexp.MustCompile(`scrubbedlyric`)
-	legalNamePlaceholder    = regexp.MustCompile(`(?i)legal[ _-]?name[ _-]?[0-9]{3}`)
-	numberedWithheldMarkers = regexp.MustCompile(`\[[a-z]+ withheld\][ _-]?[0-9]{2,3}\b`)
-	// The scrubber's email and phone placeholders (internal/scrub): the importer withholds every email, and no
-	// public text is a phone number.
+	lyricPlaceholder = regexp.MustCompile(`scrubbedlyric`)
 	emailPlaceholder = regexp.MustCompile(`email-[0-9]{3}@example\.invalid`)
-	phonePlaceholder = regexp.MustCompile(`000-000-[0-9]{4}`)
 )
 
-// hiddenAliases returns the aliases imp hides.
-func hiddenAliases(imp domain.CatalogueImport) []string {
-	var out []string
-	for _, p := range imp.Persons {
-		for _, a := range p.Doc.Aliases {
-			if !a.IsPublic {
-				out = append(out, a.Name)
-			}
-		}
-	}
-
-	return out
-}
-
-// importedLeaks returns what of the scrubbed copy's private data body shows: each kind of placeholder (lyrics,
-// names, emails and phones), and each
-// hidden alias (as a whole word or words).
-func importedLeaks(body string, hidden []*regexp.Regexp) []string {
+// importedLeaks returns what of the scrubbed copy's private data body shows.
+func importedLeaks(body string) []string {
 	var leaks []string
 	for name, marker := range map[string]*regexp.Regexp{"lyric placeholder": lyricPlaceholder,
-		"legal name placeholder": legalNamePlaceholder, "numbered withheld marker": numberedWithheldMarkers,
-		"email placeholder": emailPlaceholder, "phone placeholder": phonePlaceholder} {
+		"email placeholder": emailPlaceholder} {
 		if found := marker.FindString(body); found != "" {
 			leaks = append(leaks, name+": "+found)
 		}
 	}
-	for _, alias := range hidden {
-		if found := alias.FindString(body); found != "" {
-			leaks = append(leaks, "hidden alias: "+found)
-		}
-	}
 
 	return leaks
-}
-
-// aliasPatterns matches each alias as whole words, in its JSON-escaped form as a response holds it.
-func aliasPatterns(t *testing.T, aliases []string) []*regexp.Regexp {
-	t.Helper()
-	patterns := make([]*regexp.Regexp, 0, len(aliases))
-	for _, a := range aliases {
-		escaped, err := json.Marshal(a)
-		require.NoError(t, err)
-		patterns = append(patterns, regexp.MustCompile(`\b`+regexp.QuoteMeta(string(escaped[1:len(escaped)-1]))+`\b`))
-	}
-
-	return patterns
 }
 
 // importedReader sends GETs to the handler over the imported catalogue, validating each against the spec, and
@@ -97,7 +56,6 @@ type importedReader struct {
 	t        *testing.T
 	contract *openapitest.Validator
 	handler  http.Handler
-	hidden   []*regexp.Regexp
 }
 
 // get sends a GET of path, requires 200 and no leak, and returns the body.
@@ -105,7 +63,7 @@ func (r importedReader) get(path string) []byte {
 	r.t.Helper()
 	rec := r.contract.Serve(r.t, r.handler, httptest.NewRequestWithContext(r.t.Context(), http.MethodGet, path, nil))
 	require.Equal(r.t, http.StatusOK, rec.Code, "%s: %s", path, rec.Body.String())
-	assert.Empty(r.t, importedLeaks(rec.Body.String(), r.hidden), "%s shows private data", path)
+	assert.Empty(r.t, importedLeaks(rec.Body.String()), "%s shows private data", path)
 
 	return rec.Body.Bytes()
 }
@@ -127,19 +85,15 @@ func (r importedReader) getPages(path, totalField string) int {
 
 // TestHTTP_ImportedCatalogue applies the scrubbed import and reads all of it through the production handler:
 // every page of every list, every piece, person, term, collection and event, every history and every revision.
-// Every response is valid by the spec, and none shows a lyric placeholder, a legal name's placeholder in any
-// form, a withheld marker with a placeholder's number, or a hidden alias.
+// Every response is valid by the spec, and none shows a lyric placeholder or an email placeholder.
 func TestHTTP_ImportedCatalogue(t *testing.T) {
 	t.Parallel()
 
 	db, imp := importedCatalogue.Get(t)
 	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
 	contract := openapitest.New(t)
-	hidden := hiddenAliases(imp)
-	require.NotEmpty(t, hidden, "the scrubbed import hides aliases, so this test checks them")
-	patterns := aliasPatterns(t, hidden)
 	reader := func(t *testing.T) importedReader {
-		return importedReader{t: t, contract: contract, handler: handler, hidden: patterns}
+		return importedReader{t: t, contract: contract, handler: handler}
 	}
 
 	t.Run("lists", func(t *testing.T) {

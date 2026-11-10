@@ -53,7 +53,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 122,
+          "person_id": 137,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -99,7 +99,7 @@
         },
         {
           "url": "https://youtube.com/watch?v=i_eoiRvdp-A",
-          "title": "Auld Lang Syne sung by [name withheld]",
+          "title": "Auld Lang Syne sung by Legal Name 060",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -113,7 +113,7 @@
               "event_id": null,
               "year": null,
               "uploader": null,
-              "description_verbatim": "[https://youtube.com/watch?v=i_eoiRvdp-A Auld Lang Syne sung by [name withheld]]",
+              "description_verbatim": "[https://youtube.com/watch?v=i_eoiRvdp-A Auld Lang Syne sung by Legal Name 060]",
               "performer_ids": []
             }
           ]
@@ -126,7 +126,7 @@
       "title": "Auld Lang Syne"
     },
     "revision": {
-      "id": 408,
+      "id": 427,
       "summary": "Imported from the wiki (page revision 891).",
       "contributors": [
         "Wiki User 01"
@@ -136,19 +136,7 @@
   },
   "review": [
     {
-      "id": "NAME-062",
-      "kind": "free_text",
-      "page": "Auld Lang Syne",
-      "text": "link https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA, title: \"Legal Name 060\" was withheld. Context: \"Auld Lang Syne sung by [name withheld]\"."
-    },
-    {
-      "id": "NAME-278",
-      "kind": "free_text",
-      "page": "Auld Lang Syne",
-      "text": "performance item, description: \"Legal Name 060\" was withheld. Context: \"ch?v=i_eoiRvdp-A Auld Lang Syne sung by [name withheld]]\"."
-    },
-    {
-      "id": "STUB-149",
+      "id": "STUB-167",
       "kind": "stub_person",
       "page": "Auld Lang Syne",
       "text": "Stub person \"Robert Burns\" (community_bard), named on 2 page(s)."
@@ -184,7 +172,7 @@
       "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/i_eoiRvdp-A?si=7eXCBkQN8YoUyQtA Auld Lang Syne sung by Legal N…\"."
     },
     {
-      "id": "PERSON-165",
+      "id": "PERSON-180",
       "kind": "stub_kind",
       "page": "Auld Lang Syne",
       "text": "Stub person \"Robert Burns\" (named on 2 page(s)) is guessed to be historical."

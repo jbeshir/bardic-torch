@@ -20,7 +20,7 @@
         {
           "name": "Legal Name 009",
           "kind": "legal",
-          "is_public": false
+          "is_public": true
         }
       ],
       "roles": [
@@ -34,7 +34,7 @@
       "links": [
         {
           "url": "https://fancyclopedia.org/wiki/Legal_Name_009",
-          "title": "[name withheld] at Fancyclopedia",
+          "title": "Legal Name 009 at Fancyclopedia",
           "description": null,
           "platform": "fancyclopedia.org",
           "place_type": null,
@@ -65,7 +65,7 @@
       "title": "Malkin Grey"
     },
     "revision": {
-      "id": 237,
+      "id": 241,
       "summary": "Imported from the wiki (page revision 126).",
       "contributors": [
         "Wiki User 01"
@@ -78,19 +78,7 @@
       "id": "ALIAS-010",
       "kind": "alias",
       "page": "Malkin Grey",
-      "text": "\"Legal Name 009\": kind legal, hidden (source h1_parenthetical, rule default, unsure)."
-    },
-    {
-      "id": "NAME-165",
-      "kind": "free_text",
-      "page": "Malkin Grey",
-      "text": "link https://fancyclopedia.org/wiki/Legal_Name_009, title: \"Legal Name 009\" was withheld. Context: \"[name withheld] at Fancyclopedia\"."
-    },
-    {
-      "id": "NAME-166",
-      "kind": "link_url",
-      "page": "Malkin Grey",
-      "text": "The link https://fancyclopedia.org/wiki/Legal_Name_009 holds a possible legal name in its URL: it is imported hidden."
+      "text": "\"Legal Name 009\": kind legal (source h1_parenthetical, rule default, unsure)."
     },
     {
       "id": "PERSON-023",

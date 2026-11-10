@@ -220,7 +220,6 @@ func TestRepository_ImportCatalogue_SystemFields(t *testing.T) {
 			wantLyrics++
 		}
 	}
-	assert.Positive(t, wantHidden, "the scrubbed import hides links whose URL holds a name")
 	assert.Equal(t, wantHidden, hidden)
 	assert.Equal(t, wantLegacy, legacyPieces)
 	assert.Equal(t, 11, inlineLyrics)
@@ -295,24 +294,22 @@ func TestRepository_ImportCatalogue_ReadAPI(t *testing.T) {
 
 	checked := 0
 	for _, p := range imp.Persons {
-		var hidden []string
-		for _, a := range p.Doc.Aliases {
-			if !a.IsPublic {
-				hidden = append(hidden, a.Name)
-			}
-		}
-		if len(hidden) == 0 || p.Doc.Status == domain.PersonStatusPrefersNoPage {
+		if len(p.Doc.Aliases) == 0 || p.Doc.Status == domain.PersonStatusPrefersNoPage {
 			continue
 		}
 		person, err := repo.GetPublicPerson(t.Context(), p.Slug)
 		require.NoError(t, err, p.Slug)
 		require.NotNil(t, person.Profile)
+		var shown []string
 		for _, a := range person.Profile.Aliases {
-			assert.NotContains(t, hidden, a.Name, "person %d shows a hidden alias", p.ID)
+			shown = append(shown, a.Name)
+		}
+		for _, a := range p.Doc.Aliases {
+			assert.Contains(t, shown, a.Name, "person %d shows its alias", p.ID)
 		}
 		checked++
 	}
-	assert.Positive(t, checked, "the scrubbed import has persons with hidden aliases")
+	assert.Positive(t, checked, "the scrubbed import has persons with aliases")
 }
 
 func TestRepository_ImportCatalogue_RefusesNonEmpty(t *testing.T) {

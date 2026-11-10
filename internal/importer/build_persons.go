@@ -38,7 +38,7 @@ func (b *builder) bard(bard mediawiki.BardRecord, links []mediawiki.LinkRecord) 
 	id := b.personIDs[ref]
 	page, _ := b.c.Site.Page(bard.Title)
 	entity := "person " + bard.Title
-	name, _ := b.name(bard.Title, entity, "name", bard.Title)
+	name := b.name(bard.Title, entity, "name", bard.Title)
 	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
 		Kind: domain.PersonKindCommunityBard, Status: bard.Status, StatusDate: bard.StatusDate,
 		NotesMD:          b.free(bard.Title, entity, "notes", bard.NotesMD),
@@ -90,35 +90,21 @@ func dateText(d *domain.Date) string {
 	return d.Format("2006-01-02")
 }
 
-// personAliases are a bard's aliases, each once as the collation compares names: hidden ones as written, public
-// ones hidden too if they hold a private name. Every alias is listed in the review, unsure ones first.
+// personAliases are a bard's aliases, each once as the collation compares names. Every alias is listed in the
+// review, unsure ones first.
 func (b *builder) personAliases(bard mediawiki.BardRecord) []domain.DocPersonAlias {
 	out := []domain.DocPersonAlias{}
-	index := map[string]int{domain.CollationKey(bard.Title): -1}
+	seen := map[string]bool{domain.CollationKey(bard.Title): true}
 	var sure, unsure []Item
 	for _, a := range bard.Aliases {
 		name := clean(a.Name)
-		public := a.IsPublic
-		if public && b.w.holdsName(name) {
-			public = false
-			b.review.HiddenNames = append(b.review.HiddenNames, item("public_alias", bard.Title,
-				"The alias %q holds a possible legal name: it is imported hidden.", name))
-		}
 		key := domain.CollationKey(name)
-		if k, ok := index[key]; ok {
-			if k >= 0 && !public {
-				out[k].IsPublic = false
-			}
-
+		if seen[key] {
 			continue
 		}
-		index[key] = len(out)
-		out = append(out, domain.DocPersonAlias{Name: name, Kind: a.Kind, IsPublic: public})
-		visibility := "hidden"
-		if public {
-			visibility = "public"
-		}
-		it := item("alias", bard.Title, "%q: kind %s, %s (source %s, rule %s, %s).", name, a.Kind, visibility,
+		seen[key] = true
+		out = append(out, domain.DocPersonAlias{Name: name, Kind: a.Kind, IsPublic: true})
+		it := item("alias", bard.Title, "%q: kind %s (source %s, rule %s, %s).", name, a.Kind,
 			a.Source, a.Classification.Rule, confidence(a.Classification.Confident))
 		if a.Classification.Confident {
 			sure = append(sure, it)
@@ -132,10 +118,9 @@ func (b *builder) personAliases(bard mediawiki.BardRecord) []domain.DocPersonAli
 }
 
 // status sources a bard's status to the link its date was read from (StatusSourceURL), or else to the wiki page.
-// A link that holds a legal name in its URL, which is imported hidden, is never a source.
 func (b *builder) status(doc *domain.PersonDocument, bard mediawiki.BardRecord) {
 	source, from := bard.URL, "the wiki page"
-	if bard.StatusSourceURL != "" && !b.w.hidesURL(bard.StatusSourceURL) {
+	if bard.StatusSourceURL != "" {
 		source, from = bard.StatusSourceURL, "the link its date is read from"
 	}
 	doc.StatusSourceURL = optionalURL(source)
@@ -183,19 +168,29 @@ func hasTerm(p mediawiki.PieceRecord, category string) bool {
 	return slices.ContainsFunc(p.Terms, func(t mediawiki.PieceTerm) bool { return t.Category == category })
 }
 
+// firstMention is the first page naming a stub person, or "".
+func firstMention(s mediawiki.StubPerson) string {
+	if len(s.Mentions) > 0 {
+		return s.Mentions[0].Page
+	}
+
+	return ""
+}
+
 func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecord,
 	historical map[mediawiki.PersonRef]bool,
 ) domain.ImportedPerson {
 	ref := mediawiki.PersonRef(s.Name)
 	id := b.personIDs[ref]
 	kind := s.Kind
-	sca := mediawiki.ClassifyPersonAlias(mediawiki.AliasCandidate{Name: s.Name,
-		Source: mediawiki.AliasFromH1Parenthetical}).Public()
+	class := mediawiki.ClassifyPersonAlias(mediawiki.AliasCandidate{Name: s.Name,
+		Source: mediawiki.AliasFromH1Parenthetical})
+	sca := class.Confident && class.Kind == domain.PersonAliasKindSCA
 	if kind == domain.PersonKindCommunityBard && historical[ref] && !sca {
 		kind = domain.PersonKindHistorical
 	}
 	page := firstMention(s)
-	name, _ := b.name(page, "stub person", "name", s.Name)
+	name := b.name(page, "stub person", "name", s.Name)
 	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: kind,
 		Status: domain.PersonStatusActive, LicensingStatus: domain.LicensingStatusUnknown, IsStub: true,
 		Aliases: []domain.DocPersonAlias{}, Roles: []domain.PersonRole{}, AffiliationIDs: []int64{},
@@ -213,10 +208,6 @@ func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecor
 			domain.ImportSummaryStub)}
 	if s.LegacyTitle != "" {
 		person.Legacy = &domain.LegacyPage{Title: clean(s.LegacyTitle)}
-		if b.w.holdsName(s.LegacyTitle) {
-			b.review.HiddenNames = append(b.review.HiddenNames, item("legacy_title", page,
-				"Stub person %q: its legacy title, which is never public, holds a possible legal name.", name))
-		}
 	}
 
 	return person

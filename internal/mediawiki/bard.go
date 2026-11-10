@@ -12,15 +12,12 @@ import (
 // AliasFromRedirect is a redirect page that leads to the bard's page ("James Treebull the Stubborn").
 const AliasFromRedirect AliasSource = "redirect"
 
-// PersonAlias is another name of a bard: where it was found, how ClassifyPersonAlias classified it, the alias kind
-// it is imported as and whether it is public. Only a confident classification as a kind other than legal is
-// public; a redirect alias is of kind redirect and public only if its title is so classified and folds to no
-// hidden alias of the bard. A hidden alias is matched to the bard but never shown.
+// PersonAlias is another name of a bard: where it was found, how ClassifyPersonAlias classified it and the alias
+// kind it is imported as (a redirect alias is of kind redirect).
 type PersonAlias struct {
 	AliasCandidate
 	Classification AliasClassification
 	Kind           domain.PersonAliasKind
-	IsPublic       bool
 }
 
 // WorkEntry is a work a bard page lists: the link target as written, the page it leads to through redirects and
@@ -145,19 +142,14 @@ func ParseBard(p Page, s Site) BardRecord {
 // bardAliases are the page's aliases (BardAliases) and the redirects to it, classified.
 func bardAliases(p Page, s Site) []PersonAlias {
 	var out []PersonAlias
-	hidden := map[string]bool{}
 	for _, c := range BardAliases(p) {
 		class := ClassifyPersonAlias(c)
-		out = append(out, PersonAlias{AliasCandidate: c, Classification: class, Kind: class.Kind, IsPublic: class.Public()})
-		if !class.Public() {
-			hidden[FoldName(c.Name)] = true
-		}
+		out = append(out, PersonAlias{AliasCandidate: c, Classification: class, Kind: class.Kind})
 	}
 	for _, from := range s.RedirectsTo(p.Title) {
 		c := AliasCandidate{Name: from, Source: AliasFromRedirect}
 		class := ClassifyPersonAlias(c)
-		out = append(out, PersonAlias{AliasCandidate: c, Classification: class, Kind: domain.PersonAliasKindRedirect,
-			IsPublic: class.Public() && !hidden[FoldName(from)]})
+		out = append(out, PersonAlias{AliasCandidate: c, Classification: class, Kind: domain.PersonAliasKindRedirect})
 	}
 
 	return out

@@ -14,19 +14,18 @@ import (
 // fold (FoldName) alike.
 type PersonRef string
 
-// IndexKeyKind is what a name matched in a PersonIndex: a bard's page title, a public or hidden alias of a bard
+// IndexKeyKind is what a name matched in a PersonIndex: a bard's page title, an alias of a bard
 // (redirects included), or a stub person's name.
 type IndexKeyKind string
 
 // The index key kinds, strongest first.
 const (
-	KeyTitle       IndexKeyKind = "title"
-	KeyStub        IndexKeyKind = "stub"
-	KeyPublicAlias IndexKeyKind = "public_alias"
-	KeyHiddenAlias IndexKeyKind = "hidden_alias"
+	KeyTitle IndexKeyKind = "title"
+	KeyStub  IndexKeyKind = "stub"
+	KeyAlias IndexKeyKind = "alias"
 )
 
-var keyStrength = []IndexKeyKind{KeyTitle, KeyStub, KeyPublicAlias, KeyHiddenAlias}
+var keyStrength = []IndexKeyKind{KeyTitle, KeyStub, KeyAlias}
 
 // MatchKind is how a name matched a person.
 type MatchKind string
@@ -73,9 +72,8 @@ type indexKey struct {
 	kind   IndexKeyKind
 }
 
-// PersonIndex finds persons by name: bards by their page titles and their aliases, public and hidden (a hidden
-// alias finds its bard but is never shown), and stub persons by their names. It is immutable: adding stubs
-// returns a new index.
+// PersonIndex finds persons by name: bards by their page titles and their aliases, and stub persons by their
+// names. It is immutable: adding stubs returns a new index.
 type PersonIndex struct {
 	keys []indexKey
 }
@@ -87,11 +85,7 @@ func NewPersonIndex(bards []BardRecord) PersonIndex {
 		ref := PersonRef(b.Title)
 		x.keys = append(x.keys, indexKey{fold: FoldName(b.Title), person: ref, kind: KeyTitle})
 		for _, a := range b.Aliases {
-			kind := KeyHiddenAlias
-			if a.IsPublic {
-				kind = KeyPublicAlias
-			}
-			x.keys = append(x.keys, indexKey{fold: FoldName(a.Name), person: ref, kind: kind})
+			x.keys = append(x.keys, indexKey{fold: FoldName(a.Name), person: ref, kind: KeyAlias})
 		}
 	}
 
@@ -280,7 +274,7 @@ func resolveMention(p *Persons, m PersonMention, created []StubPerson) []StubPer
 		return created
 	}
 	match := p.Index.Match(m.Name.Name)
-	if match.Kind == MatchFuzzy || match.Via == KeyHiddenAlias || len(match.Candidates) > 1 {
+	if match.Kind == MatchFuzzy || len(match.Candidates) > 1 {
 		p.Matches = append(p.Matches, MentionMatch{Mention: m, Match: match})
 	}
 	if match.Kind != MatchNone {
