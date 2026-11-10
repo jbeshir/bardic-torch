@@ -12,7 +12,7 @@ import (
 
 //go:generate go tool sqlc generate
 
-var _ datasources.Pinger = (*Repository)(nil)
+var _ datasources.Repository = (*Repository)(nil)
 
 // Repository implements the datasources interfaces on top of a MySQL connection pool.
 type Repository struct {

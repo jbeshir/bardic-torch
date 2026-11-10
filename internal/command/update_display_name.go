@@ -19,8 +19,7 @@ type UpdateDisplayNameRequest struct {
 
 // UpdateDisplayName sets a user's display name.
 type UpdateDisplayName struct {
-	Updater datasources.DisplayNameUpdater
-	Getter  datasources.UserGetter
+	Users datasources.Users
 }
 
 // Execute normalises req.DisplayName, stores it, and returns the updated user. A name that cannot be normalised
@@ -31,11 +30,11 @@ func (c *UpdateDisplayName) Execute(ctx context.Context, req UpdateDisplayNameRe
 		return domain.User{}, err
 	}
 
-	if err := c.Updater.UpdateDisplayName(ctx, req.UserID, name); err != nil {
+	if err := c.Users.UpdateDisplayName(ctx, req.UserID, name); err != nil {
 		return domain.User{}, fmt.Errorf("updating display name: %w", err)
 	}
 
-	user, err := c.Getter.GetUser(ctx, req.UserID)
+	user, err := c.Users.GetUser(ctx, req.UserID)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("getting updated user: %w", err)
 	}

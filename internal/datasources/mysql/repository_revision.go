@@ -13,12 +13,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var (
-	_ datasources.PublicHistoryLister           = (*Repository)(nil)
-	_ datasources.PublicCollectionHistoryLister = (*Repository)(nil)
-	_ datasources.PublicRevisionGetter          = (*Repository)(nil)
-)
-
 // errNotSlugAddressed is returned for a history request by slug for an entity type addressed otherwise.
 var errNotSlugAddressed = errors.New("entity type is not addressed by slug")
 

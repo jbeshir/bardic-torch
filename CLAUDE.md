@@ -26,7 +26,7 @@ integration tests and the image build on every push and pull request.
 - **Pinned tools only.** Tools are `tool` directives in `go.mod` and run with `go tool <name>`. Never use
   `go install` or `@latest`. To upgrade a tool, `go get -tool <module>@<version>` and check that `go get` did
   not downgrade another tool's dependencies.
-- After changing `queries.sql` or a `datasources` interface, run `make generate`; never edit generated code.
+- After changing `queries.sql`, run `make generate`; never edit generated code.
 
 Additionally, perform the following manual checks:
 

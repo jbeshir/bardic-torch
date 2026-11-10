@@ -25,7 +25,7 @@ type TermListItem struct {
 
 // TermListGet handles GET /v1/terms, the public terms of one facet or every facet, in tree order.
 type TermListGet struct {
-	Lister datasources.PublicTermLister
+	Catalogue datasources.Catalogue
 }
 
 func (c TermListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func (c TermListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	terms, err := c.Lister.ListPublicTerms(ctx, facet)
+	terms, err := c.Catalogue.ListPublicTerms(ctx, facet)
 	if err != nil {
 		writeInternalError(w, r, "unable to list terms", err)
 		return

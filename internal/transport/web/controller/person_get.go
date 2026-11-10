@@ -79,7 +79,7 @@ type PerformanceLink struct {
 // PersonGet handles GET /v1/persons/{slug}, a public person's page. An unapproved person is not found,
 // exactly like an unknown one; a person who prefers not to have a page has a null profile.
 type PersonGet struct {
-	Getter datasources.PublicPersonGetter
+	Catalogue datasources.Catalogue
 }
 
 func (c PersonGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +90,7 @@ func (c PersonGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	person, err := c.Getter.GetPublicPerson(ctx, slug)
+	person, err := c.Catalogue.GetPublicPerson(ctx, slug)
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "person not found")

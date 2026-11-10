@@ -11,11 +11,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var (
-	_ datasources.PublicEventLister = (*Repository)(nil)
-	_ datasources.PublicEventGetter = (*Repository)(nil)
-)
-
 // ListPublicEvents lists page of the public events and venues of kind, or of both kinds if it is nil, by name
 // and ID, with how many there are in all.
 func (r *Repository) ListPublicEvents(

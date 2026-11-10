@@ -32,7 +32,7 @@ type NeedsWorkCount struct {
 // NeedsWorkListGet handles GET /v1/needs-work, one page of the public pieces and persons needing work, for one
 // reason or any, with the count for every reason.
 type NeedsWorkListGet struct {
-	Lister datasources.PublicNeedsWorkLister
+	Catalogue datasources.Catalogue
 }
 
 func (c NeedsWorkListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +51,7 @@ func (c NeedsWorkListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := c.Lister.ListPublicNeedsWork(ctx, reason, page)
+	list, err := c.Catalogue.ListPublicNeedsWork(ctx, reason, page)
 	if err != nil {
 		writeSearchError(w, r, "unable to list needs-work entries", err)
 		return

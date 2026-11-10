@@ -12,11 +12,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var (
-	_ datasources.PublicPieceGetter  = (*Repository)(nil)
-	_ datasources.PublicPersonGetter = (*Repository)(nil)
-)
-
 // GetPublicPiece retrieves a public piece by slug with everything its page shows, returning
 // datasources.ErrNotFound if no public piece has the slug. Visibility is decided by the queries: unapproved
 // entities, references to them, hidden links and prefers_no_page persons are filtered out in SQL.

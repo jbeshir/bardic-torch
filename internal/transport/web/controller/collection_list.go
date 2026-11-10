@@ -18,7 +18,7 @@ type CollectionList struct {
 // CollectionListGet handles GET /v1/collections, one page of the public collections, of some kinds or all, by
 // sort name.
 type CollectionListGet struct {
-	Lister datasources.PublicCollectionLister
+	Catalogue datasources.Catalogue
 }
 
 func (c CollectionListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +39,7 @@ func (c CollectionListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := c.Lister.ListPublicCollections(ctx, q)
+	list, err := c.Catalogue.ListPublicCollections(ctx, q)
 	if err != nil {
 		writeSearchError(w, r, "unable to list collections", err)
 		return

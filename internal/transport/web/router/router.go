@@ -3,7 +3,6 @@ package router
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -13,27 +12,12 @@ import (
 
 // Dependencies are what the routes are built from.
 type Dependencies struct {
-	Pinger datasources.Pinger
+	Repository datasources.Repository
 	// AuthValidators authenticate requests to authenticated routes; with none, every request is anonymous.
-	AuthValidators                []AuthValidator
-	ResolveUser                   command.Command[string, domain.User]
-	UpdateDisplayName             command.Command[command.UpdateDisplayNameRequest, domain.User]
-	SetUserBlocked                command.Command[command.SetUserBlockedRequest, domain.User]
-	PublicPieceLister             datasources.PublicPieceLister
-	PublicPieceGetter             datasources.PublicPieceGetter
-	PublicPersonLister            datasources.PublicPersonLister
-	PublicPersonGetter            datasources.PublicPersonGetter
-	PublicTermLister              datasources.PublicTermLister
-	PublicTermGetter              datasources.PublicTermGetter
-	PublicCollectionLister        datasources.PublicCollectionLister
-	PublicCollectionGetter        datasources.PublicCollectionGetter
-	PublicEventLister             datasources.PublicEventLister
-	PublicEventGetter             datasources.PublicEventGetter
-	PublicHistoryLister           datasources.PublicHistoryLister
-	PublicCollectionHistoryLister datasources.PublicCollectionHistoryLister
-	PublicRevisionGetter          datasources.PublicRevisionGetter
-	PublicNeedsWorkLister         datasources.PublicNeedsWorkLister
-	Now                           func() time.Time
+	AuthValidators    []AuthValidator
+	ResolveUser       command.Command[string, domain.User]
+	UpdateDisplayName command.Command[command.UpdateDisplayNameRequest, domain.User]
+	SetUserBlocked    command.Command[command.SetUserBlockedRequest, domain.User]
 }
 
 // route is one operation the router serves.
@@ -52,7 +36,7 @@ type route struct {
 func routes(deps Dependencies) []route {
 	return []route{
 		{method: http.MethodGet, path: "/healthz", handler: controller.Healthz{}},
-		{method: http.MethodGet, path: "/readyz", handler: controller.Readyz{Pinger: deps.Pinger}},
+		{method: http.MethodGet, path: "/readyz", handler: controller.Readyz{Pinger: deps.Repository}},
 
 		// Public catalogue reads. The ServeMux routes a request to the most specific matching pattern, whatever the
 		// order of this table, so a later authenticated route with a literal segment where these have a wildcard,
@@ -60,40 +44,40 @@ func routes(deps Dependencies) []route {
 		// public {slug} or {revision_id} route. Two patterns that overlap with neither more specific than the other,
 		// such as /v1/pieces/{slug} and /v1/{collection}/mine, make newRouter panic. The literal segment must be
 		// sent as is: one sent with an encoded letter, such as /v1/pieces/min%65, would match no route.
-		// TestRouter_AuthMatrix fails for an authenticated operation a public route answers.
-		{method: http.MethodGet, path: "/v1/pieces", handler: controller.PieceListGet{Lister: deps.PublicPieceLister}},
-		{method: http.MethodGet, path: "/v1/pieces/{slug}", handler: controller.PieceGet{Getter: deps.PublicPieceGetter}},
+		// TestRoutes fails for an authenticated operation a public route answers.
+		{method: http.MethodGet, path: "/v1/pieces", handler: controller.PieceListGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/pieces/{slug}", handler: controller.PieceGet{Catalogue: deps.Repository}},
 		{method: http.MethodGet, path: "/v1/persons",
-			handler: controller.PersonListGet{Lister: deps.PublicPersonLister}},
+			handler: controller.PersonListGet{Catalogue: deps.Repository}},
 		{method: http.MethodGet, path: "/v1/persons/{slug}",
-			handler: controller.PersonGet{Getter: deps.PublicPersonGetter}},
-		{method: http.MethodGet, path: "/v1/terms", handler: controller.TermListGet{Lister: deps.PublicTermLister}},
-		{method: http.MethodGet, path: "/v1/terms/{slug}", handler: controller.TermGet{Getter: deps.PublicTermGetter}},
+			handler: controller.PersonGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/terms", handler: controller.TermListGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/terms/{slug}", handler: controller.TermGet{Catalogue: deps.Repository}},
 		{method: http.MethodGet, path: "/v1/collections",
-			handler: controller.CollectionListGet{Lister: deps.PublicCollectionLister}},
+			handler: controller.CollectionListGet{Catalogue: deps.Repository}},
 		{method: http.MethodGet, path: "/v1/collections/{collection_id}",
-			handler: controller.CollectionGet{Getter: deps.PublicCollectionGetter}},
-		{method: http.MethodGet, path: "/v1/events", handler: controller.EventListGet{Lister: deps.PublicEventLister}},
-		{method: http.MethodGet, path: "/v1/events/{slug}", handler: controller.EventGet{Getter: deps.PublicEventGetter}},
+			handler: controller.CollectionGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/events", handler: controller.EventListGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/events/{slug}", handler: controller.EventGet{Catalogue: deps.Repository}},
 		// History, of the entities addressed by slug and of collections.
 		{method: http.MethodGet, path: "/v1/pieces/{slug}/history", handler: controller.HistoryGet{
-			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypePiece,
+			Catalogue: deps.Repository, EntityType: domain.SlugEntityTypePiece,
 		}},
 		{method: http.MethodGet, path: "/v1/persons/{slug}/history", handler: controller.HistoryGet{
-			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypePerson,
+			Catalogue: deps.Repository, EntityType: domain.SlugEntityTypePerson,
 		}},
 		{method: http.MethodGet, path: "/v1/terms/{slug}/history", handler: controller.HistoryGet{
-			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypeTerm,
+			Catalogue: deps.Repository, EntityType: domain.SlugEntityTypeTerm,
 		}},
 		{method: http.MethodGet, path: "/v1/events/{slug}/history", handler: controller.HistoryGet{
-			Lister: deps.PublicHistoryLister, EntityType: domain.SlugEntityTypeEvent,
+			Catalogue: deps.Repository, EntityType: domain.SlugEntityTypeEvent,
 		}},
 		{method: http.MethodGet, path: "/v1/collections/{collection_id}/history",
-			handler: controller.CollectionHistoryGet{Lister: deps.PublicCollectionHistoryLister}},
+			handler: controller.CollectionHistoryGet{Catalogue: deps.Repository}},
 		{method: http.MethodGet, path: "/v1/revisions/{revision_id}",
-			handler: controller.RevisionGet{Getter: deps.PublicRevisionGetter}},
+			handler: controller.RevisionGet{Catalogue: deps.Repository}},
 		{method: http.MethodGet, path: "/v1/needs-work",
-			handler: controller.NeedsWorkListGet{Lister: deps.PublicNeedsWorkLister}},
+			handler: controller.NeedsWorkListGet{Catalogue: deps.Repository}},
 
 		{method: http.MethodGet, path: "/v1/me", handler: requireAuth(controller.MeGet{}), authenticated: true},
 		{method: http.MethodPatch, path: "/v1/me", authenticated: true, handler: requireAuth(controller.MePatch{

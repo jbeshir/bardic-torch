@@ -19,7 +19,7 @@ type RevisionHistory struct {
 // of the public entity of EntityType with the slug, newest first. An entity that is not public is not found,
 // exactly like an unknown one.
 type HistoryGet struct {
-	Lister datasources.PublicHistoryLister
+	Catalogue datasources.Catalogue
 	// EntityType is the type of entity the route addresses.
 	EntityType domain.SlugEntityType
 }
@@ -34,7 +34,7 @@ func (c HistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	history, err := c.Lister.ListPublicHistory(r.Context(), c.EntityType, slug, page)
+	history, err := c.Catalogue.ListPublicHistory(r.Context(), c.EntityType, slug, page)
 	writeHistory(w, r, c.EntityType.String(), history, err)
 }
 
@@ -42,7 +42,7 @@ func (c HistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // the public collection with the ID, newest first. A collection that is not public is not found, exactly like an
 // unknown one.
 type CollectionHistoryGet struct {
-	Lister datasources.PublicCollectionHistoryLister
+	Catalogue datasources.Catalogue
 }
 
 func (c CollectionHistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +55,7 @@ func (c CollectionHistoryGet) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	history, err := c.Lister.ListPublicCollectionHistory(r.Context(), id, page)
+	history, err := c.Catalogue.ListPublicCollectionHistory(r.Context(), id, page)
 	writeHistory(w, r, string(domain.EntityTypeCollection), history, err)
 }
 

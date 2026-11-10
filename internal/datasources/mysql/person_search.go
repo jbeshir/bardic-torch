@@ -9,8 +9,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var _ datasources.PublicPersonLister = (*Repository)(nil)
-
 // ListPublicPersons searches the public persons, returning one page of them with the total and the letter
 // counts. Persons who prefer no page are listed as stubs, match a query by name only, and match no role or
 // affiliation filter. An affiliation slug that no public affiliation term has gives a

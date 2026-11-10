@@ -36,7 +36,7 @@ func Setup(ctx context.Context) ([]Component, error) {
 	}
 	repository := mysql.New(db)
 
-	bootstrap := &command.BootstrapModerators{Promoter: repository, Now: now}
+	bootstrap := &command.BootstrapModerators{Users: repository, Now: now}
 	if _, err := bootstrap.Execute(ctx, MustGetEnvAsStrings(ctx, bootstrapModeratorsEnv)); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("bootstrapping moderators: %w", err)
@@ -67,28 +67,9 @@ func Setup(ctx context.Context) ([]Component, error) {
 // production clock.
 func repositoryHTTPDependencies(repository *mysql.Repository, authValidators []router.AuthValidator) HTTPDependencies {
 	return HTTPDependencies{
-		Pinger:                        repository,
-		AuthValidators:                authValidators,
-		UserGetter:                    repository,
-		UserEnsurer:                   repository,
-		DisplayNameUpdater:            repository,
-		UserBlocker:                   repository,
-		UserUnblocker:                 repository,
-		PublicPieceLister:             repository,
-		PublicPieceGetter:             repository,
-		PublicPersonLister:            repository,
-		PublicPersonGetter:            repository,
-		PublicTermLister:              repository,
-		PublicTermGetter:              repository,
-		PublicCollectionLister:        repository,
-		PublicCollectionGetter:        repository,
-		PublicEventLister:             repository,
-		PublicEventGetter:             repository,
-		PublicHistoryLister:           repository,
-		PublicCollectionHistoryLister: repository,
-		PublicRevisionGetter:          repository,
-		PublicNeedsWorkLister:         repository,
-		Now:                           now,
+		Repository:     repository,
+		AuthValidators: authValidators,
+		Now:            now,
 	}
 }
 

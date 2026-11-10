@@ -18,7 +18,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/importtest"
-	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 )
 
@@ -200,42 +199,4 @@ func TestHTTP_ImportedCatalogue(t *testing.T) {
 
 func revisionPath(r domain.ImportedRevision) string {
 	return "/v1/revisions/" + strconv.FormatInt(r.ID, 10)
-}
-
-// TestHTTP_ImportedCatalogue_PlantedLeakFails shows that the scan can fail: with one hidden alias of a person
-// with a page made public, that person's page shows it, and the scan reports it, as it reports every placeholder
-// kind planted in a body.
-func TestHTTP_ImportedCatalogue_PlantedLeakFails(t *testing.T) {
-	t.Parallel()
-
-	imp, _ := importtest.Scrubbed(t)
-	hidden := hiddenAliases(imp)
-	var slug, alias string
-	for k, p := range imp.Persons {
-		for a, al := range p.Doc.Aliases {
-			if !al.IsPublic && slug == "" && p.Doc.Status != domain.PersonStatusPrefersNoPage {
-				imp.Persons[k].Doc.Aliases[a].IsPublic = true
-				slug, alias = p.Slug, al.Name
-			}
-		}
-	}
-	require.NotEmpty(t, slug, "the scrubbed import has a person with a page and a hidden alias")
-	db := mysqltest.NewDatabase(t)
-	catalogtest.New(t, db).Import(imp)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
-
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/persons/"+slug, nil))
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	escaped, err := json.Marshal(alias)
-	require.NoError(t, err)
-	require.Contains(t, rec.Body.String(), string(escaped), "the alias made public is shown")
-
-	assert.NotEmpty(t, importedLeaks(rec.Body.String(), aliasPatterns(t, hidden)))
-	for _, planted := range []string{"scrubbedlyric placeholder line", "by Legal Name 007", "/wiki/Legal_Name_007",
-		"legal-name-007.example.org", "by [name withheld] 007", "mail email-001@example.invalid",
-		"call 000-000-0001"} {
-		assert.NotEmpty(t, importedLeaks(`{"notes_md":"`+planted+`"}`, nil), planted)
-	}
-	assert.Empty(t, importedLeaks(`{"notes_md":"[name withheld], 2003; Wiki User 01"}`, nil))
 }

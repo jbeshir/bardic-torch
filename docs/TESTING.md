@@ -11,7 +11,7 @@
 Every change must pass `make validate`, `make vulncheck` and one of the integration targets. `make vulncheck`
 is separate from `make validate` because it downloads the vulnerability database; offline, CI runs it. A
 finding is fixed by upgrading the affected module or the Go version (`go.mod` and the `Dockerfile` base image).
-Tools (golangci-lint, vacuum, sqlc, mockery, govulncheck) are pinned with `tool` directives in `go.mod` and run
+Tools (golangci-lint, vacuum, sqlc, govulncheck) are pinned with `tool` directives in `go.mod` and run
 with `go tool`, so nothing needs installing.
 
 ## Test layers

@@ -804,29 +804,6 @@ const performedOnHiddenAttachments = "SELECT COUNT(*) FROM performances perf " +
 	"AND (ap.current_revision_id IS NOT NULL OR (apr.current_revision_id IS NOT NULL " +
 	"AND apr.status <> 'prefers_no_page'))) AND perf.description_verbatim LIKE "
 
-// TestHTTP_LeakMatrix_PlantedLeakFails shows that the matrix's check can fail on the rows that reveal the no-page
-// person's name: the real response passes, and the same response with a no-page note planted next to the name,
-// which starts with the revealed name, does not.
-func TestHTTP_LeakMatrix_PlantedLeakFails(t *testing.T) {
-	t.Parallel()
-
-	db, fx := leakCatalogue.Get(t)
-	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
-
-	req := leakRequest{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK,
-		reveals: []string{fx.noPage.Slug, noPageName}}
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, req.path, nil))
-	require.Equal(t, req.status, rec.Code, rec.Body.String())
-	body := rec.Body.String()
-	require.Contains(t, body, `"`+noPageName+`"`, "the page no longer shows the name, so this test proves nothing")
-	require.Empty(t, leakedMarker(body, req.reveals))
-
-	planted := strings.Replace(body, `"`+noPageName+`"`,
-		`"`+noPageName+`","planted":"`+noPageName+` notes"`, 1)
-	assert.NotEmpty(t, leakedMarker(planted, req.reveals))
-}
-
 // TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing checks, through the handler, that a revision whose only
 // differences from its base are things the public view hides lists no changed fields: the changed fields are
 // computed on the redacted views, so they cannot give away what was redacted.

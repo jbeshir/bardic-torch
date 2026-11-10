@@ -4,7 +4,6 @@
 set -euo pipefail
 
 generated_dirs=(
-  internal/datasources/mocks
   internal/datasources/mysql/queries
 )
 

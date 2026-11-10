@@ -128,7 +128,7 @@ func TestAuthMiddleware_Rejections(t *testing.T) {
 		wantBody   string
 	}{
 		{
-			name:       "invalid_credentials",
+			name:       badBearerName,
 			validator:  failsWith(fmt.Errorf("%w: signature mismatch", ErrInvalidCredentials)),
 			resolve:    failIfResolved,
 			wantStatus: http.StatusUnauthorized,
@@ -199,3 +199,5 @@ func TestAuthMiddleware_LogsUserID(t *testing.T) {
 		assert.NotContains(t, entry, "user_id", entry["msg"])
 	}
 }
+
+const internalBody = `{"code":"internal","message":"internal error"}` + "\n"

@@ -13,8 +13,8 @@ var _ Command[[]string, Empty] = (*BootstrapModerators)(nil)
 // BootstrapModerators makes the users with the given IDs moderators, so that the first moderators can be
 // named in configuration. It only ever promotes: users missing from the list keep their role.
 type BootstrapModerators struct {
-	Promoter datasources.ModeratorPromoter
-	Now      func() time.Time
+	Users datasources.Users
+	Now   func() time.Time
 }
 
 // Execute promotes each user in userIDs, skipping repeats. The IDs must already be normalised: trimmed, with no
@@ -32,7 +32,7 @@ func (c *BootstrapModerators) Execute(ctx context.Context, userIDs []string) (Em
 		}
 		seen[userID] = true
 
-		if err := c.Promoter.PromoteToModerator(ctx, datasources.NewUser{
+		if err := c.Users.PromoteToModerator(ctx, datasources.NewUser{
 			ID:          userID,
 			DisplayName: domain.DefaultDisplayName(userID),
 			CreatedAt:   c.Now(),

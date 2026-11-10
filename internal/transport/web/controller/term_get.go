@@ -36,7 +36,7 @@ type TermChild struct {
 // that is not public, being unapproved or under an unapproved ancestor, is not found, exactly like an unknown
 // one.
 type TermGet struct {
-	Getter datasources.PublicTermGetter
+	Catalogue datasources.Catalogue
 }
 
 func (c TermGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +55,7 @@ func (c TermGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	term, err := c.Getter.GetPublicTerm(ctx, slug, page)
+	term, err := c.Catalogue.GetPublicTerm(ctx, slug, page)
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "term not found")

@@ -81,7 +81,7 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	t.Parallel()
 
 	repository := mysql.New(mysqltest.NewDatabase(t))
-	bootstrap := &command.BootstrapModerators{Promoter: repository, Now: now}
+	bootstrap := &command.BootstrapModerators{Users: repository, Now: now}
 	_, err := bootstrap.Execute(t.Context(), []string{endToEndModeratorID})
 	require.NoError(t, err)
 
@@ -167,4 +167,21 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.RoleModerator,
 		sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK).Role)
+}
+
+const (
+	healthzPath     = "/healthz"
+	readyzPath      = "/readyz"
+	mePath          = "/v1/me"
+	piecesPath      = "/v1/pieces"
+	personsPath     = "/v1/persons"
+	termsPath       = "/v1/terms"
+	collectionsPath = "/v1/collections"
+	eventsPath      = "/v1/events"
+	needsWorkPath   = "/v1/needs-work"
+)
+
+// errorResponse is the JSON body of an error response.
+type errorResponse struct {
+	Code httpjson.ErrorCode `json:"code"`
 }

@@ -12,15 +12,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var (
-	_ datasources.UserGetter         = (*Repository)(nil)
-	_ datasources.UserEnsurer        = (*Repository)(nil)
-	_ datasources.ModeratorPromoter  = (*Repository)(nil)
-	_ datasources.DisplayNameUpdater = (*Repository)(nil)
-	_ datasources.UserBlocker        = (*Repository)(nil)
-	_ datasources.UserUnblocker      = (*Repository)(nil)
-)
-
 // GetUser retrieves a user by ID, returning datasources.ErrNotFound if there is none.
 func (r *Repository) GetUser(ctx context.Context, userID string) (domain.User, error) {
 	row, err := r.queries.GetUser(ctx, userID)

@@ -44,7 +44,7 @@ type Citation struct {
 // CollectionGet handles GET /v1/collections/{collection_id}, a public collection's page. An unapproved
 // collection is not found, exactly like an unknown one.
 type CollectionGet struct {
-	Getter datasources.PublicCollectionGetter
+	Catalogue datasources.Catalogue
 }
 
 func (c CollectionGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +55,7 @@ func (c CollectionGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	collection, err := c.Getter.GetPublicCollection(ctx, id)
+	collection, err := c.Catalogue.GetPublicCollection(ctx, id)
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "collection not found")
