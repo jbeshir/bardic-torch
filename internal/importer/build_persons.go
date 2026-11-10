@@ -103,7 +103,7 @@ func (b *builder) personAliases(bard mediawiki.BardRecord) []domain.DocPersonAli
 			continue
 		}
 		seen[key] = true
-		out = append(out, domain.DocPersonAlias{Name: name, Kind: a.Kind, IsPublic: true})
+		out = append(out, domain.DocPersonAlias{Name: name, Kind: a.Kind})
 		it := item("alias", bard.Title, "%q: kind %s (source %s, rule %s, %s).", name, a.Kind,
 			a.Source, a.Classification.Rule, confidence(a.Classification.Confident))
 		if a.Classification.Confident {

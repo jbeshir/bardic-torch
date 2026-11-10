@@ -385,7 +385,7 @@ func (w *importWriter) persons(persons []domain.ImportedPerson) {
 	for _, person := range persons {
 		for _, a := range person.Doc.Aliases {
 			p := queries.InsertPersonAliasParams{PersonID: w.id(person.ID), Name: a.Name,
-				Kind: queries.PersonAliasesKind(a.Kind), IsPublic: a.IsPublic}
+				Kind: queries.PersonAliasesKind(a.Kind)}
 			w.insert("person_aliases", func() error { return w.q.InsertPersonAlias(w.ctx, p) })
 		}
 	}

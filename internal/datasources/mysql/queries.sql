@@ -131,10 +131,10 @@ SELECT id, slug, name, kind, status, status_date, status_source_url, is_stub, pr
 FROM persons
 WHERE slug = ? AND current_revision_id IS NOT NULL;
 
--- name: ListPublicPersonAliases :many
+-- name: ListPersonAliases :many
 SELECT name, kind
 FROM person_aliases
-WHERE person_id = ? AND is_public
+WHERE person_id = ?
 ORDER BY id;
 
 -- name: ListPersonRoles :many
@@ -473,11 +473,6 @@ SELECT id, slug, name, kind, status, is_stub
 FROM persons
 WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 
--- name: ListPublicAliasNames :many
-SELECT person_id, name
-FROM person_aliases
-WHERE person_id IN (sqlc.slice('person_ids')) AND is_public;
-
 -- name: ListPublicTermsByID :many
 SELECT t.id, t.slug, t.facet, t.display_name
 FROM public_terms t
@@ -493,16 +488,14 @@ SELECT id, slug, name, kind
 FROM events
 WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 
--- A snapshot's link is shown only if its normalized URL is that of a link that is not hidden. Every link's
--- normalized_url is domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies
--- to the snapshot's URLs too, so a link edited to another spelling of the same URL is still matched, and a link
--- since deleted or given another URL fails closed. The column is binary, and the caller trusts only the normalized
--- URLs these rows hold.
+-- A snapshot drops a link whose URL normalizes to a hidden link's. Every link's normalized_url is
+-- domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies to the snapshot's
+-- URLs too. The caller queries with normalized (ASCII) URLs only, and trusts only the normalized URLs these rows hold.
 
--- name: ListLinksByNormalizedURL :many
-SELECT normalized_url, url, is_hidden
+-- name: ListHiddenNormalizedURLs :many
+SELECT normalized_url
 FROM links
-WHERE normalized_url IN (sqlc.slice('normalized_urls'));
+WHERE is_hidden AND normalized_url IN (sqlc.slice('normalized_urls'));
 
 -- ============================================
 -- Catalogue import
@@ -549,8 +542,8 @@ INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, statu
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPersonAlias :exec
-INSERT INTO person_aliases (person_id, name, kind, is_public)
-VALUES (?, ?, ?, ?);
+INSERT INTO person_aliases (person_id, name, kind)
+VALUES (?, ?, ?);
 
 -- name: InsertPersonRole :exec
 INSERT INTO person_roles (person_id, role)

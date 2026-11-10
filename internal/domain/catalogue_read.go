@@ -4,8 +4,8 @@ import "time"
 
 // The public read models of the catalogue: what the API shows of public entities. They hold only public data:
 // the datasources leave out everything a public read must not show (unapproved entities and references to them,
-// hidden aliases and links, prefers_no_page persons' profiles and references to them) and every system field
-// that is never exposed (internal IDs other than collections', legacy fields, claims, normalized URLs).
+// hidden links, prefers_no_page persons' profiles and references to them) and every system field
+// that is never exposed (internal IDs other than collections', legacy fields, normalized URLs).
 
 // PieceSummary is how a public piece is shown where another entity refers to it.
 type PieceSummary struct {

@@ -194,8 +194,8 @@ func (c *Catalog) Person(f Person) Ref {
 			doc.Status, dateValue(doc.StatusDate), doc.StatusSourceURL, doc.Pronouns, doc.NotesMD, doc.LicensingNotesMD,
 			doc.LicensingStatus, doc.IsStub)
 		for _, alias := range doc.Aliases {
-			w.exec("INSERT INTO person_aliases (person_id, name, kind, is_public) VALUES (?, ?, ?, ?)",
-				ref.ID, alias.Name, alias.Kind, alias.IsPublic)
+			w.exec("INSERT INTO person_aliases (person_id, name, kind) VALUES (?, ?, ?)",
+				ref.ID, alias.Name, alias.Kind)
 		}
 		for _, role := range doc.Roles {
 			w.exec("INSERT INTO person_roles (person_id, role) VALUES (?, ?)", ref.ID, role)

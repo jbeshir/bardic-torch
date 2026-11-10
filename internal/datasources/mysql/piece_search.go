@@ -151,9 +151,9 @@ func (ps pieceSearch) writeWith(s *statement) {
 	s.write("WITH ")
 	if q.Search != nil {
 		s.write(pieceMatched)
-		writeMatch(s, *q.Search, "p.title, p.notes_md", "p.title", " FROM pieces p WHERE ", true)
+		writeMatch(s, *q.Search, "p.title, p.notes_md", "p.title", " FROM pieces p WHERE ")
 		s.write(pieceAliasMatched)
-		writeMatch(s, *q.Search, "a.text", "a.text", " FROM piece_aliases a WHERE ", true)
+		writeMatch(s, *q.Search, "a.text", "a.text", " FROM piece_aliases a WHERE ")
 		s.write(pieceMatchedEnd)
 	}
 

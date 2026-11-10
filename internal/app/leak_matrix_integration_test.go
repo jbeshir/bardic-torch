@@ -42,9 +42,7 @@ type leakFixture struct {
 	archive, unapprovedCollection catalogtest.Ref
 	// moot is a public event at which every hidden kind of performance was recorded.
 	moot, unapprovedEvent catalogtest.Ref
-	// renamed and renamedNoPage were renamed since their first revision; their former names are hidden aliases.
-	renamed, renamedNoPage catalogtest.Ref
-	// ember is a public piece whose first revision holds links that are no visible link's now.
+	// ember is a public piece whose first revision holds a link since respelled and hidden.
 	ember catalogtest.Ref
 	// turned chose not to have a page after their revisions were written.
 	turned    catalogtest.Ref
@@ -53,17 +51,12 @@ type leakFixture struct {
 
 // leakRevisions are revisions beyond catalogtest's: each shows something hidden now, or is not public.
 type leakRevisions struct {
-	// rowanAliasPublic shows Rowan's hidden alias as public, and a relation to turned.
-	rowanAliasPublic int64
 	// lanternTurned credits turned.
 	lanternTurned int64
 	// turnedEdit is of turned, with their profile.
 	turnedEdit int64
 	// pendingLantern is pending, and unapprovedPieceApproved is of an unapproved piece.
 	pendingLantern, unapprovedPieceApproved int64
-	// renamedFormer and renamedNoPageFormer show the renamed persons' former names; renamedEdit and
-	// renamedNoPageEdit are based on them.
-	renamedFormer, renamedEdit, renamedNoPageFormer, renamedNoPageEdit int64
 }
 
 // turnedName is the name of a person who chose not to have a page after their revisions were written.
@@ -89,13 +82,9 @@ const noPageBuskerName = "Leakmark Nopage Busker"
 
 const hiddenLinkURL = "https://example.org/leakmark-hidden-link"
 
-// The URLs of links a revision holds that are no visible link's now: one deleted, one given another URL and
-// hidden, one hidden under the lower-cased URL, and one respelled (to respelledLinkURLNow, with the same
-// normalized URL) and hidden. Each is in normalized form but respelledLinkURL.
+// The URL of a link a revision holds that was respelled (to respelledLinkURLNow, with the same normalized URL)
+// and hidden: a spelling of a hidden link's URL, which no revision may show.
 const (
-	deletedLinkURL      = "https://example.org/leakmark-deleted-link"
-	movedLinkURL        = "https://example.org/leakmark-moved-link"
-	recasedLinkURL      = "https://example.org/Leakmark-Recased-Link"
 	respelledLinkURL    = "https://Example.org/leakmark-respelled-link?utm_source=leakmark"
 	respelledLinkURLNow = "https://EXAMPLE.org:443/leakmark-respelled-link?fbclid=1"
 )
@@ -107,14 +96,7 @@ const (
 	normalizedLinkURL = "https://example.org/leakmark-normalized"
 )
 
-// The former names of renamed persons, now hidden legal aliases of theirs.
-const (
-	renamedFormerName       = "Leakmark Renamed Legal Name"
-	renamedNoPageFormerName = "Leakmark Renamed Nopage Legal Name"
-)
-
 // leakCatalogue holds, each marked:
-//   - a hidden legal alias of a public person, and of the no-page person;
 //   - a prefers_no_page person with notes, pronouns, licensing notes, a public alias, a role, an affiliation,
 //     relations in both directions, a credit, a performance as performer and a link with a performance;
 //   - a hidden link attached to a piece and a person, each with a performance;
@@ -125,10 +107,8 @@ const (
 //   - in a public collection, and at a public event, links and performances of the hidden link, the no-page
 //     person and unapproved pieces and persons;
 //   - performances a public person performs in, on links attached only to a no-page or an unapproved person;
-//   - persons renamed since their first revision, with and without a page, whose former name is a hidden alias;
-//   - a public piece whose first revision holds links since deleted, given another URL and hidden, and hidden
-//     under a URL in another case;
-//   - system fields that are never exposed: legacy titles, a claim by a user and normalized URLs.
+//   - a public piece whose first revision holds a link since respelled and hidden;
+//   - system fields that are never exposed: legacy titles and normalized URLs.
 var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixture {
 	unapprovedAffiliation := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation,
 		Name: "Leakmark Unapproved Affiliation"}, Unapproved: true})
@@ -183,8 +163,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		LicensingStatus:  domain.LicensingStatusKnown,
 		LicensingNotesMD: new("Leakmark nopage licensing notes"),
 		Aliases: []domain.DocPersonAlias{
-			{Name: "Leakmark Nopage Public Alias", Kind: domain.PersonAliasKindStage, IsPublic: true},
-			{Name: "Leakmark Nopage Legal Alias", Kind: domain.PersonAliasKindLegal},
+			{Name: "Leakmark Nopage Public Alias", Kind: domain.PersonAliasKindStage},
 		},
 		Roles:          []domain.PersonRole{domain.PersonRoleJester},
 		AffiliationIDs: []int64{westmarch.ID},
@@ -205,8 +184,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		Status:          domain.PersonStatusActive,
 		LicensingStatus: domain.LicensingStatusUnknown,
 		Aliases: []domain.DocPersonAlias{
-			{Name: "Rowan", Kind: domain.PersonAliasKindStage, IsPublic: true},
-			{Name: "Leakmark Hidden Legal Alias", Kind: domain.PersonAliasKindLegal},
+			{Name: "Rowan", Kind: domain.PersonAliasKindStage},
 		},
 		Roles:          []domain.PersonRole{domain.PersonRoleSinger},
 		AffiliationIDs: []int64{westmarch.ID, unapprovedAffiliation.ID},
@@ -306,37 +284,9 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		}}},
 		Unapproved: true})
 
-	// Persons renamed since their first revision, whose former name is now a hidden legal alias: one with a page
-	// and one without, whose identity their revisions show.
-	renamedDoc := domain.PersonDocument{
-		SchemaVersion:   domain.DocumentSchemaVersion,
-		Name:            "Ashen Wren",
-		Kind:            domain.PersonKindCommunityBard,
-		Status:          domain.PersonStatusActive,
-		LicensingStatus: domain.LicensingStatusUnknown,
-		Aliases:         []domain.DocPersonAlias{{Name: renamedFormerName, Kind: domain.PersonAliasKindLegal}},
-	}
-	renamed := c.Person(catalogtest.Person{Doc: renamedDoc})
-	renamedNoPageDoc := renamedDoc
-	renamedNoPageDoc.Name = "Quiet Fen"
-	renamedNoPageDoc.Status = domain.PersonStatusPrefersNoPage
-	renamedNoPageDoc.Aliases = []domain.DocPersonAlias{{Name: renamedNoPageFormerName,
-		Kind: domain.PersonAliasKindLegal}}
-	renamedNoPage := c.Person(catalogtest.Person{Doc: renamedNoPageDoc})
-	formerly := func(ref catalogtest.Ref, doc domain.PersonDocument, formerName string) (int64, int64) {
-		former := doc
-		former.Name, former.Aliases = formerName, nil
-		formerID := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePerson, EntityID: ref.ID,
-			Snapshot: former})
-		editID := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePerson, EntityID: ref.ID,
-			Snapshot: doc, BaseRevisionID: formerID, Source: domain.RevisionSourceUser, AuthorUserID: leakAuthorID})
-		return formerID, editID
-	}
-
-	// A public piece whose first revision's links have since been deleted, given another URL and hidden, and
-	// hidden under a URL that differs from the revision's in case only, and respelled and hidden: none may show
-	// in that revision. It also has a visible link entered with tracking parameters, whose normalized URL no
-	// read may show.
+	// A public piece whose first revision's link has since been respelled and hidden: it may not show in that
+	// revision. It also has a visible link entered with tracking parameters, whose normalized URL no read may
+	// show.
 	ember := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{
 		SchemaVersion:   domain.DocumentSchemaVersion,
 		Title:           "The Ember Song",
@@ -344,29 +294,16 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		Conservation:    domain.DocConservation{Status: domain.ConservationStatusUnassessed},
 		LicensingStatus: domain.LicensingStatusUnknown,
 		Links: []domain.DocPieceLink{
-			{DocLink: domain.DocLink{URL: deletedLinkURL, Title: new("Leakmark Deleted Link"),
-				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}},
-			{DocLink: domain.DocLink{URL: movedLinkURL, Title: new("Leakmark Moved Link"),
-				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}},
-			{DocLink: domain.DocLink{URL: recasedLinkURL, Title: new("Leakmark Recased Link"),
-				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}},
 			{DocLink: domain.DocLink{URL: respelledLinkURL, Title: new("Leakmark Respelled Link"),
 				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}},
 			{DocLink: domain.DocLink{URL: "https://example.org/ember", Roles: []domain.LinkRole{domain.LinkRoleText}}},
 			{DocLink: domain.DocLink{URL: enteredLinkURL, Roles: []domain.LinkRole{domain.LinkRoleText}}},
 		},
 	}})
-	// Each link edit keeps normalized_url = NormalizeURL(url), as every writer must; these URLs are in normalized
-	// form.
-	c.Exec("DELETE FROM links WHERE url = ?", deletedLinkURL)
-	c.Exec("UPDATE links SET url = ?, normalized_url = ?, is_hidden = TRUE WHERE url = ?", movedLinkURL+"-moved",
-		movedLinkURL+"-moved", movedLinkURL)
-	c.Exec("UPDATE links SET url = LOWER(url), normalized_url = LOWER(url), is_hidden = TRUE WHERE url = ?",
-		recasedLinkURL)
+	// The link edit keeps normalized_url = NormalizeURL(url), as every writer must: the respelling normalizes alike.
 	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", respelledLinkURLNow, respelledLinkURL)
 
-	// Revisions whose snapshots show what is hidden now, but was not when they were written: the hidden alias as
-	// public, credits to a person who has since chosen not to have a page, and the hidden link (in every
+	// Revisions whose snapshots show what is hidden now, but was not when they were written: credits to a person who has since chosen not to have a page, and the hidden link (in every
 	// document above). Plus revisions that are not public: a pending one, and an approved one of an unapproved
 	// piece.
 	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'contributor', ?)",
@@ -378,9 +315,8 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		Status:          domain.PersonStatusActive,
 		NotesMD:         new("Leakmark turned notes"),
 		LicensingStatus: domain.LicensingStatusUnknown,
-		Aliases: []domain.DocPersonAlias{{Name: "Leakmark Turned Alias", Kind: domain.PersonAliasKindStage,
-			IsPublic: true}},
-		Relations: []domain.DocPersonRelation{{ToPersonID: person.ID, Type: domain.PersonRelationTypeHeirOf}},
+		Aliases:         []domain.DocPersonAlias{{Name: "Leakmark Turned Alias", Kind: domain.PersonAliasKindStage}},
+		Relations:       []domain.DocPersonRelation{{ToPersonID: person.ID, Type: domain.PersonRelationTypeHeirOf}},
 		Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: "https://example.org/leakmark-turned-link",
 			Roles: []domain.LinkRole{domain.LinkRoleWebsite}}}},
 	}
@@ -390,20 +326,12 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		BaseRevisionID: turned.RevisionID})
 	c.Exec("UPDATE persons SET status = 'prefers_no_page' WHERE id = ?", turned.ID)
 
-	rowanAliasPublic := rowanDoc
-	rowanAliasPublic.Aliases = []domain.DocPersonAlias{rowanDoc.Aliases[0], rowanDoc.Aliases[1]}
-	rowanAliasPublic.Aliases[1].IsPublic = true
-	rowanAliasPublic.Relations = append(append([]domain.DocPersonRelation{}, rowanDoc.Relations...),
-		domain.DocPersonRelation{ToPersonID: turned.ID, Type: domain.PersonRelationTypeSameAs})
 	lanternTurned := lanternDoc
 	lanternTurned.Credits = append(append([]domain.DocCredit{}, lanternDoc.Credits...),
 		namedCredit(turned.ID, domain.CreditRoleTranslation, new("Leakmark turned credit note")))
 	pendingLantern := lanternDoc
 	pendingLantern.Title = "Leakmark Pending Title"
 	revisions := leakRevisions{
-		rowanAliasPublic: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePerson, EntityID: person.ID,
-			Snapshot: rowanAliasPublic, BaseRevisionID: person.RevisionID, Source: domain.RevisionSourceUser,
-			AuthorUserID: leakAuthorID}),
 		lanternTurned: c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
 			Snapshot: lanternTurned, BaseRevisionID: piece.RevisionID, Source: domain.RevisionSourceUser,
 			AuthorUserID: leakAuthorID, Contributors: []string{"Archivist"}}),
@@ -413,9 +341,6 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 			EntityID: unapprovedPiece.ID, Snapshot: lanternDoc}),
 		turnedEdit: turnedEdit,
 	}
-	revisions.renamedFormer, revisions.renamedEdit = formerly(renamed, renamedDoc, renamedFormerName)
-	revisions.renamedNoPageFormer, revisions.renamedNoPageEdit = formerly(renamedNoPage, renamedNoPageDoc,
-		renamedNoPageFormerName)
 
 	// System fields no document holds and no read exposes.
 	c.Exec("UPDATE persons SET legacy_title = ?, legacy_wiki_pageid = id", "Leakmark Legacy Person")
@@ -429,7 +354,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		lanterns: lanterns, westmarch: westmarch, unapprovedTerm: unapprovedTerm, underUnapproved: underUnapproved,
 		unapprovedChild: unapprovedChild, unapprovedAffiliation: unapprovedAffiliation,
 		archive: archive, unapprovedCollection: unapprovedCollection, moot: moot, unapprovedEvent: unapprovedEvent,
-		turned: turned, renamed: renamed, renamedNoPage: renamedNoPage, ember: ember, revisions: revisions,
+		turned: turned, ember: ember, revisions: revisions,
 	}
 })
 
@@ -451,7 +376,7 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: func(fx leakFixture) []leakRequest {
 		return []leakRequest{
 			{path: "/v1/pieces/" + fx.piece.Slug, status: http.StatusOK},
-			// The links of its first revision that are no visible link's now, and a link entered with tracking
+			// The link of its first revision since respelled and hidden, and a link entered with tracking
 			// parameters, shown as entered.
 			{path: "/v1/pieces/" + fx.ember.Slug, status: http.StatusOK, reveals: []string{enteredLinkURL}},
 			{path: "/v1/pieces/" + fx.unapprovedPiece.Slug, status: http.StatusNotFound},
@@ -462,9 +387,6 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 		return []leakRequest{
 			// Performances Rowan performs in on links attached only to no-page or unapproved persons.
 			{path: "/v1/persons/" + fx.person.Slug, status: http.StatusOK},
-			// Former names that are hidden aliases now.
-			{path: "/v1/persons/" + fx.renamed.Slug, status: http.StatusOK},
-			{path: "/v1/persons/" + fx.renamedNoPage.Slug, status: http.StatusOK},
 			{path: "/v1/persons/" + fx.group.Slug, status: http.StatusOK},
 			{path: "/v1/persons/" + fx.noPage.Slug, status: http.StatusOK, reveals: []string{fx.noPage.Slug, noPageName}},
 			{path: "/v1/persons/" + fx.turned.Slug, status: http.StatusOK, reveals: []string{fx.turned.Slug, turnedName}},
@@ -563,7 +485,6 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			{path: historyPath("persons", fx.person.Slug), status: http.StatusOK},
 			{path: historyPath("persons", fx.noPage.Slug), status: http.StatusOK},
 			{path: historyPath("persons", fx.turned.Slug), status: http.StatusOK},
-			{path: historyPath("persons", fx.renamed.Slug), status: http.StatusOK},
 			{path: historyPath("persons", fx.unapprovedPerson.Slug), status: http.StatusNotFound},
 		}
 	},
@@ -601,23 +522,16 @@ var leakMatrix = map[openapitest.Operation]func(fx leakFixture) []leakRequest{
 			// credit to a person who chose not to have a page since, in a revision and its base.
 			revision(fx.piece.RevisionID, http.StatusOK),
 			revision(fx.revisions.lanternTurned, http.StatusOK),
-			// The hidden alias, hidden in the snapshot, and public in a revision and hidden since; relations to
-			// no-page and unapproved persons; the hidden link.
+			// Relations to no-page and unapproved persons; the hidden link.
 			revision(fx.person.RevisionID, http.StatusOK),
-			revision(fx.revisions.rowanAliasPublic, http.StatusOK),
 			revision(fx.group.RevisionID, http.StatusOK),
 			// Persons who prefer no page, now or in the snapshot: the identity only.
 			revision(fx.noPage.RevisionID, http.StatusOK, noPage...),
 			revision(fx.noPageAdmirer.RevisionID, http.StatusOK, fx.noPageAdmirer.Slug, noPageAdmirerName),
 			revision(fx.turned.RevisionID, http.StatusOK, turned...),
 			revision(fx.revisions.turnedEdit, http.StatusOK, turned...),
-			// A former name that is a hidden alias now, in a snapshot and in a base, with and without a page.
-			revision(fx.revisions.renamedFormer, http.StatusOK),
-			revision(fx.revisions.renamedEdit, http.StatusOK),
-			revision(fx.revisions.renamedNoPageFormer, http.StatusOK),
-			revision(fx.revisions.renamedNoPageEdit, http.StatusOK),
-			// Links deleted, moved and hidden, hidden under another case, and respelled and hidden, since the
-			// snapshot; a link entered with tracking parameters, shown as entered.
+			// A link respelled and hidden since the snapshot; a link entered with tracking parameters, shown as
+			// entered.
 			revision(fx.ember.RevisionID, http.StatusOK, enteredLinkURL),
 			// An unapproved child and related affiliation; an unapproved parent and region.
 			revision(fx.lanterns.RevisionID, http.StatusOK),
@@ -732,7 +646,6 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 	t.Helper()
 
 	for _, query := range []string{
-		"SELECT COUNT(*) FROM person_aliases WHERE NOT is_public AND kind = 'legal' AND name LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM persons WHERE status = 'prefers_no_page' AND notes_md LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM links WHERE is_hidden AND url LIKE '%leakmark%'",
 		"SELECT COUNT(*) FROM pieces WHERE current_revision_id IS NULL AND title LIKE '%Leakmark%'",
@@ -747,11 +660,8 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 			"WHERE e.current_revision_id IS NOT NULL AND perf.description_verbatim LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM links l JOIN collections c ON c.id = l.collection_id " +
 			"WHERE c.current_revision_id IS NOT NULL AND l.url LIKE '%leakmark%'",
-		// Approved revisions of public entities showing, as they were then, what is hidden now: the hidden alias
-		// as public, a person who has since chosen not to have a page with their profile, and the hidden link.
-		"SELECT COUNT(*) FROM revisions r JOIN persons p ON p.id = r.entity_id AND r.entity_type = 'person' " +
-			"WHERE r.status = 'approved' AND p.current_revision_id IS NOT NULL AND JSON_CONTAINS(r.snapshot_json, " +
-			"JSON_OBJECT('name', 'Leakmark Hidden Legal Alias', 'is_public', TRUE), '$.aliases')",
+		// Approved revisions of public entities showing, as they were then, what is hidden now: a person who has
+		// since chosen not to have a page with their profile, and the hidden link.
 		"SELECT COUNT(*) FROM revisions r JOIN persons p ON p.id = r.entity_id AND r.entity_type = 'person' " +
 			"WHERE r.status = 'approved' AND p.status = 'prefers_no_page' " +
 			"AND r.snapshot_json->>'$.status' = 'active' AND r.snapshot_json->>'$.notes_md' LIKE '%Leakmark%'",
@@ -765,23 +675,6 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 		// unapproved person only.
 		performedOnHiddenAttachments + "'%Leakmark nopage busker%'",
 		performedOnHiddenAttachments + "'%Leakmark unapproved busker%'",
-		// Approved revisions of public persons, with and without a page, named with what is a hidden alias now.
-		"SELECT COUNT(*) FROM revisions r JOIN person_aliases a ON a.person_id = r.entity_id " +
-			"JOIN persons p ON p.id = r.entity_id AND p.status = 'active' AND p.current_revision_id IS NOT NULL " +
-			"WHERE r.entity_type = 'person' AND r.status = 'approved' AND NOT a.is_public " +
-			"AND r.snapshot_json->>'$.name' = a.name",
-		"SELECT COUNT(*) FROM revisions r JOIN person_aliases a ON a.person_id = r.entity_id " +
-			"JOIN persons p ON p.id = r.entity_id AND p.status = 'prefers_no_page' " +
-			"WHERE r.entity_type = 'person' AND r.status = 'approved' AND NOT a.is_public " +
-			"AND r.snapshot_json->>'$.name' = a.name",
-		// An approved revision of a public piece holding a URL no link has, one a hidden link had, and one a
-		// hidden link has but in another case.
-		"SELECT COUNT(*) FROM revisions r WHERE r.status = 'approved' AND JSON_SEARCH(r.snapshot_json, 'one', '" +
-			deletedLinkURL + "', NULL, '$.links[*].url') IS NOT NULL " +
-			"AND NOT EXISTS (SELECT 1 FROM links WHERE url = '" + deletedLinkURL + "')",
-		"SELECT COUNT(*) FROM links WHERE is_hidden AND url = '" + movedLinkURL + "-moved'",
-		"SELECT COUNT(*) FROM links WHERE is_hidden AND CAST(url AS BINARY) = LOWER('" + recasedLinkURL + "') " +
-			"AND CAST(url AS BINARY) <> '" + recasedLinkURL + "'",
 		// A link the revision holds under another spelling, with the same normalized URL, that is hidden now.
 		"SELECT COUNT(*) FROM revisions r JOIN links l ON l.is_hidden AND l.url = '" + respelledLinkURLNow + "' " +
 			"AND l.normalized_url = 'https://example.org/leakmark-respelled-link' WHERE r.status = 'approved' " +
@@ -814,8 +707,6 @@ func TestHTTP_LeakMatrix_RedactedOnlyRevisionsChangeNothing(t *testing.T) {
 	handler := NewHTTPHandler(repositoryHTTPDependencies(mysql.New(db), nil))
 
 	for name, id := range map[string]int64{
-		// Adds an alias that is hidden now, and a relation to a person who now prefers no page.
-		"hidden_alias_and_no_page_relation": fx.revisions.rowanAliasPublic,
 		// Adds a credit to a person who now prefers no page.
 		"credit_to_no_page_person": fx.revisions.lanternTurned,
 	} {

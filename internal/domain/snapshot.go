@@ -9,18 +9,14 @@ import (
 // stored: it references other entities by internal ID and may hold what a public read must not show. A view
 // holds the document's editor-owned fields, with:
 //   - each reference resolved to the entity's summary as it is now, or left out if the entity is not public now;
-//   - each link shown by URL, and only if its normalized URL (NormalizeURL) is that of a link that is not hidden
-//     now, and of no hidden link: a link since hidden, deleted, or given a URL that normalizes otherwise is left
-//     out, and so is a URL that does not normalize;
-//   - a person's alias shown only if it is public in the document and is now a public alias of the person;
-//   - a person's name shown only if it is their name now or one of their public alias names now, and their
-//     current name otherwise, so that a former name that is now a hidden alias never shows;
+//   - each link shown as written in the document, unless its URL normalizes (NormalizeURL) to the URL of a link
+//     that is hidden now, or does not normalize: such a link is left out;
+//   - a person's name and aliases as the document has them;
 //   - credits, performers and relations of persons who are not public, or prefer no page, now left out;
 //   - of a person who prefers no page, now or in the document, only the identity.
 //
-// Redaction follows the catalogue's current state, not the document's, so that hiding an alias or a link, or a
-// person's choosing not to have a page, also hides them in every earlier revision. What a view shows must be
-// allowed by the current state, compared exactly, so that anything the current state does not know fails closed.
+// Redaction follows the catalogue's current state, not the document's, so that hiding a link, or a person's
+// choosing not to have a page, also hides them in every earlier revision.
 
 // SnapshotReferences are the other entities and the links that one or more documents reference, which the
 // SnapshotVisibility for their views must cover. IDs and URLs may repeat.
@@ -31,9 +27,6 @@ type SnapshotReferences struct {
 	CollectionIDs []int64
 	EventIDs      []int64
 	LinkURLs      []string
-	// AliasPersonIDs are the persons whose public alias names a view needs: the person a document is of, who is
-	// among PersonIDs too.
-	AliasPersonIDs []int64
 }
 
 // SnapshotVisibility is the current state of the entities and links some documents reference, as far as it
@@ -46,18 +39,14 @@ type SnapshotVisibility struct {
 	Persons map[int64]PersonSummary
 	// NoPagePersons are the public persons who prefer no page.
 	NoPagePersons map[int64]PersonSummary
-	// PublicAliases are the names of the public aliases of each person of AliasPersonIDs.
-	PublicAliases map[int64]map[string]bool
 	// Terms are the public terms: approved, with every ancestor approved.
 	Terms map[int64]TermSummary
 	// Collections are the public collections.
 	Collections map[int64]CollectionSummary
 	// Events are the public events and venues.
 	Events map[int64]EventSummary
-	// VisibleLinks maps the normalized URL of each referenced link that is the normalized URL of a link that is
-	// not hidden, and of no hidden link, to that link's URL: the only links a view shows, each under the link's
-	// URL rather than the document's spelling of it.
-	VisibleLinks map[string]string
+	// HiddenLinks holds the normalized URL of each hidden link; a view shows no link whose URL normalizes to one.
+	HiddenLinks map[string]bool
 }
 
 // PieceSnapshot is the public view of a PieceDocument.
@@ -218,7 +207,6 @@ func (d PieceDocument) AddReferences(refs *SnapshotReferences) {
 // AddReferences adds what the document of the person personID references to refs, including the person.
 func (d PersonDocument) AddReferences(personID int64, refs *SnapshotReferences) {
 	refs.PersonIDs = append(refs.PersonIDs, personID)
-	refs.AliasPersonIDs = append(refs.AliasPersonIDs, personID)
 	refs.TermIDs = append(refs.TermIDs, d.AffiliationIDs...)
 	for _, relation := range d.Relations {
 		refs.PersonIDs = append(refs.PersonIDs, relation.ToPersonID)
@@ -302,11 +290,10 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		}
 	}
 	for _, link := range d.Links {
-		url, ok := vis.visibleLinkURL(link.URL)
-		if !ok {
+		if !vis.linkShown(link.URL) {
 			continue
 		}
-		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink, url)}
+		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink)}
 		for _, performance := range link.Performances {
 			pieceLink.Performances = append(pieceLink.Performances, vis.performance(performance))
 		}
@@ -337,10 +324,10 @@ func (v SnapshotVisibility) credit(c DocCredit) (PieceCredit, bool) {
 	return credit, true
 }
 
-// link returns the view of l, shown under url: the URL of the visible link l's URL normalizes to.
-func (v SnapshotVisibility) link(l DocLink, url string) SnapshotLink {
+// link returns the view of l.
+func (v SnapshotVisibility) link(l DocLink) SnapshotLink {
 	link := SnapshotLink{
-		URL:         url,
+		URL:         l.URL,
 		Title:       l.Title,
 		Description: l.Description,
 		Platform:    l.Platform,
@@ -377,27 +364,21 @@ func (v SnapshotVisibility) performance(p DocPerformance) PiecePerformance {
 var ErrPersonNotPublic = errors.New("person is not public")
 
 // NewPersonSnapshot returns the public view of the document of the person personID. It fails with
-// ErrPersonNotPublic if vis does not hold the person as public, as their current name is then unknown.
+// ErrPersonNotPublic if vis does not hold the person as public.
 func NewPersonSnapshot(personID int64, d PersonDocument, vis SnapshotVisibility) (PersonSnapshot, error) {
-	current, ok := vis.Persons[personID]
+	_, public := vis.Persons[personID]
 	_, noPage := vis.NoPagePersons[personID]
-	if noPage {
-		current, ok = vis.NoPagePersons[personID], true
-	}
-	if !ok {
+	if !public && !noPage {
 		return PersonSnapshot{}, fmt.Errorf("%w [%d]", ErrPersonNotPublic, personID)
 	}
 
 	snapshot := PersonSnapshot{
-		Name:            current.Name,
+		Name:            d.Name,
 		Kind:            d.Kind,
 		Status:          d.Status,
 		StatusDate:      d.StatusDate,
 		StatusSourceURL: d.StatusSourceURL,
 		IsStub:          d.IsStub,
-	}
-	if d.Name == current.Name || vis.PublicAliases[personID][d.Name] {
-		snapshot.Name = d.Name
 	}
 
 	if noPage || d.Status == PersonStatusPrefersNoPage {
@@ -405,14 +386,14 @@ func NewPersonSnapshot(personID int64, d PersonDocument, vis SnapshotVisibility)
 		return snapshot, nil
 	}
 
-	profile := newPersonSnapshotProfile(personID, d, vis)
+	profile := newPersonSnapshotProfile(d, vis)
 	snapshot.Profile = &profile
 
 	return snapshot, nil
 }
 
-// newPersonSnapshotProfile returns the profile of the view of the document of the person personID, who has a page.
-func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisibility) PersonSnapshotProfile {
+// newPersonSnapshotProfile returns the profile of the view of the document of a person who has a page.
+func newPersonSnapshotProfile(d PersonDocument, vis SnapshotVisibility) PersonSnapshotProfile {
 	profile := PersonSnapshotProfile{
 		Pronouns:         d.Pronouns,
 		NotesMD:          d.NotesMD,
@@ -421,9 +402,7 @@ func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisi
 		Roles:            d.Roles,
 	}
 	for _, alias := range d.Aliases {
-		if alias.IsPublic && vis.PublicAliases[personID][alias.Name] {
-			profile.Aliases = append(profile.Aliases, PersonAlias{Name: alias.Name, Kind: alias.Kind})
-		}
+		profile.Aliases = append(profile.Aliases, PersonAlias(alias))
 	}
 	for _, id := range d.AffiliationIDs {
 		if term, ok := vis.Terms[id]; ok {
@@ -436,11 +415,10 @@ func newPersonSnapshotProfile(personID int64, d PersonDocument, vis SnapshotVisi
 		}
 	}
 	for _, link := range d.Links {
-		url, ok := vis.visibleLinkURL(link.URL)
-		if !ok {
+		if !vis.linkShown(link.URL) {
 			continue
 		}
-		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink, url)}
+		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink)}
 		for _, performance := range link.Performances {
 			if p, ok := vis.personPerformance(performance); ok {
 				personLink.Performances = append(personLink.Performances, p)
@@ -513,14 +491,10 @@ func lookup[T any](entities map[int64]T, id *int64) *T {
 	return &entity
 }
 
-// visibleLinkURL returns the URL of the visible link a document's url normalizes to, or false if a view does not
-// show it: url normalizes to none of VisibleLinks. A URL that does not normalize fails closed.
-func (v SnapshotVisibility) visibleLinkURL(url string) (string, bool) {
+// linkShown reports whether a view shows a document's link with this URL: not if the URL does not normalize, or
+// normalizes to a hidden link's URL.
+func (v SnapshotVisibility) linkShown(url string) bool {
 	normalized, err := NormalizeURL(url)
-	if err != nil {
-		return "", false
-	}
-	visible, ok := v.VisibleLinks[normalized]
 
-	return visible, ok
+	return err == nil && !v.HiddenLinks[normalized]
 }

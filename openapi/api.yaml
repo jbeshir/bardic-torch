@@ -388,7 +388,7 @@ paths:
         Searches the public persons, returning one page of them with how many match in all and how many sort
         under each letter, ignoring the `letter` filter. Every filter given must match. Persons who prefer not to
         have a page are listed as stubs: `q` matches them by name only, and they match no `role` or
-        `affiliation` filter. Hidden aliases never match. Unapproved persons are never listed or counted.
+        `affiliation` filter. Unapproved persons are never listed or counted.
         Credentials are ignored.
       operationId: listPersons
       security: []
@@ -474,8 +474,8 @@ paths:
       summary: Get a person
       description: |
         Returns a public person. A person who prefers not to have a page is shown by identity only: name, kind,
-        status and its source, with `is_stub` true and `profile` null. Otherwise the profile has their public
-        aliases (hidden aliases never appear), roles, affiliations, relations to other public persons, links,
+        status and its source, with `is_stub` true and `profile` null. Otherwise the profile has their
+        aliases, roles, affiliations, relations to other public persons, links,
         works and performances. Works and performances are capped at 200 each, with totals. An unapproved person
         is not found, exactly like an unknown one. Credentials are ignored.
       operationId: getPerson
@@ -1022,9 +1022,8 @@ paths:
         its base's (the revision it was based on, if that is an approved revision of the same entity), and the
         names of the snapshot's top-level fields that differ from the base's, or that are not empty if there is
         no base. A view never shows the stored document as such: each reference to another entity is shown as
-        that entity is now, and left out if it is not public now; links are shown by URL, and left out if they
-        are hidden now; a person's alias appears only if it is public in the snapshot and is a public alias of
-        the person now; credits to, performers and relations of persons who are not public or prefer not to have
+        that entity is now, and left out if it is not public now; links are shown as the snapshot wrote them,
+        and left out if their URL is a hidden link's now; credits to, performers and relations of persons who are not public or prefer not to have
         a page now are left out; and of a person who prefers not to have a page, now or in the snapshot, only the
         identity is shown. System fields are never shown. `entity_type` says which of
         the five shapes the revision has. A revision that is not approved, or whose entity is not public, is not
@@ -2408,7 +2407,7 @@ components:
             - Happy for her songs to be sung anywhere.
         aliases:
           type: array
-          description: The person's public aliases. Hidden aliases never appear.
+          description: The person's aliases.
           items:
             $ref: "#/components/schemas/PersonAlias"
         roles:
@@ -4125,7 +4124,7 @@ components:
           $ref: "#/components/schemas/PersonProfile/properties/licensing_notes_md"
         aliases:
           type: array
-          description: The snapshot's public aliases that are public aliases of the person now.
+          description: The snapshot's aliases.
           items:
             $ref: "#/components/schemas/PersonAlias"
         roles:

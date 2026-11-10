@@ -293,11 +293,10 @@ type PersonDocument struct {
 	Links            []DocPersonLink     `json:"links"`
 }
 
-// DocPersonAlias is another name of a person. A name that is not public never appears in a public read.
+// DocPersonAlias is another name of a person.
 type DocPersonAlias struct {
-	Name     string          `json:"name"`
-	Kind     PersonAliasKind `json:"kind"`
-	IsPublic bool            `json:"is_public"`
+	Name string          `json:"name"`
+	Kind PersonAliasKind `json:"kind"`
 }
 
 // DocPersonRelation relates the document's person to another person.

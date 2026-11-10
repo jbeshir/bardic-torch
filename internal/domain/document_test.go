@@ -74,7 +74,7 @@ func fullPersonDocument() domain.PersonDocument {
 		LicensingNotesMD: ptr("All works CC BY."),
 		IsStub:           true,
 		Aliases: []domain.DocPersonAlias{
-			{Name: "Wren", Kind: domain.PersonAliasKindNickname, IsPublic: true},
+			{Name: "Wren", Kind: domain.PersonAliasKindNickname},
 			{Name: "Jo Example", Kind: domain.PersonAliasKindLegal},
 		},
 		Roles:          []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRolePoet},

@@ -190,7 +190,6 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
   ```
   Authorization: Bearer auth0|<access_token>
   ```
-  Personal API tokens use `Authorization: Bearer user_api|<token>`; see `openapi/api.yaml`.
 - The FE refreshes the access token with its refresh token before it expires. An expired token gets 401
   `unauthenticated`.
 
@@ -224,11 +223,8 @@ dokku mysql:link bardic-torch-db bardic-torch-api
   tag on Docker Hub at the time (8.4.13 when this was written). Upgrade later with
   `dokku mysql:upgrade bardic-torch-db --image-version 8.4.<x>`.
 - Always pass `--image-version`. dokku-mysql's default image is an Innovation release, not an LTS.
-- Stay on 8.4 even though 9.7 is a newer LTS. From 9.6, MySQL checks foreign keys in the SQL layer rather than
-  InnoDB, and 9.7.4 does not enforce a foreign key whose index has a further column that is NULL in the new row
-  (MySQL bug #121438, open). `api_tokens.fk_api_tokens_user` uses such an index, and
-  `TestRepository_APITokens_CreateRequiresExistingUser` fails on 9.7.4. Move to 9.7 only once a 9.7 release
-  fixes that bug and the integration tests pass on it.
+- Stay on 8.4 even though 9.7 is a newer LTS. Move to a later series only deliberately, with the integration
+  tests passing on it (they run on 8.4 everywhere).
 - Moving to a later series is one-way: MySQL upgrades the data directory in place, and the old server cannot
   read it afterwards. Take `dokku mysql:export bardic-torch-db > bardic-torch-db.sql` first. To roll back, create
   a service on the old version and `dokku mysql:import` the export into it.
@@ -358,16 +354,14 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
    It needs no database and never reads `DATABASE_URL`. It builds and validates the whole import, writes the
    review and prints the counts (pieces by kind and with inline lyrics, persons, terms, collections of the
    Collections page's entries, events, links, revisions and review items).
-2. **Review.** The moderators work through the review (`import-review.md`): every alias classification, every
-   name withheld from public text (and every possible private name kept in it because the import publishes it as
-   a person's name), every collection, event, stub, alias or uploader left out because its name
-   holds a possible legal name, every URL that may name a person, the wiki users shaped like personal names
-   (credited publicly as written), the ambiguous records, the stubs, the links whose pages disagree on their
-   title, description or locator (one links row serves every page; each page's own fields are in the item), the
-   link-section prose moved into notes, the runs of link lines imported without descriptions because their text
-   could be lyrics, and the rest. Where the importer guessed
-   wrong, note the item ID: it is corrected in the catalogue after the import (an entity left out is created by
-   hand once its name is cleared). Run the dry run again whenever the crawl changes.
+2. **Review.** The moderators work through the review (`import-review.md`): every alias classification, the
+   ambiguous records, matches and credits, the stubs, the emails withheld from text, the wiki users shaped like
+   personal names (credited publicly as written), the links whose pages disagree on their title, description or
+   locator (one links row serves every page; each page's own fields are in the item), the link-section prose
+   moved into notes, the runs of link lines imported without descriptions because their text could be lyrics,
+   and the rest. The import publishes names as the wiki has them, aliases included, so this is the moderators'
+   chance to spot a name that should not be public. Where the importer guessed wrong, note the item ID: it is
+   corrected in the catalogue after the import. Run the dry run again whenever the crawl changes.
 3. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
    one-off container a private directory holding the crawl, which the image's user (10001) can write the review
    to:
@@ -387,11 +381,10 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
    value of the import, so the logs hold no name.
 4. **Delete the copies** once the import is applied and reviewed: `sudo rm -r /var/lib/bardic-torch-import`.
 
-**The review is private.** It names hidden aliases and other possible legal names in clear so that the
-moderators can check them (it never holds lyrics). Never publish it, commit it or attach it to an issue; the
-command writes it with mode 0600 and refuses a path inside this repository, which is public (also through a
-symbolic or hard link); it replaces an existing file instead of writing through it. Share it with the
-moderators privately, and delete the copies when the review is done.
+**The review is private.** It names people in clear so that the moderators can check them (it never holds
+lyrics). Write it outside this repository, which is public, with mode 0600 (the command does), and never commit
+it or attach it to an issue. Share it with the moderators privately, and delete the copies when the review is
+done.
 
 After the import, every imported entity has one approved revision of source `import`, crediting the wiki users who
 wrote its page; liveness of every link is `unknown` until a link checker runs.
@@ -417,6 +410,9 @@ before it:
   column without a default, or narrowing a column. Do these in two releases: first a release that stops using the
   old shape (and writes both, if needed), then a release whose migration removes it.
 - Never edit a migration that has been deployed; add a new one.
+- This is the rule from now on. Migrations 010 and 011 dropped tables, columns and enum values in the same release
+  as the code that stopped using them, because no release had been deployed yet, so there was no serving release
+  to protect and no earlier one to roll back to.
 - **Enum growth**: appending a value to a catalogue `ENUM` column is an instant, compatible migration, but old code
   fails when it reads a value it does not know (the read path returns a logged 500 for it). So ship the code that
   understands a new value in one release, and only a later release may write rows that use it. Never roll back to a
@@ -430,8 +426,7 @@ before it:
   a rollback, the older release keeps serving the revisions written in between, showing only the fields it knows.
   Removing, renaming or retyping a field, or changing what one means, needs a new `schema_version`, which every
   older release refuses (a logged 500 for each such revision): ship the reader for the new version one release
-  before any release writes it. A new field that hides or redacts other document data (a privacy flag on a link
-  or an alias, say) is not additive, even though older readers would parse it: they would ignore it and show
+  before any release writes it. A new field that hides or redacts other document data (a privacy flag on a link, say) is not additive, even though older readers would parse it: they would ignore it and show
   what it hides. Such a field needs a new `schema_version`, so that an older release refuses those documents
   rather than failing open.
 - **Views** (`public_terms`, `listed_persons`, `public_link_attachments`, migration 009) define the visibility
@@ -445,18 +440,16 @@ before it:
 ### The normalized URL invariant
 
 Every row of `links` has `normalized_url = domain.NormalizeURL(url)`. The importer and every later writer keep
-it; a URL that does not normalize is never written. Public revision reads rely on it: a snapshot's link is shown
-only if `NormalizeURL` of the URL in the document is the `normalized_url` of a link that is not hidden, and then
-under that link's `url`. A row that broke the invariant would make the read show or drop the wrong links.
+it; a URL that does not normalize is never written. Public revision reads rely on it: a snapshot drops a link
+whose document URL normalizes to the `normalized_url` of a hidden link, or does not normalize, and otherwise shows
+the link as the document wrote it. A row that broke the invariant would make the read show a hidden link.
 
 A change to what `NormalizeURL` returns (a new tracking parameter, say) is therefore a data change, not just a code
 change. Ship it with a command or migration that re-normalises every `links` row, and run that before the release
-whose reads rely on the new output. Until the rows are re-normalised, the new code is not safe: a document URL
-that now normalizes differently is dropped if it matches no row, but it can match another row. A hidden link's
-URL that differed from a visible link's only in a newly dropped parameter now normalizes to the visible row's
-`normalized_url`, so the revision shows it under the visible link. Only the merge below, which keeps a group
-hidden if any of its rows is, closes that. A rollback to the old code after re-normalising is safe: merged rows
-keep their hidden state, and a URL that no longer matches a row is dropped.
+whose reads rely on the new output. Until the rows are re-normalised, the new code is not safe: a hidden link's
+old spelling may no longer normalize to its row's `normalized_url`, and a revision holding it would then be
+shown. Only the merge below, which keeps a group hidden if any of its rows is, keeps hidden links hidden when
+rows come together. A rollback to the old code after re-normalising is safe: merged rows keep their hidden state.
 
 Re-normalising can give two rows the same `normalized_url`, which the unique index refuses. Merge each such group
 into its row with the lowest ID, in one transaction: keep that row's `url` and editor-owned fields, set its

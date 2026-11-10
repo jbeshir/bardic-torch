@@ -52,7 +52,6 @@ const (
 	harvestSourceURL = "https://example.org/assessments/harvest"
 	larkStageName    = "Lark"
 	larkFormerName   = "Old Lark"
-	larkHiddenName   = "Hidden Name"
 	quietTuneNote    = "The tune is the harper's own"
 	fairPerformance  = "Sung at the fair"
 	pendingFairDesc  = "Sung at a fair still pending"
@@ -106,7 +105,7 @@ func harvestDocument(fx revisionFixture) domain.PieceDocument {
 	}
 }
 
-// larkDocument is Lark's document as first imported: an alias later hidden, a link later hidden, a relation to a
+// larkDocument is Lark's document as first imported: a link later hidden, a relation to a
 // person who later chose not to have a page, and references to unapproved entities.
 func larkDocument(fx revisionFixture) domain.PersonDocument {
 	return domain.PersonDocument{
@@ -118,9 +117,8 @@ func larkDocument(fx revisionFixture) domain.PersonDocument {
 		NotesMD:         new("A singer of harvest songs."),
 		LicensingStatus: domain.LicensingStatusKnown,
 		Aliases: []domain.DocPersonAlias{
-			{Name: larkStageName, Kind: domain.PersonAliasKindStage, IsPublic: true},
-			{Name: larkFormerName, Kind: domain.PersonAliasKindFormer, IsPublic: true},
-			{Name: larkHiddenName, Kind: domain.PersonAliasKindLegal},
+			{Name: larkStageName, Kind: domain.PersonAliasKindStage},
+			{Name: larkFormerName, Kind: domain.PersonAliasKindFormer},
 		},
 		Roles:          []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
 		AffiliationIDs: []int64{fx.pendingTopic.ID, fx.bards.ID},
@@ -154,7 +152,7 @@ func quietDocument(fx revisionFixture) domain.PersonDocument {
 		Status:          domain.PersonStatusActive,
 		NotesMD:         new("Plays the harp at every fair."),
 		LicensingStatus: domain.LicensingStatusUnknown,
-		Aliases:         []domain.DocPersonAlias{{Name: "Harper", Kind: domain.PersonAliasKindStage, IsPublic: true}},
+		Aliases:         []domain.DocPersonAlias{{Name: "Harper", Kind: domain.PersonAliasKindStage}},
 		Roles:           []domain.PersonRole{domain.PersonRoleMusician},
 		AffiliationIDs:  []int64{fx.bards.ID},
 		Relations:       []domain.DocPersonRelation{{ToPersonID: fx.choir.ID, Type: domain.PersonRelationTypeMemberOf}},
@@ -208,8 +206,7 @@ var revisions = catalogtest.NewShared(func(c *catalogtest.Catalog) revisionFixtu
 	fx.harvest = c.Piece(catalogtest.Piece{Doc: harvestDocument(fx)})
 	fx.broken = c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Broken Song"}})
 
-	// Hidden after the fact: an alias, two links, and a person who now prefers not to have a page.
-	c.Exec("UPDATE person_aliases SET is_public = FALSE WHERE name = ?", larkFormerName)
+	// Hidden after the fact: two links, and a person who now prefers not to have a page.
 	c.SetLinkState(harvestTakenDown, catalogtest.LinkState{IsHidden: true})
 	c.SetLinkState(larkTakenDownURL, catalogtest.LinkState{IsHidden: true})
 	c.Exec("UPDATE persons SET status = 'prefers_no_page' WHERE id = ?", fx.quiet.ID)
@@ -507,10 +504,11 @@ func TestRepository_GetPublicRevision_Person(t *testing.T) {
 			Pronouns:        new("they/them"),
 			NotesMD:         new("A singer of harvest songs."),
 			LicensingStatus: domain.LicensingStatusKnown,
-			Aliases:         []domain.PersonAlias{{Name: larkStageName, Kind: domain.PersonAliasKindStage}},
-			Roles:           []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
-			Affiliations:    []domain.TermSummary{guildSummary},
-			Relations:       []domain.SnapshotPersonRelation{{Type: domain.PersonRelationTypeMemberOf, Person: choirSummary}},
+			Aliases: []domain.PersonAlias{{Name: larkStageName, Kind: domain.PersonAliasKindStage},
+				{Name: larkFormerName, Kind: domain.PersonAliasKindFormer}},
+			Roles:        []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
+			Affiliations: []domain.TermSummary{guildSummary},
+			Relations:    []domain.SnapshotPersonRelation{{Type: domain.PersonRelationTypeMemberOf, Person: choirSummary}},
 			Links: []domain.SnapshotPersonLink{{
 				SnapshotLink: domain.SnapshotLink{URL: larkSiteURL,
 					Collection: &domain.CollectionRef{ID: fx.archive.ID, Name: archiveName},

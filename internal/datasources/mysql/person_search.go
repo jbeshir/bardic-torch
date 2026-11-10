@@ -58,10 +58,9 @@ func (c *catalogueReader) personList(ctx context.Context, query datasources.Pers
 // affiliationID.
 //
 // Both statements start with the same WITH clause. If the search has a query, matched(person_id, score) holds
-// every person whose name, or a public alias, matches it, with the best score of those matches; aliases of
-// persons who prefer no page are not searched, and hidden aliases are filtered out inside their branch, so they
-// contribute no match. Alias matches score 0, ranking after name matches: the alias index holds hidden aliases
-// too, and a MATCH score over it would depend on them. candidates holds every public person matching every filter
+// every person whose name, or an alias, matches it, with the best score of those matches; aliases of
+// persons who prefer no page are not searched. Alias matches score by MATCH over the alias names, like name
+// matches. candidates holds every public person matching every filter
 // but the letter, with a letter_match column if the search has a letter.
 type personSearch struct {
 	query         datasources.PersonQuery
@@ -74,7 +73,7 @@ const (
 		"SELECT p.id AS person_id, "
 	personAliasMatched sqlFragment = " UNION ALL SELECT a.person_id, "
 	personAliasFrom    sqlFragment = " FROM person_aliases a JOIN listed_persons ap ON ap.id = a.person_id " +
-		"WHERE a.is_public AND "
+		"WHERE "
 	personMatchedEnd sqlFragment = ") hits GROUP BY hits.person_id), "
 	personCandidates sqlFragment = "candidates AS (SELECT p.id, p.slug, p.name, p.sort_name, p.sort_letter, " +
 		"p.kind, p.status, p.is_stub"
@@ -94,9 +93,9 @@ func (ps personSearch) writeWith(s *statement) {
 	s.write("WITH ")
 	if q.Search != nil {
 		s.write(personMatched)
-		writeMatch(s, *q.Search, "p.name", "p.name", " FROM persons p WHERE ", true)
+		writeMatch(s, *q.Search, "p.name", "p.name", " FROM persons p WHERE ")
 		s.write(personAliasMatched)
-		writeMatch(s, *q.Search, "a.name", "a.name", personAliasFrom, false)
+		writeMatch(s, *q.Search, "a.name", "a.name", personAliasFrom)
 		s.write(personMatchedEnd)
 	}
 

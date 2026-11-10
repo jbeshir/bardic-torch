@@ -433,19 +433,3 @@ func TestMigrations_ConstraintsAllowCascades(t *testing.T) {
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM link_attachments").Scan(&attachments))
 	assert.Zero(t, attachments)
 }
-
-// TestMigrations_PersonAliasHiddenByDefault requires an alias inserted without is_public to be hidden, so that a
-// writer that forgets the column fails closed.
-func TestMigrations_PersonAliasHiddenByDefault(t *testing.T) {
-	t.Parallel()
-
-	db := mysqltest.NewDatabase(t)
-	r := seedCatalogue(t, db)
-
-	id := insertRow(t, db, "INSERT INTO person_aliases (person_id, name, kind) VALUES (?, 'Wren Hollow', 'legal')",
-		r.person)
-	var isPublic bool
-	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT is_public FROM person_aliases WHERE id = ?", id).
-		Scan(&isPublic))
-	assert.False(t, isPublic)
-}

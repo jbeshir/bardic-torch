@@ -129,7 +129,7 @@ type ImportedLink struct {
 const ImportConservationReason = "Imported from the wiki's Conservation Status category."
 
 // The neutral summaries of imported revisions. They name no one: a summary is shown on every approved revision,
-// including those of persons without a page, and nothing checks it against hidden aliases.
+// including those of persons without a page, and nothing checks it against aliases.
 const (
 	// ImportSummaryStub is the summary of a stub piece or person, which the wiki only names.
 	ImportSummaryStub = "Imported from the wiki as a stub."

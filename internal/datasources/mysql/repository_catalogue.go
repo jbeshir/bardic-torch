@@ -473,7 +473,7 @@ func (c *catalogueReader) personProfile(ctx context.Context, row queries.GetPubl
 		NotesMD:          stringPtr(row.NotesMd),
 		LicensingStatus:  enumOf[domain.LicensingStatus](c, row.LicensingStatus),
 		LicensingNotesMD: stringPtr(row.LicensingNotesMd),
-		Aliases:          c.personAliases(fetch(ctx, c, "aliases", c.q.ListPublicPersonAliases, row.ID)),
+		Aliases:          c.personAliases(fetch(ctx, c, "aliases", c.q.ListPersonAliases, row.ID)),
 		Roles:            c.personRoles(fetch(ctx, c, "roles", c.q.ListPersonRoles, row.ID)),
 		Affiliations:     c.affiliations(fetch(ctx, c, "affiliations", c.q.ListPublicPersonAffiliations, row.ID)),
 		Relations: c.personRelations(
@@ -499,7 +499,7 @@ func personLinkRows(rows []queries.ListPublicPersonLinksRow) []queries.ListPubli
 	return converted
 }
 
-func (c *catalogueReader) personAliases(rows []queries.ListPublicPersonAliasesRow) []domain.PersonAlias {
+func (c *catalogueReader) personAliases(rows []queries.ListPersonAliasesRow) []domain.PersonAlias {
 	aliases := make([]domain.PersonAlias, 0, len(rows))
 	for _, row := range rows {
 		aliases = append(aliases, domain.PersonAlias{Name: row.Name, Kind: enumOf[domain.PersonAliasKind](c, row.Kind)})

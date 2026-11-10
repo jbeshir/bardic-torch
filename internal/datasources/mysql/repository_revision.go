@@ -359,11 +359,10 @@ func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotRe
 		Pieces:        make(map[int64]domain.PieceSummary),
 		Persons:       make(map[int64]domain.PersonSummary),
 		NoPagePersons: make(map[int64]domain.PersonSummary),
-		PublicAliases: make(map[int64]map[string]bool),
 		Terms:         make(map[int64]domain.TermSummary),
 		Collections:   make(map[int64]domain.CollectionSummary),
 		Events:        make(map[int64]domain.EventSummary),
-		VisibleLinks:  make(map[string]string),
+		HiddenLinks:   make(map[string]bool),
 	}
 
 	if ids := unsignedIDs(refs.PieceIDs); len(ids) > 0 {
@@ -371,9 +370,6 @@ func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotRe
 	}
 	if ids := unsignedIDs(refs.PersonIDs); len(ids) > 0 {
 		c.personVisibility(ctx, ids, &vis)
-	}
-	if ids := unsignedIDs(refs.AliasPersonIDs); len(ids) > 0 {
-		c.aliasVisibility(ctx, ids, &vis)
 	}
 	if ids := unsignedIDs(refs.TermIDs); len(ids) > 0 {
 		c.termVisibility(ctx, ids, &vis)
@@ -427,10 +423,9 @@ func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis
 	}
 }
 
-// linkVisibility loads which of the referenced URLs' normalized forms are visible links', with each visible link's
-// URL: the normalized URL of a link that is not hidden, and of no hidden link. A URL that does not normalize is
-// never visible. Only the normalized URLs the rows hold are trusted, so one MySQL matched otherwise, or one no
-// link has now, is not visible. Normalized URLs are ASCII, so none is refused by the ASCII column (MySQL error 3988).
+// linkVisibility loads which of the referenced URLs' normalized forms are hidden links'. A URL that does not
+// normalize is dropped by the view itself. Normalized URLs are ASCII, so none is refused by the ASCII column
+// (MySQL error 3988).
 func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis *domain.SnapshotVisibility) {
 	normalized := make([]string, 0, len(urls))
 	for _, url := range urls {
@@ -442,16 +437,8 @@ func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis
 		return
 	}
 
-	hidden := make(map[string]bool)
-	for _, row := range fetch(ctx, c, "links", c.q.ListLinksByNormalizedURL, normalized) {
-		if row.IsHidden {
-			hidden[row.NormalizedUrl] = true
-		} else {
-			vis.VisibleLinks[row.NormalizedUrl] = row.Url
-		}
-	}
-	for url := range hidden {
-		delete(vis.VisibleLinks, url)
+	for _, url := range fetch(ctx, c, "hidden links", c.q.ListHiddenNormalizedURLs, normalized) {
+		vis.HiddenLinks[url] = true
 	}
 }
 
@@ -469,17 +456,6 @@ func (c *catalogueReader) personVisibility(ctx context.Context, ids []uint64, vi
 		} else {
 			vis.Persons[id] = summary
 		}
-	}
-}
-
-// aliasVisibility loads the public alias names of the persons with ids.
-func (c *catalogueReader) aliasVisibility(ctx context.Context, ids []uint64, vis *domain.SnapshotVisibility) {
-	for _, row := range fetch(ctx, c, "public alias names", c.q.ListPublicAliasNames, ids) {
-		id := c.signedID(row.PersonID)
-		if vis.PublicAliases[id] == nil {
-			vis.PublicAliases[id] = make(map[string]bool)
-		}
-		vis.PublicAliases[id][row.Name] = true
 	}
 }
 

@@ -134,7 +134,6 @@ person_aliases.id                      ! the row's own ID
 person_aliases.person_id               ! the document's entity
 person_aliases.name                    = aliases.name
 person_aliases.kind                    = aliases.kind
-person_aliases.is_public               = aliases.is_public
 person_roles.person_id                 ! the document's entity
 person_roles.role                      = roles
 person_affiliations.person_id          ! the document's entity

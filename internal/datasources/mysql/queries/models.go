@@ -1867,7 +1867,6 @@ type PersonAlias struct {
 	PersonID uint64
 	Name     string
 	Kind     PersonAliasesKind
-	IsPublic bool
 }
 
 type PersonRelation struct {

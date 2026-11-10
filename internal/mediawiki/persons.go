@@ -214,8 +214,8 @@ type StubPerson struct {
 	Mentions    []PersonMention
 }
 
-// MentionMatch is a mention matched otherwise than exactly to a bard's title or public alias or to a stub, for
-// review: fuzzily, to a hidden alias, or to more than one person (its stub is then the mention's own).
+// MentionMatch is a mention matched otherwise than exactly to a bard's title or alias or to a stub, for
+// review: fuzzily, or to more than one person (its stub is then the mention's own).
 type MentionMatch struct {
 	Mention PersonMention
 	Match   PersonMatch

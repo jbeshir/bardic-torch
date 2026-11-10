@@ -19,8 +19,7 @@
       "aliases": [
         {
           "name": "Legal Name 009",
-          "kind": "legal",
-          "is_public": true
+          "kind": "legal"
         }
       ],
       "roles": [

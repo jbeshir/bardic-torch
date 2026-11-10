@@ -159,7 +159,6 @@ const (
 	hollisFennSlug  = "hollis-fenn"
 	lanternBandSlug = "lantern-band"
 	wrenSlug        = "wren"
-	hiddenAliasWord = "zephyrine"
 )
 
 // searchPersons are the summaries of the search fixture's public persons, by slug.
@@ -178,8 +177,7 @@ func seedSearchPersons(c *catalogtest.Catalog, northmarch, ravenmoor catalogtest
 		Roles:          []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRolePoet},
 		AffiliationIDs: []int64{ravenmoor.ID},
 		Aliases: []domain.DocPersonAlias{
-			{Name: "Linnet Wren", Kind: domain.PersonAliasKindStage, IsPublic: true},
-			{Name: "Zephyrine Marker", Kind: domain.PersonAliasKindLegal},
+			{Name: "Linnet Wren", Kind: domain.PersonAliasKindStage},
 		}}, false)
 	person(ashTallowSlug, "", "A", domain.PersonDocument{Name: "Ashlin Tallow", Kind: domain.PersonKindHistorical,
 		Roles: []domain.PersonRole{domain.PersonRoleSongwriter}, AffiliationIDs: []int64{northmarch.ID}}, false)
@@ -188,7 +186,7 @@ func seedSearchPersons(c *catalogtest.Catalog, northmarch, ravenmoor catalogtest
 	person(hollisFennSlug, "", "H", domain.PersonDocument{Name: hollisName, Kind: domain.PersonKindCommunityBard,
 		Status: domain.PersonStatusPrefersNoPage, Roles: []domain.PersonRole{domain.PersonRoleSinger},
 		AffiliationIDs: []int64{northmarch.ID},
-		Aliases:        []domain.DocPersonAlias{{Name: "Owl of the Moor", Kind: domain.PersonAliasKindStage, IsPublic: true}},
+		Aliases:        []domain.DocPersonAlias{{Name: "Owl of the Moor", Kind: domain.PersonAliasKindStage}},
 	}, false)
 	person(nineRavensSlug, "", "0", domain.PersonDocument{Name: "9 Ravens", Kind: domain.PersonKindGroup}, false)
 	person("pending-rook", "", "P", domain.PersonDocument{Name: "Pending Rook", Kind: domain.PersonKindCommunityBard,
@@ -601,13 +599,10 @@ func TestRepository_ListPublicPersons(t *testing.T) {
 		},
 		{name: "name", q: "wren", want: domain.PersonList{Persons: personSummaries(wrenSlug), Total: 1,
 			Letters: letters("W", 1)}},
-		{name: "public_alias", q: "linnet", want: domain.PersonList{Persons: personSummaries(wrenSlug), Total: 1,
+		{name: "alias", q: "linnet", want: domain.PersonList{Persons: personSummaries(wrenSlug), Total: 1,
 			Letters: letters("W", 1)}},
-		{name: "public_alias_prefix", q: "Li", want: domain.PersonList{Persons: personSummaries(wrenSlug), Total: 1,
+		{name: "alias_prefix", q: "Li", want: domain.PersonList{Persons: personSummaries(wrenSlug), Total: 1,
 			Letters: letters("W", 1)}},
-		// a hidden alias never matches, by FULLTEXT or by prefix.
-		{name: "hidden_alias", q: hiddenAliasWord, want: none},
-		{name: "hidden_alias_prefix", q: "Ze", want: none},
 		// A no-page person matches by name, and not by a public alias.
 		{name: "no_page_name", q: "hollis", want: domain.PersonList{Persons: personSummaries(hollisFennSlug),
 			Total: 1, Letters: letters("H", 1)}},
