@@ -30,25 +30,7 @@ func requireAuth(next http.Handler) http.Handler {
 	})
 }
 
-// requireNonAPIToken is requireAuth that also rejects requests authenticated with an API token, with 403
-// api_token_not_allowed. Token management uses it, so that an API token cannot create or revoke tokens.
-func requireNonAPIToken(next http.Handler) http.Handler {
-	return requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		// requireAuth has already checked that there is a principal.
-		if principal, _ := domain.PrincipalFromContext(ctx); principal.Method == domain.AuthMethodAPIToken {
-			httpjson.WriteError(ctx, w, http.StatusForbidden, httpjson.CodeAPIAuthNotAllowed,
-				"this endpoint cannot be used with an API token")
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	}))
-}
-
 // requireModerator is requireAuth that also rejects users who are not moderators, with 403 moderator_required.
-// Moderators may use either credential.
 func requireModerator(next http.Handler) http.Handler {
 	return requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

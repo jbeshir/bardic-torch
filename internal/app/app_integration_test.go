@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -24,7 +23,7 @@ import (
 func setSetupEnv(t *testing.T, databaseURL, bootstrapModerators string) {
 	t.Setenv("DATABASE_URL", databaseURL)
 	t.Setenv(bootstrapModeratorsEnv, bootstrapModerators)
-	t.Setenv(authDriversEnv, "api_token")
+	t.Setenv(authDriversEnv, "")
 	t.Setenv("PORT", "0")
 }
 
@@ -91,32 +90,23 @@ func TestSetup_BootstrapFailureFailsStartup(t *testing.T) {
 	assert.Nil(t, components)
 }
 
-// TestStoredTime_RoundTripsThroughDatabase checks that a token created at a time with fractional seconds is
+// TestStoredTime_RoundTripsThroughDatabase checks that a user created at a time with fractional seconds is
 // returned with the creation time later read back for it.
 func TestStoredTime_RoundTripsThroughDatabase(t *testing.T) {
 	t.Parallel()
 
 	repository := mysql.New(mysqltest.NewDatabase(t))
-	_, err := repository.EnsureUser(t.Context(), datasources.NewUser{
-		ID:          "auth0|owner",
-		DisplayName: "Owner",
-		CreatedAt:   storedTime(time.Now()),
+	// MySQL would round this up to the next second if it were stored as is.
+	fractional := time.Date(2026, 10, 31, 12, 0, 0, 734512345, time.UTC)
+	created, err := repository.EnsureUser(t.Context(), datasources.NewUser{
+		ID:          "auth0|fractional",
+		DisplayName: "Fractional",
+		CreatedAt:   storedTime(fractional),
 	})
 	require.NoError(t, err)
 
-	// MySQL would round this up to the next second if it were stored as is.
-	fractional := time.Date(2026, 10, 31, 12, 0, 0, 734512345, time.UTC)
-	create := &command.CreateAPIToken{
-		Counter: repository,
-		Creator: repository,
-		Now:     func() time.Time { return storedTime(fractional) },
-	}
-	created, err := create.Execute(t.Context(), command.CreateAPITokenRequest{UserID: "auth0|owner"})
+	read, err := repository.GetUser(t.Context(), "auth0|fractional")
 	require.NoError(t, err)
-
-	listed, err := repository.ListUserActiveAPITokens(t.Context(), "auth0|owner")
-	require.NoError(t, err)
-	require.Len(t, listed, 1)
-	assert.Equal(t, created.Token.CreatedAt, listed[0].CreatedAt)
-	assert.Equal(t, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC), listed[0].CreatedAt)
+	assert.Equal(t, created.CreatedAt, read.CreatedAt)
+	assert.Equal(t, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC), read.CreatedAt)
 }

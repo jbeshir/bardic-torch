@@ -24,9 +24,9 @@ var CatalogueTables = []string{
 	"revisions", "revision_contributors",
 	"terms", "term_aliases", "term_ancestors",
 	"collections", "events",
-	"persons", "person_aliases", "person_roles", "person_affiliations", "person_relations", "person_preferences",
+	"persons", "person_aliases", "person_roles", "person_affiliations", "person_relations",
 	"pieces", "piece_secondary_kinds", "piece_aliases", "piece_terms", "piece_relations", "piece_credits",
-	"piece_preferences", "conservation_history",
+	"conservation_history",
 	"links", "link_attachments", "performances", "performance_performers",
 }
 
@@ -401,23 +401,15 @@ func (w *importWriter) persons(persons []domain.ImportedPerson) {
 			w.insert("person_affiliations", func() error { return w.q.InsertPersonAffiliation(w.ctx, p) })
 		}
 	}
-	w.personRelationsAndPreferences(persons)
+	w.personRelations(persons)
 }
 
-func (w *importWriter) personRelationsAndPreferences(persons []domain.ImportedPerson) {
+func (w *importWriter) personRelations(persons []domain.ImportedPerson) {
 	for _, person := range persons {
 		for _, rel := range person.Doc.Relations {
 			p := queries.InsertPersonRelationParams{FromPersonID: w.id(person.ID), ToPersonID: w.id(rel.ToPersonID),
 				Type: queries.PersonRelationsType(rel.Type)}
 			w.insert("person_relations", func() error { return w.q.InsertPersonRelation(w.ctx, p) })
-		}
-	}
-	for _, person := range persons {
-		for _, pref := range person.Doc.Preferences {
-			p := queries.InsertPersonPreferenceParams{PersonID: w.id(person.ID),
-				Dimension: queries.PersonPreferencesDimension(pref.Dimension), ValueJson: pref.Value,
-				SourceUrl: pref.SourceURL}
-			w.insert("person_preferences", func() error { return w.q.InsertPersonPreference(w.ctx, p) })
 		}
 	}
 }
@@ -457,7 +449,7 @@ func (w *importWriter) pieces(pieces []domain.ImportedPiece) {
 	}
 	w.pieceTermsAndRelations(pieces)
 	w.pieceCredits(pieces)
-	w.piecePreferencesAndConservation(pieces)
+	w.pieceConservation(pieces)
 }
 
 func (w *importWriter) pieceTermsAndRelations(pieces []domain.ImportedPiece) {
@@ -498,17 +490,9 @@ func (w *importWriter) pieceCredits(pieces []domain.ImportedPiece) {
 	}
 }
 
-// piecePreferencesAndConservation inserts the pieces' preferences, and the conservation history row of each
-// piece whose status is assessed: at its revision, with ImportConservationReason and the document's source.
-func (w *importWriter) piecePreferencesAndConservation(pieces []domain.ImportedPiece) {
-	for _, piece := range pieces {
-		for _, pref := range piece.Doc.Preferences {
-			p := queries.InsertPiecePreferenceParams{PieceID: w.id(piece.ID),
-				Dimension: queries.PiecePreferencesDimension(pref.Dimension), ValueJson: pref.Value,
-				SourceUrl: pref.SourceURL}
-			w.insert("piece_preferences", func() error { return w.q.InsertPiecePreference(w.ctx, p) })
-		}
-	}
+// pieceConservation inserts the conservation history row of each piece whose status is assessed: at its
+// revision, with ImportConservationReason and the document's source.
+func (w *importWriter) pieceConservation(pieces []domain.ImportedPiece) {
 	for _, piece := range pieces {
 		c := piece.Doc.Conservation
 		if c.Status == domain.ConservationStatusUnassessed {

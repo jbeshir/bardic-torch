@@ -217,7 +217,7 @@ func TestRevisionGet_ServeHTTP(t *testing.T) {
 		{
 			name: "term",
 			revision: domain.TermRevision{
-				RevisionSummary: domain.RevisionSummary{ID: 45, Source: domain.RevisionSourceMCP,
+				RevisionSummary: domain.RevisionSummary{ID: 45, Source: domain.RevisionSourceUser,
 					Author: &domain.RevisionAuthor{DisplayName: testDisplayName}, CreatedAt: testRevisionCreatedAt},
 				Entity: domain.TermSummary{Slug: "rapiers", Facet: domain.FacetTopic, DisplayName: rapiers},
 				Snapshot: domain.TermSnapshot{
@@ -228,7 +228,7 @@ func TestRevisionGet_ServeHTTP(t *testing.T) {
 				},
 			},
 			wantStatus: http.StatusOK,
-			wantBody: `{"entity_type": "term", "id": 45, "source": "mcp", "summary": "",
+			wantBody: `{"entity_type": "term", "id": 45, "source": "user", "summary": "",
 				"author": {"display_name": "Morwen"}, "contributors": [], "created_at": "2026-10-01T09:00:00Z",
 				"entity": {"slug": "rapiers", "facet": "topic", "display_name": "Rapiers"},
 				"base_revision_id": null,

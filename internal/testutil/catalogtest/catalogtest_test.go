@@ -213,8 +213,6 @@ func TestCatalog_PieceAndPersonRows(t *testing.T) {
 			AffiliationIDs: []int64{northmarch.ID},
 			Relations:      []domain.DocPersonRelation{{ToPersonID: singers.ID, Type: domain.PersonRelationTypeMemberOf}},
 			Links:          []domain.DocPersonLink{{DocLink: shared}},
-			Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-				Value: json.RawMessage(`{"allowed": false}`), SourceURL: "https://example.org/wren-prefs"}},
 		},
 		SortLetter: "W",
 	})
@@ -278,7 +276,6 @@ func TestCatalog_PieceAndPersonRows(t *testing.T) {
 		"SELECT COUNT(*) FROM person_roles WHERE person_id = ?":                     2,
 		"SELECT COUNT(*) FROM person_affiliations WHERE person_id = ?":              1,
 		"SELECT COUNT(*) FROM person_relations WHERE from_person_id = ?":            1,
-		"SELECT COUNT(*) FROM person_preferences WHERE person_id = ?":               1,
 		"SELECT COUNT(*) FROM link_attachments WHERE person_id = ?":                 1,
 	} {
 		assert.Equal(t, want, queryInt(t, db, query, wren.ID), query)

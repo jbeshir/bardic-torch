@@ -504,69 +504,6 @@ func (e PersonAliasesKind) Valid() bool {
 	return false
 }
 
-type PersonPreferencesDimension string
-
-const (
-	PersonPreferencesDimensionLicensing             PersonPreferencesDimension = "licensing"
-	PersonPreferencesDimensionPerformancePermission PersonPreferencesDimension = "performance_permission"
-	PersonPreferencesDimensionAdaptations           PersonPreferencesDimension = "adaptations"
-	PersonPreferencesDimensionAttribution           PersonPreferencesDimension = "attribution"
-	PersonPreferencesDimensionCommercialUse         PersonPreferencesDimension = "commercial_use"
-	PersonPreferencesDimensionRecording             PersonPreferencesDimension = "recording"
-	PersonPreferencesDimensionPerformanceEtiquette  PersonPreferencesDimension = "performance_etiquette"
-	PersonPreferencesDimensionObjectionableUse      PersonPreferencesDimension = "objectionable_use"
-)
-
-func (e *PersonPreferencesDimension) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = PersonPreferencesDimension(s)
-	case string:
-		*e = PersonPreferencesDimension(s)
-	default:
-		return fmt.Errorf("unsupported scan type for PersonPreferencesDimension: %T", src)
-	}
-	return nil
-}
-
-type NullPersonPreferencesDimension struct {
-	PersonPreferencesDimension PersonPreferencesDimension
-	Valid                      bool // Valid is true if PersonPreferencesDimension is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullPersonPreferencesDimension) Scan(value interface{}) error {
-	if value == nil {
-		ns.PersonPreferencesDimension, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.PersonPreferencesDimension.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullPersonPreferencesDimension) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.PersonPreferencesDimension), nil
-}
-
-func (e PersonPreferencesDimension) Valid() bool {
-	switch e {
-	case PersonPreferencesDimensionLicensing,
-		PersonPreferencesDimensionPerformancePermission,
-		PersonPreferencesDimensionAdaptations,
-		PersonPreferencesDimensionAttribution,
-		PersonPreferencesDimensionCommercialUse,
-		PersonPreferencesDimensionRecording,
-		PersonPreferencesDimensionPerformanceEtiquette,
-		PersonPreferencesDimensionObjectionableUse:
-		return true
-	}
-	return false
-}
-
 type PersonRelationsType string
 
 const (
@@ -1123,69 +1060,6 @@ func (e PieceCreditsRole) Valid() bool {
 	return false
 }
 
-type PiecePreferencesDimension string
-
-const (
-	PiecePreferencesDimensionLicensing             PiecePreferencesDimension = "licensing"
-	PiecePreferencesDimensionPerformancePermission PiecePreferencesDimension = "performance_permission"
-	PiecePreferencesDimensionAdaptations           PiecePreferencesDimension = "adaptations"
-	PiecePreferencesDimensionAttribution           PiecePreferencesDimension = "attribution"
-	PiecePreferencesDimensionCommercialUse         PiecePreferencesDimension = "commercial_use"
-	PiecePreferencesDimensionRecording             PiecePreferencesDimension = "recording"
-	PiecePreferencesDimensionPerformanceEtiquette  PiecePreferencesDimension = "performance_etiquette"
-	PiecePreferencesDimensionObjectionableUse      PiecePreferencesDimension = "objectionable_use"
-)
-
-func (e *PiecePreferencesDimension) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = PiecePreferencesDimension(s)
-	case string:
-		*e = PiecePreferencesDimension(s)
-	default:
-		return fmt.Errorf("unsupported scan type for PiecePreferencesDimension: %T", src)
-	}
-	return nil
-}
-
-type NullPiecePreferencesDimension struct {
-	PiecePreferencesDimension PiecePreferencesDimension
-	Valid                     bool // Valid is true if PiecePreferencesDimension is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullPiecePreferencesDimension) Scan(value interface{}) error {
-	if value == nil {
-		ns.PiecePreferencesDimension, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.PiecePreferencesDimension.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullPiecePreferencesDimension) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.PiecePreferencesDimension), nil
-}
-
-func (e PiecePreferencesDimension) Valid() bool {
-	switch e {
-	case PiecePreferencesDimensionLicensing,
-		PiecePreferencesDimensionPerformancePermission,
-		PiecePreferencesDimensionAdaptations,
-		PiecePreferencesDimensionAttribution,
-		PiecePreferencesDimensionCommercialUse,
-		PiecePreferencesDimensionRecording,
-		PiecePreferencesDimensionPerformanceEtiquette,
-		PiecePreferencesDimensionObjectionableUse:
-		return true
-	}
-	return false
-}
-
 type PieceRelationsType string
 
 const (
@@ -1649,7 +1523,6 @@ type RevisionsSource string
 const (
 	RevisionsSourceUser   RevisionsSource = "user"
 	RevisionsSourceImport RevisionsSource = "import"
-	RevisionsSourceMcp    RevisionsSource = "mcp"
 )
 
 func (e *RevisionsSource) Scan(src interface{}) error {
@@ -1690,8 +1563,7 @@ func (ns NullRevisionsSource) Value() (driver.Value, error) {
 func (e RevisionsSource) Valid() bool {
 	switch e {
 	case RevisionsSourceUser,
-		RevisionsSourceImport,
-		RevisionsSourceMcp:
+		RevisionsSourceImport:
 		return true
 	}
 	return false
@@ -1700,7 +1572,6 @@ func (e RevisionsSource) Valid() bool {
 type RevisionsStatus string
 
 const (
-	RevisionsStatusDraft     RevisionsStatus = "draft"
 	RevisionsStatusPending   RevisionsStatus = "pending"
 	RevisionsStatusApproved  RevisionsStatus = "approved"
 	RevisionsStatusRejected  RevisionsStatus = "rejected"
@@ -1744,8 +1615,7 @@ func (ns NullRevisionsStatus) Value() (driver.Value, error) {
 
 func (e RevisionsStatus) Valid() bool {
 	switch e {
-	case RevisionsStatusDraft,
-		RevisionsStatusPending,
+	case RevisionsStatusPending,
 		RevisionsStatusApproved,
 		RevisionsStatusRejected,
 		RevisionsStatusWithdrawn:
@@ -1870,17 +1740,6 @@ func (e UsersRole) Valid() bool {
 	return false
 }
 
-type ApiToken struct {
-	ID          string
-	UserID      string
-	TokenHash   string
-	TokenPrefix string
-	Name        sql.NullString
-	CreatedAt   time.Time
-	LastUsedAt  sql.NullTime
-	RevokedAt   sql.NullTime
-}
-
 type Collection struct {
 	ID                uint64
 	Name              string
@@ -1957,7 +1816,6 @@ type ListedPerson struct {
 	LicensingNotesMd  sql.NullString
 	LicensingStatus   PersonsLicensingStatus
 	IsStub            bool
-	ClaimedByUserID   sql.NullString
 	CurrentRevisionID sql.NullInt64
 	LegacyWikiPageid  sql.NullInt32
 	LegacyTitle       sql.NullString
@@ -1994,7 +1852,6 @@ type Person struct {
 	LicensingNotesMd  sql.NullString
 	LicensingStatus   PersonsLicensingStatus
 	IsStub            bool
-	ClaimedByUserID   sql.NullString
 	CurrentRevisionID sql.NullInt64
 	LegacyWikiPageid  sql.NullInt32
 	LegacyTitle       sql.NullString
@@ -2011,13 +1868,6 @@ type PersonAlias struct {
 	Name     string
 	Kind     PersonAliasesKind
 	IsPublic bool
-}
-
-type PersonPreference struct {
-	PersonID  uint64
-	Dimension PersonPreferencesDimension
-	ValueJson json.RawMessage
-	SourceUrl string
 }
 
 type PersonRelation struct {
@@ -2073,13 +1923,6 @@ type PieceCredit struct {
 	Position    uint16
 }
 
-type PiecePreference struct {
-	PieceID   uint64
-	Dimension PiecePreferencesDimension
-	ValueJson json.RawMessage
-	SourceUrl string
-}
-
 type PieceRelation struct {
 	FromPieceID uint64
 	ToPieceID   uint64
@@ -2129,14 +1972,14 @@ type Revision struct {
 	EntityID       uint64
 	BaseRevisionID sql.NullInt64
 	AuthorUserID   sql.NullString
-	Source         RevisionsSource
-	Status         RevisionsStatus
 	SnapshotJson   json.RawMessage
 	Summary        string
 	ReviewerUserID sql.NullString
 	ReviewedAt     sql.NullTime
 	ReviewNote     sql.NullString
 	CreatedAt      time.Time
+	Source         RevisionsSource
+	Status         RevisionsStatus
 }
 
 type RevisionContributor struct {

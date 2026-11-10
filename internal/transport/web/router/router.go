@@ -19,9 +19,6 @@ type Dependencies struct {
 	ResolveUser                   command.Command[string, domain.User]
 	UpdateDisplayName             command.Command[command.UpdateDisplayNameRequest, domain.User]
 	SetUserBlocked                command.Command[command.SetUserBlockedRequest, domain.User]
-	CreateAPIToken                command.Command[command.CreateAPITokenRequest, command.CreateAPITokenResponse]
-	APITokenLister                datasources.ActiveAPITokenLister
-	APITokenRevoker               datasources.APITokenRevoker
 	PublicPieceLister             datasources.PublicPieceLister
 	PublicPieceGetter             datasources.PublicPieceGetter
 	PublicPersonLister            datasources.PublicPersonLister
@@ -106,14 +103,6 @@ func routes(deps Dependencies) []route {
 		// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
 		{method: http.MethodPut, path: "/v1/users/{user_id}/blocked", authenticated: true,
 			handler: requireModerator(controller.UserBlockedSet{Command: deps.SetUserBlocked})},
-
-		// API tokens cannot manage API tokens, so a leaked token cannot be used to mint or revoke others.
-		{method: http.MethodPost, path: "/v1/tokens", authenticated: true,
-			handler: requireNonAPIToken(controller.APITokenCreate{Command: deps.CreateAPIToken})},
-		{method: http.MethodGet, path: "/v1/tokens", authenticated: true,
-			handler: requireNonAPIToken(controller.APITokenList{Lister: deps.APITokenLister})},
-		{method: http.MethodDelete, path: "/v1/tokens/{token_id}", authenticated: true,
-			handler: requireNonAPIToken(controller.APITokenRevoke{Revoker: deps.APITokenRevoker, Now: deps.Now})},
 	}
 }
 

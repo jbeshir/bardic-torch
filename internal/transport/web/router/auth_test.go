@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -58,6 +59,10 @@ func failIfCalled(t *testing.T) http.Handler {
 	})
 }
 
+const testUserID = "google-oauth2|123"
+
+var testNow = time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+
 var testUser = domain.User{ID: testUserID, DisplayName: "Morwen", Role: domain.RoleContributor, CreatedAt: testNow}
 
 func TestAuthMiddleware_StoresPrincipal(t *testing.T) {
@@ -65,7 +70,7 @@ func TestAuthMiddleware_StoresPrincipal(t *testing.T) {
 
 	validators := []AuthValidator{
 		notApplicable,
-		authenticatesAs(Identity{UserID: testUserID, Method: domain.AuthMethodAPIToken}),
+		authenticatesAs(Identity{UserID: testUserID}),
 		failsWith(errors.New("validators after the first applicable one must not run")),
 	}
 
@@ -78,11 +83,11 @@ func TestAuthMiddleware_StoresPrincipal(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	authMiddleware(validators, resolveTo(testUser))(next).
-		ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/tokens", nil))
+		ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/me", nil))
 
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 	require.True(t, authenticated)
-	assert.Equal(t, domain.Principal{User: testUser, Method: domain.AuthMethodAPIToken}, got)
+	assert.Equal(t, domain.Principal{User: testUser}, got)
 }
 
 func TestAuthMiddleware_NoApplicableValidatorIsAnonymous(t *testing.T) {
@@ -103,7 +108,7 @@ func TestAuthMiddleware_NoApplicableValidatorIsAnonymous(t *testing.T) {
 
 			rec := httptest.NewRecorder()
 			authMiddleware(validators, failIfResolved(t))(next).
-				ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/tokens", nil))
+				ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/me", nil))
 
 			assert.Equal(t, http.StatusNoContent, rec.Code)
 			assert.False(t, authenticated)
@@ -114,7 +119,7 @@ func TestAuthMiddleware_NoApplicableValidatorIsAnonymous(t *testing.T) {
 func TestAuthMiddleware_Rejections(t *testing.T) {
 	t.Parallel()
 
-	contributor := Identity{UserID: testUserID, Method: domain.AuthMethodAuth0}
+	contributor := Identity{UserID: testUserID}
 	cases := []struct {
 		name       string
 		validator  AuthValidator
@@ -155,7 +160,7 @@ func TestAuthMiddleware_Rejections(t *testing.T) {
 
 			rec := httptest.NewRecorder()
 			authMiddleware([]AuthValidator{tc.validator}, tc.resolve(t))(failIfCalled(t)).
-				ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/tokens", nil))
+				ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/me", nil))
 
 			assert.Equal(t, tc.wantStatus, rec.Code)
 			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
@@ -168,7 +173,7 @@ func TestAuthMiddleware_LogsUserID(t *testing.T) {
 	t.Parallel()
 
 	authenticated := authMiddleware(
-		[]AuthValidator{authenticatesAs(Identity{UserID: testUserID, Method: domain.AuthMethodAuth0})},
+		[]AuthValidator{authenticatesAs(Identity{UserID: testUserID})},
 		resolveTo(testUser),
 	)
 	anonymous := authMiddleware([]AuthValidator{notApplicable}, failIfResolved(t))

@@ -44,8 +44,7 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 		HistoricalSourceMD: b.free(p.Title, entity, "historical source", c.HistoricalSourceMD),
 		PeriodStart:        c.PeriodStart, PeriodEnd: c.PeriodEnd,
 		Aliases: b.pieceAliases(p), Terms: b.pieceTerms(p), Relations: b.pieceRelations(p),
-		Credits: b.credits(p.Title, b.c.People.Credits[p.PageID]), Links: b.pieceLinks(links),
-		Preferences: []domain.DocPreference{}}
+		Credits: b.credits(p.Title, b.c.People.Credits[p.PageID]), Links: b.pieceLinks(links)}
 	if doc.Conservation.Status != domain.ConservationStatusUnassessed {
 		doc.Conservation.SourceURL = optionalURL(p.URL)
 	}
@@ -205,7 +204,7 @@ func (b *builder) stubPiece(sp mediawiki.StubPiece) domain.ImportedPiece {
 		Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed}, IsStub: true,
 		LicensingStatus: domain.LicensingStatusUnknown, Aliases: []domain.DocPieceAlias{},
 		Terms: []domain.DocPieceTerm{}, Relations: []domain.DocPieceRelation{}, Credits: b.credits(page, sp.Credits),
-		Links: []domain.DocPieceLink{}, Preferences: []domain.DocPreference{}}
+		Links: []domain.DocPieceLink{}}
 	sortTitle := domain.SortTitle(title)
 
 	return domain.ImportedPiece{ID: id, Slug: b.slugs.Allocate(title, domain.SlugEntityTypePiece, id),

@@ -26,8 +26,7 @@ type principal struct {
 	resolves string
 }
 
-// Every principal the auth matrix sends requests as. The "API auth" names avoid gosec's G101, which flags
-// identifiers containing "token".
+// Every principal the auth matrix sends requests as.
 var (
 	anonymous = principal{name: "anonymous"}
 	// unrecognisedCredentials carry no prefix any validator handles, so the request is anonymous.
@@ -43,23 +42,8 @@ var (
 	auth0Moderator = principal{
 		name: "auth0_moderator", authorization: "Bearer auth0|" + moderatorID, resolves: moderatorID,
 	}
-	apiAuthContributor = principal{
-		name:          "api_token_contributor",
-		authorization: "Bearer " + domain.APITokenPrefix + contributorID,
-		resolves:      contributorID,
-	}
-	apiAuthModerator = principal{
-		name:          "api_token_moderator",
-		authorization: "Bearer " + domain.APITokenPrefix + moderatorID,
-		resolves:      moderatorID,
-	}
 	blockedAuth0Contributor = principal{
 		name: "auth0_blocked_contributor", authorization: "Bearer auth0|" + blockedID, resolves: blockedID,
-	}
-	blockedAPIAuthContributor = principal{
-		name:          "api_token_blocked_contributor",
-		authorization: "Bearer " + domain.APITokenPrefix + blockedID,
-		resolves:      blockedID,
 	}
 	// unresolvable authenticates as a user whose lookup fails.
 	unresolvable = principal{
@@ -74,10 +58,7 @@ var principals = []principal{
 	unverifiableCredentials,
 	auth0Contributor,
 	auth0Moderator,
-	apiAuthContributor,
-	apiAuthModerator,
 	blockedAuth0Contributor,
-	blockedAPIAuthContributor,
 	unresolvable,
 }
 
@@ -91,7 +72,6 @@ var (
 	allowed           = outcome{}
 	unauthenticated   = outcome{status: http.StatusUnauthorized, code: httpjson.CodeUnauthenticated}
 	userBlocked       = outcome{status: http.StatusForbidden, code: httpjson.CodeUserBlocked}
-	apiAuthNotAllowed = outcome{status: http.StatusForbidden, code: httpjson.CodeAPIAuthNotAllowed}
 	moderatorRequired = outcome{status: http.StatusForbidden, code: httpjson.CodeModeratorRequired}
 	internalError     = outcome{status: http.StatusInternalServerError, code: httpjson.CodeInternal}
 )
@@ -106,59 +86,36 @@ type access struct {
 var (
 	// public operations are not authenticated, so they answer whatever credentials a request carries.
 	public = access{outcomes: map[principal]outcome{
-		anonymous:                 allowed,
-		unrecognisedCredentials:   allowed,
-		invalidCredentials:        allowed,
-		unverifiableCredentials:   allowed,
-		auth0Contributor:          allowed,
-		auth0Moderator:            allowed,
-		apiAuthContributor:        allowed,
-		apiAuthModerator:          allowed,
-		blockedAuth0Contributor:   allowed,
-		blockedAPIAuthContributor: allowed,
-		unresolvable:              allowed,
+		anonymous:               allowed,
+		unrecognisedCredentials: allowed,
+		invalidCredentials:      allowed,
+		unverifiableCredentials: allowed,
+		auth0Contributor:        allowed,
+		auth0Moderator:          allowed,
+		blockedAuth0Contributor: allowed,
+		unresolvable:            allowed,
 	}}
 	// authenticatedUser operations are behind requireAuth.
 	authenticatedUser = access{authenticated: true, outcomes: map[principal]outcome{
-		anonymous:                 unauthenticated,
-		unrecognisedCredentials:   unauthenticated,
-		invalidCredentials:        unauthenticated,
-		unverifiableCredentials:   internalError,
-		auth0Contributor:          allowed,
-		auth0Moderator:            allowed,
-		apiAuthContributor:        allowed,
-		apiAuthModerator:          allowed,
-		blockedAuth0Contributor:   userBlocked,
-		blockedAPIAuthContributor: userBlocked,
-		unresolvable:              internalError,
-	}}
-	// interactiveUser operations are behind requireNonAPIToken.
-	interactiveUser = access{authenticated: true, outcomes: map[principal]outcome{
-		anonymous:                 unauthenticated,
-		unrecognisedCredentials:   unauthenticated,
-		invalidCredentials:        unauthenticated,
-		unverifiableCredentials:   internalError,
-		auth0Contributor:          allowed,
-		auth0Moderator:            allowed,
-		apiAuthContributor:        apiAuthNotAllowed,
-		apiAuthModerator:          apiAuthNotAllowed,
-		blockedAuth0Contributor:   userBlocked,
-		blockedAPIAuthContributor: userBlocked,
-		unresolvable:              internalError,
+		anonymous:               unauthenticated,
+		unrecognisedCredentials: unauthenticated,
+		invalidCredentials:      unauthenticated,
+		unverifiableCredentials: internalError,
+		auth0Contributor:        allowed,
+		auth0Moderator:          allowed,
+		blockedAuth0Contributor: userBlocked,
+		unresolvable:            internalError,
 	}}
 	// moderator operations are behind requireModerator.
 	moderator = access{authenticated: true, outcomes: map[principal]outcome{
-		anonymous:                 unauthenticated,
-		unrecognisedCredentials:   unauthenticated,
-		invalidCredentials:        unauthenticated,
-		unverifiableCredentials:   internalError,
-		auth0Contributor:          moderatorRequired,
-		auth0Moderator:            allowed,
-		apiAuthContributor:        moderatorRequired,
-		apiAuthModerator:          allowed,
-		blockedAuth0Contributor:   userBlocked,
-		blockedAPIAuthContributor: userBlocked,
-		unresolvable:              internalError,
+		anonymous:               unauthenticated,
+		unrecognisedCredentials: unauthenticated,
+		invalidCredentials:      unauthenticated,
+		unverifiableCredentials: internalError,
+		auth0Contributor:        moderatorRequired,
+		auth0Moderator:          allowed,
+		blockedAuth0Contributor: userBlocked,
+		unresolvable:            internalError,
 	}}
 )
 
@@ -178,8 +135,6 @@ const blockBody = `{"blocked":true}`
 
 // blockTargetID is the user the moderation operation acts on.
 const blockTargetID = "google-oauth2|123"
-
-const revokeTargetID = "6f1c1f0e-8a4b-4f43-9a5e-2d7c0b1e3a55"
 
 // matrixSlug is the slug of the piece, person, term and event the catalogue operations read.
 const matrixSlug = "the-copper-kettle"
@@ -267,30 +222,6 @@ var authMatrix = map[openapitest.Operation]matrixRow{
 		expectSuccess: func(m handlerMocks, _ string) {
 			m.blocker.EXPECT().BlockUser(mock.Anything, blockTargetID, handlerNow).Return(nil)
 			m.users.EXPECT().GetUser(mock.Anything, blockTargetID).Return(storedUser(blockTargetID), nil)
-		},
-	},
-	{Method: http.MethodPost, Path: tokensPath}: {
-		access:        interactiveUser,
-		body:          `{"name":"CI runner"}`,
-		successStatus: http.StatusCreated,
-		expectSuccess: func(m handlerMocks, userID string) {
-			m.counter.EXPECT().CountUserActiveAPITokens(mock.Anything, userID).Return(0, nil)
-			m.creator.EXPECT().CreateAPIToken(mock.Anything, mock.Anything).Return(nil)
-		},
-	},
-	{Method: http.MethodGet, Path: tokensPath}: {
-		access:        interactiveUser,
-		successStatus: http.StatusOK,
-		expectSuccess: func(m handlerMocks, userID string) {
-			m.lister.EXPECT().ListUserActiveAPITokens(mock.Anything, userID).Return(nil, nil)
-		},
-	},
-	{Method: http.MethodDelete, Path: "/v1/tokens/{token_id}"}: {
-		access:        interactiveUser,
-		pathParams:    map[string]string{"token_id": revokeTargetID},
-		successStatus: http.StatusNoContent,
-		expectSuccess: func(m handlerMocks, userID string) {
-			m.revoker.EXPECT().RevokeAPIToken(mock.Anything, userID, revokeTargetID, handlerNow).Return(nil)
 		},
 	},
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: {

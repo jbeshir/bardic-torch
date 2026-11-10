@@ -46,7 +46,7 @@ func TestMustGetEnvAsStrings_TrimsAndDropsEmpty(t *testing.T) {
 	}{
 		{name: "empty", value: "", want: nil},
 		{name: "only_separators", value: " , ,", want: nil},
-		{name: "single", value: "api_token", want: []string{"api_token"}},
+		{name: "single", value: auth0Driver, want: []string{auth0Driver}},
 		{name: "trims_and_drops_empty", value: " auth0 ,, moderator ,", want: []string{"auth0", "moderator"}},
 	}
 

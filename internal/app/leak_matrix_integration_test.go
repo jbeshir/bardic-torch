@@ -418,10 +418,7 @@ var leakCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) leakFixtu
 		renamedNoPageFormerName)
 
 	// System fields no document holds and no read exposes.
-	c.Exec("INSERT INTO users (id, display_name, role, created_at) VALUES (?, ?, 'contributor', ?)",
-		"google-oauth2|leakmark-claimer", "Leakmark Claimer", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	c.Exec("UPDATE persons SET claimed_by_user_id = ?, legacy_title = ?, legacy_wiki_pageid = id",
-		"google-oauth2|leakmark-claimer", "Leakmark Legacy Person")
+	c.Exec("UPDATE persons SET legacy_title = ?, legacy_wiki_pageid = id", "Leakmark Legacy Person")
 	c.Exec("UPDATE pieces SET legacy_title = ?, legacy_wiki_pageid = id", "Leakmark Legacy Piece")
 	c.Exec("UPDATE terms SET legacy_title = ?", "Leakmark Legacy Term")
 	c.Exec("UPDATE events SET legacy_title = ?", "Leakmark Legacy Event")
@@ -653,7 +650,6 @@ func historyPath(collection, address string) string {
 // Reasons an operation is in leakExempt.
 const (
 	exemptAccount = "the caller's own account"
-	exemptAPIAuth = "the caller's API tokens"
 )
 
 // leakExempt are the operations that read no catalogue data, and why. A public /v1 GET cannot be exempt.
@@ -663,9 +659,6 @@ var leakExempt = map[openapitest.Operation]string{
 	{Method: http.MethodGet, Path: mePath}:                        exemptAccount,
 	{Method: http.MethodPatch, Path: mePath}:                      exemptAccount,
 	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: "moderation of accounts",
-	{Method: http.MethodPost, Path: tokensPath}:                   exemptAPIAuth,
-	{Method: http.MethodGet, Path: tokensPath}:                    exemptAPIAuth,
-	{Method: http.MethodDelete, Path: "/v1/tokens/{token_id}"}:    exemptAPIAuth,
 }
 
 // TestHTTP_LeakMatrix sends every leakMatrix request to the production handler over a real repository holding
@@ -745,7 +738,6 @@ func requireLeakMarkersStored(t *testing.T, db *sql.DB) {
 		"SELECT COUNT(*) FROM pieces WHERE current_revision_id IS NULL AND title LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM persons WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
 		"SELECT COUNT(*) FROM terms WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",
-		"SELECT COUNT(*) FROM persons WHERE claimed_by_user_id LIKE '%leakmark%'",
 		"SELECT COUNT(*) FROM links WHERE url = '" + enteredLinkURL + "' " +
 			"AND normalized_url = '" + normalizedLinkURL + "'",
 		"SELECT COUNT(*) FROM collections WHERE current_revision_id IS NULL AND name LIKE '%Leakmark%'",

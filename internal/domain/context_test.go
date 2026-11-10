@@ -25,8 +25,7 @@ func TestPrincipalContext_RoundTrip(t *testing.T) {
 	assert.False(t, ok, "a context without a principal is anonymous")
 
 	principal := Principal{
-		User:   User{ID: "google-oauth2|123", DisplayName: "Bard 1a2b3c4d", Role: RoleModerator},
-		Method: AuthMethodAPIToken,
+		User: User{ID: "google-oauth2|123", DisplayName: "Bard 1a2b3c4d", Role: RoleModerator},
 	}
 	got, ok := PrincipalFromContext(ContextWithPrincipal(ctx, principal))
 	assert.True(t, ok)

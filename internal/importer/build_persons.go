@@ -45,7 +45,7 @@ func (b *builder) bard(bard mediawiki.BardRecord, links []mediawiki.LinkRecord) 
 		LicensingStatus:  bard.LicensingStatus,
 		LicensingNotesMD: b.free(bard.Title, entity, "licensing notes", bard.LicensingNotesMD),
 		Aliases:          b.personAliases(bard), Roles: uniqueOf(bard.Roles), AffiliationIDs: []int64{},
-		Relations: []domain.DocPersonRelation{}, Links: b.personLinks(links), Preferences: []domain.DocPreference{}}
+		Relations: []domain.DocPersonRelation{}, Links: b.personLinks(links)}
 	if bard.Status != domain.PersonStatusActive {
 		b.status(&doc, bard)
 	}
@@ -199,7 +199,7 @@ func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecor
 	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: kind,
 		Status: domain.PersonStatusActive, LicensingStatus: domain.LicensingStatusUnknown, IsStub: true,
 		Aliases: []domain.DocPersonAlias{}, Roles: []domain.PersonRole{}, AffiliationIDs: []int64{},
-		Relations: []domain.DocPersonRelation{}, Links: b.personLinks(links), Preferences: []domain.DocPreference{}}
+		Relations: []domain.DocPersonRelation{}, Links: b.personLinks(links)}
 	check := ""
 	if slices.ContainsFunc(s.Mentions, func(m mediawiki.PersonMention) bool {
 		return m.Name.Form == mediawiki.NameExternalLink

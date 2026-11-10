@@ -1,14 +1,11 @@
 package scrub
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
-	"github.com/jbeshir/bardic-torch/internal/testutil/wikidumptest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -416,13 +413,5 @@ func TestScrub_PreservesStructure(t *testing.T) {
 		assert.Len(t, mediawiki.FindExternalLinks(after.Wikitext), len(mediawiki.FindExternalLinks(before.Wikitext)))
 		assert.Len(t, mediawiki.FindTemplates(after.Wikitext), len(mediawiki.FindTemplates(before.Wikitext)))
 		assert.Equal(t, mediawiki.TypePage(before), mediawiki.TypePage(after))
-	}
-}
-
-func TestPublicNamesArePublishedInPlan(t *testing.T) {
-	plan, err := os.ReadFile(filepath.Join(wikidumptest.RepositoryRoot(t), "docs", "PLAN.md"))
-	require.NoError(t, err)
-	for _, name := range mediawiki.PublicNames {
-		assert.Contains(t, string(plan), name)
 	}
 }

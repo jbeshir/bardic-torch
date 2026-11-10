@@ -14,7 +14,6 @@ import (
 
 	"github.com/auth0/go-jwt-middleware/v3/jwks"
 	"github.com/auth0/go-jwt-middleware/v3/validator"
-	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 const (
@@ -111,7 +110,7 @@ func NewAuth0Validator(issuerURL *url.URL, audience string) (AuthValidator, erro
 			return nil, fmt.Errorf("%w: Auth0 token claims have unexpected type %T", ErrInvalidCredentials, validated)
 		}
 
-		return &Identity{UserID: claims.RegisteredClaims.Subject, Method: domain.AuthMethodAuth0}, nil
+		return &Identity{UserID: claims.RegisteredClaims.Subject}, nil
 	}, nil
 }
 

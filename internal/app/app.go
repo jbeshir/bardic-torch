@@ -42,7 +42,7 @@ func Setup(ctx context.Context) ([]Component, error) {
 		return nil, fmt.Errorf("bootstrapping moderators: %w", err)
 	}
 
-	authValidators, err := authValidatorsFromEnv(ctx, repository, now)
+	authValidators, err := authValidatorsFromEnv(ctx)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("setting up authentication: %w", err)
@@ -74,10 +74,6 @@ func repositoryHTTPDependencies(repository *mysql.Repository, authValidators []r
 		DisplayNameUpdater:            repository,
 		UserBlocker:                   repository,
 		UserUnblocker:                 repository,
-		APITokenCreator:               repository,
-		ActiveAPITokenCounter:         repository,
-		ActiveAPITokenLister:          repository,
-		APITokenRevoker:               repository,
 		PublicPieceLister:             repository,
 		PublicPieceGetter:             repository,
 		PublicPersonLister:            repository,

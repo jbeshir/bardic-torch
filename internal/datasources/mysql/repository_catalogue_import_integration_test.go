@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 
@@ -80,7 +79,6 @@ func importRowCounts(t *testing.T, imp domain.CatalogueImport) map[string]int {
 		n["person_roles"] += len(d.Roles)
 		n["person_affiliations"] += len(d.AffiliationIDs)
 		n["person_relations"] += len(d.Relations)
-		n["person_preferences"] += len(d.Preferences)
 		for _, l := range d.Links {
 			attach(l.DocLink)
 			for _, perf := range l.Performances {
@@ -96,7 +94,6 @@ func importRowCounts(t *testing.T, imp domain.CatalogueImport) map[string]int {
 		n["piece_terms"] += len(d.Terms)
 		n["piece_relations"] += len(d.Relations)
 		n["piece_credits"] += len(d.Credits)
-		n["piece_preferences"] += len(d.Preferences)
 		if d.Conservation.Status != domain.ConservationStatusUnassessed {
 			n["conservation_history"]++
 		}
@@ -139,7 +136,7 @@ func TestRepository_ImportCatalogue_CatalogueTablesAreEveryCatalogueTable(t *tes
 
 	var tables []string
 	for table := range tableColumns(t, mysqltest.NewDatabase(t)) {
-		if table != "users" && table != "api_tokens" {
+		if table != "users" {
 			tables = append(tables, table)
 		}
 	}
@@ -154,10 +151,7 @@ func TestRepository_ImportCatalogue_WritesEverything(t *testing.T) {
 	counts := tableRowCounts(t, db)
 	assert.Equal(t, emptyCounts(importRowCounts(t, imp)), counts)
 	for _, table := range mysql.CatalogueTables {
-		// The wiki states no preferences.
-		if !strings.HasSuffix(table, "_preferences") {
-			assert.Positive(t, counts[table], "the scrubbed import writes %s rows", table)
-		}
+		assert.Positive(t, counts[table], "the scrubbed import writes %s rows", table)
 	}
 
 	var n int

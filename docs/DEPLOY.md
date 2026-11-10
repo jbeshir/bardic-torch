@@ -276,7 +276,7 @@ Every variable in `.env.dist` except the two dokku manages (`DATABASE_URL` from 
 ```
 dokku config:set --no-restart bardic-torch-api \
   LOG_LEVEL=INFO \
-  AUTH_DRIVERS=auth0,api_token \
+  AUTH_DRIVERS=auth0 \
   AUTH0_DOMAIN=<AUTH0_DOMAIN> \
   AUTH0_AUDIENCE=https://api.bardictorch.org \
   BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>'

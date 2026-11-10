@@ -341,7 +341,6 @@ func (v *importValidator) checkPersons() error {
 			}
 		}
 		v.docLinks(c, links)
-		v.preferences(c, d.Preferences)
 		if c.err != nil {
 			return c.err
 		}
@@ -408,7 +407,6 @@ func (v *importValidator) pieceDocument(c *entityCheck, p ImportedPiece) {
 		}
 	}
 	v.docLinks(c, links)
-	v.preferences(c, d.Preferences)
 }
 
 // pieceTerms checks a piece's terms: each a term, once (piece_terms' primary key), with at most one primary term
@@ -487,16 +485,6 @@ func (v *importValidator) performance(c *entityCheck, p DocPerformance, field st
 		performers = append(performers, fmt.Sprint(id))
 	}
 	c.unique(performers, field+".performer_ids")
-}
-
-func (v *importValidator) preferences(c *entityCheck, prefs []DocPreference) {
-	dims := make([]string, 0, len(prefs))
-	for k, p := range prefs {
-		c.require(len(p.SourceURL) <= MaxURLLength && p.SourceURL != "",
-			fmt.Sprintf("doc.preferences[%d].source_url", k), "is empty or too long")
-		dims = append(dims, string(p.Dimension))
-	}
-	c.unique(dims, "doc.preferences")
 }
 
 // links checks the Links rows: unique IDs and normalised URLs, column widths, no roles and known collections.

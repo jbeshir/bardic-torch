@@ -18,7 +18,6 @@ const (
 	healthzPath     = "/healthz"
 	readyzPath      = "/readyz"
 	mePath          = "/v1/me"
-	tokensPath      = "/v1/tokens"
 	piecesPath      = "/v1/pieces"
 	personsPath     = "/v1/persons"
 	termsPath       = "/v1/terms"
@@ -110,16 +109,6 @@ func TestNewHTTPHandler_UnroutedRequests(t *testing.T) {
 			wantStatus: http.StatusMethodNotAllowed,
 			wantAllow:  "GET, PATCH",
 			wantBody:   methodNotAllowedBody,
-		},
-		{
-			// The method is checked before credentials, so even invalid ones get 405 rather than 401.
-			name:          "wrong_method_on_tokens_with_credentials",
-			method:        http.MethodPut,
-			path:          tokensPath,
-			authorization: "Bearer auth0|" + invalidSecret,
-			wantStatus:    http.StatusMethodNotAllowed,
-			wantAllow:     "GET, POST",
-			wantBody:      methodNotAllowedBody,
 		},
 		{
 			// Catalogue reads are unauthenticated routes; the 405 probe still finds them, and still ignores credentials.

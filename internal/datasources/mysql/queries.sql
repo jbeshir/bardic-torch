@@ -33,40 +33,6 @@ SET blocked_at = NULL
 WHERE id = ? AND role = 'contributor';
 
 -- ============================================
--- API tokens
--- ============================================
-
--- name: CreateAPIToken :exec
-INSERT INTO api_tokens (id, user_id, token_hash, token_prefix, name, created_at)
-VALUES (?, ?, ?, ?, ?, ?);
-
--- name: GetAPITokenByHash :one
-SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
-FROM api_tokens
-WHERE token_hash = ?;
-
--- name: UpdateAPITokenLastUsed :exec
-UPDATE api_tokens
-SET last_used_at = sqlc.arg(used_at)
-WHERE id = sqlc.arg(id) AND (last_used_at IS NULL OR last_used_at < sqlc.arg(stale_before));
-
--- name: ListUserActiveAPITokens :many
-SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
-FROM api_tokens
-WHERE user_id = ? AND revoked_at IS NULL
-ORDER BY created_at DESC, id;
-
--- name: CountUserActiveAPITokens :one
-SELECT COUNT(*)
-FROM api_tokens
-WHERE user_id = ? AND revoked_at IS NULL;
-
--- name: RevokeAPIToken :execrows
-UPDATE api_tokens
-SET revoked_at = COALESCE(revoked_at, sqlc.arg(revoked_at))
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
-
--- ============================================
 -- Catalogue: public reads
 --
 -- An entity is public when it has an approved revision (current_revision_id IS NOT NULL); a term also needs
@@ -598,10 +564,6 @@ VALUES (?, ?);
 INSERT INTO person_relations (from_person_id, to_person_id, type)
 VALUES (?, ?, ?);
 
--- name: InsertPersonPreference :exec
-INSERT INTO person_preferences (person_id, dimension, value_json, source_url)
-VALUES (?, ?, ?, ?);
-
 -- name: InsertImportedPiece :exec
 INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
     version_notes_md, licensing_notes_md, licensing_status, licence, historical_source_md, period_start, period_end,
@@ -627,10 +589,6 @@ VALUES (?, ?, ?);
 -- name: InsertPieceCredit :exec
 INSERT INTO piece_credits (piece_id, person_id, role, attribution, certainty, part, note, position)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-
--- name: InsertPiecePreference :exec
-INSERT INTO piece_preferences (piece_id, dimension, value_json, source_url)
-VALUES (?, ?, ?, ?);
 
 -- name: InsertConservationHistory :exec
 INSERT INTO conservation_history (piece_id, status, reason, source_url, revision_id, at)

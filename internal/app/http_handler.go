@@ -19,10 +19,6 @@ type HTTPDependencies struct {
 	DisplayNameUpdater            datasources.DisplayNameUpdater
 	UserBlocker                   datasources.UserBlocker
 	UserUnblocker                 datasources.UserUnblocker
-	APITokenCreator               datasources.APITokenCreator
-	ActiveAPITokenCounter         datasources.ActiveAPITokenCounter
-	ActiveAPITokenLister          datasources.ActiveAPITokenLister
-	APITokenRevoker               datasources.APITokenRevoker
 	PublicPieceLister             datasources.PublicPieceLister
 	PublicPieceGetter             datasources.PublicPieceGetter
 	PublicPersonLister            datasources.PublicPersonLister
@@ -61,13 +57,6 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 			Getter:    deps.UserGetter,
 			Now:       deps.Now,
 		},
-		CreateAPIToken: &command.CreateAPIToken{
-			Counter: deps.ActiveAPITokenCounter,
-			Creator: deps.APITokenCreator,
-			Now:     deps.Now,
-		},
-		APITokenLister:                deps.ActiveAPITokenLister,
-		APITokenRevoker:               deps.APITokenRevoker,
 		PublicPieceLister:             deps.PublicPieceLister,
 		PublicPieceGetter:             deps.PublicPieceGetter,
 		PublicPersonLister:            deps.PublicPersonLister,

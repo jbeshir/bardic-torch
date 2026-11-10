@@ -39,11 +39,9 @@ func TestNewDatabase_IsolatedMigratedAndDropped(t *testing.T) {
 			assert.True(t, strings.HasPrefix(name, databaseNamePrefix), name)
 			names = append(names, name)
 
-			for _, table := range []string{"users", "api_tokens"} {
-				var count int
-				require.NoError(t, db.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM "+table).Scan(&count))
-				assert.Zero(t, count, table)
-			}
+			var count int
+			require.NoError(t, db.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM users").Scan(&count))
+			assert.Zero(t, count, "users")
 		})
 	}
 	require.Len(t, names, 2)

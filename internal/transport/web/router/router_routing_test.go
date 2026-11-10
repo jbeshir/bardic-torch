@@ -34,9 +34,8 @@ const (
 	routingInvalid = "Bearer invalid"
 
 	routingModeratorID = "auth0|moderator"
-	routingRevokeID    = "0b0e5a4c-6a43-4f8e-9d3f-1c2b3a4d5e6f"
 
-	allRouteMethods = "DELETE, GET, PATCH, POST, PUT"
+	allRouteMethods = "GET, PATCH, PUT"
 
 	jsonContentType = "application/json"
 	unmatched       = "unmatched"
@@ -47,17 +46,13 @@ const (
 	authRequiredBody    = `{"code":"unauthenticated","message":"authentication required"}` + "\n"
 	invalidCredsBody    = `{"code":"unauthenticated","message":"invalid credentials"}` + "\n"
 	userNotFoundBody    = `{"code":"not_found","message":"user not found"}` + "\n"
-	tokenNotFoundBody   = `{"code":"not_found","message":"API token not found"}` + "\n"
 	blockedTemplate     = "/v1/users/{user_id}/blocked"
-	revokeTemplate      = "/v1/tokens/{token_id}"
 	blockedRequestBody  = `{"blocked":true}`
-	routingTokenPath    = "/v1/tokens/" + routingRevokeID
 	routingBlockedPath  = "/v1/users/auth0%7Cuser/blocked"
 	routingUnknownV1    = "/v1/unknown"
 	routingUnknownRoot  = "/unknown"
 	routingHealthz      = "/healthz"
 	routingMe           = "/v1/me"
-	routingTokens       = "/v1/tokens"
 	routingReadyz       = "/readyz"
 	routingConnectHost  = "example.com:443"
 	routingConnectRedir = "//example.com:443/"
@@ -247,7 +242,7 @@ type routingFixture struct {
 	mu sync.Mutex
 	// authRan is whether an auth validator was consulted.
 	authRan bool
-	// pathValue is the user or token ID, slug or catalogue ID a command or datasource was given.
+	// pathValue is the user ID, slug or catalogue ID a command or datasource was given.
 	pathValue string
 }
 
@@ -258,7 +253,7 @@ func (f *routingFixture) validate(r *http.Request) (*Identity, error) {
 
 	switch r.Header.Get("Authorization") {
 	case routingModerator:
-		return &Identity{UserID: routingModeratorID, Method: domain.AuthMethodAuth0}, nil
+		return &Identity{UserID: routingModeratorID}, nil
 	case routingInvalid:
 		return nil, fmt.Errorf("bad signature: %w", ErrInvalidCredentials)
 	default:
@@ -279,11 +274,6 @@ func (*routingFixture) Ping(context.Context) error {
 func (f *routingFixture) Execute(_ context.Context, req command.SetUserBlockedRequest) (domain.User, error) {
 	f.recordPathValue(req.UserID)
 	return domain.User{}, datasources.ErrNotFound
-}
-
-func (f *routingFixture) RevokeAPIToken(_ context.Context, _, tokenID string, _ time.Time) error {
-	f.recordPathValue(tokenID)
-	return datasources.ErrNotFound
 }
 
 // errRoutingList is what the fixture's catalogue lists fail with, so a list route answers 500 once its controller
@@ -372,7 +362,6 @@ func (f *routingFixture) dependencies() Dependencies {
 		AuthValidators:                []AuthValidator{f.validate},
 		ResolveUser:                   resolveTo(moderator),
 		SetUserBlocked:                f,
-		APITokenRevoker:               f,
 		PublicPieceLister:             f,
 		PublicPieceGetter:             f,
 		PublicPersonLister:            f,
@@ -445,16 +434,6 @@ var routeRows = []routeRow{
 	{path: routingBlockedPath, allow: "PUT", routed: map[string]routingCase{
 		http.MethodPut: anonymousAuthRequired(blockedTemplate),
 	}},
-	{path: routingTokens, allow: "GET, POST", routed: map[string]routingCase{
-		http.MethodGet:  anonymousAuthRequired(routingTokens),
-		http.MethodPost: anonymousAuthRequired(routingTokens),
-	}},
-	// gorilla/mux answered a wrong method here with every method in Allow, and logged the route /v1: the last /v1
-	// route cleared the subrouter's method mismatch. That contradicted the spec's rule that Allow lists the
-	// supported methods, and is fixed.
-	{path: routingTokenPath, allow: "DELETE", routed: map[string]routingCase{
-		http.MethodDelete: anonymousAuthRequired(revokeTemplate),
-	}},
 }
 
 // everyRouteAndMethod sends every method, anonymously, to every route: routed methods reach the route, OPTIONS
@@ -511,14 +490,6 @@ func blockAsModerator(target, wantUserID string) routingCase {
 	}
 }
 
-func revokeAsModerator(target string) routingCase {
-	return routingCase{
-		method: http.MethodDelete, target: target, authorization: routingModerator,
-		status: http.StatusNotFound, contentType: jsonContentType, respBody: tokenNotFoundBody, authRan: true,
-		route: revokeTemplate,
-	}
-}
-
 // unroutedCases are requests no route matches. None of them authenticates, so invalid credentials do not
 // turn them into 401s.
 func unroutedCases() []routingCase {
@@ -531,11 +502,8 @@ func unroutedCases() []routingCase {
 		notFound(http.MethodGet, routingUnknownV1, routingInvalid),
 		notFound(http.MethodDelete, routingUnknownV1, routingInvalid),
 		notFound(http.MethodGet, "/v1me", routingInvalid),
-		notFound(http.MethodGet, "/v1/tokens/"+routingRevokeID+"/extra", routingInvalid),
 		notAllowedAt(http.MethodDelete, routingMe, routingInvalid, "GET, PATCH"),
 		notAllowedAt(http.MethodHead, routingMe, routingInvalid, "GET, PATCH"),
-		notAllowedAt(http.MethodPut, routingTokens, routingInvalid, "GET, POST"),
-		notAllowedAt(http.MethodGet, routingTokenPath, routingInvalid, "DELETE"),
 		notAllowedAt(http.MethodGet, routingBlockedPath, routingInvalid, "PUT"),
 		notAllowedAt(http.MethodPost, routingHealthz, routingInvalid, "GET"),
 		notAllowedAt(http.MethodConnect, routingHealthz, "", "GET"),
@@ -543,16 +511,12 @@ func unroutedCases() []routingCase {
 		// Trailing slashes are not cleaned away, and no route has one.
 		notFound(http.MethodGet, "/healthz/", ""),
 		notFound(http.MethodGet, "/v1/me/", routingInvalid),
-		notFound(http.MethodGet, "/v1/tokens/", routingInvalid),
-		notFound(http.MethodPost, "/v1/tokens/", routingInvalid),
-		notFound(http.MethodDelete, "/v1/tokens/", routingInvalid),
 		// Literal path segments match only as sent: an encoded letter is a different path.
 		notFound(http.MethodGet, "/health%7A", ""),
 		notFound(http.MethodGet, "/%68ealthz", ""),
 		notFound(http.MethodGet, "/v1/%6De", routingInvalid),
 		notFound(http.MethodGet, "/%761/me", routingInvalid),
 		notFound(http.MethodPut, "/v1/users/auth0%7Cuser/bl%6Fcked", routingInvalid),
-		notFound(http.MethodDelete, "/v1/tok%65ns/"+routingRevokeID, routingInvalid),
 	}
 }
 
@@ -600,20 +564,12 @@ func encodedIDCases() []routingCase {
 		blockAsModerator("/v1/users/%2E%2E/blocked", ".."),
 		blockAsModerator("/v1/users/%2Fx/blocked", "/x"),
 		// An ID that is exactly %2F decodes to "/", which ServeMux reads as an extra path segment, so no route
-		// matches. gorilla/mux routed these to their controllers, so a moderator got 404 user or token not found
-		// after authenticating, and anonymous or invalid-credential requests got 401. No user or token ID is "/",
+		// matches. gorilla/mux routed these to their controllers, so a moderator got 404 user not found
+		// after authenticating, and anonymous or invalid-credential requests got 401. No user ID is "/",
 		// and none of these requests could be authorised to act on one; all of them now get the unrouted 404,
 		// without authenticating.
 		notFound(http.MethodPut, "/v1/users/%2F/blocked", routingModerator),
-		notFound(http.MethodDelete, "/v1/tokens/%2F", routingModerator),
-		notFound(http.MethodDelete, "/v1/tokens/%2F", ""),
 		notFound(http.MethodPut, "/v1/users/%2F/blocked", routingInvalid),
-		revokeAsModerator("/v1/tokens/a%2Fb"),
-		{
-			method: http.MethodDelete, target: routingTokenPath, authorization: routingModerator,
-			status: http.StatusNotFound, contentType: jsonContentType, respBody: tokenNotFoundBody, authRan: true,
-			route: revokeTemplate, pathValue: routingRevokeID,
-		},
 		{
 			method: http.MethodGet, target: routingMe, authorization: routingInvalid,
 			status: http.StatusUnauthorized, contentType: jsonContentType, respBody: invalidCredsBody, authRan: true,

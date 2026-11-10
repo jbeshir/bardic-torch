@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/auth0test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +33,7 @@ const (
 func validateAuthorization(t *testing.T, validate AuthValidator, authorization string) (*Identity, error) {
 	t.Helper()
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/tokens", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/me", nil)
 	if authorization != "" {
 		req.Header.Set("Authorization", authorization)
 	}
@@ -84,7 +83,7 @@ func TestAuth0Validator_ValidTokens(t *testing.T) {
 			identity, err := validateAuthorization(t, validate, "Bearer auth0|"+auth0test.Sign(t, issuer.Key, tc.claims))
 
 			require.NoError(t, err)
-			assert.Equal(t, &Identity{UserID: testSubject, Method: domain.AuthMethodAuth0}, identity)
+			assert.Equal(t, &Identity{UserID: testSubject}, identity)
 		})
 	}
 }
@@ -318,7 +317,6 @@ func TestAuth0Validator_NonMatchingPrefixIsNotApplicable(t *testing.T) {
 	for _, authorization := range []string{
 		"",
 		"Bearer " + token,
-		"Bearer user_api|" + token,
 		"Basic auth0|" + token,
 	} {
 		identity, err := validateAuthorization(t, validate, authorization)

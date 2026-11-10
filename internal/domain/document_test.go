@@ -57,10 +57,6 @@ func fullPieceDocument() domain.PieceDocument {
 				DescriptionVerbatim: "Sung at the revel", PerformerIDs: []int64{5, 6},
 			}},
 		}},
-		Preferences: []domain.DocPreference{{
-			Dimension: domain.PreferenceDimensionRecording, Value: json.RawMessage(`{"allowed":true}`),
-			SourceURL: "https://example.org/prefs",
-		}},
 	}
 }
 
@@ -90,10 +86,6 @@ func fullPersonDocument() domain.PersonDocument {
 				PieceID:        ptr[int64](1),
 				DocPerformance: domain.DocPerformance{DescriptionVerbatim: "Live set", PerformerIDs: []int64{5}},
 			}},
-		}},
-		Preferences: []domain.DocPreference{{
-			Dimension: domain.PreferenceDimensionAttribution, Value: json.RawMessage(`"name me"`),
-			SourceURL: "https://example.org/wren-prefs",
 		}},
 	}
 }
@@ -165,13 +157,13 @@ func TestDecodeDocument_RoundTrip(t *testing.T) {
 		requireRoundTrip(t, fullPieceDocument(), "schema_version", "title", "kind", "secondary_kinds",
 			"conservation", "is_stub", "notes_md", "version_notes_md", "licensing_status", "licensing_notes_md",
 			"licence", "historical_source_md", "period_start", "period_end", "aliases", "terms", "relations",
-			"credits", "links", "preferences")
+			"credits", "links")
 	})
 	t.Run("person", func(t *testing.T) {
 		t.Parallel()
 		requireRoundTrip(t, fullPersonDocument(), "schema_version", "name", "kind", "status", "status_date",
 			"status_source_url", "pronouns", "notes_md", "licensing_status", "licensing_notes_md", "is_stub",
-			"aliases", "roles", "affiliation_ids", "relations", "links", "preferences")
+			"aliases", "roles", "affiliation_ids", "relations", "links")
 	})
 	t.Run("term", func(t *testing.T) {
 		t.Parallel()
@@ -252,13 +244,12 @@ func TestDecodeDocument_UnknownFields(t *testing.T) {
 	t.Parallel()
 
 	data := withValues(t, fullPersonDocument(), map[string]any{
-		"added_field":                    "a later release's",
-		"aliases.0.added_field":          true,
-		"links.0.added_field":            7,
-		"links.0.performances.0.added":   []any{"x"},
-		"relations.0.added_field":        nil,
-		"links.0.performances.0.nested":  map[string]any{"status": "not an enum here"},
-		"preferences.0.added_field_note": "ignored",
+		"added_field":                   "a later release's",
+		"aliases.0.added_field":         true,
+		"links.0.added_field":           7,
+		"links.0.performances.0.added":  []any{"x"},
+		"relations.0.added_field":       nil,
+		"links.0.performances.0.nested": map[string]any{"status": "not an enum here"},
 	})
 	got, err := domain.DecodeDocument[domain.PersonDocument](data)
 	require.NoError(t, err)
@@ -279,7 +270,7 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 	pieceFields := []string{
 		kindField, "secondary_kinds.0", "conservation.status", "licensing_status", "licence", "aliases.0.kind",
 		"terms.0.part", "relations.0.type", "credits.0.role", "credits.0.attribution", "credits.0.certainty",
-		"credits.0.part", "links.0.place_type", "links.0.roles.1", "preferences.0.dimension",
+		"credits.0.part", "links.0.place_type", "links.0.roles.1",
 	}
 	for _, field := range pieceFields {
 		t.Run("piece."+field, func(t *testing.T) {
@@ -292,7 +283,7 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 
 	personFields := []string{
 		kindField, "status", "licensing_status", "aliases.1.kind", "roles.0", "relations.0.type", "links.0.roles.0",
-		"links.0.place_type", "preferences.0.dimension",
+		"links.0.place_type",
 	}
 	for _, field := range personFields {
 		t.Run("person."+field, func(t *testing.T) {
@@ -362,7 +353,7 @@ func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
 		domain.CollectionDocument{}, domain.EventDocument{}} {
 		visit(reflect.TypeOf(doc), reflect.TypeOf(doc).Name())
 	}
-	assert.Len(t, seen, 22, "the vocabularies documents use")
+	assert.Len(t, seen, 21, "the vocabularies documents use")
 }
 
 func TestDecodeDocument_StatusDate(t *testing.T) {

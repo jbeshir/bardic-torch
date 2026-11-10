@@ -16,7 +16,6 @@ var ErrInvalidCredentials = errors.New("invalid credentials")
 // Identity is who a validator authenticated a request as.
 type Identity struct {
 	UserID string
-	Method domain.AuthMethod
 }
 
 // AuthValidator authenticates a request from its credentials.
@@ -66,7 +65,7 @@ func authMiddleware(
 
 			recordUserID(ctx, user.ID)
 			ctx = domain.ContextWithLogger(ctx, logger.With("user_id", user.ID))
-			ctx = domain.ContextWithPrincipal(ctx, domain.Principal{User: user, Method: identity.Method})
+			ctx = domain.ContextWithPrincipal(ctx, domain.Principal{User: user})
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

@@ -29,9 +29,9 @@ const (
 	unverifiableSecret = "unverifiable"
 )
 
-// prefixValidator authenticates "Bearer <prefix><user ID>" as the user ID with method, and rejects
+// prefixValidator authenticates "Bearer <prefix><user ID>" as the user ID, and rejects
 // "Bearer <prefix>invalid" and fails to check "Bearer <prefix>unverifiable".
-func prefixValidator(prefix string, method domain.AuthMethod) router.AuthValidator {
+func prefixValidator(prefix string) router.AuthValidator {
 	return func(r *http.Request) (*router.Identity, error) {
 		userID, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "+prefix)
 		switch {
@@ -42,23 +42,19 @@ func prefixValidator(prefix string, method domain.AuthMethod) router.AuthValidat
 		case userID == unverifiableSecret:
 			return nil, errors.New("signing keys unavailable")
 		default:
-			return &router.Identity{UserID: userID, Method: method}, nil
+			return &router.Identity{UserID: userID}, nil
 		}
 	}
 }
 
 // handlerMocks are the datasources behind a handler built with NewHTTPHandler, authenticating with
-// prefixValidator for both Auth0 ("auth0|") and API tokens.
+// prefixValidator for Auth0 ("auth0|").
 type handlerMocks struct {
 	pinger            *mocks.Pinger
 	users             *mocks.UserGetter
 	displayNames      *mocks.DisplayNameUpdater
 	blocker           *mocks.UserBlocker
 	unblocker         *mocks.UserUnblocker
-	counter           *mocks.ActiveAPITokenCounter
-	creator           *mocks.APITokenCreator
-	lister            *mocks.ActiveAPITokenLister
-	revoker           *mocks.APITokenRevoker
 	pieceLister       *mocks.PublicPieceLister
 	pieces            *mocks.PublicPieceGetter
 	personLister      *mocks.PublicPersonLister
@@ -84,10 +80,6 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 		displayNames:      mocks.NewDisplayNameUpdater(t),
 		blocker:           mocks.NewUserBlocker(t),
 		unblocker:         mocks.NewUserUnblocker(t),
-		counter:           mocks.NewActiveAPITokenCounter(t),
-		creator:           mocks.NewAPITokenCreator(t),
-		lister:            mocks.NewActiveAPITokenLister(t),
-		revoker:           mocks.NewAPITokenRevoker(t),
 		pieceLister:       mocks.NewPublicPieceLister(t),
 		pieces:            mocks.NewPublicPieceGetter(t),
 		personLister:      mocks.NewPublicPersonLister(t),
@@ -107,18 +99,13 @@ func newHandlerMocks(t *testing.T) handlerMocks {
 	m.handler = NewHTTPHandler(HTTPDependencies{
 		Pinger: m.pinger,
 		AuthValidators: []router.AuthValidator{
-			prefixValidator("auth0|", domain.AuthMethodAuth0),
-			prefixValidator(domain.APITokenPrefix, domain.AuthMethodAPIToken),
+			prefixValidator("auth0|"),
 		},
 		UserGetter:                    m.users,
 		UserEnsurer:                   mocks.NewUserEnsurer(t),
 		DisplayNameUpdater:            m.displayNames,
 		UserBlocker:                   m.blocker,
 		UserUnblocker:                 m.unblocker,
-		APITokenCreator:               m.creator,
-		ActiveAPITokenCounter:         m.counter,
-		ActiveAPITokenLister:          m.lister,
-		APITokenRevoker:               m.revoker,
 		PublicPieceLister:             m.pieceLister,
 		PublicPieceGetter:             m.pieces,
 		PublicPersonLister:            m.personLister,

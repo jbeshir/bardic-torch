@@ -19,13 +19,13 @@ import (
 // catalogue's current state: unapproved terms, pieces, persons, collections and events; a person who chose not
 // to have a page after the revision; an alias and links hidden after it.
 type revisionFixture struct {
-	harvest, reaping, broken, pendingPiece                    catalogtest.Ref
-	lark, quiet, choir, pendingPerson                         catalogtest.Ref
-	ballads, seaBallads, underPending, pendingTopic, bards    catalogtest.Ref
-	archive, volume, pendingBook, fair, pendingFair           catalogtest.Ref
-	edit, redacted, imported, foreignBase                     int64
-	pending, rejected, draft, withdrawn, pendingPieceApproved int64
-	quietEdit, futureVersion, wrongShape, brokenBase          int64
+	harvest, reaping, broken, pendingPiece                 catalogtest.Ref
+	lark, quiet, choir, pendingPerson                      catalogtest.Ref
+	ballads, seaBallads, underPending, pendingTopic, bards catalogtest.Ref
+	archive, volume, pendingBook, fair, pendingFair        catalogtest.Ref
+	edit, redacted, imported, foreignBase                  int64
+	pending, rejected, withdrawn, pendingPieceApproved     int64
+	quietEdit, futureVersion, wrongShape, brokenBase       int64
 	// unknownEnum holds a kind this release does not know; addedField a field it does not know.
 	unknownEnum, addedField int64
 }
@@ -103,8 +103,6 @@ func harvestDocument(fx revisionFixture) domain.PieceDocument {
 			{DocLink: domain.DocLink{URL: harvestTakenDown, CollectionID: &fx.archive.ID,
 				Roles: []domain.LinkRole{domain.LinkRolePerformance}}},
 		},
-		Preferences: []domain.DocPreference{{Dimension: domain.PreferenceDimensionRecording,
-			Value: json.RawMessage(`{"allowed": false}`), SourceURL: "https://example.org/harvest/preferences"}},
 	}
 }
 
@@ -242,8 +240,6 @@ var revisions = catalogtest.NewShared(func(c *catalogtest.Catalog) revisionFixtu
 		BaseRevisionID: fx.edit, AuthorUserID: quillID, CreatedAt: revisionsAt(time.August, 1)})
 	fx.rejected = harvest(catalogtest.Revision{Snapshot: edited, Status: domain.RevisionStatusRejected,
 		CreatedAt: revisionsAt(time.August, 2)})
-	fx.draft = harvest(catalogtest.Revision{Snapshot: edited, Status: domain.RevisionStatusDraft,
-		CreatedAt: revisionsAt(time.August, 3)})
 	fx.withdrawn = harvest(catalogtest.Revision{Snapshot: edited, Status: domain.RevisionStatusWithdrawn,
 		CreatedAt: revisionsAt(time.August, 4)})
 	// Created at the same time as the redacted revision, after it: history breaks the tie by ID. Its base is
@@ -425,8 +421,7 @@ func TestRepository_ListPublicHistory_NotFound(t *testing.T) {
 }
 
 // TestRepository_GetPublicRevision_Piece checks a piece revision's views: references to entities
-// that are not public now and links hidden now are left out of the snapshot and its base, with no system fields
-// or preferences.
+// that are not public now and links hidden now are left out of the snapshot and its base, with no system fields.
 func TestRepository_GetPublicRevision_Piece(t *testing.T) {
 	t.Parallel()
 
@@ -600,7 +595,6 @@ func TestRepository_GetPublicRevision_NotFound(t *testing.T) {
 	for name, id := range map[string]int64{
 		"pending":               fx.pending,
 		"rejected":              fx.rejected,
-		"draft":                 fx.draft,
 		"withdrawn":             fx.withdrawn,
 		"entity_not_public":     fx.pendingPieceApproved,
 		"term_under_unapproved": fx.underPending.RevisionID,

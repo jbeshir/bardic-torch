@@ -57,16 +57,12 @@ const (
 	RevisionSourceUser RevisionSource = "user"
 	// RevisionSourceImport is a revision created by the MediaWiki importer.
 	RevisionSourceImport RevisionSource = "import"
-	// RevisionSourceMCP is a revision a user submitted through the MCP server.
-	RevisionSourceMCP RevisionSource = "mcp"
 )
 
 // RevisionStatus is where a revision is in moderation.
 type RevisionStatus string
 
 const (
-	// RevisionStatusDraft is a revision its author has not submitted.
-	RevisionStatusDraft RevisionStatus = "draft"
 	// RevisionStatusPending is a submitted revision awaiting review.
 	RevisionStatusPending RevisionStatus = "pending"
 	// RevisionStatusApproved is an approved revision; only approved revisions are public.
@@ -270,29 +266,6 @@ const (
 	PersonRelationTypeMemberOf PersonRelationType = "member_of"
 	// PersonRelationTypeSameAs is a person row describing the same person as another.
 	PersonRelationTypeSameAs PersonRelationType = "same_as"
-)
-
-// PreferenceDimension is one dimension of a person's or piece's stated preferences (the Bard Preference
-// Checklist).
-type PreferenceDimension string
-
-const (
-	// PreferenceDimensionLicensing is how the works are licensed.
-	PreferenceDimensionLicensing PreferenceDimension = "licensing"
-	// PreferenceDimensionPerformancePermission is whether others may perform the works.
-	PreferenceDimensionPerformancePermission PreferenceDimension = "performance_permission"
-	// PreferenceDimensionAdaptations is whether others may adapt the works.
-	PreferenceDimensionAdaptations PreferenceDimension = "adaptations"
-	// PreferenceDimensionAttribution is how the works should be credited.
-	PreferenceDimensionAttribution PreferenceDimension = "attribution"
-	// PreferenceDimensionCommercialUse is whether the works may be used commercially.
-	PreferenceDimensionCommercialUse PreferenceDimension = "commercial_use"
-	// PreferenceDimensionRecording is whether performances may be recorded.
-	PreferenceDimensionRecording PreferenceDimension = "recording"
-	// PreferenceDimensionPerformanceEtiquette is how performances should be introduced or conducted.
-	PreferenceDimensionPerformanceEtiquette PreferenceDimension = "performance_etiquette"
-	// PreferenceDimensionObjectionableUse is uses of the works the person objects to.
-	PreferenceDimensionObjectionableUse PreferenceDimension = "objectionable_use"
 )
 
 // PieceKind is what sort of piece a piece is. A piece has one primary kind and any number of secondary kinds.

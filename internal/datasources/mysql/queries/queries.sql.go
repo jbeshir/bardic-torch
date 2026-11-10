@@ -143,71 +143,6 @@ func (q *Queries) CountPublicPersonWorks(ctx context.Context, personID sql.NullI
 	return count, err
 }
 
-const countUserActiveAPITokens = `-- name: CountUserActiveAPITokens :one
-SELECT COUNT(*)
-FROM api_tokens
-WHERE user_id = ? AND revoked_at IS NULL
-`
-
-func (q *Queries) CountUserActiveAPITokens(ctx context.Context, userID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUserActiveAPITokens, userID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const createAPIToken = `-- name: CreateAPIToken :exec
-
-INSERT INTO api_tokens (id, user_id, token_hash, token_prefix, name, created_at)
-VALUES (?, ?, ?, ?, ?, ?)
-`
-
-type CreateAPITokenParams struct {
-	ID          string
-	UserID      string
-	TokenHash   string
-	TokenPrefix string
-	Name        sql.NullString
-	CreatedAt   time.Time
-}
-
-// ============================================
-// API tokens
-// ============================================
-func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) error {
-	_, err := q.db.ExecContext(ctx, createAPIToken,
-		arg.ID,
-		arg.UserID,
-		arg.TokenHash,
-		arg.TokenPrefix,
-		arg.Name,
-		arg.CreatedAt,
-	)
-	return err
-}
-
-const getAPITokenByHash = `-- name: GetAPITokenByHash :one
-SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
-FROM api_tokens
-WHERE token_hash = ?
-`
-
-func (q *Queries) GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiToken, error) {
-	row := q.db.QueryRowContext(ctx, getAPITokenByHash, tokenHash)
-	var i ApiToken
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.TokenHash,
-		&i.TokenPrefix,
-		&i.Name,
-		&i.CreatedAt,
-		&i.LastUsedAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
 const getApprovedBaseRevision = `-- name: GetApprovedBaseRevision :one
 
 SELECT b.id, b.snapshot_json
@@ -978,28 +913,6 @@ func (q *Queries) InsertPersonAlias(ctx context.Context, arg InsertPersonAliasPa
 	return err
 }
 
-const insertPersonPreference = `-- name: InsertPersonPreference :exec
-INSERT INTO person_preferences (person_id, dimension, value_json, source_url)
-VALUES (?, ?, ?, ?)
-`
-
-type InsertPersonPreferenceParams struct {
-	PersonID  uint64
-	Dimension PersonPreferencesDimension
-	ValueJson json.RawMessage
-	SourceUrl string
-}
-
-func (q *Queries) InsertPersonPreference(ctx context.Context, arg InsertPersonPreferenceParams) error {
-	_, err := q.db.ExecContext(ctx, insertPersonPreference,
-		arg.PersonID,
-		arg.Dimension,
-		arg.ValueJson,
-		arg.SourceUrl,
-	)
-	return err
-}
-
 const insertPersonRelation = `-- name: InsertPersonRelation :exec
 INSERT INTO person_relations (from_person_id, to_person_id, type)
 VALUES (?, ?, ?)
@@ -1073,28 +986,6 @@ func (q *Queries) InsertPieceCredit(ctx context.Context, arg InsertPieceCreditPa
 		arg.Part,
 		arg.Note,
 		arg.Position,
-	)
-	return err
-}
-
-const insertPiecePreference = `-- name: InsertPiecePreference :exec
-INSERT INTO piece_preferences (piece_id, dimension, value_json, source_url)
-VALUES (?, ?, ?, ?)
-`
-
-type InsertPiecePreferenceParams struct {
-	PieceID   uint64
-	Dimension PiecePreferencesDimension
-	ValueJson json.RawMessage
-	SourceUrl string
-}
-
-func (q *Queries) InsertPiecePreference(ctx context.Context, arg InsertPiecePreferenceParams) error {
-	_, err := q.db.ExecContext(ctx, insertPiecePreference,
-		arg.PieceID,
-		arg.Dimension,
-		arg.ValueJson,
-		arg.SourceUrl,
 	)
 	return err
 }
@@ -3221,45 +3112,6 @@ func (q *Queries) ListTermAncestors(ctx context.Context, descendantID uint64) ([
 	return items, nil
 }
 
-const listUserActiveAPITokens = `-- name: ListUserActiveAPITokens :many
-SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
-FROM api_tokens
-WHERE user_id = ? AND revoked_at IS NULL
-ORDER BY created_at DESC, id
-`
-
-func (q *Queries) ListUserActiveAPITokens(ctx context.Context, userID string) ([]ApiToken, error) {
-	rows, err := q.db.QueryContext(ctx, listUserActiveAPITokens, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ApiToken
-	for rows.Next() {
-		var i ApiToken
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.TokenHash,
-			&i.TokenPrefix,
-			&i.Name,
-			&i.CreatedAt,
-			&i.LastUsedAt,
-			&i.RevokedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const promoteToModerator = `-- name: PromoteToModerator :exec
 INSERT INTO users (id, display_name, role, created_at)
 VALUES (?, ?, 'moderator', ?)
@@ -3277,26 +3129,6 @@ func (q *Queries) PromoteToModerator(ctx context.Context, arg PromoteToModerator
 	return err
 }
 
-const revokeAPIToken = `-- name: RevokeAPIToken :execrows
-UPDATE api_tokens
-SET revoked_at = COALESCE(revoked_at, ?)
-WHERE id = ? AND user_id = ?
-`
-
-type RevokeAPITokenParams struct {
-	RevokedAt sql.NullTime
-	ID        string
-	UserID    string
-}
-
-func (q *Queries) RevokeAPIToken(ctx context.Context, arg RevokeAPITokenParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, revokeAPIToken, arg.RevokedAt, arg.ID, arg.UserID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const unblockUser = `-- name: UnblockUser :execrows
 UPDATE users
 SET blocked_at = NULL
@@ -3309,23 +3141,6 @@ func (q *Queries) UnblockUser(ctx context.Context, id string) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
-}
-
-const updateAPITokenLastUsed = `-- name: UpdateAPITokenLastUsed :exec
-UPDATE api_tokens
-SET last_used_at = ?
-WHERE id = ? AND (last_used_at IS NULL OR last_used_at < ?)
-`
-
-type UpdateAPITokenLastUsedParams struct {
-	UsedAt      sql.NullTime
-	ID          string
-	StaleBefore sql.NullTime
-}
-
-func (q *Queries) UpdateAPITokenLastUsed(ctx context.Context, arg UpdateAPITokenLastUsedParams) error {
-	_, err := q.db.ExecContext(ctx, updateAPITokenLastUsed, arg.UsedAt, arg.ID, arg.StaleBefore)
-	return err
 }
 
 const updateDisplayName = `-- name: UpdateDisplayName :execrows
