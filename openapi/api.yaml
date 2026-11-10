@@ -1023,8 +1023,8 @@ paths:
         names of the snapshot's top-level fields that differ from the base's, or that are not empty if there is
         no base. A view never shows the stored document as such: each reference to another entity is shown as
         that entity is now, and left out if it is not public now; links are shown as the snapshot wrote them,
-        and left out if their URL is a hidden link's now; credits to, performers and relations of persons who are not public or prefer not to have
-        a page now are left out; and of a person who prefers not to have a page, now or in the snapshot, only the
+        and left out if their URL does not normalise or is a hidden link's now; credits to, performers and
+        relations of persons who are not public or prefer not to have a page now are left out; and of a person who prefers not to have a page, now or in the snapshot, only the
         identity is shown. System fields are never shown. `entity_type` says which of
         the five shapes the revision has. A revision that is not approved, or whose entity is not public, is not
         found, exactly like an unknown one. Credentials are ignored.

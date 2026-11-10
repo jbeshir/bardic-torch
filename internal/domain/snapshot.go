@@ -132,7 +132,7 @@ type PersonSnapshotProfile struct {
 	NotesMD          *string
 	LicensingStatus  LicensingStatus
 	LicensingNotesMD *string
-	// Aliases are those public in the document that are public aliases of the person now.
+	// Aliases are the document's aliases.
 	Aliases      []PersonAlias
 	Roles        []PersonRole
 	Affiliations []TermSummary

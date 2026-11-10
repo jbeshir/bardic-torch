@@ -413,50 +413,16 @@ before it:
 - This is the rule from now on. Migrations 010 and 011 dropped tables, columns and enum values in the same release
   as the code that stopped using them, because no release had been deployed yet, so there was no serving release
   to protect and no earlier one to roll back to.
-- **Enum growth**: appending a value to a catalogue `ENUM` column is an instant, compatible migration, but old code
-  fails when it reads a value it does not know (the read path returns a logged 500 for it). So ship the code that
-  understands a new value in one release, and only a later release may write rows that use it. Never roll back to a
-  release older than one whose data uses a value it lacks; if you must, first delete or rewrite those rows. Removing
-  or reordering ENUM values is a narrowing change: use the two-release rule above. The same holds for vocabulary
-  values inside revision snapshot documents, which reads validate too. The OpenAPI enum schema of the vocabulary changes in the same release as the domain list
-  (`TestSpec_EnumSchemasMatchDomain` fails otherwise); a client generated from the spec then knows the value before
-  any data uses it.
-- **Snapshot documents** (`revisions.snapshot_json`) follow the same rule as columns. A reader ignores document
-  fields it does not know, so a release may add a field (for a new column) without a new `schema_version`: after
-  a rollback, the older release keeps serving the revisions written in between, showing only the fields it knows.
-  Removing, renaming or retyping a field, or changing what one means, needs a new `schema_version`, which every
-  older release refuses (a logged 500 for each such revision): ship the reader for the new version one release
-  before any release writes it. A new field that hides or redacts other document data (a privacy flag on a link, say) is not additive, even though older readers would parse it: they would ignore it and show
-  what it hides. Such a field needs a new `schema_version`, so that an older release refuses those documents
-  rather than failing open.
-- **Views** (`public_terms`, `listed_persons`, `public_link_attachments`, migration 009) define the visibility
-  rules once. MySQL fixes a view's columns when it is created, so a migration that adds a column a public read
-  needs from `terms`, `persons` or `link_attachments` also recreates the view (`CREATE OR REPLACE VIEW`). MySQL
-  does not stop a migration from dropping or renaming a column a view selects: the `ALTER TABLE` succeeds, but
-  the view is then invalid and every read using it fails (error 1356), so every public read would answer 500
-  once the migration ran. A migration that drops or renames such a column must recreate the views without it in
-  the same migration. `TestMigrations_UpDownUp` reads every view after migrating up.
+- **Enum growth and snapshots**: add a new `ENUM` value in a release before any release uses it, and remove values
+  over two releases. Snapshot document fields follow PLAN §4.2.
+- **Views** (`public_terms`, `listed_persons`, `public_link_attachments`) fix their columns when created, so a
+  migration that adds a needed column, or drops or renames a column a view selects, recreates the views in the
+  same migration (a stale view makes every read using it fail with error 1356). `TestMigrations_UpDownUp` reads
+  every view after migrating up.
 
 ### The normalized URL invariant
 
-Every row of `links` has `normalized_url = domain.NormalizeURL(url)`. The importer and every later writer keep
-it; a URL that does not normalize is never written. Public revision reads rely on it: a snapshot drops a link
-whose document URL normalizes to the `normalized_url` of a hidden link, or does not normalize, and otherwise shows
-the link as the document wrote it. A row that broke the invariant would make the read show a hidden link.
-
-A change to what `NormalizeURL` returns (a new tracking parameter, say) is therefore a data change, not just a code
-change. Ship it with a command or migration that re-normalises every `links` row, and run that before the release
-whose reads rely on the new output. Until the rows are re-normalised, the new code is not safe: a hidden link's
-old spelling may no longer normalize to its row's `normalized_url`, and a revision holding it would then be
-shown. Only the merge below, which keeps a group hidden if any of its rows is, keeps hidden links hidden when
-rows come together. A rollback to the old code after re-normalising is safe: merged rows keep their hidden state.
-
-Re-normalising can give two rows the same `normalized_url`, which the unique index refuses. Merge each such group
-into its row with the lowest ID, in one transaction: keep that row's `url` and editor-owned fields, set its
-`is_hidden` if any row of the group is hidden (a takedown is never undone by a merge), move the other rows'
-`link_attachments` (dropping any that would duplicate one the kept row has for the same role and entity) and
-`performances` to it, delete the other rows, and only then write the new `normalized_url`. List the merged groups
-for the moderators.
+Every `links.normalized_url = NormalizeURL(url)`. A `NormalizeURL` change needs every row re-normalised first.
 
 ### Failed migrations (dirty state)
 

@@ -11,12 +11,12 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
-// The synthetic wiki's names. hiddenAlias is the legal name in Wren's H1; its surname is hiddenSurname.
+// The synthetic wiki's names. legalAlias is the legal name in Wren's H1; its surname is legalSurname.
 const (
 	wren          = "Wren Placeholder"
 	rowan         = "Rowan Placeholder"
-	hiddenAlias   = "Ash Hiddenname"
-	hiddenSurname = "Hiddenname"
+	legalAlias    = "Ash Hiddenname"
+	legalSurname  = "Hiddenname"
 	unsureAlias   = "Maria de Placeholder"
 	publicAlias   = "Rowan of the Glen"
 	songTitle     = "Song of Testing"
@@ -36,21 +36,21 @@ func syntheticDump() mediawiki.Dump {
 	piece := []string{mediawiki.CategoryPieces, mediawiki.CategorySongs}
 	return mediawiki.Dump{
 		Pages: []mediawiki.Page{
-			page(10, wren, bards, "= "+wren+" ("+hiddenAlias+") =\nWren sings. Mr. "+hiddenSurname+" wrote back.\n"+
+			page(10, wren, bards, "= "+wren+" ("+legalAlias+") =\nWren sings. Mr. "+legalSurname+" wrote back.\n"+
 				"== Licensing & Etiquette ==\nAsk first at ash@example.org. [https://wren.example.org/terms Terms]\n"),
 			page(11, rowan, append(bards, "In Memoriam"), "= "+rowan+" ("+publicAlias+", "+unsureAlias+") =\n"+
 				"Deceased October 31, 2020.\n"),
-			page(20, songTitle, piece, "{{Infobox Song\n|title="+songTitle+"\n|other_titles="+hiddenAlias+
-				"'s Song\n|lyrics_by=[["+wren+"]]\n}}\nWritten for "+hiddenAlias+".\n"+
-				"== Lyrics ==\nThe version "+hiddenAlias+" sang differs.\n"+
-				"== Licensing & Etiquette ==\nCopyright "+hiddenAlias+". [https://wren.example.org/terms Terms]\n"+
-				"== Performances & Recordings ==\n* [https://www.youtube.com/watch?v=video000001 "+hiddenAlias+
-				" sings] of [["+wren+"]] at "+hiddenAlias+" Revel in 2020, recorded by "+hiddenAlias+" on YouTube\n"+
+			page(20, songTitle, piece, "{{Infobox Song\n|title="+songTitle+"\n|other_titles="+legalAlias+
+				"'s Song\n|lyrics_by=[["+wren+"]]\n}}\nWritten for "+legalAlias+".\n"+
+				"== Lyrics ==\nThe version "+legalAlias+" sang differs.\n"+
+				"== Licensing & Etiquette ==\nCopyright "+legalAlias+". [https://wren.example.org/terms Terms]\n"+
+				"== Performances & Recordings ==\n* [https://www.youtube.com/watch?v=video000001 "+legalAlias+
+				" sings] of [["+wren+"]] at "+legalAlias+" Revel in 2020, recorded by "+legalAlias+" on YouTube\n"+
 				"== Key Links ==\n* [https://blog.example.org/ash-hiddenname.html Blog post]\n"+
 				"* [https://www.youtube.com/watch?v=video000001&utm_source=x Same video]\n"),
 			page(30, collidingSong, piece, "{{Infobox Song\n|lyrics_by=[["+wren+"]]\n}}\nAnother song.\n"),
 			page(40, mediawiki.CollectionsPage, nil, "== S ==\n* [https://songs.example.org/book.pdf "+
-				hiddenAlias+" Songbook]\n"),
+				legalAlias+" Songbook]\n"),
 		},
 		Categories: map[string]mediawiki.Category{},
 		Redirects: []mediawiki.Redirect{
@@ -212,7 +212,7 @@ func TestBuild_SummariesAreNeutral(t *testing.T) {
 	require.NotEmpty(t, summaries)
 	for _, s := range summaries {
 		assert.True(t, domain.IsImportSummary(s), s)
-		for _, name := range []string{wren, rowan, hiddenAlias, hiddenSurname, unsureAlias, publicAlias, songTitle} {
+		for _, name := range []string{wren, rowan, legalAlias, legalSurname, unsureAlias, publicAlias, songTitle} {
 			assert.NotContains(t, s, name)
 		}
 	}

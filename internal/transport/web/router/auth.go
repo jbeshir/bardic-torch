@@ -10,7 +10,7 @@ import (
 )
 
 // ErrInvalidCredentials is wrapped by validator errors caused by the credentials themselves, such as a bad
-// signature or a revoked token, as opposed to a failure to check them.
+// signature, as opposed to a failure to check them.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
 // Identity is who a validator authenticated a request as.
