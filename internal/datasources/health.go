@@ -14,4 +14,5 @@ type Repository interface {
 	Users
 	Catalogue
 	Moderation
+	Revisions
 }

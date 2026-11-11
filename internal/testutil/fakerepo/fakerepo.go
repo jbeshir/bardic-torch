@@ -42,6 +42,17 @@ type Repo struct {
 	// ContactRequest is the last contact request stored.
 	ContactRequest *datasources.NewContactRequest
 
+	// The revision reads: RevisionView answers both revision gets, RevisionList both lists, and IDs every
+	// reference resolution.
+	Editable     *datasources.Editable
+	RevisionBase *datasources.RevisionBase
+	IDs          domain.IDs
+	Candidates   []domain.DuplicateCandidate
+	RevisionView domain.RevisionView
+	RevisionList domain.RevisionList
+	// Submitted is the last revision submitted.
+	Submitted *datasources.NewRevision
+
 	// Err, if set, is returned by every method, and PingErr by Ping only.
 	Err     error
 	PingErr error
@@ -254,3 +265,67 @@ func (r *Repo) ListContactRequests(
 }
 
 func (r *Repo) CloseContactRequest(context.Context, datasources.Closing) error { return r.Err }
+
+func (r *Repo) SubmitRevision(_ context.Context, rev datasources.NewRevision) (int64, error) {
+	r.Submitted = &rev
+	return 1, r.Err
+}
+
+func (r *Repo) GetRevisionBase(context.Context, domain.EntityType, int64) (datasources.RevisionBase, error) {
+	if r.Err != nil || r.RevisionBase == nil {
+		return datasources.RevisionBase{}, notFoundOr(r.Err)
+	}
+	return *r.RevisionBase, nil
+}
+
+func (r *Repo) WithdrawRevision(context.Context, int64, string) error { return r.Err }
+
+func (r *Repo) RejectRevision(context.Context, int64, string, string, time.Time) error { return r.Err }
+
+func (r *Repo) ApproveRevision(context.Context, int64, string, bool, time.Time) error { return r.Err }
+
+func (r *Repo) GetEditable(context.Context, domain.EntityType, string, string) (datasources.Editable, error) {
+	if r.Err != nil || r.Editable == nil {
+		return datasources.Editable{}, notFoundOr(r.Err)
+	}
+	return *r.Editable, nil
+}
+
+func (r *Repo) ResolveReferences(context.Context, domain.SlugReferences, bool) (domain.IDs, error) {
+	return r.IDs, r.Err
+}
+
+func (r *Repo) ValidationContext(context.Context, int64) (domain.ValidationContext, error) {
+	return domain.ValidationContext{}, r.Err
+}
+
+func (r *Repo) DuplicateCandidates(
+	context.Context, domain.EntityType, domain.Facet,
+) ([]domain.DuplicateCandidate, error) {
+	return r.Candidates, r.Err
+}
+
+func (r *Repo) ListMyRevisions(
+	context.Context, string, *domain.RevisionStatus, domain.Page,
+) (domain.RevisionList, error) {
+	return r.RevisionList, r.Err
+}
+
+func (r *Repo) GetMyRevision(context.Context, string, int64) (domain.RevisionView, error) {
+	return r.revisionView()
+}
+
+func (r *Repo) ListModerationQueue(context.Context, domain.Page) (domain.RevisionList, error) {
+	return r.RevisionList, r.Err
+}
+
+func (r *Repo) GetModerationRevision(context.Context, int64) (domain.RevisionView, error) {
+	return r.revisionView()
+}
+
+func (r *Repo) revisionView() (domain.RevisionView, error) {
+	if r.Err != nil || r.RevisionView == nil {
+		return nil, notFoundOr(r.Err)
+	}
+	return r.RevisionView, nil
+}

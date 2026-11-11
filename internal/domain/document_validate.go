@@ -27,6 +27,8 @@ const (
 	ProblemUnknownReference ProblemCode = "unknown_reference"
 	ProblemSourceRequired   ProblemCode = "source_required"
 	ProblemSummaryRequired  ProblemCode = "summary_required"
+	// ProblemPrefersNoPage is a new person whose name or an alias matches a person who prefers no page.
+	ProblemPrefersNoPage ProblemCode = "prefers_no_page"
 )
 
 // Problem is a problem with the field at Path of a document, in the editor format's JSON names
@@ -64,6 +66,16 @@ const (
 	maxTextBytes         = 65535
 	maxContributorsCount = 65535
 )
+
+// ValidateSummary returns the problems of a revision's summary: it fits a VARCHAR(500), in NFC without control
+// characters.
+func ValidateSummary(summary string) []Problem {
+	var p problems
+	p.check(utf8.RuneCountInString(summary) <= maxSummaryLength, "summary", ProblemTooLong)
+	p.contents(reflect.ValueOf(summary), "summary")
+
+	return p
+}
 
 // problems collects the problems of a document.
 type problems []Problem
