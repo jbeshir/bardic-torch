@@ -888,3 +888,85 @@ LIMIT ?;
 UPDATE links
 SET archived_url = COALESCE(sqlc.narg(archived_url), archived_url), archive_checked_at = sqlc.arg(checked_at)
 WHERE id = sqlc.arg(id);
+
+-- ============================================
+-- Link reports, link takedown and contact requests
+-- ============================================
+
+-- A visible link: not hidden, with a public attachment, so that it is shown on a public page.
+
+-- name: GetVisibleLinkID :one
+SELECT l.id
+FROM links l
+WHERE l.normalized_url = ? AND NOT l.is_hidden
+    AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = l.id);
+
+-- name: HasOpenLinkReport :one
+SELECT EXISTS (SELECT 1 FROM link_reports WHERE reporter_user_id = ? AND link_id = ? AND status = 'open');
+
+-- name: InsertLinkReport :execresult
+INSERT INTO link_reports (link_id, reporter_user_id, reason, message, created_at)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: ListLinkReports :many
+SELECT r.id, r.link_id, l.url, l.is_hidden, r.reporter_user_id, u.display_name AS reporter_display_name, r.reason,
+    r.message, r.status, r.created_at, r.resolved_by_user_id, r.resolved_at, r.resolution_note
+FROM link_reports r
+JOIN links l ON l.id = r.link_id
+JOIN users u ON u.id = r.reporter_user_id
+WHERE r.status = ?
+ORDER BY r.created_at, r.id
+LIMIT ? OFFSET ?;
+
+-- name: CountLinkReports :one
+SELECT COUNT(*) FROM link_reports WHERE status = ?;
+
+-- name: GetLinkReportState :one
+SELECT link_id, status FROM link_reports WHERE id = ?;
+
+-- name: CloseLinkReport :exec
+UPDATE link_reports
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ?;
+
+-- name: SetLinkHidden :execrows
+UPDATE links SET is_hidden = ? WHERE id = ?;
+
+-- name: GetModerationLink :one
+SELECT id, url, title, liveness, is_hidden FROM links WHERE normalized_url = ?;
+
+-- name: ListModerationLinkAttachments :many
+SELECT a.role, pc.slug AS piece_slug, pc.title AS piece_title, ps.slug AS person_slug, ps.name AS person_name
+FROM link_attachments a
+LEFT JOIN pieces pc ON pc.id = a.piece_id
+LEFT JOIN persons ps ON ps.id = a.person_id
+WHERE a.link_id = ?
+ORDER BY a.piece_id IS NULL, a.piece_id, a.person_id, a.position, a.id;
+
+-- name: InsertContactRequest :execresult
+INSERT INTO contact_requests (kind, name, email, message, url, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: ListContactRequests :many
+SELECT id, kind, name, email, message, url, status, created_at, resolved_by_user_id, resolved_at, resolution_note,
+    purged_at
+FROM contact_requests
+WHERE status = ?
+ORDER BY created_at, id
+LIMIT ? OFFSET ?;
+
+-- name: CountContactRequests :one
+SELECT COUNT(*) FROM contact_requests WHERE status = ?;
+
+-- name: GetContactRequestStatus :one
+SELECT status FROM contact_requests WHERE id = ?;
+
+-- name: CloseContactRequest :exec
+UPDATE contact_requests
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ?;
+
+-- name: PurgeContactRequests :exec
+UPDATE contact_requests
+SET name = NULL, email = NULL, message = NULL, url = NULL, purged_at = sqlc.arg(purged_at)
+WHERE purged_at IS NULL AND status <> 'open' AND resolved_at < sqlc.arg(resolved_before);
