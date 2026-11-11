@@ -89,7 +89,8 @@ type PieceRecord struct {
 	// Credits are the credits of the infoboxes' person parameters, before the persons they name are matched.
 	Credits []CreditRecord
 	Content PieceContent
-	Lyrics  DroppedLyrics
+	// HadInlineLyrics is legacy_had_inline_lyrics: DropInlineLyrics dropped some of the page.
+	HadInlineLyrics bool
 }
 
 // Conservation is the piece's conservation status: the most severe of its categories', or unassessed.
@@ -104,8 +105,8 @@ func (p PieceRecord) Conservation() domain.ConservationStatus {
 // ParsePiece parses a piece page. Its inline lyrics are found on the original wikitext and dropped before
 // anything else reads it; facets come from the page's categories, the infobox only ordering and scoping them.
 func ParsePiece(p Page, s Site) PieceRecord {
-	lyrics := InlineLyricsBlocks(p.Wikitext)
-	repaired := RepairMarkup(WithoutInlineLyrics(p.Wikitext, lyrics.Blocks))
+	dropped, hadLyrics := DropInlineLyrics(p.Wikitext)
+	repaired := RepairMarkup(dropped)
 	parsed := ParsePage(repaired)
 	kind := primaryKind(p, parsed.Infoboxes)
 	sorted := sortCategories(p, parsed.Infoboxes, s)
@@ -113,11 +114,11 @@ func ParsePiece(p Page, s Site) PieceRecord {
 		PageID: p.PageID, Title: p.Title, URL: p.URL, Wikitext: repaired, Parsed: parsed,
 		Kind: kind, SecondaryKinds: secondaryKinds(p, kind),
 		Terms: sorted.terms, ConservationStatuses: sorted.statuses, BardNameCategories: sorted.bardNames,
-		Titles:  pieceTitles(p, parsed, s),
-		Credits: pieceCredits(parsed.Infoboxes, sorted.terms, s),
-		Lyrics:  DroppedLyrics{HadInlineLyrics: lyrics.HadInlineLyrics},
+		Titles:          pieceTitles(p, parsed, s),
+		Credits:         pieceCredits(parsed.Infoboxes, sorted.terms, s),
+		HadInlineLyrics: hadLyrics,
 	}
-	r.Content = pieceContent(r, s, versionNotes(p.Wikitext, lyrics))
+	r.Content = pieceContent(r, s, versionNotes(dropped))
 
 	return r
 }

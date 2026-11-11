@@ -2,7 +2,6 @@ package mediawiki
 
 import (
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -202,12 +201,10 @@ type ListItem struct {
 	Text  string
 }
 
-// SectionExternalLink is an external link with its text decoded, the trimmed line it is on and that line's index
-// among the section's non-blank lines (consecutive lines have consecutive indexes, blank lines between).
+// SectionExternalLink is an external link with its text decoded and the trimmed line it is on.
 type SectionExternalLink struct {
 	ExternalLink
-	Line      string
-	LineIndex int
+	Line string
 }
 
 var (
@@ -234,12 +231,9 @@ func AnalyzeSection(content string) SectionContent {
 		}
 	}
 	var external []SectionExternalLink
-	starts := nonBlankLineStarts(masked)
 	for _, e := range FindExternalLinks(masked) {
 		e.Text = DecodeEntities(e.Text)
-		index := sort.Search(len(starts), func(k int) bool { return starts[k] > e.Start }) - 1
-		external = append(external, SectionExternalLink{ExternalLink: e, Line: lineAt(masked, e.Start),
-			LineIndex: index})
+		external = append(external, SectionExternalLink{ExternalLink: e, Line: lineAt(masked, e.Start)})
 	}
 	var wikilinks []Wikilink
 	for _, l := range FindWikilinks(masked) {
@@ -260,25 +254,6 @@ func AnalyzeSection(content string) SectionContent {
 // isListMarkerOrSpace is the reference's [\s*#:].
 func isListMarkerOrSpace(r rune) bool {
 	return isSpace(r) || r == '*' || r == '#' || r == ':'
-}
-
-// nonBlankLineStarts are the offsets in s of the lines that are not blank.
-func nonBlankLineStarts(s string) []int {
-	var out []int
-	for start := 0; start <= len(s); {
-		end := strings.IndexByte(s[start:], '\n')
-		if end < 0 {
-			end = len(s)
-		} else {
-			end += start
-		}
-		if trimSpace(s[start:end]) != "" {
-			out = append(out, start)
-		}
-		start = end + 1
-	}
-
-	return out
 }
 
 func lineAt(s string, offset int) string {

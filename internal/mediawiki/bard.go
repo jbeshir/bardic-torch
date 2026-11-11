@@ -82,8 +82,8 @@ var deceasedLayouts = []string{"January 2, 2006", "January 2 2006", "2 January 2
 // ParseBard parses a bard page. Like ParsePiece, it drops the page's inline lyrics and repairs its markup before
 // anything reads it.
 func ParseBard(p Page, s Site) BardRecord {
-	lyrics := InlineLyricsBlocks(p.Wikitext)
-	repaired := RepairMarkup(WithoutInlineLyrics(p.Wikitext, lyrics.Blocks))
+	dropped, _ := DropInlineLyrics(p.Wikitext)
+	repaired := RepairMarkup(dropped)
 	parsed := ParsePage(repaired)
 	b := BardRecord{
 		PageID: p.PageID, Title: p.Title, URL: p.URL, Wikitext: repaired, Parsed: parsed,

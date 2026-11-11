@@ -40,7 +40,7 @@ func Stats(c Corpus) CorpusStats {
 		PagesWithRepeatedURLs: len(c.Links.PagesWithRepeatedURLs())}
 	for _, p := range c.Pieces {
 		st.PiecesByKind[p.Kind]++
-		if p.Lyrics.HadInlineLyrics {
+		if p.HadInlineLyrics {
 			st.InlineLyricsPages++
 		}
 	}

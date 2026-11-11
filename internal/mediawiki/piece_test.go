@@ -139,7 +139,7 @@ func TestScrubbedPieces_ResearchCounts(t *testing.T) {
 	lyrics, conservation := 0, 0
 	for _, p := range pieces {
 		kinds[p.Kind]++
-		if p.Lyrics.HadInlineLyrics {
+		if p.HadInlineLyrics {
 			lyrics++
 		}
 		if p.Conservation() != domain.ConservationStatusUnassessed {
@@ -174,5 +174,5 @@ func TestScrubbedPieces_Examples(t *testing.T) {
 
 	assert.Equal(t, []domain.PieceKind{domain.PieceKindInstrumental}, pieces["Burden of the Crown"].SecondaryKinds)
 	assert.Equal(t, domain.ConservationStatusCriticallyEndangered, pieces["Oathkeeping"].Conservation())
-	assert.True(t, pieces["Band of Brothers"].Lyrics.HadInlineLyrics)
+	assert.True(t, pieces["Band of Brothers"].HadInlineLyrics)
 }

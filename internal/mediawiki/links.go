@@ -14,14 +14,12 @@ import (
 const infoboxSectionPrefix = "infobox:"
 
 // LinkOccurrence is one external link as a page writes it: its URL and text, whether it is bracketed, the trimmed
-// line it is on, that line's index among its section's non-blank lines and the key of its section
-// ("infobox:<param>" for one in an infobox, whose line is empty).
+// line it is on and the key of its section ("infobox:<param>" for one in an infobox, whose line is empty).
 type LinkOccurrence struct {
 	URL       string
 	Text      string
 	Bracketed bool
 	Line      string
-	LineIndex int
 	Section   SectionKey
 }
 
@@ -180,7 +178,7 @@ func pageOccurrences(parsed ParsedPage) []LinkOccurrence {
 	for _, sec := range parsed.Sections {
 		for _, e := range sec.Content.ExternalLinks {
 			out = append(out, LinkOccurrence{URL: e.URL, Text: e.Text, Bracketed: e.Bracketed, Line: e.Line,
-				LineIndex: e.LineIndex, Section: sec.Key})
+				Section: sec.Key})
 		}
 	}
 	for _, box := range parsed.Infoboxes {
@@ -204,12 +202,9 @@ func pageOccurrences(parsed ParsedPage) []LinkOccurrence {
 }
 
 // extractLinks returns a page's links: its occurrences, and the links of its sections deduplicated by normalised
-// URL, each keeping the first URL as entered, the first text and locator and the union of the roles. A link on a
-// line of a prose run (proseRuns) has no description.
+// URL, each keeping the first URL as entered, the first text and locator and the union of the roles.
 func extractLinks(parsed ParsedPage, ctx linkContext) PageLinks {
 	out := PageLinks{Occurrences: pageOccurrences(parsed)}
-	inRun := map[sectionLine]bool{}
-	proseRuns(out.Occurrences, inRun)
 	lines := map[string]int{}
 	for _, o := range out.Occurrences {
 		lines[string(o.Section)+"\n"+o.Line]++
@@ -227,9 +222,6 @@ func extractLinks(parsed ParsedPage, ctx linkContext) PageLinks {
 		if !ok {
 			continue
 		}
-		if inRun[sectionLine{o.Section, o.LineIndex}] {
-			rec.Description = ""
-		}
 		k, seen := byURL[rec.NormalizedURL]
 		if !seen {
 			byURL[rec.NormalizedURL] = len(out.Links)
@@ -244,74 +236,6 @@ func extractLinks(parsed ParsedPage, ctx linkContext) PageLinks {
 	}
 
 	return out
-}
-
-// sectionLine is a line of a section, by its index among the section's non-blank lines.
-type sectionLine struct {
-	section SectionKey
-	index   int
-}
-
-// proseRuns adds to inRun the lines of the runs whose text around their links could be lyrics: consecutive lines of
-// a section (blank lines aside) that each carry an external link and text around it, reading as at least
-// InlineLyricsMinLines lines (TextLines) in all. Infobox and performance sections have none: their links have no
-// description.
-func proseRuns(occurrences []LinkOccurrence, inRun map[sectionLine]bool) {
-	var run []sectionLine
-	lines := 0
-	flush := func() {
-		if lines >= InlineLyricsMinLines {
-			for _, l := range run {
-				inRun[l] = true
-			}
-		}
-		run, lines = nil, 0
-	}
-	seen := map[sectionLine]bool{}
-	for _, o := range occurrences {
-		at := sectionLine{o.Section, o.LineIndex}
-		if o.Section.IsInfobox() || o.Section.IsPerformanceSection() || seen[at] {
-			continue
-		}
-		seen[at] = true
-		n := proseLinesAround(o.Line)
-		if n == 0 {
-			flush()
-
-			continue
-		}
-		if k := len(run); k > 0 && (run[k-1].section != at.section || run[k-1].index+1 != at.index) {
-			flush()
-		}
-		run = append(run, at)
-		lines += n
-	}
-	flush()
-}
-
-// proseLinesAround is the number of lines the text of a line around its external links reads as (TextLines), or 0
-// if that text is only list markers and separators.
-func proseLinesAround(line string) int {
-	rest := withoutExternalLinks(line)
-	if trimDescription(collapseSpaces(Plain(rest))) == "" {
-		return 0
-	}
-
-	return max(TextLines(rest), 1)
-}
-
-// withoutExternalLinks is line with each external link replaced by a space.
-func withoutExternalLinks(line string) string {
-	var rest strings.Builder
-	last := 0
-	for _, e := range FindExternalLinks(line) {
-		rest.WriteString(line[last:e.Start])
-		rest.WriteByte(' ')
-		last = e.End
-	}
-	rest.WriteString(line[last:])
-
-	return rest.String()
 }
 
 // linkOf is one occurrence as a link, with the role of its section, or false if its URL does not normalise.

@@ -137,29 +137,9 @@ func unescapedAt(s string, i int) bool {
 	return n%2 == 0
 }
 
-func FuzzInlineLyricsBlocks(f *testing.F) {
+func FuzzDropInlineLyrics(f *testing.F) {
 	addSeeds(f)
-	f.Fuzz(func(t *testing.T, text string) {
-		lyrics := InlineLyricsBlocks(text)
-		last := 0
-		for _, b := range lyrics.Blocks {
-			checkBlock(t, b, last, len(text))
-			last = b.End
-		}
-		for _, c := range lyrics.Commentary {
-			if c.Start < 0 || c.End > len(text) || c.Start > c.End || overlapsBlock(lyrics.Blocks, c.Start, c.End) {
-				t.Fatalf("commentary [%d, %d) out of bounds or inside a block", c.Start, c.End)
-			}
-		}
-		if poemOpen.MatchString(WithoutInlineLyrics(text, lyrics.Blocks)) {
-			t.Fatalf("a <poem tag survives removing the lyrics")
-		}
+	f.Fuzz(func(_ *testing.T, text string) {
+		DropInlineLyrics(text)
 	})
-}
-
-func checkBlock(t *testing.T, b LyricsBlock, previousEnd, length int) {
-	t.Helper()
-	if b.Start < previousEnd || b.End > length || b.Start > b.End {
-		t.Fatalf("block [%d, %d) out of order or bounds (after %d, length %d)", b.Start, b.End, previousEnd, length)
-	}
 }

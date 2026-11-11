@@ -10,10 +10,8 @@ import (
 
 // PieceContent is a piece's prose, as Markdown, taken from its wikitext after the inline lyrics are dropped:
 //   - NotesMD: the lead (without the H1, infobox and "Also known as" lines), Notes and unrecognised sections, each
-//     of the latter under its heading, and the prose of the link sections under theirs (none when it is as long
-//     as inline lyrics: InlineLyricsMinLines lines or more could be lyrics);
-//   - VersionNotesMD: the version commentary of the Lyrics and Text sections (their prose when it is under
-//     InlineLyricsMinLines lines);
+//     of the latter under its heading, and the prose of the link sections under theirs;
+//   - VersionNotesMD: the version commentary of the Lyrics and Text sections (versionNotes);
 //   - LicensingNotesMD: Licensing & Etiquette without its hints and the "cannot find" sentence;
 //   - HistoricalSourceMD: Timeline of Text Sources.
 //
@@ -36,12 +34,6 @@ var linkSections = map[SectionKey]bool{
 	SectionKeyLinks: true, SectionSheetMusic: true, SectionDancingInstructions: true, SectionTranslations: true,
 }
 
-// DroppedLyrics is what InlineLyricsBlocks dropped from a piece: never the text. HadInlineLyrics is
-// legacy_had_inline_lyrics.
-type DroppedLyrics struct {
-	HadInlineLyrics bool
-}
-
 var centuryOrigin = regexp.MustCompile(`^(\d{1,2})(?:st|nd|rd|th) Century$`)
 
 // maxCentury is the last century a period can be in (the 99th: its end, 9900, fits a SMALLINT).
@@ -50,55 +42,26 @@ const maxCentury = 99
 // notesSectionMD is the Markdown heading prefix of an unrecognised section in the notes.
 const notesSectionMD = "### "
 
-// versionNotes is the version commentary of a page's Lyrics and Text sections, as wikitext, in page order: their
-// prose lines when there are fewer than InlineLyricsMinLines (InlineLyrics.Commentary) and, in a section without
-// prose lyrics, the prose lines that carry a link (as Belt and Chain's "There are two versions … [url …]"). List
-// items, which are the section's links, are not commentary.
-func versionNotes(wikitext string, lyrics InlineLyrics) string {
+// versionNotes is the version commentary of the Lyrics and Text sections of a page's wikitext without its lyrics
+// (DropInlineLyrics), as wikitext, in page order: their lines but blank lines, hints and list items carrying a link
+// (which are the section's links).
+func versionNotes(wikitext string) string {
 	masked := MaskComments(wikitext)
-	commentary := map[int]bool{}
-	for _, c := range lyrics.Commentary {
-		commentary[c.Start] = true
-	}
-	proseSections := map[int]bool{}
-	for _, b := range lyrics.Blocks {
-		if b.Kind == LyricsProse {
-			proseSections[b.Section] = true
-		}
-	}
 	var lines []string
-	for k, s := range PageSections(wikitext) {
+	for _, s := range PageSections(wikitext) {
 		if !KeyOf(s).IsLyrics() {
 			continue
 		}
 		for _, l := range lineSpans(masked, s.BodyStart, s.End) {
 			line := masked[l.start:l.end]
-			linkProse := !proseSections[k] && carriesLink(line) && !listLine.MatchString(line) &&
-				!overlapsBlock(lyrics.Blocks, l.start, l.end)
-			if commentary[l.start] || linkProse {
-				lines = append(lines, StripComments(wikitext[l.start:l.end]))
+			if trimSpace(line) == "" || IsHint(line) || listLine.MatchString(line) && carriesLink(line) {
+				continue
 			}
+			lines = append(lines, StripComments(wikitext[l.start:l.end]))
 		}
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-// lineSpans are the lines of text[start:end], as offsets into text.
-func lineSpans(text string, start, end int) []lineSpan {
-	var out []lineSpan
-	for start < end {
-		next := strings.IndexByte(text[start:end], '\n')
-		if next < 0 {
-			next = end
-		} else {
-			next += start
-		}
-		out = append(out, lineSpan{start: start, end: next})
-		start = next + 1
-	}
-
-	return out
 }
 
 func pieceContent(r PieceRecord, s Site, versionWikitext string) PieceContent {
@@ -178,35 +141,22 @@ func (c *PieceContent) period(terms []PieceTerm, plan TermPlan) {
 	}
 }
 
-// linkSection is the prose of a link section to keep in the notes, as wikitext (linkSectionProse): none if it is
-// as long as inline lyrics.
-func linkSection(body string) string {
-	prose, lines := linkSectionProse(body)
-	if lines >= InlineLyricsMinLines {
-		return ""
-	}
-
-	return prose
-}
-
 // ruleLine is a horizontal rule, or a list marker with nothing after it.
 var ruleLine = regexp.MustCompile(`^(?:-{4,}|[*#:]+)$`)
 
-// linkSectionProse is the prose of a link section's body (proseOf), as wikitext, and its number of lines: the lines
-// that carry no external link and are not rules or empty, each counted as the lines it reads as (TextLines).
-func linkSectionProse(body string) (string, int) {
+// linkSection is the prose of a link section's body (proseOf), as wikitext: the lines that carry no external link
+// and are not rules or empty.
+func linkSection(body string) string {
 	var kept []string
-	n := 0
 	for _, line := range strings.Split(body, "\n") {
 		t := trimSpace(line)
 		if t == "" || ruleLine.MatchString(t) || len(FindExternalLinks(MaskNowiki(t))) > 0 {
 			continue
 		}
 		kept = append(kept, line)
-		n += TextLines(t)
 	}
 
-	return strings.Join(kept, "\n"), n
+	return strings.Join(kept, "\n")
 }
 
 // proseOf is a section's body without its infobox call and the lines that are not prose: hints, category tags

@@ -19,7 +19,8 @@ and the bards who wrote or perform them. It helps people *find* pieces and *pres
 MediaWiki site, which stays where it is on Miraheze.
 
 Fixed decisions:
-- **No lyrics or text are hosted**, ever. Pieces carry only links, metadata and sourced notes.
+- **No lyrics are stored or shown; moderators remove any that are submitted.** Pieces carry only links, metadata
+  and sourced notes.
 - **Moderators are John and Fabian.** Everyone else's edits wait for approval; the last approved revision is live.
 - **Login:** Auth0 social login (Google, Facebook).
 - **Hosting:** the Go API on John's dokku instance (dokku MySQL plugin); the React Router 8 FE on Cloudflare
@@ -250,15 +251,15 @@ Bodies are limited to 1 MiB for documents, 64 KiB for `/v1/contact` and 16 KiB o
 
 **Input:** the research dump (`pages.jsonl`, `categories.json`, `redirects.json`, `activity.json`); the research
 `scripts/` define the expected behaviour. A copy with inline lyrics replaced by placeholder lines is committed
-under `testdata/wiki-dump/`, so tests need no network; it is frozen and never regenerated. `denylist.txt` holds
-salted hashes of the dropped lyrics' 8-word n-grams, and a test fails if any appears in the repository.
+under `testdata/wiki-dump/`, so tests need no network; it is frozen and never regenerated.
 
 **Steps:** type the pages (pieces, bards) and parse their sections; take facets from the categories
 (`taxonomy.json`); parse credits with attribution, certainty and part, uniting the bard
 signals (infobox, bard category, works list) and matching plain-text names by folded name, then fuzzily; extract
 links with role, platform, collection and locator, deduplicated by normalised URL; parse performances, keeping
-the text verbatim; turn redirects into aliases and red links into stubs; **drop inline lyrics** (four or more
-lines, and link-section prose that could be lyrics), setting `legacy_had_inline_lyrics`; and write everything as
+the text verbatim; turn redirects into aliases and red links into stubs; **drop inline lyrics** (every `<poem>`
+block, and the lines without a link of a Lyrics or Text section when there are four or more; fewer are version
+notes), setting `legacy_had_inline_lyrics`; and write everything as
 approved `import` revisions crediting wiki contributors.
 
 **Writing:** strings are NFC without control characters; wikitext becomes escaped Markdown with absolute http(s)
@@ -270,7 +271,7 @@ written in one transaction into an empty catalogue.
 database. The launch run (a dry run, then `--apply` once) is in DEPLOY.md.
 
 **Tests:** the research counts (142 pieces, 135/4/2/1 by kind; 48 bards; 61 collections; 11 inline-lyrics pages);
-no dropped lyric in any field (the n-gram scan); goldens of the tricky pages; the writer writes every row, rolls
+goldens of the tricky pages; the writer writes every row, rolls
 back on failure and refuses a non-empty catalogue; the imported catalogue reads back valid by the spec.
 
 ## 8. Frontend
@@ -350,8 +351,8 @@ name rules and their tests); the `draft` status and `mcp` source values; the imp
 other rule that treated names as private; the import review file (`import-review.md`, `--review`); the hostile-input
 CPU-time tests; the unused `claimed_by_user_id` column and preference tables; API tokens (`api_tokens` by
 migration, `/v1/tokens*`, the token validator in the auth middleware) and the `auth0|` credential prefix (the API
-takes `Authorization: Bearer <jwt>`); `cmd/scrub-dump` and the scrubber, keeping only the lyric n-gram scan of
-`internal/scrub`; and the docs about them. It also brought the tests to §9:
+takes `Authorization: Bearer <jwt>`); `cmd/scrub-dump` and the scrubber; the importer's lyric heuristics beyond
+the rule in §7; and the docs about them. It also brought the tests to §9:
 - deleted the research-oracle tests, the tests of test helpers, and the generated-SQL string tests (keeping the
   search integration tests and a few builder unit tests);
 - replaced the mockery mocks and one-method interfaces with the HTTP tests or one hand-written fake;

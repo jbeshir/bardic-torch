@@ -328,7 +328,7 @@ func (p *termPlanner) result() TermPlan {
 
 // categoryDescription is a category page's description as Markdown, without its category tags and lyrics.
 func categoryDescription(wikitext string) string {
-	text := WithoutInlineLyrics(wikitext, InlineLyricsBlocks(wikitext).Blocks)
+	text, _ := DropInlineLyrics(wikitext)
 
 	return WikitextToMarkdown(categoryTag.ReplaceAllString(text, ""))
 }

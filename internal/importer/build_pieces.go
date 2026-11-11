@@ -50,7 +50,7 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 
 	return domain.ImportedPiece{ID: id, Slug: b.slugs.Allocate(doc.Title, domain.SlugEntityTypePiece, id),
 		SortTitle: sortTitle, SortLetter: domain.SortLetter(sortTitle), Doc: doc,
-		LegacyHadInlineLyrics: p.Lyrics.HadInlineLyrics, Legacy: legacy(page), Revision: b.revision(&page, "")}
+		LegacyHadInlineLyrics: p.HadInlineLyrics, Legacy: legacy(page), Revision: b.revision(&page, "")}
 }
 
 // pieceAliases are a piece's alternate titles, each once as the collation compares them and none equal to the
