@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Production image for dokku: the API server, the migrate command, which app.json's predeploy step runs, and
 # the one-off import-mediawiki command (docs/DEPLOY.md, "Importing the legacy wiki").
-FROM golang:1.27.3-alpine AS builder
+FROM golang:1.27.4-alpine AS builder
 
 # Build with the image's Go, which is the version go.mod requires, rather than downloading a toolchain.
 ENV GOTOOLCHAIN=local CGO_ENABLED=0

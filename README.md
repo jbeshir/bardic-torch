@@ -97,7 +97,7 @@ Three entrypoints share the internal packages:
 
 ### Prerequisites
 
-- Go 1.27.3+ (`GOTOOLCHAIN=auto` fetches it)
+- Go 1.27.4+ (`GOTOOLCHAIN=auto` fetches it)
 - podman (or docker, with `CONTAINER_ENGINE=docker`) for the development MySQL
 - Make
 
