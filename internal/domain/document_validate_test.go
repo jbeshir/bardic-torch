@@ -136,8 +136,9 @@ func TestValidatePieceSources(t *testing.T) {
 	sourced.Links[0].Roles = []domain.LinkRole{domain.LinkRoleLicensingSource}
 
 	assert.ElementsMatch(t, []domain.Problem{problem("licence", "source_required"),
-		problem("licensing_notes_md", "source_required"), problem("licensing_status", "source_required"),
-		problem("summary", "summary_required")}, domain.ValidatePieceSources(nil, unsourced, ""))
+		problem("licence_version", "source_required"), problem("licensing_notes_md", "source_required"),
+		problem("licensing_status", "source_required"), problem("summary", "summary_required")},
+		domain.ValidatePieceSources(nil, unsourced, ""))
 	assert.Empty(t, domain.ValidatePieceSources(nil, sourced, "Surveyed."))
 	assert.Empty(t, domain.ValidatePieceSources(&unsourced, unsourced, ""), "unchanged fields need nothing")
 

@@ -7,9 +7,9 @@ import (
 
 // ValidatePieceSources returns the problems of a revision's sourced piece fields, compared with old, the current
 // document (nil for a new piece, compared with no licensing information and an unassessed status): a changed
-// licence or licensing notes, or a licensing status changed to known, needs a link with role licensing_source; a
-// conservation status other than unassessed needs a source URL, and a changed one a summary. The importer does
-// not run it.
+// licence, licence version or licensing notes, or a licensing status changed to known, needs a link with role
+// licensing_source; a conservation status other than unassessed needs a source URL, and a changed one a summary.
+// The importer does not run it.
 func ValidatePieceSources(old *PieceDocument, doc PieceDocument, summary string) []Problem {
 	prev := PieceDocument{LicensingStatus: LicensingStatusUnknown,
 		Conservation: DocConservation{Status: ConservationStatusUnassessed}}
@@ -22,6 +22,8 @@ func ValidatePieceSources(old *PieceDocument, doc PieceDocument, summary string)
 	var p problems
 	p.check(sourced || doc.Licence == nil || equalPointers(doc.Licence, prev.Licence), "licence",
 		ProblemSourceRequired)
+	p.check(sourced || doc.LicenceVersion == nil || equalPointers(doc.LicenceVersion, prev.LicenceVersion),
+		"licence_version", ProblemSourceRequired)
 	p.check(sourced || blank(doc.LicensingNotesMD) || equalPointers(doc.LicensingNotesMD, prev.LicensingNotesMD),
 		"licensing_notes_md", ProblemSourceRequired)
 	p.check(sourced || doc.LicensingStatus != LicensingStatusKnown || prev.LicensingStatus == LicensingStatusKnown,
