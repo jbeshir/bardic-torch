@@ -40,7 +40,7 @@ WHERE entity_type = ? AND entity_id = ? AND status = 'approved'
 
 type CountApprovedRevisionsParams struct {
 	EntityType RevisionsEntityType
-	EntityID   uint64
+	EntityID   sql.NullInt64
 }
 
 func (q *Queries) CountApprovedRevisions(ctx context.Context, arg CountApprovedRevisionsParams) (int64, error) {
@@ -175,7 +175,7 @@ WHERE r.id = ? AND r.status = 'approved'
 type GetApprovedRevisionRow struct {
 	ID                uint64
 	EntityType        RevisionsEntityType
-	EntityID          uint64
+	EntityID          sql.NullInt64
 	Source            RevisionsSource
 	Summary           string
 	CreatedAt         time.Time
@@ -742,7 +742,7 @@ VALUES (?, ?, ?, 'import', 'approved', ?, ?, ?)
 type InsertImportedRevisionParams struct {
 	ID           uint64
 	EntityType   RevisionsEntityType
-	EntityID     uint64
+	EntityID     sql.NullInt64
 	SnapshotJson json.RawMessage
 	Summary      string
 	CreatedAt    time.Time
@@ -1114,7 +1114,7 @@ LIMIT ? OFFSET ?
 
 type ListApprovedRevisionsParams struct {
 	EntityType RevisionsEntityType
-	EntityID   uint64
+	EntityID   sql.NullInt64
 	Limit      int32
 	Offset     int32
 }
