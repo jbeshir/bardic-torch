@@ -104,7 +104,8 @@ func (c *catalogueReader) history(
 	ctx context.Context, entityType queries.RevisionsEntityType, id uint64, page domain.Page,
 ) domain.RevisionHistory {
 	rows := fetch(ctx, c, "revisions", c.q.ListApprovedRevisions, queries.ListApprovedRevisionsParams{
-		EntityType: entityType, EntityID: sql.NullInt64{Int64: c.signedID(id), Valid: true}, Limit: page.Limit, Offset: page.Offset,
+		EntityType: entityType, EntityID: sql.NullInt64{Int64: c.signedID(id), Valid: true}, Limit: page.Limit,
+		Offset: page.Offset,
 	})
 	ids := make([]uint64, 0, len(rows))
 	for _, row := range rows {
@@ -121,7 +122,8 @@ func (c *catalogueReader) history(
 	return domain.RevisionHistory{
 		Revisions: revisions,
 		Total: fetch(ctx, c, "revision count", c.q.CountApprovedRevisions,
-			queries.CountApprovedRevisionsParams{EntityType: entityType, EntityID: sql.NullInt64{Int64: c.signedID(id), Valid: true}}),
+			queries.CountApprovedRevisionsParams{EntityType: entityType,
+				EntityID: sql.NullInt64{Int64: c.signedID(id), Valid: true}}),
 	}
 }
 

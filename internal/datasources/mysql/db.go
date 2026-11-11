@@ -80,16 +80,44 @@ func ConfigFromURL(rawURL string) (*mysqldriver.Config, error) {
 	return cfg, nil
 }
 
-// Connect opens a connection pool using cfg and checks that the database is reachable.
-func Connect(ctx context.Context, cfg *mysqldriver.Config) (*sql.DB, error) {
+// PoolLimits are the limits of a connection pool. Every connection of a pool, idle ones included, takes one of the
+// server's max_connections (151 on the stock mysql:8.4 image).
+type PoolLimits struct {
+	// MaxOpenConns caps the pool's connections; a query that finds them all busy waits for one.
+	MaxOpenConns int
+	// MaxIdleConns caps the connections kept open while unused.
+	MaxIdleConns int
+	// ConnMaxLifetime closes a connection this long after it was opened.
+	ConnMaxLifetime time.Duration
+	// ConnMaxIdleTime closes a connection that has been idle this long.
+	ConnMaxIdleTime time.Duration
+}
+
+// ProductionPool returns the limits of the API's and the importer's pools. At most two API processes overlap during
+// a deploy, beside the migrate, an import and an operator's session, so ten each stays far under 151. Idle
+// connections close after five minutes, well under the server's wait_timeout, and every connection is replaced
+// after 30 minutes so that a restarted service container is reached.
+func ProductionPool() PoolLimits {
+	return PoolLimits{
+		MaxOpenConns:    10,
+		MaxIdleConns:    10,
+		ConnMaxLifetime: 30 * time.Minute,
+		ConnMaxIdleTime: 5 * time.Minute,
+	}
+}
+
+// Connect opens a connection pool using cfg, with limits, and checks that the database is reachable.
+func Connect(ctx context.Context, cfg *mysqldriver.Config, limits PoolLimits) (*sql.DB, error) {
 	connector, err := mysqldriver.NewConnector(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("configuring MySQL connector: %w", err)
 	}
 
 	db := sql.OpenDB(connector)
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(limits.MaxOpenConns)
+	db.SetConnMaxLifetime(limits.ConnMaxLifetime)
+	db.SetConnMaxIdleTime(limits.ConnMaxIdleTime)
+	db.SetMaxIdleConns(limits.MaxIdleConns)
 
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()

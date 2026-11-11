@@ -67,7 +67,7 @@ func CreateDatabase(ctx context.Context) (dbURL string, drop func(context.Contex
 
 	adminCfg := cfg.Clone()
 	adminCfg.DBName = ""
-	admin, err := mysql.Connect(ctx, adminCfg)
+	admin, err := mysql.Connect(ctx, adminCfg, mysql.PoolLimits{MaxOpenConns: 1})
 	if err != nil {
 		return "", nil, fmt.Errorf("connecting to %s: %w", AdminURLEnv, err)
 	}
@@ -99,7 +99,7 @@ func Connect(ctx context.Context, dbURL string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing test database URL: %w", err)
 	}
-	db, err := mysql.Connect(ctx, cfg)
+	db, err := mysql.Connect(ctx, cfg, Pool())
 	if err != nil {
 		return nil, fmt.Errorf("connecting to test database: %w", err)
 	}
@@ -149,4 +149,11 @@ func newDatabaseConfig() (string, *mysqldriver.Config, error) {
 	}
 
 	return u.String(), cfg, nil
+}
+
+// Pool returns the limits of the test pools. go test runs many binaries with many parallel tests against one
+// server, and the pools of databases that live for a whole binary add up to its max_connections, so a test pool
+// opens at most four connections and keeps one idle.
+func Pool() mysql.PoolLimits {
+	return mysql.PoolLimits{MaxOpenConns: 4, MaxIdleConns: 1}
 }

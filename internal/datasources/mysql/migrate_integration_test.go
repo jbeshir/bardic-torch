@@ -25,6 +25,7 @@ var migratedTables = []string{
 	"pieces", "piece_secondary_kinds", "piece_aliases", "piece_terms", "piece_relations", "piece_credits",
 	"conservation_history",
 	"links", "link_attachments", "performances", "performance_performers",
+	"link_reports", "contact_requests",
 }
 
 // migratedViews are the views the migrations create.
@@ -36,7 +37,7 @@ func TestMigrations_UpDownUp(t *testing.T) {
 	ctx := t.Context()
 	cfg, err := mysql.ConfigFromURL(mysqltest.NewDatabaseURL(t))
 	require.NoError(t, err)
-	db, err := mysql.Connect(ctx, cfg)
+	db, err := mysql.Connect(ctx, cfg, mysqltest.Pool())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
@@ -110,19 +111,22 @@ const (
 
 // identifierCollations lists every collated column that does not use textCollation.
 var identifierCollations = map[string]string{
-	"users.id":                   binaryCollation,
-	"revisions.author_user_id":   binaryCollation,
-	"revisions.reviewer_user_id": binaryCollation,
-	"terms.slug":                 asciiBinaryCollation,
-	"collections.sort_letter":    asciiBinaryCollation,
-	"events.slug":                asciiBinaryCollation,
-	"persons.slug":               asciiBinaryCollation,
-	"persons.sort_letter":        asciiBinaryCollation,
-	"pieces.slug":                asciiBinaryCollation,
-	"pieces.sort_letter":         asciiBinaryCollation,
-	"links.url":                  binaryCollation,
-	"links.normalized_url":       asciiBinaryCollation,
-	"links.platform":             asciiBinaryCollation,
+	"users.id":                             binaryCollation,
+	"revisions.author_user_id":             binaryCollation,
+	"revisions.reviewer_user_id":           binaryCollation,
+	"link_reports.reporter_user_id":        binaryCollation,
+	"link_reports.resolved_by_user_id":     binaryCollation,
+	"contact_requests.resolved_by_user_id": binaryCollation,
+	"terms.slug":                           asciiBinaryCollation,
+	"collections.sort_letter":              asciiBinaryCollation,
+	"events.slug":                          asciiBinaryCollation,
+	"persons.slug":                         asciiBinaryCollation,
+	"persons.sort_letter":                  asciiBinaryCollation,
+	"pieces.slug":                          asciiBinaryCollation,
+	"pieces.sort_letter":                   asciiBinaryCollation,
+	"links.url":                            binaryCollation,
+	"links.normalized_url":                 asciiBinaryCollation,
+	"links.platform":                       asciiBinaryCollation,
 }
 
 // textColumns spot-checks that text whose comparison users see is case- and accent-insensitive; every collated

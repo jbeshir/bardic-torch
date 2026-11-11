@@ -33,7 +33,7 @@ func connectRepository(t *testing.T, databaseURL string) *mysql.Repository {
 
 	cfg, err := mysql.ConfigFromURL(databaseURL)
 	require.NoError(t, err)
-	db, err := mysql.Connect(t.Context(), cfg)
+	db, err := mysql.Connect(t.Context(), cfg, mysqltest.Pool())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 

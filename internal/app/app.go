@@ -30,7 +30,7 @@ func Setup(ctx context.Context) ([]Component, error) {
 		return nil, fmt.Errorf("parsing DATABASE_URL: %w", err)
 	}
 
-	db, err := mysql.Connect(ctx, dbConfig)
+	db, err := mysql.Connect(ctx, dbConfig, mysql.ProductionPool())
 	if err != nil {
 		return nil, fmt.Errorf("connecting to MySQL: %w", err)
 	}

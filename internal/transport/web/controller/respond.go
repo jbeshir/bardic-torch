@@ -22,11 +22,9 @@ func principalOrUnauthenticated(w http.ResponseWriter, r *http.Request) (domain.
 	return principal, ok
 }
 
-// writeInternalError logs err with msg and writes 500 internal, keeping the details out of the response.
+// writeInternalError logs err with msg and writes 500 internal, or 503 unavailable if the database was unreachable.
 func writeInternalError(w http.ResponseWriter, r *http.Request, msg string, err error) {
-	ctx := r.Context()
-	domain.LoggerFromContext(ctx).ErrorContext(ctx, msg, "error", err)
-	httpjson.WriteError(ctx, w, http.StatusInternalServerError, httpjson.CodeInternal, "internal error")
+	httpjson.WriteInternalError(r.Context(), w, msg, err)
 }
 
 // idOrBadRequest returns the request's path value name as an ID: an integer from 1 to math.MaxInt64 in

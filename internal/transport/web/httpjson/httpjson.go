@@ -12,6 +12,7 @@ import (
 	"mime"
 	"net/http"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
@@ -142,4 +143,18 @@ func writeDecodeError(ctx context.Context, w http.ResponseWriter, err error) {
 
 func logDecodeError(ctx context.Context, err error) {
 	domain.LoggerFromContext(ctx).DebugContext(ctx, "unable to decode request body", "error", err)
+}
+
+// WriteInternalError logs err with msg and writes 500 internal, keeping the details out of the response. A database
+// that cannot be reached or turns the connection away (datasources.ErrUnavailable) is 503 unavailable instead.
+func WriteInternalError(ctx context.Context, w http.ResponseWriter, msg string, err error) {
+	logger := domain.LoggerFromContext(ctx)
+	if errors.Is(err, datasources.ErrUnavailable) {
+		logger.WarnContext(ctx, msg, "error", err)
+		WriteError(ctx, w, http.StatusServiceUnavailable, CodeUnavailable,
+			"the database is busy or cannot be reached; try again")
+		return
+	}
+	logger.ErrorContext(ctx, msg, "error", err)
+	WriteError(ctx, w, http.StatusInternalServerError, CodeInternal, "internal error")
 }

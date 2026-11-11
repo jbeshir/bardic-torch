@@ -20,3 +20,7 @@ type UnknownTermError struct {
 func (e *UnknownTermError) Error() string {
 	return "unknown term [" + e.Slug + "]"
 }
+
+// ErrUnavailable is returned, wrapped, when the database cannot be reached or turns the connection away (too many
+// connections, shutting down). Trying again later may work.
+var ErrUnavailable = errors.New("database unavailable")

@@ -109,6 +109,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
     patch:
       tags:
         - Users
@@ -150,6 +152,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/users/{user_id}/blocked:
     put:
@@ -227,6 +231,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/pieces:
     get:
@@ -342,6 +348,8 @@ paths:
                     message: "invalid kind: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/pieces/{slug}:
     get:
@@ -378,6 +386,8 @@ paths:
                 message: piece not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/persons:
     get:
@@ -466,6 +476,8 @@ paths:
                 message: "unknown affiliation: northmarch"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/persons/{slug}:
     get:
@@ -555,6 +567,8 @@ paths:
                 message: person not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/terms:
     get:
@@ -596,6 +610,8 @@ paths:
                 message: "invalid facet: not one of its allowed values"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/terms/{slug}:
     get:
@@ -652,6 +668,8 @@ paths:
                 message: term not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/collections:
     get:
@@ -701,6 +719,8 @@ paths:
                 message: "invalid kind: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/collections/{collection_id}:
     get:
@@ -745,6 +765,8 @@ paths:
                 message: collection not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/events:
     get:
@@ -785,6 +807,8 @@ paths:
                 message: "invalid offset: must be an integer from 0 to 10000"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/events/{slug}:
     get:
@@ -821,6 +845,8 @@ paths:
                 message: event not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/pieces/{slug}/history:
     get:
@@ -859,6 +885,8 @@ paths:
                 message: piece not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/persons/{slug}/history:
     get:
@@ -897,6 +925,8 @@ paths:
                 message: person not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/terms/{slug}/history:
     get:
@@ -935,6 +965,8 @@ paths:
                 message: term not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/collections/{collection_id}/history:
     get:
@@ -973,6 +1005,8 @@ paths:
                 message: collection not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/events/{slug}/history:
     get:
@@ -1011,6 +1045,8 @@ paths:
                 message: event not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/revisions/{revision_id}:
     get:
@@ -1060,6 +1096,8 @@ paths:
                 message: revision not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/needs-work:
     get:
@@ -1104,6 +1142,8 @@ paths:
                 message: "invalid reason: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
 
 components:
@@ -1312,6 +1352,15 @@ components:
           example:
             code: internal
             message: internal error
+    Unavailable:
+      description: The database cannot be reached or is out of connections; try again. The error code is `unavailable`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unavailable
+            message: the database is busy or cannot be reached; try again
     InternalSearch:
       description: |
         The server failed to handle the request, or the search took longer than the server allows (2 seconds); a

@@ -48,7 +48,7 @@ func (r *Repository) GetPublicPerson(ctx context.Context, slug string) (domain.P
 func (r *Repository) readOnly(ctx context.Context, f func(c *catalogueReader) error) error {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return fmt.Errorf("beginning read-only transaction: %w", err)
+		return fmt.Errorf("beginning read-only transaction: %w", unavailableIfDisconnected(err))
 	}
 	defer func() { _ = tx.Rollback() }()
 

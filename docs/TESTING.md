@@ -37,7 +37,7 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
   `TestSpec_ResponseObjectsAreClosed`). Use it for any test of a spec operation. Controller tests of list queries
   assert one case per rule (`list_query_test.go`), not per status.
 - **Integration tests (`//go:build integration`, `go test -tags integration`).** Real MySQL 8.4 through
-  `internal/testutil/mysqltest`, which gives each test its own migrated database (24 tables, four with FULLTEXT
+  `internal/testutil/mysqltest`, which gives each test its own migrated database (26 tables, four with FULLTEXT
   indexes), and `internal/testutil/catalogtest`, which seeds catalogue rows. They cover the queries, the approval
   write, the search, the redaction of revision views, `TestMigrations_UpDownUp` and the other schema checks, and
   `TestHTTP_EndToEnd` for the flows. `document_coverage_integration_test.go` requires every document field to map

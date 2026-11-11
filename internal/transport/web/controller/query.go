@@ -242,8 +242,9 @@ func sortOrBadRequest[S comparable](
 	}
 }
 
-// writeSearchError logs a failed search and writes 500 internal. A search the database stopped for exceeding
-// its execution time limit is logged as a warning: an expensive request rather than a fault.
+// writeSearchError logs a failed search and writes 500 internal (503 if the database was unreachable). A search the
+// database stopped for exceeding its execution time limit is logged as a warning: an expensive request rather than
+// a fault.
 func writeSearchError(w http.ResponseWriter, r *http.Request, msg string, err error) {
 	if errors.Is(err, datasources.ErrQueryTimeout) {
 		ctx := r.Context()

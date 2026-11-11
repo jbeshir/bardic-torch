@@ -19,7 +19,7 @@ func (r *Repository) GetUser(ctx context.Context, userID string) (domain.User, e
 		return domain.User{}, fmt.Errorf("user [%s]: %w", userID, datasources.ErrNotFound)
 	}
 	if err != nil {
-		return domain.User{}, fmt.Errorf("fetching user [%s]: %w", userID, err)
+		return domain.User{}, fmt.Errorf("fetching user [%s]: %w", userID, unavailableIfDisconnected(err))
 	}
 
 	return convertUser(row)
@@ -34,7 +34,7 @@ func (r *Repository) EnsureUser(ctx context.Context, user datasources.NewUser) (
 		CreatedAt:   user.CreatedAt,
 	})
 	if err != nil {
-		return domain.User{}, fmt.Errorf("inserting user [%s]: %w", user.ID, err)
+		return domain.User{}, fmt.Errorf("inserting user [%s]: %w", user.ID, unavailableIfDisconnected(err))
 	}
 
 	return r.GetUser(ctx, user.ID)
