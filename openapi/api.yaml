@@ -6113,7 +6113,7 @@ components:
             - 12
         locator:
           type: [string, "null"]
-          description: Where in the collection the linked item is, such as a page number.
+          description: Where in the collection this piece appears, such as a page number.
           examples:
             - p. 12
         roles:
