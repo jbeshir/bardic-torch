@@ -54,7 +54,7 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
 8. **"Prefers no page"** is a person status: the page is a stub showing the cited statement, the person's links
    and credits are hidden from public view, and creating a person with a matching name or alias is blocked.
 9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess
-   and listed in its review report for a human decision.
+   and corrected by the moderators in the catalogue after the import.
 10. **Unparented categories:** Seasons, Fire, Hope → Topics; Archery → Topics › War; Short Pieces → Other;
     Jewish, Sephardic, Portuguese → Cultures, with Sephardic under Jewish.
 11. **Rude** stays a mood. A content-advisory flag can come later.
@@ -73,8 +73,8 @@ Two repos, both from the alignment-feed skeletons (layering, idioms, CLAUDE.md q
 
 - **`bardic-torch`** (Go API): transport/web (net/http `ServeMux`) → command → domain → datasources/mysql
   (sqlc), with golang-migrate. Entrypoints: `cmd/app` (the API), `cmd/migrate` (dokku's predeploy step),
-  `cmd/import-mediawiki` (§7), `cmd/check-links` (§5.5, dokku cron) and `cmd/scrub-dump` (§7). The OpenAPI spec
-  (`openapi/api.yaml`) is the contract with the FE.
+  `cmd/import-mediawiki` (§7) and `cmd/check-links` (§5.5, dokku cron). The OpenAPI spec (`openapi/api.yaml`)
+  is the contract with the FE.
 - **`bardic-torch-fe`** (React Router 8 on Cloudflare Workers): openid-client against Auth0 with a cookie session;
   server-side proxy routes, so the browser never calls the API; response types generated from the spec (zod only
   for form input and configuration, so a new API field never breaks the FE); Tailwind 4 tokens for light and dark
@@ -251,31 +251,27 @@ Bodies are limited to 1 MiB for documents, 64 KiB for `/v1/contact` and 16 KiB o
 
 **Input:** the research dump (`pages.jsonl`, `categories.json`, `redirects.json`, `activity.json`); the research
 `scripts/` define the expected behaviour. A copy with inline lyrics replaced by placeholder lines is committed
-under `testdata/wiki-dump/` (`cmd/scrub-dump`), so tests need no network. `denylist.txt` holds salted hashes of
-the dropped lyrics' 8-word n-grams, and a test fails if any appears in the repository.
+under `testdata/wiki-dump/`, so tests need no network; it is frozen and never regenerated. `denylist.txt` holds
+salted hashes of the dropped lyrics' 8-word n-grams, and a test fails if any appears in the repository.
 
 **Steps:** type the pages (pieces, bards) and parse their sections; take facets from the categories
-(`taxonomy.json`), reporting infobox drift; parse credits with attribution, certainty and part, uniting the bard
+(`taxonomy.json`); parse credits with attribution, certainty and part, uniting the bard
 signals (infobox, bard category, works list) and matching plain-text names by folded name, then fuzzily; extract
 links with role, platform, collection and locator, deduplicated by normalised URL; parse performances, keeping
 the text verbatim; turn redirects into aliases and red links into stubs; **drop inline lyrics** (four or more
-lines, and link-section prose that could be lyrics), setting `legacy_had_inline_lyrics`; write everything as
-approved `import` revisions crediting wiki contributors; and write `import-review.md` for the moderators, listing
-every ambiguity, alias classification, drift item and fuzzy match with a stable ID (`ALIAS-007`), and lyrics only
-by page, section and line count.
+lines, and link-section prose that could be lyrics), setting `legacy_had_inline_lyrics`; and write everything as
+approved `import` revisions crediting wiki contributors.
 
 **Writing:** strings are NFC without control characters; wikitext becomes escaped Markdown with absolute http(s)
 links free of tracking parameters; email addresses in free text become `[email withheld]`; summaries come from
 fixed templates. `CatalogueImport.Validate` checks the import against the schema's constraints first, and it is
 written in one transaction into an empty catalogue.
 
-**Modes:** `--dump DIR (--dry-run | --apply) --review PATH`; `--dry-run` never opens a database. The real review
-lists names in clear, so DEPLOY.md writes it outside the repository; it is never committed. The launch run
-(dry run, review, then `--apply` once) is in DEPLOY.md.
+**Modes:** `--dump DIR (--dry-run | --apply)`; both print a short count summary, and `--dry-run` never opens a
+database. The launch run (a dry run, then `--apply` once) is in DEPLOY.md.
 
 **Tests:** the research counts (142 pieces, 135/4/2/1 by kind; 48 bards; 61 collections; 11 inline-lyrics pages);
-no dropped lyric in any field (the n-gram scan, plus the research lyrics oracle when `BARDIC_RESEARCH_DIR` is
-set); goldens of the tricky pages and the review; the writer writes every row, rolls back on failure and refuses
+no dropped lyric in any field (the n-gram scan); goldens of the tricky pages; the writer writes every row, rolls back on failure and refuses
 a non-empty catalogue; the imported catalogue reads back valid by the spec.
 
 ## 8. Frontend
@@ -343,32 +339,31 @@ goes to the owners as a question.
 | # | Pipeline | Repo | After | Contents |
 |---|---|---|---|---|
 | H0–BE3, FE1–FE2 | | | | *Done:* host setup, foundations, catalogue and read API, importer, read UI. |
-| BE-S | simplify | BE | BE3 | Remove what this plan no longer needs (below). |
+| BE-S | simplify | BE | BE3 | *Done:* removed what this plan no longer needs (below). |
 | FE-S | simplify | FE | FE2 | Remove what this plan no longer needs (below). |
 | BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `link_reports`, `contact_requests`, performance owners, the link-check columns and `licence_version`; `updated_at` and `credit_names`; the `check-links` cron. |
 | FE3 | editing | FE | FE-S, BE4 spec | §8 "Editing". |
 | FE4 | moderation and contact | FE | FE3 | §8 "Moderation and contact". |
-| H1 | launch | host | all | The Cloudflare rate-limiting rule; full-stack e2e on the real import; staging; the real import with its review worked through; the click-through; production. |
+| H1 | launch | host | all | The Cloudflare rate-limiting rule; full-stack e2e on the real import; staging; the real import; the click-through; production. |
 
-**BE-S removes** hidden aliases (`person_aliases.is_public` by migration, the score-0 alias search, the snapshot
-name rules and their tests); the `draft` status and `mcp` source values; the importer's name withholding (the
-private-name classifier, `[name withheld]`, entities left out for holding a name, links hidden for a name in their
-URL, the name scans and oracles); the scrubber's name scrubbing (the committed copy is not regenerated); the review
-file's write guards (`internal/repopath`); the hostile-input CPU-time tests; the unused `claimed_by_user_id`
-column and preference tables; API tokens (`api_tokens` by migration, `/v1/tokens*`, the token validator in the
-auth middleware); and the docs about them. It also brings the tests to §9:
-- deletes the research-oracle tests (run once from BE3's branch before the H1 import), the tests of test helpers,
-  and the generated-SQL string tests (keeping the search integration tests and a few builder unit tests);
-- replaces the mockery mocks and one-method interfaces with the HTTP tests or one hand-written fake;
-- merges the auth-matrix and routing tests into one table that also checks route parity with the spec;
-- turns the import-review golden into section-count assertions (keeping the page goldens);
-- drops the schema-mirroring import validator test, and trims `deploy_files_test.go` to the `.env.dist` check;
-- replaces hidden-link snapshot redaction with the §4.1 deny-set;
-- keeps only the lyric half of `internal/scrub` and its n-gram test;
-- drops the conda MySQL mode if the CI service image serves the sandbox too.
+**BE-S removed** hidden aliases (`person_aliases.is_public` by migration, the score-0 alias search, the snapshot
+name rules and their tests); the `draft` status and `mcp` source values; the importer's name withholding and every
+other rule that treated names as private; the import review file (`import-review.md`, `--review`); the hostile-input
+CPU-time tests; the unused `claimed_by_user_id` column and preference tables; API tokens (`api_tokens` by
+migration, `/v1/tokens*`, the token validator in the auth middleware) and the `auth0|` credential prefix (the API
+takes `Authorization: Bearer <jwt>`); `cmd/scrub-dump` and the scrubber, keeping only the lyric n-gram scan of
+`internal/scrub`; and the docs about them. It also brought the tests to §9:
+- deleted the research-oracle tests, the tests of test helpers, and the generated-SQL string tests (keeping the
+  search integration tests and a few builder unit tests);
+- replaced the mockery mocks and one-method interfaces with the HTTP tests or one hand-written fake;
+- merged the auth-matrix and routing tests into one table that also checks route parity with the spec;
+- cut the leak matrix to the one small leak test and the Auth0 validator tests to one per rule;
+- dropped the schema-mirroring import validator test, and trimmed `deploy_files_test.go` to the `.env.dist` check;
+- replaced hidden-link snapshot redaction with the §4.1 deny-set;
+- kept the conda MySQL mode, as the sandbox has no container engine to run CI's service image.
 
-TESTING.md, DEPLOY.md and CLAUDE.md are rewritten to this plan, short. Each removal updates the counts and goldens
-it touches; public responses keep their shape, apart from what goes with tokens.
+TESTING.md, DEPLOY.md and CLAUDE.md were rewritten to this plan, short. Public responses kept their shape, apart
+from what went with tokens.
 
 **FE-S removes** API tokens (settings UI, proxy routes, tests) and the styleguide route, and brings the FE to §9
 and §3:

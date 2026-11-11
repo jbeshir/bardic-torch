@@ -17,8 +17,7 @@ Replace these in the commands below:
 | `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
-| `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
-| `<PRIVATE_DIR>` | A private directory outside this repository for the import review | `~/private/import` |
+| `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/wiki-crawl/dump` |
 
 ## Requirements
 
@@ -186,9 +185,9 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
 - The FE's authorization request must include `audience=https://api.bardictorch.org` and the scope
   `openid profile email offline_access`. Without the audience, Auth0 issues an access token the API cannot verify,
   and every request gets 401.
-- The FE's server sends the **access token** (not the ID token) with the feed's prefix:
+- The FE's server sends the **access token** (not the ID token):
   ```
-  Authorization: Bearer auth0|<access_token>
+  Authorization: Bearer <access_token>
   ```
 - The FE refreshes the access token with its refresh token before it expires. An expired token gets 401
   `unauthenticated`.
@@ -349,42 +348,26 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
 
 1. **Dry run.** On a workstation, from a clone of this repository, with the crawl outside it:
    ```
-   go run ./cmd/import-mediawiki --dry-run --dump <CRAWL_DIR> --review <PRIVATE_DIR>/import-review.md
+   go run ./cmd/import-mediawiki --dry-run --dump <CRAWL_DIR>
    ```
-   It needs no database and never reads `DATABASE_URL`. It builds and validates the whole import, writes the
-   review and prints the counts (pieces by kind and with inline lyrics, persons, terms, collections of the
-   Collections page's entries, events, links, revisions and review items).
-2. **Review.** The moderators work through the review (`import-review.md`): every alias classification, the
-   ambiguous records, matches and credits, the stubs, the emails withheld from text, the wiki users shaped like
-   personal names (credited publicly as written), the links whose pages disagree on their title, description or
-   locator (one links row serves every page; each page's own fields are in the item), the link-section prose
-   moved into notes, the runs of link lines imported without descriptions because their text could be lyrics,
-   and the rest. The import publishes names as the wiki has them, aliases included, so this is the moderators'
-   chance to spot a name that should not be public. Where the importer guessed wrong, note the item ID: it is
-   corrected in the catalogue after the import. Run the dry run again whenever the crawl changes.
-3. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
-   one-off container a private directory holding the crawl, which the image's user (10001) can write the review
-   to:
+   It needs no database and never reads `DATABASE_URL`. It builds and validates the whole import and prints the
+   counts (pieces by kind and with inline lyrics, persons, terms, collections of the Collections page's entries,
+   events, links, revisions). Run it again whenever the crawl changes.
+2. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
+   one-off container a directory holding the crawl:
    ```
    sudo mkdir -p /var/lib/bardic-torch-import
    sudo cp -r <CRAWL_DIR> /var/lib/bardic-torch-import/dump
-   sudo chown -R 10001:10001 /var/lib/bardic-torch-import
-   sudo chmod -R go= /var/lib/bardic-torch-import
    dokku docker-options:add bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
-   dokku run bardic-torch-api /app/import-mediawiki --apply --dump /import/dump --review /import/import-review.md
+   dokku run bardic-torch-api /app/import-mediawiki --apply --dump /import/dump
    dokku docker-options:remove bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
    ```
-   It builds the same import, writes the review before it touches the database, and then writes every row in
-   one transaction: on any error nothing is written. It prints the counts and `applied: the catalogue holds the
-   import`. If another import is running it fails with `another catalogue import is in progress`, and on a
-   catalogue that is not empty with `catalogue is not empty`; neither writes anything. Its errors never quote a
-   value of the import, so the logs hold no name.
-4. **Delete the copies** once the import is applied and reviewed: `sudo rm -r /var/lib/bardic-torch-import`.
-
-**The review is private.** It names people in clear so that the moderators can check them (it never holds
-lyrics). Write it outside this repository, which is public, with mode 0600 (the command does), and never commit
-it or attach it to an issue. Share it with the moderators privately, and delete the copies when the review is
-done.
+   It builds the same import and writes every row in one transaction: on any error nothing is written. It prints
+   the counts and `applied: the catalogue holds the import`. If another import is running it fails with `another
+   catalogue import is in progress`, and on a catalogue that is not empty with `catalogue is not empty`; neither
+   writes anything.
+3. **Delete the copy** once the import is applied: `sudo rm -r /var/lib/bardic-torch-import`. The crawl is never
+   committed: it holds the wiki's lyrics, which are not ours to publish.
 
 After the import, every imported entity has one approved revision of source `import`, crediting the wiki users who
 wrote its page; liveness of every link is `unknown` until a link checker runs.

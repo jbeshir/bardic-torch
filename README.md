@@ -44,8 +44,8 @@ the product and implementation plan.
 The codebase follows a layered architecture: the transport layer handles HTTP, the command layer implements
 business rules over small datasource interfaces, the domain layer defines core types, and the MySQL datasource
 implements those interfaces with sqlc. The legacy wiki importer adds three layers below the command layer:
-`internal/mediawiki` reads and parses the crawl, `internal/importer` maps it onto a domain `CatalogueImport` with
-the moderators' review, and `internal/scrub` scrubs lyrics and holds the lyric deny list the tests read. `cmd/import-mediawiki`
+`internal/mediawiki` reads and parses the crawl, `internal/importer` maps it onto a domain `CatalogueImport`, and
+`internal/scrub` holds the lyric deny list the tests read. `cmd/import-mediawiki`
 validates the import and applies it through the `ApplyCatalogueImport` command, which writes it with the
 `CatalogueImporter` datasource in one transaction.
 
@@ -61,8 +61,7 @@ graph TD
     AUTH0[Auth0 JWKS]
     IMPCMD[cmd/import-mediawiki]
     MWIKI[mediawiki<br/>crawl parser]
-    IMPORTER[importer<br/>CatalogueImport, review]
-    SCRUB[cmd/scrub-dump, scrub<br/>lyric scrubber, deny list]
+    IMPORTER[importer<br/>CatalogueImport]
 
     FE --> MW
     MW --> AUTH0
@@ -77,7 +76,6 @@ graph TD
     IMPORTER --> MWIKI
     IMPORTER --> DOM
     MWIKI --> DOM
-    SCRUB --> MWIKI
     IMPCMD -->|ApplyCatalogueImport| CMD
     CMD -->|CatalogueImporter| REPO
 ```
@@ -88,14 +86,13 @@ express optional filters) and use InnoDB FULLTEXT for `q`. Every `SELECT` the AP
 is capped by a session `max_execution_time` of 2 s (see [docs/DEPLOY.md](docs/DEPLOY.md)); a list the server
 stops for that answers 500 `internal`.
 
-Four entrypoints share the internal packages:
+Three entrypoints share the internal packages:
 
 | Entrypoint | Purpose |
 |---|---|
 | `cmd/app/` | HTTP API server. At startup it promotes the bootstrap moderators. |
 | `cmd/migrate/` | Applies (`up`), rolls back (`down N`) or reports (`version`) the embedded schema migrations; dokku runs `migrate up` before every deploy, which applies nothing on a clean schema newer than its migrations (a rollback) |
-| `cmd/import-mediawiki/` | Imports the crawl of the legacy wiki (PLAN §7): `--dry-run` builds the import and the moderators' private review without a database; `--apply` writes it, once, into the empty catalogue at `DATABASE_URL` in one transaction. `--review PATH`, outside the repository, is required ([docs/DEPLOY.md](docs/DEPLOY.md), "Importing the legacy wiki") |
-| `cmd/scrub-dump/` | Replaces the inline lyrics of a crawl with placeholder lines and writes its lyric deny list. Lyric-only, so its output from a real crawl is private; the scrubbed copy committed under `testdata/wiki-dump/` is frozen and never regenerated ([docs/TESTING.md](docs/TESTING.md)) |
+| `cmd/import-mediawiki/` | Imports the crawl of the legacy wiki (PLAN §7): `--dry-run` builds and validates the import without a database; `--apply` writes it, once, into the empty catalogue at `DATABASE_URL` in one transaction ([docs/DEPLOY.md](docs/DEPLOY.md), "Importing the legacy wiki") |
 
 ## Getting Started
 
@@ -182,5 +179,5 @@ Any other path gets a JSON 404 (`not_found`), and a listed path with another met
 
 ### Authentication
 
-Auth0 is the only method: `Authorization: Bearer auth0|<access_token>`, an Auth0 access token for the audience
+Auth0 is the only method: `Authorization: Bearer <access_token>`, an Auth0 access token for the audience
 `https://api.bardictorch.org`. With `AUTH_DRIVERS` empty the API runs with null auth and every request is anonymous.

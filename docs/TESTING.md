@@ -42,20 +42,19 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
   write, the search, the redaction of revision views, `TestMigrations_UpDownUp` and the other schema checks, and
   `TestHTTP_EndToEnd` for the flows. `document_coverage_integration_test.go` requires every document field to map
   to a column or be listed as excluded.
-- **Leak matrix (`internal/app/leak_matrix_integration_test.go`).** A fixture seeds a "prefers no page" person and a
-  hidden link with credits, performances and citations, plus unapproved entities, all marked with `Leakmark`. Every
-  public catalogue read in the spec must have a row in `leakMatrix` (or be in `leakExempt`), and no response may
-  show a marked string except those listed as `reveals`.
+- **Leak test (`internal/app/leak_matrix_integration_test.go`).** One test seeds a "prefers no page" person and a
+  hidden link with credits, performances and citations, requests the public reads that could show them (piece,
+  person, event and collection pages, lists and search, history, revisions, needs-work) and checks no response holds
+  what they hide. A new public read that could show them is added to its request list.
 - **Importer tests (`internal/mediawiki`, `internal/importer`).** They run on synthetic wikis and on the committed
   scrubbed dump in `testdata/wiki-dump`, which is frozen: it is never regenerated, and the real crawl, which holds
-  names and emails, is never committed. Counts (`TestBuild_ResearchCounts` and the per-parser count tests) pin what
+  the wiki's lyrics, is never committed. Counts (`TestBuild_ResearchCounts` and the per-parser count tests) pin what
   the import produces; the 16 page goldens (`TestGoldenPages`) are regenerated with
   `go test ./internal/importer -run Golden -update` and the diff read before committing;
-  `TestReview_SectionItemCounts` pins the review's section sizes; `Fuzz*` targets check the parsers do not panic
+  `Fuzz*` targets check the parsers do not panic
   (`go test -fuzz FuzzFindTemplates ./internal/mediawiki/` explores further). `internal/scrub` keeps the lyric
   n-gram denylist, and `TestRepositoryHasNoDenylistedText` fails if any text file in the repository holds a
-  denylisted lyric window. `cmd/scrub-dump` is lyric-only, has one happy-path test on an inline fixture, and must
-  not be run to regenerate the dump.
+  denylisted lyric window.
 
 ## Adding an endpoint
 
@@ -67,9 +66,7 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
    seeding the fake with what the handler reads. Authorisation is then checked for every kind of caller.
 4. **One test per rule**: a controller or command test for each validation or business rule the endpoint adds
    (not one per status).
-5. **Public catalogue read**: add a `leakMatrix` row with requests that reach every list it shows; any other
-   operation goes in `leakExempt` with a reason.
-6. **Integration**: tests for new queries, and extend `TestHTTP_EndToEnd` when a user-visible flow changes.
+5. **Integration**: tests for new queries, and extend `TestHTTP_EndToEnd` when a user-visible flow changes.
 
 ## Integration test modes
 
