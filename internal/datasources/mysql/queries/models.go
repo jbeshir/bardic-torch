@@ -2054,7 +2054,6 @@ type ContactRequest struct {
 	ResolvedByUserID sql.NullString
 	ResolvedAt       sql.NullTime
 	ResolutionNote   sql.NullString
-	PurgedAt         sql.NullTime
 }
 
 type Event struct {

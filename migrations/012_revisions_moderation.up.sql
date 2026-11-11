@@ -49,7 +49,6 @@ CREATE TABLE `link_reports` (
 CREATE TABLE `contact_requests` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `kind` ENUM('takedown', 'opt_out', 'correction', 'general') NOT NULL,
-    -- name, email, message and url are personal data: nulled 180 days after resolution or dismissal.
     `name` VARCHAR(255) NULL,
     `email` VARCHAR(254) NULL,
     `message` TEXT NULL,
@@ -59,9 +58,7 @@ CREATE TABLE `contact_requests` (
     `resolved_by_user_id` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NULL,
     `resolved_at` DATETIME NULL,
     `resolution_note` TEXT NULL,
-    `purged_at` DATETIME NULL,
     PRIMARY KEY (`id`),
     INDEX `idx_status_created` (`status`, `created_at`, `id`),
-    INDEX `idx_resolved_purged` (`resolved_at`, `purged_at`),
     CONSTRAINT `fk_contact_requests_resolved_by_user_id` FOREIGN KEY (`resolved_by_user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

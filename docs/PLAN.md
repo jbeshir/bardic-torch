@@ -117,7 +117,7 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 - **`link_reports`**: link, reporter, `reason` (broken / wrong_link / privacy / copyright / lyrics / other),
   message, `status` (open / resolved / dismissed), resolver and note.
 - **`contact_requests`**: `kind` (takedown / opt_out / correction / general), name, email, message, URL, status,
-  resolver, note, `purged_at`.
+  resolver, note.
 
 ### 4.1 Catalogue rules (built in BE2)
 

@@ -1868,29 +1868,15 @@ type ListContactRequestsParams struct {
 	Offset int32
 }
 
-type ListContactRequestsRow struct {
-	ID               uint64
-	Kind             ContactRequestsKind
-	Name             sql.NullString
-	Email            sql.NullString
-	Message          sql.NullString
-	Url              sql.NullString
-	Status           ContactRequestsStatus
-	CreatedAt        time.Time
-	ResolvedByUserID sql.NullString
-	ResolvedAt       sql.NullTime
-	ResolutionNote   sql.NullString
-}
-
-func (q *Queries) ListContactRequests(ctx context.Context, arg ListContactRequestsParams) ([]ListContactRequestsRow, error) {
+func (q *Queries) ListContactRequests(ctx context.Context, arg ListContactRequestsParams) ([]ContactRequest, error) {
 	rows, err := q.db.QueryContext(ctx, listContactRequests, arg.Status, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListContactRequestsRow
+	var items []ContactRequest
 	for rows.Next() {
-		var i ListContactRequestsRow
+		var i ContactRequest
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
