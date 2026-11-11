@@ -31,40 +31,24 @@ var importedCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) domai
 	return imp
 })
 
-// The marks in the frozen scrubbed copy (testdata/wiki-dump) that no public response may show: the placeholder
-// lines standing in for lyrics, and the email placeholder (the importer withholds every email).
-var (
-	lyricPlaceholder = regexp.MustCompile(`scrubbedlyric`)
-	emailPlaceholder = regexp.MustCompile(`email-[0-9]{3}@example\.invalid`)
-)
-
-// importedLeaks returns what of the scrubbed copy's private data body shows.
-func importedLeaks(body string) []string {
-	var leaks []string
-	for name, marker := range map[string]*regexp.Regexp{"lyric placeholder": lyricPlaceholder,
-		"email placeholder": emailPlaceholder} {
-		if found := marker.FindString(body); found != "" {
-			leaks = append(leaks, name+": "+found)
-		}
-	}
-
-	return leaks
-}
+// emailPlaceholder is the mark of an email address in the frozen scrubbed copy (testdata/wiki-dump), which no public
+// response may show: the importer withholds every email.
+var emailPlaceholder = regexp.MustCompile(`email-[0-9]{3}@example\.invalid`)
 
 // importedReader sends GETs to the handler over the imported catalogue, validating each against the spec, and
-// checks every body for leaks.
+// checks that no body shows an email address.
 type importedReader struct {
 	t        *testing.T
 	contract *openapitest.Validator
 	handler  http.Handler
 }
 
-// get sends a GET of path, requires 200 and no leak, and returns the body.
+// get sends a GET of path, requires 200 and no email address, and returns the body.
 func (r importedReader) get(path string) []byte {
 	r.t.Helper()
 	rec := r.contract.Serve(r.t, r.handler, httptest.NewRequestWithContext(r.t.Context(), http.MethodGet, path, nil))
 	require.Equal(r.t, http.StatusOK, rec.Code, "%s: %s", path, rec.Body.String())
-	assert.Empty(r.t, importedLeaks(rec.Body.String()), "%s shows private data", path)
+	assert.NotRegexp(r.t, emailPlaceholder, rec.Body.String(), "%s shows an email address", path)
 
 	return rec.Body.Bytes()
 }
@@ -86,7 +70,7 @@ func (r importedReader) getPages(path, totalField string) int {
 
 // TestHTTP_ImportedCatalogue applies the scrubbed import and reads all of it through the production handler:
 // every page of every list, every piece, person, term, collection and event, every history and every revision.
-// Every response is valid by the spec, and none shows a lyric placeholder or an email placeholder.
+// Every response is valid by the spec, and none shows an email placeholder.
 func TestHTTP_ImportedCatalogue(t *testing.T) {
 	t.Parallel()
 

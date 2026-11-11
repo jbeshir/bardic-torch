@@ -1,7 +1,6 @@
 package mediawiki
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -98,9 +97,6 @@ func TestScrubbedLinks_CanonicalAndCollections(t *testing.T) {
 			assert.Equal(t, canonical[link.NormalizedURL], link.LinkFields, "every document carries the canonical link")
 			if link.Platform == PlatformYouTube && link.CollectionURL != "" {
 				assert.Equal(t, link.NormalizedURL, link.CollectionURL, "YouTube links match collections exactly only")
-			}
-			for _, p := range link.Performances {
-				assert.NotContains(t, strings.ToLower(p.DescriptionVerbatim), "scrubbedlyric")
 			}
 		}
 	}

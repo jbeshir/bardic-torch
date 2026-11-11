@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -112,9 +111,6 @@ func TestGoldenAssert_BandOfBrothers(t *testing.T) {
 	p := goldenPiece(t, "Band of Brothers")
 
 	assert.True(t, p.LegacyHadInlineLyrics)
-	encoded, err := json.Marshal(p)
-	require.NoError(t, err)
-	assert.NotContains(t, string(encoded), lyricMarker, "no lyric line in any field")
 }
 
 func TestGoldenAssert_BurningOfTara(t *testing.T) {

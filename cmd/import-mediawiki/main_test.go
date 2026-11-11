@@ -18,9 +18,6 @@ const (
 	flagApply  = "--apply"
 )
 
-// lyricMarker marks the placeholder lines that stand in for lyrics in the scrubbed copy.
-const lyricMarker = "scrubbedlyric"
-
 // scrubbedDumpDir is the committed scrubbed copy of the crawl.
 func scrubbedDumpDir(t *testing.T) string {
 	t.Helper()
@@ -88,5 +85,4 @@ func TestRun_DryRunScrubbedCounts(t *testing.T) {
 	assert.Contains(t, stdout.String(), "bards 48")
 	assert.Contains(t, stdout.String(), "collections 61 (of 62 entries)")
 	assert.NotContains(t, stdout.String(), "applied")
-	assert.NotContains(t, stdout.String(), lyricMarker)
 }

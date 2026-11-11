@@ -43,11 +43,10 @@ the product and implementation plan.
 
 The codebase follows a layered architecture: the transport layer handles HTTP, the command layer implements
 business rules over small datasource interfaces, the domain layer defines core types, and the MySQL datasource
-implements those interfaces with sqlc. The legacy wiki importer adds three layers below the command layer:
-`internal/mediawiki` reads and parses the crawl, `internal/importer` maps it onto a domain `CatalogueImport`, and
-`internal/scrub` holds the lyric deny list the tests read. `cmd/import-mediawiki`
-validates the import and applies it through the `ApplyCatalogueImport` command, which writes it with the
-`CatalogueImporter` datasource in one transaction.
+implements those interfaces with sqlc. The legacy wiki importer adds two layers below the command layer:
+`internal/mediawiki` reads and parses the crawl, and `internal/importer` maps it onto a domain `CatalogueImport`.
+`cmd/import-mediawiki` validates the import and applies it through the `ApplyCatalogueImport` command, which
+writes it with the `CatalogueImporter` datasource in one transaction.
 
 ```mermaid
 graph TD

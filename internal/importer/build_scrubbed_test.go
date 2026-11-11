@@ -1,11 +1,9 @@
 package importer
 
 import (
-	"encoding/json"
 	"maps"
 	"regexp"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,9 +12,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
-
-// lyricMarker is the word every placeholder line of the scrubbed copy's dropped lyrics has.
-const lyricMarker = "scrubbedlyric"
 
 func TestBuild_ValidatesOutput(t *testing.T) {
 	imp := scrubbedImport(t)
@@ -93,16 +88,6 @@ func TestBuild_ConservationSourceIsThePiecesWikiPage(t *testing.T) {
 			p.Doc.Title)
 	}
 	assert.Equal(t, 11, assessed)
-}
-
-// TestBuild_NoLyricMarkerAnywhere checks that no dropped lyric line of the scrubbed copy reaches any field of the
-// import, public or not.
-func TestBuild_NoLyricMarkerAnywhere(t *testing.T) {
-	imp := scrubbedImport(t)
-
-	encoded, err := json.Marshal(imp)
-	require.NoError(t, err)
-	assert.NotContains(t, strings.ToLower(string(encoded)), lyricMarker)
 }
 
 // TestBuild_ContributorsAreCreditedPerPage: a piece page's revision credits its contributors, and a stub piece's

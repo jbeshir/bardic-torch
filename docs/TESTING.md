@@ -52,9 +52,7 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
   the import produces; the 16 page goldens (`TestGoldenPages`) are regenerated with
   `go test ./internal/importer -run Golden -update` and the diff read before committing;
   `Fuzz*` targets check the parsers do not panic
-  (`go test -fuzz FuzzFindTemplates ./internal/mediawiki/` explores further). `internal/scrub` keeps the lyric
-  n-gram denylist, and `TestRepositoryHasNoDenylistedText` fails if any text file in the repository holds a
-  denylisted lyric window.
+  (`go test -fuzz FuzzFindTemplates ./internal/mediawiki/` explores further).
 
 ## Adding an endpoint
 
