@@ -5,6 +5,12 @@
       "predeploy": "/app/migrate up"
     }
   },
+  "cron": [
+    {
+      "command": "/app/check-links",
+      "schedule": "17 3 * * *"
+    }
+  ],
   "healthchecks": {
     "web": [
       {

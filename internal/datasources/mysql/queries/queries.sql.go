@@ -1321,6 +1321,100 @@ func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64)
 	return items, nil
 }
 
+const listLinksDueForArchive = `-- name: ListLinksDueForArchive :many
+
+SELECT id, url
+FROM links
+WHERE is_hidden = FALSE AND archived_url IS NULL
+    AND (archive_checked_at IS NULL OR archive_checked_at < ?)
+ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id
+LIMIT ?
+`
+
+type ListLinksDueForArchiveParams struct {
+	CheckedBefore sql.NullTime
+	Limit         int32
+}
+
+type ListLinksDueForArchiveRow struct {
+	ID  uint64
+	Url string
+}
+
+// Links with no archived copy whose archive was never looked up, or not since the cutoff: dead links first.
+func (q *Queries) ListLinksDueForArchive(ctx context.Context, arg ListLinksDueForArchiveParams) ([]ListLinksDueForArchiveRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLinksDueForArchive, arg.CheckedBefore, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinksDueForArchiveRow
+	for rows.Next() {
+		var i ListLinksDueForArchiveRow
+		if err := rows.Scan(&i.ID, &i.Url); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinksDueForCheck = `-- name: ListLinksDueForCheck :many
+
+SELECT id, url, liveness, liveness_failures
+FROM links
+WHERE is_hidden = FALSE AND (last_checked_at IS NULL OR last_checked_at < ?)
+ORDER BY last_checked_at IS NOT NULL, last_checked_at, id
+LIMIT ?
+`
+
+type ListLinksDueForCheckParams struct {
+	CheckedBefore sql.NullTime
+	Limit         int32
+}
+
+type ListLinksDueForCheckRow struct {
+	ID               uint64
+	Url              string
+	Liveness         LinksLiveness
+	LivenessFailures uint8
+}
+
+// Links never checked come first, then the longest unchecked.
+func (q *Queries) ListLinksDueForCheck(ctx context.Context, arg ListLinksDueForCheckParams) ([]ListLinksDueForCheckRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLinksDueForCheck, arg.CheckedBefore, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinksDueForCheckRow
+	for rows.Next() {
+		var i ListLinksDueForCheckRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Liveness,
+			&i.LivenessFailures,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPersonAliases = `-- name: ListPersonAliases :many
 SELECT name, kind
 FROM person_aliases
@@ -3174,4 +3268,47 @@ func (q *Queries) UpdateDisplayName(ctx context.Context, arg UpdateDisplayNamePa
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateLinkArchive = `-- name: UpdateLinkArchive :exec
+
+UPDATE links
+SET archived_url = COALESCE(?, archived_url), archive_checked_at = ?
+WHERE id = ?
+`
+
+type UpdateLinkArchiveParams struct {
+	ArchivedUrl sql.NullString
+	CheckedAt   sql.NullTime
+	ID          uint64
+}
+
+// A NULL archived_url records a lookup that found nothing.
+func (q *Queries) UpdateLinkArchive(ctx context.Context, arg UpdateLinkArchiveParams) error {
+	_, err := q.db.ExecContext(ctx, updateLinkArchive, arg.ArchivedUrl, arg.CheckedAt, arg.ID)
+	return err
+}
+
+const updateLinkCheck = `-- name: UpdateLinkCheck :exec
+UPDATE links
+SET liveness = ?, liveness_failures = ?,
+    last_checked_at = ?
+WHERE id = ?
+`
+
+type UpdateLinkCheckParams struct {
+	Liveness         LinksLiveness
+	LivenessFailures uint8
+	CheckedAt        sql.NullTime
+	ID               uint64
+}
+
+func (q *Queries) UpdateLinkCheck(ctx context.Context, arg UpdateLinkCheckParams) error {
+	_, err := q.db.ExecContext(ctx, updateLinkCheck,
+		arg.Liveness,
+		arg.LivenessFailures,
+		arg.CheckedAt,
+		arg.ID,
+	)
+	return err
 }

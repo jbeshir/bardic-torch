@@ -498,3 +498,11 @@ Promotion also unblocks: if a blocked contributor is listed in `BOOTSTRAP_MODERA
 makes them an unblocked moderator. Listing an ID means trusting that person, and a blocked moderator could not be
 unblocked through the API, because moderators cannot be blocked or unblocked. To block someone who is a
 moderator, demote them first as above, then block them through `PUT /v1/users/{user_id}/blocked`.
+
+## Link checker
+
+`app.json` has a dokku `cron` entry that runs `/app/check-links` daily (`dokku cron:list bardic-torch-api` shows
+it; dokku reads it on each deploy). A run checks up to 400 visible links not checked for 7 days, one request per
+host per second, and asks the Wayback Machine for a copy of those without one, at most once per link per 30 days.
+It stops after 20 minutes and logs links by ID, never by URL. To run it by hand: `dokku run bardic-torch-api
+/app/check-links`.

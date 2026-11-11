@@ -621,3 +621,39 @@ VALUES (?, ?, ?, ?, ?, ?);
 -- name: InsertPerformancePerformer :exec
 INSERT INTO performance_performers (performance_id, person_id, position)
 VALUES (?, ?, ?);
+
+
+-- Links never checked come first, then the longest unchecked.
+
+-- name: ListLinksDueForCheck :many
+SELECT id, url, liveness, liveness_failures
+FROM links
+WHERE is_hidden = FALSE AND (last_checked_at IS NULL OR last_checked_at < sqlc.arg(checked_before))
+ORDER BY last_checked_at IS NOT NULL, last_checked_at, id
+LIMIT ?;
+
+
+-- name: UpdateLinkCheck :exec
+UPDATE links
+SET liveness = sqlc.arg(liveness), liveness_failures = sqlc.arg(liveness_failures),
+    last_checked_at = sqlc.arg(checked_at)
+WHERE id = sqlc.arg(id);
+
+
+-- Links with no archived copy whose archive was never looked up, or not since the cutoff: dead links first.
+
+-- name: ListLinksDueForArchive :many
+SELECT id, url
+FROM links
+WHERE is_hidden = FALSE AND archived_url IS NULL
+    AND (archive_checked_at IS NULL OR archive_checked_at < sqlc.arg(checked_before))
+ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id
+LIMIT ?;
+
+
+-- A NULL archived_url records a lookup that found nothing.
+
+-- name: UpdateLinkArchive :exec
+UPDATE links
+SET archived_url = COALESCE(sqlc.narg(archived_url), archived_url), archive_checked_at = sqlc.arg(checked_at)
+WHERE id = sqlc.arg(id);
