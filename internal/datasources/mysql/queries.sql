@@ -463,12 +463,19 @@ FROM revision_contributors
 WHERE revision_id IN (sqlc.slice('revision_ids'))
 ORDER BY revision_id, position;
 
--- name: GetApprovedRevision :one
-SELECT r.id, r.entity_type, r.entity_id, r.source, r.summary, r.created_at, r.snapshot_json,
-    u.display_name AS author_display_name
+-- name: GetRevision :one
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.author_user_id, r.source, r.status, r.summary,
+    r.review_note, r.reviewed_at, r.created_at, r.snapshot_json, u.display_name AS author_display_name
 FROM revisions r
 LEFT JOIN users u ON u.id = r.author_user_id
-WHERE r.id = ? AND r.status = 'approved';
+WHERE r.id = ?;
+
+-- name: GetCurrentRevisionID :one
+SELECT x.current_revision_id FROM pieces x WHERE sqlc.arg(entity_type) = 'piece' AND x.id = sqlc.arg(id)
+UNION ALL SELECT x.current_revision_id FROM persons x WHERE sqlc.arg(entity_type) = 'person' AND x.id = sqlc.arg(id)
+UNION ALL SELECT x.current_revision_id FROM terms x WHERE sqlc.arg(entity_type) = 'term' AND x.id = sqlc.arg(id)
+UNION ALL SELECT x.current_revision_id FROM collections x WHERE sqlc.arg(entity_type) = 'collection' AND x.id = sqlc.arg(id)
+UNION ALL SELECT x.current_revision_id FROM events x WHERE sqlc.arg(entity_type) = 'event' AND x.id = sqlc.arg(id);
 
 -- A revision's base is shown only if it is an approved revision of the same entity.
 
@@ -515,12 +522,13 @@ FROM links
 WHERE is_hidden AND normalized_url IN (sqlc.slice('normalized_urls'));
 
 -- ============================================
--- Catalogue import
+-- Catalogue writes: the import and approval
 --
 -- The importer writes a whole catalogue into an empty database in one transaction, with the IDs the import
--- assigned, every row of a table before the rows of tables referring to it. Each entity row carries its approved
--- import revision as its current revision directly. A links row's normalized_url is domain.NormalizeURL(url)
--- (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
+-- assigned, every row of a table before the rows of tables referring to it. Approval writes one document. Both
+-- use the entity inserts (an approval's id is NULL, for a new auto-increment ID) and the child inserts. Each entity
+-- row carries its approved revision as its current revision directly. A links row's normalized_url is
+-- domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
 -- ============================================
 
 -- name: InsertImportedRevision :exec
@@ -531,10 +539,10 @@ VALUES (?, ?, ?, 'import', 'approved', ?, ?, ?);
 INSERT INTO revision_contributors (revision_id, position, name)
 VALUES (?, ?, ?);
 
--- name: InsertImportedTerm :exec
+-- name: InsertTerm :execlastid
 INSERT INTO terms (id, facet, name, display_name, slug, parent_id, related_affiliation_id, description_md, position,
     current_revision_id, legacy_wiki_pageid, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertTermAlias :exec
 INSERT INTO term_aliases (term_id, name)
@@ -544,19 +552,19 @@ VALUES (?, ?);
 INSERT INTO term_ancestors (ancestor_id, descendant_id, depth)
 VALUES (?, ?, ?);
 
--- name: InsertImportedCollection :exec
+-- name: InsertCollection :execlastid
 INSERT INTO collections (id, name, sort_name, sort_letter, url, kind, description_md, region_term_id, parent_id,
     is_bardic_resource, enumerable, current_revision_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
--- name: InsertImportedEvent :exec
+-- name: InsertEvent :execlastid
 INSERT INTO events (id, slug, name, kind, description_md, current_revision_id, legacy_wiki_pageid, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?);
 
--- name: InsertImportedPerson :exec
+-- name: InsertPerson :execlastid
 INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, status_date, status_source_url, pronouns,
     notes_md, licensing_notes_md, licensing_status, is_stub, current_revision_id, legacy_wiki_pageid, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPersonAlias :exec
 INSERT INTO person_aliases (person_id, name, kind)
@@ -574,12 +582,12 @@ VALUES (?, ?);
 INSERT INTO person_relations (from_person_id, to_person_id, type)
 VALUES (?, ?, ?);
 
--- name: InsertImportedPiece :exec
+-- name: InsertPiece :execlastid
 INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
     version_notes_md, licensing_notes_md, licensing_status, licence, licence_version, historical_source_md,
     period_start, period_end,
     legacy_had_inline_lyrics, current_revision_id, legacy_wiki_pageid, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPieceSecondaryKind :exec
 INSERT INTO piece_secondary_kinds (piece_id, kind)
@@ -615,12 +623,235 @@ INSERT INTO link_attachments (link_id, piece_id, person_id, role, position)
 VALUES (?, ?, ?, ?, ?);
 
 -- name: InsertPerformance :execlastid
-INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim, owner_piece_id,
+    owner_person_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPerformancePerformer :exec
 INSERT INTO performance_performers (performance_id, person_id, position)
 VALUES (?, ?, ?);
+
+-- Approval of an edit rewrites the entity row and replaces its child rows, the attachments of its links and the
+-- performances it owns. Links are shared: one is inserted, or its editor fields updated, by normalized URL, and its
+-- hidden, liveness, check and archive state is never written.
+
+-- name: UpdatePiece :exec
+UPDATE pieces
+SET title = ?, sort_title = ?, sort_letter = ?, kind = ?, conservation_status = ?, is_stub = ?, notes_md = ?,
+    version_notes_md = ?, licensing_notes_md = ?, licensing_status = ?, licence = ?, licence_version = ?,
+    historical_source_md = ?, period_start = ?, period_end = ?, current_revision_id = ?
+WHERE id = ?;
+
+-- name: UpdatePerson :exec
+UPDATE persons
+SET name = ?, sort_name = ?, sort_letter = ?, kind = ?, status = ?, status_date = ?, status_source_url = ?,
+    pronouns = ?, notes_md = ?, licensing_notes_md = ?, licensing_status = ?, is_stub = ?, current_revision_id = ?
+WHERE id = ?;
+
+-- name: UpdateTerm :exec
+UPDATE terms
+SET facet = ?, name = ?, display_name = ?, parent_id = ?, related_affiliation_id = ?, description_md = ?,
+    position = ?, current_revision_id = ?
+WHERE id = ?;
+
+-- name: UpdateCollection :exec
+UPDATE collections
+SET name = ?, sort_name = ?, sort_letter = ?, url = ?, kind = ?, description_md = ?, region_term_id = ?,
+    parent_id = ?, is_bardic_resource = ?, enumerable = ?, current_revision_id = ?
+WHERE id = ?;
+
+-- name: UpdateEvent :exec
+UPDATE events
+SET name = ?, kind = ?, description_md = ?, current_revision_id = ?
+WHERE id = ?;
+
+-- name: GetPieceConservationStatus :one
+SELECT conservation_status FROM pieces WHERE id = ?;
+
+-- name: DeletePieceSecondaryKinds :exec
+DELETE FROM piece_secondary_kinds WHERE piece_id = ?;
+
+-- name: DeletePieceAliases :exec
+DELETE FROM piece_aliases WHERE piece_id = ?;
+
+-- name: DeletePieceTerms :exec
+DELETE FROM piece_terms WHERE piece_id = ?;
+
+-- name: DeletePieceRelations :exec
+DELETE FROM piece_relations WHERE from_piece_id = ?;
+
+-- name: DeletePieceCredits :exec
+DELETE FROM piece_credits WHERE piece_id = ?;
+
+-- name: DeletePersonAliases :exec
+DELETE FROM person_aliases WHERE person_id = ?;
+
+-- name: DeletePersonRoles :exec
+DELETE FROM person_roles WHERE person_id = ?;
+
+-- name: DeletePersonAffiliations :exec
+DELETE FROM person_affiliations WHERE person_id = ?;
+
+-- name: DeletePersonRelations :exec
+DELETE FROM person_relations WHERE from_person_id = ?;
+
+-- name: DeleteTermAliases :exec
+DELETE FROM term_aliases WHERE term_id = ?;
+
+-- name: DeleteTermAncestors :exec
+DELETE FROM term_ancestors;
+
+-- name: DeleteLinkAttachments :exec
+DELETE FROM link_attachments WHERE piece_id <=> sqlc.narg(piece_id) AND person_id <=> sqlc.narg(person_id);
+
+-- name: DeleteOwnedPerformances :exec
+DELETE FROM performances
+WHERE owner_piece_id <=> sqlc.narg(owner_piece_id) AND owner_person_id <=> sqlc.narg(owner_person_id);
+
+-- LAST_INSERT_ID(id) makes an existing row's ID the statement's insert ID.
+
+-- name: UpsertLink :execlastid
+INSERT INTO links (url, normalized_url, title, description, platform, place_type, collection_id, locator)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), url = VALUES(url), title = VALUES(title),
+    description = VALUES(description), platform = VALUES(platform), place_type = VALUES(place_type),
+    collection_id = VALUES(collection_id), locator = VALUES(locator);
+
+-- The taken slugs of each type, for a new entity's slug.
+
+-- name: ListPieceSlugs :many
+SELECT slug FROM pieces;
+
+-- name: ListPersonSlugs :many
+SELECT slug FROM persons;
+
+-- name: ListTermSlugs :many
+SELECT slug FROM terms;
+
+-- name: ListEventSlugs :many
+SELECT slug FROM events;
+
+-- ============================================
+-- Revisions: submission and moderation
+--
+-- Each change is one transaction that locks the revision it changes, or the author's user row for a submission,
+-- with FOR UPDATE.
+-- ============================================
+
+-- name: LockUser :one
+SELECT id FROM users WHERE id = ? FOR UPDATE;
+
+-- name: LockRevision :one
+SELECT id, status, author_user_id FROM revisions WHERE id = ? FOR UPDATE;
+
+-- name: GetApprovedRevisionEntity :one
+SELECT entity_id FROM revisions WHERE id = ? AND entity_type = ? AND status = 'approved';
+
+-- name: WithdrawPendingRevisionsOfEntity :exec
+UPDATE revisions
+SET status = 'withdrawn'
+WHERE author_user_id = ? AND entity_type = ? AND entity_id = ? AND status = 'pending';
+
+-- name: InsertRevision :execlastid
+INSERT INTO revisions (entity_type, entity_id, base_revision_id, author_user_id, source, status, snapshot_json,
+    summary, created_at)
+VALUES (?, ?, ?, ?, 'user', 'pending', ?, ?, ?);
+
+-- name: UpdateRevisionStatus :exec
+UPDATE revisions
+SET status = ?, reviewer_user_id = ?, reviewed_at = ?, review_note = ?
+WHERE id = ?;
+
+-- name: SetRevisionEntity :exec
+UPDATE revisions SET entity_id = ? WHERE id = ?;
+
+-- name: GetOwnPendingRevision :one
+SELECT id, base_revision_id, snapshot_json
+FROM revisions
+WHERE entity_type = ? AND entity_id = ? AND author_user_id = ? AND status = 'pending'
+ORDER BY id DESC
+LIMIT 1;
+
+-- A listed revision's entity: its slug ('' for a collection), name and current revision; for a new entity's
+-- revision, '' and NULL.
+
+-- name: ListAuthorRevisions :many
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.status, r.summary, r.created_at, r.reviewed_at,
+    COALESCE(p.slug, pe.slug, t.slug, e.slug, '') AS entity_slug,
+    COALESCE(p.title, pe.name, t.display_name, c.name, e.name, '') AS entity_name,
+    COALESCE(p.current_revision_id, pe.current_revision_id, t.current_revision_id, c.current_revision_id,
+        e.current_revision_id) AS current_revision_id
+FROM revisions r
+LEFT JOIN pieces p ON r.entity_type = 'piece' AND p.id = r.entity_id
+LEFT JOIN persons pe ON r.entity_type = 'person' AND pe.id = r.entity_id
+LEFT JOIN terms t ON r.entity_type = 'term' AND t.id = r.entity_id
+LEFT JOIN collections c ON r.entity_type = 'collection' AND c.id = r.entity_id
+LEFT JOIN events e ON r.entity_type = 'event' AND e.id = r.entity_id
+WHERE r.author_user_id = sqlc.arg(author_user_id)
+    AND (sqlc.narg(status) IS NULL OR r.status = sqlc.narg(status))
+ORDER BY r.created_at DESC, r.id DESC
+LIMIT ? OFFSET ?;
+
+-- name: CountAuthorRevisions :one
+SELECT COUNT(*)
+FROM revisions
+WHERE author_user_id = sqlc.arg(author_user_id) AND (sqlc.narg(status) IS NULL OR status = sqlc.narg(status));
+
+-- name: ListPendingRevisions :many
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.author_user_id, r.summary, r.created_at,
+    u.display_name AS author_display_name,
+    COALESCE(p.slug, pe.slug, t.slug, e.slug, '') AS entity_slug,
+    COALESCE(p.title, pe.name, t.display_name, c.name, e.name, '') AS entity_name,
+    COALESCE(p.current_revision_id, pe.current_revision_id, t.current_revision_id, c.current_revision_id,
+        e.current_revision_id) AS current_revision_id
+FROM revisions r
+JOIN users u ON u.id = r.author_user_id
+LEFT JOIN pieces p ON r.entity_type = 'piece' AND p.id = r.entity_id
+LEFT JOIN persons pe ON r.entity_type = 'person' AND pe.id = r.entity_id
+LEFT JOIN terms t ON r.entity_type = 'term' AND t.id = r.entity_id
+LEFT JOIN collections c ON r.entity_type = 'collection' AND c.id = r.entity_id
+LEFT JOIN events e ON r.entity_type = 'event' AND e.id = r.entity_id
+WHERE r.status = 'pending'
+ORDER BY r.created_at, r.id
+LIMIT ? OFFSET ?;
+
+-- name: CountPendingRevisions :one
+SELECT COUNT(*) FROM revisions WHERE status = 'pending';
+
+-- ============================================
+-- Revisions: what an editor document references
+-- ============================================
+
+-- name: ListPublicPieceIDsBySlug :many
+SELECT id, slug FROM pieces WHERE slug IN (sqlc.slice('slugs')) AND current_revision_id IS NOT NULL;
+
+-- name: ListPublicPersonIDsBySlug :many
+SELECT id, slug, status FROM persons WHERE slug IN (sqlc.slice('slugs')) AND current_revision_id IS NOT NULL;
+
+-- name: ListPublicTermIDsBySlug :many
+SELECT t.id, t.slug FROM public_terms t WHERE t.slug IN (sqlc.slice('slugs'));
+
+-- name: ListPublicEventIDsBySlug :many
+SELECT id, slug FROM events WHERE slug IN (sqlc.slice('slugs')) AND current_revision_id IS NOT NULL;
+
+-- name: ListTerms :many
+SELECT CAST(id AS SIGNED) AS id, facet, parent_id, name FROM terms;
+
+-- name: ListCollectionParents :many
+SELECT CAST(id AS SIGNED) AS id, parent_id FROM collections;
+
+-- The current documents of the public entities of a type, for duplicate checks.
+
+-- name: ListCurrentDocuments :many
+SELECT r.entity_id, r.snapshot_json
+FROM revisions r
+WHERE r.entity_type = ? AND r.id IN (
+    SELECT current_revision_id FROM pieces
+    UNION ALL SELECT current_revision_id FROM persons
+    UNION ALL SELECT current_revision_id FROM terms
+    UNION ALL SELECT current_revision_id FROM collections
+    UNION ALL SELECT current_revision_id FROM events
+);
 
 
 -- Links never checked come first, then the longest unchecked.
