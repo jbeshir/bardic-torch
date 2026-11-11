@@ -28,6 +28,13 @@ func peopleOf(w *wikiFixture) (People, map[string]PieceRecord) {
 	return ParsePeople(s, pieces), byTitle
 }
 
+// redLinksOf classifies the red links of the wiki.
+func redLinksOf(w *wikiFixture) []RedLink {
+	s := w.site()
+
+	return ClassifyRedLinks(s, s.Pieces(), s.Bards())
+}
+
 func addPiece(w *wikiFixture, title string, params [][2]string, categories ...string) {
 	w.page(Page{Title: title, Wikitext: pieceWikitext(title, params), Categories: pieceCategories(categories...)})
 }
@@ -153,7 +160,7 @@ func TestClassifyRedLink_Positions(t *testing.T) {
 	people, _ := peopleOf(w)
 
 	classes := map[string]RedLinkClass{}
-	for _, r := range people.RedLinks {
+	for _, r := range redLinksOf(w) {
 		classes[RedLinkKey(r.NS, r.Target)] = r.Class
 	}
 	assert.Equal(t, map[string]RedLinkClass{
@@ -179,8 +186,9 @@ func TestClassifyRedLink_Unclassified(t *testing.T) {
 
 	people, _ := peopleOf(w)
 
-	require.Len(t, people.RedLinks, 1)
+	redLinks := redLinksOf(w)
+	require.Len(t, redLinks, 1)
 	assert.Equal(t, RedLink{NS: NSMain, Target: "A Placeholder Topic", Pages: []string{aSong},
-		Class: RedLinkUnclassified}, people.RedLinks[0])
+		Class: RedLinkUnclassified}, redLinks[0])
 	assert.Empty(t, people.Persons.Stubs)
 }

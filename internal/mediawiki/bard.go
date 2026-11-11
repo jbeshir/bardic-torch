@@ -12,12 +12,11 @@ import (
 // AliasFromRedirect is a redirect page that leads to the bard's page ("James Treebull the Stubborn").
 const AliasFromRedirect AliasSource = "redirect"
 
-// PersonAlias is another name of a bard: where it was found, how ClassifyPersonAlias classified it and the alias
-// kind it is imported as (a redirect alias is of kind redirect).
+// PersonAlias is another name of a bard: where it was found and the alias kind it is imported as (a redirect alias
+// is of kind redirect).
 type PersonAlias struct {
 	AliasCandidate
-	Classification AliasClassification
-	Kind           domain.PersonAliasKind
+	Kind domain.PersonAliasKind
 }
 
 // WorkEntry is a work a bard page lists: the link target as written, the page it leads to through redirects and
@@ -123,13 +122,11 @@ func ParseBard(p Page, s Site) BardRecord {
 func bardAliases(p Page, s Site) []PersonAlias {
 	var out []PersonAlias
 	for _, c := range BardAliases(p) {
-		class := ClassifyPersonAlias(c)
-		out = append(out, PersonAlias{AliasCandidate: c, Classification: class, Kind: class.Kind})
+		out = append(out, PersonAlias{AliasCandidate: c, Kind: ClassifyPersonAlias(c).Kind})
 	}
 	for _, from := range s.RedirectsTo(p.Title) {
 		c := AliasCandidate{Name: from, Source: AliasFromRedirect}
-		class := ClassifyPersonAlias(c)
-		out = append(out, PersonAlias{AliasCandidate: c, Classification: class, Kind: domain.PersonAliasKindRedirect})
+		out = append(out, PersonAlias{AliasCandidate: c, Kind: domain.PersonAliasKindRedirect})
 	}
 
 	return out

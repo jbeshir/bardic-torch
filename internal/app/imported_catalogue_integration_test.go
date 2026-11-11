@@ -31,9 +31,8 @@ var importedCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) domai
 	return imp
 })
 
-// The marks of private data in the scrubbed copy (internal/scrub) that no public response may show: the
-// placeholder lines standing in for lyrics, and the scrubber's email placeholder (the importer withholds every
-// email). The copy's name placeholders ("Legal Name 001", "Wiki User 01") are not private and may appear.
+// The marks in the frozen scrubbed copy (testdata/wiki-dump) that no public response may show: the placeholder
+// lines standing in for lyrics, and the email placeholder (the importer withholds every email).
 var (
 	lyricPlaceholder = regexp.MustCompile(`scrubbedlyric`)
 	emailPlaceholder = regexp.MustCompile(`email-[0-9]{3}@example\.invalid`)

@@ -25,10 +25,13 @@ func TestBuild_ValidatesOutput(t *testing.T) {
 }
 
 func TestBuild_ResearchCounts(t *testing.T) {
-	c := scrubbedCorpus(t)
-	imp, _ := Build(c, buildTime)
+	_, counts := Build(scrubbedCorpus(t), buildTime)
 
-	assert.Equal(t, researchCounts, importCounts(c, imp))
+	assert.Equal(t, map[string]int{"song": 135, "poem": 4, "story": 2, "dance_music": 1}, counts.PiecesByKind)
+	assert.Equal(t, 11, counts.InlineLyricsPieces)
+	assert.Equal(t, 48, counts.Bards)
+	assert.Equal(t, 62, counts.CollectionEntries)
+	assert.Equal(t, 61, counts.Collections)
 }
 
 func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {

@@ -159,9 +159,7 @@ func FuzzInlineLyricsBlocks(f *testing.F) {
 
 func checkBlock(t *testing.T, b LyricsBlock, previousEnd, length int) {
 	t.Helper()
-	if b.Start < previousEnd || b.End > length || b.Start > b.End || b.BodyStart < b.Start || b.BodyEnd > b.End ||
-		b.BodyStart > b.BodyEnd {
-		t.Fatalf("block [%d, %d) body [%d, %d) out of order or bounds (after %d, length %d)", b.Start, b.End,
-			b.BodyStart, b.BodyEnd, previousEnd, length)
+	if b.Start < previousEnd || b.End > length || b.Start > b.End {
+		t.Fatalf("block [%d, %d) out of order or bounds (after %d, length %d)", b.Start, b.End, previousEnd, length)
 	}
 }

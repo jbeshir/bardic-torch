@@ -32,11 +32,6 @@ type Counts struct {
 	Revisions          int
 }
 
-// Persons is the number of persons: the bards and the stub persons.
-func (c Counts) Persons() int {
-	return c.Bards + c.StubPersons
-}
-
 // Build maps a parsed wiki onto the catalogue: every term, collection, event, person and piece with its document,
 // system fields and one approved import revision (a neutral summary, the page's wiki contributors), and the links
 // rows, with the counts of what it holds. now is the time of every imported revision.

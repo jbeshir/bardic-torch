@@ -25,17 +25,14 @@ const (
 	LyricsComment LyricsBlockKind = "comment"
 )
 
-// LyricsBlock is a span of a page's wikitext that holds lyrics: text[Start:End] is dropped. A poem's body (its
-// text without the tags) is text[BodyStart:BodyEnd]; for other kinds the body is the whole block. Section is the
-// index of the section (in PageSections) the block starts in and Lines the number of non-blank lines of its body.
+// LyricsBlock is a span of a page's wikitext that holds lyrics: text[Start:End] is dropped. Section is the index of the
+// section (in PageSections) the block starts in and Lines the number of non-blank lines of its body.
 type LyricsBlock struct {
-	Kind      LyricsBlockKind
-	Section   int
-	Start     int
-	End       int
-	BodyStart int
-	BodyEnd   int
-	Lines     int
+	Kind    LyricsBlockKind
+	Section int
+	Start   int
+	End     int
+	Lines   int
 }
 
 // CommentaryLine is a prose line of a Lyrics or Text section with fewer than InlineLyricsMinLines prose lines:
@@ -148,7 +145,7 @@ func poemBlocks(masked string, sections []Section) []LyricsBlock {
 			bodyEnd, end = closes[c][0], closes[c][1]
 		}
 		out = append(out, LyricsBlock{
-			Kind: LyricsPoem, Section: k, Start: open, End: end, BodyStart: bodyStart, BodyEnd: bodyEnd,
+			Kind: LyricsPoem, Section: k, Start: open, End: end,
 			Lines: countLines(masked[bodyStart:bodyEnd]),
 		})
 		at = max(end, open+1)
@@ -165,7 +162,6 @@ func commentBlocks(wikitext string, sections []Section) []LyricsBlock {
 		if poemTag.MatchString(wikitext[loc[0]:loc[1]]) {
 			out = append(out, LyricsBlock{
 				Kind: LyricsComment, Section: sectionAt(sections, loc[0]), Start: loc[0], End: loc[1],
-				BodyStart: loc[0], BodyEnd: loc[1],
 			})
 		}
 	}
@@ -183,7 +179,6 @@ func mergeBlocks(blocks []LyricsBlock) []LyricsBlock {
 			last := &out[n-1]
 			if b.End > last.End {
 				last.End = b.End
-				last.BodyEnd = max(last.BodyEnd, b.BodyEnd)
 			}
 			if b.Section == last.Section {
 				last.Lines += b.Lines
@@ -283,13 +278,13 @@ func proseBlocks(masked string, section int, lines []lineSpan) []LyricsBlock {
 	var out []LyricsBlock
 	for _, l := range lines {
 		if n := len(out); n > 0 && trimSpace(masked[out[n-1].End:l.start]) == "" {
-			out[n-1].End, out[n-1].BodyEnd = l.end, l.end
+			out[n-1].End = l.end
 			out[n-1].Lines += TextLines(masked[l.start:l.end])
 
 			continue
 		}
 		out = append(out, LyricsBlock{
-			Kind: LyricsProse, Section: section, Start: l.start, End: l.end, BodyStart: l.start, BodyEnd: l.end,
+			Kind: LyricsProse, Section: section, Start: l.start, End: l.end,
 			Lines: TextLines(masked[l.start:l.end]),
 		})
 	}

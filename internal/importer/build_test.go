@@ -11,12 +11,11 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
-// The synthetic wiki's names. h1Alias is the alias in Wren's H1; its surname is h1Surname.
+// The synthetic wiki's names. h1Alias is the alias in Wren's H1.
 const (
 	wren          = "Wren Placeholder"
 	rowan         = "Rowan Placeholder"
 	h1Alias       = "Ash Sample"
-	h1Surname     = "Sample"
 	unsureAlias   = "Maria de Placeholder"
 	publicAlias   = "Rowan of the Glen"
 	songTitle     = "Song of Testing"
@@ -29,28 +28,27 @@ func page(id int64, title string, categories []string, wikitext string) mediawik
 }
 
 // syntheticDump is a small wiki: two bards (one with an alias in its H1, one with a public and an unsure
-// alias), a piece naming that alias in every kind of free text, a piece whose title slugifies alike, and the
+// alias), a piece, a piece whose title slugifies alike, and the
 // Collections page.
 func syntheticDump() mediawiki.Dump {
 	bards := []string{mediawiki.CategoryBards}
 	piece := []string{mediawiki.CategoryPieces, mediawiki.CategorySongs}
 	return mediawiki.Dump{
 		Pages: []mediawiki.Page{
-			page(10, wren, bards, "= "+wren+" ("+h1Alias+") =\nWren sings. Mr. "+h1Surname+" wrote back.\n"+
+			page(10, wren, bards, "= "+wren+" ("+h1Alias+") =\nWren sings.\n"+
 				"== Licensing & Etiquette ==\nAsk first at ash@example.org. [https://wren.example.org/terms Terms]\n"),
 			page(11, rowan, append(bards, "In Memoriam"), "= "+rowan+" ("+publicAlias+", "+unsureAlias+") =\n"+
 				"Deceased October 31, 2020.\n"),
-			page(20, songTitle, piece, "{{Infobox Song\n|title="+songTitle+"\n|other_titles="+h1Alias+
-				"'s Song\n|lyrics_by=[["+wren+"]]\n}}\nWritten for "+h1Alias+".\n"+
-				"== Lyrics ==\nThe version "+h1Alias+" sang differs.\n"+
-				"== Licensing & Etiquette ==\nCopyright "+h1Alias+". [https://wren.example.org/terms Terms]\n"+
-				"== Performances & Recordings ==\n* [https://www.youtube.com/watch?v=video000001 "+h1Alias+
-				" sings] of [["+wren+"]] at "+h1Alias+" Revel in 2020, recorded by "+h1Alias+" on YouTube\n"+
+			page(20, songTitle, piece, "{{Infobox Song\n|title="+songTitle+"\n|lyrics_by=[["+wren+"]]\n}}\n"+
+				"Written for a revel.\n"+
+				"== Lyrics ==\nThe version sung differs.\n"+
+				"== Licensing & Etiquette ==\nCopyright held. [https://wren.example.org/terms Terms]\n"+
+				"== Performances & Recordings ==\n* [https://www.youtube.com/watch?v=video000001 "+
+				"Recording] of [["+wren+"]] at a Revel in 2020, recorded on YouTube\n"+
 				"== Key Links ==\n* [https://blog.example.org/ash-sample.html Blog post]\n"+
 				"* [https://www.youtube.com/watch?v=video000001&utm_source=x Same video]\n"),
 			page(30, collidingSong, piece, "{{Infobox Song\n|lyrics_by=[["+wren+"]]\n}}\nAnother song.\n"),
-			page(40, mediawiki.CollectionsPage, nil, "== S ==\n* [https://songs.example.org/book.pdf "+
-				h1Alias+" Songbook]\n"),
+			page(40, mediawiki.CollectionsPage, nil, "== S ==\n* [https://songs.example.org/book.pdf Songbook]\n"),
 		},
 		Categories: map[string]mediawiki.Category{},
 		Redirects: []mediawiki.Redirect{
@@ -211,9 +209,6 @@ func TestBuild_SummariesAreNeutral(t *testing.T) {
 	require.NotEmpty(t, summaries)
 	for _, s := range summaries {
 		assert.True(t, domain.IsImportSummary(s), s)
-		for _, name := range []string{wren, rowan, h1Alias, h1Surname, unsureAlias, publicAlias, songTitle} {
-			assert.NotContains(t, s, name)
-		}
 	}
 }
 

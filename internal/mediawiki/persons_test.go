@@ -76,7 +76,7 @@ func TestPersonIndex_FirstTokenAmbiguousIsStub(t *testing.T) {
 	m := x.Match(wrenFirst)
 	assert.Equal(t, PersonMatch{Kind: MatchNone}, m)
 
-	mention := PersonMention{Name: PersonName{Name: wrenFirst, Form: NameText}, Page: aSong}
+	mention := PersonMention{Name: PersonName{Name: wrenFirst, Form: NameText}}
 	persons := ResolvePersons(x, []PersonMention{mention}, w.site())
 	ref, ok := persons.Resolve(mention.Name)
 	require.True(t, ok)
@@ -86,8 +86,8 @@ func TestPersonIndex_FirstTokenAmbiguousIsStub(t *testing.T) {
 
 func TestResolvePersons_TextMatchesStubsOfLinkedNames(t *testing.T) {
 	w := newWikiFixture()
-	text := PersonMention{Name: PersonName{Name: dunstanFirstWord, Form: NameText}, Page: aSong}
-	linked := PersonMention{Name: PersonName{Name: dunstanStub, Form: NamePageLink}, Page: "Another Song"}
+	text := PersonMention{Name: PersonName{Name: dunstanFirstWord, Form: NameText}}
+	linked := PersonMention{Name: PersonName{Name: dunstanStub, Form: NamePageLink}}
 
 	persons := ResolvePersons(NewPersonIndex(nil), []PersonMention{text, linked}, w.site())
 
@@ -102,9 +102,9 @@ func TestResolvePersons_StubsByFoldedName(t *testing.T) {
 	w := newWikiFixture()
 	const url = "https://en.wikipedia.org/wiki/Ash_Placeholder"
 	mentions := []PersonMention{
-		{Name: PersonName{Name: ash, Form: NameExternalLink, URL: url}, Page: aSong},
-		{Name: PersonName{Name: "Ash placeholder", Form: NameCategory}, Page: aSong},
-		{Name: PersonName{Name: "Placeholder Waits", Form: NameText}, Page: aSong},
+		{Name: PersonName{Name: ash, Form: NameExternalLink, URL: url}},
+		{Name: PersonName{Name: "Ash placeholder", Form: NameCategory}},
+		{Name: PersonName{Name: "Placeholder Waits", Form: NameText}},
 	}
 
 	persons := ResolvePersons(NewPersonIndex(nil), mentions, w.site())

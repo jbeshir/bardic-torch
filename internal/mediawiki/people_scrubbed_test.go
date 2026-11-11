@@ -25,11 +25,12 @@ func scrubbedPeople(t *testing.T) (People, map[string]PieceRecord) {
 
 func TestScrubbedPeople_ResearchCounts(t *testing.T) {
 	people, _ := scrubbedPeople(t)
+	s := scrubbedSite(t)
 
 	assert.Len(t, people.Bards, 48)
 	namespaces := map[int]int{}
 	classes := map[RedLinkClass]int{}
-	for _, r := range people.RedLinks {
+	for _, r := range ClassifyRedLinks(s, s.Pieces(), people.Bards) {
 		namespaces[r.NS]++
 		classes[r.Class]++
 	}

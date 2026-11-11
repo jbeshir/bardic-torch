@@ -38,13 +38,12 @@ type StubPiece struct {
 
 // People are the persons of the wiki and the credits of its pieces: the bard pages, the stub persons for the
 // names that match none, every piece's credits after the union of the credit signals, the stub pieces for the
-// works without pages and the red links classified.
+// works without pages.
 type People struct {
 	Bards      []BardRecord
 	Persons    Persons
 	Credits    map[int64][]PieceCredit
 	StubPieces []StubPiece
-	RedLinks   []RedLink
 }
 
 // ParsePeople parses the bard pages and matches every person the pieces and bard pages name: infobox credits,
@@ -57,7 +56,7 @@ func ParsePeople(s Site, pieces []PieceRecord) People {
 	redLinks := ClassifyRedLinks(s, pieces, bards)
 	persons := ResolvePersons(NewPersonIndex(bards), personMentions(s, pieces, bards, redLinks), s)
 	u := creditUnion{bards: bards, persons: persons, related: relatedPersons(bards, persons)}
-	p := People{Bards: bards, Persons: persons, Credits: map[int64][]PieceCredit{}, RedLinks: redLinks}
+	p := People{Bards: bards, Persons: persons, Credits: map[int64][]PieceCredit{}}
 	listers := u.listers()
 	for _, piece := range pieces {
 		p.Credits[piece.PageID] = u.pieceCredits(piece, listers[piece.Title])
@@ -75,16 +74,16 @@ func personMentions(s Site, pieces []PieceRecord, bards []BardRecord, redLinks [
 	for _, p := range pieces {
 		for _, c := range p.Credits {
 			if c.Attribution == domain.AttributionNamed {
-				out = append(out, PersonMention{Name: c.Name, Page: p.Title})
+				out = append(out, PersonMention{Name: c.Name})
 			}
 		}
 		for _, c := range p.BardNameCategories {
-			out = append(out, PersonMention{Name: PersonName{Name: c, Form: NameCategory}, Page: p.Title})
+			out = append(out, PersonMention{Name: PersonName{Name: c, Form: NameCategory}})
 		}
 	}
 	for _, b := range bards {
 		for _, r := range b.Relations {
-			out = append(out, PersonMention{Name: relationName(r), Page: b.Title})
+			out = append(out, PersonMention{Name: relationName(r)})
 		}
 	}
 
@@ -101,20 +100,20 @@ func performerMentions(s Site, pieces []PieceRecord, bards []BardRecord, works w
 		isBard[b.Title] = true
 	}
 	var out []PersonMention
-	add := func(page string, parsed ParsedPage) {
+	add := func(parsed ParsedPage) {
 		for _, it := range performanceItems(parsed) {
 			for _, target := range ParsePerformance(it.ListItem, s.Year, works.has).Performers {
 				if name := performerName(s, target); isBard[name.Name] || !s.HasPage(name.Name) {
-					out = append(out, PersonMention{Name: name, Page: page})
+					out = append(out, PersonMention{Name: name})
 				}
 			}
 		}
 	}
 	for _, p := range pieces {
-		add(p.Title, p.Parsed)
+		add(p.Parsed)
 	}
 	for _, b := range bards {
-		add(b.Title, b.Parsed)
+		add(b.Parsed)
 	}
 
 	return out

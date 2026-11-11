@@ -29,7 +29,6 @@ func TestInlineLyricsBlocks_PoemAnyLength(t *testing.T) {
 		assert.Equal(t, lines, b.Lines)
 		assert.Equal(t, strings.Index(text, "<poem>"), b.Start)
 		assert.Equal(t, strings.Index(text, "</poem>")+len("</poem>"), b.End)
-		assert.Equal(t, "\n"+lyricLines(lines)+"\n", text[b.BodyStart:b.BodyEnd])
 		assert.Equal(t, flagged, got.HadInlineLyrics, lines)
 		assert.Equal(t, "== Notes ==\nBefore.\n \nAfter.", WithoutInlineLyrics(text, got.Blocks))
 	}

@@ -125,7 +125,7 @@ func printCounts(w io.Writer, c importer.Counts) error {
 	lines := []string{
 		fmt.Sprintf("pieces %d (%s); stub pieces %d; with inline lyrics %d", pieces, strings.Join(byKind, ", "),
 			c.StubPieces, c.InlineLyricsPieces),
-		fmt.Sprintf("persons %d (bards %d, stubs %d)", c.Persons(), c.Bards, c.StubPersons),
+		fmt.Sprintf("persons %d (bards %d, stubs %d)", c.Bards+c.StubPersons, c.Bards, c.StubPersons),
 		fmt.Sprintf("terms %d; collections %d (of %d entries); events %d", c.Terms, c.Collections,
 			c.CollectionEntries, c.Events),
 		fmt.Sprintf("links %d; revisions %d", c.Links, c.Revisions),

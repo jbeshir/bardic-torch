@@ -113,20 +113,27 @@ func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 		needsWorkPath, needsWorkPath + "?reason=missing_licensing", needsWorkPath + "?reason=dead_links",
 	}
 
+	bodies := map[string]string{}
 	for _, path := range append(own, elsewhere...) {
 		body := get(path)
+		bodies[path] = body
 		assert.NotContains(t, body, noPageMark, "%s shows what the person who prefers no page hides", path)
 		assert.NotContains(t, body, linkMark, "%s shows the hidden link", path)
 	}
 	for _, path := range elsewhere {
-		body := get(path)
+		body := bodies[path]
 		assert.NotContains(t, body, strings.ToLower(noPageName), "%s names the person who prefers no page", path)
 		assert.NotContains(t, body, noPage.Slug, "%s addresses the person who prefers no page", path)
 	}
 	// The only dead link of the piece and of Rowan is hidden.
-	dead := get(needsWorkPath + "?reason=dead_links")
+	dead := bodies[needsWorkPath+"?reason=dead_links"]
 	assert.NotContains(t, dead, piece.Slug)
 	assert.NotContains(t, dead, rowan.Slug)
+
+	// The reads do show what is public, so the checks above are not vacuous.
+	assert.Contains(t, bodies["/v1/pieces/"+piece.Slug], "https://example.org/lantern")
+	assert.Contains(t, bodies["/v1/pieces/"+piece.Slug], "rowan")
+	assert.Contains(t, bodies[personsPath], noPage.Slug)
 }
 
 // historyPath is the path of the history of the entity of collection with address.

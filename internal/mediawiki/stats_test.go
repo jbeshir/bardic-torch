@@ -51,7 +51,7 @@ func Stats(c Corpus) CorpusStats {
 			}
 		}
 	}
-	for _, r := range c.People.RedLinks {
+	for _, r := range ClassifyRedLinks(c.Site, c.Pieces, c.People.Bards) {
 		st.RedLinksByNS[r.NS]++
 	}
 	for _, pl := range c.Links.Pieces {

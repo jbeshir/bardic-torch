@@ -211,8 +211,8 @@ func personRedLinkMentions(redLinks []RedLink) []PersonMention {
 		if r.Class != RedLinkPerson {
 			continue
 		}
-		for _, page := range r.Pages {
-			out = append(out, PersonMention{Name: PersonName{Name: r.Target, Form: NameRedLink}, Page: page})
+		for range r.Pages {
+			out = append(out, PersonMention{Name: PersonName{Name: r.Target, Form: NameRedLink}})
 		}
 	}
 

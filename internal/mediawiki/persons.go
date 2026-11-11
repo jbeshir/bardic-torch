@@ -174,7 +174,6 @@ func withinOneEdit(a, b string) bool {
 // PersonMention is a person named on a page: in a credit, by a bard-name category or by a red link.
 type PersonMention struct {
 	Name PersonName
-	Page string
 }
 
 // StubPerson is a person the wiki names without a page, imported as a public stub. Kind is a guess: group for a

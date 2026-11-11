@@ -10,11 +10,10 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// The vocabulary of person names that the name rules and the importer share, each
+// The vocabulary of person names that the alias rules and the importer share, each
 // defined once.
 
-// apostrophes are the apostrophe and quote variants names are written with: a separator or a joiner in a name
-// (the n-gram tokeniser), removed by FoldName.
+// apostrophes are the apostrophe and quote variants names are written with, removed by FoldName.
 const apostrophes = "'’‘ʼ`"
 
 func isApostrophe(r rune) bool {

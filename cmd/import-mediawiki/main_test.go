@@ -74,22 +74,11 @@ func TestParseOptions(t *testing.T) {
 	}
 }
 
-func TestRun_DryRunNeedsNoDatabase(t *testing.T) {
-	t.Parallel()
-
-	var stdout bytes.Buffer
-	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun}, noDatabase(t), &stdout)
-
-	require.NoError(t, err)
-	assert.NotContains(t, stdout.String(), "applied")
-}
-
 func TestRun_DryRunScrubbedCounts(t *testing.T) {
 	t.Parallel()
 
 	var stdout bytes.Buffer
-	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun}, noDatabase(t),
-		&stdout)
+	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun}, noDatabase(t), &stdout)
 
 	require.NoError(t, err)
 	// The research counts (PLAN §7, "Tests assert"): 142 pieces by kind, 11 of them with inline lyrics, 48 bards,
@@ -98,5 +87,6 @@ func TestRun_DryRunScrubbedCounts(t *testing.T) {
 	assert.Contains(t, stdout.String(), "with inline lyrics 11")
 	assert.Contains(t, stdout.String(), "bards 48")
 	assert.Contains(t, stdout.String(), "collections 61 (of 62 entries)")
+	assert.NotContains(t, stdout.String(), "applied")
 	assert.NotContains(t, stdout.String(), lyricMarker)
 }

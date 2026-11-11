@@ -53,8 +53,7 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
    (R-12).
 8. **"Prefers no page"** is a person status: the page is a stub showing the cited statement, the person's links
    and credits are hidden from public view, and creating a person with a matching name or alias is blocked.
-9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess
-   and corrected by the moderators in the catalogue after the import.
+9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess.
 10. **Unparented categories:** Seasons, Fire, Hope → Topics; Archery → Topics › War; Short Pieces → Other;
     Jewish, Sephardic, Portuguese → Cultures, with Sephardic under Jewish.
 11. **Rude** stays a mood. A content-advisory flag can come later.
@@ -271,8 +270,8 @@ written in one transaction into an empty catalogue.
 database. The launch run (a dry run, then `--apply` once) is in DEPLOY.md.
 
 **Tests:** the research counts (142 pieces, 135/4/2/1 by kind; 48 bards; 61 collections; 11 inline-lyrics pages);
-no dropped lyric in any field (the n-gram scan); goldens of the tricky pages; the writer writes every row, rolls back on failure and refuses
-a non-empty catalogue; the imported catalogue reads back valid by the spec.
+no dropped lyric in any field (the n-gram scan); goldens of the tricky pages; the writer writes every row, rolls
+back on failure and refuses a non-empty catalogue; the imported catalogue reads back valid by the spec.
 
 ## 8. Frontend
 
@@ -359,14 +358,13 @@ takes `Authorization: Bearer <jwt>`); `cmd/scrub-dump` and the scrubber, keeping
 - merged the auth-matrix and routing tests into one table that also checks route parity with the spec;
 - cut the leak matrix to the one small leak test and the Auth0 validator tests to one per rule;
 - dropped the schema-mirroring import validator test, and trimmed `deploy_files_test.go` to the `.env.dist` check;
-- replaced hidden-link snapshot redaction with the §4.1 deny-set;
-- kept the conda MySQL mode, as the sandbox has no container engine to run CI's service image.
+- replaced hidden-link snapshot redaction with the §4.1 deny-set.
 
 TESTING.md, DEPLOY.md and CLAUDE.md were rewritten to this plan, short. Public responses kept their shape, apart
 from what went with tokens.
 
-**FE-S removes** API tokens (settings UI, proxy routes, tests) and the styleguide route, and brings the FE to §9
-and §3:
+**FE-S removes** API tokens (settings UI, proxy routes, tests), the styleguide route and the `auth0|` credential
+prefix (the proxy sends `Authorization: Bearer <access_token>`), and brings the FE to §9 and §3:
 - one table-driven server-render smoke test in place of the per-route SSR files;
 - component tests only for components with behaviour;
 - a short e2e suite (about eight read journeys; axe once per page template; screenshots on demand, not a gate;

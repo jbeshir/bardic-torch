@@ -73,11 +73,9 @@ type PieceTerm struct {
 // PieceRecord is a piece page parsed for import. Wikitext is the page's wikitext without its inline lyrics and
 // with its markup repaired, and Parsed is that text parsed; every later step reads these, never the original.
 type PieceRecord struct {
-	PageID int64
-	Title  string
-	URL    string
-	// Categories are the page's categories, as written.
-	Categories     []string
+	PageID         int64
+	Title          string
+	URL            string
 	Wikitext       string
 	Parsed         ParsedPage
 	Kind           domain.PieceKind
@@ -112,7 +110,7 @@ func ParsePiece(p Page, s Site) PieceRecord {
 	kind := primaryKind(p, parsed.Infoboxes)
 	sorted := sortCategories(p, parsed.Infoboxes, s)
 	r := PieceRecord{
-		PageID: p.PageID, Title: p.Title, URL: p.URL, Categories: p.Categories, Wikitext: repaired, Parsed: parsed,
+		PageID: p.PageID, Title: p.Title, URL: p.URL, Wikitext: repaired, Parsed: parsed,
 		Kind: kind, SecondaryKinds: secondaryKinds(p, kind),
 		Terms: sorted.terms, ConservationStatuses: sorted.statuses, BardNameCategories: sorted.bardNames,
 		Titles:  pieceTitles(p, parsed, s),

@@ -17,7 +17,7 @@ Replace these in the commands below:
 | `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
-| `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/wiki-crawl/dump` |
+| `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
 
 ## Requirements
 
@@ -354,10 +354,12 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
    counts (pieces by kind and with inline lyrics, persons, terms, collections of the Collections page's entries,
    events, links, revisions). Run it again whenever the crawl changes.
 2. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
-   one-off container a directory holding the crawl:
+   one-off container a private directory holding the crawl, readable by the image's user (10001):
    ```
    sudo mkdir -p /var/lib/bardic-torch-import
    sudo cp -r <CRAWL_DIR> /var/lib/bardic-torch-import/dump
+   sudo chown -R 10001:10001 /var/lib/bardic-torch-import
+   sudo chmod -R go= /var/lib/bardic-torch-import
    dokku docker-options:add bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
    dokku run bardic-torch-api /app/import-mediawiki --apply --dump /import/dump
    dokku docker-options:remove bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
@@ -367,7 +369,7 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
    catalogue import is in progress`, and on a catalogue that is not empty with `catalogue is not empty`; neither
    writes anything.
 3. **Delete the copy** once the import is applied: `sudo rm -r /var/lib/bardic-torch-import`. The crawl is never
-   committed: it holds the wiki's lyrics, which are not ours to publish.
+   committed: it holds the wiki's lyrics, which are not ours to publish, and email addresses.
 
 After the import, every imported entity has one approved revision of source `import`, crediting the wiki users who
 wrote its page; liveness of every link is `unknown` until a link checker runs.
