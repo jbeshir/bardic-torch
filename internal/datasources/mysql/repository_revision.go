@@ -104,7 +104,7 @@ func (c *catalogueReader) history(
 	ctx context.Context, entityType queries.RevisionsEntityType, id uint64, page domain.Page,
 ) domain.RevisionHistory {
 	rows := fetch(ctx, c, "revisions", c.q.ListApprovedRevisions, queries.ListApprovedRevisionsParams{
-		EntityType: entityType, EntityID: id, Limit: page.Limit, Offset: page.Offset,
+		EntityType: entityType, EntityID: sql.NullInt64{Int64: c.signedID(id), Valid: true}, Limit: page.Limit, Offset: page.Offset,
 	})
 	ids := make([]uint64, 0, len(rows))
 	for _, row := range rows {
@@ -121,7 +121,7 @@ func (c *catalogueReader) history(
 	return domain.RevisionHistory{
 		Revisions: revisions,
 		Total: fetch(ctx, c, "revision count", c.q.CountApprovedRevisions,
-			queries.CountApprovedRevisionsParams{EntityType: entityType, EntityID: id}),
+			queries.CountApprovedRevisionsParams{EntityType: entityType, EntityID: sql.NullInt64{Int64: c.signedID(id), Valid: true}}),
 	}
 }
 
@@ -187,7 +187,7 @@ func (r *Repository) GetPublicRevision(ctx context.Context, id int64) (domain.Re
 // That is decided before its snapshots are decoded, so a revision of an entity that is not public is
 // not found whatever its snapshots hold.
 func (c *catalogueReader) revision(ctx context.Context, row queries.GetApprovedRevisionRow) (domain.Revision, error) {
-	entityID := c.signedID(row.EntityID)
+	entityID := row.EntityID.Int64
 	entity := c.visibility(ctx, entityReferences(row.EntityType, entityID))
 	if c.err != nil {
 		return nil, c.err
@@ -288,7 +288,7 @@ func entityRevision[D domain.Document, E, S any](
 	ctx context.Context, c *catalogueReader, row queries.GetApprovedRevisionRow, entities map[int64]E,
 	kind snapshotKind[D, S],
 ) (domain.Revision, error) {
-	entity, ok := entities[c.signedID(row.EntityID)]
+	entity, ok := entities[row.EntityID.Int64]
 	if !ok {
 		return nil, datasources.ErrNotFound
 	}

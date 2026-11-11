@@ -272,7 +272,7 @@ func (w *importWriter) revisions(imp domain.CatalogueImport) {
 			w.fail(fmt.Errorf("encoding the snapshot of %s [%d]: %w", r.entityType, r.entityID, err))
 		}
 		p := queries.InsertImportedRevisionParams{ID: w.id(r.rev.ID),
-			EntityType: queries.RevisionsEntityType(r.entityType), EntityID: w.id(r.entityID),
+			EntityType: queries.RevisionsEntityType(r.entityType), EntityID: sql.NullInt64{Int64: r.entityID, Valid: true},
 			SnapshotJson: snapshot, Summary: r.rev.Summary, CreatedAt: r.rev.CreatedAt}
 		w.insert("revisions", func() error { return w.q.InsertImportedRevision(w.ctx, p) })
 	}
