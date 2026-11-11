@@ -63,9 +63,9 @@ func TestSubmitRevision_NewPersonMatchingUnlistedPerson(t *testing.T) {
 	assert.Nil(t, repo.Submitted)
 }
 
-// TestSubmitRevision_UnlistedPersonBaseIsForModerators checks that only a moderator may edit a base that shows a
-// person who prefers no page.
-func TestSubmitRevision_UnlistedPersonBaseIsForModerators(t *testing.T) {
+// TestSubmitRevision_UnlistedPersonIsForModerators checks that only a moderator may edit an entity whose current
+// document shows a person who prefers no page.
+func TestSubmitRevision_UnlistedPersonIsForModerators(t *testing.T) {
 	t.Parallel()
 
 	repo := &fakerepo.Repo{RevisionBase: &datasources.RevisionBase{EntityID: 7, ShowsUnlistedPerson: true,

@@ -44,34 +44,36 @@ func conflict(w http.ResponseWriter, r *http.Request, msg string) {
 	httpjson.WriteError(r.Context(), w, http.StatusConflict, httpjson.CodeConflict, msg)
 }
 
-// ClosingRequest is the JSON body of a moderator's closing of a link report or contact request. HideLink applies
-// to link reports only.
+// ClosingRequest is the JSON body of a moderator's closing of a contact request.
 type ClosingRequest struct {
-	Status   domain.ReportStatus `json:"status"`
-	Note     *string             `json:"note"`
-	HideLink bool                `json:"hide_link"`
+	Status domain.ReportStatus `json:"status"`
+	Note   *string             `json:"note"`
 }
 
-// closing reads the body of a closing request into a datasources.Closing for the moderator. It writes 400 and
-// returns false if the body is invalid.
-func closing(w http.ResponseWriter, r *http.Request, idName string, now time.Time) (datasources.Closing, bool, bool) {
+// LinkReportClosingRequest is the JSON body of a moderator's closing of a link report.
+type LinkReportClosingRequest struct {
+	ClosingRequest
+	HideLink bool `json:"hide_link"`
+}
+
+// closing decodes the body of a closing request into body, whose closing fields are fields, and returns a
+// datasources.Closing for the moderator. It writes 400 and returns false if the body is invalid.
+func closing(
+	w http.ResponseWriter, r *http.Request, idName string, now time.Time, body any, fields *ClosingRequest,
+) (datasources.Closing, bool) {
 	id, ok := idOrBadRequest(w, r, idName)
 	principal, authed := principalOrUnauthenticated(w, r)
-	if !ok || !authed {
-		return datasources.Closing{}, false, false
+	if !ok || !authed || !httpjson.DecodeJSONBody(w, r, body) {
+		return datasources.Closing{}, false
 	}
-	var body ClosingRequest
-	if !httpjson.DecodeJSONBody(w, r, &body) {
-		return datasources.Closing{}, false, false
-	}
-	note, noteOK := optionalText(body.Note, domain.MaxNoteLength)
-	if !body.Status.Closes() || !noteOK {
+	note, noteOK := optionalText(fields.Note, domain.MaxNoteLength)
+	if !fields.Status.Closes() || !noteOK {
 		badRequest(w, r, "status must be resolved or dismissed, and note at most 2000 characters")
-		return datasources.Closing{}, false, false
+		return datasources.Closing{}, false
 	}
 
-	return datasources.Closing{ModeratorUserID: principal.User.ID, ID: id, Status: body.Status, Note: note, Now: now},
-		body.HideLink, true
+	return datasources.Closing{ModeratorUserID: principal.User.ID, ID: id, Status: fields.Status, Note: note,
+		Now: now}, true
 }
 
 // reportListQuery reads the status (default open) and page of a moderation list. It writes 400 and returns false
@@ -218,11 +220,12 @@ type LinkReportClose struct {
 }
 
 func (c LinkReportClose) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	closed, hideLink, ok := closing(w, r, "report_id", c.Now())
+	var body LinkReportClosingRequest
+	closed, ok := closing(w, r, "report_id", c.Now(), &body, &body.ClosingRequest)
 	if !ok {
 		return
 	}
-	writeClosed(w, r, c.Moderation.CloseLinkReport(r.Context(), closed, hideLink), "link report")
+	writeClosed(w, r, c.Moderation.CloseLinkReport(r.Context(), closed, body.HideLink), "link report")
 }
 
 // writeClosed writes the answer to closing a report or request: 204, or the error err is.
@@ -427,12 +430,9 @@ type ContactRequestClose struct {
 }
 
 func (c ContactRequestClose) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	closed, hideLink, ok := closing(w, r, "request_id", c.Now())
+	var body ClosingRequest
+	closed, ok := closing(w, r, "request_id", c.Now(), &body, &body)
 	if !ok {
-		return
-	}
-	if hideLink {
-		badRequest(w, r, "hide_link applies to link reports only")
 		return
 	}
 	writeClosed(w, r, c.Moderation.CloseContactRequest(r.Context(), closed), "contact request")

@@ -81,8 +81,8 @@ func TestCheckLinksClassification(t *testing.T) {
 			check{domain.LivenessOK, 2}},
 		{"third gone is dead", datasources.DueLink{Liveness: domain.LivenessOK, Failures: 2}, gone,
 			check{domain.LivenessDead, 3}},
-		{"blocked", datasources.DueLink{Liveness: domain.LivenessOK, Failures: 1}, blocked,
-			check{domain.LivenessBlocked, 1}},
+		{"blocked resets failures", datasources.DueLink{Liveness: domain.LivenessOK, Failures: 2}, blocked,
+			check{domain.LivenessBlocked, 0}},
 		{"unreachable changes nothing", datasources.DueLink{Liveness: domain.LivenessOK, Failures: 1}, unreachable,
 			check{domain.LivenessOK, 1}},
 	}

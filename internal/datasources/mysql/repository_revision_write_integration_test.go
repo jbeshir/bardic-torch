@@ -248,6 +248,9 @@ func TestSubmit_ContributorPendingRevisions(t *testing.T) {
 	view, err := fx.repo.GetMyRevision(t.Context(), wrenID, first)
 	require.NoError(t, err)
 	assert.Equal(t, domain.RevisionStatusWithdrawn, view.(domain.PieceRevisionView).Status)
+	_, err = fx.repo.GetMyRevision(t.Context(), heronID, second)
+	require.ErrorIs(t, err, datasources.ErrNotFound, "another user's revision")
+	require.ErrorIs(t, fx.repo.WithdrawRevision(t.Context(), second, heronID), datasources.ErrNotFound)
 	for range datasources.MaxPendingRevisions - 1 {
 		fx.submit(t, 0, pieceDoc("A new piece"), false)
 	}

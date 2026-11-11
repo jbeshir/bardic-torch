@@ -176,7 +176,9 @@ func (d PieceDocument) ToEditor(s Slugs) EditorPieceDocument {
 		for j, p := range l.Performances {
 			e.Links[k].Performances[j] = p.toEditor(e.Links[k].Performances[j], s)
 		}
+		e.Links[k].Performances = orEmpty(e.Links[k].Performances)
 	}
+	e.SecondaryKinds, e.Aliases, e.Links = orEmpty(e.SecondaryKinds), orEmpty(e.Aliases), orEmpty(e.Links)
 
 	return e
 }
@@ -242,6 +244,7 @@ func (d PersonDocument) ToEditor(s Slugs) EditorPersonDocument {
 			return l.Performances[j].PieceID == nil || e.Links[k].Performances[j].PieceSlug != nil
 		})
 	}
+	e.Aliases, e.Roles, e.Links = orEmpty(e.Aliases), orEmpty(e.Roles), orEmpty(e.Links)
 
 	return e
 }
@@ -293,6 +296,7 @@ func (d TermDocument) ToEditor(s Slugs) EditorTermDocument {
 	e := copyFields[EditorTermDocument](d)
 	e.ParentSlug = slugOf(s.Terms, d.ParentID)
 	e.RelatedAffiliationSlug = slugOf(s.Terms, d.RelatedAffiliationID)
+	e.Aliases = orEmpty(e.Aliases)
 
 	return e
 }
@@ -405,11 +409,8 @@ func slugOf(slugs map[int64]string, id *int64) *string {
 	return nil
 }
 
-// slugsOf returns the slugs of ids, leaving out those with none (nil if ids is nil).
+// slugsOf returns the slugs of ids, leaving out those with none.
 func slugsOf(slugs map[int64]string, ids []int64) []string {
-	if ids == nil {
-		return nil
-	}
 	out := []string{}
 	for _, id := range ids {
 		if s, ok := slugs[id]; ok {
@@ -428,11 +429,8 @@ func appendSlug(slugs []string, slug *string) []string {
 	return append(slugs, *slug)
 }
 
-// keep returns the elements of list whose index ok holds for (nil if list is nil).
+// keep returns the elements of list whose index ok holds for.
 func keep[T any](list []T, ok func(k int) bool) []T {
-	if list == nil {
-		return nil
-	}
 	out := make([]T, 0, len(list))
 	for k, x := range list {
 		if ok(k) {
@@ -441,6 +439,15 @@ func keep[T any](list []T, ok func(k int) bool) []T {
 	}
 
 	return out
+}
+
+// orEmpty returns list, or an empty list if it is nil, so that editor documents encode lists as [].
+func orEmpty[T any](list []T) []T {
+	if list == nil {
+		return []T{}
+	}
+
+	return list
 }
 
 // copyFields returns the JSON fields of from that T has: the editor and stored formats share every field but the

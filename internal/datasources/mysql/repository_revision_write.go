@@ -14,7 +14,8 @@ import (
 
 var _ datasources.Revisions = (*Repository)(nil)
 
-// inTransaction runs f with the queries of one transaction, and commits it if f succeeds.
+// inTransaction runs f with the queries of one transaction, and commits it if f succeeds. A lost connection
+// returns an error wrapping datasources.ErrUnavailable.
 func (r *Repository) inTransaction(ctx context.Context, f func(q *queries.Queries) error) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -23,7 +24,7 @@ func (r *Repository) inTransaction(ctx context.Context, f func(q *queries.Querie
 	defer func() { _ = tx.Rollback() }()
 
 	if err := f(r.queries.WithTx(tx)); err != nil {
-		return err
+		return unavailableIfDisconnected(err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("committing transaction: %w", err)

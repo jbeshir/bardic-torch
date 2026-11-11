@@ -283,10 +283,10 @@ dokku config:set --no-restart bardic-torch-api \
 - `BOOTSTRAP_MODERATOR_USER_IDS` must be set, but may be empty if the moderator IDs are not known yet. Set it
   later as in [Moderators](#moderators).
 - `TURNSTILE_SECRET_KEY` and `TURNSTILE_HOSTNAME` are the contact form's Cloudflare Turnstile secret key and the
-  hostname its widget runs on. Without a secret key the API accepts every token.
+  hostname its widget runs on.
 - `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
-  if `AUTH_DRIVERS` names an unknown driver, or if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
-  enabled.
+  if `AUTH_DRIVERS` names an unknown driver, if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
+  enabled, or if `TURNSTILE_SECRET_KEY` or `TURNSTILE_HOSTNAME` is empty.
 
 ### First deploy
 

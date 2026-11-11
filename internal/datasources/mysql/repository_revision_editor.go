@@ -91,7 +91,8 @@ func (c *catalogueReader) editableEntityID(
 	return c.signedID(found), nil
 }
 
-// GetRevisionBase returns an approved revision of an entity of entityType, as a submission's base.
+// GetRevisionBase returns an approved revision of an entity of entityType, as a submission's base, with
+// ShowsUnlistedPerson computed from the entity's current revision.
 func (r *Repository) GetRevisionBase(
 	ctx context.Context, entityType domain.EntityType, baseRevisionID int64,
 ) (datasources.RevisionBase, error) {
@@ -109,7 +110,19 @@ func (r *Repository) GetRevisionBase(
 		if err != nil {
 			return err
 		}
-		refs := documentReferences(doc, row.EntityID.Int64)
+		current, err := currentRevisionID(ctx, c.q, row.EntityType, row.EntityID)
+		if err != nil {
+			return err
+		}
+		currentRow, err := getRevision(ctx, c.q, *current)
+		if err != nil {
+			return err
+		}
+		currentDoc, err := decodeDocument(currentRow.EntityType, currentRow.SnapshotJson)
+		if err != nil {
+			return err
+		}
+		refs := documentReferences(currentDoc, row.EntityID.Int64)
 		base = datasources.RevisionBase{EntityID: row.EntityID.Int64, Document: doc,
 			ShowsUnlistedPerson: showsUnlistedPerson(refs, c.visibility(ctx, refs))}
 		return c.err

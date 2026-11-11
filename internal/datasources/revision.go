@@ -47,7 +47,8 @@ type RevisionBase struct {
 	EntityID int64
 	// Document is the base's stored-format document, of the type of NewRevision.Document.
 	Document any
-	// ShowsUnlistedPerson is domain.ShowsUnlistedPerson of the document: only a moderator may edit it.
+	// ShowsUnlistedPerson is domain.ShowsUnlistedPerson of the entity's current document: only a moderator may
+	// edit it.
 	ShowsUnlistedPerson bool
 }
 

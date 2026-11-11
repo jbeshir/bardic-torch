@@ -74,8 +74,8 @@ func (c *CheckLinks) checkDue(ctx context.Context) error {
 }
 
 // nextLiveness returns a link's liveness and consecutive failures after a check found outcome: a success resets
-// the failures, a third failure in a row makes the link dead, a refusal makes it blocked, and an inconclusive
-// check changes nothing.
+// the failures, a third failure in a row makes the link dead, a refusal makes it blocked and resets the failures,
+// and an inconclusive check changes nothing.
 func nextLiveness(link datasources.DueLink, outcome datasources.LinkOutcome) (domain.Liveness, uint8) {
 	switch outcome {
 	case datasources.LinkOutcomeOK:
@@ -87,7 +87,7 @@ func nextLiveness(link datasources.DueLink, outcome datasources.LinkOutcome) (do
 		}
 		return link.Liveness, failures
 	case datasources.LinkOutcomeBlocked:
-		return domain.LivenessBlocked, link.Failures
+		return domain.LivenessBlocked, 0
 	case datasources.LinkOutcomeUnreachable:
 	}
 

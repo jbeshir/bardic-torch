@@ -14,28 +14,10 @@ import (
 
 var _ datasources.Moderation = (*Repository)(nil)
 
-// inTx runs fn in a transaction with queries bound to it, committing if fn returns nil.
-func (r *Repository) inTx(ctx context.Context, fn func(q *queries.Queries) error) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("beginning transaction: %w", unavailableIfDisconnected(err))
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if err := fn(r.queries.WithTx(tx)); err != nil {
-		return unavailableIfDisconnected(err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("committing transaction: %w", err)
-	}
-
-	return nil
-}
-
 // InsertLinkReport stores a report of a visible link, refusing a second open report of it by the same user.
 func (r *Repository) InsertLinkReport(ctx context.Context, report datasources.NewLinkReport) (int64, error) {
 	var id int64
-	err := r.inTx(ctx, func(q *queries.Queries) error {
+	err := r.inTransaction(ctx, func(q *queries.Queries) error {
 		linkID, err := q.GetVisibleLinkID(ctx, report.NormalizedURL)
 		if errors.Is(err, sql.ErrNoRows) {
 			return datasources.ErrNotFound
@@ -110,8 +92,12 @@ func resolution(by sql.NullString, at sql.NullTime, note sql.NullString) *domain
 
 // CloseLinkReport resolves or dismisses an open report, hiding its link too if hideLink.
 func (r *Repository) CloseLinkReport(ctx context.Context, closing datasources.Closing, hideLink bool) error {
-	err := r.inTx(ctx, func(q *queries.Queries) error {
-		state, err := q.GetLinkReportState(ctx, dbID(closing.ID))
+	id := closing.ID
+	err := r.inTransaction(ctx, func(q *queries.Queries) error {
+		if id < 1 {
+			return datasources.ErrNotFound
+		}
+		state, err := q.GetLinkReportState(ctx, uint64(id))
 		if errors.Is(err, sql.ErrNoRows) {
 			return datasources.ErrNotFound
 		} else if err != nil {
@@ -122,7 +108,7 @@ func (r *Repository) CloseLinkReport(ctx context.Context, closing datasources.Cl
 		}
 		err = q.CloseLinkReport(ctx, queries.CloseLinkReportParams{
 			Status: queries.LinkReportsStatus(closing.Status), ResolvedByUserID: nullString(&closing.ModeratorUserID),
-			ResolvedAt: nullTime(closing.Now), ResolutionNote: nullString(closing.Note), ID: dbID(closing.ID),
+			ResolvedAt: nullTime(closing.Now), ResolutionNote: nullString(closing.Note), ID: uint64(id),
 		})
 		if err != nil || !hideLink {
 			return err
@@ -175,7 +161,10 @@ func (r *Repository) GetModerationLink(ctx context.Context, normalizedURL string
 
 // SetLinkHidden hides or restores a link.
 func (r *Repository) SetLinkHidden(ctx context.Context, linkID int64, hidden bool) error {
-	err := requireMatched(r.queries.SetLinkHidden(ctx, queries.SetLinkHiddenParams{IsHidden: hidden, ID: dbID(linkID)}))
+	if linkID < 1 {
+		return fmt.Errorf("setting link [%d] hidden: %w", linkID, datasources.ErrNotFound)
+	}
+	err := requireMatched(r.queries.SetLinkHidden(ctx, queries.SetLinkHiddenParams{IsHidden: hidden, ID: uint64(linkID)}))
 	if err != nil {
 		return fmt.Errorf("setting link [%d] hidden: %w", linkID, err)
 	}
@@ -244,8 +233,12 @@ func (r *Repository) ListContactRequests(
 
 // CloseContactRequest resolves or dismisses an open contact request.
 func (r *Repository) CloseContactRequest(ctx context.Context, closing datasources.Closing) error {
-	err := r.inTx(ctx, func(q *queries.Queries) error {
-		status, err := q.GetContactRequestStatus(ctx, dbID(closing.ID))
+	id := closing.ID
+	err := r.inTransaction(ctx, func(q *queries.Queries) error {
+		if id < 1 {
+			return datasources.ErrNotFound
+		}
+		status, err := q.GetContactRequestStatus(ctx, uint64(id))
 		if errors.Is(err, sql.ErrNoRows) {
 			return datasources.ErrNotFound
 		} else if err != nil {
@@ -257,7 +250,7 @@ func (r *Repository) CloseContactRequest(ctx context.Context, closing datasource
 
 		return q.CloseContactRequest(ctx, queries.CloseContactRequestParams{
 			Status: queries.ContactRequestsStatus(closing.Status), ResolvedByUserID: nullString(&closing.ModeratorUserID),
-			ResolvedAt: nullTime(closing.Now), ResolutionNote: nullString(closing.Note), ID: dbID(closing.ID),
+			ResolvedAt: nullTime(closing.Now), ResolutionNote: nullString(closing.Note), ID: uint64(id),
 		})
 	})
 	if err != nil {
@@ -265,13 +258,4 @@ func (r *Repository) CloseContactRequest(ctx context.Context, closing datasource
 	}
 
 	return nil
-}
-
-// dbID returns id as the unsigned type of the ID columns. The API only sends positive IDs, and no row has ID 0.
-func dbID(id int64) uint64 {
-	if id < 0 {
-		return 0
-	}
-
-	return uint64(id)
 }

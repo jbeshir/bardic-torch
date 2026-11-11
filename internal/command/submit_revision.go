@@ -51,9 +51,9 @@ type storedDocument interface {
 
 // Execute resolves the document's slugs, validates it against its base and checks a new entity for duplicates,
 // then submits it and returns the author's view of the stored revision. A document that does not validate
-// returns a *datasources.ValidationError, duplicates a *DuplicateError, a contributor's edit of a base showing a
-// person who prefers no page ErrModeratorOnly, and an unknown base an error wrapping datasources.ErrNotFound;
-// the submission's own errors are as datasources.Revisions.SubmitRevision's.
+// returns a *datasources.ValidationError, duplicates a *DuplicateError, a contributor's edit of an entity whose
+// current document shows a person who prefers no page ErrModeratorOnly, and an unknown base an error wrapping
+// datasources.ErrNotFound; the submission's own errors are as datasources.Revisions.SubmitRevision's.
 func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest) (domain.RevisionView, error) {
 	moderator := req.User.Role == domain.RoleModerator
 	entityType, doc, problems, err := c.fromEditor(ctx, req.Document, moderator)

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"cmp"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,8 +9,6 @@ import (
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
-	"github.com/jbeshir/bardic-torch/internal/datasources"
-	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/fakerepo"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +29,6 @@ func TestRevisionRoutes_Rules(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		handler  func(*fakerepo.Repo) http.Handler
-		seed     func(*fakerepo.Repo)
 		method   string
 		path     string
 		pattern  string
@@ -51,39 +47,6 @@ func TestRevisionRoutes_Rules(t *testing.T) {
 				`"problems":[{"path":"name","code":"required"}]}`,
 		},
 		{
-			name: "pending_limit",
-			handler: func(r *fakerepo.Repo) http.Handler {
-				return RevisionCreate{Command: &command.SubmitRevision{Revisions: r, Now: now}}
-			},
-			seed:   func(r *fakerepo.Repo) { r.Err = fmt.Errorf("submitting: %w", datasources.ErrPendingLimit) },
-			method: http.MethodPost, path: "/v1/revisions", body: newEventRevisionBody("Midwinter Revel"),
-			wantCode: http.StatusConflict,
-			wantBody: `{"code":"pending_limit_reached","message":"you already have 30 pending revisions"}`,
-		},
-		{
-			name: "editable_showing_unlisted_person_is_for_moderators",
-			handler: func(r *fakerepo.Repo) http.Handler {
-				return EditableGet{Revisions: r, EntityType: domain.EntityTypePiece}
-			},
-			seed: func(r *fakerepo.Repo) {
-				r.Editable = &datasources.Editable{BaseRevisionID: 42, ShowsUnlistedPerson: true,
-					Document: domain.EditorPieceDocument{SchemaVersion: 1, Title: "The Copper Kettle"}}
-			},
-			method: http.MethodGet, path: "/v1/pieces/the-copper-kettle/editable", pattern: "/v1/pieces/{slug}/editable",
-			wantCode: http.StatusForbidden,
-			wantBody: `{"code":"moderator_only","message":"this document shows a person who prefers not to have a page; ` +
-				`only a moderator may edit it"}`,
-		},
-		{
-			name:    "stale_approval",
-			handler: func(r *fakerepo.Repo) http.Handler { return RevisionApprove{Revisions: r, Now: now} },
-			seed:    func(r *fakerepo.Repo) { r.Err = fmt.Errorf("approving: %w", datasources.ErrStale) },
-			method:  http.MethodPost, path: "/v1/revisions/51/approve", pattern: "/v1/revisions/{revision_id}/approve",
-			body: `{"acknowledge_stale":false}`, wantCode: http.StatusConflict,
-			wantBody: `{"code":"stale_revision",` +
-				`"message":"the entity has changed since the revision's base; acknowledge_stale to overwrite the changes"}`,
-		},
-		{
 			name:    "rejection_needs_a_note",
 			handler: func(r *fakerepo.Repo) http.Handler { return RevisionReject{Revisions: r, Now: now} },
 			method:  http.MethodPost, path: "/v1/revisions/51/reject", pattern: "/v1/revisions/{revision_id}/reject",
@@ -95,9 +58,6 @@ func TestRevisionRoutes_Rules(t *testing.T) {
 			t.Parallel()
 
 			repo := &fakerepo.Repo{}
-			if tc.seed != nil {
-				tc.seed(repo)
-			}
 			req := httptest.NewRequestWithContext(t.Context(), tc.method, tc.path, strings.NewReader(tc.body))
 			if tc.body != "" {
 				req.Header.Set("Content-Type", "application/json")

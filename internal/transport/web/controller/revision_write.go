@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -61,39 +60,7 @@ func (c EditableGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		httpjson.WriteJSON(r.Context(), w, http.StatusOK, EditableResponse{EntityType: c.EntityType,
 			BaseRevisionID: editable.BaseRevisionID, PendingRevisionID: editable.PendingRevisionID,
-			Document: withEmptyLists(editable.Document)})
-	}
-}
-
-// withEmptyLists returns a copy of the document doc with every nil slice in it made empty, so that lists encode
-// as [] rather than null.
-func withEmptyLists(doc any) any {
-	v := reflect.New(reflect.TypeOf(doc)).Elem()
-	v.Set(reflect.ValueOf(doc))
-	emptyLists(v)
-
-	return v.Interface()
-}
-
-func emptyLists(v reflect.Value) {
-	kind := v.Kind()
-	if kind == reflect.Pointer && !v.IsNil() {
-		emptyLists(v.Elem())
-	}
-	if kind == reflect.Struct {
-		for i := range v.NumField() {
-			if v.Type().Field(i).IsExported() {
-				emptyLists(v.Field(i))
-			}
-		}
-	}
-	if kind == reflect.Slice {
-		if v.IsNil() {
-			v.Set(reflect.MakeSlice(v.Type(), 0, 0))
-		}
-		for i := range v.Len() {
-			emptyLists(v.Index(i))
-		}
+			Document: editable.Document})
 	}
 }
 
