@@ -38,6 +38,8 @@ links.locator                          = links.locator
 links.liveness                         ! link checker state
 links.last_checked_at                  ! link checker state
 links.archived_url                     ! link checker state
+links.liveness_failures                ! link checker state
+links.archive_checked_at               ! link checker state
 links.is_hidden                        ! moderator takedown state
 link_attachments.id                    ! the row's own ID
 link_attachments.link_id               ! the link of the links[] element
@@ -45,6 +47,8 @@ link_attachments.role                  = links.roles
 link_attachments.position              ! the element's index in its document list
 performances.id                        ! the row's own ID
 performances.link_id                   ! the link of the links[] element
+performances.owner_piece_id            ! system-owned: the piece whose document records the performance
+performances.owner_person_id           ! system-owned: the person whose document records the performance
 performances.event_id                  = links.performances.event_id
 performances.year                      = links.performances.year
 performances.uploader                  = links.performances.uploader
@@ -80,6 +84,7 @@ pieces.version_notes_md                = version_notes_md
 pieces.licensing_notes_md              = licensing_notes_md
 pieces.licensing_status                = licensing_status
 pieces.licence                         = licence
+pieces.licence_version                 = licence_version
 pieces.historical_source_md            = historical_source_md
 pieces.period_start                    = period_start
 pieces.period_end                      = period_end
@@ -194,6 +199,8 @@ revisions              ! the revision workflow that stores the documents
 revision_contributors  ! the revision workflow that stores the documents
 term_ancestors         ! derived from terms.parent_id by the importer and when a term revision is approved
 conservation_history   ! written by the importer, and appended when a revision changing a piece's status is approved
+link_reports           ! moderation workflow: reports of broken or wrong links
+contact_requests       ! moderation workflow: takedown and correction requests
 `
 
 // schemaVersionField is the field every document has and no column stores: it describes the stored snapshot.

@@ -396,9 +396,9 @@ func (c *catalogueReader) pieceVisibility(ctx context.Context, ids []uint64, vis
 	for _, row := range rows {
 		slugs = append(slugs, row.Slug)
 	}
-	kinds := c.secondaryKinds(ctx, slugs)
+	extras := c.summaryExtras(ctx, slugs)
 	for _, row := range rows {
-		vis.Pieces[c.signedID(row.ID)] = c.pieceSummary(kinds, row.Slug, row.Title, row.Kind, row.ConservationStatus,
+		vis.Pieces[c.signedID(row.ID)] = c.pieceSummary(extras, row.Slug, row.Title, row.Kind, row.ConservationStatus,
 			row.IsStub)
 	}
 }

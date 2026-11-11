@@ -203,8 +203,10 @@ const getPublicCollection = `-- name: GetPublicCollection :one
 SELECT c.id, c.name, c.kind, c.url, c.is_bardic_resource, c.description_md, c.enumerable,
     r.slug AS region_slug, r.facet AS region_facet, r.display_name AS region_display_name,
     parent.id AS parent_id, parent.name AS parent_name, parent.kind AS parent_kind, parent.url AS parent_url,
-    parent.is_bardic_resource AS parent_is_bardic_resource
+    parent.is_bardic_resource AS parent_is_bardic_resource,
+    COALESCE(rev.reviewed_at, rev.created_at) AS updated_at
 FROM collections c
+JOIN revisions rev ON rev.id = c.current_revision_id
 LEFT JOIN public_terms r ON r.id = c.region_term_id
 LEFT JOIN collections parent ON parent.id = c.parent_id AND parent.current_revision_id IS NOT NULL
 WHERE c.id = ? AND c.current_revision_id IS NOT NULL
@@ -226,6 +228,7 @@ type GetPublicCollectionRow struct {
 	ParentKind             NullCollectionsKind
 	ParentUrl              sql.NullString
 	ParentIsBardicResource sql.NullBool
+	UpdatedAt              time.Time
 }
 
 func (q *Queries) GetPublicCollection(ctx context.Context, id uint64) (GetPublicCollectionRow, error) {
@@ -247,6 +250,7 @@ func (q *Queries) GetPublicCollection(ctx context.Context, id uint64) (GetPublic
 		&i.ParentKind,
 		&i.ParentUrl,
 		&i.ParentIsBardicResource,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -263,9 +267,10 @@ func (q *Queries) GetPublicCollectionID(ctx context.Context, id uint64) (uint64,
 }
 
 const getPublicEvent = `-- name: GetPublicEvent :one
-SELECT id, slug, name, kind, description_md
-FROM events
-WHERE slug = ? AND current_revision_id IS NOT NULL
+SELECT e.id, e.slug, e.name, e.kind, e.description_md, COALESCE(r.reviewed_at, r.created_at) AS updated_at
+FROM events e
+JOIN revisions r ON r.id = e.current_revision_id
+WHERE e.slug = ?
 `
 
 type GetPublicEventRow struct {
@@ -274,6 +279,7 @@ type GetPublicEventRow struct {
 	Name          string
 	Kind          EventsKind
 	DescriptionMd sql.NullString
+	UpdatedAt     time.Time
 }
 
 func (q *Queries) GetPublicEvent(ctx context.Context, slug string) (GetPublicEventRow, error) {
@@ -285,6 +291,7 @@ func (q *Queries) GetPublicEvent(ctx context.Context, slug string) (GetPublicEve
 		&i.Name,
 		&i.Kind,
 		&i.DescriptionMd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -301,10 +308,11 @@ func (q *Queries) GetPublicEventID(ctx context.Context, slug string) (uint64, er
 }
 
 const getPublicPerson = `-- name: GetPublicPerson :one
-SELECT id, slug, name, kind, status, status_date, status_source_url, is_stub, pronouns, notes_md, licensing_status,
-    licensing_notes_md
-FROM persons
-WHERE slug = ? AND current_revision_id IS NOT NULL
+SELECT p.id, p.slug, p.name, p.kind, p.status, p.status_date, p.status_source_url, p.is_stub, p.pronouns,
+    p.notes_md, p.licensing_status, p.licensing_notes_md, COALESCE(r.reviewed_at, r.created_at) AS updated_at
+FROM persons p
+JOIN revisions r ON r.id = p.current_revision_id
+WHERE p.slug = ?
 `
 
 type GetPublicPersonRow struct {
@@ -320,6 +328,7 @@ type GetPublicPersonRow struct {
 	NotesMd          sql.NullString
 	LicensingStatus  PersonsLicensingStatus
 	LicensingNotesMd sql.NullString
+	UpdatedAt        time.Time
 }
 
 func (q *Queries) GetPublicPerson(ctx context.Context, slug string) (GetPublicPersonRow, error) {
@@ -338,6 +347,7 @@ func (q *Queries) GetPublicPerson(ctx context.Context, slug string) (GetPublicPe
 		&i.NotesMd,
 		&i.LicensingStatus,
 		&i.LicensingNotesMd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -355,10 +365,12 @@ func (q *Queries) GetPublicPersonID(ctx context.Context, slug string) (uint64, e
 
 const getPublicPiece = `-- name: GetPublicPiece :one
 
-SELECT id, slug, title, kind, conservation_status, is_stub, notes_md, version_notes_md, licensing_status,
-    licensing_notes_md, licence, historical_source_md, period_start, period_end
-FROM pieces
-WHERE slug = ? AND current_revision_id IS NOT NULL
+SELECT p.id, p.slug, p.title, p.kind, p.conservation_status, p.is_stub, p.notes_md, p.version_notes_md,
+    p.licensing_status, p.licensing_notes_md, p.licence, p.licence_version, p.historical_source_md, p.period_start,
+    p.period_end, COALESCE(r.reviewed_at, r.created_at) AS updated_at
+FROM pieces p
+JOIN revisions r ON r.id = p.current_revision_id
+WHERE p.slug = ?
 `
 
 type GetPublicPieceRow struct {
@@ -373,9 +385,11 @@ type GetPublicPieceRow struct {
 	LicensingStatus    PiecesLicensingStatus
 	LicensingNotesMd   sql.NullString
 	Licence            NullPiecesLicence
+	LicenceVersion     NullPiecesLicenceVersion
 	HistoricalSourceMd sql.NullString
 	PeriodStart        sql.NullInt16
 	PeriodEnd          sql.NullInt16
+	UpdatedAt          time.Time
 }
 
 // ============================================
@@ -401,9 +415,11 @@ func (q *Queries) GetPublicPiece(ctx context.Context, slug string) (GetPublicPie
 		&i.LicensingStatus,
 		&i.LicensingNotesMd,
 		&i.Licence,
+		&i.LicenceVersion,
 		&i.HistoricalSourceMd,
 		&i.PeriodStart,
 		&i.PeriodEnd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -427,8 +443,10 @@ func (q *Queries) GetPublicPieceID(ctx context.Context, slug string) (uint64, er
 
 const getPublicTerm = `-- name: GetPublicTerm :one
 SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md,
-    ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name
+    ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name,
+    COALESCE(r.reviewed_at, r.created_at) AS updated_at
 FROM public_terms t
+JOIN revisions r ON r.id = t.current_revision_id
 LEFT JOIN public_terms ra ON ra.id = t.related_affiliation_id
 WHERE t.slug = ?
 `
@@ -443,6 +461,7 @@ type GetPublicTermRow struct {
 	RelatedSlug        sql.NullString
 	RelatedFacet       NullTermsFacet
 	RelatedDisplayName sql.NullString
+	UpdatedAt          time.Time
 }
 
 func (q *Queries) GetPublicTerm(ctx context.Context, slug string) (GetPublicTermRow, error) {
@@ -458,6 +477,7 @@ func (q *Queries) GetPublicTerm(ctx context.Context, slug string) (GetPublicTerm
 		&i.RelatedSlug,
 		&i.RelatedFacet,
 		&i.RelatedDisplayName,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -679,9 +699,10 @@ func (q *Queries) InsertImportedPerson(ctx context.Context, arg InsertImportedPe
 
 const insertImportedPiece = `-- name: InsertImportedPiece :exec
 INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
-    version_notes_md, licensing_notes_md, licensing_status, licence, historical_source_md, period_start, period_end,
+    version_notes_md, licensing_notes_md, licensing_status, licence, licence_version, historical_source_md,
+    period_start, period_end,
     legacy_had_inline_lyrics, current_revision_id, legacy_wiki_pageid, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertImportedPieceParams struct {
@@ -698,6 +719,7 @@ type InsertImportedPieceParams struct {
 	LicensingNotesMd      sql.NullString
 	LicensingStatus       PiecesLicensingStatus
 	Licence               NullPiecesLicence
+	LicenceVersion        NullPiecesLicenceVersion
 	HistoricalSourceMd    sql.NullString
 	PeriodStart           sql.NullInt16
 	PeriodEnd             sql.NullInt16
@@ -722,6 +744,7 @@ func (q *Queries) InsertImportedPiece(ctx context.Context, arg InsertImportedPie
 		arg.LicensingNotesMd,
 		arg.LicensingStatus,
 		arg.Licence,
+		arg.LicenceVersion,
 		arg.HistoricalSourceMd,
 		arg.PeriodStart,
 		arg.PeriodEnd,
@@ -1385,6 +1408,55 @@ func (q *Queries) ListPieceAliases(ctx context.Context, pieceID uint64) ([]ListP
 	for rows.Next() {
 		var i ListPieceAliasesRow
 		if err := rows.Scan(&i.Text, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPieceCreditNames = `-- name: ListPieceCreditNames :many
+SELECT pc.slug AS piece_slug, p.slug AS person_slug, p.name AS person_name
+FROM piece_credits c
+JOIN pieces pc ON pc.id = c.piece_id
+JOIN listed_persons p ON p.id = c.person_id
+WHERE pc.slug IN (/*SLICE:slugs*/?)
+ORDER BY pc.slug, c.position, c.id
+`
+
+type ListPieceCreditNamesRow struct {
+	PieceSlug  string
+	PersonSlug string
+	PersonName string
+}
+
+// Named credits of public pieces to persons with a page, in credit order.
+func (q *Queries) ListPieceCreditNames(ctx context.Context, slugs []string) ([]ListPieceCreditNamesRow, error) {
+	query := listPieceCreditNames
+	var queryParams []interface{}
+	if len(slugs) > 0 {
+		for _, v := range slugs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:slugs*/?", strings.Repeat(",?", len(slugs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:slugs*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPieceCreditNamesRow
+	for rows.Next() {
+		var i ListPieceCreditNamesRow
+		if err := rows.Scan(&i.PieceSlug, &i.PersonSlug, &i.PersonName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

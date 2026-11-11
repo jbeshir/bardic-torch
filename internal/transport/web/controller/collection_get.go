@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -22,6 +23,7 @@ type CollectionSummary struct {
 type Collection struct {
 	CollectionSummary
 
+	UpdatedAt      time.Time                   `json:"updated_at"`
 	DescriptionMD  *string                     `json:"description_md"`
 	Enumerable     domain.CollectionEnumerable `json:"enumerable"`
 	Region         *TermSummary                `json:"region"`
@@ -73,6 +75,7 @@ func collectionSummaryFromDomain(s domain.CollectionSummary) CollectionSummary {
 func collectionFromDomain(c domain.Collection) Collection {
 	return Collection{
 		CollectionSummary: collectionSummaryFromDomain(c.CollectionSummary),
+		UpdatedAt:         c.UpdatedAt,
 		DescriptionMD:     c.DescriptionMD,
 		Enumerable:        c.Enumerable,
 		Region:            optional(c.Region, termSummaryFromDomain),

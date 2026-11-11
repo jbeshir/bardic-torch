@@ -286,11 +286,12 @@ var (
 	kettleSummary = domain.PieceSummary{
 		Slug: "the-copper-kettle", Title: kettleTitle, Kind: domain.PieceKindSong,
 		SecondaryKinds:     []domain.PieceKind{domain.PieceKindDanceMusic, domain.PieceKindComedy},
-		ConservationStatus: domain.ConservationStatusEndangered, IsStub: true,
+		ConservationStatus: domain.ConservationStatusEndangered, IsStub: true, CreditNames: []string{wrenName},
 	}
 	brassSummary = domain.PieceSummary{
 		Slug: "the-brass-kettle", Title: "The Brass Kettle", Kind: domain.PieceKindPoem,
 		SecondaryKinds: []domain.PieceKind{domain.PieceKindStory}, ConservationStatus: domain.ConservationStatusLowRisk,
+		CreditNames: []string{wrenName},
 	}
 )
 
@@ -304,6 +305,7 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 	repo, fx := detailRepository(t)
 	piece, err := repo.GetPublicPiece(t.Context(), fx.kettle.Slug)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &piece.UpdatedAt)
 
 	tune := domain.PiecePartTune
 	assert.Equal(t, domain.Piece{
@@ -397,6 +399,7 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 	repo, fx := detailRepository(t)
 	person, err := repo.GetPublicPerson(t.Context(), fx.wren.Slug)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &person.UpdatedAt)
 
 	assert.Equal(t, domain.Person{
 		PersonSummary: wrenSummary,
@@ -458,6 +461,7 @@ func TestRepository_GetPublicPerson_RelationsSkipNoPage(t *testing.T) {
 	repo, fx := detailRepository(t)
 	person, err := repo.GetPublicPerson(t.Context(), fx.ash.Slug)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &person.UpdatedAt)
 
 	require.NotNil(t, person.Profile)
 	assert.Equal(t, []domain.PersonRelation{{Type: domain.PersonRelationTypeHeirOf,
@@ -472,6 +476,7 @@ func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
 	repo, fx := detailRepository(t)
 	person, err := repo.GetPublicPerson(t.Context(), fx.noPage.Slug)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &person.UpdatedAt)
 
 	assert.Equal(t, domain.Person{
 		PersonSummary:   domain.PersonSummary{Slug: "hollis-fenn", Name: hollisName, Kind: domain.PersonKindCommunityBard, IsStub: true},
@@ -489,6 +494,7 @@ func TestRepository_GetPublicPerson_Caps(t *testing.T) {
 	repo, fx := detailRepository(t)
 	person, err := repo.GetPublicPerson(t.Context(), fx.prolific.Slug)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &person.UpdatedAt)
 
 	profile := person.Profile
 	require.NotNil(t, profile)
@@ -540,4 +546,61 @@ func TestRepository_CatalogueReads_UnknownEnumValue(t *testing.T) {
 	_, err = repo.GetPublicPerson(t.Context(), person.Slug)
 	require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
 	require.ErrorContains(t, err, "[harper]")
+}
+
+// TestRepository_PieceCreditNamesAndUpdatedAt checks that a piece's credit_names are up to five listed persons in
+// credit order without repeats, on its page and in a list, and that updated_at is the current revision's approval
+// time, or its creation time when nobody approved it.
+func TestRepository_PieceCreditNamesAndUpdatedAt(t *testing.T) {
+	t.Parallel()
+
+	db := mysqltest.NewDatabase(t)
+	c := catalogtest.New(t, db)
+	var credits []domain.DocCredit
+	var want []string
+	for _, name := range []string{"Ann", "Bea", "Cat", "Dot", "Eve", "Fay"} {
+		person := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: name}})
+		credits = append(credits, domain.DocCredit{PersonID: &person.ID, Role: domain.CreditRoleLyrics})
+		if len(want) < 5 {
+			want = append(want, name)
+		}
+		if name == "Ann" {
+			noPage := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Quiet",
+				Status: domain.PersonStatusPrefersNoPage}})
+			credits = append(credits, domain.DocCredit{PersonID: &noPage.ID, Role: domain.CreditRoleTune},
+				domain.DocCredit{PersonID: &person.ID, Role: domain.CreditRoleTune})
+		}
+	}
+	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: kettleTitle, Credits: credits}})
+	repo := mysql.New(db)
+
+	got, err := repo.GetPublicPiece(t.Context(), piece.Slug)
+	require.NoError(t, err)
+	assert.Equal(t, want, got.CreditNames)
+	list, err := repo.ListPublicPieces(t.Context(), datasources.PieceQuery{Sort: domain.PieceSortTitle,
+		Page: domain.Page{Limit: domain.DefaultPageLimit}})
+	require.NoError(t, err)
+	require.Len(t, list.Pieces, 1)
+	assert.Equal(t, want, list.Pieces[0].CreditNames)
+
+	var createdAt time.Time
+	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT created_at FROM revisions WHERE id = ?",
+		piece.RevisionID).Scan(&createdAt))
+	assert.Equal(t, createdAt, got.UpdatedAt, "an import revision has no reviewer")
+	approvedAt := createdAt.Add(time.Hour)
+	_, err = db.ExecContext(t.Context(), "UPDATE revisions SET reviewed_at = ? WHERE id = ?", approvedAt,
+		piece.RevisionID)
+	require.NoError(t, err)
+	got, err = repo.GetPublicPiece(t.Context(), piece.Slug)
+	require.NoError(t, err)
+	assert.Equal(t, approvedAt, got.UpdatedAt)
+}
+
+// clearUpdatedAt checks that a page's updated_at is set and clears it, for the tests that compare a whole page;
+// TestRepository_PieceCreditNamesAndUpdatedAt checks its value.
+func clearUpdatedAt(t *testing.T, at *time.Time) {
+	t.Helper()
+
+	require.False(t, at.IsZero(), "updated_at is set")
+	*at = time.Time{}
 }

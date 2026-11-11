@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -16,6 +17,7 @@ const dateLayout = "2006-01-02"
 type Person struct {
 	PersonSummary
 
+	UpdatedAt       time.Time           `json:"updated_at"`
 	Status          domain.PersonStatus `json:"status"`
 	StatusDate      *string             `json:"status_date"`
 	StatusSourceURL *string             `json:"status_source_url"`
@@ -104,6 +106,7 @@ func (c PersonGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func personFromDomain(p domain.Person) Person {
 	person := Person{
 		PersonSummary:   personSummaryFromDomain(p.PersonSummary),
+		UpdatedAt:       p.UpdatedAt,
 		Status:          p.Status,
 		StatusSourceURL: p.StatusSourceURL,
 		Profile:         optional(p.Profile, personProfileFromDomain),

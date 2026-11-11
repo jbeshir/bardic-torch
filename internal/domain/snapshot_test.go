@@ -80,6 +80,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 		NotesMD:         new("Notes"),
 		LicensingStatus: LicensingStatusKnown,
 		Licence:         new(LicenceCCBY),
+		LicenceVersion:  new(LicenceVersion40),
 		PeriodStart:     new(int16(1580)),
 		Aliases:         []DocPieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindNickname}},
 		Terms: []DocPieceTerm{
@@ -132,6 +133,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 		NotesMD:               new("Notes"),
 		LicensingStatus:       LicensingStatusKnown,
 		Licence:               new(LicenceCCBY),
+		LicenceVersion:        new(LicenceVersion40),
 		PeriodStart:           new(int16(1580)),
 		Aliases:               []PieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindNickname}},
 		Terms:                 []PieceTerm{{Term: war, Part: new(PiecePartWords)}},
@@ -429,4 +431,14 @@ func TestNewPersonSnapshot_UnnormalizableLinkDropped(t *testing.T) {
 	links := []DocPersonLink{{DocLink: DocLink{URL: unnormalizable}}, {DocLink: DocLink{URL: visibleURL}}}
 
 	assert.Equal(t, []SnapshotPersonLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, personLinks(t, links, vis))
+}
+
+// TestVisibleLicenceVersion checks that a licence version is shown only beside a Creative Commons licence.
+func TestVisibleLicenceVersion(t *testing.T) {
+	t.Parallel()
+
+	version := new(LicenceVersion40)
+	assert.Equal(t, version, VisibleLicenceVersion(new(LicenceCCBYSA), version))
+	assert.Nil(t, VisibleLicenceVersion(new(LicenceARR), version))
+	assert.Nil(t, VisibleLicenceVersion(nil, version))
 }

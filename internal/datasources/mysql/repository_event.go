@@ -71,6 +71,7 @@ func (c *catalogueReader) event(ctx context.Context, slug string) domain.Event {
 
 	return domain.Event{
 		EventSummary:  c.eventSummary(row.Slug, row.Name, row.Kind),
+		UpdatedAt:     row.UpdatedAt,
 		DescriptionMD: stringPtr(row.DescriptionMd),
 		Performances: c.eventPerformances(ctx, fetch(ctx, c, "performances", c.q.ListPublicEventPerformances,
 			queries.ListPublicEventPerformancesParams{EventID: key, Limit: domain.MaxNestedListItems})),
@@ -89,7 +90,7 @@ func (c *catalogueReader) eventPerformances(
 			slugs = append(slugs, row.PieceSlug.String)
 		}
 	}
-	kinds := c.secondaryKinds(ctx, slugs)
+	extras := c.summaryExtras(ctx, slugs)
 	performers := c.performers(ctx, ids)
 
 	performances := make([]domain.EventPerformance, 0, len(rows))
@@ -103,7 +104,7 @@ func (c *catalogueReader) eventPerformances(
 			DescriptionVerbatim: row.DescriptionVerbatim,
 		}
 		if row.PieceSlug.Valid {
-			piece := c.pieceSummary(kinds, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
+			piece := c.pieceSummary(extras, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
 				row.PieceConservationStatus.PiecesConservationStatus, row.PieceIsStub.Bool)
 			performance.Piece = &piece
 		}

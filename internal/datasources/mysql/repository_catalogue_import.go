@@ -396,12 +396,18 @@ func (w *importWriter) pieces(pieces []domain.ImportedPiece) {
 		if d.Licence != nil {
 			licence = queries.NullPiecesLicence{PiecesLicence: queries.PiecesLicence(*d.Licence), Valid: true}
 		}
+		licenceVersion := queries.NullPiecesLicenceVersion{}
+		if d.LicenceVersion != nil {
+			licenceVersion = queries.NullPiecesLicenceVersion{
+				PiecesLicenceVersion: queries.PiecesLicenceVersion(*d.LicenceVersion), Valid: true}
+		}
 		p := queries.InsertImportedPieceParams{ID: w.id(piece.ID), Slug: piece.Slug, Title: d.Title,
 			SortTitle: piece.SortTitle, SortLetter: string(piece.SortLetter), Kind: queries.PiecesKind(d.Kind),
 			ConservationStatus: queries.PiecesConservationStatus(d.Conservation.Status), IsStub: d.IsStub,
 			NotesMd: nullString(d.NotesMD), VersionNotesMd: nullString(d.VersionNotesMD),
 			LicensingNotesMd: nullString(d.LicensingNotesMD),
 			LicensingStatus:  queries.PiecesLicensingStatus(d.LicensingStatus), Licence: licence,
+			LicenceVersion:     licenceVersion,
 			HistoricalSourceMd: nullString(d.HistoricalSourceMD), PeriodStart: nullInt16(d.PeriodStart),
 			PeriodEnd: nullInt16(d.PeriodEnd), LegacyHadInlineLyrics: piece.LegacyHadInlineLyrics,
 			CurrentRevisionID: revisionID(piece.Revision), LegacyWikiPageid: w.legacyPageID(piece.Legacy),

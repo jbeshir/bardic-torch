@@ -31,6 +31,7 @@ func fullPieceDocument() domain.PieceDocument {
 		LicensingStatus:    domain.LicensingStatusKnown,
 		LicensingNotesMD:   ptr("Free to sing."),
 		Licence:            ptr(domain.LicenceCCBY),
+		LicenceVersion:     ptr(domain.LicenceVersion40),
 		HistoricalSourceMD: ptr("A tavern book."),
 		PeriodStart:        ptr[int16](1500),
 		PeriodEnd:          ptr[int16](1550),
@@ -156,7 +157,7 @@ func TestDecodeDocument_RoundTrip(t *testing.T) {
 		t.Parallel()
 		requireRoundTrip(t, fullPieceDocument(), "schema_version", "title", "kind", "secondary_kinds",
 			"conservation", "is_stub", "notes_md", "version_notes_md", "licensing_status", "licensing_notes_md",
-			"licence", "historical_source_md", "period_start", "period_end", "aliases", "terms", "relations",
+			"licence", "licence_version", "historical_source_md", "period_start", "period_end", "aliases", "terms", "relations",
 			"credits", "links")
 	})
 	t.Run("person", func(t *testing.T) {
@@ -268,7 +269,8 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 	t.Parallel()
 
 	pieceFields := []string{
-		kindField, "secondary_kinds.0", "conservation.status", "licensing_status", "licence", "aliases.0.kind",
+		kindField, "secondary_kinds.0", "conservation.status", "licensing_status", "licence", "licence_version",
+		"aliases.0.kind",
 		"terms.0.part", "relations.0.type", "credits.0.role", "credits.0.attribution", "credits.0.certainty",
 		"credits.0.part", "links.0.place_type", "links.0.roles.1",
 	}
@@ -353,7 +355,7 @@ func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
 		domain.CollectionDocument{}, domain.EventDocument{}} {
 		visit(reflect.TypeOf(doc), reflect.TypeOf(doc).Name())
 	}
-	assert.Len(t, seen, 21, "the vocabularies documents use")
+	assert.Len(t, seen, 22, "the vocabularies documents use")
 }
 
 func TestDecodeDocument_StatusDate(t *testing.T) {

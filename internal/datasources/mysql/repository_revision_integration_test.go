@@ -436,7 +436,8 @@ func TestRepository_GetPublicRevision_Piece(t *testing.T) {
 		RevisionSummary: domain.RevisionSummary{ID: fx.edit, Source: domain.RevisionSourceUser, Summary: editSummary,
 			Author: quillAuthor, CreatedAt: revisionsAt(time.June, 1)},
 		Entity: domain.PieceSummary{Slug: fx.harvest.Slug, Title: harvestTitle, Kind: domain.PieceKindSong,
-			SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusEndangered},
+			SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusEndangered,
+			CreditNames: []string{larkName}},
 		Snapshot: edited,
 		Base:     &domain.RevisionBase[domain.PieceSnapshot]{ID: harvestID, Snapshot: base},
 	}, revision)

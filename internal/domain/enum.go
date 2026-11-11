@@ -81,6 +81,9 @@ var (
 		LicencePD, LicenceCCBY, LicenceCCBYSA, LicenceCCBYNC, LicenceCCBYNCSA, LicenceCCBYND, LicenceCCBYNCND,
 		LicenceARR, LicenceOther,
 	}
+	licenceVersionValues = []LicenceVersion{
+		LicenceVersion10, LicenceVersion20, LicenceVersion25, LicenceVersion30, LicenceVersion40,
+	}
 	pieceAliasKindValues = []PieceAliasKind{
 		PieceAliasKindAltTitle, PieceAliasKindNickname, PieceAliasKindSubtitle, PieceAliasKindRedirect,
 	}
@@ -169,6 +172,9 @@ func (c ConservationStatus) Valid() bool { return slices.Contains(conservationSt
 
 // Valid reports whether l is a known Licence.
 func (l Licence) Valid() bool { return slices.Contains(licenceValues, l) }
+
+// Valid reports whether v is a known LicenceVersion.
+func (v LicenceVersion) Valid() bool { return slices.Contains(licenceVersionValues, v) }
 
 // Valid reports whether p is a known PieceAliasKind.
 func (p PieceAliasKind) Valid() bool { return slices.Contains(pieceAliasKindValues, p) }

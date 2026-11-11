@@ -15,6 +15,8 @@ type PieceSummary struct {
 	SecondaryKinds     []PieceKind
 	ConservationStatus ConservationStatus
 	IsStub             bool
+	// CreditNames are the names of up to five listed persons credited on the piece, in credit order.
+	CreditNames []string
 }
 
 // PersonSummary is how a public person is shown where another entity refers to it.
@@ -66,11 +68,15 @@ const (
 // Piece is a public piece with everything its page shows.
 type Piece struct {
 	PieceSummary
-	NotesMD            *string
-	VersionNotesMD     *string
-	LicensingStatus    LicensingStatus
-	LicensingNotesMD   *string
-	Licence            *Licence
+	// UpdatedAt is when the current revision was approved.
+	UpdatedAt        time.Time
+	NotesMD          *string
+	VersionNotesMD   *string
+	LicensingStatus  LicensingStatus
+	LicensingNotesMD *string
+	Licence          *Licence
+	// LicenceVersion is set only beside a Creative Commons licence.
+	LicenceVersion     *LicenceVersion
 	HistoricalSourceMD *string
 	PeriodStart        *int16
 	PeriodEnd          *int16
@@ -162,6 +168,8 @@ type ConservationChange struct {
 // the identity is shown.
 type Person struct {
 	PersonSummary
+	// UpdatedAt is when the current revision was approved.
+	UpdatedAt       time.Time
 	Status          PersonStatus
 	StatusDate      *time.Time
 	StatusSourceURL *string
@@ -270,6 +278,8 @@ type TermCounts struct {
 // Term is a public term's page.
 type Term struct {
 	TermSummary
+	// UpdatedAt is when the current revision was approved.
+	UpdatedAt     time.Time
 	Name          string
 	DescriptionMD *string
 	Aliases       []string
@@ -306,6 +316,8 @@ type CollectionSummary struct {
 // Collection is a public collection's page.
 type Collection struct {
 	CollectionSummary
+	// UpdatedAt is when the current revision was approved.
+	UpdatedAt     time.Time
 	DescriptionMD *string
 	Enumerable    CollectionEnumerable
 	// Region is the collection's public region term, if any.
@@ -341,6 +353,8 @@ type EventList struct {
 // Event is a public event's or venue's page.
 type Event struct {
 	EventSummary
+	// UpdatedAt is when the current revision was approved.
+	UpdatedAt     time.Time
 	DescriptionMD *string
 	// Performances are the performances at the event on visible links, newest year first (unknown years last),
 	// at most MaxNestedListItems. A performance of a piece that is not public is left out, as is one whose link

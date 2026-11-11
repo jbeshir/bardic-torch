@@ -182,6 +182,7 @@ func TestRepository_GetPublicTerm(t *testing.T) {
 	repo, _ := termRepository(t)
 	term, err := repo.GetPublicTerm(t.Context(), "war", firstPage)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &term.UpdatedAt)
 
 	assert.Equal(t, domain.Term{
 		TermSummary:   warSummary,
@@ -205,6 +206,7 @@ func TestRepository_GetPublicTerm_Ancestors(t *testing.T) {
 	repo, _ := termRepository(t)
 	term, err := repo.GetPublicTerm(t.Context(), "sabres", firstPage)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &term.UpdatedAt)
 
 	assert.Equal(t, []domain.TermSummary{warSummary, swordsSummary}, term.Ancestors)
 	assert.Empty(t, term.Children)
@@ -233,6 +235,7 @@ func TestRepository_GetPublicTerm_Affiliation(t *testing.T) {
 	repo, _ := termRepository(t)
 	term, err := repo.GetPublicTerm(t.Context(), "northmarch", firstPage)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &term.UpdatedAt)
 
 	assert.Equal(t, domain.Term{
 		TermSummary: northmarchSummary,
@@ -264,6 +267,7 @@ func TestRepository_GetPublicTerm_Pages(t *testing.T) {
 
 	term, err := repo.GetPublicTerm(t.Context(), "northmarch", domain.Page{Limit: 1, Offset: 2})
 	require.NoError(t, err)
+	clearUpdatedAt(t, &term.UpdatedAt)
 	assert.Equal(t, []domain.PersonSummary{{Slug: "cedar-vane", Name: cedar, Kind: domain.PersonKindCommunityBard}},
 		term.Persons)
 }

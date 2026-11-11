@@ -506,6 +506,7 @@ paths:
                   summary: A person with a page
                   value:
                     slug: wren-of-the-vale
+                    updated_at: "2026-03-01T12:00:00Z"
                     name: Wren of the Vale
                     kind: community_bard
                     is_stub: false
@@ -537,6 +538,7 @@ paths:
                             secondary_kinds: []
                             conservation_status: low_risk
                             is_stub: false
+                            credit_names: []
                           role: lyrics
                           certainty: certain
                           part: null
@@ -547,6 +549,7 @@ paths:
                   summary: A person who prefers not to have a page
                   value:
                     slug: hollis-fenn
+                    updated_at: "2026-03-01T12:00:00Z"
                     name: Hollis Fenn
                     kind: community_bard
                     is_stub: true
@@ -1567,6 +1570,7 @@ components:
               secondary_kinds: [dance_music]
               conservation_status: endangered
               is_stub: false
+              credit_names: []
           total: 1
           facets:
             terms:
@@ -1749,7 +1753,7 @@ components:
       type: object
       description: A public piece, as other entities refer to it.
       additionalProperties: false
-      required: [slug, title, kind, secondary_kinds, conservation_status, is_stub]
+      required: [slug, title, kind, secondary_kinds, conservation_status, is_stub, credit_names]
       properties:
         slug:
           type: string
@@ -1774,6 +1778,16 @@ components:
           description: Whether the piece's page is only a stub that needs filling in.
           examples:
             - false
+        credit_names:
+          type: array
+          description: |
+            The names of up to five credited persons who have a page, in credit order. A person who prefers not to
+            have a page is never named.
+          maxItems: 5
+          items:
+            type: string
+          examples:
+            - [Wren of the Vale]
       examples:
         - slug: the-copper-kettle
           title: The Copper Kettle
@@ -1781,6 +1795,7 @@ components:
           secondary_kinds: [dance_music]
           conservation_status: endangered
           is_stub: false
+          credit_names: [Wren of the Vale]
 
     PersonSummary:
       type: object
@@ -1888,6 +1903,7 @@ components:
         - secondary_kinds
         - conservation_status
         - is_stub
+        - credit_names
         - notes_md
         - version_notes_md
         - licensing_status
@@ -1902,6 +1918,8 @@ components:
         - relations
         - links
         - conservation_history
+        - updated_at
+        - licence_version
       properties:
         slug:
           $ref: "#/components/schemas/PieceSummary/properties/slug"
@@ -1915,6 +1933,8 @@ components:
           $ref: "#/components/schemas/ConservationStatus"
         is_stub:
           $ref: "#/components/schemas/PieceSummary/properties/is_stub"
+        credit_names:
+          $ref: "#/components/schemas/PieceSummary/properties/credit_names"
         notes_md:
           type: [string, "null"]
           description: Notes about the piece, in Markdown.
@@ -1986,13 +2006,27 @@ components:
           description: The piece's conservation status changes, oldest first.
           items:
             $ref: "#/components/schemas/ConservationChange"
+        updated_at:
+          type: string
+          format: date-time
+          description: When the current revision was approved.
+          examples:
+            - "2026-03-01T12:00:00Z"
+        licence_version:
+          oneOf:
+            - $ref: "#/components/schemas/LicenceVersion"
+            - type: "null"
+          description: The version of the Creative Commons licence; null unless the licence is a cc_* one.
       examples:
         - slug: the-copper-kettle
+          updated_at: "2026-03-01T12:00:00Z"
+          licence_version: null
           title: The Copper Kettle
           kind: song
           secondary_kinds: []
           conservation_status: endangered
           is_stub: false
+          credit_names: [Wren of the Vale]
           notes_md: A drinking song from the northern marches.
           version_notes_md: null
           licensing_status: known
@@ -2163,6 +2197,7 @@ components:
             secondary_kinds: []
             conservation_status: low_risk
             is_stub: false
+            credit_names: []
 
     PersonLink:
       type: object
@@ -2381,7 +2416,7 @@ components:
         A public person. `profile` is null exactly when the person prefers not to have a page; `is_stub` is then
         true.
       additionalProperties: false
-      required: [slug, name, kind, is_stub, status, status_date, status_source_url, profile]
+      required: [slug, name, kind, is_stub, status, status_date, status_source_url, profile, updated_at]
       properties:
         slug:
           $ref: "#/components/schemas/PersonSummary/properties/slug"
@@ -2409,8 +2444,11 @@ components:
           oneOf:
             - $ref: "#/components/schemas/PersonProfile"
             - type: "null"
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
       examples:
         - slug: hollis-fenn
+          updated_at: "2026-03-01T12:00:00Z"
           name: Hollis Fenn
           kind: community_bard
           is_stub: true
@@ -2583,6 +2621,7 @@ components:
             secondary_kinds: []
             conservation_status: endangered
             is_stub: false
+            credit_names: []
           role: lyrics
           certainty: certain
           part: null
@@ -2725,6 +2764,7 @@ components:
         - person_count
         - pieces
         - persons
+        - updated_at
       properties:
         slug:
           $ref: "#/components/schemas/TermSummary/properties/slug"
@@ -2779,8 +2819,11 @@ components:
             name. Empty unless the term is an `affiliation` term.
           items:
             $ref: "#/components/schemas/PersonSummary"
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
       examples:
         - slug: war
+          updated_at: "2026-03-01T12:00:00Z"
           facet: topic
           name: War
           display_name: War
@@ -2804,6 +2847,7 @@ components:
               secondary_kinds: []
               conservation_status: endangered
               is_stub: false
+              credit_names: []
           persons: []
 
     TermChild:
@@ -2872,6 +2916,7 @@ components:
         - children
         - citations
         - citations_total
+        - updated_at
       properties:
         id:
           $ref: "#/components/schemas/CollectionRef/properties/id"
@@ -2920,8 +2965,11 @@ components:
           description: How many citations the collection has in all.
           examples:
             - 1
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
       examples:
         - id: 12
+          updated_at: "2026-03-01T12:00:00Z"
           name: The Northmarch Songbook
           kind: songbook_pdf
           url: https://example.org/songbook.pdf
@@ -2939,6 +2987,7 @@ components:
                 secondary_kinds: []
                 conservation_status: endangered
                 is_stub: false
+                credit_names: []
               person: null
               url: https://example.org/songbook.pdf
               title: The Northmarch Songbook
@@ -3014,7 +3063,7 @@ components:
       type: object
       description: A public event's or venue's page.
       additionalProperties: false
-      required: [slug, name, kind, description_md, performances, performances_total]
+      required: [slug, name, kind, description_md, performances, performances_total, updated_at]
       properties:
         slug:
           $ref: "#/components/schemas/EventSummary/properties/slug"
@@ -3040,8 +3089,11 @@ components:
           description: How many performances the event has in all.
           examples:
             - 1
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
       examples:
         - slug: midwinter-revel
+          updated_at: "2026-03-01T12:00:00Z"
           name: Midwinter Revel
           kind: event
           description_md: null
@@ -3149,6 +3201,13 @@ components:
       enum: [pd, cc_by, cc_by_sa, cc_by_nc, cc_by_nc_sa, cc_by_nd, cc_by_nc_nd, arr, other]
       examples:
         - cc_by_sa
+
+    LicenceVersion:
+      type: string
+      description: The version of a Creative Commons licence. It is shown only beside a `cc_*` licence.
+      enum: ["1.0", "2.0", "2.5", "3.0", "4.0"]
+      examples:
+        - "4.0"
 
     PieceAliasKind:
       type: string
@@ -3498,6 +3557,7 @@ components:
               - is_stub
               - kind
               - licence
+              - licence_version
               - licensing_notes_md
               - licensing_status
               - links
@@ -3519,6 +3579,7 @@ components:
             secondary_kinds: []
             conservation_status: endangered
             is_stub: false
+            credit_names: []
           base_revision_id: 41
           source: user
           summary: Credit the tune.
@@ -3538,6 +3599,7 @@ components:
             licensing_status: unknown
             licensing_notes_md: null
             licence: null
+            licence_version: null
             historical_source_md: null
             period_start: null
             period_end: null
@@ -3564,6 +3626,7 @@ components:
             licensing_status: unknown
             licensing_notes_md: null
             licence: null
+            licence_version: null
             historical_source_md: null
             period_start: null
             period_end: null
@@ -3913,6 +3976,7 @@ components:
         - credits
         - relations
         - links
+        - licence_version
       properties:
         title:
           $ref: "#/components/schemas/PieceSummary/properties/title"
@@ -3969,8 +4033,11 @@ components:
           description: The snapshot's links that are not hidden now, in order, with no system state such as liveness.
           items:
             $ref: "#/components/schemas/SnapshotPieceLink"
+        licence_version:
+          $ref: "#/components/schemas/Piece/properties/licence_version"
       examples:
         - title: The Copper Kettle
+          licence_version: null
           kind: song
           secondary_kinds: []
           conservation_status: endangered
@@ -4009,6 +4076,7 @@ components:
             secondary_kinds: []
             conservation_status: low_risk
             is_stub: false
+            credit_names: []
 
     SnapshotPieceLink:
       type: object

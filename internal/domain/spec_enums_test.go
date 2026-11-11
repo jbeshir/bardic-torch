@@ -34,6 +34,7 @@ func specEnums() map[string][]string {
 		"EventKind":            strs(eventKindValues),
 		"LicensingStatus":      strs(licensingStatusValues),
 		"Licence":              strs(licenceValues),
+		"LicenceVersion":       strs(licenceVersionValues),
 		"PieceAliasKind":       strs(pieceAliasKindValues),
 		"PersonAliasKind":      strs(personAliasKindValues),
 		"PiecePart":            strs(piecePartValues),

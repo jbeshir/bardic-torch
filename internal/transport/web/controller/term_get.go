@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -13,6 +14,7 @@ import (
 type Term struct {
 	TermSummary
 
+	UpdatedAt          time.Time       `json:"updated_at"`
 	Name               string          `json:"name"`
 	DescriptionMD      *string         `json:"description_md"`
 	Aliases            []string        `json:"aliases"`
@@ -69,6 +71,7 @@ func (c TermGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func termFromDomain(t domain.Term) Term {
 	return Term{
 		TermSummary:   termSummaryFromDomain(t.TermSummary),
+		UpdatedAt:     t.UpdatedAt,
 		Name:          t.Name,
 		DescriptionMD: t.DescriptionMD,
 		Aliases:       nonNil(t.Aliases),

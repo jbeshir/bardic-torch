@@ -134,6 +134,7 @@ func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 	assert.Contains(t, bodies["/v1/pieces/"+piece.Slug], "https://example.org/lantern")
 	assert.Contains(t, bodies["/v1/pieces/"+piece.Slug], "rowan")
 	assert.Contains(t, bodies[personsPath], noPage.Slug)
+	assert.Contains(t, bodies[piecesPath], `"credit_names":["rowan ashby"]`, "only the listed person is named")
 }
 
 // historyPath is the path of the history of the entity of collection with address.

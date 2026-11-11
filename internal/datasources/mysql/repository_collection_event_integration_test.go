@@ -174,6 +174,7 @@ func TestRepository_GetPublicCollection(t *testing.T) {
 	repo, fx := recordRepository(t)
 	collection, err := repo.GetPublicCollection(t.Context(), fx.eastmarchBook.ID)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &collection.UpdatedAt)
 
 	assert.Equal(t, domain.Collection{
 		CollectionSummary: domain.CollectionSummary{
@@ -212,6 +213,7 @@ func TestRepository_GetPublicCollection_NonPublicReferences(t *testing.T) {
 	repo, fx := recordRepository(t)
 	collection, err := repo.GetPublicCollection(t.Context(), fx.orphan.ID)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &collection.UpdatedAt)
 
 	assert.Nil(t, collection.Parent)
 	assert.Nil(t, collection.Region)
@@ -228,6 +230,7 @@ func TestRepository_GetPublicCollection_Cap(t *testing.T) {
 	repo, fx := recordRepository(t)
 	collection, err := repo.GetPublicCollection(t.Context(), fx.greatIndex.ID)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &collection.UpdatedAt)
 
 	assert.Len(t, collection.Citations, domain.MaxNestedListItems)
 	assert.Equal(t, int64(manyItems), collection.CitationsTotal)
@@ -300,6 +303,7 @@ func TestRepository_GetPublicEvent(t *testing.T) {
 	repo, fx := recordRepository(t)
 	event, err := repo.GetPublicEvent(t.Context(), fx.revel.Slug)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &event.UpdatedAt)
 
 	revelLink := domain.PerformanceLink{URL: revelVideoURL, Title: new("At the revel"), Platform: new("example.org")}
 	assert.Equal(t, domain.Event{
@@ -325,6 +329,7 @@ func TestRepository_GetPublicEvent_Cap(t *testing.T) {
 	repo, fx := recordRepository(t)
 	event, err := repo.GetPublicEvent(t.Context(), fx.endlessFair.Slug)
 	require.NoError(t, err)
+	clearUpdatedAt(t, &event.UpdatedAt)
 
 	require.Len(t, event.Performances, domain.MaxNestedListItems)
 	assert.Equal(t, int64(manyItems), event.PerformancesTotal)
