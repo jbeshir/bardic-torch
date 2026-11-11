@@ -5,18 +5,20 @@ import (
 	"strings"
 )
 
-// InlineLyricsMinLines is the number of lines without a link from which a Lyrics or Text section's text is lyrics
+// inlineLyricsMinLines is the number of lines without a link from which a Lyrics or Text section's text is lyrics
 // rather than version commentary.
-const InlineLyricsMinLines = 4
+const inlineLyricsMinLines = 4
 
-// poemBlock is a <poem> element in any case and with any attributes; one left open runs to the end of the text.
-var poemBlock = regexp.MustCompile(`(?is)<poem\b.*?(?:</poem\s*>|$)`)
+var (
+	poemOpen  = regexp.MustCompile(`(?i)<poem\b`)
+	poemClose = regexp.MustCompile(`(?i)</poem\s*>`)
+)
 
 // DropInlineLyrics returns wikitext without its inline lyrics, and whether it had any. The site shows links to
 // lyrics, not lyrics, so the import drops every <poem> block, and the lines without a link of a Lyrics or Text
-// section when there are InlineLyricsMinLines or more of them (fewer are version commentary, which is kept).
+// section when there are inlineLyricsMinLines or more of them (fewer are version commentary, which is kept).
 func DropInlineLyrics(wikitext string) (string, bool) {
-	text := cutSpans(wikitext, poemBlock.FindAllStringIndex(MaskComments(wikitext), -1))
+	text := cutSpans(wikitext, poemSpans(wikitext))
 	masked := MaskComments(text)
 	var verses [][]int
 	for _, s := range PageSections(text) {
@@ -30,7 +32,7 @@ func DropInlineLyrics(wikitext string) (string, bool) {
 				plain = append(plain, []int{l.start, l.end})
 			}
 		}
-		if len(plain) >= InlineLyricsMinLines {
+		if len(plain) >= inlineLyricsMinLines {
 			verses = append(verses, plain...)
 		}
 	}
@@ -77,4 +79,30 @@ func carriesLink(line string) bool {
 	masked := MaskNowiki(line)
 
 	return len(FindWikilinks(masked)) > 0 || len(FindExternalLinks(masked)) > 0
+}
+
+// poemSpans are the <poem> elements of wikitext outside comments and <nowiki>, each to its closing tag or, if it
+// has none, to the end of its section (before the next heading's line).
+func poemSpans(wikitext string) [][]int {
+	masked := MaskNowiki(MaskComments(wikitext))
+	sections := PageSections(wikitext)
+	var spans [][]int
+	for at := 0; ; {
+		loc := poemOpen.FindStringIndex(masked[at:])
+		if loc == nil {
+			return spans
+		}
+		start, end := at+loc[0], len(masked)
+		if c := poemClose.FindStringIndex(masked[start:]); c != nil {
+			end = start + c[1]
+		} else {
+			for _, s := range sections {
+				if s.Start <= start && start < s.End {
+					end = start + len(strings.TrimRight(masked[start:s.End], "\n"))
+				}
+			}
+		}
+		spans = append(spans, []int{start, end})
+		at = end
+	}
 }

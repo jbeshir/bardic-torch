@@ -20,13 +20,18 @@ func TestDropInlineLyrics_Poems(t *testing.T) {
 	for text, want := range map[string]string{
 		"== Notes ==\nBefore.\n<poem>\n" + lyricLines(1) + "\n</poem>\nAfter.": "== Notes ==\nBefore.\n \nAfter.",
 		"x <POEM style=\"a\">one\ntwo</Poem > y":                               "x   y",
-		"== Lyrics ==\n<poem>\none\n== Notes ==\nunclosed":                     "== Lyrics ==\n ",
+		"== Lyrics ==\n<poem>\none\n== Notes ==\nkept":                         "== Lyrics ==\n \n== Notes ==\nkept",
 	} {
 		got, had := DropInlineLyrics(text)
 
 		assert.Equal(t, want, got, text)
 		assert.True(t, had, text)
 	}
+
+	nowiki := "<nowiki><poem></nowiki> is how a poem starts.\n== Notes ==\nkept"
+	got, had := DropInlineLyrics(nowiki)
+	assert.False(t, had)
+	assert.Equal(t, nowiki, got)
 }
 
 func TestDropInlineLyrics_LyricsSectionLines(t *testing.T) {
