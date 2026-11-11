@@ -24,6 +24,8 @@ func setSetupEnv(t *testing.T, databaseURL, bootstrapModerators string) {
 	t.Setenv("DATABASE_URL", databaseURL)
 	t.Setenv(bootstrapModeratorsEnv, bootstrapModerators)
 	t.Setenv(authDriversEnv, "")
+	t.Setenv("TURNSTILE_SECRET_KEY", "")
+	t.Setenv("TURNSTILE_HOSTNAME", "")
 	t.Setenv("PORT", "0")
 }
 

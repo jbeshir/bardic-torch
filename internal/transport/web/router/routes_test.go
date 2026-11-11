@@ -93,6 +93,25 @@ var (
 	}
 )
 
+var (
+	linkReports = domain.LinkReportList{Total: 1, Reports: []domain.LinkReport{{ID: 7,
+		Link:     domain.ReportedLink{ID: 9, URL: "https://example.org/kettle"},
+		Reporter: domain.ModerationUser{UserID: contributorID, DisplayName: "Rook"},
+		Reason:   domain.LinkReportReasonBroken, Status: domain.ReportStatusOpen, CreatedAt: testNow,
+	}}}
+	moderationLink = domain.ModerationLink{ID: 9, URL: "https://example.org/kettle", Liveness: domain.LivenessOK,
+		Attachments: []domain.LinkAttachment{{EntityType: domain.EntityTypePiece, Slug: routeSlug,
+			Title: "The Copper Kettle", Roles: []domain.LinkRole{domain.LinkRoleLyrics}}}}
+	contactRequests = domain.ContactRequestList{Total: 1, Requests: []domain.ContactRequest{{ID: 3,
+		Kind: domain.ContactKindGeneral, Status: domain.ReportStatusOpen, CreatedAt: testNow, Purged: true,
+	}}}
+)
+
+// turnstilePasses is a Turnstile verifier that passes every token.
+type turnstilePasses struct{}
+
+func (turnstilePasses) VerifyTurnstile(context.Context, string) (bool, error) { return true, nil }
+
 func nothingSeeded(*fakerepo.Repo) {}
 
 var routeTable = map[openapitest.Operation]routeRow{
@@ -105,6 +124,29 @@ var routeTable = map[openapitest.Operation]routeRow{
 	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: {access: moderator,
 		path: "/v1/users/google-oauth2%7C123/blocked", body: `{"blocked":true}`, success: http.StatusOK,
 		seed: nothingSeeded},
+	{Method: http.MethodPost, Path: "/v1/link-reports"}: {access: signedIn, path: "/v1/link-reports",
+		body: `{"url":"https://example.org/kettle","reason":"broken","message":"Gone."}`, success: http.StatusCreated,
+		seed: nothingSeeded},
+	{Method: http.MethodGet, Path: "/v1/moderation/link-reports"}: {access: moderator,
+		path: "/v1/moderation/link-reports", success: http.StatusOK, seed: func(r *fakerepo.Repo) { r.LinkReports = linkReports }},
+	{Method: http.MethodPost, Path: "/v1/moderation/link-reports/{report_id}"}: {access: moderator,
+		path: "/v1/moderation/link-reports/7", body: `{"status":"resolved","note":"Hidden.","hide_link":true}`,
+		success: http.StatusNoContent, seed: nothingSeeded},
+	{Method: http.MethodGet, Path: "/v1/moderation/links"}: {access: moderator,
+		path: "/v1/moderation/links?url=https%3A%2F%2Fexample.org%2Fkettle", success: http.StatusOK,
+		seed: func(r *fakerepo.Repo) { r.ModerationLink = &moderationLink }},
+	{Method: http.MethodPut, Path: "/v1/links/{link_id}/hidden"}: {access: moderator, path: "/v1/links/9/hidden",
+		body: `{"hidden":true}`, success: http.StatusNoContent, seed: nothingSeeded},
+	{Method: http.MethodPost, Path: "/v1/contact"}: {access: public, path: "/v1/contact",
+		body: `{"kind":"takedown","name":"Wren","email":"wren@example.org","message":"Please remove it.",` +
+			`"url":"https://example.org/kettle","turnstile_token":"tok"}`,
+		success: http.StatusAccepted, seed: nothingSeeded},
+	{Method: http.MethodGet, Path: "/v1/moderation/contact-requests"}: {access: moderator,
+		path: "/v1/moderation/contact-requests", success: http.StatusOK,
+		seed: func(r *fakerepo.Repo) { r.ContactRequests = contactRequests }},
+	{Method: http.MethodPost, Path: "/v1/moderation/contact-requests/{request_id}"}: {access: moderator,
+		path: "/v1/moderation/contact-requests/3", body: `{"status":"dismissed","note":null}`,
+		success: http.StatusNoContent, seed: nothingSeeded},
 	{Method: http.MethodGet, Path: "/v1/pieces"}: getting("/v1/pieces", nothingSeeded),
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: getting("/v1/pieces/"+routeSlug,
 		func(r *fakerepo.Repo) { r.Piece = &piece }),
@@ -225,6 +267,11 @@ func newHandler(t *testing.T, seed func(*fakerepo.Repo)) http.Handler {
 		ResolveUser:       &command.ResolveUser{Users: users, Now: now},
 		UpdateDisplayName: &command.UpdateDisplayName{Users: users},
 		SetUserBlocked:    &command.SetUserBlocked{Users: users, Now: now},
+		Now:               now,
+		CreateLinkReport:  &command.CreateLinkReport{Reports: users, Now: now},
+		CreateContactRequest: &command.CreateContactRequest{
+			Verifier: turnstilePasses{}, Contacts: users, Now: now,
+		},
 	})
 }
 

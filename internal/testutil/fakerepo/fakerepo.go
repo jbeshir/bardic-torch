@@ -36,6 +36,12 @@ type Repo struct {
 	Revision    domain.Revision
 	NeedsWork   domain.NeedsWorkList
 
+	LinkReports     domain.LinkReportList
+	ModerationLink  *domain.ModerationLink
+	ContactRequests domain.ContactRequestList
+	// ContactRequest is the last contact request stored.
+	ContactRequest *datasources.NewContactRequest
+
 	// Err, if set, is returned by every method, and PingErr by Ping only.
 	Err     error
 	PingErr error
@@ -216,3 +222,35 @@ func notFoundOr(err error) error {
 	}
 	return datasources.ErrNotFound
 }
+
+func (r *Repo) InsertLinkReport(context.Context, datasources.NewLinkReport) (int64, error) {
+	return 1, r.Err
+}
+
+func (r *Repo) ListLinkReports(context.Context, domain.ReportStatus, domain.Page) (domain.LinkReportList, error) {
+	return r.LinkReports, r.Err
+}
+
+func (r *Repo) CloseLinkReport(context.Context, datasources.Closing, bool) error { return r.Err }
+
+func (r *Repo) GetModerationLink(context.Context, string) (domain.ModerationLink, error) {
+	if r.Err != nil || r.ModerationLink == nil {
+		return domain.ModerationLink{}, notFoundOr(r.Err)
+	}
+	return *r.ModerationLink, nil
+}
+
+func (r *Repo) SetLinkHidden(context.Context, int64, bool) error { return r.Err }
+
+func (r *Repo) InsertContactRequest(_ context.Context, request datasources.NewContactRequest) (int64, error) {
+	r.ContactRequest = &request
+	return 1, r.Err
+}
+
+func (r *Repo) ListContactRequests(
+	context.Context, domain.ReportStatus, domain.Page, time.Time,
+) (domain.ContactRequestList, error) {
+	return r.ContactRequests, r.Err
+}
+
+func (r *Repo) CloseContactRequest(context.Context, datasources.Closing) error { return r.Err }

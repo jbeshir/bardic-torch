@@ -36,6 +36,7 @@ const (
 	CodeConflict             ErrorCode = "conflict"
 	CodeInternal             ErrorCode = "internal"
 	CodeUnavailable          ErrorCode = "unavailable"
+	CodeTurnstileFailed      ErrorCode = "turnstile_failed"
 )
 
 type errorBody struct {
@@ -64,6 +65,11 @@ func WriteError(ctx context.Context, w http.ResponseWriter, status int, code Err
 // application/json, into dst, rejecting unknown fields. If the body is unacceptable it writes the matching
 // error response (415, 413 or 400) and returns false; the caller should then return without writing.
 func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	return DecodeJSONBodyMax(w, r, dst, MaxBodyBytes)
+}
+
+// DecodeJSONBodyMax is DecodeJSONBody with a limit of limit bytes.
+func DecodeJSONBodyMax(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
 	ctx := r.Context()
 
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -73,7 +79,7 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 		return false
 	}
 
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 
 	var raw json.RawMessage
 	if err := dec.Decode(&raw); err != nil {

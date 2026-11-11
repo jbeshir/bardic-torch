@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -18,6 +19,11 @@ type Dependencies struct {
 	ResolveUser       command.Command[string, domain.User]
 	UpdateDisplayName command.Command[command.UpdateDisplayNameRequest, domain.User]
 	SetUserBlocked    command.Command[command.SetUserBlockedRequest, domain.User]
+
+	// Now is the clock the moderation routes stamp their writes with.
+	Now                  func() time.Time
+	CreateLinkReport     command.Command[command.CreateLinkReportRequest, int64]
+	CreateContactRequest command.Command[command.CreateContactRequestRequest, int64]
 }
 
 // route is one operation the router serves.
@@ -87,6 +93,24 @@ func routes(deps Dependencies) []route {
 		// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
 		{method: http.MethodPut, path: "/v1/users/{user_id}/blocked", authenticated: true,
 			handler: requireModerator(controller.UserBlockedSet{Command: deps.SetUserBlocked})},
+
+		// Link reports, link takedown and the contact form.
+		{method: http.MethodPost, path: "/v1/link-reports", authenticated: true,
+			handler: requireAuth(controller.LinkReportCreate{Command: deps.CreateLinkReport})},
+		{method: http.MethodGet, path: "/v1/moderation/link-reports", authenticated: true,
+			handler: requireModerator(controller.LinkReportListGet{Moderation: deps.Repository})},
+		{method: http.MethodPost, path: "/v1/moderation/link-reports/{report_id}", authenticated: true,
+			handler: requireModerator(controller.LinkReportClose{Moderation: deps.Repository, Now: deps.Now})},
+		{method: http.MethodGet, path: "/v1/moderation/links", authenticated: true,
+			handler: requireModerator(controller.ModerationLinkGet{Moderation: deps.Repository})},
+		{method: http.MethodPut, path: "/v1/links/{link_id}/hidden", authenticated: true,
+			handler: requireModerator(controller.LinkHiddenSet{Moderation: deps.Repository})},
+		{method: http.MethodPost, path: "/v1/contact",
+			handler: controller.ContactCreate{Command: deps.CreateContactRequest}},
+		{method: http.MethodGet, path: "/v1/moderation/contact-requests", authenticated: true,
+			handler: requireModerator(controller.ContactRequestListGet{Moderation: deps.Repository, Now: deps.Now})},
+		{method: http.MethodPost, path: "/v1/moderation/contact-requests/{request_id}", authenticated: true,
+			handler: requireModerator(controller.ContactRequestClose{Moderation: deps.Repository, Now: deps.Now})},
 	}
 }
 
