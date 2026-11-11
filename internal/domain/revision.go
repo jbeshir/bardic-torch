@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"errors"
+	"fmt"
+	"time"
+)
 
 // RevisionSummary is a public revision as an entity's history lists it. Only approved revisions of public
 // entities are public.
@@ -89,4 +93,23 @@ type NeedsWorkList struct {
 	Total   int64
 	// Counts are for every reason, in NeedsWorkReason's declaration order.
 	Counts []NeedsWorkCount
+}
+
+// ErrRevisionNotPending is returned for withdrawing, approving or rejecting a revision that is not pending.
+var ErrRevisionNotPending = errors.New("revision is not pending")
+
+// CheckPending returns ErrRevisionNotPending unless a revision of status may still be withdrawn, approved or
+// rejected: only a pending revision moves, and only once.
+func CheckPending(status RevisionStatus) error {
+	if status != RevisionStatusPending {
+		return fmt.Errorf("%w [%s]", ErrRevisionNotPending, status)
+	}
+
+	return nil
+}
+
+// IsStale reports whether a revision based on baseRevisionID is stale: its entity's current revision is another.
+// A new entity's revision (no base) is never stale.
+func IsStale(baseRevisionID, currentRevisionID *int64) bool {
+	return baseRevisionID != nil && !equalPointers(baseRevisionID, currentRevisionID)
 }
