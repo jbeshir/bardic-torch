@@ -122,8 +122,7 @@ func TestParseCollections_Region(t *testing.T) {
 	require.Len(t, c.Records, 4)
 	assert.Equal(t, kingdom, c.Records[0].RegionTerm)
 	assert.Equal(t, "West Kingdom", c.Records[1].RegionTerm)
-	assert.Empty(t, c.Records[2].RegionTerm)
-	assert.Equal(t, []string{kingdom, "West Kingdom"}, c.Records[2].RegionCandidates)
+	assert.Empty(t, c.Records[2].RegionTerm, "a label naming two kingdoms has no region")
 	assert.Empty(t, c.Records[3].RegionTerm, "kingdoms are whole words")
 }
 
@@ -164,8 +163,7 @@ func TestMatchCollection_LongestPrefix(t *testing.T) {
 func TestMatchCollection_TieMatchesNone(t *testing.T) {
 	m := collectionMatcher()
 
-	assert.Equal(t, CollectionMatch{Tied: []string{archiveList,
-		"https://archive.example.org/songs/old/more.html"}}, m.Match("https://archive.example.org/songs/old/a.html"))
+	assert.Equal(t, CollectionMatch{}, m.Match("https://archive.example.org/songs/old/a.html"))
 }
 
 func TestMatchCollection_NoPrefixMatch(t *testing.T) {

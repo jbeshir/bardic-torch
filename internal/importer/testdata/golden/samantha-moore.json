@@ -74,43 +74,5 @@
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "AMBIG-003",
-      "kind": "canonical_name",
-      "page": "Samantha Moore",
-      "text": "\"Ambra Michelli\": guess \"Samantha Moore\"; alternatives: \"Ambra Michelli\"."
-    },
-    {
-      "id": "ALIAS-003",
-      "kind": "alias",
-      "page": "Samantha Moore",
-      "text": "\"Ambra Michelli\": kind legal (source h1_lead, rule default, unsure)."
-    },
-    {
-      "id": "LINK-230",
-      "kind": "normalised",
-      "page": "Samantha Moore",
-      "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERSON-006",
-      "kind": "affiliations",
-      "page": "Samantha Moore",
-      "text": "Affiliations from categories: Atlantia, SCA Bards, Trimaris."
-    },
-    {
-      "id": "PERSON-007",
-      "kind": "roles",
-      "page": "Samantha Moore",
-      "text": "Roles from performer-type categories: singer, songwriter."
-    },
-    {
-      "id": "TERM-001",
-      "kind": "dropped_categories",
-      "page": "Samantha Moore",
-      "text": "Categories not imported: Kingdom Name."
-    }
-  ]
+  }
 }

@@ -168,37 +168,5 @@
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "TITLE-038",
-      "kind": "alternate",
-      "page": "The Burning of Tara",
-      "text": "Alias \"Fionn and the Dragon\" (alt_title, from the also_known_as)."
-    },
-    {
-      "id": "TITLE-039",
-      "kind": "alternate",
-      "page": "The Burning of Tara",
-      "text": "Alias \"How Finn became leader of the Fianna\" (alt_title, from the also_known_as)."
-    },
-    {
-      "id": "LINK-214",
-      "kind": "normalised",
-      "page": "The Burning of Tara",
-      "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERF-236",
-      "kind": "incomplete",
-      "page": "The Burning of Tara",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB Fionn and the Dragon on Legal …\"."
-    },
-    {
-      "id": "PERF-237",
-      "kind": "incomplete",
-      "page": "The Burning of Tara",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o Retelling from Deardubh's pers…\"."
-    }
-  ]
+  }
 }

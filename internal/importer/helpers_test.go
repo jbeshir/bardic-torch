@@ -23,7 +23,6 @@ var scrubbed struct {
 	err    error
 	corpus mediawiki.Corpus
 	imp    domain.CatalogueImport
-	review Review
 }
 
 func loadScrubbed(t *testing.T) {
@@ -32,7 +31,7 @@ func loadScrubbed(t *testing.T) {
 		var d mediawiki.Dump
 		d, scrubbed.err = mediawiki.LoadDump(wikidumptest.Scrubbed(t))
 		scrubbed.corpus = mediawiki.ParseCorpus(d)
-		scrubbed.imp, scrubbed.review = Build(scrubbed.corpus, buildTime)
+		scrubbed.imp, _ = Build(scrubbed.corpus, buildTime)
 	})
 	require.NoError(t, scrubbed.err)
 }
@@ -45,12 +44,12 @@ func scrubbedCorpus(t *testing.T) mediawiki.Corpus {
 	return scrubbed.corpus
 }
 
-// scrubbedImport is the import of the committed scrubbed dump and its review.
-func scrubbedImport(t *testing.T) (domain.CatalogueImport, Review) {
+// scrubbedImport is the import of the committed scrubbed dump.
+func scrubbedImport(t *testing.T) domain.CatalogueImport {
 	t.Helper()
 	loadScrubbed(t)
 
-	return scrubbed.imp, scrubbed.review
+	return scrubbed.imp
 }
 
 // publicJSON is the JSON of what of imp a public read can show: every legacy column and hidden link
@@ -139,18 +138,6 @@ func importCounts(c mediawiki.Corpus, imp domain.CatalogueImport) buildCounts {
 	for _, p := range imp.Persons {
 		if p.Legacy != nil && p.Legacy.PageID != nil {
 			out.BardPersons++
-		}
-	}
-
-	return out
-}
-
-// ItemsAbout returns the items about the page titled page, in section order.
-func (r *Review) ItemsAbout(page string) []Item {
-	var out []Item
-	for _, it := range r.Items() {
-		if it.Page == page {
-			out = append(out, it)
 		}
 	}
 

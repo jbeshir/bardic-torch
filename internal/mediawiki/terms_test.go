@@ -102,8 +102,6 @@ func TestTermPlan_FacetsAndParents(t *testing.T) {
 		assert.NotContains(t, terms, notTerm)
 	}
 	assert.Equal(t, "SCA", terms[CategorySCABards].Name)
-	assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionOrganisationRenamed, Category: CategorySCABards,
-		Related: "SCA"})
 	// Parents come before their children, and siblings are numbered in wiki order.
 	seen := map[string]bool{}
 	for _, term := range plan.Terms {
@@ -141,11 +139,8 @@ func TestTermPlan_UnparentedParents(t *testing.T) {
 		require.Contains(t, terms, category)
 		assert.Equal(t, want.facet, terms[category].Facet, category)
 		assert.Equal(t, want.parent, terms[category].Parent, category)
-		assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionUnparentedPlaced, Category: category,
-			Related: want.parent})
 	}
 	assert.NotContains(t, terms, "Unruled")
-	assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionUnparentedDropped, Category: "Unruled"})
 }
 
 func TestTermPlan_DisplayNameDropsSuffix(t *testing.T) {
@@ -174,10 +169,6 @@ func TestTermPlan_PatrioticLinksKingdom(t *testing.T) {
 	assert.Equal(t, kingdom, terms[catPatrioticKingdom].RelatedAffiliation)
 	assert.Equal(t, domain.FacetAffiliation, terms[kingdom].Facet)
 	assert.Empty(t, terms[catPatrioticWales].RelatedAffiliation)
-	assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionAffiliationLinked,
-		Category: catPatrioticKingdom, Related: kingdom})
-	assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionNoAffiliationTerm,
-		Category: catPatrioticWales, Related: "Wales"})
 }
 
 func TestTermPlan_GroupsUnderTheirBardsKingdom(t *testing.T) {
@@ -189,8 +180,6 @@ func TestTermPlan_GroupsUnderTheirBardsKingdom(t *testing.T) {
 
 	assert.Equal(t, kingdom, terms[groupBarony].Parent)
 	assert.Equal(t, CategorySCABards, terms["Placeholder Canton"].Parent)
-	assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionGroupPlaced, Category: groupBarony,
-		Related: kingdom})
 }
 
 func TestTermPlan_RedirectsBecomeAliases(t *testing.T) {
@@ -199,8 +188,6 @@ func TestTermPlan_RedirectsBecomeAliases(t *testing.T) {
 	plan := PlanTerms(ClassifyCategories(w.dump()))
 
 	assert.Equal(t, []string{catTraditionalRedirect}, termCategories(plan)[catTraditional].Aliases)
-	assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionRedirectAliasDropped, Category: "Dance",
-		Related: CategoryDances})
 }
 
 func TestTermPlan_PlaceholderDropped(t *testing.T) {
@@ -209,7 +196,6 @@ func TestTermPlan_PlaceholderDropped(t *testing.T) {
 	plan := PlanTerms(ClassifyCategories(w.dump()))
 
 	assert.NotContains(t, termCategories(plan), catKingdomName)
-	assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionPlaceholderDropped, Category: catKingdomName})
 }
 
 func TestTermPlan_DescriptionIsMarkdownWithoutTagsOrLyrics(t *testing.T) {
@@ -233,8 +219,6 @@ func TestTermPlan_DepthAtMostThree(t *testing.T) {
 
 	assert.Equal(t, "Level 3", terms["Level 4"].Parent)
 	assert.Equal(t, "Level 3", terms["Level 5"].Parent)
-	assert.Contains(t, plan.Decisions, TaxonomyDecision{Kind: DecisionDepthCapped, Category: "Level 5",
-		Related: "Level 3"})
 	assertClosure(t, plan)
 	assertClosure(t, scrubbedSite(t).Terms)
 }

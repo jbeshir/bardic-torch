@@ -39,46 +39,30 @@ type PersonRelation struct {
 // markup repaired, and Parsed is that text parsed:
 //   - Aliases: the H1 parentheticals, the prose markers and the redirects to the page (PersonAlias);
 //   - Roles: from the performer-type categories;
-//   - Affiliations: the categories that are affiliation terms (TermPlan); DroppedCategories are the categories
-//     that give the bard nothing (the Kingdom Name placeholder), for review;
+//   - Affiliations: the categories that are affiliation terms (TermPlan);
 //   - Status: deceased for In Memoriam, with StatusDate from a "Deceased <date>" line and StatusSourceURL the URL
 //     of the external link on that line (an obituary), if it has one;
 //   - LicensingStatus and LicensingNotesMD: as for pieces; the "cannot find" sentence means unknown;
-//   - NotesMD: the lead, Notes, unrecognised sections (StrayHeadings are those whose heading is the page title,
-//     listed for review) and the Affiliations section's prose, as Markdown;
+//   - NotesMD: the lead, Notes, unrecognised sections and the Affiliations section's prose, as Markdown;
 //   - Works: the page links of the Songs & Works and Music sections;
 //   - Relations: "heir of [[X]]".
 type BardRecord struct {
-	PageID            int64
-	Title             string
-	URL               string
-	Wikitext          string
-	Parsed            ParsedPage
-	MarkupIssues      []MarkupIssue
-	Aliases           []PersonAlias
-	Roles             []domain.PersonRole
-	Affiliations      []string
-	DroppedCategories []string
-	Status            domain.PersonStatus
-	StatusDate        *domain.Date
-	StatusSourceURL   string
-	LicensingStatus   domain.LicensingStatus
-	LicensingNotesMD  string
-	NotesMD           string
-	StrayHeadings     []string
-	Works             []WorkEntry
-	Relations         []PersonRelation
-}
-
-// H1LeadAlias returns the bard's alias that is their page's H1 lead (an H1 "Lead (Page Title)"): which of the two
-// names is canonical is ambiguous, and the page title is the importer's guess.
-func (b BardRecord) H1LeadAlias() (PersonAlias, bool) {
-	k := slices.IndexFunc(b.Aliases, func(a PersonAlias) bool { return a.Source == AliasFromH1Lead })
-	if k < 0 {
-		return PersonAlias{}, false
-	}
-
-	return b.Aliases[k], true
+	PageID           int64
+	Title            string
+	URL              string
+	Wikitext         string
+	Parsed           ParsedPage
+	Aliases          []PersonAlias
+	Roles            []domain.PersonRole
+	Affiliations     []string
+	Status           domain.PersonStatus
+	StatusDate       *domain.Date
+	StatusSourceURL  string
+	LicensingStatus  domain.LicensingStatus
+	LicensingNotesMD string
+	NotesMD          string
+	Works            []WorkEntry
+	Relations        []PersonRelation
 }
 
 // relationPatterns are the wording before a page link that relates the bard to the linked person.
@@ -100,15 +84,14 @@ var deceasedLayouts = []string{"January 2, 2006", "January 2 2006", "2 January 2
 // anything reads it.
 func ParseBard(p Page, s Site) BardRecord {
 	lyrics := InlineLyricsBlocks(p.Wikitext)
-	repaired, issues := RepairMarkup(WithoutInlineLyrics(p.Wikitext, lyrics.Blocks))
+	repaired := RepairMarkup(WithoutInlineLyrics(p.Wikitext, lyrics.Blocks))
 	parsed := ParsePage(repaired)
 	b := BardRecord{
 		PageID: p.PageID, Title: p.Title, URL: p.URL, Wikitext: repaired, Parsed: parsed,
-		MarkupIssues: append(issues, FindMarkupIssues(repaired)...),
-		Aliases:      bardAliases(p, s), Status: domain.PersonStatusActive,
+		Aliases: bardAliases(p, s), Status: domain.PersonStatusActive,
 		LicensingStatus: domain.LicensingStatusUnknown,
 	}
-	b.Roles, b.Affiliations, b.DroppedCategories = bardCategories(p, s)
+	b.Roles, b.Affiliations = bardCategories(p, s)
 	if p.HasCategory(CategoryInMemoriam) {
 		b.Status = domain.PersonStatusDeceased
 		b.StatusDate = statusDate(Plain(repaired))
@@ -123,12 +106,9 @@ func ParseBard(p Page, s Site) BardRecord {
 		case sec.Key == SectionAffiliations:
 			notes = appendSection(notes, sec, affiliationProse(body))
 		case sec.Key.IsOther():
-			if FoldName(Plain(sec.Heading)) == FoldName(p.Title) {
-				b.StrayHeadings = append(b.StrayHeadings, Plain(sec.Heading))
-			}
 			notes = appendSection(notes, sec, body)
 		case sec.Key == SectionLicensingEtiquette:
-			b.LicensingNotesMD, _, b.LicensingStatus = licensingSection(sec, body)
+			b.LicensingNotesMD, b.LicensingStatus = licensingSection(sec, body)
 		case sec.Key == SectionWorks || sec.Key == SectionWorksMusic:
 			b.Works = append(b.Works, works(sec, s)...)
 		}
@@ -155,9 +135,8 @@ func bardAliases(p Page, s Site) []PersonAlias {
 	return out
 }
 
-// bardCategories sorts a bard's categories into roles, affiliation terms and the categories that give nothing
-// (the bard categories, statuses and Bards itself aside).
-func bardCategories(p Page, s Site) (roles []domain.PersonRole, affiliations, dropped []string) {
+// bardCategories sorts a bard's categories into roles and affiliation terms; the others give the bard nothing.
+func bardCategories(p Page, s Site) (roles []domain.PersonRole, affiliations []string) {
 	for _, c := range p.Categories {
 		category := s.Taxonomy.Resolve(c)
 		if role, ok := performerRoles[category]; ok {
@@ -169,15 +148,10 @@ func bardCategories(p Page, s Site) (roles []domain.PersonRole, affiliations, dr
 		}
 		if spec, ok := s.Terms.Term(category); ok && spec.Facet == domain.FacetAffiliation {
 			affiliations = appendUnique(affiliations, category)
-
-			continue
-		}
-		if category != CategoryBards && category != CategoryInMemoriam {
-			dropped = append(dropped, c)
 		}
 	}
 
-	return roles, affiliations, dropped
+	return roles, affiliations
 }
 
 // statusDate is the date of the first "Deceased <date>" in text, if it is a date.

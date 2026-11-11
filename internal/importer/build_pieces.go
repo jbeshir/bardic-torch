@@ -3,7 +3,6 @@ package importer
 import (
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
@@ -31,20 +30,19 @@ func (b *builder) buildPieces() {
 func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) domain.ImportedPiece {
 	id := b.pieceIDs[p.Title]
 	page, _ := b.c.Site.Page(p.Title)
-	entity := "piece " + p.Title
 	c := p.Content
-	title := b.name(p.Title, entity, "title", p.Title)
+	title := plainName(p.Title)
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion,
 		Title: title, Kind: p.Kind, SecondaryKinds: uniqueOf(p.SecondaryKinds),
 		Conservation:       domain.DocConservation{Status: p.Conservation()},
-		NotesMD:            b.free(p.Title, entity, "notes", c.NotesMD),
-		VersionNotesMD:     b.free(p.Title, entity, "version notes", c.VersionNotesMD),
+		NotesMD:            free(c.NotesMD),
+		VersionNotesMD:     free(c.VersionNotesMD),
 		LicensingStatus:    c.LicensingStatus,
-		LicensingNotesMD:   b.free(p.Title, entity, "licensing notes", c.LicensingNotesMD),
-		HistoricalSourceMD: b.free(p.Title, entity, "historical source", c.HistoricalSourceMD),
+		LicensingNotesMD:   free(c.LicensingNotesMD),
+		HistoricalSourceMD: free(c.HistoricalSourceMD),
 		PeriodStart:        c.PeriodStart, PeriodEnd: c.PeriodEnd,
 		Aliases: b.pieceAliases(p), Terms: b.pieceTerms(p), Relations: b.pieceRelations(p),
-		Credits: b.credits(p.Title, b.c.People.Credits[p.PageID]), Links: b.pieceLinks(links)}
+		Credits: b.credits(b.c.People.Credits[p.PageID]), Links: b.pieceLinks(links)}
 	if doc.Conservation.Status != domain.ConservationStatusUnassessed {
 		doc.Conservation.SourceURL = optionalURL(p.URL)
 	}
@@ -61,7 +59,7 @@ func (b *builder) pieceAliases(p mediawiki.PieceRecord) []domain.DocPieceAlias {
 	out := []domain.DocPieceAlias{}
 	seen := map[string]bool{domain.CollationKey(p.Title): true}
 	for _, a := range p.Titles.Alternates {
-		text := b.name(p.Title, "piece "+p.Title, "alias", a.Text)
+		text := plainName(a.Text)
 		if key := domain.CollationKey(text); !seen[key] {
 			seen[key] = true
 			out = append(out, domain.DocPieceAlias{Text: text, Kind: a.Kind})
@@ -88,8 +86,7 @@ func (b *builder) pieceTerms(p mediawiki.PieceRecord) []domain.DocPieceTerm {
 // titles compared as the collation does ("When A Knight …" is "When a Knight …"): an "(SCA Version)" is a
 // contrafactum of it if the piece is a contrafactum, else a variant, and a "(Poem)" or "(Song)" is the same text in
 // another form. With no piece of the bare title, a "(Poem)" and a "(Song)" of the same title are the same text in
-// another form, related once, from the later page. Each is listed for review, with the alternate titles they
-// share.
+// another form, related once, from the later page.
 func (b *builder) pieceRelations(p mediawiki.PieceRecord) []domain.DocPieceRelation {
 	out := []domain.DocPieceRelation{}
 	m := formSuffix.FindStringSubmatch(p.Title)
@@ -114,12 +111,6 @@ func (b *builder) pieceRelations(p mediawiki.PieceRecord) []domain.DocPieceRelat
 		if slices.ContainsFunc(p.Terms, func(pt mediawiki.PieceTerm) bool { return pt.Category == contrafactaCategory }) {
 			t = domain.PieceRelationTypeContrafactumOf
 		}
-	}
-	b.review.Titles = append(b.review.Titles, item("relation", p.Title, "Related to %q as %s, from the titles.",
-		base.Title, t))
-	if shared := sharedAlternates(p, base); len(shared) > 0 {
-		b.review.Titles = append(b.review.Titles, item("shared_alias", p.Title, "%q has the same alternate "+
-			"title(s) as %q: %s.", p.Title, base.Title, strings.Join(shared, ", ")))
 	}
 
 	return append(out, domain.DocPieceRelation{ToPieceID: to, Type: t})
@@ -146,37 +137,18 @@ func (b *builder) otherForm(base, form string) (mediawiki.PieceRecord, bool) {
 	return b.pieceByKey(domain.CollationKey(base + " (" + other + ")"))
 }
 
-// sharedAlternates are the alternate titles two pieces both have, compared as the collation does, as the first
-// piece writes them.
-func sharedAlternates(p, other mediawiki.PieceRecord) []string {
-	keys := map[string]bool{}
-	for _, a := range other.Titles.Alternates {
-		keys[domain.CollationKey(a.Text)] = true
-	}
-	var out []string
-	for _, a := range p.Titles.Alternates {
-		if keys[domain.CollationKey(a.Text)] && !slices.Contains(out, a.Text) {
-			out = append(out, a.Text)
-		}
-	}
-
-	return out
-}
-
 // credits are a piece's credits. A named credit whose person was not resolved, which the schema cannot hold, is
-// imported as unknown and listed.
-func (b *builder) credits(page string, credits []mediawiki.PieceCredit) []domain.DocCredit {
+// imported as unknown.
+func (b *builder) credits(credits []mediawiki.PieceCredit) []domain.DocCredit {
 	out := []domain.DocCredit{}
 	for _, c := range credits {
 		d := domain.DocCredit{Role: c.Role, Attribution: c.Attribution, Certainty: c.Certainty, Part: c.Part,
-			Note: b.free(page, "credit", "note", c.Note)}
+			Note: free(c.Note)}
 		if c.Attribution == domain.AttributionNamed {
 			if id, ok := b.personIDs[c.Person]; ok && c.Person != "" {
 				d.PersonID = &id
 			} else {
 				d.Attribution = domain.AttributionUnknown
-				b.review.Credits = append(b.review.Credits, item("unresolved", page,
-					"A %s credit names no person the importer could match; it is imported as unknown.", c.Role))
 			}
 		}
 		out = append(out, d)
@@ -187,16 +159,12 @@ func (b *builder) credits(page string, credits []mediawiki.PieceCredit) []domain
 
 func (b *builder) stubPiece(sp mediawiki.StubPiece) domain.ImportedPiece {
 	id := b.pieceIDs[sp.Title]
-	page := ""
-	if len(sp.Credits) > 0 {
-		page = string(sp.Credits[0].Person)
-	}
-	title := b.name(page, "stub piece", "title", sp.Title)
+	title := plainName(sp.Title)
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: title,
 		Kind: domain.PieceKindSong, SecondaryKinds: []domain.PieceKind{},
 		Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed}, IsStub: true,
 		LicensingStatus: domain.LicensingStatusUnknown, Aliases: []domain.DocPieceAlias{},
-		Terms: []domain.DocPieceTerm{}, Relations: []domain.DocPieceRelation{}, Credits: b.credits(page, sp.Credits),
+		Terms: []domain.DocPieceTerm{}, Relations: []domain.DocPieceRelation{}, Credits: b.credits(sp.Credits),
 		Links: []domain.DocPieceLink{}}
 	sortTitle := domain.SortTitle(title)
 

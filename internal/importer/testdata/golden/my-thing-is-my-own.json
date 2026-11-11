@@ -132,49 +132,5 @@
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "CREDIT-042",
-      "kind": "missing_bard_category",
-      "page": "My Thing is My Own",
-      "text": "missing_bard_category: \"Thomas d'Urfey\" (person Thomas d'Urfey)."
-    },
-    {
-      "id": "STUB-185",
-      "kind": "stub_person",
-      "page": "My Thing is My Own",
-      "text": "Stub person \"Thomas d'Urfey\" (community_bard), named on 1 page(s)."
-    },
-    {
-      "id": "LINK-181",
-      "kind": "normalised",
-      "page": "My Thing is My Own",
-      "text": "2 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERSON-198",
-      "kind": "stub_kind",
-      "page": "My Thing is My Own",
-      "text": "Stub person \"Thomas d'Urfey\" (named on 1 page(s)) is guessed to be historical."
-    },
-    {
-      "id": "LICENCE-021",
-      "kind": "says_public_domain",
-      "page": "My Thing is My Own",
-      "text": "The licensing text says \"public domain\"; no licence is set without a source."
-    },
-    {
-      "id": "LICENCE-022",
-      "kind": "period",
-      "page": "My Thing is My Own",
-      "text": "Period 1701–1800 from the century origins 18th Century."
-    },
-    {
-      "id": "MARKUP-004",
-      "kind": "single_bracket_category",
-      "page": "My Thing is My Own",
-      "text": "single_bracket_category at byte 113."
-    }
-  ]
+  }
 }

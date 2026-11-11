@@ -145,10 +145,9 @@ func TestParseCredits_Qualifiers(t *testing.T) {
 	require.NotNil(t, credits[1].Part)
 	assert.Equal(t, domain.PiecePartChorus, *credits[1].Part)
 	assert.Equal(t, "arranged", credits[1].Note)
-	// A capitalised qualifier may be a name: never a note, listed for review.
-	assert.Empty(t, credits[2].Note)
-	assert.Equal(t, []string{"Legal Name"}, credits[2].UnusedQualifiers)
-	assert.False(t, credits[0].PartInferred)
+	// Any other text qualifier is the note.
+	assert.Equal(t, "Legal Name", credits[2].Note)
+	assert.Nil(t, credits[2].Part)
 }
 
 func TestParseCredits_ChorusTuneIsTheChorus(t *testing.T) {
@@ -175,7 +174,6 @@ func TestParseCredits_PartsInferredFromScopedOrigins(t *testing.T) {
 	for k, want := range map[int]domain.PiecePart{1: domain.PiecePartVerses, 2: domain.PiecePartChorus} {
 		require.NotNil(t, p.Credits[k].Part)
 		assert.Equal(t, want, *p.Credits[k].Part)
-		assert.True(t, p.Credits[k].PartInferred)
 	}
 	assert.Equal(t, domain.AttributionAnonymous, p.Credits[2].Attribution)
 }

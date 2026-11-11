@@ -2,8 +2,7 @@
 // every function takes values (or an fs.FS) and returns new values, and nothing here writes anywhere.
 //
 // The parsing functions port the research scripts (wikitext.mjs and the page analysis of analyze.mjs), which are
-// the reference behaviour; where this package deliberately differs, the research oracle test lists why
-// (oracleDeviations).
+// the reference behaviour.
 package mediawiki
 
 import (
@@ -202,59 +201,6 @@ func loadJSON(fsys fs.FS, name string, v any) error {
 	}
 
 	return nil
-}
-
-// EncodeDump encodes d as the files LoadDump reads, keeping only the fields LoadDump decodes: pages.jsonl with one
-// page per line, and categories.json, redirects.json and activity.json indented. Object keys are sorted at every
-// level and HTML characters are not escaped, so the output is stable and readable in a diff. LoadDump of the
-// output gives d back.
-func EncodeDump(d Dump) (map[string][]byte, error) {
-	var pages bytes.Buffer
-	for _, p := range d.Pages {
-		line, err := canonicalJSON(p, "")
-		if err != nil {
-			return nil, err
-		}
-		pages.Write(line)
-	}
-	files := map[string][]byte{PagesFile: pages.Bytes()}
-	for name, v := range map[string]any{
-		CategoriesFile: map[string]any{"categories": d.Categories},
-		RedirectsFile:  map[string]any{"redirect_pages": d.Redirects},
-		ActivityFile:   map[string]any{"per_page": d.Activity},
-	} {
-		b, err := canonicalJSON(v, "  ")
-		if err != nil {
-			return nil, err
-		}
-		files[name] = b
-	}
-
-	return files, nil
-}
-
-// canonicalJSON encodes v with sorted object keys, unescaped HTML characters and a final newline, indented by
-// indent (none if empty).
-func canonicalJSON(v any, indent string) ([]byte, error) {
-	encoded, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	dec := json.NewDecoder(bytes.NewReader(encoded))
-	dec.UseNumber()
-	var generic any
-	if err := dec.Decode(&generic); err != nil {
-		return nil, err
-	}
-	var out bytes.Buffer
-	enc := json.NewEncoder(&out)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", indent)
-	if err := enc.Encode(generic); err != nil {
-		return nil, err
-	}
-
-	return out.Bytes(), nil
 }
 
 func isBlank(b []byte) bool {

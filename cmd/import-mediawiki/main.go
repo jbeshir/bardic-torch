@@ -1,13 +1,11 @@
 // Command import-mediawiki imports the crawl of the legacy MediaWiki site (internal/mediawiki) into the catalogue
 // (PLAN §7).
 //
-// Usage: import-mediawiki --dump DIR (--dry-run | --apply) --review PATH
+// Usage: import-mediawiki --dump DIR (--dry-run | --apply)
 //
-// Both modes parse the crawl in DIR, build the import (internal/importer), validate it and write the review for
-// the moderators to PATH, then print the counts. The review names people, so it is written with mode 0600; write it
-// outside this repository, which is public. --dry-run stops there: it
-// never reads DATABASE_URL or opens a database. --apply then writes the import into the empty catalogue at
-// DATABASE_URL in one transaction, and refuses a catalogue that already holds rows.
+// Both modes parse the crawl in DIR, build the import (internal/importer), validate it and print the counts.
+// --dry-run stops there: it never reads DATABASE_URL or opens a database. --apply then writes the import into the
+// empty catalogue at DATABASE_URL in one transaction, and refuses a catalogue that already holds rows.
 package main
 
 import (
@@ -33,8 +31,8 @@ import (
 )
 
 var (
-	// ErrUsage is returned for a command line without --dump or --review, or without exactly one mode.
-	ErrUsage = errors.New("usage: import-mediawiki --dump DIR (--dry-run | --apply) --review PATH")
+	// ErrUsage is returned for a command line without --dump, or without exactly one mode.
+	ErrUsage = errors.New("usage: import-mediawiki --dump DIR (--dry-run | --apply)")
 )
 
 func main() {
@@ -57,7 +55,7 @@ func databaseURL() string {
 
 // options is a parsed command line.
 type options struct {
-	dump, review string
+	dump string
 	// apply is whether to write the import (--apply) rather than only build it (--dry-run).
 	apply bool
 }
@@ -68,10 +66,9 @@ func parseOptions(args []string) (options, error) {
 	var o options
 	var dryRun bool
 	flags.StringVar(&o.dump, "dump", "", "directory of the crawl")
-	flags.StringVar(&o.review, "review", "", "file to write the review to, outside the repository")
-	flags.BoolVar(&dryRun, "dry-run", false, "build the import and the review without a database")
+	flags.BoolVar(&dryRun, "dry-run", false, "build the import without a database")
 	flags.BoolVar(&o.apply, "apply", false, "build the import and write it into the empty catalogue")
-	if err := flags.Parse(args); err != nil || o.dump == "" || o.review == "" || dryRun == o.apply ||
+	if err := flags.Parse(args); err != nil || o.dump == "" || dryRun == o.apply ||
 		flags.NArg() > 0 {
 		return options{}, ErrUsage
 	}
@@ -89,14 +86,11 @@ func run(ctx context.Context, args []string, databaseURL func() string, stdout i
 	if err != nil {
 		return err
 	}
-	imp, review := importer.Build(mediawiki.ParseCorpus(d), time.Now().UTC())
+	imp, counts := importer.Build(mediawiki.ParseCorpus(d), time.Now().UTC())
 	if err := imp.Validate(); err != nil {
 		return err
 	}
-	if err := writeReview(o.review, importer.RenderReview(review)); err != nil {
-		return err
-	}
-	if err := printCounts(stdout, review); err != nil {
+	if err := printCounts(stdout, counts); err != nil {
 		return err
 	}
 	if !o.apply {
@@ -120,18 +114,8 @@ func run(ctx context.Context, args []string, databaseURL func() string, stdout i
 	return err
 }
 
-// writeReview writes the review to path, readable by the owner only.
-func writeReview(path string, review []byte) error {
-	if err := os.WriteFile(path, review, 0o600); err != nil {
-		return fmt.Errorf("writing the review: %w", err)
-	}
-
-	return nil
-}
-
-// printCounts prints what the import holds and how many review items there are, as counts only.
-func printCounts(w io.Writer, r importer.Review) error {
-	c := r.Counts
+// printCounts prints what the import holds, as counts only.
+func printCounts(w io.Writer, c importer.Counts) error {
 	kinds := slices.Sorted(maps.Keys(c.PiecesByKind))
 	pieces, byKind := 0, make([]string, 0, len(kinds))
 	for _, kind := range kinds {
@@ -145,7 +129,6 @@ func printCounts(w io.Writer, r importer.Review) error {
 		fmt.Sprintf("terms %d; collections %d (of %d entries); events %d", c.Terms, c.Collections,
 			c.CollectionEntries, c.Events),
 		fmt.Sprintf("links %d; revisions %d", c.Links, c.Revisions),
-		fmt.Sprintf("review items %d", len(r.Items())),
 	}
 	_, err := fmt.Fprintln(w, strings.Join(lines, "\n"))
 

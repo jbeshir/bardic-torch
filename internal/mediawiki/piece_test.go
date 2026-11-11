@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
@@ -88,24 +87,6 @@ func TestParsePiece_PartQualifiers(t *testing.T) {
 	}, p.Terms)
 }
 
-func TestParsePiece_DriftBothWays(t *testing.T) {
-	text := pieceWikitext(aSong, [][2]string{
-		{lyricsByParam, "[[" + wren + "]]"},
-		{"genre", categoryLink(CategorySongs)},
-		{"mood", categoryLink(catWarlike) + ", " + categoryLink(catComedic)},
-		{"other", categoryLink("Long Pieces")},
-	})
-	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text,
-		Categories: pieceCategories(catEndangered, catWarlike, wren)})
-
-	assert.Equal(t, []FacetDrift{
-		{Kind: DriftInInfoboxNotTagged, Category: catComedic, ResolvesTo: catComedic},
-		{Kind: DriftInInfoboxNotTagged, Category: "Long Pieces", ResolvesTo: "Long Pieces"},
-		{Kind: DriftTaggedNotInInfobox, Category: catEndangered, ResolvesTo: catEndangered},
-	}, p.Drift, "Pieces, the Songs the song infobox implies and the bard category are not drift")
-	assert.NotContains(t, p.Terms, PieceTerm{Category: catComedic})
-}
-
 func TestParsePiece_RedirectCategoryResolves(t *testing.T) {
 	text := pieceWikitext(aSong, [][2]string{{sourceParam, categoryLink(catTraditionalRedirect)}})
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text,
@@ -113,8 +94,6 @@ func TestParsePiece_RedirectCategoryResolves(t *testing.T) {
 
 	assert.Equal(t, []PieceTerm{{Category: catTraditional, IsPrimary: true}}, p.Terms,
 		"both the redirect and its target are one term, first in infobox order")
-	assert.Contains(t, p.Drift, FacetDrift{Kind: DriftRedirectCategoryLink, Category: catTraditionalRedirect,
-		ResolvesTo: catTraditional})
 }
 
 func TestParsePiece_ConservationMostSevere(t *testing.T) {
@@ -130,12 +109,12 @@ func TestParsePiece_ConservationMostSevere(t *testing.T) {
 	assert.Equal(t, domain.ConservationStatusUnassessed, unassessed.Conservation())
 }
 
-func TestParsePiece_IgnoredCategories(t *testing.T) {
+func TestParsePiece_AffiliationCategoriesGiveNothing(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil),
 		Categories: pieceCategories(kingdom, CategorySCABards)})
 
-	assert.Equal(t, []string{kingdom, CategorySCABards}, p.IgnoredCategories)
 	assert.Empty(t, p.Terms)
+	assert.Empty(t, p.BardNameCategories)
 }
 
 func TestParsePiece_RepairsMarkupBeforeParsing(t *testing.T) {
@@ -143,9 +122,7 @@ func TestParsePiece_RepairsMarkupBeforeParsing(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text,
 		Categories: pieceCategories(catTraditional)})
 
-	require.NotEmpty(t, p.MarkupIssues)
-	assert.Equal(t, MarkupSingleBracketCategory, p.MarkupIssues[0].Kind)
-	assert.Empty(t, p.Drift)
+	assert.Equal(t, []PieceTerm{{Category: catTraditional, IsPrimary: true}}, p.Terms)
 	names := []string{}
 	for _, param := range p.Parsed.Infoboxes[0].Params {
 		names = append(names, param.Name)
@@ -154,14 +131,12 @@ func TestParsePiece_RepairsMarkupBeforeParsing(t *testing.T) {
 }
 
 // TestScrubbedPieces_ResearchCounts asserts the research counts that pieces give on the committed scrubbed copy:
-// 142 pieces (135 songs, 4 poems, 2 stories, 1 dance and music), 11 with inline lyrics, and the facet drift of
-// report §3.4 and §8.3 (13 pages with untagged infobox values, 24 with tags missing from the infobox, 4 linking
-// redirect categories).
+// 142 pieces (135 songs, 4 poems, 2 stories, 1 dance and music), 11 with inline lyrics and 11 with a conservation
+// status.
 func TestScrubbedPieces_ResearchCounts(t *testing.T) {
 	pieces := scrubbedSite(t).Pieces()
 	kinds := map[domain.PieceKind]int{}
 	lyrics, conservation := 0, 0
-	drift := map[FacetDriftKind]int{}
 	for _, p := range pieces {
 		kinds[p.Kind]++
 		if p.Lyrics.HadInlineLyrics {
@@ -170,13 +145,6 @@ func TestScrubbedPieces_ResearchCounts(t *testing.T) {
 		if p.Conservation() != domain.ConservationStatusUnassessed {
 			conservation++
 		}
-		kindsOnPage := map[FacetDriftKind]bool{}
-		for _, d := range p.Drift {
-			kindsOnPage[d.Kind] = true
-		}
-		for k := range kindsOnPage {
-			drift[k]++
-		}
 	}
 
 	assert.Len(t, pieces, 142)
@@ -184,8 +152,6 @@ func TestScrubbedPieces_ResearchCounts(t *testing.T) {
 		domain.PieceKindStory: 2, domain.PieceKindDanceMusic: 1}, kinds)
 	assert.Equal(t, 11, lyrics)
 	assert.Equal(t, 11, conservation)
-	assert.Equal(t, map[FacetDriftKind]int{DriftInInfoboxNotTagged: 13, DriftTaggedNotInInfobox: 24,
-		DriftRedirectCategoryLink: 4}, drift)
 }
 
 func TestScrubbedPieces_Examples(t *testing.T) {
@@ -198,8 +164,6 @@ func TestScrubbedPieces_Examples(t *testing.T) {
 	black := pieces["Black Alman"]
 	assert.Equal(t, domain.PieceKindDanceMusic, black.Kind)
 	assert.Empty(t, black.SecondaryKinds)
-	assert.Contains(t, black.Drift, FacetDrift{Kind: DriftRedirectCategoryLink, Category: "Dance",
-		ResolvesTo: CategoryDances})
 
 	three := pieces["Three Words"]
 	assert.Contains(t, three.Terms, PieceTerm{Category: catSCAPieces, IsPrimary: true,
@@ -211,6 +175,4 @@ func TestScrubbedPieces_Examples(t *testing.T) {
 	assert.Equal(t, []domain.PieceKind{domain.PieceKindInstrumental}, pieces["Burden of the Crown"].SecondaryKinds)
 	assert.Equal(t, domain.ConservationStatusCriticallyEndangered, pieces["Oathkeeping"].Conservation())
 	assert.True(t, pieces["Band of Brothers"].Lyrics.HadInlineLyrics)
-	require.Len(t, pieces["Band of Brothers"].Lyrics.Sections, 1)
-	assert.Equal(t, lyricsHeading, pieces["Band of Brothers"].Lyrics.Sections[0].Heading)
 }

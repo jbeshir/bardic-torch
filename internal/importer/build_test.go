@@ -11,12 +11,12 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
-// The synthetic wiki's names. legalAlias is the legal name in Wren's H1; its surname is legalSurname.
+// The synthetic wiki's names. h1Alias is the alias in Wren's H1; its surname is h1Surname.
 const (
 	wren          = "Wren Placeholder"
 	rowan         = "Rowan Placeholder"
-	legalAlias    = "Ash Hiddenname"
-	legalSurname  = "Hiddenname"
+	h1Alias       = "Ash Sample"
+	h1Surname     = "Sample"
 	unsureAlias   = "Maria de Placeholder"
 	publicAlias   = "Rowan of the Glen"
 	songTitle     = "Song of Testing"
@@ -28,33 +28,33 @@ func page(id int64, title string, categories []string, wikitext string) mediawik
 		URL: "https://wiki.example.org/wiki/" + strings.ReplaceAll(title, " ", "_"), RevID: id * 10}
 }
 
-// syntheticDump is a small wiki: two bards (one with a legal alias in its H1, one with a public and an unsure
-// alias), a piece naming the legal alias in every kind of free text, a piece whose title slugifies alike, and the
+// syntheticDump is a small wiki: two bards (one with an alias in its H1, one with a public and an unsure
+// alias), a piece naming that alias in every kind of free text, a piece whose title slugifies alike, and the
 // Collections page.
 func syntheticDump() mediawiki.Dump {
 	bards := []string{mediawiki.CategoryBards}
 	piece := []string{mediawiki.CategoryPieces, mediawiki.CategorySongs}
 	return mediawiki.Dump{
 		Pages: []mediawiki.Page{
-			page(10, wren, bards, "= "+wren+" ("+legalAlias+") =\nWren sings. Mr. "+legalSurname+" wrote back.\n"+
+			page(10, wren, bards, "= "+wren+" ("+h1Alias+") =\nWren sings. Mr. "+h1Surname+" wrote back.\n"+
 				"== Licensing & Etiquette ==\nAsk first at ash@example.org. [https://wren.example.org/terms Terms]\n"),
 			page(11, rowan, append(bards, "In Memoriam"), "= "+rowan+" ("+publicAlias+", "+unsureAlias+") =\n"+
 				"Deceased October 31, 2020.\n"),
-			page(20, songTitle, piece, "{{Infobox Song\n|title="+songTitle+"\n|other_titles="+legalAlias+
-				"'s Song\n|lyrics_by=[["+wren+"]]\n}}\nWritten for "+legalAlias+".\n"+
-				"== Lyrics ==\nThe version "+legalAlias+" sang differs.\n"+
-				"== Licensing & Etiquette ==\nCopyright "+legalAlias+". [https://wren.example.org/terms Terms]\n"+
-				"== Performances & Recordings ==\n* [https://www.youtube.com/watch?v=video000001 "+legalAlias+
-				" sings] of [["+wren+"]] at "+legalAlias+" Revel in 2020, recorded by "+legalAlias+" on YouTube\n"+
-				"== Key Links ==\n* [https://blog.example.org/ash-hiddenname.html Blog post]\n"+
+			page(20, songTitle, piece, "{{Infobox Song\n|title="+songTitle+"\n|other_titles="+h1Alias+
+				"'s Song\n|lyrics_by=[["+wren+"]]\n}}\nWritten for "+h1Alias+".\n"+
+				"== Lyrics ==\nThe version "+h1Alias+" sang differs.\n"+
+				"== Licensing & Etiquette ==\nCopyright "+h1Alias+". [https://wren.example.org/terms Terms]\n"+
+				"== Performances & Recordings ==\n* [https://www.youtube.com/watch?v=video000001 "+h1Alias+
+				" sings] of [["+wren+"]] at "+h1Alias+" Revel in 2020, recorded by "+h1Alias+" on YouTube\n"+
+				"== Key Links ==\n* [https://blog.example.org/ash-sample.html Blog post]\n"+
 				"* [https://www.youtube.com/watch?v=video000001&utm_source=x Same video]\n"),
 			page(30, collidingSong, piece, "{{Infobox Song\n|lyrics_by=[["+wren+"]]\n}}\nAnother song.\n"),
 			page(40, mediawiki.CollectionsPage, nil, "== S ==\n* [https://songs.example.org/book.pdf "+
-				legalAlias+" Songbook]\n"),
+				h1Alias+" Songbook]\n"),
 		},
 		Categories: map[string]mediawiki.Category{},
 		Redirects: []mediawiki.Redirect{
-			{From: "Ash Hiddénname", NS: mediawiki.NSMain, To: wren},
+			{From: "Ash Sàmple", NS: mediawiki.NSMain, To: wren},
 		},
 		Activity: []mediawiki.PageActivity{
 			{Title: songTitle, NS: mediawiki.NSMain, Revisions: 5, Users: map[string]int{"Wiki User 02": 1,
@@ -63,10 +63,11 @@ func syntheticDump() mediawiki.Dump {
 	}
 }
 
-func syntheticImport(t *testing.T) (domain.CatalogueImport, Review) {
+func syntheticImport(t *testing.T) domain.CatalogueImport {
 	t.Helper()
+	imp, _ := Build(mediawiki.ParseCorpus(syntheticDump()), buildTime)
 
-	return Build(mediawiki.ParseCorpus(syntheticDump()), buildTime)
+	return imp
 }
 
 func pieceTitled(t *testing.T, imp domain.CatalogueImport, title string) domain.ImportedPiece {
@@ -94,13 +95,13 @@ func personNamed(t *testing.T, imp domain.CatalogueImport, name string) domain.I
 }
 
 func TestBuild_SyntheticValidates(t *testing.T) {
-	imp, _ := syntheticImport(t)
+	imp := syntheticImport(t)
 
 	require.NoError(t, imp.Validate())
 }
 
 func TestBuild_RevisionsAreImportApprovedWithContributors(t *testing.T) {
-	imp, _ := syntheticImport(t)
+	imp := syntheticImport(t)
 
 	p := pieceTitled(t, imp, songTitle)
 	assert.Equal(t, domain.ImportedRevision{ID: p.Revision.ID, Summary: domain.ImportSummaryPage(200),
@@ -110,27 +111,25 @@ func TestBuild_RevisionsAreImportApprovedWithContributors(t *testing.T) {
 }
 
 func TestBuild_SlugCollisionsStable(t *testing.T) {
-	imp, _ := syntheticImport(t)
+	imp := syntheticImport(t)
 
 	assert.Equal(t, "song-of-testing", pieceTitled(t, imp, songTitle).Slug)
 	assert.Equal(t, "song-of-testing-2", pieceTitled(t, imp, collidingSong).Slug, "the later page ID gets -2")
-	again, _ := syntheticImport(t)
+	again := syntheticImport(t)
 	assert.Equal(t, imp.Pieces, again.Pieces)
 }
 
-func TestBuild_EmailsWithheldAndListed(t *testing.T) {
-	imp, review := syntheticImport(t)
+func TestBuild_EmailsWithheld(t *testing.T) {
+	imp := syntheticImport(t)
 
 	assert.NotContains(t, publicJSON(t, imp), "@example.org")
 	notes := personNamed(t, imp, wren).Doc.LicensingNotesMD
 	require.NotNil(t, notes)
 	assert.Contains(t, *notes, domain.WithheldEmail)
-	require.Len(t, review.Contacts, 1)
-	assert.Contains(t, review.Contacts[0].Text, "ash@example.org", "the private review names the address")
 }
 
 func TestBuild_LinkStatesOnePerNormalizedURL(t *testing.T) {
-	imp, _ := syntheticImport(t)
+	imp := syntheticImport(t)
 
 	seen := map[string]domain.ImportedLink{}
 	for _, l := range imp.Links {
@@ -162,7 +161,7 @@ func TestBuild_LinkStatesOnePerNormalizedURL(t *testing.T) {
 // TestBuild_PersonStatusSource: a status is sourced to the link its date is read from; with no such link, to the wiki
 // page.
 func TestBuild_PersonStatusSource(t *testing.T) {
-	imp, _ := syntheticImport(t)
+	imp := syntheticImport(t)
 
 	doc := personNamed(t, imp, rowan).Doc
 	assert.Equal(t, domain.PersonStatusDeceased, doc.Status)
@@ -181,7 +180,7 @@ func TestBuild_PersonStatusSource(t *testing.T) {
 }
 
 func TestBuild_LegacyColumns(t *testing.T) {
-	imp, _ := syntheticImport(t)
+	imp := syntheticImport(t)
 
 	p := pieceTitled(t, imp, songTitle)
 	require.NotNil(t, p.Legacy)
@@ -194,7 +193,7 @@ func TestBuild_LegacyColumns(t *testing.T) {
 }
 
 func TestBuild_SummariesAreNeutral(t *testing.T) {
-	imp, _ := syntheticImport(t)
+	imp := syntheticImport(t)
 
 	var summaries []string
 	for _, p := range imp.Pieces {
@@ -212,7 +211,7 @@ func TestBuild_SummariesAreNeutral(t *testing.T) {
 	require.NotEmpty(t, summaries)
 	for _, s := range summaries {
 		assert.True(t, domain.IsImportSummary(s), s)
-		for _, name := range []string{wren, rowan, legalAlias, legalSurname, unsureAlias, publicAlias, songTitle} {
+		for _, name := range []string{wren, rowan, h1Alias, h1Surname, unsureAlias, publicAlias, songTitle} {
 			assert.NotContains(t, s, name)
 		}
 	}
@@ -220,11 +219,11 @@ func TestBuild_SummariesAreNeutral(t *testing.T) {
 
 func TestBuild_Deterministic(t *testing.T) {
 	c := scrubbedCorpus(t)
-	a, ra := Build(c, buildTime)
-	b, rb := Build(c, buildTime)
+	a, ca := Build(c, buildTime)
+	b, cb := Build(c, buildTime)
 
 	assert.Equal(t, a, b)
-	assert.Equal(t, RenderReview(ra), RenderReview(rb))
+	assert.Equal(t, ca, cb)
 }
 
 func TestBuild_StringsAreNFC(t *testing.T) {
@@ -239,15 +238,15 @@ func TestBuild_StringsAreNFC(t *testing.T) {
 	require.NoError(t, imp.Validate())
 }
 
-// TestBuild_ControlCharactersRemovedAndListed plants NUL, ESC and a bidirectional override in a piece's notes, a
+// TestBuild_ControlCharactersRemoved plants NUL, ESC and a bidirectional override in a piece's notes, a
 // link's title and its URL: the text loses them, the URL has them percent-encoded (and a "www." URL is stored
-// with https), Validate (which rejects any control character in any string) passes, and the review lists them.
-func TestBuild_ControlCharactersRemovedAndListed(t *testing.T) {
+// with https), Validate (which rejects any control character in any string) passes.
+func TestBuild_ControlCharactersRemoved(t *testing.T) {
 	d := syntheticDump()
 	d.Pages[3].Wikitext = "{{Infobox Song\n}}\nNotes\x1b[31m with an \u202eoverride.\x00\n" +
 		"== Key Links ==\n* [https://example.org/a\x1bb Link \u202etitle]\n* [www.example.org/c Site]\n"
 
-	imp, review := Build(mediawiki.ParseCorpus(d), buildTime)
+	imp, _ := Build(mediawiki.ParseCorpus(d), buildTime)
 
 	require.NoError(t, imp.Validate())
 	doc := pieceTitled(t, imp, collidingSong).Doc
@@ -258,17 +257,6 @@ func TestBuild_ControlCharactersRemovedAndListed(t *testing.T) {
 	assert.Equal(t, "https://www.example.org/c", doc.Links[1].URL, "a www. URL is stored absolute")
 	require.NotNil(t, doc.Links[0].Title)
 	assert.Equal(t, "Link title", *doc.Links[0].Title)
-	assert.True(t, containsKind(review.Markup, "text_characters"), "the removals are listed")
-}
-
-func containsKind(items []Item, kind string) bool {
-	for _, it := range items {
-		if it.Kind == kind {
-			return true
-		}
-	}
-
-	return false
 }
 
 // TestBuild_ControlCharactersRemovedFromNamesAndContributors plants ESC and a bidirectional override in a bard's

@@ -99,12 +99,5 @@ func sortedByLengthDescending(words []string) []string {
 // of names between them.
 var capitalisedName = capitalisedWord + `(?:[ \t]+(?:` + nameParticle + `[ \t]+)*` + capitalisedWord + `){0,3}`
 
-// multiwordName is two to four capitalised words or initials, which may have the particles of names between them.
-var multiwordName = capitalisedWord + `(?:[ \t]+(?:` + nameParticle + `[ \t]+)*` + capitalisedWord + `){1,3}`
-
-// PossessiveName matches a text that starts with what may be a person's name in the possessive ("First Last's
-// Songbook").
-var PossessiveName = regexp.MustCompile(`^` + multiwordName + `[` + apostrophes + `]s\b`)
-
 // EmailAddress matches an email address.
 var EmailAddress = regexp.MustCompile(`[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+`)

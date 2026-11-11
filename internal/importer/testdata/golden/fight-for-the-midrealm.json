@@ -109,37 +109,5 @@
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "AMBIG-002",
-      "kind": "other_page_title",
-      "page": "Fight for the Midrealm",
-      "text": "The infobox_title gives the title \"Voice of the Dragon\", which is another page's. Guess: the page title \"Fight for the Midrealm\"; the alternative: \"Voice of the Dragon\"."
-    },
-    {
-      "id": "CREDIT-044",
-      "kind": "credited_not_listed",
-      "page": "Fight for the Midrealm",
-      "text": "credited_not_listed: \"Lasair inghen ui h'Airt\" (person Lasair inghen ui h’Airt)."
-    },
-    {
-      "id": "TITLE-037",
-      "kind": "rejected",
-      "page": "Fight for the Midrealm",
-      "text": "Not imported: \"Voice of the Dragon\" (from the infobox_title): other_page."
-    },
-    {
-      "id": "LINK-205",
-      "kind": "normalised",
-      "page": "Fight for the Midrealm",
-      "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERF-224",
-      "kind": "incomplete",
-      "page": "Fight for the Midrealm",
-      "text": "A performance item has no performer the importer could read: \"[https://youtu.be/XmgUpSreHi4 Recording by Legal Name 024 on YouTube of Lasair i…\"."
-    }
-  ]
+  }
 }

@@ -19,8 +19,6 @@ var researchCounts = CorpusStats{
 	PieceRedirects: 5, BardRedirects: 1,
 	RedLinksByNS:  map[int]int{NSMain: 180, NSCategory: 22, NSSpecial: 1},
 	ExternalLinks: 691, TrackingParameterURLs: 112, PagesWithRepeatedURLs: 35, WorksWithoutPage: 78,
-	DriftPages: map[FacetDriftKind]int{DriftInInfoboxNotTagged: 13, DriftTaggedNotInInfobox: 24,
-		DriftRedirectCategoryLink: 4},
 }
 
 func TestCorpus_ResearchCounts(t *testing.T) {

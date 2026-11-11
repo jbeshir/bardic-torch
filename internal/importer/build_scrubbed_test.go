@@ -19,7 +19,7 @@ import (
 const lyricMarker = "scrubbedlyric"
 
 func TestBuild_ValidatesOutput(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 
 	require.NoError(t, imp.Validate())
 }
@@ -32,7 +32,7 @@ func TestBuild_ResearchCounts(t *testing.T) {
 }
 
 func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	ancestors, err := imp.TermAncestors()
 	require.NoError(t, err)
 
@@ -51,7 +51,7 @@ func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {
 }
 
 func TestBuild_SortKeys(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 
 	for _, p := range imp.Pieces {
 		assert.Equal(t, domain.SortTitle(p.Doc.Title), p.SortTitle)
@@ -69,7 +69,7 @@ func TestBuild_SortKeys(t *testing.T) {
 }
 
 func TestBuild_ConservationSourceIsThePiecesWikiPage(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	pageURLs := map[string]string{}
 	for _, p := range scrubbedCorpus(t).Pieces {
 		pageURLs[p.Title] = p.URL
@@ -93,14 +93,13 @@ func TestBuild_ConservationSourceIsThePiecesWikiPage(t *testing.T) {
 }
 
 // TestBuild_NoLyricMarkerAnywhere checks that no dropped lyric line of the scrubbed copy reaches any field of the
-// import, public or not, or the review.
+// import, public or not.
 func TestBuild_NoLyricMarkerAnywhere(t *testing.T) {
-	imp, review := scrubbedImport(t)
+	imp := scrubbedImport(t)
 
 	encoded, err := json.Marshal(imp)
 	require.NoError(t, err)
 	assert.NotContains(t, strings.ToLower(string(encoded)), lyricMarker)
-	assert.NotContains(t, strings.ToLower(string(RenderReview(review))), lyricMarker)
 }
 
 // TestBuild_ContributorsAreCreditedPerPage: a piece page's revision credits its contributors, and a stub piece's
@@ -111,7 +110,7 @@ var shareTracking = regexp.MustCompile("[?&](?:si|utm_[a-z]+|fbclid|igshid|ab_ch
 // TestBuild_URLsWithoutTrackingParameters: no imported link URL, nor any URL of a performance description, keeps a
 // tracking parameter, though the wiki writes many.
 func TestBuild_URLsWithoutTrackingParameters(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	written := 0
 	for _, pl := range scrubbedCorpus(t).Links.Pieces {
 		for _, o := range pl.Occurrences {
@@ -138,7 +137,7 @@ func TestBuild_URLsWithoutTrackingParameters(t *testing.T) {
 }
 
 func TestBuild_ContributorsAreCreditedPerPage(t *testing.T) {
-	imp, review := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	c := scrubbedCorpus(t)
 	activity := map[string][]string{}
 	for _, a := range c.Dump.Activity {
@@ -169,5 +168,4 @@ func TestBuild_ContributorsAreCreditedPerPage(t *testing.T) {
 		assert.ElementsMatch(t, want, p.Revision.Contributors, "%s: the listing bard pages' contributors", p.Doc.Title)
 	}
 	assert.Equal(t, 142, credited, "every piece page has contributors")
-	assert.NotEmpty(t, review.Contributors)
 }

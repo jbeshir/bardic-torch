@@ -169,55 +169,5 @@
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "CREDIT-012",
-      "kind": "category_without_linked_credit",
-      "page": "Warrior's Wyrd",
-      "text": "category_without_linked_credit: \"Ivar Battleskald\" (person Ivar Battleskald)."
-    },
-    {
-      "id": "STUB-141",
-      "kind": "stub_person",
-      "page": "Warrior's Wyrd",
-      "text": "Stub person \"Legal Name 064\" (community_bard), named on 1 page(s)."
-    },
-    {
-      "id": "TITLE-013",
-      "kind": "unparsed",
-      "page": "Warrior's Wyrd",
-      "text": "Prose naming other titles, kept in the notes: \"This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.\"."
-    },
-    {
-      "id": "LINK-097",
-      "kind": "normalised",
-      "page": "Warrior's Wyrd",
-      "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERF-116",
-      "kind": "incomplete",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://www.youtube.com/watch?v=Y-DSvojaL3g Warrior's Wyrd on YouTube by 'Legal…\"."
-    },
-    {
-      "id": "PERF-117",
-      "kind": "incomplete",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://www.youtube.com/watch?v=GkFyoVrTEok Warrior's Wyrd on YouTube by Legal …\"."
-    },
-    {
-      "id": "PERF-118",
-      "kind": "incomplete",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item has no performer or year the importer could read: \"[https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU Warrior's Wyrd on YouTube, rec…\"."
-    },
-    {
-      "id": "PERSON-154",
-      "kind": "stub_kind",
-      "page": "Warrior's Wyrd",
-      "text": "Stub person \"Legal Name 064\" (named on 1 page(s)) is guessed to be community_bard."
-    }
-  ]
+  }
 }

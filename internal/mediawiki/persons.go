@@ -34,36 +34,23 @@ type MatchKind string
 const (
 	// MatchExact: the name folds to exactly one person's key.
 	MatchExact MatchKind = "exact"
-	// MatchFuzzy: the name is near exactly one person's key (MatchRule), listed for review.
+	// MatchFuzzy: the name is near exactly one person's key: its folded name is at least MinFuzzyNameLength runes
+	// long and one edit (an insertion, a deletion, a substitution or a swap of neighbours) from a key ("Marian of
+	// Heatherdale", "Marion …"; names with digits, "Legal Name 001", are never matched so: their digits tell them
+	// apart), or it is one word, the first word of a person's name ("Dunstan").
 	MatchFuzzy MatchKind = "fuzzy"
-	// MatchNone: no person, or more than one (Candidates), matches; the name becomes a stub person.
+	// MatchNone: no person, or more than one, matches; the name becomes a stub person.
 	MatchNone MatchKind = "none"
-)
-
-// MatchRule is the rule a fuzzy match, or an ambiguous name's candidates, came from.
-type MatchRule string
-
-// The fuzzy match rules.
-const (
-	// RuleEditDistance: the folded name is at least MinFuzzyNameLength runes long and one edit (an insertion, a
-	// deletion, a substitution or a swap of neighbours) from a key ("Marian of Heatherdale", "Marion …"). Names
-	// with digits ("Legal Name 001") are never matched so: their digits tell them apart.
-	RuleEditDistance MatchRule = "edit_distance"
-	// RuleFirstWord: the name is one word, the first word of a person's name ("Dunstan").
-	RuleFirstWord MatchRule = "first_word"
 )
 
 // MinFuzzyNameLength is the shortest folded name, in runes, matched by edit distance.
 const MinFuzzyNameLength = 8
 
-// PersonMatch is the result of matching a name: the person and the key kind it matched (Via), or, for a name
-// matching more than one person, their Candidates and no Person.
+// PersonMatch is the result of matching a name: how it matched and the person, none for a name matching no
+// person or more than one.
 type PersonMatch struct {
-	Kind       MatchKind
-	Rule       MatchRule
-	Person     PersonRef
-	Via        IndexKeyKind
-	Candidates []PersonRef
+	Kind   MatchKind
+	Person PersonRef
 }
 
 type indexKey struct {
@@ -104,7 +91,7 @@ func (x PersonIndex) withStubs(stubs []StubPerson) PersonIndex {
 
 // Match matches a name to a person: exactly, by FoldName, to a key; otherwise fuzzily, by one edit to a key (for
 // a folded name of at least MinFuzzyNameLength runes) or, for a one-word name, as the first word of a person's
-// name. A name that exactly or fuzzily matches more than one person matches none, and lists them as candidates.
+// name. A name that exactly or fuzzily matches more than one person matches none.
 func (x PersonIndex) Match(name string) PersonMatch {
 	fold := FoldName(name)
 	if fold == "" {
@@ -112,14 +99,14 @@ func (x PersonIndex) Match(name string) PersonMatch {
 	}
 	exact := x.matching(func(k indexKey) bool { return k.fold == fold })
 	if len(exact) > 0 {
-		return x.result(MatchExact, "", exact)
+		return x.result(MatchExact, exact)
 	}
 	if utf8.RuneCountInString(fold) >= MinFuzzyNameLength && !strings.ContainsFunc(fold, unicode.IsDigit) {
 		near := x.matching(func(k indexKey) bool {
 			return !strings.ContainsFunc(k.fold, unicode.IsDigit) && withinOneEdit(k.fold, fold)
 		})
 		if len(near) > 0 {
-			return x.result(MatchFuzzy, RuleEditDistance, near)
+			return x.result(MatchFuzzy, near)
 		}
 	}
 	if !strings.Contains(fold, " ") {
@@ -127,7 +114,7 @@ func (x PersonIndex) Match(name string) PersonMatch {
 			return (k.kind == KeyTitle || k.kind == KeyStub) && strings.HasPrefix(k.fold, fold+" ")
 		})
 		if len(first) > 0 {
-			return x.result(MatchFuzzy, RuleFirstWord, first)
+			return x.result(MatchFuzzy, first)
 		}
 	}
 
@@ -149,24 +136,12 @@ func (x PersonIndex) matching(match func(indexKey) bool) []indexKey {
 	return out
 }
 
-func (x PersonIndex) result(kind MatchKind, rule MatchRule, keys []indexKey) PersonMatch {
-	var persons []PersonRef
-	for _, k := range keys {
-		if !slices.Contains(persons, k.person) {
-			persons = append(persons, k.person)
-		}
-	}
-	if len(persons) > 1 {
-		slices.Sort(persons)
-
-		return PersonMatch{Kind: MatchNone, Rule: rule, Candidates: persons}
-	}
-	m := PersonMatch{Kind: kind, Rule: rule, Person: keys[0].person, Via: keys[0].kind}
-	if kind == MatchFuzzy {
-		m.Candidates = persons
+func (x PersonIndex) result(kind MatchKind, keys []indexKey) PersonMatch {
+	if slices.ContainsFunc(keys, func(k indexKey) bool { return k.person != keys[0].person }) {
+		return PersonMatch{Kind: MatchNone}
 	}
 
-	return m
+	return PersonMatch{Kind: kind, Person: keys[0].person}
 }
 
 // withinOneEdit reports whether a and b are at most one insertion, deletion, substitution or swap of neighbouring
@@ -202,31 +177,22 @@ type PersonMention struct {
 	Page string
 }
 
-// StubPerson is a person the wiki names without a page, imported as a public stub. Kind is a guess, listed for
-// review: group for a name like a band's, historical for a person named by an external link, otherwise a
-// community bard. ProfileURLs are the external links naming the person (imported with role external_profile),
-// LegacyTitle the page title the wiki links to for them, if it does, and Mentions where the wiki names them.
+// StubPerson is a person the wiki names without a page, imported as a public stub. Kind is a guess: group for a
+// name like a band's, historical for a person named by an external link, otherwise a community bard. ProfileURLs
+// are the external links naming the person (imported with role external_profile) and LegacyTitle the page title
+// the wiki links to for them, if it does.
 type StubPerson struct {
 	Name        string
 	Kind        domain.PersonKind
 	ProfileURLs []string
 	LegacyTitle string
-	Mentions    []PersonMention
-}
-
-// MentionMatch is a mention matched otherwise than exactly to a bard's title or alias or to a stub, for
-// review: fuzzily, or to more than one person (its stub is then the mention's own).
-type MentionMatch struct {
-	Mention PersonMention
-	Match   PersonMatch
 }
 
 // Persons are the persons the mentions name: bards and the stub persons created for the names that match no
-// bard, with the mentions matched to them.
+// bard, with the mentions resolved to them.
 type Persons struct {
 	Index    PersonIndex
 	Stubs    []StubPerson
-	Matches  []MentionMatch
 	resolved map[PersonName]PersonRef
 }
 
@@ -274,9 +240,6 @@ func resolveMention(p *Persons, m PersonMention, created []StubPerson) []StubPer
 		return created
 	}
 	match := p.Index.Match(m.Name.Name)
-	if match.Kind == MatchFuzzy || len(match.Candidates) > 1 {
-		p.Matches = append(p.Matches, MentionMatch{Mention: m, Match: match})
-	}
 	if match.Kind != MatchNone {
 		p.resolved[m.Name] = match.Person
 
@@ -301,7 +264,6 @@ func stubPerson(name string, mentions []PersonMention, resolved map[PersonName]P
 		if resolved[m.Name] != PersonRef(name) {
 			continue
 		}
-		st.Mentions = append(st.Mentions, m)
 		switch {
 		case groupName.MatchString(m.Name.Name):
 			st.Kind = domain.PersonKindGroup

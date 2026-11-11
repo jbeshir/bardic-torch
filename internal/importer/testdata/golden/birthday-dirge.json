@@ -223,43 +223,5 @@
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "TITLE-020",
-      "kind": "alternate",
-      "page": "Birthday Dirge",
-      "text": "Alias \"The Birthday Dirge\" (alt_title, from the h1)."
-    },
-    {
-      "id": "TITLE-021",
-      "kind": "rejected",
-      "page": "Birthday Dirge",
-      "text": "Not imported: \"Miscellaneous\" (from the infobox_title): category_word."
-    },
-    {
-      "id": "DRIFT-019",
-      "kind": "in_infobox_not_tagged",
-      "page": "Birthday Dirge",
-      "text": "in_infobox_not_tagged: \"Traditional \u0026 Folk\" (read as \"Traditional \u0026 Folk\")."
-    },
-    {
-      "id": "LINK-110",
-      "kind": "normalised",
-      "page": "Birthday Dirge",
-      "text": "3 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "LINK-284",
-      "kind": "conflict",
-      "page": "Birthday Dirge",
-      "text": "http://redwulf.info/book.pdf: its title differ from those Belt and Chain gives. One link holds the fields for every page: Belt and Chain's, but for the title, description and locator, kept only if every page gives the same (otherwise the title is the collection's name, or none). This page gives the title \"Lyrics in RedWulf's Songbook\", the description \"\" and the locator \"\"."
-    },
-    {
-      "id": "LICENCE-009",
-      "kind": "says_public_domain",
-      "page": "Birthday Dirge",
-      "text": "The licensing text says \"public domain\"; no licence is set without a source."
-    }
-  ]
+  }
 }

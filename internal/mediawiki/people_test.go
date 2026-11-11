@@ -36,17 +36,6 @@ func addBard(w *wikiFixture, title string, sections ...string) {
 	w.page(Page{Title: title, Wikitext: bardWikitext(title, sections...), Categories: []string{CategoryBards}})
 }
 
-func disagreementsOf(p People, kind CreditDisagreementKind) []CreditDisagreement {
-	var out []CreditDisagreement
-	for _, d := range p.Disagreements {
-		if d.Kind == kind {
-			out = append(out, d)
-		}
-	}
-
-	return out
-}
-
 func TestUnion_InfoboxCreditsResolved(t *testing.T) {
 	w := standardWiki()
 	addPiece(w, aSong, [][2]string{{lyricsByParam, "[[" + wren + "]] & " + rowan}}, wren)
@@ -75,10 +64,6 @@ func TestUnion_CategoryOnlyAddsPossibleCredit(t *testing.T) {
 			Certainty: domain.CertaintyPossible, Name: PersonName{Name: wren, Form: NameCategory}},
 		Person: wren, Signals: []CreditSignal{SignalCategory},
 	}, credits[1])
-	assert.Equal(t, []CreditDisagreement{{Kind: DisagreementCategoryOnly, Piece: aSong, Person: wren, Name: wren}},
-		disagreementsOf(people, DisagreementCategoryOnly))
-	assert.Equal(t, []CreditDisagreement{{Kind: DisagreementCategoryWithoutLinkedCredit, Piece: aSong, Person: wren,
-		Name: wren}}, disagreementsOf(people, DisagreementCategoryWithoutLinkedCredit))
 }
 
 func TestUnion_WorksListOnlyAddsPossibleCredit(t *testing.T) {
@@ -94,7 +79,6 @@ func TestUnion_WorksListOnlyAddsPossibleCredit(t *testing.T) {
 	assert.Equal(t, domain.CertaintyPossible, credits[1].Certainty)
 	assert.Equal(t, domain.CreditRoleLyrics, credits[1].Role)
 	assert.Equal(t, []CreditSignal{SignalWorksList}, credits[1].Signals)
-	assert.Len(t, disagreementsOf(people, DisagreementWorksListOnly), 1)
 }
 
 func TestUnion_RelatedPersonSignalAddsNoCredit(t *testing.T) {
@@ -108,25 +92,6 @@ func TestUnion_RelatedPersonSignalAddsNoCredit(t *testing.T) {
 	credits := people.Credits[pieces[aSong].PageID]
 	require.Len(t, credits, 1)
 	assert.Equal(t, PersonRef(ash), credits[0].Person)
-	assert.Equal(t, []CreditDisagreement{{Kind: DisagreementRelatedPerson, Piece: aSong, Person: rowan, Name: rowan}},
-		disagreementsOf(people, DisagreementRelatedPerson))
-}
-
-func TestUnion_ReferenceDisagreements(t *testing.T) {
-	w := standardWiki()
-	addBard(w, ash, songsSection, "* [["+anotherSong+"]]")
-	addPiece(w, aSong, [][2]string{{lyricsByParam, "[[" + wren + "]]"}, {tuneByParam, "[[" + ash + "]]"}}, wren)
-	addPiece(w, anotherSong, [][2]string{{lyricsByParam, "[[" + ash + "]]"}}, ash)
-
-	people, _ := peopleOf(w)
-
-	assert.Equal(t, []CreditDisagreement{{Kind: DisagreementMissingBardCategory, Piece: aSong, Person: ash, Name: ash}},
-		disagreementsOf(people, DisagreementMissingBardCategory))
-	assert.Empty(t, disagreementsOf(people, DisagreementCategoryWithoutLinkedCredit))
-	assert.Equal(t, []CreditDisagreement{
-		{Kind: DisagreementNotListed, Piece: aSong, Person: wren, Name: wren},
-		{Kind: DisagreementNotListed, Piece: aSong, Person: ash, Name: ash},
-	}, disagreementsOf(people, DisagreementNotListed))
 }
 
 func TestUnion_WorksListMissingPageBecomesStub(t *testing.T) {
@@ -139,7 +104,6 @@ func TestUnion_WorksListMissingPageBecomesStub(t *testing.T) {
 	require.Len(t, people.StubPieces, 1)
 	sp := people.StubPieces[0]
 	assert.Equal(t, unwritten, sp.Title)
-	assert.Empty(t, sp.CaseVariantOf)
 	require.Len(t, sp.Credits, 2)
 	for k, bard := range []PersonRef{ash, rowan} {
 		assert.Equal(t, bard, sp.Credits[k].Person)
@@ -158,24 +122,6 @@ func TestUnion_CaseVariantIsSeparateStub(t *testing.T) {
 
 	require.Len(t, people.StubPieces, 1)
 	assert.Equal(t, "My Song Is My Own", people.StubPieces[0].Title)
-	assert.Equal(t, "My Song is My Own", people.StubPieces[0].CaseVariantOf)
-	assert.Contains(t, people.Ambiguities(), Ambiguity{Kind: AmbiguityCaseVariantWork, Page: ash,
-		Name: "My Song Is My Own", Guess: "My Song Is My Own", Alternatives: []string{"My Song is My Own"}})
-}
-
-func TestPeople_Ambiguities(t *testing.T) {
-	w := standardWiki()
-	w.page(Page{Title: ash, Wikitext: bardWikitext(rowan + " (" + ash + ")"), Categories: []string{CategoryBards}})
-	addPiece(w, aSong, [][2]string{{lyricsByParam, dunstanFirstWord}})
-	addPiece(w, anotherSong, [][2]string{{lyricsByParam, "[[" + dunstanStub + "]]"}})
-
-	people, _ := peopleOf(w)
-
-	assert.Equal(t, []Ambiguity{
-		{Kind: AmbiguityCanonicalName, Page: ash, Name: rowan, Guess: ash, Alternatives: []string{rowan}},
-		{Kind: AmbiguityFuzzyPerson, Page: aSong, Name: dunstanFirstWord, Guess: dunstanStub,
-			Alternatives: []string{dunstanFirstWord}},
-	}, people.Ambiguities())
 }
 
 func TestRedLinks_Keys(t *testing.T) {

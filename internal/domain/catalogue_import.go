@@ -36,8 +36,7 @@ func (imp CatalogueImport) TermAncestors() ([]TermAncestor, error) {
 	return TermClosure(parents)
 }
 
-// ErrInvalidImport is returned by CatalogueImport.Validate. Its messages name the entity type, ID and field, never
-// a value, which may be private.
+// ErrInvalidImport is returned by CatalogueImport.Validate. Its messages name the entity type, ID and field.
 var ErrInvalidImport = errors.New("invalid catalogue import")
 
 // WithheldEmail is what the import writes in free text in place of an email address it withholds.

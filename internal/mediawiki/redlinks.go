@@ -74,7 +74,7 @@ const (
 	RedLinkMalformedURL RedLinkClass = "malformed_url"
 	// RedLinkNotImported is a special page, or a link only from pages that are not imported (a meta page's example).
 	RedLinkNotImported RedLinkClass = "not_imported"
-	// RedLinkUnclassified is any other red link: listed for review, not imported.
+	// RedLinkUnclassified is any other red link: not imported.
 	RedLinkUnclassified RedLinkClass = "unclassified"
 )
 

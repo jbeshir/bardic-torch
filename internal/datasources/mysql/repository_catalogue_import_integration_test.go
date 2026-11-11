@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 
+	mysqldriver "github.com/go-sql-driver/mysql"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -38,7 +40,7 @@ const seededTitle = "Seeded"
 
 // imported is a database holding the scrubbed import, for the tests that only read it.
 var imported = catalogtest.NewShared(func(c *catalogtest.Catalog) domain.CatalogueImport {
-	imp, _ := importtest.Scrubbed(c.T())
+	imp := importtest.Scrubbed(c.T())
 	c.Import(imp)
 
 	return imp
@@ -315,7 +317,7 @@ func TestRepository_ImportCatalogue_ReadAPI(t *testing.T) {
 func TestRepository_ImportCatalogue_RefusesNonEmpty(t *testing.T) {
 	t.Parallel()
 
-	imp, _ := importtest.Scrubbed(t)
+	imp := importtest.Scrubbed(t)
 	for name, seed := range map[string]struct {
 		seed func(c *catalogtest.Catalog)
 		rows map[string]int
@@ -349,12 +351,11 @@ func TestRepository_ImportCatalogue_RefusesNonEmpty(t *testing.T) {
 }
 
 // TestRepository_ImportCatalogue_RollsBackOnError plants the failure in the last table the import writes, so
-// that every row of every earlier table is shown to be rolled back, and checks that the error does not quote the
-// row the server refused.
+// that every row of every earlier table is shown to be rolled back.
 func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 	t.Parallel()
 
-	imp, _ := importtest.Scrubbed(t)
+	imp := importtest.Scrubbed(t)
 	planted := false
 	for k := len(imp.Pieces) - 1; k >= 0 && !planted; k-- {
 		for l, link := range imp.Pieces[k].Doc.Links {
@@ -374,10 +375,10 @@ func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 
 	err := mysql.New(db).ImportCatalogue(t.Context(), imp)
 
-	var writeErr *mysql.ImportDatabaseError
+	var writeErr *mysqldriver.MySQLError
 	require.ErrorAs(t, err, &writeErr)
-	assert.Equal(t, mysql.ImportDatabaseError{Step: "writing " + tablePerformers, Number: 1062}, *writeErr)
-	assert.NotContains(t, err.Error(), "Duplicate", "the server's message, which quotes values, is not kept")
+	assert.Equal(t, uint16(1062), writeErr.Number)
+	assert.Contains(t, err.Error(), "writing "+tablePerformers)
 	assert.Equal(t, emptyCounts(nil), tableRowCounts(t, db), "every table is rolled back")
 }
 
@@ -386,7 +387,7 @@ func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 func TestRepository_ImportCatalogue_ConcurrentImports(t *testing.T) {
 	t.Parallel()
 
-	imp, _ := importtest.Scrubbed(t)
+	imp := importtest.Scrubbed(t)
 	db := mysqltest.NewDatabase(t)
 	errs := make([]error, 2)
 	var wg sync.WaitGroup

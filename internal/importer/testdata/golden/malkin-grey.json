@@ -71,31 +71,5 @@
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "ALIAS-010",
-      "kind": "alias",
-      "page": "Malkin Grey",
-      "text": "\"Legal Name 009\": kind legal (source h1_parenthetical, rule default, unsure)."
-    },
-    {
-      "id": "PERSON-023",
-      "kind": "status",
-      "page": "Malkin Grey",
-      "text": "Status deceased (date: 2020-10-31) from the In Memoriam category, sourced to the link its date is read from: http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/."
-    },
-    {
-      "id": "PERSON-024",
-      "kind": "affiliations",
-      "page": "Malkin Grey",
-      "text": "Affiliations from categories: Atlantia, SCA Bards."
-    },
-    {
-      "id": "PERSON-025",
-      "kind": "roles",
-      "page": "Malkin Grey",
-      "text": "Roles from performer-type categories: songwriter."
-    }
-  ]
+  }
 }

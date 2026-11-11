@@ -89,8 +89,6 @@ func TestPieceFields_InlineLyricsDropped(t *testing.T) {
 
 	assertNoLyricMarker(t, reflect.ValueOf(p), "PieceRecord")
 	assert.True(t, p.Lyrics.HadInlineLyrics)
-	assert.Equal(t, []DroppedLyricsSection{{Heading: lyricsHeading, Lines: 6}, {Heading: "Notes", Lines: 2},
-		{Heading: "Licensing & Etiquette", Lines: 3}}, p.Lyrics.Sections)
 	assert.Equal(t, "A note.", p.Content.NotesMD)
 	assert.Equal(t, "The words are old.", p.Content.LicensingNotesMD)
 	assert.Empty(t, p.Content.VersionNotesMD)
@@ -135,7 +133,7 @@ func TestPieceFields_NotesFromLeadNotesAndOtherSections(t *testing.T) {
 }
 
 // TestPieceFields_LinkSectionProseInNotes: the prose of a link section, but its links, is in the notes under the
-// section's heading; as many lines as inline lyrics are never kept, only counted.
+// section's heading; as many lines as inline lyrics are never kept.
 func TestPieceFields_LinkSectionProseInNotes(t *testing.T) {
 	text := pieceWikitext(aSong, nil,
 		"Key Links", "* [https://example.invalid/a A link] adapted by [[Ash Placeholder]]\n"+
@@ -144,8 +142,6 @@ func TestPieceFields_LinkSectionProseInNotes(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
 	assert.Equal(t, "### Key Links\n\nThe tune was published in 1588.", p.Content.NotesMD)
-	assert.Equal(t, []LinkSectionProse{{Heading: "Key Links", Lines: 1, Kept: true},
-		{Heading: sheetMusicHeading, Lines: 4, Kept: false}}, p.Content.LinkSectionProse)
 }
 
 func TestPieceFields_LicensingHintsStripped(t *testing.T) {
@@ -170,11 +166,10 @@ func TestPieceFields_LicensingHintsStripped(t *testing.T) {
 	assert.Equal(t, "[A page](https://example.invalid/p)", unknown.Content.LicensingNotesMD)
 }
 
-func TestPieceFields_PublicDomainIsAReviewFactNotALicence(t *testing.T) {
+func TestPieceFields_PublicDomainIsNotALicence(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Categories: pieceCategories(),
 		Wikitext: pieceWikitext(aSong, nil, "Licensing & Etiquette", "The song is in the Public Domain.")})
 
-	assert.True(t, p.Content.SaysPublicDomain)
 	assert.Equal(t, "The song is in the Public Domain.", p.Content.LicensingNotesMD)
 	assert.Equal(t, domain.LicensingStatusUnknown, p.Content.LicensingStatus)
 }
@@ -185,9 +180,7 @@ func TestPieceFields_PeriodFromCenturyOrigin(t *testing.T) {
 
 	start, end := int16(1201), int16(1600)
 	assert.Equal(t, &start, p.Content.PeriodStart)
-	assert.Equal(t, &end, p.Content.PeriodEnd)
-	assert.Equal(t, []string{cat13thCentury, "16th Century"}, p.Content.PeriodCategories,
-		"a topic century is what the piece is about, not when it is from")
+	assert.Equal(t, &end, p.Content.PeriodEnd, "a topic century is what the piece is about, not when it is from")
 
 	none := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil),
 		Categories: pieceCategories("10th Century (Topic)")})
@@ -211,10 +204,8 @@ func TestPieceFields_LinkSectionProseJoinedByBreaksNotKept(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
 	assert.Empty(t, p.Content.NotesMD)
-	assert.Equal(t, []LinkSectionProse{{Heading: keyLinksHeading, Lines: 5, Kept: false}}, p.Content.LinkSectionProse)
 
 	short := parseFixturePiece(standardWiki(), Page{Title: aSong, Categories: pieceCategories(),
 		Wikitext: pieceWikitext(aSong, nil, keyLinksHeading, "* [https://example.invalid/a A link]\nOne.<br>Two.")})
-	assert.Equal(t, []LinkSectionProse{{Heading: keyLinksHeading, Lines: 2, Kept: true}},
-		short.Content.LinkSectionProse)
+	assert.Contains(t, short.Content.NotesMD, "One.")
 }

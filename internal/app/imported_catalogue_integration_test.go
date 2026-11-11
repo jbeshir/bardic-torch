@@ -23,7 +23,7 @@ import (
 
 // importedCatalogue is a database holding the import of the committed scrubbed crawl, as --apply writes it.
 var importedCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) domain.CatalogueImport {
-	imp, _ := importtest.Scrubbed(c.T())
+	imp := importtest.Scrubbed(c.T())
 	c.Import(imp)
 
 	return imp

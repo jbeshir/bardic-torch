@@ -1,7 +1,6 @@
 package mediawiki
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,7 +18,6 @@ const (
 	videoTwo            = "https://youtube.com/watch?v=video000002"
 	videoThree          = "https://youtube.com/watch?v=video000003"
 	springRevel         = "Spring Revel"
-	pennsic45           = "Pennsic 45"
 )
 
 // linksWiki parses the pieces, people and links of a fixture wiki.
@@ -119,16 +117,24 @@ func TestPlacePerformance_BardPageWithUnknownPiece(t *testing.T) {
 	assert.Equal(t, -1, linkIndex(pieceLinksOf(t, l, aSong).Links, videoThree))
 }
 
-func TestPlacePerformance_RepeatedAndUnlinkedListed(t *testing.T) {
+func TestPlacePerformance_RepeatedAndUnlinkedNotImported(t *testing.T) {
 	l, _ := linksWiki(performanceWiki())
 
 	assert.Len(t, linkOfURL(t, pieceLinksOf(t, l, aSong).Links, videoOne).Performances, 1,
 		"the piece page records the video already")
-	require.Len(t, l.RepeatedPerformances, 1)
-	assert.Equal(t, ash, l.RepeatedPerformances[0].Page)
 	assert.Empty(t, linkOfURL(t, personLinksOf(t, l, ash).Links, videoOne).Performances)
-	require.Len(t, l.Unlinked, 1)
-	assert.Equal(t, "Sung at Pennsic, no recording", l.Unlinked[0].DescriptionVerbatim)
+	var all []LinkRecord
+	for _, pl := range l.Pieces {
+		all = append(all, pl.Links...)
+	}
+	for _, pl := range l.Persons {
+		all = append(all, pl.Links...)
+	}
+	for _, rec := range all {
+		for _, perf := range rec.Performances {
+			assert.NotEqual(t, "Sung at Pennsic, no recording", perf.DescriptionVerbatim, "an item with no link")
+		}
+	}
 }
 
 // TestPlacePerformance_DedupedByURLAcrossPages: a bard page's item on a link a piece page records a performance
@@ -141,9 +147,6 @@ func TestPlacePerformance_DedupedByURLAcrossPages(t *testing.T) {
 
 	assert.Len(t, linkOfURL(t, pieceLinksOf(t, l, aSong).Links, videoOne).Performances, 1, "the piece page's only")
 	assert.Empty(t, linkOfURL(t, personLinksOf(t, l, rowan).Links, videoOne).Performances)
-	k := slices.IndexFunc(l.RepeatedPerformances, func(p Performance) bool { return p.Page == rowan })
-	require.GreaterOrEqual(t, k, 0)
-	assert.Equal(t, aSong, l.RepeatedPerformances[k].Piece, "listed with the piece page recording it")
 }
 
 // TestPlacePerformance_WorkIsNeverAPerformer: on a bard page, a link to a work of its works list, after a comma, is
@@ -183,7 +186,7 @@ func TestEvents_VenuePage(t *testing.T) {
 		"a greenDragon is an event even with no performance at it")
 }
 
-func TestEvents_SimilarNamesListed(t *testing.T) {
+func TestEvents_SimilarNamesNeverMerged(t *testing.T) {
 	w := standardWiki()
 	w.page(Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil, performancesHeading,
 		"* ["+videoOne+" A] at Pennsic 45\n* ["+videoTwo+" B] at Pennsic 47\n* ["+videoThree+" C] at Spring War"),
@@ -192,7 +195,6 @@ func TestEvents_SimilarNamesListed(t *testing.T) {
 	l, _ := linksWiki(w)
 
 	assert.Len(t, l.Events, 3, "never merged")
-	assert.Equal(t, []SimilarEventNames{{A: pennsic45, B: "Pennsic 47"}}, l.SimilarEvents)
 }
 
 func TestPerformers_ResolveToBardsAndStubs(t *testing.T) {
@@ -211,8 +213,6 @@ func TestPerformers_ResolveToBardsAndStubs(t *testing.T) {
 	assert.True(t, ok, "an unmatched performer is a stub person")
 	_, ok = people.Persons.Stub(anotherSong)
 	assert.False(t, ok)
-	require.Len(t, people.Persons.Matches, 1)
-	assert.Equal(t, MatchFuzzy, people.Persons.Matches[0].Match.Kind, "listed for review")
 }
 
 func TestParseLinks_CanonicalPerURL(t *testing.T) {
@@ -224,7 +224,7 @@ func TestParseLinks_CanonicalPerURL(t *testing.T) {
 
 	l, _ := linksWiki(w)
 
-	first := pieceLinksOf(t, l, aSong)
+	assert.NotEmpty(t, pieceLinksOf(t, l, aSong).Links)
 	other := linkOfURL(t, pieceLinksOf(t, l, anotherSong).Links, "http://songs.example.org/book.pdf")
 	assert.Equal(t, []domain.LinkRole{domain.LinkRoleSheetMusic}, other.Roles, "roles stay the document's")
 	assert.Equal(t, "Score", other.Title)
@@ -240,12 +240,6 @@ func TestParseLinks_CanonicalPerURL(t *testing.T) {
 	assert.Empty(t, third.Locator, "nor is another page's locator given")
 	assert.Equal(t, third.LinkFields, pieceLinksOf(t, l, aSong).Links[0].LinkFields,
 		"every document carries the same fields")
-	assert.Equal(t, []LinkConflict{{NormalizedURL: songbookPDF,
-		Owner:          LinkOwner{PieceID: pieceLinksOf(t, l, "Third Song").PageID},
-		CanonicalOwner: LinkOwner{PieceID: first.PageID}, Fields: []string{"url", "title", "locator"},
-		Own: LinkFields{URL: "https://www.songs.example.org/book.pdf",
-			NormalizedURL: songbookPDF,
-			Title:         "Score", Platform: PlatformPDF}}}, l.Conflicts)
 }
 
 // TestParseLinks_PageSpecificFieldsNeverFromAnotherPage: pages citing a PDF at different pages get a link each,
@@ -274,7 +268,7 @@ func TestParseLinks_PageSpecificFieldsNeverFromAnotherPage(t *testing.T) {
 	third := pieceLinksOf(t, l, "Third Song").Links[0]
 	assert.Equal(t, songbookPDF, third.URL, "a link with no page keeps the PDF's URL")
 	assert.Empty(t, third.Locator)
-	assert.Empty(t, l.Conflicts, "each page's link is its own")
+	assert.Equal(t, "Third Song in the songbook", third.Title, "each page's link is its own")
 
 	w.page(Page{Title: "Fourth Song", Wikitext: pieceWikitext("Fourth Song", nil, lyricsHeading,
 		"* Also here: ["+songbookPDF+" Fourth Song in the songbook]"), Categories: pieceCategories()})
@@ -283,9 +277,7 @@ func TestParseLinks_PageSpecificFieldsNeverFromAnotherPage(t *testing.T) {
 	third = pieceLinksOf(t, l, "Third Song").Links[0]
 	assert.Equal(t, "Placeholder Songbook", third.Title, "the pages disagree: the collection's name")
 	assert.Empty(t, third.Description, "only one page gives a description")
-	require.Len(t, l.Conflicts, 1)
-	assert.Equal(t, []string{"title", "description"}, l.Conflicts[0].Fields)
-	assert.Equal(t, "Fourth Song in the songbook", l.Conflicts[0].Own.Title)
+	assert.Equal(t, third.LinkFields, pieceLinksOf(t, l, "Fourth Song").Links[0].LinkFields)
 }
 
 func TestParseLinks_ProfileLinksOfInfoboxCredits(t *testing.T) {
@@ -357,8 +349,6 @@ func TestParseLinks_DescriptionRunsAsLongAsLyricsDropped(t *testing.T) {
 		kept = append(kept, rec.Description)
 	}
 	assert.Equal(t, []string{"kept one", "kept two", "kept three", "", "kept four"}, kept)
-	assert.Equal(t, []LinkProseRun{{Section: SectionKeyLinks, Lines: 4}, {Section: SectionSheetMusic, Lines: 4}},
-		pl.ProseRuns)
 }
 
 // TestParseLinks_DescriptionReadsTheLinkText: a link after some text reads as its text in the description, so the

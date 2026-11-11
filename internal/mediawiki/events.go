@@ -14,13 +14,6 @@ type EventRecord struct {
 	Pages  []string
 }
 
-// SimilarEventNames are two events whose folded names are one edit apart ("Pennsic 45", "Pennsic 47"): listed for
-// review, never merged.
-type SimilarEventNames struct {
-	A string
-	B string
-}
-
 // events collects the events performances are at, seeded with the venue pages.
 type events struct {
 	records []EventRecord
@@ -52,18 +45,4 @@ func (e *events) at(text, page string) string {
 	e.records[k].Pages = appendNew(e.records[k].Pages, page)
 
 	return e.records[k].Name
-}
-
-// similar lists the pairs of events whose folded names are one edit apart, in event order.
-func (e *events) similar() []SimilarEventNames {
-	var out []SimilarEventNames
-	for a := range e.records {
-		for b := a + 1; b < len(e.records); b++ {
-			if withinOneEdit(FoldName(e.records[a].Name), FoldName(e.records[b].Name)) {
-				out = append(out, SimilarEventNames{A: e.records[a].Name, B: e.records[b].Name})
-			}
-		}
-	}
-
-	return out
 }

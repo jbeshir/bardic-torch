@@ -109,18 +109,6 @@ func (s Site) hasCategoryPage(name string) bool {
 	return s.categoryPages[name]
 }
 
-// caseVariantOf returns the main-namespace page whose title differs from title only by letter case, if any:
-// MediaWiki titles are case-sensitive after the first letter, so they are different pages.
-func (s Site) caseVariantOf(title string) (string, bool) {
-	for _, p := range s.ordered {
-		if p.Title != title && strings.EqualFold(p.Title, title) {
-			return p.Title, true
-		}
-	}
-
-	return "", false
-}
-
 // Page returns the main-namespace page titled title.
 func (s Site) Page(title string) (Page, bool) {
 	p, ok := s.pages[title]

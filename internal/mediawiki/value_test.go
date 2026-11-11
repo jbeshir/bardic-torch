@@ -148,7 +148,7 @@ func TestParseValue_DepthIsCapped(t *testing.T) {
 	assert.Equal(t, MaxNestingDepth, got.Items[1].Depth)
 }
 
-// referenceValue is a value in the shape the reference's parseValue gives, which the oracle compares: ParseValue's
+// referenceValue is a value in the shape the reference's parseValue gives: ParseValue's
 // value with the separators between its items (", ; / & and with <br>", lower case), its text items joined with
 // " | " (FreeText), and whether it holds a template placeholder such as TagGoesHere.
 type referenceValue struct {

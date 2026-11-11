@@ -23,23 +23,6 @@ func scrubbedPeople(t *testing.T) (People, map[string]PieceRecord) {
 	return ParsePeople(s, pieces), byTitle
 }
 
-// disagreementPieces counts the pieces with a disagreement of each kind.
-func disagreementPieces(p People) map[CreditDisagreementKind]int {
-	pieces := map[CreditDisagreementKind]map[string]bool{}
-	for _, d := range p.Disagreements {
-		if pieces[d.Kind] == nil {
-			pieces[d.Kind] = map[string]bool{}
-		}
-		pieces[d.Kind][d.Piece] = true
-	}
-	out := map[CreditDisagreementKind]int{}
-	for k, v := range pieces {
-		out[k] = len(v)
-	}
-
-	return out
-}
-
 func TestScrubbedPeople_ResearchCounts(t *testing.T) {
 	people, _ := scrubbedPeople(t)
 
@@ -63,10 +46,6 @@ func TestScrubbedPeople_ResearchCounts(t *testing.T) {
 	}
 	assert.Equal(t, 78, missingWorks)
 	assert.Len(t, people.StubPieces, 78)
-	counts := disagreementPieces(people)
-	assert.Equal(t, 15, counts[DisagreementMissingBardCategory])
-	assert.Equal(t, 4, counts[DisagreementCategoryWithoutLinkedCredit])
-	assert.Equal(t, 1, counts[DisagreementRelatedPerson])
 }
 
 func TestScrubbedPeople_Credits(t *testing.T) {
@@ -110,24 +89,6 @@ func TestScrubbedPeople_Credits(t *testing.T) {
 	}
 }
 
-func TestScrubbedPeople_Ambiguities(t *testing.T) {
-	const marian = "Marian of Heatherdale"
-	people, _ := scrubbedPeople(t)
-	kinds := map[AmbiguityKind][]Ambiguity{}
-	for _, a := range people.Ambiguities() {
-		kinds[a.Kind] = append(kinds[a.Kind], a)
-	}
-
-	require.Len(t, kinds[AmbiguityCanonicalName], 1)
-	assert.Equal(t, "Samantha Moore", kinds[AmbiguityCanonicalName][0].Guess)
-	// The Thirteenth Virtue's "Dunstan" is no longer a fuzzy match here: the full name it matched on the crawl is
-	// an unsure candidate (a "le" byname, not a confident SCA form), so the scrubbed copy has a placeholder.
-	assert.Contains(t, kinds[AmbiguityFuzzyPerson], Ambiguity{Kind: AmbiguityFuzzyPerson, Page: "Song of the Wain",
-		Name: marian, Guess: "Heather Dale", Alternatives: []string{marian}})
-	assert.Equal(t, []Ambiguity{{Kind: AmbiguityCaseVariantWork, Page: "Eliane Halevy", Name: "My Thing Is My Own",
-		Guess: "My Thing Is My Own", Alternatives: []string{"My Thing is My Own"}}}, kinds[AmbiguityCaseVariantWork])
-}
-
 func TestScrubbedPeople_Bards(t *testing.T) {
 	people, _ := scrubbedPeople(t)
 	bards := map[string]BardRecord{}
@@ -141,8 +102,6 @@ func TestScrubbedPeople_Bards(t *testing.T) {
 	assert.Equal(t, time.Date(2020, 10, 31, 0, 0, 0, 0, time.UTC), malkin.StatusDate.Time)
 	assert.Equal(t, []PersonRelation{{Type: domain.PersonRelationTypeHeirOf, To: "Heather Alexander"}},
 		bards["Alexander James Adams"].Relations)
-	assert.Equal(t, []string{"Efenwealt Wystle"}, bards["Efenwealt Wystle"].StrayHeadings)
-	assert.Equal(t, []string{catKingdomName}, bards["Samantha Moore"].DroppedCategories)
 	assert.Equal(t, domain.LicensingStatusUnknown, bards["Efenwealt Wystle"].LicensingStatus)
 	assert.Equal(t, domain.LicensingStatusKnown, bards["Heather Dale"].LicensingStatus)
 	var redirect PersonAlias

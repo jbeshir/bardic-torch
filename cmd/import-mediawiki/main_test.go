@@ -2,9 +2,7 @@ package main
 
 import (
 	"bytes"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +14,6 @@ import (
 // The command line flags.
 const (
 	flagDump   = "--dump"
-	flagReview = "--review"
 	flagDryRun = "--dry-run"
 	flagApply  = "--apply"
 )
@@ -42,26 +39,23 @@ func noDatabase(t *testing.T) func() string {
 func TestParseOptions(t *testing.T) {
 	t.Parallel()
 
-	review := filepath.Join(t.TempDir(), "import-review.md")
 	cases := []struct {
 		name    string
 		args    []string
 		want    options
 		wantErr error
 	}{
-		{name: "dry_run", args: []string{flagDump, "d", flagDryRun, flagReview, review},
-			want: options{dump: "d", review: review}},
-		{name: "apply", args: []string{flagApply, flagDump, "d", flagReview, review},
-			want: options{dump: "d", review: review, apply: true}},
-		{name: "no_mode", args: []string{flagDump, "d", flagReview, review}, wantErr: ErrUsage},
-		{name: "both_modes", args: []string{flagDump, "d", flagDryRun, flagApply, flagReview, review},
+		{name: "dry_run", args: []string{flagDump, "d", flagDryRun},
+			want: options{dump: "d"}},
+		{name: "apply", args: []string{flagApply, flagDump, "d"},
+			want: options{dump: "d", apply: true}},
+		{name: "no_mode", args: []string{flagDump, "d"}, wantErr: ErrUsage},
+		{name: "both_modes", args: []string{flagDump, "d", flagDryRun, flagApply},
 			wantErr: ErrUsage},
-		{name: "no_dump", args: []string{flagDryRun, flagReview, review}, wantErr: ErrUsage},
-		{name: "no_review_dry_run", args: []string{flagDump, "d", flagDryRun}, wantErr: ErrUsage},
-		{name: "no_review_apply", args: []string{flagDump, "d", flagApply}, wantErr: ErrUsage},
-		{name: "extra_argument", args: []string{flagDump, "d", flagDryRun, flagReview, review, "now"},
+		{name: "no_dump", args: []string{flagDryRun}, wantErr: ErrUsage},
+		{name: "extra_argument", args: []string{flagDump, "d", flagDryRun, "now"},
 			wantErr: ErrUsage},
-		{name: "unknown_flag", args: []string{flagDump, "d", flagDryRun, flagReview, review, "--force"},
+		{name: "unknown_flag", args: []string{flagDump, "d", flagDryRun, "--force"},
 			wantErr: ErrUsage},
 	}
 
@@ -83,20 +77,10 @@ func TestParseOptions(t *testing.T) {
 func TestRun_DryRunNeedsNoDatabase(t *testing.T) {
 	t.Parallel()
 
-	review := filepath.Join(t.TempDir(), "import-review.md")
 	var stdout bytes.Buffer
-
-	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun, flagReview, review}, noDatabase(t),
-		&stdout)
+	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun}, noDatabase(t), &stdout)
 
 	require.NoError(t, err)
-	info, err := os.Stat(review)
-	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "the review is private")
-	content, err := os.ReadFile(filepath.Clean(review))
-	require.NoError(t, err)
-	assert.True(t, strings.HasPrefix(string(content), "# Import review\n"))
-	assert.NotContains(t, string(content), lyricMarker)
 	assert.NotContains(t, stdout.String(), "applied")
 }
 
@@ -104,8 +88,7 @@ func TestRun_DryRunScrubbedCounts(t *testing.T) {
 	t.Parallel()
 
 	var stdout bytes.Buffer
-	review := filepath.Join(t.TempDir(), "import-review.md")
-	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun, flagReview, review}, noDatabase(t),
+	err := run(t.Context(), []string{flagDump, scrubbedDumpDir(t), flagDryRun}, noDatabase(t),
 		&stdout)
 
 	require.NoError(t, err)

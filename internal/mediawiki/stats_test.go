@@ -29,28 +29,19 @@ type CorpusStats struct {
 	TrackingParameterURLs int
 	PagesWithRepeatedURLs int
 	WorksWithoutPage      int
-	// DriftPages counts the pieces with facet drift of each kind.
-	DriftPages map[FacetDriftKind]int
 }
 
 // Stats computes the research counts of c.
 func Stats(c Corpus) CorpusStats {
 	st := CorpusStats{PiecesByKind: map[domain.PieceKind]int{}, Bards: len(c.People.Bards),
 		CollectionEntries: c.Links.Collections.Entries(), Collections: len(c.Links.Collections.Records),
-		RedirectsByNS: map[int]int{}, RedLinksByNS: map[int]int{}, DriftPages: map[FacetDriftKind]int{},
+		RedirectsByNS: map[int]int{}, RedLinksByNS: map[int]int{},
 		TrackingParameterURLs: c.Links.TrackingParameterURLs(),
 		PagesWithRepeatedURLs: len(c.Links.PagesWithRepeatedURLs())}
 	for _, p := range c.Pieces {
 		st.PiecesByKind[p.Kind]++
 		if p.Lyrics.HadInlineLyrics {
 			st.InlineLyricsPages++
-		}
-		kinds := map[FacetDriftKind]bool{}
-		for _, d := range p.Drift {
-			kinds[d.Kind] = true
-		}
-		for k := range kinds {
-			st.DriftPages[k]++
 		}
 	}
 	for _, b := range c.People.Bards {
@@ -138,6 +129,22 @@ func (l Links) TrackingParameterURLs() int {
 	}
 
 	return n
+}
+
+// RepeatedURLs are the URLs, as entered, that a page's occurrences hold more than once, in first-seen order.
+func (p PageLinks) RepeatedURLs() []string {
+	count := map[string]int{}
+	for _, o := range p.Occurrences {
+		count[o.URL]++
+	}
+	var out []string
+	for _, o := range p.Occurrences {
+		if count[o.URL] > 1 && !slices.Contains(out, o.URL) {
+			out = append(out, o.URL)
+		}
+	}
+
+	return out
 }
 
 // PagesWithRepeatedURLs are the titles of the piece pages writing a URL more than once.

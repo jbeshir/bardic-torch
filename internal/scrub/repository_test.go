@@ -108,3 +108,19 @@ func (g gitignore) ignored(p string, dir bool) bool {
 
 	return false
 }
+
+// TestRepositoryHasNoDenylistedText scans every text file of the repository, the scrubbed copy, tests, golden
+// files and docs included, for the n-grams of the lyrics dropped from the scrubbed copy.
+func TestRepositoryHasNoDenylistedText(t *testing.T) {
+	file, err := os.ReadFile(filepath.Join(wikidumptest.RepositoryRoot(t), wikidumptest.ScrubbedDir, DenylistFile))
+	require.NoError(t, err)
+	d, err := ParseDenylist(file)
+	require.NoError(t, err)
+	require.Positive(t, d.Len())
+
+	for _, f := range repositoryTextFiles(t) {
+		for _, hit := range d.Scan(f.text) {
+			t.Errorf("%s: deny-listed lyric n-gram at byte %d", f.path, hit.Start)
+		}
+	}
+}

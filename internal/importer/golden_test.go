@@ -25,16 +25,15 @@ var goldenPages = []string{
 	"Warrior's Wyrd",
 }
 
-// goldenPage is a golden snapshot: the entity imported from the page (a piece or a person) and its review items.
+// goldenPage is a golden snapshot: the entity imported from the page (a piece or a person).
 type goldenPage struct {
 	Piece  *domain.ImportedPiece  `json:"piece,omitempty"`
 	Person *domain.ImportedPerson `json:"person,omitempty"`
-	Review []Item                 `json:"review"`
 }
 
 // goldenFor finds the entity imported from the page titled title.
-func goldenFor(imp domain.CatalogueImport, review Review, title string) (goldenPage, bool) {
-	g := goldenPage{Review: review.ItemsAbout(title)}
+func goldenFor(imp domain.CatalogueImport, title string) (goldenPage, bool) {
+	var g goldenPage
 	for k, p := range imp.Pieces {
 		if p.Legacy != nil && p.Legacy.PageID != nil && p.Legacy.Title == title {
 			g.Piece = &imp.Pieces[k]
@@ -64,11 +63,11 @@ func compareGolden(t *testing.T, path string, got []byte) {
 }
 
 func TestGoldenPages(t *testing.T) {
-	imp, review := scrubbedImport(t)
+	imp := scrubbedImport(t)
 
 	for _, title := range goldenPages {
 		t.Run(title, func(t *testing.T) {
-			g, ok := goldenFor(imp, review, title)
+			g, ok := goldenFor(imp, title)
 			require.True(t, ok, "the page is imported")
 			got, err := json.MarshalIndent(g, "", "  ")
 			require.NoError(t, err)

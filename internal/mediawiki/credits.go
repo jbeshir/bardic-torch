@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
@@ -55,18 +54,15 @@ func (n PersonName) linked() bool {
 
 // CreditRecord is one credit of a piece, as its infobox gives it. A named credit has the Name of its person,
 // which is matched to a person later; other attributions name no one. Part is the part of the piece the credit
-// is for, from a qualifier ("(verses)") or inferred (PartInferred, listed for review). Note is the qualifiers'
-// remaining text, which names no one; UnusedQualifiers are qualifiers dropped because they may be names (a
-// capitalised word or a link), for review.
+// is for, from a qualifier ("(verses)") or inferred. Note is the qualifiers' remaining text; linked
+// qualifiers are dropped.
 type CreditRecord struct {
-	Role             domain.CreditRole
-	Attribution      domain.Attribution
-	Certainty        domain.Certainty
-	Part             *domain.PiecePart
-	PartInferred     bool
-	Note             string
-	Name             PersonName
-	UnusedQualifiers []string
+	Role        domain.CreditRole
+	Attribution domain.Attribution
+	Certainty   domain.Certainty
+	Part        *domain.PiecePart
+	Note        string
+	Name        PersonName
 }
 
 // certaintyWords are the words that qualify a credit's certainty, alone, before a name or in parentheses.
@@ -185,7 +181,7 @@ func qualifiersOf(items []ValueItem, k int) []ValueItem {
 }
 
 // qualify applies qualifiers to a credit: a certainty word sets its certainty, a part word its part; other text
-// in lower case is its note, and anything else (a capitalised word, which may be a name, or a link) is unused.
+// is its note, and a link is dropped.
 func qualify(c CreditRecord, qualifiers []ValueItem) CreditRecord {
 	var notes []string
 	for _, q := range qualifiers {
@@ -201,12 +197,9 @@ func qualify(c CreditRecord, qualifiers []ValueItem) CreditRecord {
 
 			continue
 		}
-		if q.Type == ValueText && !strings.ContainsFunc(label, unicode.IsUpper) {
+		if q.Type == ValueText {
 			notes = append(notes, label)
-
-			continue
 		}
-		c.UnusedQualifiers = append(c.UnusedQualifiers, label)
 	}
 	c.Note = strings.Join(notes, "; ")
 
@@ -244,7 +237,7 @@ func samePart(a, b *domain.PiecePart) bool {
 // scopeParts infers the parts of one parameter's credits when the piece's terms are scoped to its verses and its
 // chorus and the parameter credits one named person beside attributions naming no one, none of them scoped: the
 // named person wrote the verses' part and the others are the chorus's (Three Words: "[[X]] & anonymous", with
-// SCA Pieces for the verses and Contrafacta for the chorus). The inference is listed for review (PartInferred).
+// SCA Pieces for the verses and Contrafacta for the chorus).
 func scopeParts(credits []CreditRecord, terms []PieceTerm) []CreditRecord {
 	var named, unnamed int
 	for _, c := range credits {
@@ -267,7 +260,7 @@ func scopeParts(credits []CreditRecord, terms []PieceTerm) []CreditRecord {
 		if c.Attribution == domain.AttributionNamed {
 			part = domain.PiecePartVerses
 		}
-		c.Part, c.PartInferred = &part, true
+		c.Part = &part
 		out[k] = c
 	}
 

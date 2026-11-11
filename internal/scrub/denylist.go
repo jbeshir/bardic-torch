@@ -1,3 +1,6 @@
+// Package scrub holds the lyric deny list of the committed scrubbed copy of the legacy wiki crawl (Denylist):
+// digests of the lyric n-grams of the inline lyrics dropped from it. TestRepositoryHasNoDenylistedText scans every
+// text file of the repository for them, so that no lyric is ever committed.
 package scrub
 
 import (
@@ -8,9 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"maps"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
@@ -23,7 +24,7 @@ const DenylistWindow = 8
 const DenylistFile = "denylist.txt"
 
 // denylistKey keys the digests. It is a fixed, public salt, so the list is reproducible: it defeats precomputed
-// tables, not a targeted guess, which is acceptable for lyric n-grams (and is why no name is ever hashed).
+// tables, not a targeted guess, which is acceptable for lyric n-grams.
 const denylistKey = "bardic-torch/denylist/v1"
 
 // denylistHeader is the first lines of the deny list file.
@@ -32,7 +33,7 @@ const denylistHeader = "# hmac-sha256/128 v1\n# window: 8 words\n"
 // digestBytes is the length of a digest: the first 16 bytes of the HMAC.
 const digestBytes = 16
 
-// ErrMalformedDenylist is returned for a deny list file that is not what Denylist.Encode writes.
+// ErrMalformedDenylist is returned for a deny list file that is not a deny list.
 var ErrMalformedDenylist = errors.New("malformed deny list")
 
 // Denylist is the set of digests of the lyric n-grams the scrubber dropped: each window of DenylistWindow words
@@ -48,38 +49,9 @@ type Hit struct {
 	End   int
 }
 
-// BuildDenylist returns the deny list of the n-grams of bodies that are not n-grams of outside.
-func BuildDenylist(bodies, outside []string) Denylist {
-	allowed := map[string]bool{}
-	for _, text := range outside {
-		windows(text, func(key string, _, _ int) { allowed[key] = true })
-	}
-	d := Denylist{digests: map[string]bool{}}
-	for _, body := range bodies {
-		windows(body, func(key string, _, _ int) {
-			if !allowed[key] {
-				d.digests[digest(key)] = true
-			}
-		})
-	}
-
-	return d
-}
-
 // Len is the number of digests.
 func (d Denylist) Len() int {
 	return len(d.digests)
-}
-
-// Encode returns the deny list file: denylistHeader, then the hex digests sorted, one per line.
-func (d Denylist) Encode() []byte {
-	var b bytes.Buffer
-	b.WriteString(denylistHeader)
-	for _, k := range slices.Sorted(maps.Keys(d.digests)) {
-		b.WriteString(k + "\n")
-	}
-
-	return b.Bytes()
 }
 
 // ParseDenylist reads a deny list file.

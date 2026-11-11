@@ -28,58 +28,23 @@ type PieceCredit struct {
 	Signals []CreditSignal
 }
 
-// CreditDisagreementKind is a way the credit signals of a piece disagree.
-type CreditDisagreementKind string
-
-// The credit disagreement kinds.
-const (
-	// DisagreementMissingBardCategory: the infobox links a name (Name) that is not one of the piece's categories
-	// (the reference's missing_bard_category).
-	DisagreementMissingBardCategory CreditDisagreementKind = "missing_bard_category"
-	// DisagreementCategoryWithoutLinkedCredit: a bard-name category of the piece (Name) is not the target of any
-	// infobox link (the reference's bard_category_without_infobox_link).
-	DisagreementCategoryWithoutLinkedCredit CreditDisagreementKind = "category_without_linked_credit"
-	// DisagreementCategoryOnly: the category's person has no infobox credit, so a credit is added (role lyrics,
-	// certainty possible).
-	DisagreementCategoryOnly CreditDisagreementKind = "category_only"
-	// DisagreementWorksListOnly: the bard lists the piece but has no infobox credit, so a credit is added (role
-	// lyrics, certainty possible).
-	DisagreementWorksListOnly CreditDisagreementKind = "works_list_only"
-	// DisagreementRelatedPerson: the category or works list is the person's, who is related (heir_of, same_as) to
-	// a credited person, so no credit is added (March of Cambreadth's category for the heir).
-	DisagreementRelatedPerson CreditDisagreementKind = "related_person"
-	// DisagreementNotListed: the piece credits a bard whose works list does not list it.
-	DisagreementNotListed CreditDisagreementKind = "credited_not_listed"
-)
-
-// CreditDisagreement is one disagreement between the credit signals of a piece, for review: the piece's title,
-// the person concerned (if any) and the name as the signal writes it.
-type CreditDisagreement struct {
-	Kind   CreditDisagreementKind
-	Piece  string
-	Person PersonRef
-	Name   string
-}
-
 // StubPiece is a work a bard page lists that has no page: imported as a stub song credited to each bard listing it
-// (role lyrics, certainty possible). CaseVariantOf is a page whose title differs only by letter case: a different
-// page for MediaWiki, so a separate stub, listed as ambiguous.
+// (role lyrics, certainty possible). A work whose title differs from a page only by letter case is a different page
+// for MediaWiki, so a separate stub.
 type StubPiece struct {
-	Title         string
-	Credits       []PieceCredit
-	CaseVariantOf string
+	Title   string
+	Credits []PieceCredit
 }
 
 // People are the persons of the wiki and the credits of its pieces: the bard pages, the stub persons for the
 // names that match none, every piece's credits after the union of the credit signals, the stub pieces for the
-// works without pages, the disagreements between the signals and the red links classified.
+// works without pages and the red links classified.
 type People struct {
-	Bards         []BardRecord
-	Persons       Persons
-	Credits       map[int64][]PieceCredit
-	StubPieces    []StubPiece
-	Disagreements []CreditDisagreement
-	RedLinks      []RedLink
+	Bards      []BardRecord
+	Persons    Persons
+	Credits    map[int64][]PieceCredit
+	StubPieces []StubPiece
+	RedLinks   []RedLink
 }
 
 // ParsePeople parses the bard pages and matches every person the pieces and bard pages name: infobox credits,
@@ -91,12 +56,11 @@ func ParsePeople(s Site, pieces []PieceRecord) People {
 	bards := s.Bards()
 	redLinks := ClassifyRedLinks(s, pieces, bards)
 	persons := ResolvePersons(NewPersonIndex(bards), personMentions(s, pieces, bards, redLinks), s)
-	u := creditUnion{site: s, bards: bards, persons: persons, related: relatedPersons(bards, persons)}
+	u := creditUnion{bards: bards, persons: persons, related: relatedPersons(bards, persons)}
 	p := People{Bards: bards, Persons: persons, Credits: map[int64][]PieceCredit{}, RedLinks: redLinks}
 	listers := u.listers()
 	for _, piece := range pieces {
 		p.Credits[piece.PageID] = u.pieceCredits(piece, listers[piece.Title])
-		p.Disagreements = append(p.Disagreements, u.disagreements(piece, p.Credits[piece.PageID], listers[piece.Title])...)
 	}
 	p.StubPieces = u.stubPieces()
 
@@ -181,7 +145,6 @@ func relatedPersons(bards []BardRecord, persons Persons) map[PersonRef][]PersonR
 }
 
 type creditUnion struct {
-	site    Site
 	bards   []BardRecord
 	persons Persons
 	related map[PersonRef][]PersonRef
@@ -262,117 +225,6 @@ func (u creditUnion) relatedToCredited(credits []PieceCredit, person PersonRef) 
 	})
 }
 
-// disagreements lists how a piece's signals disagree: the reference's missing and unlinked bard categories, the
-// credits a category or works list added or would have added for a related person, and the credited bards not
-// listing the piece.
-func (u creditUnion) disagreements(piece PieceRecord, credits []PieceCredit, listers []PersonRef) []CreditDisagreement {
-	d := disagreementList{piece: piece.Title}
-	u.referenceDisagreements(&d, piece)
-	for _, c := range credits {
-		switch {
-		case slices.Contains(c.Signals, SignalInfobox):
-			if u.isBard(c.Person) && !u.lists(c.Person, piece.Title) {
-				d.add(DisagreementNotListed, c.Person, c.Name.Name)
-			}
-		case c.Signals[0] == SignalCategory:
-			d.add(DisagreementCategoryOnly, c.Person, c.Name.Name)
-		default:
-			d.add(DisagreementWorksListOnly, c.Person, c.Name.Name)
-		}
-	}
-	credited := func(person PersonRef) bool {
-		return slices.ContainsFunc(credits, func(pc PieceCredit) bool { return pc.Person == person })
-	}
-	for _, c := range piece.BardNameCategories {
-		if person, ok := u.persons.Resolve(PersonName{Name: c, Form: NameCategory}); ok && !credited(person) {
-			d.add(DisagreementRelatedPerson, person, c)
-		}
-	}
-	for _, b := range listers {
-		if !credited(b) {
-			d.add(DisagreementRelatedPerson, b, string(b))
-		}
-	}
-
-	return d.list
-}
-
-// referenceDisagreements adds the reference's missing_bard_category and bard_category_without_infobox_link.
-func (u creditUnion) referenceDisagreements(d *disagreementList, piece PieceRecord) {
-	targets := u.linkedTargets(piece)
-	for _, t := range targets.pages {
-		if !slices.Contains(piece.Categories, t) {
-			person, _ := u.persons.Resolve(PersonName{Name: t, Form: NamePageLink})
-			d.add(DisagreementMissingBardCategory, person, t)
-		}
-	}
-	for _, c := range piece.BardNameCategories {
-		if !slices.Contains(targets.all, c) {
-			person, _ := u.persons.Resolve(PersonName{Name: c, Form: NameCategory})
-			d.add(DisagreementCategoryWithoutLinkedCredit, person, c)
-		}
-	}
-}
-
-// disagreementList collects one piece's disagreements, each once.
-type disagreementList struct {
-	piece string
-	list  []CreditDisagreement
-}
-
-func (d *disagreementList) add(kind CreditDisagreementKind, person PersonRef, name string) {
-	item := CreditDisagreement{Kind: kind, Piece: d.piece, Person: person, Name: name}
-	if !slices.Contains(d.list, item) {
-		d.list = append(d.list, item)
-	}
-}
-
-// linkedTargets are the targets of a piece's infobox person parameters' links, read through redirects: page
-// links (pages) and page and category links (all), as the reference compares them with the categories.
-type linkedTargets struct {
-	pages []string
-	all   []string
-}
-
-func (u creditUnion) linkedTargets(piece PieceRecord) linkedTargets {
-	var t linkedTargets
-	for _, b := range piece.Parsed.Infoboxes {
-		for _, param := range personParams {
-			p, ok := b.Param(param.name)
-			if !ok {
-				continue
-			}
-			for _, it := range p.Value.Items {
-				switch it.Type {
-				case ValuePageLink:
-					t.pages = appendUnique(t.pages, u.site.ResolveRedirect(it.Target))
-					t.all = appendUnique(t.all, u.site.ResolveRedirect(it.Target))
-				case ValueCategoryLink, ValueCategoryTag:
-					t.all = appendUnique(t.all, it.Target)
-				case ValueExternalLink, ValueInterwiki, ValueText:
-				}
-			}
-		}
-	}
-
-	return t
-}
-
-func (u creditUnion) isBard(person PersonRef) bool {
-	return slices.ContainsFunc(u.bards, func(b BardRecord) bool { return PersonRef(b.Title) == person })
-}
-
-// lists reports whether the bard's works list lists the piece.
-func (u creditUnion) lists(bard PersonRef, piece string) bool {
-	for _, b := range u.bards {
-		if PersonRef(b.Title) == bard {
-			return slices.ContainsFunc(b.Works, func(w WorkEntry) bool { return w.Target == piece })
-		}
-	}
-
-	return false
-}
-
 // stubPieces are the works the bard pages list that have no page, by title, each credited to the bards listing
 // it. A bard's own works list is the bard's claim, so the credit is probable (on a piece with a page, where the
 // infobox credits others, a works list only makes it possible).
@@ -385,9 +237,7 @@ func (u creditUnion) stubPieces() []StubPiece {
 			}
 			k := slices.IndexFunc(out, func(sp StubPiece) bool { return sp.Title == w.Title })
 			if k < 0 {
-				sp := StubPiece{Title: w.Title}
-				sp.CaseVariantOf, _ = u.site.caseVariantOf(w.Title)
-				out = append(out, sp)
+				out = append(out, StubPiece{Title: w.Title})
 				k = len(out) - 1
 			}
 			name := PersonName{Name: b.Title, Form: NamePageLink}
@@ -399,72 +249,6 @@ func (u creditUnion) stubPieces() []StubPiece {
 		}
 	}
 	sort.Slice(out, func(a, b int) bool { return out[a].Title < out[b].Title })
-
-	return out
-}
-
-// AmbiguityKind is a kind of record the importer cannot decide (PLAN §2.9): it imports its best guess and lists it.
-type AmbiguityKind string
-
-// The ambiguity kinds.
-const (
-	// AmbiguityCanonicalName: a bard page's H1 lead names the bard otherwise than the page title ("Lead (Title)").
-	// The guess: the title is the name, the lead an alias.
-	AmbiguityCanonicalName AmbiguityKind = "canonical_name"
-	// AmbiguityFuzzyPerson: a name matched a person fuzzily. The guess: that person; the alternative: a person of
-	// its own.
-	AmbiguityFuzzyPerson AmbiguityKind = "fuzzy_person"
-	// AmbiguityManyPersons: a name matched more than one person. The guess: a stub person of its own; the
-	// alternatives: the candidates.
-	AmbiguityManyPersons AmbiguityKind = "many_persons"
-	// AmbiguityCaseVariantWork: a listed work differs from an existing page only by letter case. The guess: a
-	// separate stub piece; the alternative: the existing piece.
-	AmbiguityCaseVariantWork AmbiguityKind = "case_variant_work"
-)
-
-// Ambiguity is one ambiguous record: the page it is on, the name or title as written, the importer's guess and
-// the alternatives.
-type Ambiguity struct {
-	Kind         AmbiguityKind
-	Page         string
-	Name         string
-	Guess        string
-	Alternatives []string
-}
-
-// Ambiguities are the ambiguous records among the people: bards' canonical names, fuzzy and many-person matches
-// and works that are case variants of existing pages.
-func (p People) Ambiguities() []Ambiguity {
-	var out []Ambiguity
-	for _, b := range p.Bards {
-		if a, ok := b.H1LeadAlias(); ok {
-			out = append(out, Ambiguity{Kind: AmbiguityCanonicalName, Page: b.Title, Name: a.Name, Guess: b.Title,
-				Alternatives: []string{a.Name}})
-		}
-	}
-	for _, m := range p.Persons.Matches {
-		switch m.Match.Kind {
-		case MatchFuzzy:
-			out = append(out, Ambiguity{Kind: AmbiguityFuzzyPerson, Page: m.Mention.Page, Name: m.Mention.Name.Name,
-				Guess: string(m.Match.Person), Alternatives: []string{m.Mention.Name.Name}})
-		case MatchNone:
-			ref, _ := p.Persons.Resolve(m.Mention.Name)
-			alternatives := make([]string, 0, len(m.Match.Candidates))
-			for _, c := range m.Match.Candidates {
-				alternatives = append(alternatives, string(c))
-			}
-			out = append(out, Ambiguity{Kind: AmbiguityManyPersons, Page: m.Mention.Page, Name: m.Mention.Name.Name,
-				Guess: string(ref), Alternatives: alternatives})
-		case MatchExact:
-		}
-	}
-	for _, sp := range p.StubPieces {
-		if sp.CaseVariantOf != "" {
-			out = append(out, Ambiguity{Kind: AmbiguityCaseVariantWork, Page: string(sp.Credits[0].Person), Name: sp.Title,
-				Guess:        sp.Title,
-				Alternatives: []string{sp.CaseVariantOf}})
-		}
-	}
 
 	return out
 }

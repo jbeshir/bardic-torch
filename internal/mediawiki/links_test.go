@@ -181,8 +181,6 @@ func TestExtractLinks_RepairedDoubleBracket(t *testing.T) {
 	assert.Equal(t, "https://ash.example.org/", pl.Links[0].NormalizedURL)
 	assert.Equal(t, "Ash's site", pl.Links[0].Title)
 	assert.Equal(t, []domain.LinkRole{domain.LinkRoleWebsite}, pl.Links[0].Roles)
-	require.Len(t, bard.MarkupIssues, 1)
-	assert.Equal(t, MarkupDoubleBracketURL, bard.MarkupIssues[0].Kind)
 }
 
 func TestExtractLinks_UnnormalizableDropped(t *testing.T) {
@@ -190,8 +188,6 @@ func TestExtractLinks_UnnormalizableDropped(t *testing.T) {
 
 	require.Len(t, pl.Links, 1)
 	assert.Equal(t, "https://example.org/b", pl.Links[0].URL)
-	require.Len(t, pl.Dropped, 1)
-	assert.Equal(t, "https://user:secret@example.org/a", pl.Dropped[0].URL)
 }
 
 func TestExtractLinks_InfoboxLinksAreOccurrencesOnly(t *testing.T) {
