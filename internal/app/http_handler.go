@@ -32,6 +32,7 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		SetUserBlocked:   &command.SetUserBlocked{Users: deps.Repository, Now: deps.Now},
 		Now:              deps.Now,
 		CreateLinkReport: &command.CreateLinkReport{Reports: deps.Repository, Now: deps.Now},
+		SubmitRevision:   &command.SubmitRevision{Revisions: deps.Repository, Now: deps.Now},
 		CreateContactRequest: &command.CreateContactRequest{
 			Verifier: deps.Turnstile, Contacts: deps.Repository, Now: deps.Now,
 		},
