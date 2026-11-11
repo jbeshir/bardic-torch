@@ -126,16 +126,17 @@ func TestProbe(t *testing.T) {
 
 		return checkAddress(addr)
 	}, 0)
-	prober.deadline = 50 * time.Millisecond
 
 	tests := map[string]datasources.LinkOutcome{
 		"/head-refused": datasources.LinkOutcomeOK,
 		"/gone":         datasources.LinkOutcomeGone,
 		"/to-private":   datasources.LinkOutcomeBlocked,
 		"/loop":         datasources.LinkOutcomeBlocked,
-		"/slow":         datasources.LinkOutcomeUnreachable,
 	}
 	for path, want := range tests {
 		assert.Equal(t, want, prober.Probe(context.Background(), srv.URL+path), path)
 	}
+
+	prober.deadline = 50 * time.Millisecond
+	assert.Equal(t, datasources.LinkOutcomeUnreachable, prober.Probe(context.Background(), srv.URL+"/slow"))
 }
