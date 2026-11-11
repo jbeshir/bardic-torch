@@ -386,7 +386,6 @@ func (c ContactCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ContactRequestListGet handles GET /v1/moderation/contact-requests.
 type ContactRequestListGet struct {
 	Moderation datasources.Moderation
-	Now        func() time.Time
 }
 
 func (c ContactRequestListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -394,7 +393,7 @@ func (c ContactRequestListGet) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	list, err := c.Moderation.ListContactRequests(r.Context(), status, page, c.Now())
+	list, err := c.Moderation.ListContactRequests(r.Context(), status, page)
 	if err != nil {
 		writeInternalError(w, r, "unable to list contact requests", err)
 		return
@@ -409,12 +408,11 @@ func (c ContactRequestListGet) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		URL        *string             `json:"url"`
 		Status     domain.ReportStatus `json:"status"`
 		CreatedAt  time.Time           `json:"created_at"`
-		Purged     bool                `json:"purged"`
 		Resolution *resolutionJSON     `json:"resolution"`
 	}
 	data := make([]item, 0, len(list.Requests))
 	for _, q := range list.Requests {
-		data = append(data, item{q.ID, q.Kind, q.Name, q.Email, q.Message, q.URL, q.Status, q.CreatedAt, q.Purged,
+		data = append(data, item{q.ID, q.Kind, q.Name, q.Email, q.Message, q.URL, q.Status, q.CreatedAt,
 			resolutionFromDomain(q.Resolution)})
 	}
 	httpjson.WriteJSON(r.Context(), w, http.StatusOK, struct {

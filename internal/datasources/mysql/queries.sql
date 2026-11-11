@@ -948,8 +948,7 @@ INSERT INTO contact_requests (kind, name, email, message, url, created_at)
 VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: ListContactRequests :many
-SELECT id, kind, name, email, message, url, status, created_at, resolved_by_user_id, resolved_at, resolution_note,
-    purged_at
+SELECT id, kind, name, email, message, url, status, created_at, resolved_by_user_id, resolved_at, resolution_note
 FROM contact_requests
 WHERE status = ?
 ORDER BY created_at, id
@@ -965,8 +964,3 @@ SELECT status FROM contact_requests WHERE id = ?;
 UPDATE contact_requests
 SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
 WHERE id = ?;
-
--- name: PurgeContactRequests :exec
-UPDATE contact_requests
-SET name = NULL, email = NULL, message = NULL, url = NULL, purged_at = sqlc.arg(purged_at)
-WHERE purged_at IS NULL AND status <> 'open' AND resolved_at < sqlc.arg(resolved_before);

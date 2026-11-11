@@ -109,7 +109,7 @@ func routes(deps Dependencies) []route {
 		{method: http.MethodPost, path: "/v1/contact",
 			handler: controller.ContactCreate{Command: deps.CreateContactRequest}},
 		{method: http.MethodGet, path: "/v1/moderation/contact-requests", authenticated: true,
-			handler: requireModerator(controller.ContactRequestListGet{Moderation: deps.Repository, Now: deps.Now})},
+			handler: requireModerator(controller.ContactRequestListGet{Moderation: deps.Repository})},
 		{method: http.MethodPost, path: "/v1/moderation/contact-requests/{request_id}", authenticated: true,
 			handler: requireModerator(controller.ContactRequestClose{Moderation: deps.Repository, Now: deps.Now})},
 

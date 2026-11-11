@@ -25,9 +25,6 @@ const (
 // TurnstileActionContact is the action the contact form's Turnstile widget sets, which a token must carry.
 const TurnstileActionContact = "contact"
 
-// ContactRetention is how long after a contact request is resolved its personal data is kept.
-const ContactRetention = 180 * 24 * time.Hour
-
 // ReportStatus is where a link report or contact request stands: open until a moderator resolves or dismisses it.
 type ReportStatus string
 
@@ -145,7 +142,7 @@ type ModerationLink struct {
 }
 
 // ContactRequest is a message sent through the contact form. Name, Email, Message and URL are personal data, nil
-// once purged and, for Name and URL, when the sender gave none.
+// for Name and URL when the sender gave none.
 type ContactRequest struct {
 	ID         uint64
 	Kind       ContactKind
@@ -155,7 +152,6 @@ type ContactRequest struct {
 	URL        *string
 	Status     ReportStatus
 	CreatedAt  time.Time
-	Purged     bool
 	Resolution *Resolution
 }
 

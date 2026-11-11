@@ -104,7 +104,7 @@ var (
 		Attachments: []domain.LinkAttachment{{EntityType: domain.EntityTypePiece, Slug: routeSlug,
 			Title: "The Copper Kettle", Roles: []domain.LinkRole{domain.LinkRoleLyrics}}}}
 	contactRequests = domain.ContactRequestList{Total: 1, Requests: []domain.ContactRequest{{ID: 3,
-		Kind: domain.ContactKindGeneral, Status: domain.ReportStatusOpen, CreatedAt: testNow, Purged: true,
+		Kind: domain.ContactKindGeneral, Status: domain.ReportStatusOpen, CreatedAt: testNow,
 	}}}
 )
 

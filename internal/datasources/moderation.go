@@ -61,10 +61,9 @@ type Moderation interface {
 
 	// InsertContactRequest stores a request and returns its ID.
 	InsertContactRequest(ctx context.Context, request NewContactRequest) (int64, error)
-	// ListContactRequests purges the requests due for it as of now, then lists one page of those with the status,
-	// oldest first.
+	// ListContactRequests lists one page of the requests with the status, oldest first.
 	ListContactRequests(
-		ctx context.Context, status domain.ReportStatus, page domain.Page, now time.Time,
+		ctx context.Context, status domain.ReportStatus, page domain.Page,
 	) (domain.ContactRequestList, error)
 	// CloseContactRequest resolves or dismisses an open request, as CloseLinkReport does a report.
 	CloseContactRequest(ctx context.Context, closing Closing) error

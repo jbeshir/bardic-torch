@@ -1342,7 +1342,7 @@ paths:
         Sends a message to the moderators, from anyone, with no account. The Cloudflare Turnstile token is checked
         with Cloudflare: it must pass, have been minted on the site's hostname and for the action `contact`;
         otherwise the answer is 400 `turnstile_failed`. The name, email, message and URL are personal data: the
-        server never logs them, and deletes them 180 days after a moderator closes the request. Credentials are
+        server never logs them. Credentials are
         ignored. The body is at most 64 KiB.
       operationId: createContactRequest
       security: []
@@ -1397,8 +1397,7 @@ paths:
       summary: List contact requests
       description: |
         Lists one page of contact requests with a status (`open` unless `status` says otherwise), oldest first, with
-        how many there are in all. Requests closed more than 180 days ago are purged first: their name, email,
-        message and URL are gone. Requires the moderator role.
+        how many there are in all. Requires the moderator role.
       operationId: listContactRequests
       parameters:
         - $ref: "#/components/parameters/ReportStatusFilter"
@@ -5799,10 +5798,10 @@ components:
     ContactRequest:
       type: object
       description: |
-        A message sent through the contact form. The name, email, message and URL are null once purged, and the
-        name and URL when the sender gave none.
+        A message sent through the contact form. The name and URL are null when the sender gave
+        none.
       additionalProperties: false
-      required: [id, kind, name, email, message, url, status, created_at, purged, resolution]
+      required: [id, kind, name, email, message, url, status, created_at, resolution]
       properties:
         id:
           type: integer
@@ -5846,11 +5845,6 @@ components:
         created_at:
           type: string
           format: date-time
-        purged:
-          type: boolean
-          description: Whether the personal data has been deleted.
-          examples:
-            - false
         resolution:
           oneOf:
             - $ref: "#/components/schemas/Resolution"
@@ -5864,7 +5858,6 @@ components:
           url: https://example.org/kettle
           status: open
           created_at: "2026-11-10T09:30:00Z"
-          purged: false
           resolution: null
 
     ContactRequestList:
@@ -5894,7 +5887,6 @@ components:
               url: https://example.org/kettle
               status: open
               created_at: "2026-11-10T09:30:00Z"
-              purged: false
               resolution: null
           total: 1
 

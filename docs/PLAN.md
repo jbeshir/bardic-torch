@@ -210,7 +210,7 @@ One transaction validates the snapshot, writes it into the entity and its childr
   (`PUT /v1/links/{id}/hidden`).
 - **Contact form** (R-13, no account): kind, name, email, message, URL and a Turnstile token checked server-side
   (success, hostname, action `contact`). Moderators resolve or dismiss requests. The personal fields are never
-  logged, and are nulled 180 days after resolution or dismissal (checked at startup and when the inbox is listed).
+  logged.
 
 ### 5.5 Link check (`cmd/check-links`)
 

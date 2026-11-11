@@ -43,31 +43,3 @@ func TestRepository_LinkReport_OneOpenPerUserAndLinkAndHideLink(t *testing.T) {
 	_, err = repo.InsertLinkReport(t.Context(), report)
 	require.ErrorIs(t, err, datasources.ErrNotFound, "a hidden link is not reportable")
 }
-
-func TestRepository_ListContactRequests_PurgesAfter180Days(t *testing.T) {
-	repo := mysql.New(mysqltest.NewDatabase(t))
-	ensureUser(t, repo, "auth0|mod", "Mod")
-	now := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
-	day := 24 * time.Hour
-
-	resolvedAgo := func(days int) {
-		id, err := repo.InsertContactRequest(t.Context(), datasources.NewContactRequest{Kind: domain.ContactKindGeneral,
-			Email: "wren@example.org", Message: "Hello.", Now: now.Add(-300 * day)})
-		require.NoError(t, err)
-		require.NoError(t, repo.CloseContactRequest(t.Context(), datasources.Closing{ModeratorUserID: "auth0|mod",
-			ID: id, Status: domain.ReportStatusResolved, Now: now.Add(-time.Duration(days) * day)}))
-	}
-	resolvedAgo(181)
-	resolvedAgo(179)
-
-	list, err := repo.ListContactRequests(t.Context(), domain.ReportStatusResolved, domain.Page{Limit: 10}, now)
-	require.NoError(t, err)
-	require.Len(t, list.Requests, 2)
-	// Oldest first: the one resolved 181 days ago, then the one resolved 179 days ago.
-	old, recent := list.Requests[0], list.Requests[1]
-	assert.True(t, old.Purged)
-	assert.Nil(t, old.Email)
-	assert.Nil(t, old.Message)
-	assert.False(t, recent.Purged)
-	assert.Equal(t, "wren@example.org", *recent.Email)
-}

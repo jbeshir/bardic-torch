@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
@@ -187,26 +186,10 @@ func (r *Repository) InsertContactRequest(ctx context.Context, request datasourc
 	return res.LastInsertId()
 }
 
-// PurgeContactRequests nulls the personal data of every request closed more than domain.ContactRetention before
-// now. The API calls it at startup, and ListContactRequests before listing.
-func (r *Repository) PurgeContactRequests(ctx context.Context, now time.Time) error {
-	err := r.queries.PurgeContactRequests(ctx, queries.PurgeContactRequestsParams{
-		PurgedAt: nullTime(now), ResolvedBefore: nullTime(now.Add(-domain.ContactRetention)),
-	})
-	if err != nil {
-		return fmt.Errorf("purging contact requests: %w", unavailableIfDisconnected(err))
-	}
-
-	return nil
-}
-
-// ListContactRequests purges what is due, then lists one page of the requests with the status, oldest first.
+// ListContactRequests lists one page of the requests with the status, oldest first.
 func (r *Repository) ListContactRequests(
-	ctx context.Context, status domain.ReportStatus, page domain.Page, now time.Time,
+	ctx context.Context, status domain.ReportStatus, page domain.Page,
 ) (domain.ContactRequestList, error) {
-	if err := r.PurgeContactRequests(ctx, now); err != nil {
-		return domain.ContactRequestList{}, err
-	}
 	rows, err := r.queries.ListContactRequests(ctx, queries.ListContactRequestsParams{
 		Status: queries.ContactRequestsStatus(status), Limit: page.Limit, Offset: page.Offset,
 	})
@@ -223,7 +206,7 @@ func (r *Repository) ListContactRequests(
 		list.Requests = append(list.Requests, domain.ContactRequest{
 			ID: row.ID, Kind: domain.ContactKind(row.Kind), Name: stringPtr(row.Name),
 			Email: stringPtr(row.Email), Message: stringPtr(row.Message), URL: stringPtr(row.Url),
-			Status: domain.ReportStatus(row.Status), CreatedAt: row.CreatedAt, Purged: row.PurgedAt.Valid,
+			Status: domain.ReportStatus(row.Status), CreatedAt: row.CreatedAt,
 			Resolution: resolution(row.ResolvedByUserID, row.ResolvedAt, row.ResolutionNote),
 		})
 	}

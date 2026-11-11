@@ -259,7 +259,7 @@ func (r *Repo) InsertContactRequest(_ context.Context, request datasources.NewCo
 }
 
 func (r *Repo) ListContactRequests(
-	context.Context, domain.ReportStatus, domain.Page, time.Time,
+	context.Context, domain.ReportStatus, domain.Page,
 ) (domain.ContactRequestList, error) {
 	return r.ContactRequests, r.Err
 }

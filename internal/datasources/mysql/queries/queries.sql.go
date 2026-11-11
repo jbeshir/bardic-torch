@@ -1855,8 +1855,7 @@ func (q *Queries) ListConservationHistory(ctx context.Context, pieceID uint64) (
 }
 
 const listContactRequests = `-- name: ListContactRequests :many
-SELECT id, kind, name, email, message, url, status, created_at, resolved_by_user_id, resolved_at, resolution_note,
-    purged_at
+SELECT id, kind, name, email, message, url, status, created_at, resolved_by_user_id, resolved_at, resolution_note
 FROM contact_requests
 WHERE status = ?
 ORDER BY created_at, id
@@ -1869,15 +1868,29 @@ type ListContactRequestsParams struct {
 	Offset int32
 }
 
-func (q *Queries) ListContactRequests(ctx context.Context, arg ListContactRequestsParams) ([]ContactRequest, error) {
+type ListContactRequestsRow struct {
+	ID               uint64
+	Kind             ContactRequestsKind
+	Name             sql.NullString
+	Email            sql.NullString
+	Message          sql.NullString
+	Url              sql.NullString
+	Status           ContactRequestsStatus
+	CreatedAt        time.Time
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+}
+
+func (q *Queries) ListContactRequests(ctx context.Context, arg ListContactRequestsParams) ([]ListContactRequestsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listContactRequests, arg.Status, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ContactRequest
+	var items []ListContactRequestsRow
 	for rows.Next() {
-		var i ContactRequest
+		var i ListContactRequestsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
@@ -1890,7 +1903,6 @@ func (q *Queries) ListContactRequests(ctx context.Context, arg ListContactReques
 			&i.ResolvedByUserID,
 			&i.ResolvedAt,
 			&i.ResolutionNote,
-			&i.PurgedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -4501,22 +4513,6 @@ type PromoteToModeratorParams struct {
 
 func (q *Queries) PromoteToModerator(ctx context.Context, arg PromoteToModeratorParams) error {
 	_, err := q.db.ExecContext(ctx, promoteToModerator, arg.ID, arg.DisplayName, arg.CreatedAt)
-	return err
-}
-
-const purgeContactRequests = `-- name: PurgeContactRequests :exec
-UPDATE contact_requests
-SET name = NULL, email = NULL, message = NULL, url = NULL, purged_at = ?
-WHERE purged_at IS NULL AND status <> 'open' AND resolved_at < ?
-`
-
-type PurgeContactRequestsParams struct {
-	PurgedAt       sql.NullTime
-	ResolvedBefore sql.NullTime
-}
-
-func (q *Queries) PurgeContactRequests(ctx context.Context, arg PurgeContactRequestsParams) error {
-	_, err := q.db.ExecContext(ctx, purgeContactRequests, arg.PurgedAt, arg.ResolvedBefore)
 	return err
 }
 

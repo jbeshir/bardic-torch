@@ -53,10 +53,6 @@ func Setup(ctx context.Context) ([]Component, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("setting up the contact form: %w", err)
 	}
-	if err := repository.PurgeContactRequests(ctx, now()); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("purging contact requests: %w", err)
-	}
 
 	addr := ":" + strconv.Itoa(MustGetEnvAsInt(ctx, "PORT"))
 	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
