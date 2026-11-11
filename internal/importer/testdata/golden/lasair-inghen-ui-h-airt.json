@@ -73,52 +73,19 @@
             }
           ]
         }
-      ],
-      "preferences": []
+      ]
     },
     "legacy": {
       "page_id": 4,
       "title": "Lasair inghen ui h’Airt"
     },
     "revision": {
-      "id": 225,
+      "id": 229,
       "summary": "Imported from the wiki (page revision 22).",
       "contributors": [
         "Wiki User 01"
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "LINK-224",
-      "kind": "repeated",
-      "page": "Lasair inghen ui h’Airt",
-      "text": "URLs written more than once, imported once each: https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20Inghen%20Ui%20h%27Airt."
-    },
-    {
-      "id": "LINK-225",
-      "kind": "roles",
-      "page": "Lasair inghen ui h’Airt",
-      "text": "https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20Inghen%20Ui%20h%27Airt has several roles: performance, external_profile."
-    },
-    {
-      "id": "LINK-226",
-      "kind": "collection_tie",
-      "page": "Lasair inghen ui h’Airt",
-      "text": "https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20Inghen%20Ui%20h%27Airt could belong to several collections (https://tilted-windmill.com/midbards/works.html, https://tilted-windmill.com/midbards/songbooks.html): it belongs to none."
-    },
-    {
-      "id": "PERF-001",
-      "kind": "incomplete",
-      "page": "Lasair inghen ui h’Airt",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://tilted-windmill.com/midbards/bard_vids.html?brd_id=40\u0026brd_nm=Lasair%20I…\"."
-    },
-    {
-      "id": "PERSON-001",
-      "kind": "affiliations",
-      "page": "Lasair inghen ui h’Airt",
-      "text": "Affiliations from categories: Atlantia, SCA Bards."
-    }
-  ]
+  }
 }

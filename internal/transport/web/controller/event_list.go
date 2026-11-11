@@ -16,7 +16,7 @@ type EventList struct {
 
 // EventListGet handles GET /v1/events, one page of the public events and venues, of one kind or both, by name.
 type EventListGet struct {
-	Lister datasources.PublicEventLister
+	Catalogue datasources.Catalogue
 }
 
 func (c EventListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +35,7 @@ func (c EventListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := c.Lister.ListPublicEvents(ctx, kind, page)
+	list, err := c.Catalogue.ListPublicEvents(ctx, kind, page)
 	if err != nil {
 		writeInternalError(w, r, "unable to list events", err)
 		return

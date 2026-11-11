@@ -70,39 +70,14 @@ type PieceTerm struct {
 	Part      *domain.PiecePart
 }
 
-// FacetDriftKind is a way the infobox and the categories of a piece disagree.
-type FacetDriftKind string
-
-// The facet drift kinds (the reference's category_consistency and links_to_redirect_categories).
-const (
-	// DriftInInfoboxNotTagged is an infobox category link whose category the page is not in. It is not imported.
-	DriftInInfoboxNotTagged FacetDriftKind = "in_infobox_not_tagged"
-	// DriftTaggedNotInInfobox is a category of the page that the infobox does not show (Pieces, the Songs the
-	// song infobox implies and bard-name categories aside).
-	DriftTaggedNotInInfobox FacetDriftKind = "tagged_not_in_infobox"
-	// DriftRedirectCategoryLink is an infobox link to a redirect category; it is read as the category it leads to
-	// (ResolvesTo).
-	DriftRedirectCategoryLink FacetDriftKind = "redirect_category_link"
-)
-
-// FacetDrift is one disagreement between the infobox and the categories, for the import review.
-type FacetDrift struct {
-	Kind       FacetDriftKind
-	Category   string
-	ResolvesTo string
-}
-
 // PieceRecord is a piece page parsed for import. Wikitext is the page's wikitext without its inline lyrics and
 // with its markup repaired, and Parsed is that text parsed; every later step reads these, never the original.
 type PieceRecord struct {
-	PageID int64
-	Title  string
-	URL    string
-	// Categories are the page's categories, as written.
-	Categories     []string
+	PageID         int64
+	Title          string
+	URL            string
 	Wikitext       string
 	Parsed         ParsedPage
-	MarkupIssues   []MarkupIssue
 	Kind           domain.PieceKind
 	SecondaryKinds []domain.PieceKind
 	Terms          []PieceTerm
@@ -110,19 +85,15 @@ type PieceRecord struct {
 	ConservationStatuses []domain.ConservationStatus
 	// BardNameCategories are the page's categories named after a credited person: credit signals.
 	BardNameCategories []string
-	// IgnoredCategories are the page's categories that give a piece nothing (a kingdom or bard category, a
-	// placeholder), for the import review.
-	IgnoredCategories []string
-	Drift             []FacetDrift
-	Titles            PieceTitles
+	Titles             PieceTitles
 	// Credits are the credits of the infoboxes' person parameters, before the persons they name are matched.
 	Credits []CreditRecord
 	Content PieceContent
-	Lyrics  DroppedLyrics
+	// HadInlineLyrics is legacy_had_inline_lyrics: DropInlineLyrics dropped some of the page.
+	HadInlineLyrics bool
 }
 
-// Conservation is the piece's conservation status: the most severe of its categories', or unassessed. More than
-// one is listed in the import review.
+// Conservation is the piece's conservation status: the most severe of its categories', or unassessed.
 func (p PieceRecord) Conservation() domain.ConservationStatus {
 	if n := len(p.ConservationStatuses); n > 0 {
 		return p.ConservationStatuses[n-1]
@@ -134,23 +105,20 @@ func (p PieceRecord) Conservation() domain.ConservationStatus {
 // ParsePiece parses a piece page. Its inline lyrics are found on the original wikitext and dropped before
 // anything else reads it; facets come from the page's categories, the infobox only ordering and scoping them.
 func ParsePiece(p Page, s Site) PieceRecord {
-	lyrics := InlineLyricsBlocks(p.Wikitext)
-	repaired, issues := RepairMarkup(WithoutInlineLyrics(p.Wikitext, lyrics.Blocks))
+	dropped, hadLyrics := DropInlineLyrics(p.Wikitext)
+	repaired := RepairMarkup(dropped)
 	parsed := ParsePage(repaired)
 	kind := primaryKind(p, parsed.Infoboxes)
 	sorted := sortCategories(p, parsed.Infoboxes, s)
 	r := PieceRecord{
-		PageID: p.PageID, Title: p.Title, URL: p.URL, Categories: p.Categories, Wikitext: repaired, Parsed: parsed,
-		MarkupIssues: append(issues, FindMarkupIssues(repaired)...),
-		Kind:         kind, SecondaryKinds: secondaryKinds(p, kind),
+		PageID: p.PageID, Title: p.Title, URL: p.URL, Wikitext: repaired, Parsed: parsed,
+		Kind: kind, SecondaryKinds: secondaryKinds(p, kind),
 		Terms: sorted.terms, ConservationStatuses: sorted.statuses, BardNameCategories: sorted.bardNames,
-		IgnoredCategories: sorted.ignored,
-		Drift:             facetDrift(p, parsed.Infoboxes, s.Taxonomy, sorted.bardNames),
-		Titles:            pieceTitles(p, parsed, s),
-		Credits:           pieceCredits(parsed.Infoboxes, sorted.terms, s),
-		Lyrics:            droppedLyrics(p.Wikitext, lyrics),
+		Titles:          pieceTitles(p, parsed, s),
+		Credits:         pieceCredits(parsed.Infoboxes, sorted.terms, s),
+		HadInlineLyrics: hadLyrics,
 	}
-	r.Content = pieceContent(r, s, versionNotes(p.Wikitext, lyrics))
+	r.Content = pieceContent(r, s, versionNotes(dropped))
 
 	return r
 }
@@ -255,7 +223,6 @@ type sortedPieceCategories struct {
 	terms     []PieceTerm
 	statuses  []domain.ConservationStatus
 	bardNames []string
-	ignored   []string
 }
 
 // rankedTerm is a term of a piece with its facet and its rank: its infobox position, or after every infobox link
@@ -267,8 +234,8 @@ type rankedTerm struct {
 }
 
 // sortCategories sorts the page's categories into terms (affiliations, which classify persons, aside),
-// conservation statuses (least severe first), bard-name signals and the rest. Terms are ordered by the infobox
-// and then by the categories; the first of each facet is primary.
+// conservation statuses (least severe first) and bard-name signals; the rest give nothing. Terms are ordered by the
+// infobox and then by the categories; the first of each facet is primary.
 func sortCategories(p Page, boxes []Infobox, s Site) sortedPieceCategories {
 	boxCategories := infoboxCategories(boxes, s.Taxonomy)
 	var out sortedPieceCategories
@@ -282,14 +249,10 @@ func sortCategories(p Page, boxes []Infobox, s Site) sortedPieceCategories {
 
 			continue
 		}
-		switch class := s.Taxonomy.Class(category); {
-		case class == ClassConservationStatus:
+		if class := s.Taxonomy.Class(category); class == ClassConservationStatus {
 			out.statuses = appendStatus(out.statuses, category)
-		case class == ClassBardName:
+		} else if class == ClassBardName {
 			out.bardNames = append(out.bardNames, c)
-		case class == ClassKind || category == CategoryPieces:
-		default:
-			out.ignored = append(out.ignored, c)
 		}
 	}
 	slices.SortStableFunc(terms, func(a, b rankedTerm) int { return a.rank - b.rank })
@@ -325,48 +288,4 @@ func appendStatus(statuses []domain.ConservationStatus, category string) []domai
 
 func severity(s domain.ConservationStatus) int {
 	return slices.IndexFunc(conservationStatuses, func(cs conservationCategory) bool { return cs.status == s })
-}
-
-// facetDrift compares the infobox's category links, as written, with the page's categories, as the reference's
-// category_consistency does, and lists the infobox links to redirect categories.
-func facetDrift(p Page, boxes []Infobox, t Taxonomy, bardCategories []string) []FacetDrift {
-	linked := categoryLinks(boxes)
-	implicitSongs := slices.ContainsFunc(boxes, func(b Infobox) bool {
-		return infoboxKinds[strings.ToLower(b.Template)] == domain.PieceKindSong
-	})
-	var out []FacetDrift
-	for _, c := range linked {
-		if !p.HasCategory(c) {
-			out = append(out, FacetDrift{Kind: DriftInInfoboxNotTagged, Category: c, ResolvesTo: t.Resolve(c)})
-		}
-	}
-	for _, c := range p.Categories {
-		implicit := c == CategoryPieces || (implicitSongs && c == CategorySongs)
-		if !slices.Contains(linked, c) && !implicit && !slices.Contains(bardCategories, c) {
-			out = append(out, FacetDrift{Kind: DriftTaggedNotInInfobox, Category: c, ResolvesTo: c})
-		}
-	}
-	for _, c := range linked {
-		if t.Class(c) == ClassRedirect {
-			out = append(out, FacetDrift{Kind: DriftRedirectCategoryLink, Category: c, ResolvesTo: t.Resolve(c)})
-		}
-	}
-
-	return out
-}
-
-// categoryLinks are the categories the infoboxes link to, as written, in order and without repeats.
-func categoryLinks(boxes []Infobox) []string {
-	var out []string
-	for _, b := range boxes {
-		for _, param := range b.Params {
-			for _, it := range param.Value.Items {
-				if isCategoryItem(it) {
-					out = appendUnique(out, it.Target)
-				}
-			}
-		}
-	}
-
-	return out
 }

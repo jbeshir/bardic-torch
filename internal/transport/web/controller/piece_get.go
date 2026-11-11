@@ -87,7 +87,7 @@ type ConservationChange struct {
 // PieceGet handles GET /v1/pieces/{slug}, a public piece's page. An unapproved piece is not found, exactly
 // like an unknown one.
 type PieceGet struct {
-	Getter datasources.PublicPieceGetter
+	Catalogue datasources.Catalogue
 }
 
 func (c PieceGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +98,7 @@ func (c PieceGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	piece, err := c.Getter.GetPublicPiece(ctx, slug)
+	piece, err := c.Catalogue.GetPublicPiece(ctx, slug)
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "piece not found")

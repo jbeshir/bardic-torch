@@ -17,7 +17,7 @@
       "notes_md": "This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.",
       "version_notes_md": null,
       "licensing_status": "unknown",
-      "licensing_notes_md": "It is likely that [name withheld] still holds the copyright to the tune; please add to the wiki if you have more information.",
+      "licensing_notes_md": "It is likely that Legal Name 064 still holds the copyright to the tune; please add to the wiki if you have more information.",
       "licence": null,
       "historical_source_md": null,
       "period_start": null,
@@ -56,19 +56,19 @@
           "note": null
         },
         {
-          "person_id": null,
+          "person_id": 111,
           "role": "tune",
-          "attribution": "unknown",
+          "attribution": "named",
           "certainty": "certain",
           "part": null,
-          "note": "[name withheld]"
+          "note": null
         }
       ],
       "links": [
         {
           "url": "https://en.wikipedia.org/wiki/Sing_Hallelujah_to_the_Lord",
           "title": "Sing Hallelujah to the Lord",
-          "description": "Warrior's Wyrd is a contrafactum of Sing Hallelujah to the Lord by [name withheld], written in 1974",
+          "description": "Warrior's Wyrd is a contrafactum of Sing Hallelujah to the Lord by Legal Name 064, written in 1974",
           "platform": "wikipedia",
           "place_type": null,
           "collection_id": null,
@@ -93,7 +93,7 @@
         },
         {
           "url": "https://youtube.com/watch?v=Y-DSvojaL3g",
-          "title": "Warrior's Wyrd on YouTube by '[name withheld]'",
+          "title": "Warrior's Wyrd on YouTube by 'Legal Name 061'",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -106,15 +106,15 @@
             {
               "event_id": null,
               "year": null,
-              "uploader": null,
-              "description_verbatim": "[https://youtube.com/watch?v=Y-DSvojaL3g Warrior's Wyrd on YouTube by '[name withheld]']",
+              "uploader": "Legal Name 061",
+              "description_verbatim": "[https://youtube.com/watch?v=Y-DSvojaL3g Warrior's Wyrd on YouTube by 'Legal Name 061']",
               "performer_ids": []
             }
           ]
         },
         {
           "url": "https://youtube.com/watch?v=GkFyoVrTEok",
-          "title": "Warrior's Wyrd on YouTube by [name withheld]",
+          "title": "Warrior's Wyrd on YouTube by Legal Name 065",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -127,15 +127,15 @@
             {
               "event_id": null,
               "year": null,
-              "uploader": null,
-              "description_verbatim": "[https://youtube.com/watch?v=GkFyoVrTEok Warrior's Wyrd on YouTube by [name withheld]]",
+              "uploader": "Legal Name 065",
+              "description_verbatim": "[https://youtube.com/watch?v=GkFyoVrTEok Warrior's Wyrd on YouTube by Legal Name 065]",
               "performer_ids": []
             }
           ]
         },
         {
           "url": "https://youtube.com/watch?v=Dj9TsprIgOk",
-          "title": "Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Celebration",
+          "title": "Warrior's Wyrd on YouTube, recorded by Legal Name 024, sung by Calontir at the SCA 50 Year Celebration",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -148,14 +148,13 @@
             {
               "event_id": 11,
               "year": null,
-              "uploader": null,
-              "description_verbatim": "[https://youtube.com/watch?v=Dj9TsprIgOk Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Celebration]",
+              "uploader": "Legal Name 024",
+              "description_verbatim": "[https://youtube.com/watch?v=Dj9TsprIgOk Warrior's Wyrd on YouTube, recorded by Legal Name 024, sung by Calontir at the SCA 50 Year Celebration]",
               "performer_ids": []
             }
           ]
         }
-      ],
-      "preferences": []
+      ]
     },
     "legacy_had_inline_lyrics": false,
     "legacy": {
@@ -163,140 +162,12 @@
       "title": "Warrior's Wyrd"
     },
     "revision": {
-      "id": 414,
+      "id": 433,
       "summary": "Imported from the wiki (page revision 371).",
       "contributors": [
         "Wiki User 01"
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "NAME-008",
-      "kind": "stub_withheld",
-      "page": "Warrior's Wyrd",
-      "text": "The name \"Legal Name 064\", credited on 1 page(s), holds a possible legal name: no person is created, and its credits are imported as unknown with the note \"[name withheld]\". Create the person by hand once cleared."
-    },
-    {
-      "id": "NAME-069",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "link https://en.wikipedia.org/wiki/Sing_Hallelujah_to_the_Lord, description: \"Legal Name 064\" was withheld. Context: \"actum of Sing Hallelujah to the Lord by [name withheld], written in 1974\"."
-    },
-    {
-      "id": "NAME-070",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "link https://www.youtube.com/watch?v=Y-DSvojaL3g, title: \"Legal Name 061\" was withheld. Context: \"Warrior's Wyrd on YouTube by '[name withheld]'\"."
-    },
-    {
-      "id": "NAME-071",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "link https://www.youtube.com/watch?v=GkFyoVrTEok, title: \"Legal Name 065\" was withheld. Context: \"Warrior's Wyrd on YouTube by [name withheld]\"."
-    },
-    {
-      "id": "NAME-072",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "link https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU, title: \"Legal Name 024\" was withheld. Context: \"Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce\"."
-    },
-    {
-      "id": "NAME-298",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "piece Warrior's Wyrd, licensing notes: \"Legal Name 064\" was withheld. Context: \"It is likely that [name withheld] still holds the copyright to the tune;\"."
-    },
-    {
-      "id": "NAME-299",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "performance item, uploader: \"Legal Name 061\" was withheld. Context: \"[name withheld]\"."
-    },
-    {
-      "id": "NAME-300",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "performance item, description: \"Legal Name 061\" was withheld. Context: \"DSvojaL3g Warrior's Wyrd on YouTube by '[name withheld]']\"."
-    },
-    {
-      "id": "NAME-301",
-      "kind": "uploader",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item's uploader is withheld: the performance is imported without an uploader."
-    },
-    {
-      "id": "NAME-302",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "performance item, uploader: \"Legal Name 065\" was withheld. Context: \"[name withheld]\"."
-    },
-    {
-      "id": "NAME-303",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "performance item, description: \"Legal Name 065\" was withheld. Context: \"kFyoVrTEok Warrior's Wyrd on YouTube by [name withheld]]\"."
-    },
-    {
-      "id": "NAME-304",
-      "kind": "uploader",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item's uploader is withheld: the performance is imported without an uploader."
-    },
-    {
-      "id": "NAME-305",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "performance item, uploader: \"Legal Name 024\" was withheld. Context: \"[name withheld]\"."
-    },
-    {
-      "id": "NAME-306",
-      "kind": "free_text",
-      "page": "Warrior's Wyrd",
-      "text": "performance item, description: \"Legal Name 024\" was withheld. Context: \"Warrior's Wyrd on YouTube, recorded by [name withheld], sung by Calontir at the SCA 50 Year Ce\"."
-    },
-    {
-      "id": "NAME-307",
-      "kind": "uploader",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item's uploader is withheld: the performance is imported without an uploader."
-    },
-    {
-      "id": "CREDIT-012",
-      "kind": "category_without_linked_credit",
-      "page": "Warrior's Wyrd",
-      "text": "category_without_linked_credit: \"Ivar Battleskald\" (person Ivar Battleskald)."
-    },
-    {
-      "id": "TITLE-013",
-      "kind": "unparsed",
-      "page": "Warrior's Wyrd",
-      "text": "Prose naming other titles, kept in the notes: \"This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.\"."
-    },
-    {
-      "id": "LINK-097",
-      "kind": "normalised",
-      "page": "Warrior's Wyrd",
-      "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERF-116",
-      "kind": "incomplete",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://www.youtube.com/watch?v=Y-DSvojaL3g Warrior's Wyrd on YouTube by 'Legal…\"."
-    },
-    {
-      "id": "PERF-117",
-      "kind": "incomplete",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://www.youtube.com/watch?v=GkFyoVrTEok Warrior's Wyrd on YouTube by Legal …\"."
-    },
-    {
-      "id": "PERF-118",
-      "kind": "incomplete",
-      "page": "Warrior's Wyrd",
-      "text": "A performance item has no performer or year the importer could read: \"[https://youtu.be/Dj9TsprIgOk?si=R4UjdgyWnxOBG9xU Warrior's Wyrd on YouTube, rec…\"."
-    }
-  ]
+  }
 }

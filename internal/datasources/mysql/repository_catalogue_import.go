@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"math"
 
-	mysqldriver "github.com/go-sql-driver/mysql"
-
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -24,9 +22,9 @@ var CatalogueTables = []string{
 	"revisions", "revision_contributors",
 	"terms", "term_aliases", "term_ancestors",
 	"collections", "events",
-	"persons", "person_aliases", "person_roles", "person_affiliations", "person_relations", "person_preferences",
+	"persons", "person_aliases", "person_roles", "person_affiliations", "person_relations",
 	"pieces", "piece_secondary_kinds", "piece_aliases", "piece_terms", "piece_relations", "piece_credits",
-	"piece_preferences", "conservation_history",
+	"conservation_history",
 	"links", "link_attachments", "performances", "performance_performers",
 }
 
@@ -39,30 +37,8 @@ const importLockName = "LEFT(CONCAT('bardic-torch-import:', DATABASE()), 64)"
 // above InnoDB's default lock wait timeout (50 s), which bounds the wait instead.
 const lockWaitMillis = 60000
 
-// ImportDatabaseError is returned, wrapped, for every MySQL error of an import (a refused row, a failed lock or
-// commit). It names the step and the MySQL error number but not the server's message, which can quote the
-// row's values ("Duplicate entry '…'") and so may hold a private name.
-type ImportDatabaseError struct {
-	Step   string
-	Number uint16
-}
-
-func (e *ImportDatabaseError) Error() string {
-	return fmt.Sprintf("%s: MySQL error %d", e.Step, e.Number)
-}
-
 // errImportLockFailed is returned when GET_LOCK fails (returns NULL) rather than finding the lock taken.
 var errImportLockFailed = errors.New("the import lock could not be requested")
-
-// withoutServerMessage is err for step, as an ImportDatabaseError if it is a MySQL error.
-func withoutServerMessage(step string, err error) error {
-	var mysqlErr *mysqldriver.MySQLError
-	if errors.As(err, &mysqlErr) {
-		return &ImportDatabaseError{Step: step, Number: mysqlErr.Number}
-	}
-
-	return fmt.Errorf("%s: %w", step, err)
-}
 
 // errImportOutOfRange is returned, wrapped, when an import's value does not fit its column's type, which
 // CatalogueImport.Validate rules out.
@@ -76,17 +52,17 @@ var errImportUnknownLink = errors.New("link has no links row in the import")
 // lock (ErrImportInProgress if another import holds it), then, in the transaction, locks every catalogue table
 // with a locking read of its first row (ErrCatalogueNotEmpty if one has a row), so that no other writer can
 // insert into the tables until the import commits. It then inserts every row with the import's IDs, in the order
-// of CatalogueTables, and commits. Any error rolls everything back. Errors never quote a value.
+// of CatalogueTables, and commits. Any error rolls everything back.
 func (r *Repository) ImportCatalogue(ctx context.Context, imp domain.CatalogueImport) error {
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
-		return withoutServerMessage("connecting for the catalogue import", err)
+		return fmt.Errorf("connecting for the catalogue import: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	var locked sql.NullInt64
 	if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK("+importLockName+", 0)").Scan(&locked); err != nil {
-		return withoutServerMessage("taking the import lock", err)
+		return fmt.Errorf("taking the import lock: %w", err)
 	}
 	switch {
 	case !locked.Valid:
@@ -110,7 +86,7 @@ func releaseImportLock(ctx context.Context, conn *sql.Conn) {
 func (r *Repository) importInTransaction(ctx context.Context, conn *sql.Conn, imp domain.CatalogueImport) error {
 	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
-		return withoutServerMessage("beginning the catalogue import", err)
+		return fmt.Errorf("beginning the catalogue import: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -123,7 +99,7 @@ func (r *Repository) importInTransaction(ctx context.Context, conn *sql.Conn, im
 		return fmt.Errorf("importing catalogue: %w", w.err)
 	}
 	if err := tx.Commit(); err != nil {
-		return withoutServerMessage("committing the catalogue import", err)
+		return fmt.Errorf("committing the catalogue import: %w", err)
 	}
 
 	return nil
@@ -139,7 +115,7 @@ func requireEmptyCatalogue(ctx context.Context, tx *sql.Tx) error {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 		case err != nil:
-			return withoutServerMessage("locking "+table, err)
+			return fmt.Errorf("locking %s: %w", table, err)
 		default:
 			return fmt.Errorf("%w: %s has rows", datasources.ErrCatalogueNotEmpty, table)
 		}
@@ -176,14 +152,13 @@ func (w *importWriter) write(imp domain.CatalogueImport) {
 	w.links(imp)
 }
 
-// insert runs one insert into table, unless an earlier error stopped the writer. A MySQL error becomes an
-// ImportDatabaseError, without its message.
+// insert runs one insert into table, unless an earlier error stopped the writer.
 func (w *importWriter) insert(table string, run func() error) {
 	if w.err != nil {
 		return
 	}
 	if err := run(); err != nil {
-		w.err = withoutServerMessage("writing "+table, err)
+		w.err = fmt.Errorf("writing %s: %w", table, err)
 	}
 }
 
@@ -385,7 +360,7 @@ func (w *importWriter) persons(persons []domain.ImportedPerson) {
 	for _, person := range persons {
 		for _, a := range person.Doc.Aliases {
 			p := queries.InsertPersonAliasParams{PersonID: w.id(person.ID), Name: a.Name,
-				Kind: queries.PersonAliasesKind(a.Kind), IsPublic: a.IsPublic}
+				Kind: queries.PersonAliasesKind(a.Kind)}
 			w.insert("person_aliases", func() error { return w.q.InsertPersonAlias(w.ctx, p) })
 		}
 	}
@@ -401,23 +376,15 @@ func (w *importWriter) persons(persons []domain.ImportedPerson) {
 			w.insert("person_affiliations", func() error { return w.q.InsertPersonAffiliation(w.ctx, p) })
 		}
 	}
-	w.personRelationsAndPreferences(persons)
+	w.personRelations(persons)
 }
 
-func (w *importWriter) personRelationsAndPreferences(persons []domain.ImportedPerson) {
+func (w *importWriter) personRelations(persons []domain.ImportedPerson) {
 	for _, person := range persons {
 		for _, rel := range person.Doc.Relations {
 			p := queries.InsertPersonRelationParams{FromPersonID: w.id(person.ID), ToPersonID: w.id(rel.ToPersonID),
 				Type: queries.PersonRelationsType(rel.Type)}
 			w.insert("person_relations", func() error { return w.q.InsertPersonRelation(w.ctx, p) })
-		}
-	}
-	for _, person := range persons {
-		for _, pref := range person.Doc.Preferences {
-			p := queries.InsertPersonPreferenceParams{PersonID: w.id(person.ID),
-				Dimension: queries.PersonPreferencesDimension(pref.Dimension), ValueJson: pref.Value,
-				SourceUrl: pref.SourceURL}
-			w.insert("person_preferences", func() error { return w.q.InsertPersonPreference(w.ctx, p) })
 		}
 	}
 }
@@ -457,7 +424,7 @@ func (w *importWriter) pieces(pieces []domain.ImportedPiece) {
 	}
 	w.pieceTermsAndRelations(pieces)
 	w.pieceCredits(pieces)
-	w.piecePreferencesAndConservation(pieces)
+	w.pieceConservation(pieces)
 }
 
 func (w *importWriter) pieceTermsAndRelations(pieces []domain.ImportedPiece) {
@@ -498,17 +465,9 @@ func (w *importWriter) pieceCredits(pieces []domain.ImportedPiece) {
 	}
 }
 
-// piecePreferencesAndConservation inserts the pieces' preferences, and the conservation history row of each
-// piece whose status is assessed: at its revision, with ImportConservationReason and the document's source.
-func (w *importWriter) piecePreferencesAndConservation(pieces []domain.ImportedPiece) {
-	for _, piece := range pieces {
-		for _, pref := range piece.Doc.Preferences {
-			p := queries.InsertPiecePreferenceParams{PieceID: w.id(piece.ID),
-				Dimension: queries.PiecePreferencesDimension(pref.Dimension), ValueJson: pref.Value,
-				SourceUrl: pref.SourceURL}
-			w.insert("piece_preferences", func() error { return w.q.InsertPiecePreference(w.ctx, p) })
-		}
-	}
+// pieceConservation inserts the conservation history row of each piece whose status is assessed: at its
+// revision, with ImportConservationReason and the document's source.
+func (w *importWriter) pieceConservation(pieces []domain.ImportedPiece) {
 	for _, piece := range pieces {
 		c := piece.Doc.Conservation
 		if c.Status == domain.ConservationStatusUnassessed {

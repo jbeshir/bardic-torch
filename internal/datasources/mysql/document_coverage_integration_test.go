@@ -110,10 +110,6 @@ piece_credits.certainty                = credits.certainty
 piece_credits.part                     = credits.part
 piece_credits.note                     = credits.note
 piece_credits.position                 ! the element's index in its document list
-piece_preferences.piece_id             ! the document's entity
-piece_preferences.dimension            = preferences.dimension
-piece_preferences.value_json           = preferences.value
-piece_preferences.source_url           = preferences.source_url
 `
 
 const personColumns = personLinkColumns + `
@@ -131,7 +127,6 @@ persons.notes_md                       = notes_md
 persons.licensing_notes_md             = licensing_notes_md
 persons.licensing_status               = licensing_status
 persons.is_stub                        = is_stub
-persons.claimed_by_user_id             ! set when a user claims the page, not by editing
 persons.current_revision_id            ! the entity's approved revision, set by approval
 persons.legacy_wiki_pageid             ! imported from the legacy wiki; never edited or exposed
 persons.legacy_title                   ! imported from the legacy wiki; never edited or exposed
@@ -139,7 +134,6 @@ person_aliases.id                      ! the row's own ID
 person_aliases.person_id               ! the document's entity
 person_aliases.name                    = aliases.name
 person_aliases.kind                    = aliases.kind
-person_aliases.is_public               = aliases.is_public
 person_roles.person_id                 ! the document's entity
 person_roles.role                      = roles
 person_affiliations.person_id          ! the document's entity
@@ -147,10 +141,6 @@ person_affiliations.term_id            = affiliation_ids
 person_relations.from_person_id        ! the document's entity
 person_relations.to_person_id          = relations.to_person_id
 person_relations.type                  = relations.type
-person_preferences.person_id           ! the document's entity
-person_preferences.dimension           = preferences.dimension
-person_preferences.value_json          = preferences.value
-person_preferences.source_url          = preferences.source_url
 `
 
 const termColumns = `
@@ -200,7 +190,6 @@ events.legacy_title                    ! imported from the legacy wiki; never ed
 // nonDocumentTables lists the tables no document owns, one per line with the reason.
 const nonDocumentTables = `
 users                  ! accounts
-api_tokens             ! accounts
 revisions              ! the revision workflow that stores the documents
 revision_contributors  ! the revision workflow that stores the documents
 term_ancestors         ! derived from terms.parent_id by the importer and when a term revision is approved
@@ -324,7 +313,6 @@ func TestDocumentFieldPaths(t *testing.T) {
 	assert.Contains(t, paths, "links.performances.performer_ids", "descends into lists of structs")
 	assert.Contains(t, paths, "links.performances.piece_id", "flattens embedded structs")
 	assert.Contains(t, paths, "links.url", "flattens embedded structs")
-	assert.Contains(t, paths, "preferences.value", "keeps raw JSON as one field")
 	assert.Contains(t, paths, "roles", "keeps lists of scalars as one field")
 	assert.NotContains(t, paths, "links.performances", "lists of structs are not leaves")
 }

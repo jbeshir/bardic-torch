@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -30,14 +29,14 @@ const (
 	visibleURL = "https://example.org/visible"
 	hiddenURL  = "https://example.org/hidden"
 	otherURL   = "https://example.org/other"
-	// deletedURL is no link's URL now, and recasedURL differs from visibleURL in case only: neither is visible.
-	deletedURL  = "https://example.org/deleted"
-	recasedURL  = "https://example.org/Visible"
-	revelName   = "Midwinter Revel"
-	wrenName    = "Wren of the Vale"
-	wrenSlug    = "wren-of-the-vale"
-	stageName   = "Wren"
-	hiddenAlias = "Jo Marker"
+	// deletedURL is no link's URL now, and recasedURL differs from visibleURL in case only: a view shows both as
+	// written, as they are not a hidden link's.
+	deletedURL = "https://example.org/deleted"
+	recasedURL = "https://example.org/Visible"
+	revelName  = "Midwinter Revel"
+	wrenName   = "Wren of the Vale"
+	wrenSlug   = "wren-of-the-vale"
+	stageName  = "Wren"
 )
 
 var (
@@ -52,17 +51,16 @@ var (
 )
 
 // testVisibility is the current state of the referenced entities: one public entity of each type, a no-page
-// person, the subject person's current public alias, and two visible links: hiddenURL is a hidden link's.
+// person, and a hidden link: hiddenURL.
 func testVisibility() SnapshotVisibility {
 	return SnapshotVisibility{
 		Pieces:        map[int64]PieceSummary{publicPieceID: brassKettle},
 		Persons:       map[int64]PersonSummary{publicPersonID: hollis},
 		NoPagePersons: map[int64]PersonSummary{noPagePersonID: quietPerson},
-		PublicAliases: map[int64]map[string]bool{subjectPersonID: {stageName: true}},
 		Terms:         map[int64]TermSummary{publicTermID: war},
 		Collections:   map[int64]CollectionSummary{publicCollectionID: songbook},
 		Events:        map[int64]EventSummary{publicEventID: revel},
-		VisibleLinks:  map[string]string{visibleURL: visibleURL, otherURL: otherURL},
+		HiddenLinks:   map[string]bool{hiddenURL: true},
 	}
 }
 
@@ -122,8 +120,6 @@ func TestNewPieceSnapshot(t *testing.T) {
 			{DocLink: DocLink{URL: deletedURL, Title: new("Deleted")}},
 			{DocLink: DocLink{URL: recasedURL, Title: new("Recased")}},
 		},
-		Preferences: []DocPreference{{Dimension: PreferenceDimensionLicensing, Value: json.RawMessage(`{}`),
-			SourceURL: "https://example.org/prefs"}},
 	}
 
 	assert.Equal(t, PieceSnapshot{
@@ -158,6 +154,8 @@ func TestNewPieceSnapshot(t *testing.T) {
 				},
 			},
 			{SnapshotLink: SnapshotLink{URL: otherURL}},
+			{SnapshotLink: SnapshotLink{URL: deletedURL, Title: new("Deleted")}},
+			{SnapshotLink: SnapshotLink{URL: recasedURL, Title: new("Recased")}},
 		},
 	}, NewPieceSnapshot(doc, testVisibility()))
 
@@ -175,7 +173,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 }
 
 // personDocument is a person document referencing a public and a hidden entity of every type it can, with a
-// public alias that is public now, one that is no longer public, and a hidden one that is public now.
+// couple of aliases.
 func personDocument() PersonDocument {
 	return PersonDocument{
 		SchemaVersion:    DocumentSchemaVersion,
@@ -189,9 +187,8 @@ func personDocument() PersonDocument {
 		LicensingStatus:  LicensingStatusKnown,
 		LicensingNotesMD: new("Sing freely."),
 		Aliases: []DocPersonAlias{
-			{Name: stageName, Kind: PersonAliasKindStage, IsPublic: true},
-			{Name: "Wren the Elder", Kind: PersonAliasKindFormer, IsPublic: true},
-			{Name: hiddenAlias, Kind: PersonAliasKindLegal},
+			{Name: stageName, Kind: PersonAliasKindStage},
+			{Name: "Wren the Elder", Kind: PersonAliasKindFormer},
 		},
 		Roles:          []PersonRole{PersonRoleSinger, PersonRolePoet},
 		AffiliationIDs: []int64{hiddenTermID, publicTermID},
@@ -213,8 +210,6 @@ func personDocument() PersonDocument {
 				},
 			},
 		},
-		Preferences: []DocPreference{{Dimension: PreferenceDimensionRecording, Value: json.RawMessage(`"no"`),
-			SourceURL: "https://example.org/prefs"}},
 	}
 }
 
@@ -239,8 +234,8 @@ func TestNewPersonSnapshot(t *testing.T) {
 			NotesMD:          new("A bard."),
 			LicensingStatus:  LicensingStatusKnown,
 			LicensingNotesMD: new("Sing freely."),
-			// "Wren the Elder" was public in the document but is not now; the legal alias is hidden in it.
-			Aliases:      []PersonAlias{{Name: stageName, Kind: PersonAliasKindStage}},
+			Aliases: []PersonAlias{{Name: stageName, Kind: PersonAliasKindStage},
+				{Name: "Wren the Elder", Kind: PersonAliasKindFormer}},
 			Roles:        []PersonRole{PersonRoleSinger, PersonRolePoet},
 			Affiliations: []TermSummary{war},
 			Relations:    []SnapshotPersonRelation{{Type: PersonRelationTypeMemberOf, Person: hollis}},
@@ -261,11 +256,10 @@ func TestNewPersonSnapshot(t *testing.T) {
 		PieceIDs: []int64{hiddenPieceID, publicPieceID},
 		PersonIDs: []int64{subjectPersonID, noPagePersonID, hiddenPersonID, publicPersonID, subjectPersonID,
 			publicPersonID},
-		TermIDs:        []int64{hiddenTermID, publicTermID},
-		CollectionIDs:  []int64{hiddenCollectionID},
-		EventIDs:       []int64{publicEventID, hiddenEventID},
-		LinkURLs:       []string{hiddenURL, visibleURL},
-		AliasPersonIDs: []int64{subjectPersonID},
+		TermIDs:       []int64{hiddenTermID, publicTermID},
+		CollectionIDs: []int64{hiddenCollectionID},
+		EventIDs:      []int64{publicEventID, hiddenEventID},
+		LinkURLs:      []string{hiddenURL, visibleURL},
 	}, refs)
 }
 
@@ -308,49 +302,6 @@ func TestNewPersonSnapshot_NoPage(t *testing.T) {
 		want.Status = PersonStatusPrefersNoPage
 		assert.Equal(t, want, snapshot)
 	})
-}
-
-// TestNewPersonSnapshot_Name checks that a snapshot shows the document's name only if it is the person's name
-// now, or one of their public alias names now, compared exactly, and their current name otherwise: a former name
-// that is now a hidden alias must not show, with or without a page.
-func TestNewPersonSnapshot_Name(t *testing.T) {
-	t.Parallel()
-
-	const currentName = "Wren Ashdown"
-	current := PersonSummary{Slug: "wren-ashdown", Name: currentName, Kind: PersonKindCommunityBard}
-	cases := []struct {
-		name    string
-		docName string
-		noPage  bool
-		want    string
-	}{
-		{name: "current_name", docName: currentName, want: currentName},
-		{name: "public_alias", docName: stageName, want: stageName},
-		{name: "hidden_alias", docName: hiddenAlias, want: currentName},
-		{name: "unknown_name", docName: "Wren the Elder", want: currentName},
-		{name: "current_name_recased", docName: "wren ashdown", want: currentName},
-		{name: "public_alias_recased", docName: "WREN", want: currentName},
-		{name: "no_page_hidden_alias", docName: hiddenAlias, noPage: true, want: currentName},
-		{name: "no_page_public_alias", docName: stageName, noPage: true, want: stageName},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			vis := testVisibility()
-			if tc.noPage {
-				vis.NoPagePersons[subjectPersonID] = current
-			} else {
-				vis.Persons[subjectPersonID] = current
-			}
-			doc := personDocument()
-			doc.Name = tc.docName
-			snapshot, err := NewPersonSnapshot(subjectPersonID, doc, vis)
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, snapshot.Name)
-			assert.Equal(t, tc.noPage, snapshot.Profile == nil)
-		})
-	}
 }
 
 // TestNewPersonSnapshot_NotPublic checks that the view of a person the visibility does not hold fails, as their
@@ -408,45 +359,29 @@ func TestNewEventSnapshot(t *testing.T) {
 			Kind: EventKindVenue, DescriptionMD: new("A hall.")}))
 }
 
-// TestNewPieceSnapshot_LinkMatchedByNormalizedURL checks that a document's link is shown, under the visible link's
-// URL, when its normalized form is a visible link's, even though the URL as entered is no link's.
-func TestNewPieceSnapshot_LinkMatchedByNormalizedURL(t *testing.T) {
+// TestNewPieceSnapshot_RespelledHiddenLinkDropped checks that a spelling of a hidden link's URL is dropped, and
+// any other URL shows as written.
+func TestNewPieceSnapshot_RespelledHiddenLinkDropped(t *testing.T) {
 	t.Parallel()
 
+	const written = "https://example.org/other?utm_source=share"
 	doc := PieceDocument{Links: []DocPieceLink{
-		{DocLink: DocLink{URL: "https://Example.org:443/visible?utm_source=share"}},
-		{DocLink: DocLink{URL: "https://example.org/Visible?utm_source=share"}},
+		{DocLink: DocLink{URL: "https://Example.org:443/hidden?utm_source=share"}},
+		{DocLink: DocLink{URL: written}},
 	}}
 
 	snapshot := NewPieceSnapshot(doc, testVisibility())
 
-	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, snapshot.Links)
-}
-
-// TestNewPieceSnapshot_LinkShownUnderVisibleLinkURL checks that a document's link is shown under the visible
-// link's URL, not the document's spelling, when the two differ only in a tracking parameter normalizing drops: a
-// moderator can take down only the visible link, so the view shows nothing it does not hold.
-func TestNewPieceSnapshot_LinkShownUnderVisibleLinkURL(t *testing.T) {
-	t.Parallel()
-
-	const linkURL = visibleURL + "?utm_source=share"
-	vis := testVisibility()
-	vis.VisibleLinks = map[string]string{visibleURL: linkURL}
-	doc := PieceDocument{Links: []DocPieceLink{{DocLink: DocLink{URL: linkURL + "&utm_content=wren"}}}}
-
-	snapshot := NewPieceSnapshot(doc, vis)
-
-	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: linkURL}}}, snapshot.Links)
+	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: written}}}, snapshot.Links)
 }
 
 // TestNewPieceSnapshot_UnnormalizableLinkDropped checks that a document's link whose URL does not normalize is
-// never shown, even if the visible set holds it as entered.
+// never shown.
 func TestNewPieceSnapshot_UnnormalizableLinkDropped(t *testing.T) {
 	t.Parallel()
 
 	const unnormalizable = "mailto:wren@example.invalid"
 	vis := testVisibility()
-	vis.VisibleLinks = map[string]string{unnormalizable: unnormalizable, visibleURL: visibleURL}
 	doc := PieceDocument{Links: []DocPieceLink{{DocLink: DocLink{URL: unnormalizable}}, {DocLink: DocLink{URL: visibleURL}}}}
 
 	snapshot := NewPieceSnapshot(doc, vis)
@@ -469,30 +404,28 @@ func personLinks(t *testing.T, links []DocPersonLink, vis SnapshotVisibility) []
 	return snapshot.Profile.Links
 }
 
-// TestNewPersonSnapshot_LinkMatchedByNormalizedURL checks that a person document's link is shown, under the
-// visible link's URL, when its normalized form is a visible link's, even though the URL as entered is no link's.
-func TestNewPersonSnapshot_LinkMatchedByNormalizedURL(t *testing.T) {
+// TestNewPersonSnapshot_RespelledHiddenLinkDropped checks that a spelling of a hidden link's URL is dropped from a
+// person document, and any other URL shows as written.
+func TestNewPersonSnapshot_RespelledHiddenLinkDropped(t *testing.T) {
 	t.Parallel()
 
-	const linkURL = visibleURL + "?utm_source=share"
-	vis := testVisibility()
-	vis.VisibleLinks = map[string]string{visibleURL: linkURL}
+	const written = "https://example.org/other?utm_source=share"
 	links := []DocPersonLink{
-		{DocLink: DocLink{URL: "https://Example.org:443/visible?utm_source=share&utm_content=wren"}},
-		{DocLink: DocLink{URL: "https://example.org/Visible?utm_source=share"}},
+		{DocLink: DocLink{URL: "https://Example.org:443/hidden?utm_source=share&utm_content=wren"}},
+		{DocLink: DocLink{URL: written}},
 	}
 
-	assert.Equal(t, []SnapshotPersonLink{{SnapshotLink: SnapshotLink{URL: linkURL}}}, personLinks(t, links, vis))
+	assert.Equal(t, []SnapshotPersonLink{{SnapshotLink: SnapshotLink{URL: written}}},
+		personLinks(t, links, testVisibility()))
 }
 
 // TestNewPersonSnapshot_UnnormalizableLinkDropped checks that a person document's link whose URL does not
-// normalize is never shown, even if the visible set holds it as entered.
+// normalize is never shown.
 func TestNewPersonSnapshot_UnnormalizableLinkDropped(t *testing.T) {
 	t.Parallel()
 
 	const unnormalizable = "mailto:wren@example.invalid"
 	vis := testVisibility()
-	vis.VisibleLinks = map[string]string{unnormalizable: unnormalizable, visibleURL: visibleURL}
 	links := []DocPersonLink{{DocLink: DocLink{URL: unnormalizable}}, {DocLink: DocLink{URL: visibleURL}}}
 
 	assert.Equal(t, []SnapshotPersonLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, personLinks(t, links, vis))

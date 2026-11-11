@@ -9,7 +9,7 @@ import (
 
 // CatalogueImporter writes an import into an empty catalogue in one transaction. It returns ErrImportInProgress if
 // another import of the same database is running, and ErrCatalogueNotEmpty if any catalogue or revision row
-// exists; either way, and on any other error, it writes nothing. Errors never quote a value of the import.
+// exists; either way, and on any other error, it writes nothing.
 type CatalogueImporter interface {
 	ImportCatalogue(ctx context.Context, imp domain.CatalogueImport) error
 }

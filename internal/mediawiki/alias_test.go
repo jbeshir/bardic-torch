@@ -60,32 +60,31 @@ func TestClassifyPersonAlias(t *testing.T) {
 		source AliasSource
 		want   AliasClassification
 	}{
-		{wrenOfTheVale, AliasFromLegalNameMarker, AliasClassification{legal, true, AliasRuleLegalMarker}},
-		{ash, AliasFromMundaneNameMarker, AliasClassification{legal, true, AliasRuleLegalMarker}},
-		{wrenOfTheVale, AliasFromH1Parenthetical, AliasClassification{sca, true, AliasRuleByname}},
-		{"Wren of Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, true, AliasRuleByname}},
-		{"Ash the Bold", AliasFromH1Parenthetical, AliasClassification{sca, true, AliasRuleByname}},
-		{"Rowan ap Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, true, AliasRulePatronymic}},
-		{"Rowan inghen Placeholder", AliasFromAKAMarker, AliasClassification{sca, true, AliasRulePatronymic}},
-		{"Ingrid Haraldsdottir", AliasFromH1Parenthetical, AliasClassification{sca, true, AliasRulePatronymicSuffix}},
-		{"Ingrid Haraldsdóttir", AliasFromH1Parenthetical, AliasClassification{sca, true, AliasRulePatronymicSuffix}},
-		{"Kari Placeholderdatter", AliasFromH1Parenthetical, AliasClassification{sca, true, AliasRulePatronymicSuffix}},
-		{"Maria de Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, false, AliasRuleParticle}},
-		{"Hans von Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, false, AliasRuleParticle}},
-		{"Sean Mac Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, false, AliasRuleParticle}},
-		{"Aoife Ó Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, false, AliasRuleParticle}},
-		{wren, AliasFromH1Parenthetical, AliasClassification{legal, false, AliasRuleDefault}},
-		{"J. Placeholder", AliasFromH1Parenthetical, AliasClassification{legal, false, AliasRuleDefault}},
-		{wrenFirst, AliasFromH1Parenthetical, AliasClassification{legal, false, AliasRuleDefault}},
-		{"Wren of", AliasFromH1Parenthetical, AliasClassification{legal, false, AliasRuleDefault}},
-		{"Wren Of Placeholder", AliasFromH1Parenthetical, AliasClassification{legal, false, AliasRuleDefault}},
-		{"Nic Placeholder", AliasFromH1Parenthetical, AliasClassification{legal, false, AliasRuleDefault}},
-		{"Dottir", AliasFromH1Parenthetical, AliasClassification{legal, false, AliasRuleDefault}},
+		{wrenOfTheVale, AliasFromLegalNameMarker, AliasClassification{legal, true}},
+		{ash, AliasFromMundaneNameMarker, AliasClassification{legal, true}},
+		{wrenOfTheVale, AliasFromH1Parenthetical, AliasClassification{sca, true}},
+		{"Wren of Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, true}},
+		{"Ash the Bold", AliasFromH1Parenthetical, AliasClassification{sca, true}},
+		{"Rowan ap Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, true}},
+		{"Rowan inghen Placeholder", AliasFromAKAMarker, AliasClassification{sca, true}},
+		{"Ingrid Haraldsdottir", AliasFromH1Parenthetical, AliasClassification{sca, true}},
+		{"Ingrid Haraldsdóttir", AliasFromH1Parenthetical, AliasClassification{sca, true}},
+		{"Kari Placeholderdatter", AliasFromH1Parenthetical, AliasClassification{sca, true}},
+		{"Maria de Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, false}},
+		{"Hans von Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, false}},
+		{"Sean Mac Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, false}},
+		{"Aoife Ó Placeholder", AliasFromH1Parenthetical, AliasClassification{sca, false}},
+		{wren, AliasFromH1Parenthetical, AliasClassification{legal, false}},
+		{"J. Placeholder", AliasFromH1Parenthetical, AliasClassification{legal, false}},
+		{wrenFirst, AliasFromH1Parenthetical, AliasClassification{legal, false}},
+		{"Wren of", AliasFromH1Parenthetical, AliasClassification{legal, false}},
+		{"Wren Of Placeholder", AliasFromH1Parenthetical, AliasClassification{legal, false}},
+		{"Nic Placeholder", AliasFromH1Parenthetical, AliasClassification{legal, false}},
+		{"Dottir", AliasFromH1Parenthetical, AliasClassification{legal, false}},
 	}
 	for _, tt := range tests {
 		got := ClassifyPersonAlias(AliasCandidate{Name: tt.name, Source: tt.source})
 		assert.Equal(t, tt.want, got, tt.name)
-		assert.Equal(t, tt.want.Kind == sca && tt.want.Confident, got.Public(), tt.name)
 	}
 }
 

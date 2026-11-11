@@ -19,7 +19,7 @@ type PersonList struct {
 // PersonListGet handles GET /v1/persons, a search of the public persons. Persons who prefer no page are listed
 // as stubs.
 type PersonListGet struct {
-	Lister datasources.PublicPersonLister
+	Catalogue datasources.Catalogue
 }
 
 func (c PersonListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +30,7 @@ func (c PersonListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := c.Lister.ListPublicPersons(ctx, query)
+	list, err := c.Catalogue.ListPublicPersons(ctx, query)
 	var unknown *datasources.UnknownTermError
 	switch {
 	case errors.As(err, &unknown):

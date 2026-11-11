@@ -6,7 +6,7 @@
 //	issuer := auth0test.NewIssuer(t)
 //	validate, err := router.NewAuth0Validator(issuer.URL, audience)
 //	token := auth0test.Sign(t, issuer.Key, issuer.Claims(subject, audience))
-//	req.Header.Set("Authorization", "Bearer auth0|"+token)
+//	req.Header.Set("Authorization", "Bearer "+token)
 package auth0test
 
 import (

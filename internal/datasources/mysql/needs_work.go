@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
-
-var _ datasources.PublicNeedsWorkLister = (*Repository)(nil)
 
 // ListPublicNeedsWork lists one page of the public pieces and persons needing work, for reason or (if it is nil)
 // any reason, pieces first, each by sort key and ID, with the total and the count for every reason, in two

@@ -6,9 +6,10 @@ import (
 	"database/sql"
 	"errors"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
+
+	mysqldriver "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,7 +40,7 @@ const seededTitle = "Seeded"
 
 // imported is a database holding the scrubbed import, for the tests that only read it.
 var imported = catalogtest.NewShared(func(c *catalogtest.Catalog) domain.CatalogueImport {
-	imp, _ := importtest.Scrubbed(c.T())
+	imp := importtest.Scrubbed(c.T())
 	c.Import(imp)
 
 	return imp
@@ -80,7 +81,6 @@ func importRowCounts(t *testing.T, imp domain.CatalogueImport) map[string]int {
 		n["person_roles"] += len(d.Roles)
 		n["person_affiliations"] += len(d.AffiliationIDs)
 		n["person_relations"] += len(d.Relations)
-		n["person_preferences"] += len(d.Preferences)
 		for _, l := range d.Links {
 			attach(l.DocLink)
 			for _, perf := range l.Performances {
@@ -96,7 +96,6 @@ func importRowCounts(t *testing.T, imp domain.CatalogueImport) map[string]int {
 		n["piece_terms"] += len(d.Terms)
 		n["piece_relations"] += len(d.Relations)
 		n["piece_credits"] += len(d.Credits)
-		n["piece_preferences"] += len(d.Preferences)
 		if d.Conservation.Status != domain.ConservationStatusUnassessed {
 			n["conservation_history"]++
 		}
@@ -139,7 +138,7 @@ func TestRepository_ImportCatalogue_CatalogueTablesAreEveryCatalogueTable(t *tes
 
 	var tables []string
 	for table := range tableColumns(t, mysqltest.NewDatabase(t)) {
-		if table != "users" && table != "api_tokens" {
+		if table != "users" {
 			tables = append(tables, table)
 		}
 	}
@@ -154,10 +153,7 @@ func TestRepository_ImportCatalogue_WritesEverything(t *testing.T) {
 	counts := tableRowCounts(t, db)
 	assert.Equal(t, emptyCounts(importRowCounts(t, imp)), counts)
 	for _, table := range mysql.CatalogueTables {
-		// The wiki states no preferences.
-		if !strings.HasSuffix(table, "_preferences") {
-			assert.Positive(t, counts[table], "the scrubbed import writes %s rows", table)
-		}
+		assert.Positive(t, counts[table], "the scrubbed import writes %s rows", table)
 	}
 
 	var n int
@@ -226,7 +222,6 @@ func TestRepository_ImportCatalogue_SystemFields(t *testing.T) {
 			wantLyrics++
 		}
 	}
-	assert.Positive(t, wantHidden, "the scrubbed import hides links whose URL holds a name")
 	assert.Equal(t, wantHidden, hidden)
 	assert.Equal(t, wantLegacy, legacyPieces)
 	assert.Equal(t, 11, inlineLyrics)
@@ -301,30 +296,28 @@ func TestRepository_ImportCatalogue_ReadAPI(t *testing.T) {
 
 	checked := 0
 	for _, p := range imp.Persons {
-		var hidden []string
-		for _, a := range p.Doc.Aliases {
-			if !a.IsPublic {
-				hidden = append(hidden, a.Name)
-			}
-		}
-		if len(hidden) == 0 || p.Doc.Status == domain.PersonStatusPrefersNoPage {
+		if len(p.Doc.Aliases) == 0 || p.Doc.Status == domain.PersonStatusPrefersNoPage {
 			continue
 		}
 		person, err := repo.GetPublicPerson(t.Context(), p.Slug)
 		require.NoError(t, err, p.Slug)
 		require.NotNil(t, person.Profile)
+		var shown []string
 		for _, a := range person.Profile.Aliases {
-			assert.NotContains(t, hidden, a.Name, "person %d shows a hidden alias", p.ID)
+			shown = append(shown, a.Name)
+		}
+		for _, a := range p.Doc.Aliases {
+			assert.Contains(t, shown, a.Name, "person %d shows its alias", p.ID)
 		}
 		checked++
 	}
-	assert.Positive(t, checked, "the scrubbed import has persons with hidden aliases")
+	assert.Positive(t, checked, "the scrubbed import has persons with aliases")
 }
 
 func TestRepository_ImportCatalogue_RefusesNonEmpty(t *testing.T) {
 	t.Parallel()
 
-	imp, _ := importtest.Scrubbed(t)
+	imp := importtest.Scrubbed(t)
 	for name, seed := range map[string]struct {
 		seed func(c *catalogtest.Catalog)
 		rows map[string]int
@@ -358,12 +351,11 @@ func TestRepository_ImportCatalogue_RefusesNonEmpty(t *testing.T) {
 }
 
 // TestRepository_ImportCatalogue_RollsBackOnError plants the failure in the last table the import writes, so
-// that every row of every earlier table is shown to be rolled back, and checks that the error does not quote the
-// row the server refused.
+// that every row of every earlier table is shown to be rolled back.
 func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 	t.Parallel()
 
-	imp, _ := importtest.Scrubbed(t)
+	imp := importtest.Scrubbed(t)
 	planted := false
 	for k := len(imp.Pieces) - 1; k >= 0 && !planted; k-- {
 		for l, link := range imp.Pieces[k].Doc.Links {
@@ -383,10 +375,10 @@ func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 
 	err := mysql.New(db).ImportCatalogue(t.Context(), imp)
 
-	var writeErr *mysql.ImportDatabaseError
+	var writeErr *mysqldriver.MySQLError
 	require.ErrorAs(t, err, &writeErr)
-	assert.Equal(t, mysql.ImportDatabaseError{Step: "writing " + tablePerformers, Number: 1062}, *writeErr)
-	assert.NotContains(t, err.Error(), "Duplicate", "the server's message, which quotes values, is not kept")
+	assert.Equal(t, uint16(1062), writeErr.Number)
+	assert.Contains(t, err.Error(), "writing "+tablePerformers)
 	assert.Equal(t, emptyCounts(nil), tableRowCounts(t, db), "every table is rolled back")
 }
 
@@ -395,7 +387,7 @@ func TestRepository_ImportCatalogue_RollsBackOnError(t *testing.T) {
 func TestRepository_ImportCatalogue_ConcurrentImports(t *testing.T) {
 	t.Parallel()
 
-	imp, _ := importtest.Scrubbed(t)
+	imp := importtest.Scrubbed(t)
 	db := mysqltest.NewDatabase(t)
 	errs := make([]error, 2)
 	var wg sync.WaitGroup

@@ -8,66 +8,24 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// TitleSource is where an alternate title of a piece was found.
-type TitleSource string
-
-// The title sources.
-const (
-	TitleFromRedirect    TitleSource = "redirect"
-	TitleFromInfobox     TitleSource = "infobox_title"
-	TitleFromH1          TitleSource = "h1"
-	TitleFromOtherTitles TitleSource = "other_titles"
-	TitleFromAlsoKnownAs TitleSource = "also_known_as"
-)
-
-// TitleRejection is why an alternate title is not imported.
-type TitleRejection string
-
-// The title rejections.
-const (
-	// TitleIsOtherPage is a title that is another page's: a copy-paste error (Fight for the Midrealm's infobox
-	// says Voice of the Dragon).
-	TitleIsOtherPage TitleRejection = "other_page"
-	// TitleIsCategoryWord is a title that is a category or facet word, not a title (Birthday Dirge's infobox says
-	// Miscellaneous).
-	TitleIsCategoryWord TitleRejection = "category_word"
-)
-
 // AltTitle is an alternate title of a piece, imported as an alias of Kind.
 type AltTitle struct {
-	Text   string
-	Kind   domain.PieceAliasKind
-	Source TitleSource
-}
-
-// RejectedTitle is an alternate title that is not imported, for the import review.
-type RejectedTitle struct {
-	Text   string
-	Source TitleSource
-	Reason TitleRejection
-}
-
-// UnparsedTitle is a line of a piece's lead naming other titles in a form the importer does not parse (as
-// Warrior's Wyrd's "This song is also known as 'A' and 'B'."), for the import review. Text is its plain text.
-type UnparsedTitle struct {
-	Section SectionKey
-	Text    string
+	Text string
+	Kind domain.PieceAliasKind
 }
 
 // PieceTitles are a piece's other titles. The page title is canonical; the infobox title, the H1 (its
 // parentheticals included, which name the piece, never a person), other_titles, "Also known as" lead lines and the
 // redirects to the page are alternates, each kept once and only if it differs from the title and from each other
-// beyond case and punctuation.
+// beyond case and punctuation. A title that is another page's (a copy-paste error: Fight for the Midrealm's infobox
+// says Voice of the Dragon) or a category or facet word (Birthday Dirge's infobox says Miscellaneous) is not one.
 type PieceTitles struct {
 	Alternates []AltTitle
-	Rejected   []RejectedTitle
-	Unparsed   []UnparsedTitle
 }
 
 var (
 	trailingParenthetical = regexp.MustCompile(`^(.*[^` + jsSpaces + `])[` + jsSpaces + `]*\(([^()]+)\)$`)
 	alsoKnownAsLine       = regexp.MustCompile(`(?i)^also known as\b:?[` + jsSpaces + `]*(.+)$`)
-	otherTitlesMention    = regexp.MustCompile(`(?i)\b(?:also known as|also called|also titled|a\.k\.a\.|aka)\b`)
 	titleListSeparator    = regexp.MustCompile(`(?i),|[` + jsSpaces + `]&[` + jsSpaces + `]|\bor\b`)
 	otherTitlesSeparator  = regexp.MustCompile(`[,;]`)
 )
@@ -98,7 +56,7 @@ func pieceTitles(p Page, parsed ParsedPage, s Site) PieceTitles {
 	for _, r := range s.RedirectsTo(p.Title) {
 		t.seen[titleKey(r)] = true
 		t.titles.Alternates = append(t.titles.Alternates, AltTitle{
-			Text: r, Kind: domain.PieceAliasKindRedirect, Source: TitleFromRedirect,
+			Text: r, Kind: domain.PieceAliasKindRedirect,
 		})
 	}
 	var box Infobox
@@ -106,14 +64,14 @@ func pieceTitles(p Page, parsed ParsedPage, s Site) PieceTitles {
 		box = parsed.Infoboxes[0]
 	}
 	if param, ok := box.Param(titleParam); ok {
-		t.addSplit(Plain(param.Raw), TitleFromInfobox)
+		t.addSplit(Plain(param.Raw))
 	}
 	if parsed.HasH1 {
-		t.addSplit(Plain(parsed.H1), TitleFromH1)
+		t.addSplit(Plain(parsed.H1))
 	}
 	if param, ok := box.Param(otherTitlesParam); ok {
 		for _, part := range otherTitlesSeparator.Split(param.Raw, -1) {
-			t.add(Plain(part), domain.PieceAliasKindAltTitle, TitleFromOtherTitles)
+			t.add(Plain(part), domain.PieceAliasKindAltTitle)
 		}
 	}
 	for _, sec := range parsed.Sections {
@@ -125,19 +83,14 @@ func pieceTitles(p Page, parsed ParsedPage, s Site) PieceTitles {
 	return t.titles
 }
 
-// addLead adds the titles of a lead section's "Also known as" lines and lists its other lines naming titles.
+// addLead adds the titles of a lead section's "Also known as" lines.
 func (t *titleCollector) addLead(sec PageSection) {
 	for _, line := range strings.Split(sec.Content.PlainText, "\n") {
 		line = trimSpace(line)
 		if m := alsoKnownAsLine.FindStringSubmatch(line); m != nil {
 			for _, part := range titleListSeparator.Split(m[1], -1) {
-				t.add(strings.Trim(part, titleQuotes), domain.PieceAliasKindAltTitle, TitleFromAlsoKnownAs)
+				t.add(strings.Trim(part, titleQuotes), domain.PieceAliasKindAltTitle)
 			}
-
-			continue
-		}
-		if otherTitlesMention.MatchString(line) {
-			t.titles.Unparsed = append(t.titles.Unparsed, UnparsedTitle{Section: sec.Key, Text: line})
 		}
 	}
 }
@@ -159,7 +112,7 @@ type titleCollector struct {
 // the page title followed by a parenthetical, whose parts are then the titles: a subtitle when there is one
 // ("Wren's Song (The Vale Sings Softly)") and alternate titles when there are several ("Rise (We Shall Rise /
 // Rise Ealdormere)").
-func (t *titleCollector) addSplit(value string, source TitleSource) {
+func (t *titleCollector) addSplit(value string) {
 	title := titleKey(t.page.Title)
 	if titleKey(value) == title {
 		return
@@ -170,7 +123,7 @@ func (t *titleCollector) addSplit(value string, source TitleSource) {
 		}
 		m := trailingParenthetical.FindStringSubmatch(trimSpace(part))
 		if m == nil || titleKey(m[1]) != title {
-			t.add(part, domain.PieceAliasKindAltTitle, source)
+			t.add(part, domain.PieceAliasKindAltTitle)
 
 			continue
 		}
@@ -180,7 +133,7 @@ func (t *titleCollector) addSplit(value string, source TitleSource) {
 			kind = domain.PieceAliasKindSubtitle
 		}
 		for _, p := range inner {
-			t.add(p, kind, source)
+			t.add(p, kind)
 		}
 	}
 }
@@ -204,22 +157,15 @@ func splitOutsideParentheses(s string) []string {
 	return append(parts, s[last:])
 }
 
-func (t *titleCollector) add(text string, kind domain.PieceAliasKind, source TitleSource) {
+func (t *titleCollector) add(text string, kind domain.PieceAliasKind) {
 	text = trimSpace(text)
 	key := titleKey(text)
 	if key == "" || t.seen[key] {
 		return
 	}
 	t.seen[key] = true
-	switch {
-	case t.isOtherPage(key):
-		t.titles.Rejected = append(t.titles.Rejected, RejectedTitle{Text: text, Source: source, Reason: TitleIsOtherPage})
-	case t.isCategoryWord(key):
-		t.titles.Rejected = append(t.titles.Rejected, RejectedTitle{
-			Text: text, Source: source, Reason: TitleIsCategoryWord,
-		})
-	default:
-		t.titles.Alternates = append(t.titles.Alternates, AltTitle{Text: text, Kind: kind, Source: source})
+	if !t.isOtherPage(key) && !t.isCategoryWord(key) {
+		t.titles.Alternates = append(t.titles.Alternates, AltTitle{Text: text, Kind: kind})
 	}
 }
 

@@ -14,14 +14,12 @@ import (
 const infoboxSectionPrefix = "infobox:"
 
 // LinkOccurrence is one external link as a page writes it: its URL and text, whether it is bracketed, the trimmed
-// line it is on, that line's index among its section's non-blank lines and the key of its section
-// ("infobox:<param>" for one in an infobox, whose line is empty).
+// line it is on and the key of its section ("infobox:<param>" for one in an infobox, whose line is empty).
 type LinkOccurrence struct {
 	URL       string
 	Text      string
 	Bracketed bool
 	Line      string
-	LineIndex int
 	Section   SectionKey
 }
 
@@ -41,32 +39,20 @@ type LinkFields struct {
 }
 
 // LinkRecord is a link attached to a piece or person: its fields, its roles in first-seen order, the sections it
-// occurs in, the collections tying for it (it then belongs to none, for review) and the performances it records.
+// occurs in and the performances it records.
 type LinkRecord struct {
 	LinkFields
-	Roles          []domain.LinkRole
-	Sections       []SectionKey
-	CollectionTied []string
-	Performances   []Performance
+	Roles        []domain.LinkRole
+	Sections     []SectionKey
+	Performances []Performance
 }
 
 // PageLinks are the external links of a page: every occurrence in order (the sections', then the infoboxes'), the
 // links attached to the page's piece or person (one per normalised URL; infobox links name persons, so they are
-// not the piece's), the occurrences whose URL does not normalise, which are dropped, and the runs of link lines
-// whose text could be lyrics (LinkProseRun).
+// not the piece's). Occurrences whose URL does not normalise are dropped.
 type PageLinks struct {
 	Occurrences []LinkOccurrence
 	Links       []LinkRecord
-	Dropped     []LinkOccurrence
-	ProseRuns   []LinkProseRun
-}
-
-// LinkProseRun is a run of consecutive lines of a section (blank lines aside) that each carry an external link and
-// text around it, reading as at least InlineLyricsMinLines lines (TextLines) in all: the text could be lyrics, so
-// the links of those lines are kept without a description. Lines is the number of lines the text reads as.
-type LinkProseRun struct {
-	Section SectionKey
-	Lines   int
 }
 
 // sectionRoles are the roles of the links in each section; links in other sections have role other.
@@ -192,7 +178,7 @@ func pageOccurrences(parsed ParsedPage) []LinkOccurrence {
 	for _, sec := range parsed.Sections {
 		for _, e := range sec.Content.ExternalLinks {
 			out = append(out, LinkOccurrence{URL: e.URL, Text: e.Text, Bracketed: e.Bracketed, Line: e.Line,
-				LineIndex: e.LineIndex, Section: sec.Key})
+				Section: sec.Key})
 		}
 	}
 	for _, box := range parsed.Infoboxes {
@@ -216,12 +202,9 @@ func pageOccurrences(parsed ParsedPage) []LinkOccurrence {
 }
 
 // extractLinks returns a page's links: its occurrences, and the links of its sections deduplicated by normalised
-// URL, each keeping the first URL as entered, the first text and locator and the union of the roles. A link on a
-// line of a prose run has no description.
+// URL, each keeping the first URL as entered, the first text and locator and the union of the roles.
 func extractLinks(parsed ParsedPage, ctx linkContext) PageLinks {
 	out := PageLinks{Occurrences: pageOccurrences(parsed)}
-	inRun := map[sectionLine]bool{}
-	out.ProseRuns = proseRuns(out.Occurrences, inRun)
 	lines := map[string]int{}
 	for _, o := range out.Occurrences {
 		lines[string(o.Section)+"\n"+o.Line]++
@@ -237,12 +220,7 @@ func extractLinks(parsed ParsedPage, ctx linkContext) PageLinks {
 		}
 		rec, ok := linkOf(o, line, ctx)
 		if !ok {
-			out.Dropped = append(out.Dropped, o)
-
 			continue
-		}
-		if inRun[sectionLine{o.Section, o.LineIndex}] {
-			rec.Description = ""
 		}
 		k, seen := byURL[rec.NormalizedURL]
 		if !seen {
@@ -260,76 +238,6 @@ func extractLinks(parsed ParsedPage, ctx linkContext) PageLinks {
 	return out
 }
 
-// sectionLine is a line of a section, by its index among the section's non-blank lines.
-type sectionLine struct {
-	section SectionKey
-	index   int
-}
-
-// proseRuns returns the runs of lines whose text around their links could be lyrics (LinkProseRun), in order, and
-// adds their lines to inRun. Infobox and performance sections have none: their links have no description.
-func proseRuns(occurrences []LinkOccurrence, inRun map[sectionLine]bool) []LinkProseRun {
-	var runs []LinkProseRun
-	var run []sectionLine
-	lines := 0
-	flush := func() {
-		if lines >= InlineLyricsMinLines {
-			runs = append(runs, LinkProseRun{Section: run[0].section, Lines: lines})
-			for _, l := range run {
-				inRun[l] = true
-			}
-		}
-		run, lines = nil, 0
-	}
-	seen := map[sectionLine]bool{}
-	for _, o := range occurrences {
-		at := sectionLine{o.Section, o.LineIndex}
-		if o.Section.IsInfobox() || o.Section.IsPerformanceSection() || seen[at] {
-			continue
-		}
-		seen[at] = true
-		n := proseLinesAround(o.Line)
-		if n == 0 {
-			flush()
-
-			continue
-		}
-		if k := len(run); k > 0 && (run[k-1].section != at.section || run[k-1].index+1 != at.index) {
-			flush()
-		}
-		run = append(run, at)
-		lines += n
-	}
-	flush()
-
-	return runs
-}
-
-// proseLinesAround is the number of lines the text of a line around its external links reads as (TextLines), or 0
-// if that text is only list markers and separators.
-func proseLinesAround(line string) int {
-	rest := withoutExternalLinks(line)
-	if trimDescription(collapseSpaces(Plain(rest))) == "" {
-		return 0
-	}
-
-	return max(TextLines(rest), 1)
-}
-
-// withoutExternalLinks is line with each external link replaced by a space.
-func withoutExternalLinks(line string) string {
-	var rest strings.Builder
-	last := 0
-	for _, e := range FindExternalLinks(line) {
-		rest.WriteString(line[last:e.Start])
-		rest.WriteByte(' ')
-		last = e.End
-	}
-	rest.WriteString(line[last:])
-
-	return rest.String()
-}
-
 // linkOf is one occurrence as a link, with the role of its section, or false if its URL does not normalise.
 func linkOf(o LinkOccurrence, line string, ctx linkContext) (LinkRecord, bool) {
 	normalized, err := domain.NormalizeURL(o.URL)
@@ -340,14 +248,12 @@ func linkOf(o LinkOccurrence, line string, ctx linkContext) (LinkRecord, bool) {
 	if err != nil {
 		return LinkRecord{}, false
 	}
-	match := ctx.collections.Match(normalized)
 	rec := LinkRecord{
 		LinkFields: LinkFields{URL: o.URL, NormalizedURL: normalized, Title: Plain(o.Text),
-			Description: linkDescription(o, line), Platform: linkPlatform(u), CollectionURL: match.URL,
-			Locator: Locator(o.Text, u.Fragment, line)},
-		Roles:          []domain.LinkRole{sectionRole(o.Section, normalized, ctx)},
-		Sections:       []SectionKey{o.Section},
-		CollectionTied: match.Tied,
+			Description: linkDescription(o, line), Platform: linkPlatform(u),
+			CollectionURL: ctx.collections.Match(normalized).URL, Locator: Locator(o.Text, u.Fragment, line)},
+		Roles:    []domain.LinkRole{sectionRole(o.Section, normalized, ctx)},
+		Sections: []SectionKey{o.Section},
 	}
 
 	return rec, true
@@ -483,21 +389,4 @@ func placeType(l LinkRecord, ctx linkContext) domain.LinkPlaceType {
 	}
 
 	return ""
-}
-
-// trackingParameter is a query parameter that only tracks, as the reference's quality report finds them.
-// RepeatedURLs are the URLs, as entered, that a page's occurrences hold more than once, in first-seen order.
-func (p PageLinks) RepeatedURLs() []string {
-	count := map[string]int{}
-	for _, o := range p.Occurrences {
-		count[o.URL]++
-	}
-	var out []string
-	for _, o := range p.Occurrences {
-		if count[o.URL] > 1 && !slices.Contains(out, o.URL) {
-			out = append(out, o.URL)
-		}
-	}
-
-	return out
 }

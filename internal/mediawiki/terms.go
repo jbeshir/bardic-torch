@@ -69,50 +69,9 @@ type TermSpec struct {
 	Aliases            []string
 }
 
-// TaxonomyDecisionKind is a kind of decision PlanTerms took that the wiki does not state.
-type TaxonomyDecisionKind string
-
-// The taxonomy decision kinds.
-const (
-	// DecisionUnparentedPlaced is a category with no parent placed by the PLAN §2.10 rules (Related is the
-	// parent, or empty for a facet root).
-	DecisionUnparentedPlaced TaxonomyDecisionKind = "unparented_placed"
-	// DecisionUnparentedDropped is a category with no parent and no PLAN §2.10 rule: not imported.
-	DecisionUnparentedDropped TaxonomyDecisionKind = "unparented_dropped"
-	// DecisionPlaceholderDropped is a template placeholder category (Kingdom Name): not imported.
-	DecisionPlaceholderDropped TaxonomyDecisionKind = "placeholder_dropped"
-	// DecisionUnclassifiedDropped is a category of no known class: not imported.
-	DecisionUnclassifiedDropped TaxonomyDecisionKind = "unclassified_dropped"
-	// DecisionAffiliationLinked is a Patriotic topic linked to the affiliation term Related.
-	DecisionAffiliationLinked TaxonomyDecisionKind = "affiliation_linked"
-	// DecisionNoAffiliationTerm is a Patriotic topic naming a place (Related) that is no affiliation term.
-	DecisionNoAffiliationTerm TaxonomyDecisionKind = "no_affiliation_term"
-	// DecisionGroupPlaced is a local group placed under the kingdom Related, the one kingdom its bards share (or
-	// under the organisation if they share none).
-	DecisionGroupPlaced TaxonomyDecisionKind = "group_placed"
-	// DecisionOrganisationRenamed is an organisation category imported under another name (Related).
-	DecisionOrganisationRenamed TaxonomyDecisionKind = "organisation_renamed"
-	// DecisionRedirectAliasDropped is a redirect category leading to a category that is no term (Related).
-	DecisionRedirectAliasDropped TaxonomyDecisionKind = "redirect_alias_dropped"
-	// DecisionParentNotTerm is a term whose wiki parent (Related) is no term: it becomes a root of its facet.
-	DecisionParentNotTerm TaxonomyDecisionKind = "parent_not_term"
-	// DecisionDepthCapped is a term more than domain.MaxTermDepth levels deep, moved up under Related.
-	DecisionDepthCapped TaxonomyDecisionKind = "depth_capped"
-	// DecisionExtraParentsDropped is a term with several wiki parents, kept under the first (Related).
-	DecisionExtraParentsDropped TaxonomyDecisionKind = "extra_parents_dropped"
-)
-
-// TaxonomyDecision is one decision PlanTerms took about Category, for the import review.
-type TaxonomyDecision struct {
-	Kind     TaxonomyDecisionKind
-	Category string
-	Related  string
-}
-
-// TermPlan is the terms to import, roots before their children, and the decisions taken to plan them.
+// TermPlan is the terms to import, roots before their children.
 type TermPlan struct {
-	Terms     []TermSpec
-	Decisions []TaxonomyDecision
+	Terms []TermSpec
 }
 
 // Term returns the planned term of a category.
@@ -148,14 +107,9 @@ func PlanTerms(t Taxonomy) TermPlan {
 }
 
 type termPlanner struct {
-	taxonomy  Taxonomy
-	specs     map[string]*TermSpec
-	children  map[string][]string // by parent category; facet roots under "facet:<facet>"
-	decisions []TaxonomyDecision
-}
-
-func (p *termPlanner) decide(kind TaxonomyDecisionKind, category, related string) {
-	p.decisions = append(p.decisions, TaxonomyDecision{Kind: kind, Category: category, Related: related})
+	taxonomy Taxonomy
+	specs    map[string]*TermSpec
+	children map[string][]string // by parent category; facet roots under "facet:<facet>"
 }
 
 func (p *termPlanner) add(category string, facet domain.Facet, name, parent string) {
@@ -176,7 +130,6 @@ func (p *termPlanner) add(category string, facet domain.Facet, name, parent stri
 }
 
 func (p *termPlanner) planFacetTerms() {
-	p.decideDropped()
 	// Facet terms in wiki order: each top-level category's subtree, depth first.
 	for _, top := range p.taxonomy.TopLevel {
 		facet, ok := topLevelFacets[top]
@@ -192,26 +145,6 @@ func (p *termPlanner) planFacetTerms() {
 	p.planUnparented()
 }
 
-// decideDropped lists the categories that are dropped: placeholders, unclassified ones and unparented ones with no
-// PLAN §2.10 rule.
-func (p *termPlanner) decideDropped() {
-	for _, name := range sortedCategories(p.taxonomy) {
-		switch p.taxonomy.Nodes[name].Class {
-		case ClassFacetTermUnparented:
-			if !slices.ContainsFunc(unparentedTerms, func(u unparentedTerm) bool { return u.category == name }) {
-				p.decide(DecisionUnparentedDropped, name, "")
-			}
-		case ClassTemplatePlaceholder:
-			p.decide(DecisionPlaceholderDropped, name, "")
-		case ClassUnclassified:
-			p.decide(DecisionUnclassifiedDropped, name, "")
-		case ClassRoot, ClassFacetRoot, ClassKind, ClassConservationStatus, ClassBardName, ClassSCAKingdom,
-			ClassBardPerformerType, ClassBardAffiliation, ClassFacetTerm, ClassBardStatus, ClassEntityType,
-			ClassRedirect, ClassBardAffiliationGroup:
-		}
-	}
-}
-
 // planUnreached adds the facet terms the walk from the top level did not reach, because their parent is no term,
 // as roots of their facet.
 func (p *termPlanner) planUnreached() {
@@ -222,12 +155,7 @@ func (p *termPlanner) planUnreached() {
 		}
 		facet, ok := facetOfNode(node)
 		if !ok {
-			p.decide(DecisionUnclassifiedDropped, name, "")
-
 			continue
-		}
-		if len(node.Parents) > 0 {
-			p.decide(DecisionParentNotTerm, name, node.Parents[0])
 		}
 		p.add(name, facet, name, "")
 		p.addSubtree(name, facet, name)
@@ -245,7 +173,6 @@ func (p *termPlanner) planUnparented() {
 			parent = ""
 		}
 		p.add(u.category, u.facet, u.category, parent)
-		p.decide(DecisionUnparentedPlaced, u.category, parent)
 	}
 }
 
@@ -259,9 +186,6 @@ func (p *termPlanner) addSubtree(category string, facet domain.Facet, parent str
 		}
 		if _, done := p.specs[sub]; done {
 			continue
-		}
-		if len(node.Parents) > 1 {
-			p.decide(DecisionExtraParentsDropped, sub, category)
 		}
 		p.add(sub, facet, sub, parent)
 		p.addSubtree(sub, facet, sub)
@@ -304,7 +228,6 @@ func (p *termPlanner) planAffiliations() {
 			parent = root
 		}
 		p.add(name, domain.FacetAffiliation, name, parent)
-		p.decide(DecisionGroupPlaced, name, parent)
 	}
 }
 
@@ -319,9 +242,6 @@ func (p *termPlanner) planOrganisations() string {
 		name := affiliationRootNames[org]
 		p.add(org, domain.FacetAffiliation, name, "")
 		p.specs[org].Aliases = []string{org}
-		if name != org {
-			p.decide(DecisionOrganisationRenamed, org, name)
-		}
 		if org == CategorySCABards {
 			root = org
 		}
@@ -363,11 +283,7 @@ func (p *termPlanner) linkPatrioticTopics() {
 		}
 		if spec, ok := p.specs[m[1]]; ok && spec.Facet == domain.FacetAffiliation {
 			p.specs[name].RelatedAffiliation = m[1]
-			p.decide(DecisionAffiliationLinked, name, m[1])
-
-			continue
 		}
-		p.decide(DecisionNoAffiliationTerm, name, m[1])
 	}
 }
 
@@ -377,13 +293,9 @@ func (p *termPlanner) addRedirectAliases() {
 			continue
 		}
 		target := p.taxonomy.Resolve(name)
-		spec, ok := p.specs[target]
-		if !ok {
-			p.decide(DecisionRedirectAliasDropped, name, target)
-
-			continue
+		if spec, ok := p.specs[target]; ok {
+			spec.Aliases = append(spec.Aliases, name)
 		}
-		spec.Aliases = append(spec.Aliases, name)
 	}
 }
 
@@ -398,7 +310,6 @@ func (p *termPlanner) result() TermPlan {
 			spec.Position = k
 			if depth > domain.MaxTermDepth {
 				spec.Parent = under
-				p.decide(DecisionDepthCapped, category, under)
 			}
 			terms = append(terms, spec)
 			next := under
@@ -412,12 +323,12 @@ func (p *termPlanner) result() TermPlan {
 		walk("facet:"+string(f), 0, "")
 	}
 
-	return TermPlan{Terms: terms, Decisions: p.decisions}
+	return TermPlan{Terms: terms}
 }
 
 // categoryDescription is a category page's description as Markdown, without its category tags and lyrics.
 func categoryDescription(wikitext string) string {
-	text := WithoutInlineLyrics(wikitext, InlineLyricsBlocks(wikitext).Blocks)
+	text, _ := DropInlineLyrics(wikitext)
 
 	return WikitextToMarkdown(categoryTag.ReplaceAllString(text, ""))
 }

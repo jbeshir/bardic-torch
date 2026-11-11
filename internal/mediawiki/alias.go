@@ -113,67 +113,40 @@ func markerSource(kind string) AliasSource {
 	return AliasFromAKAMarker
 }
 
-// AliasRule is the rule of ClassifyPersonAlias that classified a name.
-type AliasRule string
-
-// The alias rules, in the order ClassifyPersonAlias applies them.
-const (
-	// AliasRuleLegalMarker: the name followed "legal name" or "mundane name".
-	AliasRuleLegalMarker AliasRule = "legal_name_marker"
-	// AliasRuleByname: "of" or "the" before a capitalised word ("Wren of Placeholder", "Ash the Bold").
-	AliasRuleByname AliasRule = "byname"
-	// AliasRulePatronymic: a patronymic marker word (ap, ab, verch, ferch, inghen, ingen, nic, bint, ibn).
-	AliasRulePatronymic AliasRule = "patronymic_marker"
-	// AliasRulePatronymicSuffix: a word ending in -dottir or -datter.
-	AliasRulePatronymicSuffix AliasRule = "patronymic_suffix"
-	// AliasRuleParticle: a particle that legal names use as much as SCA names (de, von, mac, …).
-	AliasRuleParticle AliasRule = "shared_particle"
-	// AliasRuleDefault: nothing marks the name as an SCA name.
-	AliasRuleDefault AliasRule = "default"
-)
-
-// AliasClassification is what kind of name an alias is and whether that is certain.
+// AliasClassification is what kind of name an alias is and whether the rules are sure of it: Confident decides
+// whether a stub can be historical.
 type AliasClassification struct {
 	Kind      domain.PersonAliasKind
 	Confident bool
-	Rule      AliasRule
-}
-
-// Public reports whether an alias so classified may be public: only a confident classification as a kind other
-// than legal. Everything else is hidden and listed for review (fail closed).
-func (c AliasClassification) Public() bool {
-	return c.Confident && c.Kind != domain.PersonAliasKindLegal
 }
 
 var patronymicSuffixes = []string{"dottir", "datter"}
 
-// ClassifyPersonAlias classifies a bard's alias, failing closed. The first rule that applies wins:
+// ClassifyPersonAlias classifies a bard's alias. The first rule that applies wins:
 //  1. a name after a "legal name" or "mundane name" marker is legal, confidently;
 //  2. a name with "of" or "the" before a capitalised word, a patronymic marker word or a word ending in -dottir
 //     or -datter is an SCA name, confidently;
 //  3. a name with one of the particles legal names share (particleShared: de, la, van, mac…) is an SCA name,
 //     but not confidently;
 //  4. any other name is legal, not confidently.
-//
-// Only a confident non-legal classification is public (AliasClassification.Public).
 func ClassifyPersonAlias(c AliasCandidate) AliasClassification {
 	if c.Source == AliasFromLegalNameMarker || c.Source == AliasFromMundaneNameMarker {
-		return AliasClassification{Kind: domain.PersonAliasKindLegal, Confident: true, Rule: AliasRuleLegalMarker}
+		return AliasClassification{Kind: domain.PersonAliasKindLegal, Confident: true}
 	}
 	words := strings.FieldsFunc(c.Name, func(r rune) bool { return isSpace(r) || r == ',' })
-	if rule, ok := confidentSCARule(words); ok {
-		return AliasClassification{Kind: domain.PersonAliasKindSCA, Confident: true, Rule: rule}
+	if confidentSCA(words) {
+		return AliasClassification{Kind: domain.PersonAliasKindSCA, Confident: true}
 	}
 	for _, w := range words {
 		if particleKindOf(w) == particleShared {
-			return AliasClassification{Kind: domain.PersonAliasKindSCA, Rule: AliasRuleParticle}
+			return AliasClassification{Kind: domain.PersonAliasKindSCA}
 		}
 	}
 
-	return AliasClassification{Kind: domain.PersonAliasKindLegal, Rule: AliasRuleDefault}
+	return AliasClassification{Kind: domain.PersonAliasKindLegal}
 }
 
-func confidentSCARule(words []string) (AliasRule, bool) {
+func confidentSCA(words []string) bool {
 	for k, w := range words {
 		// A capitalised "Of", "The" or "Ap" is not taken for a particle: only the lower-case word is confident.
 		kind := particleKindOf(w)
@@ -181,20 +154,20 @@ func confidentSCARule(words []string) (AliasRule, bool) {
 			kind = particleNone
 		}
 		if kind == particleByname && k+1 < len(words) && isCapitalised(words[k+1]) {
-			return AliasRuleByname, true
+			return true
 		}
 		if kind == particlePatronymic {
-			return AliasRulePatronymic, true
+			return true
 		}
 		folded := domain.CollationKey(w)
 		for _, suffix := range patronymicSuffixes {
 			if len(folded) > len(suffix) && strings.HasSuffix(folded, suffix) {
-				return AliasRulePatronymicSuffix, true
+				return true
 			}
 		}
 	}
 
-	return "", false
+	return false
 }
 
 // FoldName is the key person names are matched by (never displayed): letters folded (domain.FoldLetters),

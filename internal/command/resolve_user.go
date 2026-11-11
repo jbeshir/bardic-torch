@@ -16,15 +16,14 @@ var _ Command[string, domain.User] = (*ResolveUser)(nil)
 // name on their first request. Existing users are returned as stored, so their role, display name and blocked
 // state are never changed.
 type ResolveUser struct {
-	Getter  datasources.UserGetter
-	Ensurer datasources.UserEnsurer
-	Now     func() time.Time
+	Users datasources.Users
+	Now   func() time.Time
 }
 
 // Execute resolves the user with ID userID. In the steady state this is a single read; the user is only
 // created when the read finds none.
 func (c *ResolveUser) Execute(ctx context.Context, userID string) (domain.User, error) {
-	user, err := c.Getter.GetUser(ctx, userID)
+	user, err := c.Users.GetUser(ctx, userID)
 	if err == nil {
 		return user, nil
 	}
@@ -32,7 +31,7 @@ func (c *ResolveUser) Execute(ctx context.Context, userID string) (domain.User, 
 		return domain.User{}, fmt.Errorf("getting user: %w", err)
 	}
 
-	user, err = c.Ensurer.EnsureUser(ctx, datasources.NewUser{
+	user, err = c.Users.EnsureUser(ctx, datasources.NewUser{
 		ID:          userID,
 		DisplayName: domain.DefaultDisplayName(userID),
 		CreatedAt:   c.Now(),

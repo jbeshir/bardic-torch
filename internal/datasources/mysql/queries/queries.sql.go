@@ -143,71 +143,6 @@ func (q *Queries) CountPublicPersonWorks(ctx context.Context, personID sql.NullI
 	return count, err
 }
 
-const countUserActiveAPITokens = `-- name: CountUserActiveAPITokens :one
-SELECT COUNT(*)
-FROM api_tokens
-WHERE user_id = ? AND revoked_at IS NULL
-`
-
-func (q *Queries) CountUserActiveAPITokens(ctx context.Context, userID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUserActiveAPITokens, userID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const createAPIToken = `-- name: CreateAPIToken :exec
-
-INSERT INTO api_tokens (id, user_id, token_hash, token_prefix, name, created_at)
-VALUES (?, ?, ?, ?, ?, ?)
-`
-
-type CreateAPITokenParams struct {
-	ID          string
-	UserID      string
-	TokenHash   string
-	TokenPrefix string
-	Name        sql.NullString
-	CreatedAt   time.Time
-}
-
-// ============================================
-// API tokens
-// ============================================
-func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) error {
-	_, err := q.db.ExecContext(ctx, createAPIToken,
-		arg.ID,
-		arg.UserID,
-		arg.TokenHash,
-		arg.TokenPrefix,
-		arg.Name,
-		arg.CreatedAt,
-	)
-	return err
-}
-
-const getAPITokenByHash = `-- name: GetAPITokenByHash :one
-SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
-FROM api_tokens
-WHERE token_hash = ?
-`
-
-func (q *Queries) GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiToken, error) {
-	row := q.db.QueryRowContext(ctx, getAPITokenByHash, tokenHash)
-	var i ApiToken
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.TokenHash,
-		&i.TokenPrefix,
-		&i.Name,
-		&i.CreatedAt,
-		&i.LastUsedAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
 const getApprovedBaseRevision = `-- name: GetApprovedBaseRevision :one
 
 SELECT b.id, b.snapshot_json
@@ -957,46 +892,18 @@ func (q *Queries) InsertPersonAffiliation(ctx context.Context, arg InsertPersonA
 }
 
 const insertPersonAlias = `-- name: InsertPersonAlias :exec
-INSERT INTO person_aliases (person_id, name, kind, is_public)
-VALUES (?, ?, ?, ?)
+INSERT INTO person_aliases (person_id, name, kind)
+VALUES (?, ?, ?)
 `
 
 type InsertPersonAliasParams struct {
 	PersonID uint64
 	Name     string
 	Kind     PersonAliasesKind
-	IsPublic bool
 }
 
 func (q *Queries) InsertPersonAlias(ctx context.Context, arg InsertPersonAliasParams) error {
-	_, err := q.db.ExecContext(ctx, insertPersonAlias,
-		arg.PersonID,
-		arg.Name,
-		arg.Kind,
-		arg.IsPublic,
-	)
-	return err
-}
-
-const insertPersonPreference = `-- name: InsertPersonPreference :exec
-INSERT INTO person_preferences (person_id, dimension, value_json, source_url)
-VALUES (?, ?, ?, ?)
-`
-
-type InsertPersonPreferenceParams struct {
-	PersonID  uint64
-	Dimension PersonPreferencesDimension
-	ValueJson json.RawMessage
-	SourceUrl string
-}
-
-func (q *Queries) InsertPersonPreference(ctx context.Context, arg InsertPersonPreferenceParams) error {
-	_, err := q.db.ExecContext(ctx, insertPersonPreference,
-		arg.PersonID,
-		arg.Dimension,
-		arg.ValueJson,
-		arg.SourceUrl,
-	)
+	_, err := q.db.ExecContext(ctx, insertPersonAlias, arg.PersonID, arg.Name, arg.Kind)
 	return err
 }
 
@@ -1073,28 +980,6 @@ func (q *Queries) InsertPieceCredit(ctx context.Context, arg InsertPieceCreditPa
 		arg.Part,
 		arg.Note,
 		arg.Position,
-	)
-	return err
-}
-
-const insertPiecePreference = `-- name: InsertPiecePreference :exec
-INSERT INTO piece_preferences (piece_id, dimension, value_json, source_url)
-VALUES (?, ?, ?, ?)
-`
-
-type InsertPiecePreferenceParams struct {
-	PieceID   uint64
-	Dimension PiecePreferencesDimension
-	ValueJson json.RawMessage
-	SourceUrl string
-}
-
-func (q *Queries) InsertPiecePreference(ctx context.Context, arg InsertPiecePreferenceParams) error {
-	_, err := q.db.ExecContext(ctx, insertPiecePreference,
-		arg.PieceID,
-		arg.Dimension,
-		arg.ValueJson,
-		arg.SourceUrl,
 	)
 	return err
 }
@@ -1318,6 +1203,49 @@ func (q *Queries) ListConservationHistory(ctx context.Context, pieceID uint64) (
 	return items, nil
 }
 
+const listHiddenNormalizedURLs = `-- name: ListHiddenNormalizedURLs :many
+
+SELECT normalized_url
+FROM links
+WHERE is_hidden AND normalized_url IN (/*SLICE:normalized_urls*/?)
+`
+
+// A snapshot drops a link whose URL normalizes to a hidden link's. Every link's normalized_url is
+// domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies to the snapshot's
+// URLs too. The caller queries with normalized (ASCII) URLs only, and trusts only the normalized URLs these rows hold.
+func (q *Queries) ListHiddenNormalizedURLs(ctx context.Context, normalizedUrls []string) ([]string, error) {
+	query := listHiddenNormalizedURLs
+	var queryParams []interface{}
+	if len(normalizedUrls) > 0 {
+		for _, v := range normalizedUrls {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", strings.Repeat(",?", len(normalizedUrls))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var normalized_url string
+		if err := rows.Scan(&normalized_url); err != nil {
+			return nil, err
+		}
+		items = append(items, normalized_url)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLinkAttachmentRoles = `-- name: ListLinkAttachmentRoles :many
 SELECT link_id, piece_id, person_id, role
 FROM link_attachments
@@ -1370,44 +1298,28 @@ func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64)
 	return items, nil
 }
 
-const listLinksByNormalizedURL = `-- name: ListLinksByNormalizedURL :many
-
-SELECT normalized_url, url, is_hidden
-FROM links
-WHERE normalized_url IN (/*SLICE:normalized_urls*/?)
+const listPersonAliases = `-- name: ListPersonAliases :many
+SELECT name, kind
+FROM person_aliases
+WHERE person_id = ?
+ORDER BY id
 `
 
-type ListLinksByNormalizedURLRow struct {
-	NormalizedUrl string
-	Url           string
-	IsHidden      bool
+type ListPersonAliasesRow struct {
+	Name string
+	Kind PersonAliasesKind
 }
 
-// A snapshot's link is shown only if its normalized URL is that of a link that is not hidden. Every link's
-// normalized_url is domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies
-// to the snapshot's URLs too, so a link edited to another spelling of the same URL is still matched, and a link
-// since deleted or given another URL fails closed. The column is binary, and the caller trusts only the normalized
-// URLs these rows hold.
-func (q *Queries) ListLinksByNormalizedURL(ctx context.Context, normalizedUrls []string) ([]ListLinksByNormalizedURLRow, error) {
-	query := listLinksByNormalizedURL
-	var queryParams []interface{}
-	if len(normalizedUrls) > 0 {
-		for _, v := range normalizedUrls {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", strings.Repeat(",?", len(normalizedUrls))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:normalized_urls*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+func (q *Queries) ListPersonAliases(ctx context.Context, personID uint64) ([]ListPersonAliasesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPersonAliases, personID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListLinksByNormalizedURLRow
+	var items []ListPersonAliasesRow
 	for rows.Next() {
-		var i ListLinksByNormalizedURLRow
-		if err := rows.Scan(&i.NormalizedUrl, &i.Url, &i.IsHidden); err != nil {
+		var i ListPersonAliasesRow
+		if err := rows.Scan(&i.Name, &i.Kind); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1519,50 +1431,6 @@ func (q *Queries) ListPieceSecondaryKinds(ctx context.Context, slugs []string) (
 	for rows.Next() {
 		var i ListPieceSecondaryKindsRow
 		if err := rows.Scan(&i.Slug, &i.Kind); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPublicAliasNames = `-- name: ListPublicAliasNames :many
-SELECT person_id, name
-FROM person_aliases
-WHERE person_id IN (/*SLICE:person_ids*/?) AND is_public
-`
-
-type ListPublicAliasNamesRow struct {
-	PersonID uint64
-	Name     string
-}
-
-func (q *Queries) ListPublicAliasNames(ctx context.Context, personIds []uint64) ([]ListPublicAliasNamesRow, error) {
-	query := listPublicAliasNames
-	var queryParams []interface{}
-	if len(personIds) > 0 {
-		for _, v := range personIds {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:person_ids*/?", strings.Repeat(",?", len(personIds))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:person_ids*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListPublicAliasNamesRow
-	for rows.Next() {
-		var i ListPublicAliasNamesRow
-		if err := rows.Scan(&i.PersonID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2005,41 +1873,6 @@ func (q *Queries) ListPublicPersonAffiliations(ctx context.Context, personID uin
 	for rows.Next() {
 		var i ListPublicPersonAffiliationsRow
 		if err := rows.Scan(&i.Slug, &i.Facet, &i.DisplayName); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPublicPersonAliases = `-- name: ListPublicPersonAliases :many
-SELECT name, kind
-FROM person_aliases
-WHERE person_id = ? AND is_public
-ORDER BY id
-`
-
-type ListPublicPersonAliasesRow struct {
-	Name string
-	Kind PersonAliasesKind
-}
-
-func (q *Queries) ListPublicPersonAliases(ctx context.Context, personID uint64) ([]ListPublicPersonAliasesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPublicPersonAliases, personID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListPublicPersonAliasesRow
-	for rows.Next() {
-		var i ListPublicPersonAliasesRow
-		if err := rows.Scan(&i.Name, &i.Kind); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3221,45 +3054,6 @@ func (q *Queries) ListTermAncestors(ctx context.Context, descendantID uint64) ([
 	return items, nil
 }
 
-const listUserActiveAPITokens = `-- name: ListUserActiveAPITokens :many
-SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
-FROM api_tokens
-WHERE user_id = ? AND revoked_at IS NULL
-ORDER BY created_at DESC, id
-`
-
-func (q *Queries) ListUserActiveAPITokens(ctx context.Context, userID string) ([]ApiToken, error) {
-	rows, err := q.db.QueryContext(ctx, listUserActiveAPITokens, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ApiToken
-	for rows.Next() {
-		var i ApiToken
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.TokenHash,
-			&i.TokenPrefix,
-			&i.Name,
-			&i.CreatedAt,
-			&i.LastUsedAt,
-			&i.RevokedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const promoteToModerator = `-- name: PromoteToModerator :exec
 INSERT INTO users (id, display_name, role, created_at)
 VALUES (?, ?, 'moderator', ?)
@@ -3277,26 +3071,6 @@ func (q *Queries) PromoteToModerator(ctx context.Context, arg PromoteToModerator
 	return err
 }
 
-const revokeAPIToken = `-- name: RevokeAPIToken :execrows
-UPDATE api_tokens
-SET revoked_at = COALESCE(revoked_at, ?)
-WHERE id = ? AND user_id = ?
-`
-
-type RevokeAPITokenParams struct {
-	RevokedAt sql.NullTime
-	ID        string
-	UserID    string
-}
-
-func (q *Queries) RevokeAPIToken(ctx context.Context, arg RevokeAPITokenParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, revokeAPIToken, arg.RevokedAt, arg.ID, arg.UserID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const unblockUser = `-- name: UnblockUser :execrows
 UPDATE users
 SET blocked_at = NULL
@@ -3309,23 +3083,6 @@ func (q *Queries) UnblockUser(ctx context.Context, id string) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
-}
-
-const updateAPITokenLastUsed = `-- name: UpdateAPITokenLastUsed :exec
-UPDATE api_tokens
-SET last_used_at = ?
-WHERE id = ? AND (last_used_at IS NULL OR last_used_at < ?)
-`
-
-type UpdateAPITokenLastUsedParams struct {
-	UsedAt      sql.NullTime
-	ID          string
-	StaleBefore sql.NullTime
-}
-
-func (q *Queries) UpdateAPITokenLastUsed(ctx context.Context, arg UpdateAPITokenLastUsedParams) error {
-	_, err := q.db.ExecContext(ctx, updateAPITokenLastUsed, arg.UsedAt, arg.ID, arg.StaleBefore)
-	return err
 }
 
 const updateDisplayName = `-- name: UpdateDisplayName :execrows

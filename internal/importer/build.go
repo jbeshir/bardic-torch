@@ -1,3 +1,5 @@
+// Package importer builds the catalogue import from a parsed wiki dump (Build). It is pure: it reads values and
+// returns new ones, and writes nothing.
 package importer
 
 import (
@@ -14,21 +16,33 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
+// Counts are what the import holds, with two counts of what it was read from: the entries of the Collections page
+// and the pieces that had inline lyrics.
+type Counts struct {
+	PiecesByKind       map[string]int
+	StubPieces         int
+	InlineLyricsPieces int
+	CollectionEntries  int
+	Bards              int
+	StubPersons        int
+	Terms              int
+	Collections        int
+	Events             int
+	Links              int
+	Revisions          int
+}
+
 // Build maps a parsed wiki onto the catalogue: every term, collection, event, person and piece with its document,
-// system fields and one approved import revision (a neutral summary, the page's wiki contributors), the links
-// rows, and the review of everything the moderators should check. now is the time of every imported revision.
+// system fields and one approved import revision (a neutral summary, the page's wiki contributors), and the links
+// rows, with the counts of what it holds. now is the time of every imported revision.
 // It is deterministic: IDs are assigned in a
 // fixed order (affiliation terms, then the other terms, each in plan order; collections in page order; events as
 // first seen; bards by page ID, then stub persons by name; pieces by page ID, then stub pieces by title), and so
 // are slugs, collisions getting "-2", "-3"…
 //
-// No public text holds a private name: every free-text field written is withheld (withholder; an unsure name the
-// import publishes as a person's name is kept, and listed), a link whose URL holds a legal name is imported
-// hidden, and each is listed in the review. No name or title holds a placeholder: a collection, event, stub person
-// or stub piece whose name (or a collection whose URL) holds a legal name is not imported (a bard's hidden alias
-// already finds the bard, mediawiki.PersonIndex), a piece or term alias holding one is dropped, and a withheld
-// uploader is left out; each is listed.
-func Build(c mediawiki.Corpus, now time.Time) (domain.CatalogueImport, Review) {
+// Email addresses in public text are withheld (domain.WithheldEmail); names are imported as written, placeholders
+// of the scrubbed copy included.
+func Build(c mediawiki.Corpus, now time.Time) (domain.CatalogueImport, Counts) {
 	b := newBuilder(c, now)
 	b.assignIDs()
 	b.buildTerms()
@@ -37,21 +51,16 @@ func Build(c mediawiki.Corpus, now time.Time) (domain.CatalogueImport, Review) {
 	b.buildLinkRows()
 	b.buildPersons()
 	b.buildPieces()
-	b.reviewCorpus()
-	b.review.Counts = b.counts()
-	b.review.numberItems()
 
-	return b.out, b.review
+	return b.out, b.counts()
 }
 
 type builder struct {
-	c      mediawiki.Corpus
-	now    time.Time
-	w      withholder
-	out    domain.CatalogueImport
-	review Review
-	slugs  domain.SlugAllocator
-	rev    int64
+	c     mediawiki.Corpus
+	now   time.Time
+	out   domain.CatalogueImport
+	slugs domain.SlugAllocator
+	rev   int64
 	// activity is each page's contributors, by namespace and title.
 	activity map[pageKey][]string
 	// pages are the dump's pages, by namespace and title.
@@ -64,10 +73,6 @@ type builder struct {
 	pieceIDs      map[string]int64
 	links         map[string]domain.DocLink
 	stubs         []mediawiki.StubPerson
-	stubPieces    []mediawiki.StubPiece
-	// withheldStubs are the stub persons not imported because their name is withheld.
-	withheldStubs map[mediawiki.PersonRef]bool
-	aliasItems    []aliasItems
 }
 
 type pageKey struct {
@@ -76,18 +81,10 @@ type pageKey struct {
 }
 
 func newBuilder(c mediawiki.Corpus, now time.Time) *builder {
-	var hidden []string
-	for _, bard := range c.People.Bards {
-		for _, a := range bard.Aliases {
-			if !a.IsPublic {
-				hidden = append(hidden, a.Name)
-			}
-		}
-	}
-	b := &builder{c: c, now: now, w: newWithholder(c, hidden), activity: map[pageKey][]string{},
+	b := &builder{c: c, now: now, activity: map[pageKey][]string{},
 		pages: map[pageKey]mediawiki.Page{}, termIDs: map[string]int64{}, collectionIDs: map[string]int64{},
 		eventIDs: map[string]int64{}, personIDs: map[mediawiki.PersonRef]int64{}, pieceIDs: map[string]int64{},
-		links: map[string]domain.DocLink{}, withheldStubs: map[mediawiki.PersonRef]bool{}}
+		links: map[string]domain.DocLink{}}
 	for _, a := range c.Dump.Activity {
 		b.activity[pageKey{a.NS, a.Title}] = contributors(a.Users)
 	}
@@ -107,118 +104,49 @@ func contributors(users map[string]int) []string {
 	})
 }
 
-// assignIDs numbers every entity, so that documents can reference any of them. It leaves out, and lists, the
-// collections, events, stub persons and stub pieces that cannot be imported without publishing a legal name.
+// assignIDs numbers every entity, so that documents can reference any of them.
 func (b *builder) assignIDs() {
 	for k, t := range b.terms() {
 		b.termIDs[t.Category] = int64(k + 1)
 	}
 	b.assignCollectionAndEventIDs()
 	b.assignPersonIDs()
-	b.w = b.w.publishing(b.personNames())
 	b.assignPieceIDs()
 }
 
-// personNames are the names the import publishes as persons' names: the bards' page titles and the names of the
-// stub persons it creates.
-func (b *builder) personNames() []string {
-	names := make([]string, 0, len(b.c.People.Bards)+len(b.stubs))
-	for _, bard := range b.c.People.Bards {
-		names = append(names, bard.Title)
-	}
-	for _, s := range b.stubs {
-		names = append(names, s.Name)
-	}
-
-	return names
-}
-
 func (b *builder) assignCollectionAndEventIDs() {
-	n := int64(0)
-	for _, r := range b.c.Links.Collections.Records {
-		if _, found := b.w.name(r.Name()); len(found) > 0 || b.w.hidesURL(r.URL) {
-			b.review.HiddenNames = append(b.review.HiddenNames, item("collection_withheld",
-				mediawiki.CollectionsPage, "Collection %q (%s) is not imported: its name or URL holds a possible "+
-					"legal name. Its links are imported without it; add it by hand once cleared.", r.Name(), r.URL))
-
-			continue
-		}
-		n++
-		b.collectionIDs[r.NormalizedURL] = n
+	for k, r := range b.c.Links.Collections.Records {
+		b.collectionIDs[r.NormalizedURL] = int64(k + 1)
 	}
-	n = 0
-	for _, e := range b.c.Links.Events {
-		if _, found := b.w.name(e.Name); len(found) > 0 {
-			b.review.HiddenNames = append(b.review.HiddenNames, item("event_withheld", "", "Event %q is not "+
-				"imported: its name holds a possible legal name. Its performances are imported without it.", e.Name))
-
-			continue
-		}
-		n++
-		b.eventIDs[e.Name] = n
+	for k, e := range b.c.Links.Events {
+		b.eventIDs[e.Name] = int64(k + 1)
 	}
 }
 
-// assignPersonIDs numbers the bards, then the stub persons whose name holds no legal name (withheldStubs are
-// the others).
+// assignPersonIDs numbers the bards, then the stub persons.
 func (b *builder) assignPersonIDs() {
 	n := int64(0)
 	for _, bard := range b.c.People.Bards {
 		n++
 		b.personIDs[mediawiki.PersonRef(bard.Title)] = n
 	}
-	var stubs []mediawiki.StubPerson
 	for _, s := range b.stubs {
-		ref := mediawiki.PersonRef(s.Name)
-		if _, found := b.w.name(s.Name); len(found) > 0 {
-			b.withheldStubs[ref] = true
-			b.review.HiddenNames = append(b.review.HiddenNames, item("stub_withheld", firstMention(s),
-				"The name %q, credited on %d page(s), holds a possible legal name: no person is created, and its "+
-					"credits are imported as unknown with the note %q. Create the person by hand once cleared.",
-				s.Name, len(s.Mentions), domain.WithheldName))
-
-			continue
-		}
 		n++
-		b.personIDs[ref] = n
-		stubs = append(stubs, s)
+		b.personIDs[mediawiki.PersonRef(s.Name)] = n
 	}
-	b.stubs = stubs
 }
 
-// assignPieceIDs numbers the pieces, then the stub pieces whose title holds no legal name.
+// assignPieceIDs numbers the pieces, then the stub pieces.
 func (b *builder) assignPieceIDs() {
 	n := int64(0)
 	for _, p := range b.c.Pieces {
 		n++
 		b.pieceIDs[p.Title] = n
 	}
-	var stubPieces []mediawiki.StubPiece
 	for _, sp := range b.c.People.StubPieces {
-		if _, found := b.w.name(sp.Title); len(found) > 0 {
-			page := ""
-			if len(sp.Credits) > 0 {
-				page = string(sp.Credits[0].Person)
-			}
-			b.review.HiddenNames = append(b.review.HiddenNames, item("stub_piece_withheld", page, "The work %q "+
-				"is not imported: its title holds a possible legal name. Add it by hand once cleared.", sp.Title))
-
-			continue
-		}
 		n++
 		b.pieceIDs[sp.Title] = n
-		stubPieces = append(stubPieces, sp)
 	}
-	b.stubPieces = stubPieces
-}
-
-// firstMention is the first page naming a stub person, or "".
-func firstMention(s mediawiki.StubPerson) string {
-	if len(s.Mentions) > 0 {
-		return s.Mentions[0].Page
-	}
-
-	return ""
 }
 
 // revision is the next revision: with the contributors of page, if not nil, and summary, or the page's
@@ -268,19 +196,9 @@ func cleanURL(u string) string {
 	return clean(domain.WithControlCharactersEscaped(domain.WithScheme(u)))
 }
 
-// listControlCharacters lists s if it holds control characters, which the caller drops.
-func (b *builder) listControlCharacters(page, entity, field, s string) {
-	if strings.ContainsFunc(s, domain.IsControlCharacter) {
-		b.review.Markup = append(b.review.Markup, item("text_characters", page,
-			"%s, %s has control characters (such as NUL, ESC or a bidirectional override); they are removed.",
-			entity, field))
-	}
-}
-
-// free is the text of a public free-text field of the entity named page (field names it in the review), with its
-// private names and emails withheld, or nil if empty.
-func (b *builder) free(page, entity, field, s string) *string {
-	out := b.freeText(page, entity, field, s)
+// free is the text of a public free-text field, with its emails withheld, or nil if empty.
+func free(s string) *string {
+	out := freeText(s)
 	if out == "" {
 		return nil
 	}
@@ -289,45 +207,18 @@ func (b *builder) free(page, entity, field, s string) *string {
 }
 
 // freeText is free without the nil for empty text.
-func (b *builder) freeText(page, entity, field, s string) string {
-	b.listControlCharacters(page, entity, field, s)
-	out, found := b.w.text(strings.TrimSpace(domain.WithoutControlCharacters(s)))
-	for _, f := range found {
-		if f.Email {
-			b.review.Contacts = append(b.review.Contacts, item("email", page,
-				"%s, %s: the address %q was withheld. Context: %q.", entity, field, f.Text, f.Context))
-
-			continue
-		}
-		b.review.HiddenNames = append(b.review.HiddenNames, item("free_text", page,
-			"%s, %s: %q was withheld. Context: %q.", entity, field, f.Text, f.Context))
-	}
-	for _, f := range b.w.published(out) {
-		b.review.HiddenNames = append(b.review.HiddenNames, item("free_text_published", page,
-			"%s, %s: %q, a possible private name, is kept as written: the import publishes it as a person's "+
-				"name. Context: %q.", entity, field, f.Text, f.Context))
-	}
-
-	return out
+func freeText(s string) string {
+	return withholdEmails(strings.TrimSpace(domain.WithoutControlCharacters(s)))
 }
 
-// name is a public name or title (one line), with its legal names withheld (withholder.name), and whether
-// nothing was withheld; each withheld span is listed, and so are characters an editor could not enter. A name
-// with a span withheld must not be imported (Validate rejects it).
-func (b *builder) name(page, entity, field, s string) (string, bool) {
-	b.listControlCharacters(page, entity, field, s)
-	out, found := b.w.name(strings.TrimSpace(domain.WithoutControlCharacters(s)))
-	for _, f := range found {
-		b.review.HiddenNames = append(b.review.HiddenNames, item("name", page,
-			"%s, %s: %q holds a possible legal name. Context: %q.", entity, field, f.Text, f.Context))
-	}
-	if err := domain.CheckTextCharacters(out); err != nil {
-		b.review.Markup = append(b.review.Markup, item("text_characters", page,
-			"%s, %s has a character an editor could not enter (%v); it is imported as written.", entity, field,
-			err))
-	}
+// withholdEmails is s in NFC with its email addresses replaced by domain.WithheldEmail.
+func withholdEmails(s string) string {
+	return mediawiki.EmailAddress.ReplaceAllLiteralString(norm.NFC.String(s), domain.WithheldEmail)
+}
 
-	return out, len(found) == 0
+// plainName is a public name or title (one line), with its email addresses withheld.
+func plainName(s string) string {
+	return withholdEmails(strings.TrimSpace(domain.WithoutControlCharacters(s)))
 }
 
 // position is a sibling position as the column holds it, capped at its range.
@@ -363,18 +254,17 @@ func optionalURL(u string) *string {
 func (b *builder) buildTerms() {
 	for _, t := range b.terms() {
 		id := b.termIDs[t.Category]
-		entity := "term " + t.Category
-		name, _ := b.name("", entity, "name", t.Name)
-		display, _ := b.name("", entity, "display name", t.DisplayName)
+		name := plainName(t.Name)
+		display := plainName(t.DisplayName)
 		doc := domain.TermDocument{SchemaVersion: domain.DocumentSchemaVersion, Facet: t.Facet,
 			Name: name, DisplayName: display,
 			ParentID: b.termRef(t.Parent), RelatedAffiliationID: b.termRef(t.RelatedAffiliation),
-			DescriptionMD: b.free("", entity, "description", t.DescriptionMD), Position: position(t.Position),
+			DescriptionMD: free(t.DescriptionMD), Position: position(t.Position),
 			Aliases: []string{}}
 		seen := map[string]bool{domain.CollationKey(doc.Name): true}
 		for _, a := range t.Aliases {
-			a, ok := b.name("", entity, "alias", a)
-			if key := domain.CollationKey(a); ok && !seen[key] {
+			a = plainName(a)
+			if key := domain.CollationKey(a); !seen[key] {
 				seen[key] = true
 				doc.Aliases = append(doc.Aliases, a)
 			}
@@ -387,10 +277,6 @@ func (b *builder) buildTerms() {
 			term.Revision = b.revision(nil, domain.ImportSummaryCategory)
 		}
 		b.out.Terms = append(b.out.Terms, term)
-	}
-	if _, err := b.out.TermAncestors(); err != nil {
-		b.review.Taxonomy = append(b.review.Taxonomy, item("closure", "",
-			"The term tree has no valid closure (%v); the import does not validate.", err))
 	}
 }
 
@@ -410,21 +296,16 @@ func (b *builder) buildCollections() {
 		if !ok {
 			continue
 		}
-		page := mediawiki.CollectionsPage
-		name, _ := b.name(page, "collection "+r.NormalizedURL, "name", r.Name())
+		name := plainName(r.Name())
 		doc := domain.CollectionDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
 			URL: optionalURL(r.URL), Kind: r.Kind,
-			DescriptionMD: b.free(page, "collection "+r.NormalizedURL, "description", r.Description),
+			DescriptionMD: free(r.Description),
 			RegionTermID:  b.termRef(r.RegionTerm), IsBardicResource: r.IsBardicResource,
 			Enumerable: domain.CollectionEnumerableUnknown}
 		if r.ParentURL != "" {
 			if parent, ok := b.collectionIDs[r.ParentURL]; ok {
 				doc.ParentID = &parent
 			}
-		}
-		if note := b.w.urlNote(r.URL); note != "" {
-			b.review.HiddenNames = append(b.review.HiddenNames, item("collection_url_name", page,
-				"Collection %q: its URL %s %s: check it names no one who should be hidden.", r.Name(), r.URL, note))
 		}
 		sortName := domain.SortTitle(name)
 		col := domain.ImportedCollection{ID: id, SortName: sortName, SortLetter: domain.SortLetter(sortName), Doc: doc}
@@ -443,11 +324,7 @@ func (b *builder) buildEvents() {
 		if !ok {
 			continue
 		}
-		page := ""
-		if len(e.Pages) > 0 {
-			page = e.Pages[0]
-		}
-		name, _ := b.name(page, "event", "name", e.Name)
+		name := plainName(e.Name)
 		doc := domain.EventDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: e.Kind}
 		ev := domain.ImportedEvent{ID: id, Slug: b.slugs.Allocate(doc.Name, domain.SlugEntityTypeEvent, id), Doc: doc}
 		if p, ok := b.c.Site.Page(e.Name); ok && e.PageID != 0 {
@@ -473,4 +350,30 @@ func (b *builder) terms() []mediawiki.TermSpec {
 	}
 
 	return append(affiliations, others...)
+}
+
+func (b *builder) counts() Counts {
+	c := Counts{PiecesByKind: map[string]int{}, Terms: len(b.out.Terms), Collections: len(b.out.Collections),
+		Events: len(b.out.Events), Links: len(b.out.Links),
+		CollectionEntries: b.c.Links.Collections.Entries()}
+	for _, p := range b.out.Pieces {
+		if p.LegacyHadInlineLyrics {
+			c.InlineLyricsPieces++
+		}
+		if p.Doc.IsStub {
+			c.StubPieces++
+		} else {
+			c.PiecesByKind[string(p.Doc.Kind)]++
+		}
+	}
+	for _, p := range b.out.Persons {
+		if p.Doc.IsStub {
+			c.StubPersons++
+		} else {
+			c.Bards++
+		}
+	}
+	c.Revisions = int(b.rev)
+
+	return c
 }

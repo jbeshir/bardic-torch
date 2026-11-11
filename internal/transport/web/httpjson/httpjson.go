@@ -20,9 +20,7 @@ const MaxBodyBytes = 16 << 10
 
 var errMultipleValues = errors.New("body contains more than one JSON value")
 
-// ErrorCode is the machine-readable code in an error response, enumerated in the OpenAPI Error schema. Constant
-// names say "API auth" where the code says "token", because gosec reports constants named after tokens as
-// hardcoded credentials.
+// ErrorCode is the machine-readable code in an error response, enumerated in the OpenAPI Error schema.
 type ErrorCode string
 
 const (
@@ -31,12 +29,10 @@ const (
 	CodeRequestTooLarge      ErrorCode = "request_too_large"
 	CodeUnauthenticated      ErrorCode = "unauthenticated"
 	CodeUserBlocked          ErrorCode = "user_blocked"
-	CodeAPIAuthNotAllowed    ErrorCode = "api_token_not_allowed"
 	CodeModeratorRequired    ErrorCode = "moderator_required"
 	CodeNotFound             ErrorCode = "not_found"
 	CodeMethodNotAllowed     ErrorCode = "method_not_allowed"
 	CodeConflict             ErrorCode = "conflict"
-	CodeAPIAuthLimitReached  ErrorCode = "token_limit_reached"
 	CodeInternal             ErrorCode = "internal"
 	CodeUnavailable          ErrorCode = "unavailable"
 )

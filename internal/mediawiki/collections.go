@@ -15,9 +15,8 @@ const CollectionsPage = "Collections"
 // CollectionRecord is one entry of the Collections page: a "*" line under a letter heading whose first external
 // link is the collection. Label is the link's text (or its URL), Note the line's text after the link, Depth the
 // number of "*" and ParentURL the normalised URL of the depth-1 entry above a nested one. Kind is guessed from the
-// URL and label (listed for review). IsBardicResource is false for an entry noted as "not a bardic community
-// resource". RegionTerm is the category of the one kingdom the label names, if it names exactly one;
-// RegionCandidates are the kingdoms of a label naming several, for review.
+// URL and label. IsBardicResource is false for an entry noted as "not a bardic community resource". RegionTerm is
+// the category of the one kingdom the label names, if it names exactly one.
 type CollectionRecord struct {
 	Letter           string
 	Label            string
@@ -30,7 +29,6 @@ type CollectionRecord struct {
 	Description      string
 	IsBardicResource bool
 	RegionTerm       string
-	RegionCandidates []string
 }
 
 // Name is the collection's name: its label up to the first " - ", the rest being its description.
@@ -44,7 +42,7 @@ func (c CollectionRecord) Name() string {
 const collectionLabelSeparator = " - "
 
 // Collections are the entries of the Collections page. Records has one entry per normalised URL, the first
-// listed; Duplicates are the later entries with the URL of an earlier one, merged into it and listed for review;
+// listed; Duplicates are the later entries with the URL of an earlier one, merged into it;
 // Dropped are the entries whose URL does not normalise, not imported.
 type Collections struct {
 	Records    []CollectionRecord
@@ -141,7 +139,7 @@ func ParseCollections(p Page, terms TermPlan) Collections {
 			if rec.Depth > 1 {
 				rec.ParentURL = parent
 			}
-			rec.RegionTerm, rec.RegionCandidates = region(rec.Label, kingdoms)
+			rec.RegionTerm = region(rec.Label, kingdoms)
 			normalized, err := domain.NormalizeURL(rec.URL)
 			switch {
 			case err != nil:
@@ -231,8 +229,8 @@ func kingdomNames(terms TermPlan) map[string][]string {
 	return out
 }
 
-// region returns the kingdom a label names, if it names exactly one, or the kingdoms it names, sorted.
-func region(label string, kingdoms map[string][]string) (string, []string) {
+// region returns the kingdom a label names, if it names exactly one.
+func region(label string, kingdoms map[string][]string) string {
 	words := " " + strings.Join(strings.FieldsFunc(FoldName(label), isNameSeparator), " ") + " "
 	var found []string
 	for category, names := range kingdoms {
@@ -240,12 +238,11 @@ func region(label string, kingdoms map[string][]string) (string, []string) {
 			found = append(found, category)
 		}
 	}
-	slices.Sort(found)
 	if len(found) == 1 {
-		return found[0], nil
+		return found[0]
 	}
 
-	return "", found
+	return ""
 }
 
 // isNameSeparator reports whether r separates the words of a folded name.
@@ -265,11 +262,10 @@ var collectionPrefixKinds = map[domain.CollectionKind]bool{
 var sharedDocumentHosts = map[string]bool{"youtube.com": true, "youtu.be": true, "docs.google.com": true,
 	"scribd.com": true, "yumpu.com": true}
 
-// CollectionMatch is the collection a link belongs to: the collection's normalised URL, or empty. Tied are the
-// collections whose prefixes match equally well, when there are several; the link then belongs to none.
+// CollectionMatch is the collection a link belongs to: the collection's normalised URL, or empty (also when
+// several collections match equally well).
 type CollectionMatch struct {
-	URL  string
-	Tied []string
+	URL string
 }
 
 // collectionPrefix is a collection's URL as a prefix links under it share: its host and path up to the last "/".
@@ -329,7 +325,7 @@ func (m CollectionMatcher) Match(normalizedURL string) CollectionMatch {
 	case 1:
 		return CollectionMatch{URL: same[0]}
 	default:
-		return CollectionMatch{Tied: same}
+		return CollectionMatch{}
 	}
 	u, err := url.Parse(normalizedURL)
 	if err != nil {
@@ -348,14 +344,11 @@ func (m CollectionMatcher) Match(normalizedURL string) CollectionMatch {
 			best = append(best, p.url)
 		}
 	}
-	switch len(best) {
-	case 0:
-		return CollectionMatch{}
-	case 1:
+	if len(best) == 1 {
 		return CollectionMatch{URL: best[0]}
 	}
 
-	return CollectionMatch{Tied: best}
+	return CollectionMatch{}
 }
 
 func withoutFragment(u string) string {

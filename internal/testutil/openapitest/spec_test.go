@@ -20,64 +20,6 @@ func TestSpec_ResponseObjectsAreClosed(t *testing.T) {
 	assert.Empty(t, openResponseObjects(New(t).doc))
 }
 
-func TestOpenResponseObjects_FindsOpenObjects(t *testing.T) {
-	t.Parallel()
-
-	loader := openapi3.NewLoader()
-	doc, err := loader.LoadFromData([]byte(`
-openapi: 3.1.0
-info: {title: open objects, version: "1"}
-paths:
-  /things:
-    get:
-      responses:
-        "200":
-          description: ok
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  closed:
-                    type: object
-                    additionalProperties: false
-                    properties:
-                      name: {type: string}
-                  open:
-                    type: object
-                    properties:
-                      name: {type: string}
-                  explicitly_open:
-                    type: object
-                    additionalProperties: true
-                  dictionary:
-                    type: object
-                    additionalProperties: {type: string}
-                  list:
-                    type: array
-                    items:
-                      properties:
-                        name: {type: string}
-                  nullable:
-                    type: [object, "null"]
-                  choice:
-                    oneOf:
-                      - type: object
-                        additionalProperties: false
-                      - type: object
-`))
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{
-		"GET /things 200 application/json.choice.oneOf[1]",
-		"GET /things 200 application/json.explicitly_open",
-		"GET /things 200 application/json.list[]",
-		"GET /things 200 application/json.nullable",
-		"GET /things 200 application/json.open",
-	}, openResponseObjects(doc))
-}
-
 // openResponseObjects returns the location of every object schema reachable from a response that allows
 // properties beyond those it declares. Objects whose additionalProperties is a schema are dictionaries and are
 // allowed.
@@ -188,4 +130,26 @@ func TestSpec_RevisionShapeFollowsEntityType(t *testing.T) {
 			assert.Contains(t, recorder.failures[0], "does not conform to the OpenAPI spec")
 		})
 	}
+}
+
+// recordingTB records failures reported through Errorf instead of failing the test, so that tests can assert
+// the Validator reports them. Every other method goes to the wrapped real test.
+type recordingTB struct {
+	testing.TB
+	failures []string
+}
+
+func (r *recordingTB) Helper() {}
+
+func (r *recordingTB) Errorf(format string, args ...any) {
+	r.failures = append(r.failures, fmt.Sprintf(format, args...))
+}
+
+// jsonResponse is a handler that answers every request with status and the JSON body.
+func jsonResponse(status int, body string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	})
 }

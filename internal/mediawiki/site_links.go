@@ -8,12 +8,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// LinkOwner is the piece (by page ID) or the person a link is attached to; exactly one is set.
-type LinkOwner struct {
-	PieceID int64
-	Person  PersonRef
-}
-
 // PieceLinks are the links of a piece page.
 type PieceLinks struct {
 	PageID int64
@@ -38,33 +32,16 @@ type Performance struct {
 	Event         string
 }
 
-// LinkConflict is a link attached to several pieces or persons whose pages give it different fields (Fields: url,
-// title, description, platform, place_type, collection, locator) from the canonical owner's (the first, pieces by
-// page ID before persons), with the fields the owner's page gives (Own), for review. Every document carries the
-// canonical fields (canonicalize).
-type LinkConflict struct {
-	NormalizedURL  string
-	Owner          LinkOwner
-	CanonicalOwner LinkOwner
-	Fields         []string
-	Own            LinkFields
-}
-
 // Links are the links of the wiki: the collections, the links of every piece page and those attached to persons,
-// one set of fields per normalised URL (Canonical, in first-seen order) with the conflicts that resolved, the
-// events performances are at with the similar names among them, the performance items with no link to record
-// them, which are not imported, and the items of bard pages a piece page already records on the same link
-// (RepeatedPerformances), which are not imported again; both are listed for review.
+// one set of fields per normalised URL (Canonical, in first-seen order) and the events performances are at.
+// Performance items with no link to record them are not imported, and the items of bard pages a piece page already
+// records on the same link are not imported again.
 type Links struct {
-	Collections          Collections
-	Pieces               []PieceLinks
-	Persons              []PersonLinks
-	Canonical            []LinkFields
-	Conflicts            []LinkConflict
-	Events               []EventRecord
-	SimilarEvents        []SimilarEventNames
-	Unlinked             []Performance
-	RepeatedPerformances []Performance
+	Collections Collections
+	Pieces      []PieceLinks
+	Persons     []PersonLinks
+	Canonical   []LinkFields
+	Events      []EventRecord
 }
 
 // ParseLinks extracts the links of the pieces and bard pages, matched to the Collections page's collections, and
@@ -99,7 +76,6 @@ func ParseLinks(s Site, pieces []PieceRecord, people People) Links {
 	b.addProfiles(pieces)
 	b.canonicalize()
 	b.out.Events = b.events.records
-	b.out.SimilarEvents = b.events.similar()
 
 	return b.out
 }
@@ -143,8 +119,6 @@ func (b *linkBuilder) addPiece(p PieceRecord, websites map[PersonRef][]string) {
 		perf := b.performance(it, p.Title)
 		if k := linkIndex(pl.Links, itemURL(it)); k >= 0 {
 			pl.Links[k].Performances = append(pl.Links[k].Performances, perf)
-		} else {
-			b.out.Unlinked = append(b.out.Unlinked, perf)
 		}
 	}
 	b.pieceIndex[p.Title] = len(b.out.Pieces)
@@ -162,11 +136,7 @@ func (b *linkBuilder) addBard(bard BardRecord) {
 			recordedOn = b.pieceRecording(pl.Links[k].NormalizedURL)
 		}
 		switch {
-		case k < 0:
-			b.out.Unlinked = append(b.out.Unlinked, perf)
-		case recordedOn != "":
-			perf.Piece = recordedOn
-			b.out.RepeatedPerformances = append(b.out.RepeatedPerformances, perf)
+		case k < 0, recordedOn != "":
 		case onPiece:
 			b.attachToPiece(piece, pl.Links[k], it.Section, perf)
 		default:
@@ -195,14 +165,11 @@ func (b *linkBuilder) attachToPiece(piece int, from LinkRecord, section SectionK
 	pl := &b.out.Pieces[piece]
 	k := linkIndex(pl.Links, from.NormalizedURL)
 	if k < 0 {
-		rec := LinkRecord{LinkFields: from.LinkFields, CollectionTied: from.CollectionTied}
-		pl.Links = append(pl.Links, rec)
+		pl.Links = append(pl.Links, LinkRecord{LinkFields: from.LinkFields})
 		k = len(pl.Links) - 1
 	}
 	l := &pl.Links[k]
 	if slices.ContainsFunc(l.Performances, func(p Performance) bool { return p.Page == pl.Title }) {
-		b.out.RepeatedPerformances = append(b.out.RepeatedPerformances, perf)
-
 		return
 	}
 	l.Roles = appendNew(l.Roles, domain.LinkRolePerformance)
@@ -305,29 +272,22 @@ func linkIndex(links []LinkRecord, normalized string) int {
 // which say what a page finds there, are kept only if every document gives the same. Otherwise the title is the
 // name of the link's collection, or none, and the description and locator none. Before that, a PDF that pages cite
 // at different pages is given each page's as its open parameter ("#page=14", pagePDFLinks), so that each is a link
-// with its own locator. The documents whose own fields differ are listed with their own fields.
+// with its own locator.
 func (b *linkBuilder) canonicalize() {
 	links := b.allLinks()
 	pagePDFLinks(links)
 	first := map[string]int{}
-	var owners []LinkOwner
 	var differ []map[string]bool
 	for _, l := range links {
-		c, ok := first[l.rec.NormalizedURL]
+		c, ok := first[l.NormalizedURL]
 		if !ok {
-			first[l.rec.NormalizedURL] = len(b.out.Canonical)
-			b.out.Canonical = append(b.out.Canonical, l.rec.LinkFields)
-			owners = append(owners, l.owner)
+			first[l.NormalizedURL] = len(b.out.Canonical)
+			b.out.Canonical = append(b.out.Canonical, l.LinkFields)
 			differ = append(differ, map[string]bool{})
 
 			continue
 		}
-		fields := differentFields(b.out.Canonical[c], l.rec.LinkFields)
-		if len(fields) > 0 {
-			b.out.Conflicts = append(b.out.Conflicts, LinkConflict{NormalizedURL: l.rec.NormalizedURL, Owner: l.owner,
-				CanonicalOwner: owners[c], Fields: fields, Own: l.rec.LinkFields})
-		}
-		for _, f := range fields {
+		for _, f := range differentFields(b.out.Canonical[c], l.LinkFields) {
 			differ[c][f] = true
 		}
 	}
@@ -348,27 +308,21 @@ func (b *linkBuilder) canonicalize() {
 		}
 	}
 	for _, l := range links {
-		l.rec.LinkFields = b.out.Canonical[first[l.rec.NormalizedURL]]
+		l.LinkFields = b.out.Canonical[first[l.NormalizedURL]]
 	}
 }
 
-// ownedLink is a link of a piece or person, in place.
-type ownedLink struct {
-	owner LinkOwner
-	rec   *LinkRecord
-}
-
-// allLinks are the links of the pieces, by page ID, then of the persons.
-func (b *linkBuilder) allLinks() []ownedLink {
-	var out []ownedLink
+// allLinks are the links of the pieces, by page ID, then of the persons, in place.
+func (b *linkBuilder) allLinks() []*LinkRecord {
+	var out []*LinkRecord
 	for i := range b.out.Pieces {
 		for k := range b.out.Pieces[i].Links {
-			out = append(out, ownedLink{LinkOwner{PieceID: b.out.Pieces[i].PageID}, &b.out.Pieces[i].Links[k]})
+			out = append(out, &b.out.Pieces[i].Links[k])
 		}
 	}
 	for i := range b.out.Persons {
 		for k := range b.out.Persons[i].Links {
-			out = append(out, ownedLink{LinkOwner{Person: b.out.Persons[i].Person}, &b.out.Persons[i].Links[k]})
+			out = append(out, &b.out.Persons[i].Links[k])
 		}
 	}
 
@@ -378,24 +332,24 @@ func (b *linkBuilder) allLinks() []ownedLink {
 // pagePDFLinks gives the links to a PDF (with no fragment) that documents cite at different pages ("p. 2", "p. 14")
 // the PDF open parameter of their page: the URL with "#page=N" is a link of its own. The other links, and those to
 // the PDF without a page, are unchanged.
-func pagePDFLinks(links []ownedLink) {
+func pagePDFLinks(links []*LinkRecord) {
 	pages := map[string]map[string]bool{}
 	for _, l := range links {
-		if l.rec.Locator != "" && isPDF(l.rec.NormalizedURL) {
-			if pages[l.rec.NormalizedURL] == nil {
-				pages[l.rec.NormalizedURL] = map[string]bool{}
+		if l.Locator != "" && isPDF(l.NormalizedURL) {
+			if pages[l.NormalizedURL] == nil {
+				pages[l.NormalizedURL] = map[string]bool{}
 			}
-			pages[l.rec.NormalizedURL][l.rec.Locator] = true
+			pages[l.NormalizedURL][l.Locator] = true
 		}
 	}
 	for _, l := range links {
-		page, ok := strings.CutPrefix(l.rec.Locator, locatorPrefix)
-		if !ok || len(pages[l.rec.NormalizedURL]) < 2 {
+		page, ok := strings.CutPrefix(l.Locator, locatorPrefix)
+		if !ok || len(pages[l.NormalizedURL]) < 2 {
 			continue
 		}
-		u := l.rec.URL + "#page=" + page
+		u := l.URL + "#page=" + page
 		if normalized, err := domain.NormalizeURL(u); err == nil {
-			l.rec.URL, l.rec.NormalizedURL = u, normalized
+			l.URL, l.NormalizedURL = u, normalized
 		}
 	}
 }

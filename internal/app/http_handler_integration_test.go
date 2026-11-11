@@ -76,26 +76,23 @@ func sendRejected(
 }
 
 // TestHTTP_EndToEnd runs the production handler against a real database, authenticating with the real Auth0
-// validator (against a local issuer) and the real API token validator.
+// validator (against a local issuer).
 func TestHTTP_EndToEnd(t *testing.T) {
 	t.Parallel()
 
 	repository := mysql.New(mysqltest.NewDatabase(t))
-	bootstrap := &command.BootstrapModerators{Promoter: repository, Now: now}
+	bootstrap := &command.BootstrapModerators{Users: repository, Now: now}
 	_, err := bootstrap.Execute(t.Context(), []string{endToEndModeratorID})
 	require.NoError(t, err)
 
 	issuer := auth0test.NewIssuer(t)
 	auth0Validator, err := router.NewAuth0Validator(issuer.URL, endToEndAudience)
 	require.NoError(t, err)
-	authValidators := []router.AuthValidator{
-		auth0Validator,
-		router.NewAPITokenValidator(repository, repository, now),
-	}
+	authValidators := []router.AuthValidator{auth0Validator}
 	e := endToEnd{handler: NewHTTPHandler(repositoryHTTPDependencies(repository, authValidators)), contract: openapitest.New(t)}
 
 	auth0 := func(userID string) string {
-		return "Bearer auth0|" + auth0test.Sign(t, issuer.Key, issuer.Claims(userID, endToEndAudience))
+		return "Bearer " + auth0test.Sign(t, issuer.Key, issuer.Claims(userID, endToEndAudience))
 	}
 	contributor, moderator := auth0(endToEndContributorID), auth0(endToEndModeratorID)
 
@@ -107,13 +104,13 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	for name, authorization := range map[string]string{
-		"expired": "Bearer auth0|" + auth0test.Sign(t, issuer.Key, expiredClaims),
-		"wrong_audience": "Bearer auth0|" +
+		"expired": "Bearer " + auth0test.Sign(t, issuer.Key, expiredClaims),
+		"wrong_audience": "Bearer " +
 			auth0test.Sign(t, issuer.Key, issuer.Claims(endToEndContributorID, "https://other.example")),
-		"bad_signature": "Bearer auth0|" +
+		"bad_signature": "Bearer " +
 			auth0test.Sign(t, otherKey, issuer.Claims(endToEndContributorID, endToEndAudience)),
 		// Over the validator's 8 KiB token cap.
-		"oversized": "Bearer auth0|" + strings.Repeat("a", 9<<10),
+		"oversized": "Bearer " + strings.Repeat("a", 9<<10),
 	} {
 		rec := e.send(t, http.MethodGet, "/v1/me", authorization, "")
 		assert.Equal(t, http.StatusUnauthorized, rec.Code, name)
@@ -137,53 +134,24 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	assert.Equal(t, "Morwen", renamed.DisplayName)
 	assert.Equal(t, renamed, sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK))
 
-	// The contributor creates an API token, which authenticates as them but cannot manage tokens.
-	created := sendOK[controller.CreatedAPIToken](t, e, http.MethodPost, "/v1/tokens", contributor,
-		`{"name":"CI runner"}`, http.StatusCreated)
-	apiAuth := "Bearer " + created.Token
-	assert.Equal(t, renamed, sendOK[controller.User](t, e, http.MethodGet, "/v1/me", apiAuth, "", http.StatusOK))
-	sendRejected(t, e, http.MethodGet, "/v1/tokens", apiAuth, "", http.StatusForbidden, httpjson.CodeAPIAuthNotAllowed)
-
-	listed := sendOK[controller.APITokenListResponse](t, e, http.MethodGet, "/v1/tokens", contributor, "", http.StatusOK)
-	require.Len(t, listed.Data, 1)
-	assert.Equal(t, created.ID, listed.Data[0].ID)
-	assert.Equal(t, created.Prefix, listed.Data[0].Prefix)
-	assert.Equal(t, created.Name, listed.Data[0].Name)
-	assert.Equal(t, created.CreatedAt, listed.Data[0].CreatedAt, "the creation time returned is the one stored")
-	assert.NotNil(t, listed.Data[0].LastUsedAt, "using the token records its last use")
-
-	// The bootstrapped moderator blocks the contributor, which blocks both of their credentials everywhere.
+	// The bootstrapped moderator blocks the contributor.
 	sendRejected(t, e, http.MethodPut, endToEndContributorPath, contributor, `{"blocked":true}`,
 		http.StatusForbidden, httpjson.CodeModeratorRequired)
 	blocked := sendOK[controller.User](t, e, http.MethodPut, endToEndContributorPath, moderator, `{"blocked":true}`,
 		http.StatusOK)
 	assert.Equal(t, renamed, blocked)
-	for _, authorization := range []string{contributor, apiAuth} {
-		sendRejected(t, e, http.MethodGet, "/v1/me", authorization, "", http.StatusForbidden, httpjson.CodeUserBlocked)
-		sendRejected(t, e, http.MethodPatch, "/v1/me", authorization, `{"display_name":"Blocked"}`,
-			http.StatusForbidden, httpjson.CodeUserBlocked)
-	}
-	sendRejected(t, e, http.MethodPost, "/v1/tokens", contributor, `{}`, http.StatusForbidden, httpjson.CodeUserBlocked)
+	sendRejected(t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusForbidden, httpjson.CodeUserBlocked)
+	sendRejected(t, e, http.MethodPatch, "/v1/me", contributor, `{"display_name":"Blocked"}`,
+		http.StatusForbidden, httpjson.CodeUserBlocked)
 
-	// Unblocking restores both credentials.
+	// Unblocking restores them.
 	sendOK[controller.User](t, e, http.MethodPut, endToEndContributorPath, moderator, `{"blocked":false}`,
 		http.StatusOK)
-	assert.Equal(t, renamed, sendOK[controller.User](t, e, http.MethodGet, "/v1/me", apiAuth, "", http.StatusOK))
 	assert.Equal(t, renamed, sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK))
 
 	// Moderators cannot be blocked, including by themselves.
 	sendRejected(t, e, http.MethodPut, "/v1/users/facebook%7Ce2e-moderator/blocked", moderator, `{"blocked":true}`,
 		http.StatusConflict, httpjson.CodeConflict)
-
-	// Revoking the token stops it authenticating; revoking again still succeeds.
-	revokePath := "/v1/tokens/" + created.ID
-	for range 2 {
-		rec := e.send(t, http.MethodDelete, revokePath, contributor, "")
-		assert.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
-	}
-	sendRejected(t, e, http.MethodGet, "/v1/me", apiAuth, "", http.StatusUnauthorized, httpjson.CodeUnauthenticated)
-	listed = sendOK[controller.APITokenListResponse](t, e, http.MethodGet, "/v1/tokens", contributor, "", http.StatusOK)
-	assert.Empty(t, listed.Data)
 
 	// Restarting without the moderator's ID in the bootstrap list does not demote them.
 	_, err = bootstrap.Execute(t.Context(), nil)
@@ -199,4 +167,21 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.RoleModerator,
 		sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK).Role)
+}
+
+const (
+	healthzPath     = "/healthz"
+	readyzPath      = "/readyz"
+	mePath          = "/v1/me"
+	piecesPath      = "/v1/pieces"
+	personsPath     = "/v1/persons"
+	termsPath       = "/v1/terms"
+	collectionsPath = "/v1/collections"
+	eventsPath      = "/v1/events"
+	needsWorkPath   = "/v1/needs-work"
+)
+
+// errorResponse is the JSON body of an error response.
+type errorResponse struct {
+	Code httpjson.ErrorCode `json:"code"`
 }

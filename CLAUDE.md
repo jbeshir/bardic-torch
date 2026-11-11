@@ -2,7 +2,9 @@
 
 [docs/PLAN.md](docs/PLAN.md) is the authoritative product and implementation spec: data model, API surface,
 moderation rules and build sequence. Read the relevant sections before changing behaviour, and update it when a
-decision changes.
+decision changes. Its preamble sets the bar: proportion. Build the plainest thing that does the job, and test what
+matters at the cheapest level that proves it; the test policy is [PLAN §9](docs/PLAN.md) (how to run each tier and
+add a route: docs/TESTING.md).
 
 ## Validation
 
@@ -26,7 +28,7 @@ integration tests and the image build on every push and pull request.
 - **Pinned tools only.** Tools are `tool` directives in `go.mod` and run with `go tool <name>`. Never use
   `go install` or `@latest`. To upgrade a tool, `go get -tool <module>@<version>` and check that `go get` did
   not downgrade another tool's dependencies.
-- After changing `queries.sql` or a `datasources` interface, run `make generate`; never edit generated code.
+- After changing `queries.sql`, run `make generate` (sqlc); never edit generated code.
 
 Additionally, perform the following manual checks:
 
@@ -50,15 +52,12 @@ After automated validation passes, review code for these issues:
    - Added to `make validate` or the integration targets, and so to CI
 
 5. **OpenAPI Spec Completeness**: When adding or modifying API endpoints, verify that `openapi/api.yaml`:
-   - Includes every route registered in `internal/transport/web/router/router.go` (`TestRouter_RoutesMatchOpenAPI`)
+   - Lists every route registered in `internal/transport/web/router/router.go` (`TestRoutes` checks the parity)
    - Has closed request/response schemas (`additionalProperties: false`) matching the controller implementations
    - Documents all query parameters, path parameters, and request bodies
-   - Lists every HTTP status code the handler and its middleware can produce
-   - Is exercised by tests through the contract helper (`openapitest.New(t).Serve`, or `ServeResponseOnly` for
-     deliberately invalid requests), with a test for every documented status
-   - Has a row in `authMatrix` (`TestRouter_AuthMatrix`) for every new operation
 
-   docs/TESTING.md's "Adding an endpoint" lists these steps in order.
+   A new route gets a row in the route table (`router/routes_test.go`: who may call it, and a happy path checked
+   against the spec) and one test per rule it adds, not per status (PLAN §9; docs/TESTING.md "Adding an endpoint").
 
 6. **Environment Variables**: Every variable the code reads is in `.env.dist` with a comment, and every variable
    in `.env.dist` is read (`TestEnvDistListsEveryEnvVar`). New production variables are added to the

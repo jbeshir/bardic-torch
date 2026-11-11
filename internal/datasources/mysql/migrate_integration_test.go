@@ -17,13 +17,13 @@ import (
 
 // migratedTables are the tables the migrations create, besides golang-migrate's own schema_migrations.
 var migratedTables = []string{
-	"users", "api_tokens",
+	"users",
 	"revisions", "revision_contributors",
 	"terms", "term_aliases", "term_ancestors",
 	"collections", "events",
-	"persons", "person_aliases", "person_roles", "person_affiliations", "person_relations", "person_preferences",
+	"persons", "person_aliases", "person_roles", "person_affiliations", "person_relations",
 	"pieces", "piece_secondary_kinds", "piece_aliases", "piece_terms", "piece_relations", "piece_credits",
-	"conservation_history", "piece_preferences",
+	"conservation_history",
 	"links", "link_attachments", "performances", "performance_performers",
 }
 
@@ -111,10 +111,6 @@ const (
 // identifierCollations lists every collated column that does not use textCollation.
 var identifierCollations = map[string]string{
 	"users.id":                   binaryCollation,
-	"api_tokens.id":              asciiBinaryCollation,
-	"api_tokens.user_id":         binaryCollation,
-	"api_tokens.token_hash":      asciiBinaryCollation,
-	"api_tokens.token_prefix":    asciiBinaryCollation,
 	"revisions.author_user_id":   binaryCollation,
 	"revisions.reviewer_user_id": binaryCollation,
 	"terms.slug":                 asciiBinaryCollation,
@@ -122,7 +118,6 @@ var identifierCollations = map[string]string{
 	"events.slug":                asciiBinaryCollation,
 	"persons.slug":               asciiBinaryCollation,
 	"persons.sort_letter":        asciiBinaryCollation,
-	"persons.claimed_by_user_id": binaryCollation,
 	"pieces.slug":                asciiBinaryCollation,
 	"pieces.sort_letter":         asciiBinaryCollation,
 	"links.url":                  binaryCollation,

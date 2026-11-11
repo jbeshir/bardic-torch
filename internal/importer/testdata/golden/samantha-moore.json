@@ -19,8 +19,7 @@
       "aliases": [
         {
           "name": "Ambra Michelli",
-          "kind": "legal",
-          "is_public": false
+          "kind": "legal"
         }
       ],
       "roles": [
@@ -36,7 +35,7 @@
       "links": [
         {
           "url": "https://www.ravenboymusic.com/9-2/samantha-moore/",
-          "title": "[name withheld] page",
+          "title": "Legal Name 053 page",
           "description": null,
           "platform": "ravenboymusic.com",
           "place_type": "author_site",
@@ -60,15 +59,14 @@
           ],
           "performances": []
         }
-      ],
-      "preferences": []
+      ]
     },
     "legacy": {
       "page_id": 19,
       "title": "Samantha Moore"
     },
     "revision": {
-      "id": 228,
+      "id": 232,
       "summary": "Imported from the wiki (page revision 975).",
       "contributors": [
         "Wiki User 01",
@@ -76,49 +74,5 @@
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "AMBIG-003",
-      "kind": "canonical_name",
-      "page": "Samantha Moore",
-      "text": "\"Ambra Michelli\": guess \"Samantha Moore\"; alternatives: \"Ambra Michelli\"."
-    },
-    {
-      "id": "ALIAS-003",
-      "kind": "alias",
-      "page": "Samantha Moore",
-      "text": "\"Ambra Michelli\": kind legal, hidden (source h1_lead, rule default, unsure)."
-    },
-    {
-      "id": "NAME-162",
-      "kind": "free_text",
-      "page": "Samantha Moore",
-      "text": "link https://www.ravenboymusic.com/9-2/samantha-moore/, title: \"Legal Name 053\" was withheld. Context: \"[name withheld] page\"."
-    },
-    {
-      "id": "LINK-230",
-      "kind": "normalised",
-      "page": "Samantha Moore",
-      "text": "1 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERSON-006",
-      "kind": "affiliations",
-      "page": "Samantha Moore",
-      "text": "Affiliations from categories: Atlantia, SCA Bards, Trimaris."
-    },
-    {
-      "id": "PERSON-007",
-      "kind": "roles",
-      "page": "Samantha Moore",
-      "text": "Roles from performer-type categories: singer, songwriter."
-    },
-    {
-      "id": "TERM-001",
-      "kind": "dropped_categories",
-      "page": "Samantha Moore",
-      "text": "Categories not imported: Kingdom Name."
-    }
-  ]
+  }
 }

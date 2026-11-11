@@ -36,8 +36,8 @@ const (
 //     before it ends, a licence needs a known licensing status, nothing relates to itself;
 //   - each document link's URL normalises to a Links row whose fields it carries, roles aside;
 //   - the terms' parents have a closure (TermAncestors), and every summary is an import summary;
-//   - no name, title, alias, slug, sort key or uploader holds a withheld-text placeholder (HoldsWithheldText): a
-//     name the import withholds is dropped with its entity, never published as a placeholder.
+//   - no name, title, alias, slug, sort key or uploader holds a withheld-text placeholder (HoldsWithheldText):
+//     only free text may.
 //
 // It fails with ErrInvalidImport, naming the entity type, ID and field of the first problem, never its value.
 func (imp CatalogueImport) Validate() error {
@@ -117,7 +117,7 @@ func (c *entityCheck) require(ok bool, field, problem string) {
 }
 
 // name checks a name or title of the catalogue (a required VARCHAR(255)): it fits, and holds no withheld-text
-// placeholder (WithheldName, WithheldEmail), which only free text may hold.
+// placeholder (WithheldEmail), which only free text may hold.
 func (c *entityCheck) name(s, field string) {
 	c.varchar(s, maxNameLength, field, true)
 	c.require(!HoldsWithheldText(s), field, "holds a withheld-text placeholder")
@@ -341,7 +341,6 @@ func (v *importValidator) checkPersons() error {
 			}
 		}
 		v.docLinks(c, links)
-		v.preferences(c, d.Preferences)
 		if c.err != nil {
 			return c.err
 		}
@@ -408,7 +407,6 @@ func (v *importValidator) pieceDocument(c *entityCheck, p ImportedPiece) {
 		}
 	}
 	v.docLinks(c, links)
-	v.preferences(c, d.Preferences)
 }
 
 // pieceTerms checks a piece's terms: each a term, once (piece_terms' primary key), with at most one primary term
@@ -487,16 +485,6 @@ func (v *importValidator) performance(c *entityCheck, p DocPerformance, field st
 		performers = append(performers, fmt.Sprint(id))
 	}
 	c.unique(performers, field+".performer_ids")
-}
-
-func (v *importValidator) preferences(c *entityCheck, prefs []DocPreference) {
-	dims := make([]string, 0, len(prefs))
-	for k, p := range prefs {
-		c.require(len(p.SourceURL) <= MaxURLLength && p.SourceURL != "",
-			fmt.Sprintf("doc.preferences[%d].source_url", k), "is empty or too long")
-		dims = append(dims, string(p.Dimension))
-	}
-	c.unique(dims, "doc.preferences")
 }
 
 // links checks the Links rows: unique IDs and normalised URLs, column widths, no roles and known collections.

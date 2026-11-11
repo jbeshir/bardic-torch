@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -11,35 +10,26 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// goldenPiece returns the piece imported from the page titled title, and its review items.
-func goldenPiece(t *testing.T, title string) (domain.ImportedPiece, []Item) {
+// goldenPiece returns the piece imported from the page titled title.
+func goldenPiece(t *testing.T, title string) domain.ImportedPiece {
 	t.Helper()
-	imp, review := scrubbedImport(t)
-	g, ok := goldenFor(imp, review, title)
+	imp := scrubbedImport(t)
+	g, ok := goldenFor(imp, title)
 	require.True(t, ok)
 	require.NotNil(t, g.Piece, title)
 
-	return *g.Piece, g.Review
+	return *g.Piece
 }
 
-// goldenPerson returns the person imported from the bard page titled title, and its review items.
-func goldenPerson(t *testing.T, title string) (domain.ImportedPerson, []Item) {
+// goldenPerson returns the person imported from the bard page titled title.
+func goldenPerson(t *testing.T, title string) domain.ImportedPerson {
 	t.Helper()
-	imp, review := scrubbedImport(t)
-	g, ok := goldenFor(imp, review, title)
+	imp := scrubbedImport(t)
+	g, ok := goldenFor(imp, title)
 	require.True(t, ok)
 	require.NotNil(t, g.Person, title)
 
-	return *g.Person, g.Review
-}
-
-func kinds(items []Item) []string {
-	var out []string
-	for _, it := range items {
-		out = append(out, it.Kind)
-	}
-
-	return out
+	return *g.Person
 }
 
 func rolesOf(links []domain.DocPieceLink) []domain.LinkRole {
@@ -52,7 +42,7 @@ func rolesOf(links []domain.DocPieceLink) []domain.LinkRole {
 }
 
 func TestGoldenAssert_BlackAlman(t *testing.T) {
-	p, _ := goldenPiece(t, "Black Alman")
+	p := goldenPiece(t, "Black Alman")
 
 	assert.Equal(t, domain.PieceKindDanceMusic, p.Doc.Kind)
 	assert.Empty(t, p.Doc.Credits, "the wiki leaves dance_by and music_by empty")
@@ -62,7 +52,7 @@ func TestGoldenAssert_BlackAlman(t *testing.T) {
 }
 
 func TestGoldenAssert_ThreeWords(t *testing.T) {
-	p, items := goldenPiece(t, "Three Words")
+	p := goldenPiece(t, "Three Words")
 
 	verses, chorus := domain.PiecePartVerses, domain.PiecePartChorus
 	var tune []domain.DocCredit
@@ -76,7 +66,6 @@ func TestGoldenAssert_ThreeWords(t *testing.T) {
 	assert.Equal(t, domain.AttributionNamed, tune[0].Attribution)
 	assert.Equal(t, &chorus, tune[1].Part, "the anonymous one the chorus'")
 	assert.Equal(t, domain.AttributionAnonymous, tune[1].Attribution)
-	assert.Contains(t, kinds(items), "part_inferred")
 	parts := map[domain.PiecePart]bool{}
 	for _, term := range p.Doc.Terms {
 		if term.Part != nil {
@@ -87,7 +76,7 @@ func TestGoldenAssert_ThreeWords(t *testing.T) {
 }
 
 func TestGoldenAssert_AuldLangSyne(t *testing.T) {
-	p, items := goldenPiece(t, "Auld Lang Syne")
+	p := goldenPiece(t, "Auld Lang Syne")
 
 	attributions := map[domain.CreditRole]domain.Attribution{}
 	for _, c := range p.Doc.Credits {
@@ -95,16 +84,15 @@ func TestGoldenAssert_AuldLangSyne(t *testing.T) {
 	}
 	assert.Equal(t, domain.AttributionTraditional, attributions[domain.CreditRoleTune],
 		"traditional despite the page's unbalanced brackets")
-	assert.Contains(t, kinds(items), string("unbalanced_wikilinks"))
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	lyricist := personNamed(t, imp, "Robert Burns")
 	assert.Equal(t, domain.PersonKindHistorical, lyricist.Doc.Kind, "a traditional piece's writer")
 }
 
 func TestGoldenAssert_LasairHasNoStub(t *testing.T) {
-	person, _ := goldenPerson(t, "Lasair inghen ui h’Airt")
+	person := goldenPerson(t, "Lasair inghen ui h’Airt")
 
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	for _, p := range imp.Persons {
 		if p.Doc.IsStub {
 			assert.NotContains(t, strings.ToLower(p.Doc.Name), "lasair", "both spellings are the bard")
@@ -114,26 +102,19 @@ func TestGoldenAssert_LasairHasNoStub(t *testing.T) {
 }
 
 func TestGoldenAssert_SamanthaMoore(t *testing.T) {
-	person, items := goldenPerson(t, "Samantha Moore")
+	person := goldenPerson(t, "Samantha Moore")
 
 	assert.Equal(t, "Samantha Moore", person.Doc.Name, "the title is the guess")
-	assert.Equal(t, []domain.DocPersonAlias{{Name: "Ambra Michelli", Kind: domain.PersonAliasKindLegal}},
-		person.Doc.Aliases, "the H1 lead is a hidden alias")
-	assert.Contains(t, kinds(items), "canonical_name", "listed as ambiguous")
 }
 
 func TestGoldenAssert_BandOfBrothers(t *testing.T) {
-	p, items := goldenPiece(t, "Band of Brothers")
+	p := goldenPiece(t, "Band of Brothers")
 
 	assert.True(t, p.LegacyHadInlineLyrics)
-	encoded, err := json.Marshal(p)
-	require.NoError(t, err)
-	assert.NotContains(t, string(encoded), lyricMarker, "no lyric line in any field")
-	assert.Contains(t, kinds(items), "dropped")
 }
 
 func TestGoldenAssert_BurningOfTara(t *testing.T) {
-	p, _ := goldenPiece(t, "The Burning of Tara")
+	p := goldenPiece(t, "The Burning of Tara")
 
 	assert.Equal(t, domain.PieceKindStory, p.Doc.Kind)
 	assert.Equal(t, []domain.DocPieceAlias{
@@ -143,7 +124,7 @@ func TestGoldenAssert_BurningOfTara(t *testing.T) {
 }
 
 func TestGoldenAssert_MalkinGrey(t *testing.T) {
-	person, items := goldenPerson(t, "Malkin Grey")
+	person := goldenPerson(t, "Malkin Grey")
 
 	assert.Equal(t, domain.PersonStatusDeceased, person.Doc.Status)
 	require.NotNil(t, person.Doc.StatusDate)
@@ -151,56 +132,37 @@ func TestGoldenAssert_MalkinGrey(t *testing.T) {
 	require.NotNil(t, person.Doc.StatusSourceURL)
 	assert.Equal(t, "http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/",
 		*person.Doc.StatusSourceURL, "the obituary the date is read from")
-	assert.Contains(t, kinds(items), "link_url", "the profile link naming the legal name is hidden")
 }
 
 func TestGoldenAssert_FightForTheMidrealm(t *testing.T) {
-	p, items := goldenPiece(t, "Fight for the Midrealm")
+	p := goldenPiece(t, "Fight for the Midrealm")
 
 	assert.Equal(t, "Fight for the Midrealm", p.Doc.Title)
 	assert.Empty(t, p.Doc.Aliases, "the infobox's other page title is not an alias")
-	assert.Contains(t, kinds(items), "other_page_title")
 }
 
 func TestGoldenAssert_MyThingIsMyOwn(t *testing.T) {
-	p, items := goldenPiece(t, "My Thing is My Own")
+	p := goldenPiece(t, "My Thing is My Own")
 
-	assert.Contains(t, kinds(items), "single_bracket_category")
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	stub := pieceTitled(t, imp, "My Thing Is My Own")
 	assert.True(t, stub.Doc.IsStub, "the case variant is a separate stub")
 	assert.NotEqual(t, p.ID, stub.ID)
 }
 
 func TestGoldenAssert_Greensleeves(t *testing.T) {
-	base, _ := goldenPiece(t, "Greensleeves")
-	sca, items := goldenPiece(t, "Greensleeves (SCA Version)")
+	base := goldenPiece(t, "Greensleeves")
+	sca := goldenPiece(t, "Greensleeves (SCA Version)")
 
 	assert.Equal(t, []domain.DocPieceRelation{{ToPieceID: base.ID, Type: domain.PieceRelationTypeContrafactumOf}},
 		sca.Doc.Relations)
-	assert.Contains(t, kinds(items), "relation")
-	assert.Contains(t, kinds(items), "other_page_title")
 }
 
-func TestGoldenAssert_DahrienCordell(t *testing.T) {
-	_, items := goldenPerson(t, "Dahrien Cordell")
+func TestGoldenAssert_OtherPageTitleIsNoAlias(t *testing.T) {
+	voice := goldenPiece(t, "Voice of the Dragon")
 
-	assert.Contains(t, kinds(items), "double_bracket_url")
-	assert.Contains(t, kinds(items), "malformed_url")
-}
-
-func TestGoldenAssert_TitlesListed(t *testing.T) {
-	_, dirge := goldenPiece(t, "Birthday Dirge")
-	_, wyrd := goldenPiece(t, "Warrior's Wyrd")
-	voice, _ := goldenPiece(t, "Voice of the Dragon")
-
-	assert.Contains(t, kinds(dirge), "rejected", "the category word title")
-	assert.Contains(t, kinds(wyrd), "unparsed", "the prose naming other titles")
 	assert.Equal(t, "Voice of the Dragon", voice.Doc.Title)
-	fight, items := goldenPiece(t, "Fight for the Midrealm")
-	other := keep(items, func(it Item) bool { return it.Kind == "other_page_title" })
-	require.Len(t, other, 1)
-	assert.Contains(t, other[0].Text, `"Voice of the Dragon"`, "the alternate is another page's title")
+	fight := goldenPiece(t, "Fight for the Midrealm")
 	for _, a := range fight.Doc.Aliases {
 		assert.NotEqual(t, domain.CollationKey(voice.Doc.Title), domain.CollationKey(a.Text), "never an alias")
 	}
@@ -209,7 +171,7 @@ func TestGoldenAssert_TitlesListed(t *testing.T) {
 // TestGoldenAssert_RelationsFromTitles: the report §8.1 pairs. "(SCA Version)" relates to its base whatever the
 // case of the base's title, and with no bare page the "(Poem)" and the "(Song)" relate to each other, once.
 func TestGoldenAssert_RelationsFromTitles(t *testing.T) {
-	imp, review := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	knight, base := pieceTitled(t, imp, "When A Knight Won His Spurs (SCA Version)"),
 		pieceTitled(t, imp, "When a Knight Won His Spurs")
 	poem, song := pieceTitled(t, imp, "Ode to Commius (Poem)"), pieceTitled(t, imp, "Ode to Commius (Song)")
@@ -223,6 +185,4 @@ func TestGoldenAssert_RelationsFromTitles(t *testing.T) {
 	assert.Empty(t, earlier.Doc.Relations, "related once, from the later page")
 	assert.Equal(t, []domain.DocPieceRelation{{ToPieceID: earlier.ID, Type: domain.PieceRelationTypeSameTextOtherForm}},
 		later.Doc.Relations)
-	shared := keep(review.Titles, func(it Item) bool { return it.Kind == "shared_alias" && it.Page == later.Doc.Title })
-	assert.Len(t, shared, 1, "the alias both forms have is listed")
 }

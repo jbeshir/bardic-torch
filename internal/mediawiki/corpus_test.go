@@ -19,8 +19,6 @@ var researchCounts = CorpusStats{
 	PieceRedirects: 5, BardRedirects: 1,
 	RedLinksByNS:  map[int]int{NSMain: 180, NSCategory: 22, NSSpecial: 1},
 	ExternalLinks: 691, TrackingParameterURLs: 112, PagesWithRepeatedURLs: 35, WorksWithoutPage: 78,
-	DriftPages: map[FacetDriftKind]int{DriftInInfoboxNotTagged: 13, DriftTaggedNotInInfobox: 24,
-		DriftRedirectCategoryLink: 4},
 }
 
 func TestCorpus_ResearchCounts(t *testing.T) {
@@ -28,17 +26,4 @@ func TestCorpus_ResearchCounts(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, researchCounts, Stats(ParseCorpus(d)))
-}
-
-func TestParseCorpus_PrivateNamesIgnoreInlineLyrics(t *testing.T) {
-	lyric := "<poem>\nsung by Wren Placeholder\nline two\nline three\nline four\n</poem>"
-	d := Dump{Pages: []Page{
-		{NS: NSMain, Title: "A Song", PageID: 1, Wikitext: "{{Infobox Song}}\n" + lyric +
-			"\n== Notes ==\nRecorded by Ash Placeholder on YouTube."},
-	}}
-
-	c := ParseCorpus(d)
-
-	assert.Equal(t, []PrivateName{{Text: "Ash Placeholder"}}, c.PrivateNames,
-		"a name in the dropped lyrics is no candidate: lyrics are never read")
 }

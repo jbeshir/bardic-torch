@@ -27,10 +27,10 @@ var (
 		EntityTypePiece, EntityTypePerson, EntityTypeTerm, EntityTypeCollection, EntityTypeEvent,
 	}
 	revisionSourceValues = []RevisionSource{
-		RevisionSourceUser, RevisionSourceImport, RevisionSourceMCP,
+		RevisionSourceUser, RevisionSourceImport,
 	}
 	revisionStatusValues = []RevisionStatus{
-		RevisionStatusDraft, RevisionStatusPending, RevisionStatusApproved, RevisionStatusRejected,
+		RevisionStatusPending, RevisionStatusApproved, RevisionStatusRejected,
 		RevisionStatusWithdrawn,
 	}
 	facetValues = []Facet{
@@ -69,11 +69,6 @@ var (
 	}
 	personRelationTypeValues = []PersonRelationType{
 		PersonRelationTypeHeirOf, PersonRelationTypeMemberOf, PersonRelationTypeSameAs,
-	}
-	preferenceDimensionValues = []PreferenceDimension{
-		PreferenceDimensionLicensing, PreferenceDimensionPerformancePermission, PreferenceDimensionAdaptations,
-		PreferenceDimensionAttribution, PreferenceDimensionCommercialUse, PreferenceDimensionRecording,
-		PreferenceDimensionPerformanceEtiquette, PreferenceDimensionObjectionableUse,
 	}
 	pieceKindValues = []PieceKind{
 		PieceKindSong, PieceKindPoem, PieceKindStory, PieceKindDanceMusic, PieceKindInstrumental, PieceKindComedy,
@@ -165,9 +160,6 @@ func (p PersonRole) Valid() bool { return slices.Contains(personRoleValues, p) }
 
 // Valid reports whether p is a known PersonRelationType.
 func (p PersonRelationType) Valid() bool { return slices.Contains(personRelationTypeValues, p) }
-
-// Valid reports whether p is a known PreferenceDimension.
-func (p PreferenceDimension) Valid() bool { return slices.Contains(preferenceDimensionValues, p) }
 
 // Valid reports whether p is a known PieceKind.
 func (p PieceKind) Valid() bool { return slices.Contains(pieceKindValues, p) }

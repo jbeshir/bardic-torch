@@ -1,8 +1,6 @@
 package mediawiki
 
 import (
-	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,59 +36,14 @@ func TestWikitextToMarkdown(t *testing.T) {
 	}
 }
 
-// lyricMarker marks a synthetic lyric line; it must never reach any field of a record.
-const lyricMarker = "scrubbedlyric"
-
-// markedLyricLines are n synthetic lyric lines carrying lyricMarker.
-func markedLyricLines(n int) string {
-	lines := make([]string, n)
-	for k := range lines {
-		lines[k] = lyricMarker + " line " + string(rune('a'+k))
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// assertNoLyricMarker checks every string reachable from v by reflection.
-func assertNoLyricMarker(t *testing.T, v reflect.Value, path string) {
-	t.Helper()
-	kind := v.Kind()
-	if kind == reflect.String {
-		assert.NotContains(t, v.String(), lyricMarker, path)
-		assert.NotContains(t, strings.ToLower(v.String()), "<poem", path)
-	}
-	if kind == reflect.Struct {
-		for k := range v.NumField() {
-			assertNoLyricMarker(t, v.Field(k), path+"."+v.Type().Field(k).Name)
-		}
-	}
-	if kind == reflect.Slice || kind == reflect.Array {
-		for k := range v.Len() {
-			assertNoLyricMarker(t, v.Index(k), path)
-		}
-	}
-	if (kind == reflect.Pointer || kind == reflect.Interface) && !v.IsNil() {
-		assertNoLyricMarker(t, v.Elem(), path)
-	}
-	if kind == reflect.Map {
-		for _, key := range v.MapKeys() {
-			assertNoLyricMarker(t, key, path)
-			assertNoLyricMarker(t, v.MapIndex(key), path)
-		}
-	}
-}
-
 func TestPieceFields_InlineLyricsDropped(t *testing.T) {
 	text := pieceWikitext(aSong, [][2]string{{titleParam, aSong}},
-		lyricsHeading, "<poem>\n"+markedLyricLines(6)+"\n</poem>\n* [https://example.invalid/lyrics Lyrics]",
-		"Notes", "A note.\n<poem style=\"x\">\n"+markedLyricLines(2)+"\n</poem>",
-		"Licensing & Etiquette", "The words are old.\n<POEM>\n"+markedLyricLines(3))
+		lyricsHeading, "<poem>\n"+lyricLines(6)+"\n</poem>\n* [https://example.invalid/lyrics Lyrics]",
+		"Notes", "A note.\n<poem style=\"x\">\n"+lyricLines(2)+"\n</poem>",
+		"Licensing & Etiquette", "The words are old.\n<POEM>\n"+lyricLines(3))
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
-	assertNoLyricMarker(t, reflect.ValueOf(p), "PieceRecord")
-	assert.True(t, p.Lyrics.HadInlineLyrics)
-	assert.Equal(t, []DroppedLyricsSection{{Heading: lyricsHeading, Lines: 6}, {Heading: "Notes", Lines: 2},
-		{Heading: "Licensing & Etiquette", Lines: 3}}, p.Lyrics.Sections)
+	assert.True(t, p.HadInlineLyrics)
 	assert.Equal(t, "A note.", p.Content.NotesMD)
 	assert.Equal(t, "The words are old.", p.Content.LicensingNotesMD)
 	assert.Empty(t, p.Content.VersionNotesMD)
@@ -98,12 +51,10 @@ func TestPieceFields_InlineLyricsDropped(t *testing.T) {
 
 func TestPieceFields_ProseLyricsDropped(t *testing.T) {
 	text := pieceWikitext(aSong, nil, lyricsHeading,
-		"* [https://example.invalid/lyrics Lyrics]\n"+markedLyricLines(2)+"\n: "+lyricMarker+" indented\n* "+
-			lyricMarker+" bulleted")
+		"* [https://example.invalid/lyrics Lyrics]\n"+lyricLines(2)+"\n: indented lyric line\n* bulleted lyric line")
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
-	assertNoLyricMarker(t, reflect.ValueOf(p), "PieceRecord")
-	assert.True(t, p.Lyrics.HadInlineLyrics)
+	assert.True(t, p.HadInlineLyrics)
 	assert.Empty(t, p.Content.VersionNotesMD)
 }
 
@@ -115,7 +66,7 @@ func TestPieceFields_VersionNotesKept(t *testing.T) {
 			"The second verse is often left out.")
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
-	assert.False(t, p.Lyrics.HadInlineLyrics)
+	assert.False(t, p.HadInlineLyrics)
 	assert.Equal(t, "There are two versions; see [the archive](https://example.invalid/v).\n"+
 		"The second verse is often left out.", p.Content.VersionNotesMD)
 }
@@ -135,7 +86,7 @@ func TestPieceFields_NotesFromLeadNotesAndOtherSections(t *testing.T) {
 }
 
 // TestPieceFields_LinkSectionProseInNotes: the prose of a link section, but its links, is in the notes under the
-// section's heading; as many lines as inline lyrics are never kept, only counted.
+// section's heading.
 func TestPieceFields_LinkSectionProseInNotes(t *testing.T) {
 	text := pieceWikitext(aSong, nil,
 		"Key Links", "* [https://example.invalid/a A link] adapted by [[Ash Placeholder]]\n"+
@@ -143,9 +94,8 @@ func TestPieceFields_LinkSectionProseInNotes(t *testing.T) {
 		sheetMusicHeading, "One.\nTwo.\nThree.\nFour.\n* [https://example.invalid/s Score]")
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
-	assert.Equal(t, "### Key Links\n\nThe tune was published in 1588.", p.Content.NotesMD)
-	assert.Equal(t, []LinkSectionProse{{Heading: "Key Links", Lines: 1, Kept: true},
-		{Heading: sheetMusicHeading, Lines: 4, Kept: false}}, p.Content.LinkSectionProse)
+	assert.Equal(t, "### Key Links\n\nThe tune was published in 1588.\n\n### Sheet Music\n\nOne.\nTwo.\nThree.\nFour.",
+		p.Content.NotesMD)
 }
 
 func TestPieceFields_LicensingHintsStripped(t *testing.T) {
@@ -170,11 +120,10 @@ func TestPieceFields_LicensingHintsStripped(t *testing.T) {
 	assert.Equal(t, "[A page](https://example.invalid/p)", unknown.Content.LicensingNotesMD)
 }
 
-func TestPieceFields_PublicDomainIsAReviewFactNotALicence(t *testing.T) {
+func TestPieceFields_PublicDomainIsNotALicence(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Categories: pieceCategories(),
 		Wikitext: pieceWikitext(aSong, nil, "Licensing & Etiquette", "The song is in the Public Domain.")})
 
-	assert.True(t, p.Content.SaysPublicDomain)
 	assert.Equal(t, "The song is in the Public Domain.", p.Content.LicensingNotesMD)
 	assert.Equal(t, domain.LicensingStatusUnknown, p.Content.LicensingStatus)
 }
@@ -185,36 +134,9 @@ func TestPieceFields_PeriodFromCenturyOrigin(t *testing.T) {
 
 	start, end := int16(1201), int16(1600)
 	assert.Equal(t, &start, p.Content.PeriodStart)
-	assert.Equal(t, &end, p.Content.PeriodEnd)
-	assert.Equal(t, []string{cat13thCentury, "16th Century"}, p.Content.PeriodCategories,
-		"a topic century is what the piece is about, not when it is from")
+	assert.Equal(t, &end, p.Content.PeriodEnd, "a topic century is what the piece is about, not when it is from")
 
 	none := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil),
 		Categories: pieceCategories("10th Century (Topic)")})
 	assert.Nil(t, none.Content.PeriodStart)
-}
-
-// TestScrubbedPieces_NoLyricMarkerInAnyField checks every field of every piece of the committed scrubbed copy,
-// whose inline lyrics are placeholder lines carrying the marker.
-func TestScrubbedPieces_NoLyricMarkerInAnyField(t *testing.T) {
-	for _, p := range scrubbedSite(t).Pieces() {
-		assertNoLyricMarker(t, reflect.ValueOf(p), p.Title)
-	}
-}
-
-// TestPieceFields_LinkSectionProseJoinedByBreaksNotKept: lines joined by <br> on one line count as lines, so one
-// line of a link section holding as many as inline lyrics is not kept.
-func TestPieceFields_LinkSectionProseJoinedByBreaksNotKept(t *testing.T) {
-	joined := "First placeholder line<br>second placeholder line<br/>third placeholder line<br />" +
-		"fourth placeholder line<BR>fifth placeholder line"
-	text := pieceWikitext(aSong, nil, keyLinksHeading, "* [https://example.invalid/a A link]\n"+joined)
-	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
-
-	assert.Empty(t, p.Content.NotesMD)
-	assert.Equal(t, []LinkSectionProse{{Heading: keyLinksHeading, Lines: 5, Kept: false}}, p.Content.LinkSectionProse)
-
-	short := parseFixturePiece(standardWiki(), Page{Title: aSong, Categories: pieceCategories(),
-		Wikitext: pieceWikitext(aSong, nil, keyLinksHeading, "* [https://example.invalid/a A link]\nOne.<br>Two.")})
-	assert.Equal(t, []LinkSectionProse{{Heading: keyLinksHeading, Lines: 2, Kept: true}},
-		short.Content.LinkSectionProse)
 }

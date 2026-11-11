@@ -1,18 +1,13 @@
 package controller
 
 import (
-	"net/http"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/jbeshir/bardic-torch/internal/datasources"
-	"github.com/jbeshir/bardic-torch/internal/datasources/mocks"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/openapi"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,19 +35,4 @@ func TestSearchPattern_MatchesParseSearchQuery(t *testing.T) {
 		_, err := domain.ParseSearchQuery(string(r))
 		assert.Equal(t, err == nil, re.MatchString(string(r)), "%U", r)
 	}
-}
-
-// TestPieceListGet_NoBreakSpaceSearch checks that a q of only a no-break space is a search, as the spec's pattern
-// allows: only ASCII spaces, tabs and line breaks are blank.
-func TestPieceListGet_NoBreakSpaceSearch(t *testing.T) {
-	t.Parallel()
-
-	lister := mocks.NewPublicPieceLister(t)
-	want := datasources.PieceQuery{Search: new(mustParseSearch(t, " ")), Sort: domain.PieceSortRelevance,
-		Page: defaultPieceQuery.Page}
-	lister.EXPECT().ListPublicPieces(mock.Anything, want).Return(domain.PieceList{}, nil)
-
-	rec := serveGet(t, PieceListGet{Lister: lister}, "/v1/pieces?q=%C2%A0", nil, false)
-	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	assert.JSONEq(t, emptyPieceListBody, strings.TrimSpace(rec.Body.String()))
 }

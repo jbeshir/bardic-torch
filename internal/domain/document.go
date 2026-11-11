@@ -14,7 +14,7 @@ import (
 
 // Snapshot documents are the editable content of a catalogue entity, as stored in revisions.snapshot_json. A
 // document holds only editor-owned fields:
-//   - no IDs of its own, current_revision_id, legacy_* columns, claimed_by_user_id or slug, which the system
+//   - no IDs of its own, current_revision_id, legacy_* columns or slug, which the system
 //     assigns, and no sort keys, which the writer derives (sort_title, sort_name, sort_letter);
 //   - no conservation history, which is appended when a revision with a new conservation status is approved;
 //   - no link system or moderator state (normalized_url, liveness, last_checked_at, archived_url, is_hidden), so
@@ -195,7 +195,6 @@ type PieceDocument struct {
 	Relations          []DocPieceRelation `json:"relations"`
 	Credits            []DocCredit        `json:"credits"`
 	Links              []DocPieceLink     `json:"links"`
-	Preferences        []DocPreference    `json:"preferences"`
 }
 
 // DocConservation is a piece's conservation status and the source supporting it. Approving a revision that
@@ -232,14 +231,6 @@ type DocCredit struct {
 	Certainty   Certainty   `json:"certainty"`
 	Part        *PiecePart  `json:"part"`
 	Note        *string     `json:"note"`
-}
-
-// DocPreference is one dimension of a stated preference profile. Value's shape per dimension is defined, and
-// validated, with the preference profiles; until then it is carried as raw JSON.
-type DocPreference struct {
-	Dimension PreferenceDimension `json:"dimension"`
-	Value     json.RawMessage     `json:"value"`
-	SourceURL string              `json:"source_url"`
 }
 
 // DocLink is the editor-owned part of a link attached to a piece or person, with the roles it has there.
@@ -300,14 +291,12 @@ type PersonDocument struct {
 	AffiliationIDs   []int64             `json:"affiliation_ids"`
 	Relations        []DocPersonRelation `json:"relations"`
 	Links            []DocPersonLink     `json:"links"`
-	Preferences      []DocPreference     `json:"preferences"`
 }
 
-// DocPersonAlias is another name of a person. A name that is not public never appears in a public read.
+// DocPersonAlias is another name of a person.
 type DocPersonAlias struct {
-	Name     string          `json:"name"`
-	Kind     PersonAliasKind `json:"kind"`
-	IsPublic bool            `json:"is_public"`
+	Name string          `json:"name"`
+	Kind PersonAliasKind `json:"kind"`
 }
 
 // DocPersonRelation relates the document's person to another person.

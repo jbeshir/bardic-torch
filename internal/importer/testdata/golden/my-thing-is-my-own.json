@@ -48,7 +48,7 @@
       "relations": [],
       "credits": [
         {
-          "person_id": 140,
+          "person_id": 155,
           "role": "lyrics",
           "attribution": "named",
           "certainty": "certain",
@@ -80,7 +80,7 @@
         },
         {
           "url": "https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own",
-          "title": "Lyrics on Cunnan, a Lochac wiki, taken from the [name withheld] Songbook",
+          "title": "Lyrics on Cunnan, a Lochac wiki, taken from the Legal Name 073 Songbook",
           "description": null,
           "platform": "cunnan.lochac.sca.org",
           "place_type": null,
@@ -117,8 +117,7 @@
           ],
           "performances": []
         }
-      ],
-      "preferences": []
+      ]
     },
     "legacy_had_inline_lyrics": false,
     "legacy": {
@@ -126,62 +125,12 @@
       "title": "My Thing is My Own"
     },
     "revision": {
-      "id": 482,
+      "id": 501,
       "summary": "Imported from the wiki (page revision 814).",
       "contributors": [
         "Wiki User 01"
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "NAME-126",
-      "kind": "free_text",
-      "page": "My Thing is My Own",
-      "text": "link https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own, title: \"Legal Name 073\" was withheld. Context: \"n Cunnan, a Lochac wiki, taken from the [name withheld] Songbook\"."
-    },
-    {
-      "id": "CREDIT-042",
-      "kind": "missing_bard_category",
-      "page": "My Thing is My Own",
-      "text": "missing_bard_category: \"Thomas d'Urfey\" (person Thomas d'Urfey)."
-    },
-    {
-      "id": "STUB-167",
-      "kind": "stub_person",
-      "page": "My Thing is My Own",
-      "text": "Stub person \"Thomas d'Urfey\" (community_bard), named on 1 page(s)."
-    },
-    {
-      "id": "LINK-181",
-      "kind": "normalised",
-      "page": "My Thing is My Own",
-      "text": "2 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERSON-183",
-      "kind": "stub_kind",
-      "page": "My Thing is My Own",
-      "text": "Stub person \"Thomas d'Urfey\" (named on 1 page(s)) is guessed to be historical."
-    },
-    {
-      "id": "LICENCE-021",
-      "kind": "says_public_domain",
-      "page": "My Thing is My Own",
-      "text": "The licensing text says \"public domain\"; no licence is set without a source."
-    },
-    {
-      "id": "LICENCE-022",
-      "kind": "period",
-      "page": "My Thing is My Own",
-      "text": "Period 1701–1800 from the century origins 18th Century."
-    },
-    {
-      "id": "MARKUP-004",
-      "kind": "single_bracket_category",
-      "page": "My Thing is My Own",
-      "text": "single_bracket_category at byte 113."
-    }
-  ]
+  }
 }

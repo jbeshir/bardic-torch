@@ -18,7 +18,6 @@ Replace these in the commands below:
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
 | `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
-| `<PRIVATE_DIR>` | A private directory outside this repository for the import review | `~/private/import` |
 
 ## Requirements
 
@@ -186,11 +185,10 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
 - The FE's authorization request must include `audience=https://api.bardictorch.org` and the scope
   `openid profile email offline_access`. Without the audience, Auth0 issues an access token the API cannot verify,
   and every request gets 401.
-- The FE's server sends the **access token** (not the ID token) with the feed's prefix:
+- The FE's server sends the **access token** (not the ID token):
   ```
-  Authorization: Bearer auth0|<access_token>
+  Authorization: Bearer <access_token>
   ```
-  Personal API tokens use `Authorization: Bearer user_api|<token>`; see `openapi/api.yaml`.
 - The FE refreshes the access token with its refresh token before it expires. An expired token gets 401
   `unauthenticated`.
 
@@ -224,11 +222,8 @@ dokku mysql:link bardic-torch-db bardic-torch-api
   tag on Docker Hub at the time (8.4.13 when this was written). Upgrade later with
   `dokku mysql:upgrade bardic-torch-db --image-version 8.4.<x>`.
 - Always pass `--image-version`. dokku-mysql's default image is an Innovation release, not an LTS.
-- Stay on 8.4 even though 9.7 is a newer LTS. From 9.6, MySQL checks foreign keys in the SQL layer rather than
-  InnoDB, and 9.7.4 does not enforce a foreign key whose index has a further column that is NULL in the new row
-  (MySQL bug #121438, open). `api_tokens.fk_api_tokens_user` uses such an index, and
-  `TestRepository_APITokens_CreateRequiresExistingUser` fails on 9.7.4. Move to 9.7 only once a 9.7 release
-  fixes that bug and the integration tests pass on it.
+- Stay on 8.4 even though 9.7 is a newer LTS. Move to a later series only deliberately, with the integration
+  tests passing on it (they run on 8.4 everywhere).
 - Moving to a later series is one-way: MySQL upgrades the data directory in place, and the old server cannot
   read it afterwards. Take `dokku mysql:export bardic-torch-db > bardic-torch-db.sql` first. To roll back, create
   a service on the old version and `dokku mysql:import` the export into it.
@@ -276,7 +271,7 @@ Every variable in `.env.dist` except the two dokku manages (`DATABASE_URL` from 
 ```
 dokku config:set --no-restart bardic-torch-api \
   LOG_LEVEL=INFO \
-  AUTH_DRIVERS=auth0,api_token \
+  AUTH_DRIVERS=auth0 \
   AUTH0_DOMAIN=<AUTH0_DOMAIN> \
   AUTH0_AUDIENCE=https://api.bardictorch.org \
   BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>'
@@ -353,45 +348,28 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
 
 1. **Dry run.** On a workstation, from a clone of this repository, with the crawl outside it:
    ```
-   go run ./cmd/import-mediawiki --dry-run --dump <CRAWL_DIR> --review <PRIVATE_DIR>/import-review.md
+   go run ./cmd/import-mediawiki --dry-run --dump <CRAWL_DIR>
    ```
-   It needs no database and never reads `DATABASE_URL`. It builds and validates the whole import, writes the
-   review and prints the counts (pieces by kind and with inline lyrics, persons, terms, collections of the
-   Collections page's entries, events, links, revisions and review items).
-2. **Review.** The moderators work through the review (`import-review.md`): every alias classification, every
-   name withheld from public text (and every possible private name kept in it because the import publishes it as
-   a person's name), every collection, event, stub, alias or uploader left out because its name
-   holds a possible legal name, every URL that may name a person, the wiki users shaped like personal names
-   (credited publicly as written), the ambiguous records, the stubs, the links whose pages disagree on their
-   title, description or locator (one links row serves every page; each page's own fields are in the item), the
-   link-section prose moved into notes, the runs of link lines imported without descriptions because their text
-   could be lyrics, and the rest. Where the importer guessed
-   wrong, note the item ID: it is corrected in the catalogue after the import (an entity left out is created by
-   hand once its name is cleared). Run the dry run again whenever the crawl changes.
-3. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
-   one-off container a private directory holding the crawl, which the image's user (10001) can write the review
-   to:
+   It needs no database and never reads `DATABASE_URL`. It builds and validates the whole import and prints the
+   counts (pieces by kind and with inline lyrics, persons, terms, collections of the Collections page's entries,
+   events, links, revisions). Run it again whenever the crawl changes.
+2. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
+   one-off container a private directory holding the crawl, readable by the image's user (10001):
    ```
    sudo mkdir -p /var/lib/bardic-torch-import
    sudo cp -r <CRAWL_DIR> /var/lib/bardic-torch-import/dump
    sudo chown -R 10001:10001 /var/lib/bardic-torch-import
    sudo chmod -R go= /var/lib/bardic-torch-import
    dokku docker-options:add bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
-   dokku run bardic-torch-api /app/import-mediawiki --apply --dump /import/dump --review /import/import-review.md
+   dokku run bardic-torch-api /app/import-mediawiki --apply --dump /import/dump
    dokku docker-options:remove bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
    ```
-   It builds the same import, writes the review before it touches the database, and then writes every row in
-   one transaction: on any error nothing is written. It prints the counts and `applied: the catalogue holds the
-   import`. If another import is running it fails with `another catalogue import is in progress`, and on a
-   catalogue that is not empty with `catalogue is not empty`; neither writes anything. Its errors never quote a
-   value of the import, so the logs hold no name.
-4. **Delete the copies** once the import is applied and reviewed: `sudo rm -r /var/lib/bardic-torch-import`.
-
-**The review is private.** It names hidden aliases and other possible legal names in clear so that the
-moderators can check them (it never holds lyrics). Never publish it, commit it or attach it to an issue; the
-command writes it with mode 0600 and refuses a path inside this repository, which is public (also through a
-symbolic or hard link); it replaces an existing file instead of writing through it. Share it with the
-moderators privately, and delete the copies when the review is done.
+   It builds the same import and writes every row in one transaction: on any error nothing is written. It prints
+   the counts and `applied: the catalogue holds the import`. If another import is running it fails with `another
+   catalogue import is in progress`, and on a catalogue that is not empty with `catalogue is not empty`; neither
+   writes anything.
+3. **Delete the copy** once the import is applied: `sudo rm -r /var/lib/bardic-torch-import`. The crawl is never
+   committed: it holds the wiki's lyrics, which are not ours to publish, and email addresses.
 
 After the import, every imported entity has one approved revision of source `import`, crediting the wiki users who
 wrote its page; liveness of every link is `unknown` until a link checker runs.
@@ -417,53 +395,19 @@ before it:
   column without a default, or narrowing a column. Do these in two releases: first a release that stops using the
   old shape (and writes both, if needed), then a release whose migration removes it.
 - Never edit a migration that has been deployed; add a new one.
-- **Enum growth**: appending a value to a catalogue `ENUM` column is an instant, compatible migration, but old code
-  fails when it reads a value it does not know (the read path returns a logged 500 for it). So ship the code that
-  understands a new value in one release, and only a later release may write rows that use it. Never roll back to a
-  release older than one whose data uses a value it lacks; if you must, first delete or rewrite those rows. Removing
-  or reordering ENUM values is a narrowing change: use the two-release rule above. The same holds for vocabulary
-  values inside revision snapshot documents, which reads validate too. The OpenAPI enum schema of the vocabulary changes in the same release as the domain list
-  (`TestSpec_EnumSchemasMatchDomain` fails otherwise); a client generated from the spec then knows the value before
-  any data uses it.
-- **Snapshot documents** (`revisions.snapshot_json`) follow the same rule as columns. A reader ignores document
-  fields it does not know, so a release may add a field (for a new column) without a new `schema_version`: after
-  a rollback, the older release keeps serving the revisions written in between, showing only the fields it knows.
-  Removing, renaming or retyping a field, or changing what one means, needs a new `schema_version`, which every
-  older release refuses (a logged 500 for each such revision): ship the reader for the new version one release
-  before any release writes it. A new field that hides or redacts other document data (a privacy flag on a link
-  or an alias, say) is not additive, even though older readers would parse it: they would ignore it and show
-  what it hides. Such a field needs a new `schema_version`, so that an older release refuses those documents
-  rather than failing open.
-- **Views** (`public_terms`, `listed_persons`, `public_link_attachments`, migration 009) define the visibility
-  rules once. MySQL fixes a view's columns when it is created, so a migration that adds a column a public read
-  needs from `terms`, `persons` or `link_attachments` also recreates the view (`CREATE OR REPLACE VIEW`). MySQL
-  does not stop a migration from dropping or renaming a column a view selects: the `ALTER TABLE` succeeds, but
-  the view is then invalid and every read using it fails (error 1356), so every public read would answer 500
-  once the migration ran. A migration that drops or renames such a column must recreate the views without it in
-  the same migration. `TestMigrations_UpDownUp` reads every view after migrating up.
+- This is the rule from now on. Migrations 010 and 011 dropped tables, columns and enum values in the same release
+  as the code that stopped using them, because no release had been deployed yet, so there was no serving release
+  to protect and no earlier one to roll back to.
+- **Enum growth and snapshots**: add a new `ENUM` value in a release before any release uses it, and remove values
+  over two releases. Snapshot document fields follow PLAN §4.2.
+- **Views** (`public_terms`, `listed_persons`, `public_link_attachments`) fix their columns when created, so a
+  migration that adds a needed column, or drops or renames a column a view selects, recreates the views in the
+  same migration (a stale view makes every read using it fail with error 1356). `TestMigrations_UpDownUp` reads
+  every view after migrating up.
 
 ### The normalized URL invariant
 
-Every row of `links` has `normalized_url = domain.NormalizeURL(url)`. The importer and every later writer keep
-it; a URL that does not normalize is never written. Public revision reads rely on it: a snapshot's link is shown
-only if `NormalizeURL` of the URL in the document is the `normalized_url` of a link that is not hidden, and then
-under that link's `url`. A row that broke the invariant would make the read show or drop the wrong links.
-
-A change to what `NormalizeURL` returns (a new tracking parameter, say) is therefore a data change, not just a code
-change. Ship it with a command or migration that re-normalises every `links` row, and run that before the release
-whose reads rely on the new output. Until the rows are re-normalised, the new code is not safe: a document URL
-that now normalizes differently is dropped if it matches no row, but it can match another row. A hidden link's
-URL that differed from a visible link's only in a newly dropped parameter now normalizes to the visible row's
-`normalized_url`, so the revision shows it under the visible link. Only the merge below, which keeps a group
-hidden if any of its rows is, closes that. A rollback to the old code after re-normalising is safe: merged rows
-keep their hidden state, and a URL that no longer matches a row is dropped.
-
-Re-normalising can give two rows the same `normalized_url`, which the unique index refuses. Merge each such group
-into its row with the lowest ID, in one transaction: keep that row's `url` and editor-owned fields, set its
-`is_hidden` if any row of the group is hidden (a takedown is never undone by a merge), move the other rows'
-`link_attachments` (dropping any that would duplicate one the kept row has for the same role and entity) and
-`performances` to it, delete the other rows, and only then write the new `normalized_url`. List the merged groups
-for the moderators.
+Every `links.normalized_url = NormalizeURL(url)`. A `NormalizeURL` change needs every row re-normalised first.
 
 ### Failed migrations (dirty state)
 

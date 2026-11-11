@@ -33,40 +33,6 @@ SET blocked_at = NULL
 WHERE id = ? AND role = 'contributor';
 
 -- ============================================
--- API tokens
--- ============================================
-
--- name: CreateAPIToken :exec
-INSERT INTO api_tokens (id, user_id, token_hash, token_prefix, name, created_at)
-VALUES (?, ?, ?, ?, ?, ?);
-
--- name: GetAPITokenByHash :one
-SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
-FROM api_tokens
-WHERE token_hash = ?;
-
--- name: UpdateAPITokenLastUsed :exec
-UPDATE api_tokens
-SET last_used_at = sqlc.arg(used_at)
-WHERE id = sqlc.arg(id) AND (last_used_at IS NULL OR last_used_at < sqlc.arg(stale_before));
-
--- name: ListUserActiveAPITokens :many
-SELECT id, user_id, token_hash, token_prefix, name, created_at, last_used_at, revoked_at
-FROM api_tokens
-WHERE user_id = ? AND revoked_at IS NULL
-ORDER BY created_at DESC, id;
-
--- name: CountUserActiveAPITokens :one
-SELECT COUNT(*)
-FROM api_tokens
-WHERE user_id = ? AND revoked_at IS NULL;
-
--- name: RevokeAPIToken :execrows
-UPDATE api_tokens
-SET revoked_at = COALESCE(revoked_at, sqlc.arg(revoked_at))
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
-
--- ============================================
 -- Catalogue: public reads
 --
 -- An entity is public when it has an approved revision (current_revision_id IS NOT NULL); a term also needs
@@ -165,10 +131,10 @@ SELECT id, slug, name, kind, status, status_date, status_source_url, is_stub, pr
 FROM persons
 WHERE slug = ? AND current_revision_id IS NOT NULL;
 
--- name: ListPublicPersonAliases :many
+-- name: ListPersonAliases :many
 SELECT name, kind
 FROM person_aliases
-WHERE person_id = ? AND is_public
+WHERE person_id = ?
 ORDER BY id;
 
 -- name: ListPersonRoles :many
@@ -507,11 +473,6 @@ SELECT id, slug, name, kind, status, is_stub
 FROM persons
 WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 
--- name: ListPublicAliasNames :many
-SELECT person_id, name
-FROM person_aliases
-WHERE person_id IN (sqlc.slice('person_ids')) AND is_public;
-
 -- name: ListPublicTermsByID :many
 SELECT t.id, t.slug, t.facet, t.display_name
 FROM public_terms t
@@ -527,16 +488,14 @@ SELECT id, slug, name, kind
 FROM events
 WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 
--- A snapshot's link is shown only if its normalized URL is that of a link that is not hidden. Every link's
--- normalized_url is domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies
--- to the snapshot's URLs too, so a link edited to another spelling of the same URL is still matched, and a link
--- since deleted or given another URL fails closed. The column is binary, and the caller trusts only the normalized
--- URLs these rows hold.
+-- A snapshot drops a link whose URL normalizes to a hidden link's. Every link's normalized_url is
+-- domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies to the snapshot's
+-- URLs too. The caller queries with normalized (ASCII) URLs only, and trusts only the normalized URLs these rows hold.
 
--- name: ListLinksByNormalizedURL :many
-SELECT normalized_url, url, is_hidden
+-- name: ListHiddenNormalizedURLs :many
+SELECT normalized_url
 FROM links
-WHERE normalized_url IN (sqlc.slice('normalized_urls'));
+WHERE is_hidden AND normalized_url IN (sqlc.slice('normalized_urls'));
 
 -- ============================================
 -- Catalogue import
@@ -583,8 +542,8 @@ INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, statu
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPersonAlias :exec
-INSERT INTO person_aliases (person_id, name, kind, is_public)
-VALUES (?, ?, ?, ?);
+INSERT INTO person_aliases (person_id, name, kind)
+VALUES (?, ?, ?);
 
 -- name: InsertPersonRole :exec
 INSERT INTO person_roles (person_id, role)
@@ -597,10 +556,6 @@ VALUES (?, ?);
 -- name: InsertPersonRelation :exec
 INSERT INTO person_relations (from_person_id, to_person_id, type)
 VALUES (?, ?, ?);
-
--- name: InsertPersonPreference :exec
-INSERT INTO person_preferences (person_id, dimension, value_json, source_url)
-VALUES (?, ?, ?, ?);
 
 -- name: InsertImportedPiece :exec
 INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
@@ -627,10 +582,6 @@ VALUES (?, ?, ?);
 -- name: InsertPieceCredit :exec
 INSERT INTO piece_credits (piece_id, person_id, role, attribution, certainty, part, note, position)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-
--- name: InsertPiecePreference :exec
-INSERT INTO piece_preferences (piece_id, dimension, value_json, source_url)
-VALUES (?, ?, ?, ?);
 
 -- name: InsertConservationHistory :exec
 INSERT INTO conservation_history (piece_id, status, reason, source_url, revision_id, at)

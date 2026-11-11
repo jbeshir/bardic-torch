@@ -20,7 +20,7 @@ func TestMain(m *testing.M) { catalogtest.Main(m) }
 
 // detailFixture is a catalogue where every visibility rule of the piece and person pages has something to hide:
 // unapproved terms (and an approved term under an unapproved parent), persons, pieces, collections and events;
-// a prefers_no_page person referenced from everywhere a person can be; a hidden alias; and a hidden link.
+// a prefers_no_page person referenced from everywhere a person can be; and a hidden link.
 type detailFixture struct {
 	kettle, pendingPiece           catalogtest.Ref
 	wren, ash, noPage, pendingWren catalogtest.Ref
@@ -90,9 +90,9 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 			LicensingStatus:  domain.LicensingStatusKnown,
 			LicensingNotesMD: new("Sing freely."),
 			Aliases: []domain.DocPersonAlias{
-				{Name: "Wren", Kind: domain.PersonAliasKindStage, IsPublic: true},
-				{Name: "Jo Hiddenname", Kind: domain.PersonAliasKindLegal},
-				{Name: "Little Wren", Kind: domain.PersonAliasKindNickname, IsPublic: true},
+				{Name: "Wren", Kind: domain.PersonAliasKindStage},
+				{Name: "Jo Legalname", Kind: domain.PersonAliasKindLegal},
+				{Name: "Little Wren", Kind: domain.PersonAliasKindNickname},
 			},
 			Roles:          []domain.PersonRole{domain.PersonRoleSongwriter, domain.PersonRoleSinger},
 			AffiliationIDs: []int64{northmarch.ID, southmarch.ID, eastmarch.ID},
@@ -119,7 +119,7 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 		Doc: domain.PersonDocument{
 			Name: hollisName, Status: domain.PersonStatusPrefersNoPage, StatusDate: &domain.Date{Time: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
 			StatusSourceURL: new("https://example.org/requests/12"), NotesMD: new("Private notes."),
-			Aliases:        []domain.DocPersonAlias{{Name: "Holly", Kind: domain.PersonAliasKindNickname, IsPublic: true}},
+			Aliases:        []domain.DocPersonAlias{{Name: "Holly", Kind: domain.PersonAliasKindNickname}},
 			Roles:          []domain.PersonRole{domain.PersonRoleSinger},
 			AffiliationIDs: []int64{northmarch.ID},
 			Relations:      []domain.DocPersonRelation{{ToPersonID: wren.ID, Type: domain.PersonRelationTypeHeirOf}},
@@ -408,6 +408,7 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 			LicensingNotesMD: new("Sing freely."),
 			Aliases: []domain.PersonAlias{
 				{Name: "Wren", Kind: domain.PersonAliasKindStage},
+				{Name: "Jo Legalname", Kind: domain.PersonAliasKindLegal},
 				{Name: "Little Wren", Kind: domain.PersonAliasKindNickname},
 			},
 			Roles: []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},

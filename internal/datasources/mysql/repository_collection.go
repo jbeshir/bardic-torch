@@ -11,8 +11,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var _ datasources.PublicCollectionGetter = (*Repository)(nil)
-
 // GetPublicCollection retrieves a public collection by ID with its public parent, children and region and the
 // first of its citations, returning datasources.ErrNotFound if no public collection has the ID.
 func (r *Repository) GetPublicCollection(ctx context.Context, id int64) (domain.Collection, error) {

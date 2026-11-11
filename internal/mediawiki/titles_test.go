@@ -20,17 +20,17 @@ func TestPieceTitles_InfoboxSplit(t *testing.T) {
 		want         []AltTitle
 	}{
 		"slash": {"Black Alman", "Black Alman / Black Allemande", []AltTitle{
-			{Text: "Black Allemande", Kind: domain.PieceAliasKindAltTitle, Source: TitleFromInfobox},
+			{Text: "Black Allemande", Kind: domain.PieceAliasKindAltTitle},
 		}},
 		"parenthetical with slash": {"Rise", "Rise (We Shall Rise / Rise Placeholder)", []AltTitle{
-			{Text: "We Shall Rise", Kind: domain.PieceAliasKindAltTitle, Source: TitleFromInfobox},
-			{Text: "Rise Placeholder", Kind: domain.PieceAliasKindAltTitle, Source: TitleFromInfobox},
+			{Text: "We Shall Rise", Kind: domain.PieceAliasKindAltTitle},
+			{Text: "Rise Placeholder", Kind: domain.PieceAliasKindAltTitle},
 		}},
 		"parenthetical subtitle": {"Wren's Song", "Wren's Song (The Vale Sings Softly)", []AltTitle{
-			{Text: "The Vale Sings Softly", Kind: domain.PieceAliasKindSubtitle, Source: TitleFromInfobox},
+			{Text: "The Vale Sings Softly", Kind: domain.PieceAliasKindSubtitle},
 		}},
 		"other title with a parenthetical": {"Quantas Sabedes Amar Amigo", "Quantas Sabedes (Cantiga V)", []AltTitle{
-			{Text: "Quantas Sabedes (Cantiga V)", Kind: domain.PieceAliasKindAltTitle, Source: TitleFromInfobox},
+			{Text: "Quantas Sabedes (Cantiga V)", Kind: domain.PieceAliasKindAltTitle},
 		}},
 		"the title with its own parenthetical": {"Ode (Poem)", "Ode (Poem)", nil},
 	} {
@@ -47,7 +47,7 @@ func TestPieceTitles_H1ParentheticalIsATitleNeverAnAlias(t *testing.T) {
 	got := titlesOf(t, standardWiki(), "A Song Again", text)
 
 	assert.Equal(t, []AltTitle{
-		{Text: "Sung at Every Feast", Kind: domain.PieceAliasKindSubtitle, Source: TitleFromH1},
+		{Text: "Sung at Every Feast", Kind: domain.PieceAliasKindSubtitle},
 	}, got.Alternates)
 }
 
@@ -62,7 +62,6 @@ func TestPieceTitles_OtherTitlesAndAlsoKnownAsLead(t *testing.T) {
 	}
 	assert.Equal(t, []string{"The Placeholder Song", "Song of Wren", "Wren's Lament", "The Vale", "The Long Road",
 		"Ash Tree"}, texts)
-	assert.Equal(t, TitleFromAlsoKnownAs, p.Titles.Alternates[2].Source)
 	assert.Equal(t, "A note about the song.", p.Content.NotesMD, "the also-known-as line is not a note")
 }
 
@@ -72,8 +71,6 @@ func TestPieceTitles_RejectsOtherPageTitle(t *testing.T) {
 	got := titlesOf(t, w, aSong, pieceWikitext(aSong, [][2]string{{titleParam, otherPageTitle}}))
 
 	assert.Empty(t, got.Alternates)
-	assert.Equal(t, []RejectedTitle{{Text: otherPageTitle, Source: TitleFromInfobox, Reason: TitleIsOtherPage}},
-		got.Rejected)
 }
 
 func TestPieceTitles_RejectsCategoryWord(t *testing.T) {
@@ -81,8 +78,6 @@ func TestPieceTitles_RejectsCategoryWord(t *testing.T) {
 		got := titlesOf(t, standardWiki(), aSong, pieceWikitext(aSong, [][2]string{{titleParam, word}}))
 
 		assert.Empty(t, got.Alternates, word)
-		assert.Equal(t, []RejectedTitle{{Text: word, Source: TitleFromInfobox, Reason: TitleIsCategoryWord}},
-			got.Rejected, word)
 	}
 }
 
@@ -91,7 +86,6 @@ func TestPieceTitles_PunctuationOnlyVariantSkipped(t *testing.T) {
 	got := titlesOf(t, standardWiki(), "What Price Honor", text)
 
 	assert.Empty(t, got.Alternates)
-	assert.Empty(t, got.Rejected)
 }
 
 func TestPieceTitles_RedirectsAreAliases(t *testing.T) {
@@ -102,19 +96,16 @@ func TestPieceTitles_RedirectsAreAliases(t *testing.T) {
 	got := titlesOf(t, w, aSong, text)
 
 	assert.Equal(t, []AltTitle{
-		{Text: "A Song (Placeholder)", Kind: domain.PieceAliasKindRedirect, Source: TitleFromRedirect},
-		{Text: "A song", Kind: domain.PieceAliasKindRedirect, Source: TitleFromRedirect},
+		{Text: "A Song (Placeholder)", Kind: domain.PieceAliasKindRedirect},
+		{Text: "A song", Kind: domain.PieceAliasKindRedirect},
 	}, got.Alternates, "a redirect is kept even when it differs only by case; a title equal to one is not repeated")
-	assert.Empty(t, got.Rejected)
 }
 
-func TestPieceTitles_UnparsedProseListed(t *testing.T) {
+func TestPieceTitles_UnparsedProseStaysInNotes(t *testing.T) {
 	text := pieceWikitext(aSong, nil) + "This song is also known as 'Wren Rising' and 'The Vale'.\n"
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
 	assert.Empty(t, p.Titles.Alternates)
-	assert.Equal(t, []UnparsedTitle{{Section: SectionTitle,
-		Text: "This song is also known as 'Wren Rising' and 'The Vale'."}}, p.Titles.Unparsed)
 	assert.Equal(t, "This song is also known as 'Wren Rising' and 'The Vale'.", p.Content.NotesMD,
 		"an unparsed line stays in the notes")
 }

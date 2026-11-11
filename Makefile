@@ -54,9 +54,8 @@ mysql-local-install: ## Install mysql-server 8.4 into MYSQL_PREFIX with conda
 	conda create -y -p $(MYSQL_PREFIX) -c conda-forge --override-channels mysql-server=8.4.2
 
 .PHONY: generate
-generate: ## Regenerate sqlc queries and mockery mocks
+generate: ## Regenerate sqlc queries
 	go generate ./...
-	go tool mockery
 
 .PHONY: check-generated
 check-generated: ## Fail if generated code is out of date

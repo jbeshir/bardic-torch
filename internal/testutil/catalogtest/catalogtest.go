@@ -176,7 +176,7 @@ func (c *Catalog) Term(f Term) Ref {
 	return ref
 }
 
-// Person seeds a person with their aliases, roles, affiliations, outgoing relations, preferences and links.
+// Person seeds a person with their aliases, roles, affiliations, outgoing relations and links.
 func (c *Catalog) Person(f Person) Ref {
 	doc := f.Doc
 	doc.SchemaVersion = domain.DocumentSchemaVersion
@@ -194,8 +194,8 @@ func (c *Catalog) Person(f Person) Ref {
 			doc.Status, dateValue(doc.StatusDate), doc.StatusSourceURL, doc.Pronouns, doc.NotesMD, doc.LicensingNotesMD,
 			doc.LicensingStatus, doc.IsStub)
 		for _, alias := range doc.Aliases {
-			w.exec("INSERT INTO person_aliases (person_id, name, kind, is_public) VALUES (?, ?, ?, ?)",
-				ref.ID, alias.Name, alias.Kind, alias.IsPublic)
+			w.exec("INSERT INTO person_aliases (person_id, name, kind) VALUES (?, ?, ?)",
+				ref.ID, alias.Name, alias.Kind)
 		}
 		for _, role := range doc.Roles {
 			w.exec("INSERT INTO person_roles (person_id, role) VALUES (?, ?)", ref.ID, role)
@@ -206,10 +206,6 @@ func (c *Catalog) Person(f Person) Ref {
 		for _, rel := range doc.Relations {
 			w.exec("INSERT INTO person_relations (from_person_id, to_person_id, type) VALUES (?, ?, ?)",
 				ref.ID, rel.ToPersonID, rel.Type)
-		}
-		for _, pref := range doc.Preferences {
-			w.exec("INSERT INTO person_preferences (person_id, dimension, value_json, source_url) "+
-				"VALUES (?, ?, ?, ?)", ref.ID, pref.Dimension, string(pref.Value), pref.SourceURL)
 		}
 		for position, link := range doc.Links {
 			linkID := w.link(link.DocLink)
@@ -268,10 +264,6 @@ func (c *Catalog) Piece(f Piece) Ref {
 			w.exec("INSERT INTO piece_credits (piece_id, person_id, role, attribution, certainty, part, note, "+
 				"position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", ref.ID, credit.PersonID, credit.Role, credit.Attribution,
 				credit.Certainty, credit.Part, credit.Note, position)
-		}
-		for _, pref := range doc.Preferences {
-			w.exec("INSERT INTO piece_preferences (piece_id, dimension, value_json, source_url) VALUES (?, ?, ?, ?)",
-				ref.ID, pref.Dimension, string(pref.Value), pref.SourceURL)
 		}
 		for _, entry := range f.ConservationHistory {
 			w.exec("INSERT INTO conservation_history (piece_id, status, reason, source_url, at) "+
@@ -368,8 +360,8 @@ func (c *Catalog) normalizeURL(url string) string {
 	return normalized
 }
 
-// Exec runs one statement and commits it, for the system-owned columns no document holds, such as legacy_title
-// or claimed_by_user_id, and for rows no method seeds, such as users.
+// Exec runs one statement and commits it, for the system-owned columns no document holds, such as legacy_title,
+// and for rows no method seeds, such as users.
 func (c *Catalog) Exec(query string, args ...any) {
 	c.t.Helper()
 	c.write(func(w writer) { w.exec(query, args...) })

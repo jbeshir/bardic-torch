@@ -11,11 +11,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var (
-	_ datasources.PublicTermLister = (*Repository)(nil)
-	_ datasources.PublicTermGetter = (*Repository)(nil)
-)
-
 // ListPublicTerms lists the public terms of facet, or of every facet if it is nil, in tree order: by facet, each
 // parent before its children, and siblings by position, display name and ID. A term whose parent is not listed,
 // being of another facet, is listed as a root.

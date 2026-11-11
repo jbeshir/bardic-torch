@@ -60,55 +60,6 @@ func TestRepository_GetPublicPerson_PerformancesNeedPublicAttachment(t *testing.
 	assert.Equal(t, int64(3), person.Profile.PerformancesTotal)
 }
 
-// TestRepository_GetPublicRevision_FormerName checks that a revision shows a person's former name only while it
-// is their name or a public alias of theirs: once it is a hidden alias, the snapshot and base show their current
-// name, with a page and without.
-func TestRepository_GetPublicRevision_FormerName(t *testing.T) {
-	t.Parallel()
-
-	db := mysqltest.NewDatabase(t)
-	c := catalogtest.New(t, db)
-	repo := mysql.New(db)
-	// No subtests: catalogtest must be called from the test's own goroutine.
-	for _, status := range []domain.PersonStatus{domain.PersonStatusActive, domain.PersonStatusPrefersNoPage} {
-		doc := domain.PersonDocument{
-			SchemaVersion: domain.DocumentSchemaVersion, Name: "Briar " + string(status),
-			Kind: domain.PersonKindCommunityBard, Status: status, LicensingStatus: domain.LicensingStatusUnknown,
-			Aliases: []domain.DocPersonAlias{
-				{Name: "Former " + string(status), Kind: domain.PersonAliasKindLegal},
-				{Name: "Stage " + string(status), Kind: domain.PersonAliasKindStage, IsPublic: true},
-			},
-		}
-		person := c.Person(catalogtest.Person{Doc: doc})
-		named := func(name string, base int64) int64 {
-			former := doc
-			former.Name = name
-			return c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePerson, EntityID: person.ID,
-				Snapshot: former, BaseRevisionID: base})
-		}
-		hidden := named("Former "+string(status), 0)
-		public := named("Stage "+string(status), hidden)
-		recased := named("BRIAR "+string(status), public)
-
-		for id, want := range map[int64]string{
-			person.RevisionID: doc.Name, hidden: doc.Name, public: "Stage " + string(status), recased: doc.Name,
-		} {
-			revision, err := repo.GetPublicRevision(t.Context(), id)
-			require.NoError(t, err)
-			personRevision, ok := revision.(domain.PersonRevision)
-			require.True(t, ok, "%T", revision)
-			assert.Equal(t, want, personRevision.Snapshot.Name, id)
-		}
-
-		revision, err := repo.GetPublicRevision(t.Context(), public)
-		require.NoError(t, err)
-		personRevision, ok := revision.(domain.PersonRevision)
-		require.True(t, ok, "%T", revision)
-		require.NotNil(t, personRevision.Base)
-		assert.Equal(t, doc.Name, personRevision.Base.Snapshot.Name, "the base's former name is hidden")
-	}
-}
-
 // lyricsLinks returns links with the lyrics role and the given URLs, in order.
 func lyricsLinks(urls ...string) []domain.DocPieceLink {
 	out := []domain.DocPieceLink{}
@@ -160,10 +111,9 @@ func normalized(t *testing.T, url string) string {
 	return n
 }
 
-// TestRepository_GetPublicRevision_LinksVisibleNow checks that a revision shows a link only if its normalized URL
-// is a link's that is not hidden now: not one deleted since, one given another URL and then hidden, or one whose
-// path differs in case from a hidden or visible link's. A URL that differs from a visible link's only in the
-// case of its host is the same link, and shows under the link's URL.
+// TestRepository_GetPublicRevision_LinksVisibleNow checks that a revision drops only a link whose normalized URL
+// is a hidden link's now, and shows every other as written: one deleted since, one given another URL and then
+// hidden, and one whose path differs in case from a hidden link's are all shown.
 func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
 	t.Parallel()
 
@@ -189,8 +139,8 @@ func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
 	later := laterPieceRevision(c, piece, title, visiblePath, visibleHost)
 
 	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
-	assert.Equal(t, []string{visible}, snapshot)
-	assert.Equal(t, []string{visible}, base)
+	assert.Equal(t, []string{visiblePath, visibleHost}, snapshot)
+	assert.Equal(t, []string{visible, deleted, moved, recased}, base)
 }
 
 // TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted checks that a link edited to another
@@ -218,10 +168,10 @@ func TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted(t *testin
 	assert.Equal(t, []string{elsewise}, base)
 }
 
-// TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown checks that a link edited to another spelling of
-// its URL, with the same normalized URL, is still shown, under its URL now, in a revision holding the spelling it
-// had before: a revision never shows a spelling, such as its tracking parameters, that the link no longer holds.
-func TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown(t *testing.T) {
+// TestRepository_GetPublicRevision_RespelledLinkShownAsWritten checks that a link edited to another spelling of
+// its URL, with the same normalized URL, is shown in a revision as that revision wrote it: the base shows the
+// entered spelling, the snapshot the new one.
+func TestRepository_GetPublicRevision_RespelledLinkShownAsWritten(t *testing.T) {
 	t.Parallel()
 
 	db := mysqltest.NewDatabase(t)
@@ -238,14 +188,13 @@ func TestRepository_GetPublicRevision_RespelledVisibleLinkStillShown(t *testing.
 
 	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
 	assert.Equal(t, []string{respelt}, snapshot)
-	assert.Equal(t, []string{respelt}, base)
+	assert.Equal(t, []string{entered}, base)
 }
 
 // TestRepository_GetPublicRevision_NonASCIILinkURL checks that a revision whose links hold non-ASCII URLs reads
 // and keeps its redaction. A non-ASCII URL is matched by its normalized form, which percent-encodes it, so it is
-// never compared with the ASCII normalized_url column as it is (which MySQL refuses, error 3988): it is shown if
-// a visible link has its normalized URL, under that link's URL however the revision spelt it, and dropped if a
-// hidden link has it or no link does.
+// never compared with the ASCII normalized_url column as it is (which MySQL refuses, error 3988): it is dropped
+// if a hidden link has it, and otherwise shown as written.
 func TestRepository_GetPublicRevision_NonASCIILinkURL(t *testing.T) {
 	t.Parallel()
 
@@ -265,6 +214,6 @@ func TestRepository_GetPublicRevision_NonASCIILinkURL(t *testing.T) {
 	later := laterPieceRevision(c, piece, title, shownRaw, hiddenRaw, unknownRaw, shownEncoded, hiddenEncoded)
 
 	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
-	assert.Equal(t, []string{shownRaw, shownRaw}, snapshot)
+	assert.Equal(t, []string{shownRaw, unknownRaw, shownEncoded}, snapshot)
 	assert.Equal(t, []string{shownRaw}, base)
 }

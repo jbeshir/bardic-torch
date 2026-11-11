@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"time"
 
-	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/router"
 )
 
@@ -17,24 +15,13 @@ const (
 	auth0DomainEnv   = "AUTH0_DOMAIN"
 	auth0AudienceEnv = "AUTH0_AUDIENCE"
 
-	auth0Driver    = "auth0"
-	apiTokenDriver = "api_token"
+	auth0Driver = "auth0"
 )
 
-// apiTokenAuthStore is what the API token validator reads and writes.
-type apiTokenAuthStore interface {
-	datasources.APITokenByHashGetter
-	datasources.APITokenLastUsedUpdater
-}
-
-// authValidatorsFromEnv returns a validator for each driver listed in AUTH_DRIVERS: "auth0" or "api_token".
+// authValidatorsFromEnv returns a validator for each driver listed in AUTH_DRIVERS: "auth0".
 // With no drivers every request is anonymous, so authenticated endpoints answer 401. AUTH0_DOMAIN and
 // AUTH0_AUDIENCE are read only when auth0 is listed.
-func authValidatorsFromEnv(
-	ctx context.Context,
-	apiTokens apiTokenAuthStore,
-	now func() time.Time,
-) ([]router.AuthValidator, error) {
+func authValidatorsFromEnv(ctx context.Context) ([]router.AuthValidator, error) {
 	var validators []router.AuthValidator
 	for _, driver := range MustGetEnvAsStrings(ctx, authDriversEnv) {
 		switch driver {
@@ -44,8 +31,6 @@ func authValidatorsFromEnv(
 				return nil, err
 			}
 			validators = append(validators, validator)
-		case apiTokenDriver:
-			validators = append(validators, router.NewAPITokenValidator(apiTokens, apiTokens, now))
 		default:
 			return nil, fmt.Errorf("unknown auth driver [%s]", driver)
 		}

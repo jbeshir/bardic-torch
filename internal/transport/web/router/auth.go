@@ -10,13 +10,12 @@ import (
 )
 
 // ErrInvalidCredentials is wrapped by validator errors caused by the credentials themselves, such as a bad
-// signature or a revoked token, as opposed to a failure to check them.
+// signature, as opposed to a failure to check them.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
 // Identity is who a validator authenticated a request as.
 type Identity struct {
 	UserID string
-	Method domain.AuthMethod
 }
 
 // AuthValidator authenticates a request from its credentials.
@@ -66,7 +65,7 @@ func authMiddleware(
 
 			recordUserID(ctx, user.ID)
 			ctx = domain.ContextWithLogger(ctx, logger.With("user_id", user.ID))
-			ctx = domain.ContextWithPrincipal(ctx, domain.Principal{User: user, Method: identity.Method})
+			ctx = domain.ContextWithPrincipal(ctx, domain.Principal{User: user})
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

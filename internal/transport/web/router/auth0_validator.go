@@ -14,11 +14,10 @@ import (
 
 	"github.com/auth0/go-jwt-middleware/v3/jwks"
 	"github.com/auth0/go-jwt-middleware/v3/validator"
-	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 const (
-	auth0HeaderPrefix = "Bearer auth0|"
+	auth0HeaderPrefix = "Bearer "
 	// maxAuth0TokenBytes bounds the tokens that are parsed at all. Auth0 access tokens are well under 2 KiB; the
 	// JWT library splits its input on "." more than once while checking a token, so an unbounded token costs
 	// memory in proportion to its length before it is rejected.
@@ -57,7 +56,7 @@ func (c *auth0Claims) Validate(context.Context) error {
 	return nil
 }
 
-// NewAuth0Validator returns a validator for "Bearer auth0|<jwt>" credentials: RS256 access tokens issued by
+// NewAuth0Validator returns a validator for "Bearer <jwt>" credentials: RS256 access tokens issued by
 // issuerURL for audience to a user, with an expiry. The signing keys are discovered from issuerURL's OpenID
 // configuration on first use and cached. The authenticated user ID is the token's subject.
 //
@@ -111,7 +110,7 @@ func NewAuth0Validator(issuerURL *url.URL, audience string) (AuthValidator, erro
 			return nil, fmt.Errorf("%w: Auth0 token claims have unexpected type %T", ErrInvalidCredentials, validated)
 		}
 
-		return &Identity{UserID: claims.RegisteredClaims.Subject, Method: domain.AuthMethodAuth0}, nil
+		return &Identity{UserID: claims.RegisteredClaims.Subject}, nil
 	}, nil
 }
 

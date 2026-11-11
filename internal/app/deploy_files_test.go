@@ -3,7 +3,6 @@ package app
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -219,89 +218,4 @@ func nonCommentLines(t *testing.T, root fs.FS, name string) []string {
 	require.NoError(t, scanner.Err())
 
 	return lines
-}
-
-// dokkuAppJSON is the part of the app.json schema that dokku reads.
-type dokkuAppJSON struct {
-	Name    string `json:"name"`
-	Scripts struct {
-		Dokku struct {
-			Predeploy string `json:"predeploy"`
-		} `json:"dokku"`
-	} `json:"scripts"`
-	Healthchecks struct {
-		Web []dokkuHealthcheck `json:"web"`
-	} `json:"healthchecks"`
-}
-
-type dokkuHealthcheck struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Path        string `json:"path"`
-	Attempts    int    `json:"attempts"`
-	Wait        int    `json:"wait"`
-	Timeout     int    `json:"timeout"`
-}
-
-func TestAppJSON(t *testing.T) {
-	t.Parallel()
-
-	src, err := fs.ReadFile(repositoryRoot(), "app.json")
-	require.NoError(t, err)
-
-	// Unknown fields fail decoding, so a misspelt key, or a cron entry (none until cmd/check-links exists),
-	// cannot slip in.
-	decoder := json.NewDecoder(bytes.NewReader(src))
-	decoder.DisallowUnknownFields()
-	var appJSON dokkuAppJSON
-	require.NoError(t, decoder.Decode(&appJSON))
-
-	assert.Equal(t, "bardic-torch-api", appJSON.Name)
-	assert.Equal(t, "/app/migrate up", appJSON.Scripts.Dokku.Predeploy)
-	assert.Equal(t, []dokkuHealthcheck{{
-		Type:        "startup",
-		Name:        "readyz",
-		Description: "The API is serving and can reach MySQL",
-		Path:        "/readyz",
-		Attempts:    5,
-		Wait:        2,
-		Timeout:     5,
-	}}, appJSON.Healthchecks.Web)
-}
-
-func TestProcfile(t *testing.T) {
-	t.Parallel()
-
-	processes := map[string]string{}
-	for _, line := range nonCommentLines(t, repositoryRoot(), "Procfile") {
-		process, command, ok := strings.Cut(line, ":")
-		require.Truef(t, ok, "Procfile line [%s] is not process: command", line)
-		processes[process] = strings.TrimSpace(command)
-	}
-
-	assert.Equal(t, map[string]string{"web": "/app/bardic-torch"}, processes)
-}
-
-func TestDockerfile_MatchesDokkuConfiguration(t *testing.T) {
-	t.Parallel()
-
-	// Each instruction's keyword and arguments, by keyword; continuation lines are not instructions.
-	instructions := map[string][]string{}
-	for _, line := range nonCommentLines(t, repositoryRoot(), "Dockerfile") {
-		keyword, args, _ := strings.Cut(line, " ")
-		if keyword == strings.ToUpper(keyword) && keyword != "&&" {
-			instructions[keyword] = append(instructions[keyword], args)
-		}
-	}
-
-	// dokku runs the Procfile and predeploy commands as given only when there is no ENTRYPOINT, and picks its
-	// default port, which it passes in PORT, only when there is no EXPOSE.
-	assert.NotContains(t, instructions, "ENTRYPOINT")
-	assert.NotContains(t, instructions, "EXPOSE")
-	assert.Equal(t, []string{`["/app/bardic-torch"]`}, instructions["CMD"])
-	assert.Equal(t, []string{"10001:10001"}, instructions["USER"])
-	assert.Contains(t, instructions["COPY"], "Procfile app.json /app/")
-	require.NotEmpty(t, instructions["WORKDIR"])
-	assert.Equal(t, "/app", instructions["WORKDIR"][len(instructions["WORKDIR"])-1])
 }

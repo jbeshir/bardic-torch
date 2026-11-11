@@ -10,8 +10,6 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var _ datasources.PublicCollectionLister = (*Repository)(nil)
-
 // ListPublicCollections lists one page of the public collections matching query, by sort name and ID, with
 // the total and the letter counts, in two statements in one read-only transaction.
 func (r *Repository) ListPublicCollections(

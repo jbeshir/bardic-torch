@@ -27,10 +27,8 @@ type SetUserBlockedRequest struct {
 
 // SetUserBlocked blocks or unblocks a contributor.
 type SetUserBlocked struct {
-	Blocker   datasources.UserBlocker
-	Unblocker datasources.UserUnblocker
-	Getter    datasources.UserGetter
-	Now       func() time.Time
+	Users datasources.Users
+	Now   func() time.Time
 }
 
 // Execute blocks or unblocks req.UserID and returns the user. Blocking a blocked user keeps the time they were
@@ -69,7 +67,7 @@ func (c *SetUserBlocked) setBlockedAndGet(ctx context.Context, req SetUserBlocke
 		return domain.User{}, false, err
 	}
 
-	user, err := c.Getter.GetUser(ctx, req.UserID)
+	user, err := c.Users.GetUser(ctx, req.UserID)
 	if err != nil {
 		return domain.User{}, false, fmt.Errorf("getting user: %w", err)
 	}
@@ -81,9 +79,9 @@ func (c *SetUserBlocked) setBlockedAndGet(ctx context.Context, req SetUserBlocke
 func (c *SetUserBlocked) setBlocked(ctx context.Context, req SetUserBlockedRequest) (bool, error) {
 	var err error
 	if req.Blocked {
-		err = c.Blocker.BlockUser(ctx, req.UserID, c.Now())
+		err = c.Users.BlockUser(ctx, req.UserID, c.Now())
 	} else {
-		err = c.Unblocker.UnblockUser(ctx, req.UserID)
+		err = c.Users.UnblockUser(ctx, req.UserID)
 	}
 
 	switch {

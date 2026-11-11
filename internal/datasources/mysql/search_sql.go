@@ -330,12 +330,9 @@ func prefixPattern(prefix string) string {
 //
 // The two forms are: "MATCH (columns) AGAINST (? IN BOOLEAN MODE) AS score FROM ... WHERE ... MATCH (columns)
 // AGAINST (? IN BOOLEAN MODE)", and "0 AS score FROM ... WHERE ... prefixColumn LIKE ? ESCAPE '!'". Prefix
-// matches all score 0, so they are ordered by sort key. Unless scored, a FULLTEXT match scores 0 too: a MATCH
-// score depends on every row of the index, so an index holding rows a search must not reveal, such as hidden
-// aliases, must not be scored. Whether a row matches a boolean-mode query of required tokens does not depend on
-// the other rows.
-func writeMatch(s *statement, search domain.SearchQuery, columns, prefixColumn, from sqlFragment, scored bool) {
-	if len(search.Tokens) == 0 || !scored {
+// matches all score 0, so they are ordered by sort key.
+func writeMatch(s *statement, search domain.SearchQuery, columns, prefixColumn, from sqlFragment) {
+	if len(search.Tokens) == 0 {
 		s.write("0 AS score", from)
 		writeMatchCondition(s, search, columns, prefixColumn)
 		return

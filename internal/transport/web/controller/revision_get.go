@@ -43,7 +43,7 @@ type EntityRevision[E, S any] struct {
 // and the fields that changed. A revision that is not approved, or whose entity is not public, is not found,
 // exactly like an unknown one.
 type RevisionGet struct {
-	Getter datasources.PublicRevisionGetter
+	Catalogue datasources.Catalogue
 }
 
 func (c RevisionGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,7 @@ func (c RevisionGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	revision, err := c.Getter.GetPublicRevision(ctx, id)
+	revision, err := c.Catalogue.GetPublicRevision(ctx, id)
 	if errors.Is(err, datasources.ErrNotFound) {
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "revision not found")
 		return

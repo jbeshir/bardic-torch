@@ -1,7 +1,6 @@
 package mediawiki
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,7 +54,6 @@ func TestScrubbedLinks_ResearchCounts(t *testing.T) {
 	assert.Equal(t, 112, l.TrackingParameterURLs())
 	assert.Len(t, l.PagesWithRepeatedURLs(), 35)
 	assert.Len(t, l.BareURLs(), 2)
-	assert.Empty(t, l.Unlinked)
 }
 
 func TestScrubbedLinks_EventsAndPerformers(t *testing.T) {
@@ -65,18 +63,11 @@ func TestScrubbedLinks_EventsAndPerformers(t *testing.T) {
 	assert.Equal(t, EventRecord{Name: greenDragon, Kind: domain.EventKindVenue, PageID: 131, Pages: l.Events[0].Pages},
 		l.Events[0], "the Green Dragon venue page is the first event")
 	assert.NotEmpty(t, l.Events[0].Pages)
-	assert.Contains(t, l.SimilarEvents, SimilarEventNames{A: pennsic45, B: "Pennsic 47"})
 
-	marian := false
-	for _, m := range people.Persons.Matches {
-		if m.Mention.Name.Name == "Marian of Heatherdale" {
-			marian = true
-			assert.Equal(t, MatchFuzzy, m.Match.Kind)
-			assert.Equal(t, PersonRef("Heather Dale"), m.Match.Person)
-		}
-	}
-	assert.True(t, marian, "the performer resolves to Heather Dale through the Marion alias")
-	_, ok := people.Persons.Stub("Marian of Heatherdale")
+	marian, ok := people.Persons.Resolve(PersonName{Name: "Marian of Heatherdale", Form: NamePageLink})
+	require.True(t, ok)
+	assert.Equal(t, PersonRef("Heather Dale"), marian, "the performer resolves to Heather Dale through the Marion alias")
+	_, ok = people.Persons.Stub("Marian of Heatherdale")
 	assert.False(t, ok)
 }
 
@@ -107,23 +98,12 @@ func TestScrubbedLinks_CanonicalAndCollections(t *testing.T) {
 			if link.Platform == PlatformYouTube && link.CollectionURL != "" {
 				assert.Equal(t, link.NormalizedURL, link.CollectionURL, "YouTube links match collections exactly only")
 			}
-			for _, p := range link.Performances {
-				assert.NotContains(t, strings.ToLower(p.DescriptionVerbatim), "scrubbedlyric")
-			}
 		}
 	}
-	ties := 0
 	for _, pl := range l.Pieces {
 		check(pl.Links)
-		for _, link := range pl.Links {
-			if len(link.CollectionTied) > 0 {
-				ties++
-			}
-		}
 	}
 	for _, pl := range l.Persons {
 		check(pl.Links)
 	}
-	assert.Positive(t, ties, "links under two collections' shared prefix tie")
-	assert.NotEmpty(t, l.Conflicts)
 }

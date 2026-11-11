@@ -2,6 +2,7 @@ package mediawiki
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -45,30 +46,25 @@ func TestParseBard_Aliases(t *testing.T) {
 		name   string
 		source AliasSource
 		kind   domain.PersonAliasKind
-		public bool
 	}
 	var got []alias
 	for _, a := range b.Aliases {
-		got = append(got, alias{a.Name, a.Source, a.Kind, a.IsPublic})
+		got = append(got, alias{a.Name, a.Source, a.Kind})
 	}
 	assert.Equal(t, []alias{
-		{ashOfTheVale, AliasFromH1Parenthetical, domain.PersonAliasKindSCA, true},
-		{ash, AliasFromH1Parenthetical, domain.PersonAliasKindLegal, false},
-		// A redirect equal to a hidden alias is hidden too; one classified as an SCA name is public.
-		{ash, AliasFromRedirect, domain.PersonAliasKindRedirect, false},
-		{"Rowan the Bold", AliasFromRedirect, domain.PersonAliasKindRedirect, true},
+		{ashOfTheVale, AliasFromH1Parenthetical, domain.PersonAliasKindSCA},
+		{ash, AliasFromH1Parenthetical, domain.PersonAliasKindLegal},
+		{ash, AliasFromRedirect, domain.PersonAliasKindRedirect},
+		{"Rowan the Bold", AliasFromRedirect, domain.PersonAliasKindRedirect},
 	}, got)
-	_, ambiguous := b.H1LeadAlias()
-	assert.False(t, ambiguous)
 }
 
-func TestParseBard_H1LeadIsAnAmbiguousAlias(t *testing.T) {
+func TestParseBard_H1LeadIsAnAlias(t *testing.T) {
 	b := parseFixtureBard(standardWiki(), wren, bardWikitext(ash+" ("+wren+")"))
 
-	a, ok := b.H1LeadAlias()
-	require.True(t, ok)
-	assert.Equal(t, ash, a.Name)
-	assert.False(t, a.IsPublic, "an unsure H1 lead is hidden")
+	k := slices.IndexFunc(b.Aliases, func(a PersonAlias) bool { return a.Source == AliasFromH1Lead })
+	require.GreaterOrEqual(t, k, 0)
+	assert.Equal(t, ash, b.Aliases[k].Name)
 	assert.Equal(t, wren, b.Title, "the page title stays the name")
 }
 
@@ -79,7 +75,6 @@ func TestParseBard_RolesAndAffiliations(t *testing.T) {
 	assert.Equal(t, []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter, domain.PersonRolePoet},
 		b.Roles)
 	assert.Equal(t, []string{CategorySCABards, kingdom}, b.Affiliations)
-	assert.Empty(t, b.DroppedCategories)
 	assert.Equal(t, domain.PersonStatusActive, b.Status)
 }
 
@@ -89,7 +84,6 @@ func TestParseBard_KingdomNamePlaceholderDropped(t *testing.T) {
 	b := parseFixtureBard(w, wren, bardWikitext(wren), catKingdomName, kingdom)
 
 	assert.Equal(t, []string{kingdom}, b.Affiliations)
-	assert.Equal(t, []string{catKingdomName}, b.DroppedCategories)
 }
 
 func TestParseBard_DeceasedWithDate(t *testing.T) {
@@ -134,11 +128,10 @@ func TestParseBard_HeirRelation(t *testing.T) {
 	assert.Equal(t, "### Affiliations\n\n- The chosen heir of "+ash+", and owner of all her music.", b.NotesMD)
 }
 
-func TestParseBard_StrayHeading(t *testing.T) {
+func TestParseBard_HeadingNamedAfterTheBardIsNotes(t *testing.T) {
 	b := parseFixtureBard(standardWiki(), wren, bardWikitext(wren,
 		wren, "* [https://example.org/band Placeholder Band]", "Notes", "Sings at every revel."))
 
-	assert.Equal(t, []string{wren}, b.StrayHeadings)
 	assert.Equal(t, "### "+wren+"\n\n- [Placeholder Band](https://example.org/band)\n\nSings at every revel.", b.NotesMD)
 }
 

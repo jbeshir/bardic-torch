@@ -7,11 +7,29 @@ import (
 	"strings"
 	"testing"
 
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// MySQL error numbers for violated constraints.
+const (
+	// errDuplicateEntry is ER_DUP_ENTRY: a unique index already has the value.
+	errDuplicateEntry = 1062
+	// errNoReferencedRow is ER_NO_REFERENCED_ROW_2: a foreign key names a row that does not exist.
+	errNoReferencedRow = 1452
+)
+
+// requireMySQLError requires err to be a MySQL error with the given number.
+func requireMySQLError(t *testing.T, err error, number uint16) {
+	t.Helper()
+
+	var mysqlErr *mysqldriver.MySQLError
+	require.ErrorAs(t, err, &mysqlErr)
+	assert.Equal(t, number, mysqlErr.Number, mysqlErr.Message)
+}
 
 // enumColumnType returns the information_schema.columns.column_type MySQL reports for an ENUM of values.
 func enumColumnType[T ~string](values ...T) string {
@@ -30,10 +48,9 @@ func TestMigrations_EnumColumns(t *testing.T) {
 
 	entityTypes := enumColumnType(domain.EntityTypePiece, domain.EntityTypePerson, domain.EntityTypeTerm,
 		domain.EntityTypeCollection, domain.EntityTypeEvent)
-	revisionSources := enumColumnType(domain.RevisionSourceUser, domain.RevisionSourceImport,
-		domain.RevisionSourceMCP)
-	revisionStatuses := enumColumnType(domain.RevisionStatusDraft, domain.RevisionStatusPending,
-		domain.RevisionStatusApproved, domain.RevisionStatusRejected, domain.RevisionStatusWithdrawn)
+	revisionSources := enumColumnType(domain.RevisionSourceUser, domain.RevisionSourceImport)
+	revisionStatuses := enumColumnType(domain.RevisionStatusPending, domain.RevisionStatusApproved,
+		domain.RevisionStatusRejected, domain.RevisionStatusWithdrawn)
 	facets := enumColumnType(domain.FacetMood, domain.FacetTopic, domain.FacetCulture, domain.FacetLanguage,
 		domain.FacetLegendaria, domain.FacetForm, domain.FacetOrigin, domain.FacetOther, domain.FacetAffiliation)
 	collectionKinds := enumColumnType(domain.CollectionKindIndexOrLinkList, domain.CollectionKindSongbookPDF,
@@ -58,11 +75,6 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		domain.PersonRoleJester, domain.PersonRoleDancer)
 	personRelationTypes := enumColumnType(domain.PersonRelationTypeHeirOf, domain.PersonRelationTypeMemberOf,
 		domain.PersonRelationTypeSameAs)
-	dimensions := enumColumnType(domain.PreferenceDimensionLicensing,
-		domain.PreferenceDimensionPerformancePermission, domain.PreferenceDimensionAdaptations,
-		domain.PreferenceDimensionAttribution, domain.PreferenceDimensionCommercialUse,
-		domain.PreferenceDimensionRecording, domain.PreferenceDimensionPerformanceEtiquette,
-		domain.PreferenceDimensionObjectionableUse)
 	pieceKinds := enumColumnType(domain.PieceKindSong, domain.PieceKindPoem, domain.PieceKindStory,
 		domain.PieceKindDanceMusic, domain.PieceKindInstrumental, domain.PieceKindComedy)
 	conservationStatuses := enumColumnType(domain.ConservationStatusUnassessed, domain.ConservationStatusLowRisk,
@@ -97,38 +109,36 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		domain.LinkRoleWebsite, domain.LinkRoleExternalProfile, domain.LinkRoleOther)
 
 	want := map[string]string{
-		"users.role":                   enumColumnType(domain.RoleContributor, domain.RoleModerator),
-		"revisions.entity_type":        entityTypes,
-		"revisions.source":             revisionSources,
-		"revisions.status":             revisionStatuses,
-		"terms.facet":                  facets,
-		"collections.kind":             collectionKinds,
-		"collections.enumerable":       enumerable,
-		"events.kind":                  eventKinds,
-		"persons.kind":                 personKinds,
-		"persons.status":               personStatuses,
-		"persons.licensing_status":     licensingStatuses,
-		"person_aliases.kind":          personAliasKinds,
-		"person_roles.role":            personRoles,
-		"person_relations.type":        personRelationTypes,
-		"person_preferences.dimension": dimensions,
-		"pieces.kind":                  pieceKinds,
-		"pieces.conservation_status":   conservationStatuses,
-		"pieces.licensing_status":      licensingStatuses,
-		"pieces.licence":               licences,
-		"piece_secondary_kinds.kind":   pieceKinds,
-		"piece_aliases.kind":           pieceAliasKinds,
-		"piece_terms.part":             parts,
-		"piece_relations.type":         pieceRelationTypes,
-		"piece_credits.role":           creditRoles,
-		"piece_credits.attribution":    attributions,
-		"piece_credits.certainty":      certainties,
-		"piece_credits.part":           parts,
-		"conservation_history.status":  conservationStatuses,
-		"piece_preferences.dimension":  dimensions,
-		"links.place_type":             placeTypes,
-		"links.liveness":               liveness,
-		"link_attachments.role":        linkRoles,
+		"users.role":                  enumColumnType(domain.RoleContributor, domain.RoleModerator),
+		"revisions.entity_type":       entityTypes,
+		"revisions.source":            revisionSources,
+		"revisions.status":            revisionStatuses,
+		"terms.facet":                 facets,
+		"collections.kind":            collectionKinds,
+		"collections.enumerable":      enumerable,
+		"events.kind":                 eventKinds,
+		"persons.kind":                personKinds,
+		"persons.status":              personStatuses,
+		"persons.licensing_status":    licensingStatuses,
+		"person_aliases.kind":         personAliasKinds,
+		"person_roles.role":           personRoles,
+		"person_relations.type":       personRelationTypes,
+		"pieces.kind":                 pieceKinds,
+		"pieces.conservation_status":  conservationStatuses,
+		"pieces.licensing_status":     licensingStatuses,
+		"pieces.licence":              licences,
+		"piece_secondary_kinds.kind":  pieceKinds,
+		"piece_aliases.kind":          pieceAliasKinds,
+		"piece_terms.part":            parts,
+		"piece_relations.type":        pieceRelationTypes,
+		"piece_credits.role":          creditRoles,
+		"piece_credits.attribution":   attributions,
+		"piece_credits.certainty":     certainties,
+		"piece_credits.part":          parts,
+		"conservation_history.status": conservationStatuses,
+		"links.place_type":            placeTypes,
+		"links.liveness":              liveness,
+		"link_attachments.role":       linkRoles,
 	}
 
 	db := mysqltest.NewDatabase(t)
@@ -422,20 +432,4 @@ func TestMigrations_ConstraintsAllowCascades(t *testing.T) {
 	var attachments int
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM link_attachments").Scan(&attachments))
 	assert.Zero(t, attachments)
-}
-
-// TestMigrations_PersonAliasHiddenByDefault requires an alias inserted without is_public to be hidden, so that a
-// writer that forgets the column fails closed.
-func TestMigrations_PersonAliasHiddenByDefault(t *testing.T) {
-	t.Parallel()
-
-	db := mysqltest.NewDatabase(t)
-	r := seedCatalogue(t, db)
-
-	id := insertRow(t, db, "INSERT INTO person_aliases (person_id, name, kind) VALUES (?, 'Wren Hollow', 'legal')",
-		r.person)
-	var isPublic bool
-	require.NoError(t, db.QueryRowContext(t.Context(), "SELECT is_public FROM person_aliases WHERE id = ?", id).
-		Scan(&isPublic))
-	assert.False(t, isPublic)
 }

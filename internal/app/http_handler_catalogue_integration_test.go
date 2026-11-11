@@ -159,12 +159,13 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 	require.Len(t, term.Children, 1)
 	assert.Equal(t, swords.Slug, term.Children[0].Term.Slug)
 
-	// Person detail: the work is listed, and the hidden legal alias is not.
+	// Person detail: the work and the alias are listed.
 	person := sendOK[controller.Person](t, e, http.MethodGet, "/v1/persons/"+wren.Slug, "", "", http.StatusOK)
 	require.NotNil(t, person.Profile)
 	require.Len(t, person.Profile.Works, 1)
 	assert.Equal(t, kettle.Slug, person.Profile.Works[0].Piece.Slug)
-	assert.Empty(t, person.Profile.Aliases)
+	require.Len(t, person.Profile.Aliases, 1)
+	assert.Equal(t, "Jo Marker", person.Profile.Aliases[0].Name)
 
 	// History: the newest approved revision first.
 	history := sendOK[controller.RevisionHistory](t, e, http.MethodGet, "/v1/pieces/"+kettle.Slug+"/history", "", "",

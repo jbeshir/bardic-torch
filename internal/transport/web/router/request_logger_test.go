@@ -73,14 +73,14 @@ func TestRequestLogger_LogsStatusAndRoute(t *testing.T) {
 func TestRequestLogger_DefaultStatusAndUnmatchedRoute(t *testing.T) {
 	t.Parallel()
 
-	routes := []route{{method: http.MethodGet, path: "/healthz", handler: http.HandlerFunc(
+	routes := []route{{method: http.MethodGet, path: healthzPath, handler: http.HandlerFunc(
 		func(w http.ResponseWriter, _ *http.Request) {
 			_, _ = w.Write([]byte("ok"))
 		},
 	)}}
 
 	_, entries := serveLogged(t, routes,
-		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz", nil))
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, healthzPath, nil))
 	require.Len(t, entries, 1)
 	assert.InDelta(t, http.StatusOK, entries[0]["status"], 0)
 
@@ -94,10 +94,10 @@ func TestRequestLogger_DefaultStatusAndUnmatchedRoute(t *testing.T) {
 func TestRequestLogger_RequestIDsAreUnique(t *testing.T) {
 	t.Parallel()
 
-	routes := []route{{method: http.MethodGet, path: "/healthz", handler: http.NotFoundHandler()}}
+	routes := []route{{method: http.MethodGet, path: healthzPath, handler: http.NotFoundHandler()}}
 
-	_, first := serveLogged(t, routes, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz", nil))
-	_, second := serveLogged(t, routes, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz", nil))
+	_, first := serveLogged(t, routes, httptest.NewRequestWithContext(t.Context(), http.MethodGet, healthzPath, nil))
+	_, second := serveLogged(t, routes, httptest.NewRequestWithContext(t.Context(), http.MethodGet, healthzPath, nil))
 	require.Len(t, first, 1)
 	require.Len(t, second, 1)
 	assert.NotEqual(t, first[0]["request_id"], second[0]["request_id"])

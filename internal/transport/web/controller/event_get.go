@@ -30,7 +30,7 @@ type EventPerformance struct {
 // EventGet handles GET /v1/events/{slug}, a public event's or venue's page. An unapproved event is not found,
 // exactly like an unknown one.
 type EventGet struct {
-	Getter datasources.PublicEventGetter
+	Catalogue datasources.Catalogue
 }
 
 func (c EventGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +41,7 @@ func (c EventGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := c.Getter.GetPublicEvent(ctx, slug)
+	event, err := c.Catalogue.GetPublicEvent(ctx, slug)
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
 		httpjson.WriteError(ctx, w, http.StatusNotFound, httpjson.CodeNotFound, "event not found")

@@ -128,34 +128,5 @@ const (
 	textLampSlug  = "lamplighter"
 )
 
-// TestRepository_ListPublicPersons_AliasMatchesUnscored checks that a person matched only by a public alias
-// scores 0, ranking after every name match and then by sort name, however often the alias repeats the word: the
-// alias index holds hidden aliases too, and a score over it would depend on them.
-func TestRepository_ListPublicPersons_AliasMatchesUnscored(t *testing.T) {
-	t.Parallel()
-
-	db := mysqltest.NewDatabase(t)
-	c := catalogtest.New(t, db)
-	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Zed Moor", Aliases: []domain.DocPersonAlias{
-		{Name: "Smith of Smithfield, Smith of Moor", Kind: domain.PersonAliasKindNickname, IsPublic: true},
-		{Name: "Smith Smithson", Kind: domain.PersonAliasKindLegal},
-		{Name: "Old Smith", Kind: domain.PersonAliasKindLegal},
-	}}})
-	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Ada Moor", Aliases: []domain.DocPersonAlias{
-		{Name: "The Smith of Moor", Kind: domain.PersonAliasKindNickname, IsPublic: true},
-	}}})
-	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Wynn Smith"}})
-
-	search := mustSearch(t, "smith")
-	got, err := mysql.New(db).ListPublicPersons(t.Context(), datasources.PersonQuery{Search: &search,
-		Sort: domain.PersonSortRelevance, Page: domain.Page{Limit: 10}})
-	require.NoError(t, err)
-	slugs := []string{}
-	for _, p := range got.Persons {
-		slugs = append(slugs, p.Slug)
-	}
-	assert.Equal(t, []string{"wynn-smith", "ada-moor", "zed-moor"}, slugs)
-}
-
 // longWord is a word longer than InnoDB's longest FULLTEXT token (innodb_ft_max_token_size).
 var longWord = "Lo" + strings.Repeat("o", domain.MaxSearchTokenLength) + "ng"

@@ -51,7 +51,7 @@ type LetterCount struct {
 
 // PieceListGet handles GET /v1/pieces, a faceted search of the public pieces.
 type PieceListGet struct {
-	Lister datasources.PublicPieceLister
+	Catalogue datasources.Catalogue
 }
 
 func (c PieceListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +62,7 @@ func (c PieceListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := c.Lister.ListPublicPieces(ctx, query)
+	list, err := c.Catalogue.ListPublicPieces(ctx, query)
 	var unknown *datasources.UnknownTermError
 	switch {
 	case errors.As(err, &unknown):

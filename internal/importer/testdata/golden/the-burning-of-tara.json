@@ -113,7 +113,7 @@
         },
         {
           "url": "https://youtube.com/watch?v=N1OwCGeOHlU",
-          "title": "Fionn and the Dragon on [name withheld] podcast",
+          "title": "Fionn and the Dragon on Legal Name 118 podcast",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -127,14 +127,14 @@
               "event_id": null,
               "year": null,
               "uploader": null,
-              "description_verbatim": "[https://youtube.com/watch?v=N1OwCGeOHlU Fionn and the Dragon on [name withheld] podcast]",
+              "description_verbatim": "[https://youtube.com/watch?v=N1OwCGeOHlU Fionn and the Dragon on Legal Name 118 podcast]",
               "performer_ids": []
             }
           ]
         },
         {
           "url": "https://youtube.com/watch?v=fbeGpyCuqAo",
-          "title": "Retelling from Deardubh's perspective from [name withheld]",
+          "title": "Retelling from Deardubh's perspective from Legal Name 118",
           "description": null,
           "platform": "youtube",
           "place_type": "recording_platform",
@@ -148,13 +148,12 @@
               "event_id": null,
               "year": null,
               "uploader": null,
-              "description_verbatim": "[https://youtube.com/watch?v=fbeGpyCuqAo Retelling from Deardubh's perspective from [name withheld]]",
+              "description_verbatim": "[https://youtube.com/watch?v=fbeGpyCuqAo Retelling from Deardubh's perspective from Legal Name 118]",
               "performer_ids": []
             }
           ]
         }
-      ],
-      "preferences": []
+      ]
     },
     "legacy_had_inline_lyrics": false,
     "legacy": {
@@ -162,68 +161,12 @@
       "title": "The Burning of Tara"
     },
     "revision": {
-      "id": 506,
+      "id": 525,
       "summary": "Imported from the wiki (page revision 929).",
       "contributors": [
         "Wiki User 01"
       ],
       "created_at": "2026-11-01T12:00:00Z"
     }
-  },
-  "review": [
-    {
-      "id": "NAME-154",
-      "kind": "free_text",
-      "page": "The Burning of Tara",
-      "text": "link https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB, title: \"Legal Name 118\" was withheld. Context: \"Fionn and the Dragon on [name withheld] podcast\"."
-    },
-    {
-      "id": "NAME-155",
-      "kind": "free_text",
-      "page": "The Burning of Tara",
-      "text": "link https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o, title: \"Legal Name 118\" was withheld. Context: \"elling from Deardubh's perspective from [name withheld]\"."
-    },
-    {
-      "id": "NAME-448",
-      "kind": "free_text",
-      "page": "The Burning of Tara",
-      "text": "performance item, description: \"Legal Name 118\" was withheld. Context: \"h?v=N1OwCGeOHlU Fionn and the Dragon on [name withheld] podcast]\"."
-    },
-    {
-      "id": "NAME-449",
-      "kind": "free_text",
-      "page": "The Burning of Tara",
-      "text": "performance item, description: \"Legal Name 118\" was withheld. Context: \"elling from Deardubh's perspective from [name withheld]]\"."
-    },
-    {
-      "id": "TITLE-038",
-      "kind": "alternate",
-      "page": "The Burning of Tara",
-      "text": "Alias \"Fionn and the Dragon\" (alt_title, from the also_known_as)."
-    },
-    {
-      "id": "TITLE-039",
-      "kind": "alternate",
-      "page": "The Burning of Tara",
-      "text": "Alias \"How Finn became leader of the Fianna\" (alt_title, from the also_known_as)."
-    },
-    {
-      "id": "LINK-214",
-      "kind": "normalised",
-      "page": "The Burning of Tara",
-      "text": "4 URL(s) as written differ from their normalised form (tracking parameters, case, www)."
-    },
-    {
-      "id": "PERF-237",
-      "kind": "incomplete",
-      "page": "The Burning of Tara",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/N1OwCGeOHlU?si=PqHqngp8PuAFDgGB Fionn and the Dragon on Legal …\"."
-    },
-    {
-      "id": "PERF-238",
-      "kind": "incomplete",
-      "page": "The Burning of Tara",
-      "text": "A performance item has no performer, event or year the importer could read: \"[https://youtu.be/fbeGpyCuqAo?si=XW4hihKkHWtQ7T9o Retelling from Deardubh's pers…\"."
-    }
-  ]
+  }
 }

@@ -1,11 +1,9 @@
 package importer
 
 import (
-	"encoding/json"
 	"maps"
 	"regexp"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,24 +13,24 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
-// lyricMarker is the word every placeholder line of the scrubbed copy's dropped lyrics has.
-const lyricMarker = "scrubbedlyric"
-
 func TestBuild_ValidatesOutput(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 
 	require.NoError(t, imp.Validate())
 }
 
 func TestBuild_ResearchCounts(t *testing.T) {
-	c := scrubbedCorpus(t)
-	imp, review := Build(c, buildTime)
+	_, counts := Build(scrubbedCorpus(t), buildTime)
 
-	assert.Equal(t, researchCounts, importCounts(c, imp, review))
+	assert.Equal(t, map[string]int{"song": 135, "poem": 4, "story": 2, "dance_music": 1}, counts.PiecesByKind)
+	assert.Equal(t, 11, counts.InlineLyricsPieces)
+	assert.Equal(t, 48, counts.Bards)
+	assert.Equal(t, 62, counts.CollectionEntries)
+	assert.Equal(t, 61, counts.Collections)
 }
 
 func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	ancestors, err := imp.TermAncestors()
 	require.NoError(t, err)
 
@@ -51,7 +49,7 @@ func TestBuild_TermClosureIncludesSelfRows(t *testing.T) {
 }
 
 func TestBuild_SortKeys(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 
 	for _, p := range imp.Pieces {
 		assert.Equal(t, domain.SortTitle(p.Doc.Title), p.SortTitle)
@@ -69,7 +67,7 @@ func TestBuild_SortKeys(t *testing.T) {
 }
 
 func TestBuild_ConservationSourceIsThePiecesWikiPage(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	pageURLs := map[string]string{}
 	for _, p := range scrubbedCorpus(t).Pieces {
 		pageURLs[p.Title] = p.URL
@@ -92,29 +90,6 @@ func TestBuild_ConservationSourceIsThePiecesWikiPage(t *testing.T) {
 	assert.Equal(t, 11, assessed)
 }
 
-// TestBuild_NoLyricMarkerAnywhere checks that no dropped lyric line of the scrubbed copy reaches any field of the
-// import, public or not, or the review.
-func TestBuild_NoLyricMarkerAnywhere(t *testing.T) {
-	imp, review := scrubbedImport(t)
-
-	encoded, err := json.Marshal(imp)
-	require.NoError(t, err)
-	assert.NotContains(t, strings.ToLower(string(encoded)), lyricMarker)
-	assert.NotContains(t, strings.ToLower(string(RenderReview(review))), lyricMarker)
-}
-
-// TestBuild_NoPlaceholderInPublicFields checks that no name placeholder of the scrubbed copy, in any of its forms,
-// is in a public field: only hidden aliases, legacy columns and hidden links may hold one.
-func TestBuild_NoPlaceholderInPublicFields(t *testing.T) {
-	imp, _ := scrubbedImport(t)
-
-	assert.Empty(t, placeholderForm.FindAllString(publicJSON(t, imp), -1))
-	encoded, err := json.Marshal(imp)
-	require.NoError(t, err)
-	assert.NotEmpty(t, placeholderForm.FindAllString(string(encoded), -1),
-		"the hidden aliases still hold their placeholders")
-}
-
 // TestBuild_ContributorsAreCreditedPerPage: a piece page's revision credits its contributors, and a stub piece's
 // those of the bard pages listing it, from which it comes.
 // shareTracking is a query parameter that can tie a shared link to its sharer.
@@ -123,7 +98,7 @@ var shareTracking = regexp.MustCompile("[?&](?:si|utm_[a-z]+|fbclid|igshid|ab_ch
 // TestBuild_URLsWithoutTrackingParameters: no imported link URL, nor any URL of a performance description, keeps a
 // tracking parameter, though the wiki writes many.
 func TestBuild_URLsWithoutTrackingParameters(t *testing.T) {
-	imp, _ := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	written := 0
 	for _, pl := range scrubbedCorpus(t).Links.Pieces {
 		for _, o := range pl.Occurrences {
@@ -150,7 +125,7 @@ func TestBuild_URLsWithoutTrackingParameters(t *testing.T) {
 }
 
 func TestBuild_ContributorsAreCreditedPerPage(t *testing.T) {
-	imp, review := scrubbedImport(t)
+	imp := scrubbedImport(t)
 	c := scrubbedCorpus(t)
 	activity := map[string][]string{}
 	for _, a := range c.Dump.Activity {
@@ -181,5 +156,4 @@ func TestBuild_ContributorsAreCreditedPerPage(t *testing.T) {
 		assert.ElementsMatch(t, want, p.Revision.Contributors, "%s: the listing bard pages' contributors", p.Doc.Title)
 	}
 	assert.Equal(t, 142, credited, "every piece page has contributors")
-	assert.NotEmpty(t, review.Contributors)
 }

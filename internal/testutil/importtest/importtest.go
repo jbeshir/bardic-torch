@@ -18,15 +18,14 @@ import (
 var BuildTime = time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 
 var scrubbed struct {
-	once   sync.Once
-	err    error
-	imp    []byte
-	review importer.Review
+	once sync.Once
+	err  error
+	imp  []byte
 }
 
-// Scrubbed returns the import of the committed scrubbed copy and its review. Each call returns its own copy of
-// the import, which the caller may change; the review is shared, and must not be changed.
-func Scrubbed(t testing.TB) (domain.CatalogueImport, importer.Review) {
+// Scrubbed returns the import of the committed scrubbed copy. Each call returns its own copy of
+// the import, which the caller may change.
+func Scrubbed(t testing.TB) domain.CatalogueImport {
 	t.Helper()
 	scrubbed.once.Do(func() {
 		var d mediawiki.Dump
@@ -35,7 +34,7 @@ func Scrubbed(t testing.TB) (domain.CatalogueImport, importer.Review) {
 			return
 		}
 		var imp domain.CatalogueImport
-		imp, scrubbed.review = importer.Build(mediawiki.ParseCorpus(d), BuildTime)
+		imp, _ = importer.Build(mediawiki.ParseCorpus(d), BuildTime)
 		if scrubbed.err = imp.Validate(); scrubbed.err != nil {
 			return
 		}
@@ -49,5 +48,5 @@ func Scrubbed(t testing.TB) (domain.CatalogueImport, importer.Review) {
 		t.Fatalf("importtest: copying the scrubbed import: %v", err)
 	}
 
-	return imp, scrubbed.review
+	return imp
 }
