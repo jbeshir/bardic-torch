@@ -21,6 +21,8 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 )
 
+func TestMain(m *testing.M) { catalogtest.Main(m) }
+
 // importedCatalogue is a database holding the import of the committed scrubbed crawl, as --apply writes it.
 var importedCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) domain.CatalogueImport {
 	imp := importtest.Scrubbed(c.T())
