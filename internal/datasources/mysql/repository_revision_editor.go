@@ -357,7 +357,8 @@ func (r *Repository) ListMyRevisions(
 			item := c.listItem(row.ID, row.EntityType, row.EntityID, row.BaseRevisionID, row.CurrentRevisionID,
 				row.EntitySlug, row.EntityName)
 			item.Status = enumOf[domain.RevisionStatus](c, row.Status)
-			item.Summary, item.CreatedAt, item.ReviewedAt = row.Summary, row.CreatedAt, timePtr(row.ReviewedAt)
+			item.Summary, item.CreatedAt = row.Summary, row.CreatedAt
+			item.ReviewNote, item.ReviewedAt = stringPtr(row.ReviewNote), timePtr(row.ReviewedAt)
 			list.Revisions = append(list.Revisions, item)
 		}
 		list.Total = fetch(ctx, c, "revision count", c.q.CountAuthorRevisions,

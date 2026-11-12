@@ -166,6 +166,7 @@ type RevisionListItem struct {
 	Status     RevisionStatus
 	Summary    string
 	CreatedAt  time.Time
+	ReviewNote *string
 	ReviewedAt *time.Time
 	// IsStale is IsStale of the revision's base and its entity's current revision.
 	IsStale bool

@@ -1773,7 +1773,8 @@ paths:
         - Moderation
       summary: Reject a revision
       description: |
-        Rejects a pending revision with a note to its author, which they see in `GET /v1/me/revisions/{revision_id}`.
+        Rejects a pending revision with a note to its author, which they see in `GET /v1/me/revisions` and
+        `GET /v1/me/revisions/{revision_id}`.
         Requires the moderator role.
       operationId: rejectRevision
       parameters:
@@ -6361,9 +6362,10 @@ components:
       type: object
       description: |
         A revision as the caller's own list and the moderation queue show it. `entity` is null for a new entity's
-        revision that is not approved; `is_stale` is true when its entity has changed since its base.
+        revision that is not approved; `review_note` is a moderator's note on rejecting it; `is_stale` is true when
+        its entity has changed since its base.
       additionalProperties: false
-      required: [id, entity_type, entity, status, summary, created_at, reviewed_at, is_stale, author]
+      required: [id, entity_type, entity, status, summary, created_at, review_note, reviewed_at, is_stale, author]
       properties:
         id:
           $ref: "#/components/schemas/RevisionSummary/properties/id"
@@ -6389,6 +6391,8 @@ components:
           $ref: "#/components/schemas/RevisionSummary/properties/summary"
         created_at:
           $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        review_note:
+          $ref: "#/components/schemas/RevisionView/properties/review_note"
         reviewed_at:
           type: [string, "null"]
           format: date-time
@@ -6412,6 +6416,7 @@ components:
           status: pending
           summary: Describe the revel.
           created_at: "2026-10-01T09:00:00Z"
+          review_note: null
           reviewed_at: null
           is_stale: false
           author: null

@@ -177,7 +177,7 @@ func TestHTTP_EndToEnd(t *testing.T) {
 
 // revisionsEndToEnd walks a contributor's edit of the piece kettle through moderation: the contributor edits its
 // editable document, the moderator finds the revision in the queue and approves it, and the public page shows the
-// change; a second edit is rejected, and the contributor sees the note.
+// change; a second edit is rejected, and the contributor sees the note on it and in their list.
 func revisionsEndToEnd(t *testing.T, e endToEnd, contributor, moderator string, kettle catalogtest.Ref) {
 	t.Helper()
 
@@ -231,6 +231,10 @@ func revisionsEndToEnd(t *testing.T, e endToEnd, contributor, moderator string, 
 	mine := sendOK[view](t, e, http.MethodGet, "/v1/me"+rejectedPath, contributor, "", http.StatusOK)
 	assert.Equal(t, "rejected", mine.Status)
 	assert.Equal(t, new("Please cite a source."), mine.ReviewNote)
+	list := sendOK[struct {
+		Data []view `json:"data"`
+	}](t, e, http.MethodGet, "/v1/me/revisions?status=rejected", contributor, "", http.StatusOK)
+	assert.Equal(t, []view{mine}, list.Data)
 }
 
 const (

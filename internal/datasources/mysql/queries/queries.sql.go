@@ -1589,7 +1589,8 @@ func (q *Queries) ListApprovedRevisions(ctx context.Context, arg ListApprovedRev
 
 const listAuthorRevisions = `-- name: ListAuthorRevisions :many
 
-SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.status, r.summary, r.created_at, r.reviewed_at,
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.status, r.summary, r.created_at, r.review_note,
+    r.reviewed_at,
     COALESCE(p.slug, pe.slug, t.slug, e.slug, '') AS entity_slug,
     COALESCE(p.title, pe.name, t.display_name, c.name, e.name, '') AS entity_name,
     COALESCE(p.current_revision_id, pe.current_revision_id, t.current_revision_id, c.current_revision_id,
@@ -1621,6 +1622,7 @@ type ListAuthorRevisionsRow struct {
 	Status            RevisionsStatus
 	Summary           string
 	CreatedAt         time.Time
+	ReviewNote        sql.NullString
 	ReviewedAt        sql.NullTime
 	EntitySlug        string
 	EntityName        string
@@ -1652,6 +1654,7 @@ func (q *Queries) ListAuthorRevisions(ctx context.Context, arg ListAuthorRevisio
 			&i.Status,
 			&i.Summary,
 			&i.CreatedAt,
+			&i.ReviewNote,
 			&i.ReviewedAt,
 			&i.EntitySlug,
 			&i.EntityName,

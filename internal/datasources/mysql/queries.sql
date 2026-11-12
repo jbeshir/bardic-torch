@@ -779,7 +779,8 @@ LIMIT 1;
 -- revision, '' and NULL.
 
 -- name: ListAuthorRevisions :many
-SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.status, r.summary, r.created_at, r.reviewed_at,
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.status, r.summary, r.created_at, r.review_note,
+    r.reviewed_at,
     COALESCE(p.slug, pe.slug, t.slug, e.slug, '') AS entity_slug,
     COALESCE(p.title, pe.name, t.display_name, c.name, e.name, '') AS entity_name,
     COALESCE(p.current_revision_id, pe.current_revision_id, t.current_revision_id, c.current_revision_id,

@@ -129,6 +129,7 @@ type RevisionListItem struct {
 	Status     domain.RevisionStatus `json:"status"`
 	Summary    string                `json:"summary"`
 	CreatedAt  time.Time             `json:"created_at"`
+	ReviewNote *string               `json:"review_note"`
 	ReviewedAt *time.Time            `json:"reviewed_at"`
 	IsStale    bool                  `json:"is_stale"`
 	Author     *ModerationAuthor     `json:"author"`
@@ -152,7 +153,7 @@ func writeRevisionList(w http.ResponseWriter, r *http.Request, list domain.Revis
 	data := mapSlice(list.Revisions, func(i domain.RevisionListItem) RevisionListItem {
 		return RevisionListItem{
 			ID: i.ID, EntityType: i.EntityType, Status: i.Status, Summary: i.Summary, CreatedAt: i.CreatedAt,
-			ReviewedAt: i.ReviewedAt, IsStale: i.IsStale,
+			ReviewNote: i.ReviewNote, ReviewedAt: i.ReviewedAt, IsStale: i.IsStale,
 			Entity: optional(i.Entity, func(e domain.RevisionEntity) RevisionEntity {
 				return RevisionEntity{Slug: e.Slug, CollectionID: e.CollectionID, Name: e.Name}
 			}),
