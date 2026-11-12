@@ -3981,9 +3981,9 @@ type ListPublicTermCountsRow struct {
 	N      int64
 }
 
-// A term's counts are of the distinct public pieces tagged with, and public persons with a page affiliated
-// with, the term or any public descendant: both ends of the closure are checked, so a pending term hides its
-// subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
+// A term's counts are of the distinct public pieces tagged with, and public persons who do not prefer no page
+// affiliated with, the term or any public descendant: both ends of the closure are checked, so a pending term
+// hides its subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
 func (q *Queries) ListPublicTermCounts(ctx context.Context, arg ListPublicTermCountsParams) ([]ListPublicTermCountsRow, error) {
 	query := listPublicTermCounts
 	var queryParams []interface{}

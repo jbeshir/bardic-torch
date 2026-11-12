@@ -249,11 +249,10 @@ func (c *catalogueReader) pieceSummary(
 func (c *catalogueReader) personSummary(
 	slug, name string, kind queries.PersonsKind, isStub bool, status queries.PersonsStatus,
 ) domain.PersonSummary {
-	noPage := status == queries.PersonsStatusPrefersNoPage
+	s := enumOf[domain.PersonStatus](c, status)
 
-	return domain.PersonSummary{
-		Slug: slug, Name: name, Kind: enumOf[domain.PersonKind](c, kind), IsStub: isStub || noPage, NoLink: noPage,
-	}
+	return domain.PersonSummary{Slug: slug, Name: name, Kind: enumOf[domain.PersonKind](c, kind),
+		IsStub: domain.PersonIsStub(isStub, s), NoLink: s == domain.PersonStatusPrefersNoPage}
 }
 
 func (c *catalogueReader) termSummary(slug string, facet queries.TermsFacet, displayName string) domain.TermSummary {

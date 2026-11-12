@@ -259,9 +259,9 @@ JOIN revisions r ON r.id = t.current_revision_id
 LEFT JOIN public_terms ra ON ra.id = t.related_affiliation_id
 WHERE t.slug = ?;
 
--- A term's counts are of the distinct public pieces tagged with, and public persons with a page affiliated
--- with, the term or any public descendant: both ends of the closure are checked, so a pending term hides its
--- subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
+-- A term's counts are of the distinct public pieces tagged with, and public persons who do not prefer no page
+-- affiliated with, the term or any public descendant: both ends of the closure are checked, so a pending term
+-- hides its subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
 
 -- name: ListPublicTermCounts :many
 SELECT ta.ancestor_id AS term_id, 'piece' AS member, COUNT(DISTINCT pt.piece_id) AS n

@@ -127,8 +127,8 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
   References to non-public entities are left out of every read, and an unknown or non-public slug is one 404.
 - **"Prefers no page" persons** have a page of their identity only: name, kind, status, date and the cited source.
   Credits, performers, relations and citations name them like anyone else, without a link (`slug` null). The
-  lists of persons (`listed_persons`) treat them as before: listed as stubs, found by name only, and left out of
-  role and affiliation filters, term member lists and counts, and needs-work.
+  lists of persons (`listed_persons`) list them as stubs, find them by name only, and leave them out of role and
+  affiliation filters, term member lists and counts, and needs-work.
 - **Hidden links** are left out of every read, revision views included: a snapshot drops a link whose URL
   normalises to a hidden link's, or does not normalise, and otherwise shows its own URL.
 - **Kinds are an enum**, not terms. **Slugs and sort keys** are set by the writer (sort keys ignore a leading
@@ -158,7 +158,7 @@ show. Authors appear by display name; imports list the wiki contributors.
 
 - **Edit:** `GET /v1/{type}/{key}/editable` returns the document in editor format with its base revision, or the
   caller's own pending revision of the entity if they have one. Any signed-in user who is not blocked may edit any
-  public entity, including documents naming a person who prefers no page.
+  public entity.
 - **Submit** creates a `pending` revision; a contributor's next submit for the same entity withdraws their earlier
   one. At most 30 pending revisions per contributor. The author may **withdraw** a pending revision.
 - **Revert** has no endpoint of its own: the FE loads an older approved snapshot into the editor and submits it

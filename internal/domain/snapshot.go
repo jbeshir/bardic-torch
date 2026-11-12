@@ -36,7 +36,8 @@ type SnapshotReferences struct {
 type SnapshotVisibility struct {
 	// Pieces are the public pieces.
 	Pieces map[int64]PieceSummary
-	// Persons are the public persons; NoLink is set for those who prefer no page.
+	// Persons are the public persons. NoLink marks those who prefer no page now, of whom a person snapshot shows
+	// only the identity.
 	Persons map[int64]PersonSummary
 	// Terms are the public terms: approved, with every ancestor approved.
 	Terms map[int64]TermSummary

@@ -734,8 +734,9 @@ paths:
       summary: Get a collection
       description: |
         Returns a public collection with its public region, parent and children, and its citations: each
-        visible link in the collection, once for each public piece or public person it is attached to, with the roles it is attached with. Citations are ordered by the piece's sort title or the person's
-        sort name and capped at 200, with a total. Hidden links never appear. An unapproved collection is not
+        visible link in the collection, once for each public piece or public person it is attached to, with the
+        roles it is attached with. Citations are ordered by the piece's sort title or the person's sort name and
+        capped at 200, with a total. Hidden links never appear. An unapproved collection is not
         found, exactly like an unknown one. Credentials are ignored.
       operationId: getCollection
       security: []
@@ -1663,8 +1664,8 @@ paths:
       summary: Submit a revision
       description: |
         Submits an edit of an existing entity (`base_revision_id`, from its editable document) or a new entity
-        (`base_revision_id` null). References are by slug, to public entities only; an unknown slug is a problem `unknown_reference`. The document is validated,
-        including the sourced fields, before anything is stored.
+        (`base_revision_id` null). References are by slug, to public entities only; an unknown slug is a problem
+        `unknown_reference`. The document is validated, including the sourced fields, before anything is stored.
 
         A contributor's revision is pending; it withdraws their earlier pending revision of the same entity, and
         they may have at most 30 pending. A moderator's revision is approved at once, which refuses a stale base
@@ -3331,7 +3332,10 @@ components:
       required: [slug, name, kind, is_stub, status, status_date, status_source_url, profile, updated_at]
       properties:
         slug:
-          $ref: "#/components/schemas/PersonSummary/properties/slug"
+          type: string
+          description: The person's address.
+          examples:
+            - wren-of-the-vale
         name:
           $ref: "#/components/schemas/PersonSummary/properties/name"
         kind:
@@ -3865,7 +3869,8 @@ components:
         citations:
           type: array
           description: |
-            The collection's visible links, once for each public piece or public person each is attached to, by the piece's sort title or the person's sort name. At most 200.
+            The collection's visible links, once for each public piece or public person each is attached to, by
+            the piece's sort title or the person's sort name. At most 200.
           maxItems: 200
           items:
             $ref: "#/components/schemas/CollectionCitation"

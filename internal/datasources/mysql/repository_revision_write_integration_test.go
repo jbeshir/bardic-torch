@@ -4,6 +4,7 @@ package mysql_test
 
 import (
 	"database/sql"
+	"slices"
 	"testing"
 	"time"
 
@@ -308,4 +309,18 @@ func TestGetEditable_OwnPendingOrCurrent(t *testing.T) {
 	others, err := fx.repo.GetEditable(t.Context(), domain.EntityTypePiece, lantern.Slug, heronID)
 	require.NoError(t, err)
 	assert.Equal(t, lanternTitle, others.Document.(domain.EditorPieceDocument).Title)
+}
+
+// TestDuplicateCandidates_PrefersNoPage checks that a person who prefers no page is a duplicate candidate marked
+// so, which blocks a new person matching them.
+func TestDuplicateCandidates_PrefersNoPage(t *testing.T) {
+	fx := newWriteFixture(t)
+	quiet := fx.c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Quiet Harper",
+		Status: domain.PersonStatusPrefersNoPage}})
+
+	candidates, err := fx.repo.DuplicateCandidates(t.Context(), domain.EntityTypePerson, "")
+	require.NoError(t, err)
+	i := slices.IndexFunc(candidates, func(c domain.DuplicateCandidate) bool { return *c.Slug == quiet.Slug })
+	require.GreaterOrEqual(t, i, 0)
+	assert.True(t, candidates[i].PrefersNoPage)
 }

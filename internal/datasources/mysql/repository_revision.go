@@ -221,11 +221,12 @@ func (c *catalogueReader) revisionView(
 		return views(entityView(ctx, c, row, entity.Pieces, pieceSnapshots, moderator))
 	case queries.RevisionsEntityTypePerson:
 		// A revision links to its own person's page, which a person who prefers no page has too.
-		for id, person := range entity.Persons {
+		persons := map[int64]domain.PersonSummary{}
+		if person, ok := entity.Persons[row.EntityID.Int64]; ok {
 			person.NoLink = false
-			entity.Persons[id] = person
+			persons[row.EntityID.Int64] = person
 		}
-		return views(entityView(ctx, c, row, entity.Persons, personSnapshots(row.EntityID.Int64), moderator))
+		return views(entityView(ctx, c, row, persons, personSnapshots(row.EntityID.Int64), moderator))
 	case queries.RevisionsEntityTypeTerm:
 		return views(entityView(ctx, c, row, entity.Terms, termSnapshots, moderator))
 	case queries.RevisionsEntityTypeCollection:
