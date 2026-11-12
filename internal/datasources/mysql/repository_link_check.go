@@ -13,13 +13,11 @@ import (
 
 var _ datasources.LinkChecks = (*Repository)(nil)
 
-// ListLinksDueForCheck returns up to limit visible links never checked or last checked before checkedBefore.
+// ListLinksDueForCheck returns the visible links never checked or last checked before checkedBefore.
 func (r *Repository) ListLinksDueForCheck(
-	ctx context.Context, checkedBefore time.Time, limit int32,
+	ctx context.Context, checkedBefore time.Time,
 ) ([]datasources.DueLink, error) {
-	rows, err := r.queries.ListLinksDueForCheck(ctx, queries.ListLinksDueForCheckParams{
-		CheckedBefore: nullTime(checkedBefore), Limit: limit,
-	})
+	rows, err := r.queries.ListLinksDueForCheck(ctx, nullTime(checkedBefore))
 	if err != nil {
 		return nil, fmt.Errorf("listing links due for a check: %w", err)
 	}
@@ -47,13 +45,11 @@ func (r *Repository) UpdateLinkCheck(
 	return nil
 }
 
-// ListLinksDueForArchive returns up to limit visible links whose archived copy is due to be looked up.
+// ListLinksDueForArchive returns the visible links whose archived copy is due to be looked up.
 func (r *Repository) ListLinksDueForArchive(
-	ctx context.Context, checkedBefore time.Time, limit int32,
+	ctx context.Context, checkedBefore time.Time,
 ) ([]datasources.DueLink, error) {
-	rows, err := r.queries.ListLinksDueForArchive(ctx, queries.ListLinksDueForArchiveParams{
-		CheckedBefore: nullTime(checkedBefore), Limit: limit,
-	})
+	rows, err := r.queries.ListLinksDueForArchive(ctx, nullTime(checkedBefore))
 	if err != nil {
 		return nil, fmt.Errorf("listing links due for an archive lookup: %w", err)
 	}

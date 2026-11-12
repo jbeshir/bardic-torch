@@ -863,8 +863,7 @@ WHERE r.entity_type = ? AND r.id IN (
 SELECT id, url, liveness, liveness_failures
 FROM links
 WHERE is_hidden = FALSE AND (last_checked_at IS NULL OR last_checked_at < sqlc.arg(checked_before))
-ORDER BY last_checked_at IS NOT NULL, last_checked_at, id
-LIMIT ?;
+ORDER BY last_checked_at IS NOT NULL, last_checked_at, id;
 
 
 -- name: UpdateLinkCheck :exec
@@ -881,8 +880,7 @@ SELECT id, url
 FROM links
 WHERE is_hidden = FALSE AND archived_url IS NULL
     AND (archive_checked_at IS NULL OR archive_checked_at < sqlc.arg(checked_before))
-ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id
-LIMIT ?;
+ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id;
 
 
 -- A NULL archived_url records a lookup that found nothing.

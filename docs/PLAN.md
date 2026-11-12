@@ -214,17 +214,17 @@ One transaction validates the snapshot, writes it into the entity and its childr
 
 ### 5.5 Link check (`cmd/check-links`)
 
-Daily, from dokku cron:
-- Checks up to 400 visible links unchecked for 7 days, politely (one request per host per second, 15 s and 5
+Monthly, from dokku cron:
+- Checks every visible link not checked in the last 25 days, politely (one request per host per second, 15 s and 5
   redirects per link); HEAD, then GET.
 - 2xx is `ok`; the third 404, 410 or NXDOMAIN in a row makes a link `dead`; 401, 403, 429 and other refusals are
   `blocked`; timeouts, 5xx and connection errors change only `last_checked_at`.
 - Asks the Wayback Machine's availability API for a copy of links without one (dead first), at most once a link
-  per 30 days, and stores what it finds.
+  per 25 days, and stores what it finds.
 - **Internal-address guard:** http(s) on ports 80 and 443 only, no credentials, and only global unicast addresses
   outside the special-purpose ranges, checked on every redirect and on the address dialled. A refused link is
   `blocked`.
-- Stops after 20 minutes and logs links by ID, never by URL.
+- Stops after 60 minutes, as a safety net, and logs links by ID, never by URL.
 
 ## 6. API surface
 
@@ -339,7 +339,7 @@ goes to the owners as a question.
 | H0–BE3, FE1–FE2 | | | | *Done:* host setup, foundations, catalogue and read API, importer, read UI. |
 | BE-S | simplify | BE | BE3 | *Done:* removed what this plan no longer needs (below). |
 | FE-S | simplify | FE | FE2 | Remove what this plan no longer needs (below). |
-| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `contact_requests`, performance owners, the link-check columns and `licence_version`; `updated_at` and `credit_names`; the `check-links` cron. |
+| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `contact_requests`, performance owners, the link-check columns and `licence_version`; `updated_at` and `credit_names`; the monthly `check-links` cron. |
 | FE3 | editing | FE | FE-S, BE4 spec | §8 "Editing". |
 | FE4 | moderation and contact | FE | FE3 | §8 "Moderation and contact". |
 | H1 | launch | host | all | The Cloudflare rate-limiting rule; full-stack e2e on the real import; staging; the real import; the click-through; production. |

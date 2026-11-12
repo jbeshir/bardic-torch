@@ -1964,13 +1964,7 @@ FROM links
 WHERE is_hidden = FALSE AND archived_url IS NULL
     AND (archive_checked_at IS NULL OR archive_checked_at < ?)
 ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id
-LIMIT ?
 `
-
-type ListLinksDueForArchiveParams struct {
-	CheckedBefore sql.NullTime
-	Limit         int32
-}
 
 type ListLinksDueForArchiveRow struct {
 	ID  uint64
@@ -1978,8 +1972,8 @@ type ListLinksDueForArchiveRow struct {
 }
 
 // Links with no archived copy whose archive was never looked up, or not since the cutoff: dead links first.
-func (q *Queries) ListLinksDueForArchive(ctx context.Context, arg ListLinksDueForArchiveParams) ([]ListLinksDueForArchiveRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLinksDueForArchive, arg.CheckedBefore, arg.Limit)
+func (q *Queries) ListLinksDueForArchive(ctx context.Context, checkedBefore sql.NullTime) ([]ListLinksDueForArchiveRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLinksDueForArchive, checkedBefore)
 	if err != nil {
 		return nil, err
 	}
@@ -2007,13 +2001,7 @@ SELECT id, url, liveness, liveness_failures
 FROM links
 WHERE is_hidden = FALSE AND (last_checked_at IS NULL OR last_checked_at < ?)
 ORDER BY last_checked_at IS NOT NULL, last_checked_at, id
-LIMIT ?
 `
-
-type ListLinksDueForCheckParams struct {
-	CheckedBefore sql.NullTime
-	Limit         int32
-}
 
 type ListLinksDueForCheckRow struct {
 	ID               uint64
@@ -2023,8 +2011,8 @@ type ListLinksDueForCheckRow struct {
 }
 
 // Links never checked come first, then the longest unchecked.
-func (q *Queries) ListLinksDueForCheck(ctx context.Context, arg ListLinksDueForCheckParams) ([]ListLinksDueForCheckRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLinksDueForCheck, arg.CheckedBefore, arg.Limit)
+func (q *Queries) ListLinksDueForCheck(ctx context.Context, checkedBefore sql.NullTime) ([]ListLinksDueForCheckRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLinksDueForCheck, checkedBefore)
 	if err != nil {
 		return nil, err
 	}

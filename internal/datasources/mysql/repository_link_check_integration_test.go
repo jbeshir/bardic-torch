@@ -25,8 +25,8 @@ func TestRepository_ListLinksDueForCheck(t *testing.T) {
 		hidden  bool
 		checked *time.Time
 	}{
-		{1, false, ptr(now.Add(-8 * day))}, {2, false, ptr(now.Add(-6 * day))}, {3, true, nil},
-		{4, false, nil}, {5, false, ptr(now.Add(-30 * day))},
+		{1, false, ptr(now.Add(-26 * day))}, {2, false, ptr(now.Add(-24 * day))}, {3, true, nil},
+		{4, false, nil}, {5, false, ptr(now.Add(-60 * day))},
 	} {
 		_, err := db.ExecContext(ctx, `INSERT INTO links (id, url, normalized_url, is_hidden, last_checked_at)
 			VALUES (?, ?, ?, ?, ?)`, l.id, "https://e.example/"+fmt.Sprint("link-", l.id), "e.example/"+fmt.Sprint("link-", l.id),
@@ -34,7 +34,7 @@ func TestRepository_ListLinksDueForCheck(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	links, err := mysql.New(db).ListLinksDueForCheck(ctx, now.Add(-7*day), 10)
+	links, err := mysql.New(db).ListLinksDueForCheck(ctx, now.Add(-25*day))
 	require.NoError(t, err)
 	// Never checked first, then longest unchecked; the recent and the hidden link are left out.
 	var ids []uint64
@@ -42,10 +42,6 @@ func TestRepository_ListLinksDueForCheck(t *testing.T) {
 		ids = append(ids, l.ID)
 	}
 	assert.Equal(t, []uint64{4, 5, 1}, ids)
-
-	links, err = mysql.New(db).ListLinksDueForCheck(ctx, now.Add(-7*day), 2)
-	require.NoError(t, err)
-	assert.Len(t, links, 2)
 }
 
 func ptr[T any](v T) *T { return &v }

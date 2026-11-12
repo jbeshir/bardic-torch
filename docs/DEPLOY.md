@@ -505,8 +505,8 @@ moderator, demote them first as above, then block them through `PUT /v1/users/{u
 
 ## Link checker
 
-`app.json` has a dokku `cron` entry that runs `/app/check-links` daily (`dokku cron:list bardic-torch-api` shows
-it; dokku reads it on each deploy). A run checks up to 400 visible links not checked for 7 days, one request per
-host per second, and asks the Wayback Machine for a copy of those without one, at most once per link per 30 days.
-It stops after 20 minutes and logs links by ID, never by URL. To run it by hand: `dokku run bardic-torch-api
-/app/check-links`.
+`app.json` has a dokku `cron` entry that runs `/app/check-links` monthly, at 03:17 on the 1st
+(`dokku cron:list bardic-torch-api` shows it; dokku reads it on each deploy). A run checks every visible link not
+checked in the last 25 days, one request per host per second, and asks the Wayback Machine for a copy of those
+without one that it has not asked about in the last 25 days. It stops after 60 minutes, as a safety net, and logs
+links by ID, never by URL. To run it by hand: `dokku run bardic-torch-api /app/check-links`.

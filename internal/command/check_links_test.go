@@ -26,12 +26,12 @@ type check struct {
 	failures uint8
 }
 
-func (f *fakeLinks) ListLinksDueForCheck(_ context.Context, before time.Time, _ int32) ([]datasources.DueLink, error) {
+func (f *fakeLinks) ListLinksDueForCheck(_ context.Context, before time.Time) ([]datasources.DueLink, error) {
 	f.checkedBefore = before
 	return f.due, nil
 }
 
-func (f *fakeLinks) ListLinksDueForArchive(_ context.Context, before time.Time, _ int32) ([]datasources.DueLink, error) {
+func (f *fakeLinks) ListLinksDueForArchive(_ context.Context, before time.Time) ([]datasources.DueLink, error) {
 	f.archiveCut = before
 	return f.dueArchive, nil
 }
@@ -110,9 +110,9 @@ func TestCheckLinksArchive(t *testing.T) {
 	_, err := checker.Execute(context.Background(), command.CheckLinksRequest{MaxDuration: time.Minute})
 	require.NoError(t, err)
 
-	// Only links not looked up for 30 days are asked for, and what is found is stored; a failed lookup is not.
-	assert.Equal(t, now.Add(-30*24*time.Hour), links.archiveCut)
-	assert.Equal(t, now.Add(-7*24*time.Hour), links.checkedBefore)
+	// Only links not checked or looked up for 25 days are due, and what is found is stored; a failed lookup is not.
+	assert.Equal(t, now.Add(-25*24*time.Hour), links.archiveCut)
+	assert.Equal(t, now.Add(-25*24*time.Hour), links.checkedBefore)
 	assert.Equal(t, map[uint64]string{1: "https://web.archive.org/web/2020/https://has.example/", 2: ""}, links.archives)
 	assert.Len(t, archive.asked, 3)
 }

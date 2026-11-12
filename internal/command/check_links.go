@@ -13,12 +13,9 @@ var _ Command[CheckLinksRequest, Empty] = (*CheckLinks)(nil)
 
 // The link checker's schedule (docs/PLAN.md §5.5).
 const (
-	// linkBatch is the most links checked, and the most archive lookups made, in a run.
-	linkBatch = 400
-	// linkCheckInterval is how long after its last check a link is due again.
-	linkCheckInterval = 7 * 24 * time.Hour
-	// archiveLookupInterval is how long after its last archive lookup a link is due again.
-	archiveLookupInterval = 30 * 24 * time.Hour
+	// dueAfter is how long after its last check, or its last archive lookup, a link is due again. It is under the
+	// shortest month, so a monthly run reaches every link.
+	dueAfter = 25 * 24 * time.Hour
 	// deadAfterFailures is how many consecutive 404, 410 or NXDOMAIN answers make a link dead.
 	deadAfterFailures = 3
 )
@@ -52,7 +49,7 @@ func (c *CheckLinks) Execute(ctx context.Context, req CheckLinksRequest) (Empty,
 
 // checkDue checks the links due and records each result, until they are done or ctx ends.
 func (c *CheckLinks) checkDue(ctx context.Context) error {
-	links, err := c.Links.ListLinksDueForCheck(ctx, c.Now().Add(-linkCheckInterval), linkBatch)
+	links, err := c.Links.ListLinksDueForCheck(ctx, c.Now().Add(-dueAfter))
 	if err != nil {
 		return fmt.Errorf("listing links due for a check: %w", err)
 	}
@@ -97,7 +94,7 @@ func nextLiveness(link datasources.DueLink, outcome datasources.LinkOutcome) (do
 // lookUpArchives looks up an archived copy of each link due, until they are done or ctx ends. A lookup that fails
 // is not recorded, so the link stays due.
 func (c *CheckLinks) lookUpArchives(ctx context.Context) error {
-	links, err := c.Links.ListLinksDueForArchive(ctx, c.Now().Add(-archiveLookupInterval), linkBatch)
+	links, err := c.Links.ListLinksDueForArchive(ctx, c.Now().Add(-dueAfter))
 	if err != nil {
 		return fmt.Errorf("listing links due for an archive lookup: %w", err)
 	}

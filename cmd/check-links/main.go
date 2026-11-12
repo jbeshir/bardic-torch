@@ -1,5 +1,5 @@
 // Command check-links checks whether the catalogue's visible links still work and looks up archived copies of them
-// in the Wayback Machine (docs/PLAN.md §5.5). dokku runs it daily from app.json's cron entry. It stops after 20
+// in the Wayback Machine (docs/PLAN.md §5.5). dokku runs it monthly from app.json's cron entry. It stops after 60
 // minutes. Logs are JSON lines naming links by ID only, never by URL.
 package main
 
@@ -22,7 +22,7 @@ import (
 )
 
 // maxDuration is how long a run may take.
-const maxDuration = 20 * time.Minute
+const maxDuration = 60 * time.Minute
 
 func main() {
 	_ = godotenv.Load()

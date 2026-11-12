@@ -37,13 +37,13 @@ type DueLink struct {
 
 // LinkChecks stores the link checker's state.
 type LinkChecks interface {
-	// ListLinksDueForCheck returns up to limit visible links never checked or last checked before checkedBefore.
-	ListLinksDueForCheck(ctx context.Context, checkedBefore time.Time, limit int32) ([]DueLink, error)
+	// ListLinksDueForCheck returns the visible links never checked or last checked before checkedBefore.
+	ListLinksDueForCheck(ctx context.Context, checkedBefore time.Time) ([]DueLink, error)
 	// UpdateLinkCheck records the result of a check.
 	UpdateLinkCheck(ctx context.Context, id uint64, liveness domain.Liveness, failures uint8, checkedAt time.Time) error
-	// ListLinksDueForArchive returns up to limit visible links without an archived copy whose archive was never
+	// ListLinksDueForArchive returns the visible links without an archived copy whose archive was never
 	// looked up or not since checkedBefore, dead links first.
-	ListLinksDueForArchive(ctx context.Context, checkedBefore time.Time, limit int32) ([]DueLink, error)
+	ListLinksDueForArchive(ctx context.Context, checkedBefore time.Time) ([]DueLink, error)
 	// UpdateLinkArchive records an archive lookup, and the copy it found, if any.
 	UpdateLinkArchive(ctx context.Context, id uint64, archivedURL string, checkedAt time.Time) error
 }
