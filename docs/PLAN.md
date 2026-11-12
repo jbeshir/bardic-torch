@@ -43,8 +43,9 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
 2. **Origin** (the wiki's "Source Category"): multi-valued with one primary; an optional `part` scope (words,
    tune, verses, chorus); century categories become child terms of Origin; topic centuries stay under Topic.
 3. **Conservation status:** an enum (unassessed, low_risk, endangered, critically_endangered, restricted). Every
-   change is recorded with a reason. A moderator sets it by the conservation guide, in which exactly three places
-   counts as Endangered. Restricted overrides everything and hides the "help preserve this" prompts.
+   change is recorded, with the revision's summary (which may be empty) as the reason. A moderator sets it by the
+   conservation guide, in which exactly three places counts as Endangered. Restricted overrides everything and
+   hides the "help preserve this" prompts.
 4. **Pseudo-bards:** "Traditional & Folk", Unknown, Anonymous and Various become an `attribution` on the credit,
    with a separate `certainty` (Disputed is a certainty). Bands and historical figures are persons with
    `kind = group | historical`.
@@ -128,9 +129,9 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
   Credits, performers, relations and citations name them like anyone else, without a link (`slug` null). The
   lists of persons (`listed_persons`) list them as stubs, find them by name only, and leave them out of role and
   affiliation filters, term member lists and counts, and needs-work.
-- **Hidden links** are left out of every read by their link ID: current pages through the link's row, and revision
-  views by the link each snapshot URL is (the row approval upserts it to, by normalised URL). Every other link is
-  shown as the snapshot wrote it.
+- **Hidden links** are left out of every read by their link ID. Current pages join on the link's row. A revision
+  view leaves out a snapshot URL whose row (matched by normalised URL, as approval upserts it) is hidden, and shows
+  every other URL as the snapshot wrote it.
 - **Kinds are an enum**, not terms. **Slugs and sort keys** are set by the writer (sort keys ignore a leading
   article).
 - **Search** is InnoDB FULLTEXT on tokens the API makes itself, with a prefix fallback; reads are capped at 2 s.
@@ -168,8 +169,8 @@ show. Authors appear by display name; imports list the wiki contributors.
 - **Pending banner:** an author sees, on the entity's page, a banner linking to their pending revision (the FE
   finds it in `/v1/me/revisions`, at most 30).
 - **Hidden links** are left out of editable documents, so an approved edit drops their attachment
-  (restoring the link later does not bring it back). Re-adding a taken-down URL is an ordinary edit, which a
-  moderator rejects.
+  (restoring the link later does not bring it back). Re-adding a taken-down URL is an ordinary edit for a
+  moderator to reject; there is no rule for it.
 
 ### 5.2 Validation
 
@@ -317,9 +318,9 @@ or combination. A test earns its place by catching a bug someone could plausibly
 - Component tests for components with logic (forms, editors, pickers, the facet drawer); loader and action tests
   against msw with spec-checked fixtures.
 - A short Playwright suite, one journey per main flow: browse and search, read a piece and a bard, sign in
-  (stubbed), edit and submit with the duplicate warning, approve and reject (one stale), contact (including reporting a link).
-  axe on each page type in the default theme (the token contrast check covers dark mode); screenshots at 360 and
-  1280px for the UX review.
+  (stubbed), edit and submit with the duplicate warning, approve and reject (one stale), contact (including
+  reporting a link). axe on each page type in the default theme (the token contrast check covers dark mode);
+  screenshots at 360 and 1280px for the UX review.
 - `npm run validate`, the `e2e` job and `npm run audit` in CI.
 
 **Full stack (H1):** BE, FE and Playwright on the real import, then John and Fabian click through it.

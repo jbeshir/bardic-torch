@@ -197,7 +197,7 @@ func cleanURL(u string) string {
 
 // free is the text of a public free-text field, or nil if empty.
 func free(s string) *string {
-	out := plainName(s)
+	out := plain(s)
 	if out == "" {
 		return nil
 	}
@@ -205,8 +205,8 @@ func free(s string) *string {
 	return &out
 }
 
-// plainName is a public name, title or text, trimmed, in NFC and without control characters.
-func plainName(s string) string {
+// plain is a public name, title or text, trimmed, in NFC and without control characters.
+func plain(s string) string {
 	return norm.NFC.String(strings.TrimSpace(domain.WithoutControlCharacters(s)))
 }
 
@@ -243,8 +243,8 @@ func optionalURL(u string) *string {
 func (b *builder) buildTerms() {
 	for _, t := range b.terms() {
 		id := b.termIDs[t.Category]
-		name := plainName(t.Name)
-		display := plainName(t.DisplayName)
+		name := plain(t.Name)
+		display := plain(t.DisplayName)
 		doc := domain.TermDocument{SchemaVersion: domain.DocumentSchemaVersion, Facet: t.Facet,
 			Name: name, DisplayName: display,
 			ParentID: b.termRef(t.Parent), RelatedAffiliationID: b.termRef(t.RelatedAffiliation),
@@ -252,7 +252,7 @@ func (b *builder) buildTerms() {
 			Aliases: []string{}}
 		seen := map[string]bool{domain.CollationKey(doc.Name): true}
 		for _, a := range t.Aliases {
-			a = plainName(a)
+			a = plain(a)
 			if key := domain.CollationKey(a); !seen[key] {
 				seen[key] = true
 				doc.Aliases = append(doc.Aliases, a)
@@ -285,7 +285,7 @@ func (b *builder) buildCollections() {
 		if !ok {
 			continue
 		}
-		name := plainName(r.Name())
+		name := plain(r.Name())
 		doc := domain.CollectionDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
 			URL: optionalURL(r.URL), Kind: r.Kind,
 			DescriptionMD: free(r.Description),
@@ -313,7 +313,7 @@ func (b *builder) buildEvents() {
 		if !ok {
 			continue
 		}
-		name := plainName(e.Name)
+		name := plain(e.Name)
 		doc := domain.EventDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: e.Kind}
 		ev := domain.ImportedEvent{ID: id, Slug: b.slugs.Allocate(doc.Name, domain.SlugEntityTypeEvent, id), Doc: doc}
 		if p, ok := b.c.Site.Page(e.Name); ok && e.PageID != 0 {

@@ -31,7 +31,7 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 	id := b.pieceIDs[p.Title]
 	page, _ := b.c.Site.Page(p.Title)
 	c := p.Content
-	title := plainName(p.Title)
+	title := plain(p.Title)
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion,
 		Title: title, Kind: p.Kind, SecondaryKinds: uniqueOf(p.SecondaryKinds),
 		Conservation:       domain.DocConservation{Status: p.Conservation()},
@@ -59,7 +59,7 @@ func (b *builder) pieceAliases(p mediawiki.PieceRecord) []domain.DocPieceAlias {
 	out := []domain.DocPieceAlias{}
 	seen := map[string]bool{domain.CollationKey(p.Title): true}
 	for _, a := range p.Titles.Alternates {
-		text := plainName(a.Text)
+		text := plain(a.Text)
 		if key := domain.CollationKey(text); !seen[key] {
 			seen[key] = true
 			out = append(out, domain.DocPieceAlias{Text: text, Kind: a.Kind})
@@ -159,7 +159,7 @@ func (b *builder) credits(credits []mediawiki.PieceCredit) []domain.DocCredit {
 
 func (b *builder) stubPiece(sp mediawiki.StubPiece) domain.ImportedPiece {
 	id := b.pieceIDs[sp.Title]
-	title := plainName(sp.Title)
+	title := plain(sp.Title)
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: title,
 		Kind: domain.PieceKindSong, SecondaryKinds: []domain.PieceKind{},
 		Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed}, IsStub: true,

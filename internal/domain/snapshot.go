@@ -9,8 +9,8 @@ import (
 // stored: it references other entities by internal ID and may hold what a public read must not show. A view
 // holds the document's editor-owned fields, with:
 //   - each reference resolved to the entity's summary as it is now, or left out if the entity is not public now;
-//   - each link shown as written in the document, unless the link it is (the links row approval upserts it to,
-//     by normalized URL) is hidden now;
+//   - each link shown as written in the document, unless its link (the row its normalized URL matches, as approval
+//     upserts it) is hidden now;
 //   - a person's name and aliases as the document has them;
 //   - credits, performers and relations of persons who are not public now left out, and of persons who prefer no
 //     page now named without a link;
@@ -45,8 +45,7 @@ type SnapshotVisibility struct {
 	Collections map[int64]CollectionSummary
 	// Events are the public events and venues.
 	Events map[int64]EventSummary
-	// HiddenLinks holds each referenced URL, as the documents write it, whose link is hidden now; a view leaves those
-	// links out.
+	// HiddenLinks holds the normalized URL of each hidden link; a view leaves out a link whose URL normalizes to one.
 	HiddenLinks map[string]bool
 }
 
@@ -292,7 +291,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 		}
 	}
 	for _, link := range d.Links {
-		if vis.HiddenLinks[link.URL] {
+		if !vis.linkShown(link.URL) {
 			continue
 		}
 		pieceLink := SnapshotPieceLink{SnapshotLink: vis.link(link.DocLink)}
@@ -416,7 +415,7 @@ func newPersonSnapshotProfile(d PersonDocument, vis SnapshotVisibility) PersonSn
 		}
 	}
 	for _, link := range d.Links {
-		if vis.HiddenLinks[link.URL] {
+		if !vis.linkShown(link.URL) {
 			continue
 		}
 		personLink := SnapshotPersonLink{SnapshotLink: vis.link(link.DocLink)}
@@ -490,4 +489,12 @@ func lookup[T any](entities map[int64]T, id *int64) *T {
 	}
 
 	return &entity
+}
+
+// linkShown reports whether a view shows a document's link with this URL: unless its link is hidden. A URL that
+// does not normalize has no link.
+func (v SnapshotVisibility) linkShown(url string) bool {
+	normalized, err := NormalizeURL(url)
+
+	return err != nil || !v.HiddenLinks[normalized]
 }

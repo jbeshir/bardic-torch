@@ -3170,7 +3170,7 @@ components:
           $ref: "#/components/schemas/ConservationStatus"
         reason:
           type: string
-          description: Why the status changed.
+          description: Why the status changed (the summary of the revision that changed it), which may be empty.
           examples:
             - Known to only a few singers.
         source_url:
@@ -6292,8 +6292,8 @@ components:
         summary:
           type: string
           description: |
-            What the edit changes, at most 500 characters; may be empty, except that a conservation status change
-            needs one (the reason).
+            What the edit changes, at most 500 characters; may be empty. When the edit changes a piece's
+            conservation status, the summary is the reason in its conservation history.
           examples:
             - Describe the revel.
         document:

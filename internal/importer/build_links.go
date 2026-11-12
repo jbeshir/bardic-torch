@@ -84,7 +84,7 @@ func (b *builder) personLinks(links []mediawiki.LinkRecord) []domain.DocPersonLi
 func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 	out := domain.DocPerformance{
 		Uploader:            free(p.Uploader),
-		DescriptionVerbatim: plainName(withoutTracking(p.DescriptionVerbatim)),
+		DescriptionVerbatim: plain(withoutTracking(p.DescriptionVerbatim)),
 		PerformerIDs:        []int64{},
 	}
 	if id, ok := b.eventIDs[p.Event]; ok && p.Event != "" {
