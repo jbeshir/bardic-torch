@@ -40,8 +40,7 @@ type Counts struct {
 // first seen; bards by page ID, then stub persons by name; pieces by page ID, then stub pieces by title), and so
 // are slugs, collisions getting "-2", "-3"…
 //
-// Email addresses in public text are withheld (domain.WithheldEmail); names are imported as written, placeholders
-// of the scrubbed copy included.
+// Names and free text are imported as written, placeholders of the scrubbed copy included.
 func Build(c mediawiki.Corpus, now time.Time) (domain.CatalogueImport, Counts) {
 	b := newBuilder(c, now)
 	b.assignIDs()
@@ -196,9 +195,9 @@ func cleanURL(u string) string {
 	return clean(domain.WithControlCharactersEscaped(domain.WithScheme(u)))
 }
 
-// free is the text of a public free-text field, with its emails withheld, or nil if empty.
+// free is the text of a public free-text field, or nil if empty.
 func free(s string) *string {
-	out := freeText(s)
+	out := plain(s)
 	if out == "" {
 		return nil
 	}
@@ -206,19 +205,9 @@ func free(s string) *string {
 	return &out
 }
 
-// freeText is free without the nil for empty text.
-func freeText(s string) string {
-	return withholdEmails(strings.TrimSpace(domain.WithoutControlCharacters(s)))
-}
-
-// withholdEmails is s in NFC with its email addresses replaced by domain.WithheldEmail.
-func withholdEmails(s string) string {
-	return mediawiki.EmailAddress.ReplaceAllLiteralString(norm.NFC.String(s), domain.WithheldEmail)
-}
-
-// plainName is a public name or title (one line), with its email addresses withheld.
-func plainName(s string) string {
-	return withholdEmails(strings.TrimSpace(domain.WithoutControlCharacters(s)))
+// plain is a public name, title or text, trimmed, in NFC and without control characters.
+func plain(s string) string {
+	return norm.NFC.String(strings.TrimSpace(domain.WithoutControlCharacters(s)))
 }
 
 // position is a sibling position as the column holds it, capped at its range.
@@ -254,8 +243,8 @@ func optionalURL(u string) *string {
 func (b *builder) buildTerms() {
 	for _, t := range b.terms() {
 		id := b.termIDs[t.Category]
-		name := plainName(t.Name)
-		display := plainName(t.DisplayName)
+		name := plain(t.Name)
+		display := plain(t.DisplayName)
 		doc := domain.TermDocument{SchemaVersion: domain.DocumentSchemaVersion, Facet: t.Facet,
 			Name: name, DisplayName: display,
 			ParentID: b.termRef(t.Parent), RelatedAffiliationID: b.termRef(t.RelatedAffiliation),
@@ -263,7 +252,7 @@ func (b *builder) buildTerms() {
 			Aliases: []string{}}
 		seen := map[string]bool{domain.CollationKey(doc.Name): true}
 		for _, a := range t.Aliases {
-			a = plainName(a)
+			a = plain(a)
 			if key := domain.CollationKey(a); !seen[key] {
 				seen[key] = true
 				doc.Aliases = append(doc.Aliases, a)
@@ -296,7 +285,7 @@ func (b *builder) buildCollections() {
 		if !ok {
 			continue
 		}
-		name := plainName(r.Name())
+		name := plain(r.Name())
 		doc := domain.CollectionDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
 			URL: optionalURL(r.URL), Kind: r.Kind,
 			DescriptionMD: free(r.Description),
@@ -324,7 +313,7 @@ func (b *builder) buildEvents() {
 		if !ok {
 			continue
 		}
-		name := plainName(e.Name)
+		name := plain(e.Name)
 		doc := domain.EventDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: e.Kind}
 		ev := domain.ImportedEvent{ID: id, Slug: b.slugs.Allocate(doc.Name, domain.SlugEntityTypeEvent, id), Doc: doc}
 		if p, ok := b.c.Site.Page(e.Name); ok && e.PageID != 0 {

@@ -21,11 +21,13 @@ type PieceSummary struct {
 	SecondaryKinds     []domain.PieceKind        `json:"secondary_kinds"`
 	ConservationStatus domain.ConservationStatus `json:"conservation_status"`
 	IsStub             bool                      `json:"is_stub"`
+	CreditNames        []string                  `json:"credit_names"`
 }
 
-// PersonSummary is the JSON representation of a person another entity refers to.
+// PersonSummary is the JSON representation of a person another entity refers to. Slug is nil for a person who
+// prefers no page, who is named without a link.
 type PersonSummary struct {
-	Slug   string            `json:"slug"`
+	Slug   *string           `json:"slug"`
 	Name   string            `json:"name"`
 	Kind   domain.PersonKind `json:"kind"`
 	IsStub bool              `json:"is_stub"`
@@ -104,11 +106,17 @@ func pieceSummaryFromDomain(s domain.PieceSummary) PieceSummary {
 		SecondaryKinds:     nonNil(s.SecondaryKinds),
 		ConservationStatus: s.ConservationStatus,
 		IsStub:             s.IsStub,
+		CreditNames:        nonNil(s.CreditNames),
 	}
 }
 
 func personSummaryFromDomain(s domain.PersonSummary) PersonSummary {
-	return PersonSummary{Slug: s.Slug, Name: s.Name, Kind: s.Kind, IsStub: s.IsStub}
+	summary := PersonSummary{Name: s.Name, Kind: s.Kind, IsStub: s.IsStub}
+	if !s.NoLink {
+		summary.Slug = &s.Slug
+	}
+
+	return summary
 }
 
 func termSummaryFromDomain(s domain.TermSummary) TermSummary {

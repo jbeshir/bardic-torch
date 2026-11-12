@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"errors"
+	"fmt"
+	"time"
+)
 
 // RevisionSummary is a public revision as an entity's history lists it. Only approved revisions of public
 // entities are public.
@@ -89,4 +93,102 @@ type NeedsWorkList struct {
 	Total   int64
 	// Counts are for every reason, in NeedsWorkReason's declaration order.
 	Counts []NeedsWorkCount
+}
+
+// ErrRevisionNotPending is returned for withdrawing, approving or rejecting a revision that is not pending.
+var ErrRevisionNotPending = errors.New("revision is not pending")
+
+// CheckPending returns ErrRevisionNotPending unless a revision of status may still be withdrawn, approved or
+// rejected: only a pending revision moves, and only once.
+func CheckPending(status RevisionStatus) error {
+	if status != RevisionStatusPending {
+		return fmt.Errorf("%w [%s]", ErrRevisionNotPending, status)
+	}
+
+	return nil
+}
+
+// IsStale reports whether a revision based on baseRevisionID is stale: its entity's current revision is another.
+// A new entity's revision (no base) is never stale.
+func IsStale(baseRevisionID, currentRevisionID *int64) bool {
+	return baseRevisionID != nil && !equalPointers(baseRevisionID, currentRevisionID)
+}
+
+// RevisionView is a revision of any status as its author or a moderator sees it: one of PieceRevisionView,
+// PersonRevisionView, TermRevisionView, CollectionRevisionView and EventRevisionView.
+type RevisionView interface {
+	isRevisionView()
+}
+
+// EntityRevisionView is a revision as its author or a moderator sees it, with the same snapshot views as a public
+// revision.
+type EntityRevisionView[E, S any] struct {
+	RevisionSummary
+	Status     RevisionStatus
+	ReviewNote *string
+	ReviewedAt *time.Time
+	// Entity is the revision's entity, or nil for a new entity's revision that is not approved.
+	Entity   *E
+	Snapshot S
+	// Base is as in EntityRevision.
+	Base *RevisionBase[S]
+	// AuthorUserID, Current and PossibleDuplicates are in the moderator view only: the author's user ID (nil for
+	// none), the entity's current revision when the revision is stale, and for a new entity's pending revision the
+	// public entities it may duplicate.
+	AuthorUserID       *string
+	Current            *RevisionBase[S]
+	PossibleDuplicates []DuplicateCandidate
+}
+
+func (EntityRevisionView[E, S]) isRevisionView() {}
+
+// Public returns the revision as the public sees it, for a revision whose Entity is set.
+func (v EntityRevisionView[E, S]) Public() EntityRevision[E, S] {
+	return EntityRevision[E, S]{RevisionSummary: v.RevisionSummary, Entity: *v.Entity, Snapshot: v.Snapshot,
+		Base: v.Base}
+}
+
+// The revision views of each type of entity.
+type (
+	PieceRevisionView      = EntityRevisionView[PieceSummary, PieceSnapshot]
+	PersonRevisionView     = EntityRevisionView[PersonSummary, PersonSnapshot]
+	TermRevisionView       = EntityRevisionView[TermSummary, TermSnapshot]
+	CollectionRevisionView = EntityRevisionView[CollectionRef, CollectionSnapshot]
+	EventRevisionView      = EntityRevisionView[EventSummary, EventSnapshot]
+)
+
+// RevisionListItem is a revision as its author's list and the moderation queue show it.
+type RevisionListItem struct {
+	ID         int64
+	EntityType EntityType
+	// Entity is the revision's entity, or nil for a new entity's revision that is not approved.
+	Entity     *RevisionEntity
+	Status     RevisionStatus
+	Summary    string
+	CreatedAt  time.Time
+	ReviewNote *string
+	ReviewedAt *time.Time
+	// IsStale is IsStale of the revision's base and its entity's current revision.
+	IsStale bool
+	// Author is set in the moderation queue only.
+	Author *RevisionAuthorAccount
+}
+
+// RevisionEntity is the entity a listed revision edits: by slug, or for a collection by ID, with its name.
+type RevisionEntity struct {
+	Slug         *string
+	CollectionID *int64
+	Name         string
+}
+
+// RevisionAuthorAccount is a revision's author as moderators see them.
+type RevisionAuthorAccount struct {
+	UserID      string
+	DisplayName string
+}
+
+// RevisionList is one page of revisions with how many there are in all.
+type RevisionList struct {
+	Revisions []RevisionListItem
+	Total     int64
 }

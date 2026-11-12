@@ -274,15 +274,19 @@ dokku config:set --no-restart bardic-torch-api \
   AUTH_DRIVERS=auth0 \
   AUTH0_DOMAIN=<AUTH0_DOMAIN> \
   AUTH0_AUDIENCE=https://api.bardictorch.org \
-  BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>'
+  BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>' \
+  TURNSTILE_SECRET_KEY=<TURNSTILE_SECRET_KEY> \
+  TURNSTILE_HOSTNAME=<SITE_HOSTNAME>
 ```
 
 - Keep the single quotes around the user IDs: they contain `|`, which the shell would otherwise treat as a pipe.
 - `BOOTSTRAP_MODERATOR_USER_IDS` must be set, but may be empty if the moderator IDs are not known yet. Set it
   later as in [Moderators](#moderators).
+- `TURNSTILE_SECRET_KEY` and `TURNSTILE_HOSTNAME` are the contact form's Cloudflare Turnstile secret key and the
+  hostname its widget runs on.
 - `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
-  if `AUTH_DRIVERS` names an unknown driver, or if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
-  enabled.
+  if `AUTH_DRIVERS` names an unknown driver, if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
+  enabled, or if `TURNSTILE_SECRET_KEY` or `TURNSTILE_HOSTNAME` is empty.
 
 ### First deploy
 
@@ -498,3 +502,11 @@ Promotion also unblocks: if a blocked contributor is listed in `BOOTSTRAP_MODERA
 makes them an unblocked moderator. Listing an ID means trusting that person, and a blocked moderator could not be
 unblocked through the API, because moderators cannot be blocked or unblocked. To block someone who is a
 moderator, demote them first as above, then block them through `PUT /v1/users/{user_id}/blocked`.
+
+## Link checker
+
+`app.json` has a dokku `cron` entry that runs `/app/check-links` monthly, at 03:17 on the 1st
+(`dokku cron:list bardic-torch-api` shows it; dokku reads it on each deploy). A run checks every visible link not
+checked in the last 25 days, one request per host per second, and asks the Wayback Machine for a copy of those
+without one that it has not asked about in the last 25 days. It stops after 60 minutes, as a safety net, and logs
+links by ID, never by URL. To run it by hand: `dokku run bardic-torch-api /app/check-links`.

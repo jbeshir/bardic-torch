@@ -24,6 +24,8 @@ func setSetupEnv(t *testing.T, databaseURL, bootstrapModerators string) {
 	t.Setenv("DATABASE_URL", databaseURL)
 	t.Setenv(bootstrapModeratorsEnv, bootstrapModerators)
 	t.Setenv(authDriversEnv, "")
+	t.Setenv("TURNSTILE_SECRET_KEY", "1x0000000000000000000000000000000AA")
+	t.Setenv("TURNSTILE_HOSTNAME", "localhost")
 	t.Setenv("PORT", "0")
 }
 
@@ -33,7 +35,7 @@ func connectRepository(t *testing.T, databaseURL string) *mysql.Repository {
 
 	cfg, err := mysql.ConfigFromURL(databaseURL)
 	require.NoError(t, err)
-	db, err := mysql.Connect(t.Context(), cfg)
+	db, err := mysql.Connect(t.Context(), cfg, mysqltest.Pool())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 

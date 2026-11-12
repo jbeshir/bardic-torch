@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
+	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/fakerepo"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
@@ -93,6 +94,47 @@ var (
 	}
 )
 
+var (
+	moderationLink = domain.ModerationLink{ID: 9, URL: "https://example.org/kettle", Liveness: domain.LivenessOK,
+		Attachments: []domain.LinkAttachment{{EntityType: domain.EntityTypePiece, Slug: routeSlug,
+			Title: "The Copper Kettle", Roles: []domain.LinkRole{domain.LinkRoleLyrics}}}}
+	contactRequests = domain.ContactRequestList{Total: 1, Requests: []domain.ContactRequest{{ID: 3,
+		Kind: domain.ContactKindGeneral, Status: domain.ReportStatusOpen, CreatedAt: testNow,
+	}}}
+)
+
+// turnstilePasses is a Turnstile verifier that passes every token.
+type turnstilePasses struct{}
+
+func (turnstilePasses) VerifyTurnstile(context.Context, string) (bool, error) { return true, nil }
+
+var (
+	eventDocument = domain.EditorEventDocument{SchemaVersion: 1, Name: event.Name, Kind: event.Kind}
+	revisionList  = domain.RevisionList{Total: 1, Revisions: []domain.RevisionListItem{{ID: 51,
+		EntityType: domain.EntityTypeEvent, Entity: &domain.RevisionEntity{Slug: new(routeSlug), Name: event.Name},
+		Status: domain.RevisionStatusPending, Summary: "Describe the revel.", CreatedAt: testNow,
+	}}}
+)
+
+// seedRevisionView gives the fake a pending event revision to view.
+func seedRevisionView(r *fakerepo.Repo) {
+	r.RevisionView = domain.EventRevisionView{
+		RevisionSummary: domain.RevisionSummary{ID: 51, Source: domain.RevisionSourceUser, CreatedAt: testNow,
+			Author: &domain.RevisionAuthor{DisplayName: "Rook"}},
+		Status:   domain.RevisionStatusPending,
+		Entity:   &event.EventSummary,
+		Snapshot: domain.EventSnapshot{Name: event.Name, Kind: event.Kind},
+		Base:     &domain.RevisionBase[domain.EventSnapshot]{ID: 42, Snapshot: revision.Snapshot},
+	}
+}
+
+// editableRow is a signed-in row reading the editable document doc.
+func editableRow(path string, doc any) routeRow {
+	return routeRow{access: signedIn, path: path, success: http.StatusOK, seed: func(r *fakerepo.Repo) {
+		r.Editable = &datasources.Editable{BaseRevisionID: 42, Document: doc}
+	}}
+}
+
 func nothingSeeded(*fakerepo.Repo) {}
 
 var routeTable = map[openapitest.Operation]routeRow{
@@ -105,6 +147,21 @@ var routeTable = map[openapitest.Operation]routeRow{
 	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: {access: moderator,
 		path: "/v1/users/google-oauth2%7C123/blocked", body: `{"blocked":true}`, success: http.StatusOK,
 		seed: nothingSeeded},
+	{Method: http.MethodGet, Path: "/v1/moderation/links"}: {access: moderator,
+		path: "/v1/moderation/links?url=https%3A%2F%2Fexample.org%2Fkettle", success: http.StatusOK,
+		seed: func(r *fakerepo.Repo) { r.ModerationLink = &moderationLink }},
+	{Method: http.MethodPut, Path: "/v1/links/{link_id}/hidden"}: {access: moderator, path: "/v1/links/9/hidden",
+		body: `{"hidden":true}`, success: http.StatusNoContent, seed: nothingSeeded},
+	{Method: http.MethodPost, Path: "/v1/contact"}: {access: public, path: "/v1/contact",
+		body: `{"kind":"takedown","name":"Wren","email":"wren@example.org","message":"Please remove it.",` +
+			`"url":"https://example.org/kettle","turnstile_token":"tok"}`,
+		success: http.StatusAccepted, seed: nothingSeeded},
+	{Method: http.MethodGet, Path: "/v1/moderation/contact-requests"}: {access: moderator,
+		path: "/v1/moderation/contact-requests", success: http.StatusOK,
+		seed: func(r *fakerepo.Repo) { r.ContactRequests = contactRequests }},
+	{Method: http.MethodPost, Path: "/v1/moderation/contact-requests/{request_id}"}: {access: moderator,
+		path: "/v1/moderation/contact-requests/3", body: `{"status":"dismissed","note":null}`,
+		success: http.StatusNoContent, seed: nothingSeeded},
 	{Method: http.MethodGet, Path: "/v1/pieces"}: getting("/v1/pieces", nothingSeeded),
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: getting("/v1/pieces/"+routeSlug,
 		func(r *fakerepo.Repo) { r.Piece = &piece }),
@@ -133,6 +190,45 @@ var routeTable = map[openapitest.Operation]routeRow{
 	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: getting("/v1/revisions/42",
 		func(r *fakerepo.Repo) { r.Revision = revision }),
 	{Method: http.MethodGet, Path: "/v1/needs-work"}: getting("/v1/needs-work", nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/me/revisions"}: {access: signedIn, path: "/v1/me/revisions?status=pending",
+		success: http.StatusOK, seed: func(r *fakerepo.Repo) { r.RevisionList = revisionList }},
+	{Method: http.MethodGet, Path: "/v1/me/revisions/{revision_id}"}: {access: signedIn,
+		path: "/v1/me/revisions/51", success: http.StatusOK, seed: seedRevisionView},
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/editable"}: editableRow("/v1/pieces/"+routeSlug+"/editable",
+		domain.PieceDocument{SchemaVersion: 1, Title: piece.Title, Kind: piece.Kind,
+			Conservation:    domain.DocConservation{Status: piece.ConservationStatus},
+			LicensingStatus: piece.LicensingStatus}.ToEditor(domain.Slugs{})),
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/editable"}: editableRow("/v1/persons/"+routeSlug+"/editable",
+		domain.PersonDocument{SchemaVersion: 1, Name: person.Name, Kind: person.Kind, Status: person.Status,
+			LicensingStatus: domain.LicensingStatusUnknown}.ToEditor(domain.Slugs{})),
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/editable"}: editableRow("/v1/terms/"+routeSlug+"/editable",
+		domain.TermDocument{SchemaVersion: 1, Facet: term.Facet, Name: term.Name,
+			DisplayName: term.DisplayName}.ToEditor(domain.Slugs{})),
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/editable"}: editableRow("/v1/events/"+routeSlug+"/editable",
+		eventDocument),
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/editable"}: editableRow(
+		"/v1/collections/12/editable", domain.EditorCollectionDocument{SchemaVersion: 1, Name: collection.Name,
+			Kind: collection.Kind, Enumerable: collection.Enumerable}),
+	{Method: http.MethodPost, Path: "/v1/revisions"}: {access: signedIn, path: "/v1/revisions",
+		body: `{"entity_type":"event","base_revision_id":42,"summary":"Describe the revel.","document":` +
+			`{"schema_version":1,"name":"Midwinter Revel","kind":"event","description_md":"Held at midwinter."},` +
+			`"acknowledge_duplicates":false,"acknowledge_stale":false}`,
+		success: http.StatusCreated, seed: func(r *fakerepo.Repo) {
+			seedRevisionView(r)
+			r.RevisionBase = &datasources.RevisionBase{EntityID: 1, Document: domain.EventDocument(eventDocument)}
+		}},
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/withdraw"}: {access: signedIn,
+		path: "/v1/revisions/51/withdraw", success: http.StatusNoContent, seed: nothingSeeded},
+	{Method: http.MethodGet, Path: "/v1/moderation/queue"}: {access: moderator, path: "/v1/moderation/queue",
+		success: http.StatusOK, seed: func(r *fakerepo.Repo) { r.RevisionList = revisionList }},
+	{Method: http.MethodGet, Path: "/v1/moderation/revisions/{revision_id}"}: {access: moderator,
+		path: "/v1/moderation/revisions/51", success: http.StatusOK, seed: seedRevisionView},
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/approve"}: {access: moderator,
+		path: "/v1/revisions/51/approve", body: `{"acknowledge_stale":false}`, success: http.StatusNoContent,
+		seed: nothingSeeded},
+	{Method: http.MethodPost, Path: "/v1/revisions/{revision_id}/reject"}: {access: moderator,
+		path: "/v1/revisions/51/reject", body: `{"note":"Please cite a source."}`, success: http.StatusNoContent,
+		seed: nothingSeeded},
 }
 
 // caller is who a request is from, and what the middleware does with them.
@@ -225,6 +321,11 @@ func newHandler(t *testing.T, seed func(*fakerepo.Repo)) http.Handler {
 		ResolveUser:       &command.ResolveUser{Users: users, Now: now},
 		UpdateDisplayName: &command.UpdateDisplayName{Users: users},
 		SetUserBlocked:    &command.SetUserBlocked{Users: users, Now: now},
+		Now:               now,
+		SubmitRevision:    &command.SubmitRevision{Revisions: users, Now: now},
+		CreateContactRequest: &command.CreateContactRequest{
+			Verifier: turnstilePasses{}, Contacts: users, Now: now,
+		},
 	})
 }
 

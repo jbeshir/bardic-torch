@@ -12,6 +12,7 @@ import (
 	"mime"
 	"net/http"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
@@ -35,6 +36,12 @@ const (
 	CodeConflict             ErrorCode = "conflict"
 	CodeInternal             ErrorCode = "internal"
 	CodeUnavailable          ErrorCode = "unavailable"
+	CodeTurnstileFailed      ErrorCode = "turnstile_failed"
+	CodeValidationFailed     ErrorCode = "validation_failed"
+	CodePossibleDuplicate    ErrorCode = "possible_duplicate"
+	CodePendingLimitReached  ErrorCode = "pending_limit_reached"
+	CodeStaleRevision        ErrorCode = "stale_revision"
+	CodeRevisionNotPending   ErrorCode = "revision_not_pending"
 )
 
 type errorBody struct {
@@ -63,6 +70,11 @@ func WriteError(ctx context.Context, w http.ResponseWriter, status int, code Err
 // application/json, into dst, rejecting unknown fields. If the body is unacceptable it writes the matching
 // error response (415, 413 or 400) and returns false; the caller should then return without writing.
 func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	return DecodeJSONBodyMax(w, r, dst, MaxBodyBytes)
+}
+
+// DecodeJSONBodyMax is DecodeJSONBody with a limit of limit bytes.
+func DecodeJSONBodyMax(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
 	ctx := r.Context()
 
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -72,7 +84,7 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 		return false
 	}
 
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 
 	var raw json.RawMessage
 	if err := dec.Decode(&raw); err != nil {
@@ -142,4 +154,18 @@ func writeDecodeError(ctx context.Context, w http.ResponseWriter, err error) {
 
 func logDecodeError(ctx context.Context, err error) {
 	domain.LoggerFromContext(ctx).DebugContext(ctx, "unable to decode request body", "error", err)
+}
+
+// WriteInternalError logs err with msg and writes 500 internal, keeping the details out of the response. A database
+// that cannot be reached or turns the connection away (datasources.ErrUnavailable) is 503 unavailable instead.
+func WriteInternalError(ctx context.Context, w http.ResponseWriter, msg string, err error) {
+	logger := domain.LoggerFromContext(ctx)
+	if errors.Is(err, datasources.ErrUnavailable) {
+		logger.WarnContext(ctx, msg, "error", err)
+		WriteError(ctx, w, http.StatusServiceUnavailable, CodeUnavailable,
+			"the database is busy or cannot be reached; try again")
+		return
+	}
+	logger.ErrorContext(ctx, msg, "error", err)
+	WriteError(ctx, w, http.StatusInternalServerError, CodeInternal, "internal error")
 }

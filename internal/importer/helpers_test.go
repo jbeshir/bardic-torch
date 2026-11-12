@@ -1,8 +1,6 @@
 package importer
 
 import (
-	"encoding/json"
-	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -50,59 +48,4 @@ func scrubbedImport(t *testing.T) domain.CatalogueImport {
 	loadScrubbed(t)
 
 	return scrubbed.imp
-}
-
-// publicJSON is the JSON of what of imp a public read can show: every legacy column and hidden link
-// (rows and attachments) removed.
-func publicJSON(t testing.TB, imp domain.CatalogueImport) string {
-	t.Helper()
-	hidden := map[string]bool{}
-	for _, l := range imp.Links {
-		u, err := domain.NormalizeURL(l.Link.URL)
-		if err != nil {
-			t.Fatalf("a links row does not normalise")
-		}
-		hidden[u] = l.IsHidden
-	}
-	visible := func(url string) bool {
-		u, err := domain.NormalizeURL(url)
-		return err == nil && !hidden[u]
-	}
-	out := domain.CatalogueImport{Terms: slices.Clone(imp.Terms), Collections: imp.Collections,
-		Events: slices.Clone(imp.Events),
-		Links:  keep(imp.Links, func(l domain.ImportedLink) bool { return !l.IsHidden })}
-	for k := range out.Terms {
-		out.Terms[k].Legacy = nil
-	}
-	for k := range out.Events {
-		out.Events[k].Legacy = nil
-	}
-	for _, p := range imp.Persons {
-		p.Legacy = nil
-		p.Doc.Links = keep(p.Doc.Links, func(l domain.DocPersonLink) bool { return visible(l.URL) })
-		out.Persons = append(out.Persons, p)
-	}
-	for _, p := range imp.Pieces {
-		p.Legacy = nil
-		p.Doc.Links = keep(p.Doc.Links, func(l domain.DocPieceLink) bool { return visible(l.URL) })
-		out.Pieces = append(out.Pieces, p)
-	}
-	b, err := json.Marshal(out)
-	if err != nil {
-		t.Fatalf("the import does not encode")
-	}
-
-	return string(b)
-}
-
-// keep returns the elements of values f keeps, in a new slice.
-func keep[T any](values []T, f func(T) bool) []T {
-	var out []T
-	for _, v := range values {
-		if f(v) {
-			out = append(out, v)
-		}
-	}
-
-	return out
 }

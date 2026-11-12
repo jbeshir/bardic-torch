@@ -46,6 +46,7 @@ func (c *catalogueReader) collection(ctx context.Context, id uint64) domain.Coll
 
 	collection := domain.Collection{
 		CollectionSummary: c.collectionSummary(c.signedID(row.ID), row.Name, row.Kind, row.Url, row.IsBardicResource),
+		UpdatedAt:         row.UpdatedAt,
 		DescriptionMD:     stringPtr(row.DescriptionMd),
 		Enumerable:        enumOf[domain.CollectionEnumerable](c, row.Enumerable),
 		Children:          c.collectionChildren(fetch(ctx, c, "children", c.q.ListPublicCollectionChildren, key)),
@@ -97,7 +98,7 @@ func (c *catalogueReader) citations(
 			slugs = append(slugs, row.PieceSlug.String)
 		}
 	}
-	kinds := c.secondaryKinds(ctx, slugs)
+	extras := c.summaryExtras(ctx, slugs)
 
 	roles := make(map[attachmentKey][]domain.LinkRole)
 	if len(linkIDs) > 0 {
@@ -116,12 +117,12 @@ func (c *catalogueReader) citations(
 			Roles:   roles[attachmentKey{linkID: row.LinkID, pieceID: row.PieceID, personID: row.PersonID}],
 		}
 		if row.PieceSlug.Valid {
-			piece := c.pieceSummary(kinds, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
+			piece := c.pieceSummary(extras, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
 				row.PieceConservationStatus.PiecesConservationStatus, row.PieceIsStub.Bool)
 			citation.Piece = &piece
 		} else {
 			person := c.personSummary(row.PersonSlug.String, row.PersonName.String, row.PersonKind.PersonsKind,
-				row.PersonIsStub.Bool)
+				row.PersonIsStub.Bool, row.PersonStatus.PersonsStatus)
 			citation.Person = &person
 		}
 		citations = append(citations, citation)

@@ -43,24 +43,24 @@ var (
 	brassKettle = PieceSummary{Slug: "the-brass-kettle", Title: "The Brass Kettle", Kind: PieceKindSong,
 		ConservationStatus: ConservationStatusLowRisk}
 	hollis      = PersonSummary{Slug: "hollis-fenn", Name: "Hollis Fenn", Kind: PersonKindCommunityBard}
-	quietPerson = PersonSummary{Slug: "quiet-one", Name: "Quiet One", Kind: PersonKindCommunityBard, IsStub: true}
-	war         = TermSummary{Slug: "war", Facet: FacetTopic, DisplayName: "War"}
-	songbook    = CollectionSummary{ID: publicCollectionID, Name: "The Northmarch Songbook",
+	quietPerson = PersonSummary{Slug: "quiet-one", Name: "Quiet One", Kind: PersonKindCommunityBard, IsStub: true,
+		NoLink: true}
+	war      = TermSummary{Slug: "war", Facet: FacetTopic, DisplayName: "War"}
+	songbook = CollectionSummary{ID: publicCollectionID, Name: "The Northmarch Songbook",
 		Kind: CollectionKindSongbookPDF}
 	revel = EventSummary{Slug: "midwinter-revel", Name: revelName, Kind: EventKindEvent}
 )
 
-// testVisibility is the current state of the referenced entities: one public entity of each type, a no-page
-// person, and a hidden link: hiddenURL.
+// testVisibility is the current state of the referenced entities: one public entity of each type, a person who
+// prefers no page, and a hidden link: hiddenURL.
 func testVisibility() SnapshotVisibility {
 	return SnapshotVisibility{
-		Pieces:        map[int64]PieceSummary{publicPieceID: brassKettle},
-		Persons:       map[int64]PersonSummary{publicPersonID: hollis},
-		NoPagePersons: map[int64]PersonSummary{noPagePersonID: quietPerson},
-		Terms:         map[int64]TermSummary{publicTermID: war},
-		Collections:   map[int64]CollectionSummary{publicCollectionID: songbook},
-		Events:        map[int64]EventSummary{publicEventID: revel},
-		HiddenLinks:   map[string]bool{hiddenURL: true},
+		Pieces:      map[int64]PieceSummary{publicPieceID: brassKettle},
+		Persons:     map[int64]PersonSummary{publicPersonID: hollis, noPagePersonID: quietPerson},
+		Terms:       map[int64]TermSummary{publicTermID: war},
+		Collections: map[int64]CollectionSummary{publicCollectionID: songbook},
+		Events:      map[int64]EventSummary{publicEventID: revel},
+		HiddenLinks: map[string]bool{hiddenURL: true},
 	}
 }
 
@@ -80,6 +80,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 		NotesMD:         new("Notes"),
 		LicensingStatus: LicensingStatusKnown,
 		Licence:         new(LicenceCCBY),
+		LicenceVersion:  new(LicenceVersion40),
 		PeriodStart:     new(int16(1580)),
 		Aliases:         []DocPieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindNickname}},
 		Terms: []DocPieceTerm{
@@ -132,11 +133,14 @@ func TestNewPieceSnapshot(t *testing.T) {
 		NotesMD:               new("Notes"),
 		LicensingStatus:       LicensingStatusKnown,
 		Licence:               new(LicenceCCBY),
+		LicenceVersion:        new(LicenceVersion40),
 		PeriodStart:           new(int16(1580)),
 		Aliases:               []PieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindNickname}},
 		Terms:                 []PieceTerm{{Term: war, Part: new(PiecePartWords)}},
 		Credits: []PieceCredit{
 			{Role: CreditRoleLyrics, Attribution: AttributionNamed, Certainty: CertaintyCertain, Person: &hollis},
+			{Role: CreditRoleTune, Attribution: AttributionNamed, Certainty: CertaintyCertain,
+				Note: new("by the quiet one"), Person: &quietPerson},
 			{Role: CreditRoleTune, Attribution: AttributionTraditional, Certainty: CertaintyDisputed,
 				Part: new(PiecePartChorus)},
 		},
@@ -149,7 +153,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 					Locator:    new("p. 12"), Roles: []LinkRole{LinkRoleLyrics, LinkRoleSheetMusic}},
 				Performances: []PiecePerformance{
 					{Year: new(int16(2025)), Uploader: new("Northmarch Bards"), DescriptionVerbatim: "At the revel",
-						Event: &revel, Performers: []PersonSummary{hollis}},
+						Event: &revel, Performers: []PersonSummary{hollis, quietPerson}},
 					{DescriptionVerbatim: "Elsewhere"},
 				},
 			},
@@ -238,7 +242,8 @@ func TestNewPersonSnapshot(t *testing.T) {
 				{Name: "Wren the Elder", Kind: PersonAliasKindFormer}},
 			Roles:        []PersonRole{PersonRoleSinger, PersonRolePoet},
 			Affiliations: []TermSummary{war},
-			Relations:    []SnapshotPersonRelation{{Type: PersonRelationTypeMemberOf, Person: hollis}},
+			Relations: []SnapshotPersonRelation{{Type: PersonRelationTypeHeirOf, Person: quietPerson},
+				{Type: PersonRelationTypeMemberOf, Person: hollis}},
 			Links: []SnapshotPersonLink{{
 				SnapshotLink: SnapshotLink{URL: visibleURL, Roles: []LinkRole{LinkRoleWebsite}},
 				Performances: []SnapshotPersonPerformance{
@@ -281,8 +286,8 @@ func TestNewPersonSnapshot_NoPage(t *testing.T) {
 		t.Parallel()
 
 		vis := testVisibility()
-		vis.NoPagePersons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName,
-			Kind: PersonKindCommunityBard, IsStub: true}
+		vis.Persons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName,
+			Kind: PersonKindCommunityBard, IsStub: true, NoLink: true}
 		snapshot, err := NewPersonSnapshot(subjectPersonID, personDocument(), vis)
 		require.NoError(t, err)
 		assert.Equal(t, identity, snapshot)
@@ -359,74 +364,12 @@ func TestNewEventSnapshot(t *testing.T) {
 			Kind: EventKindVenue, DescriptionMD: new("A hall.")}))
 }
 
-// TestNewPieceSnapshot_RespelledHiddenLinkDropped checks that a spelling of a hidden link's URL is dropped, and
-// any other URL shows as written.
-func TestNewPieceSnapshot_RespelledHiddenLinkDropped(t *testing.T) {
+// TestVisibleLicenceVersion checks that a licence version is shown only beside a Creative Commons licence.
+func TestVisibleLicenceVersion(t *testing.T) {
 	t.Parallel()
 
-	const written = "https://example.org/other?utm_source=share"
-	doc := PieceDocument{Links: []DocPieceLink{
-		{DocLink: DocLink{URL: "https://Example.org:443/hidden?utm_source=share"}},
-		{DocLink: DocLink{URL: written}},
-	}}
-
-	snapshot := NewPieceSnapshot(doc, testVisibility())
-
-	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: written}}}, snapshot.Links)
-}
-
-// TestNewPieceSnapshot_UnnormalizableLinkDropped checks that a document's link whose URL does not normalize is
-// never shown.
-func TestNewPieceSnapshot_UnnormalizableLinkDropped(t *testing.T) {
-	t.Parallel()
-
-	const unnormalizable = "mailto:wren@example.invalid"
-	vis := testVisibility()
-	doc := PieceDocument{Links: []DocPieceLink{{DocLink: DocLink{URL: unnormalizable}}, {DocLink: DocLink{URL: visibleURL}}}}
-
-	snapshot := NewPieceSnapshot(doc, vis)
-
-	assert.Equal(t, []SnapshotPieceLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, snapshot.Links)
-}
-
-// personLinks returns the links of the view of a person document that holds only links, with the subject person
-// public.
-func personLinks(t *testing.T, links []DocPersonLink, vis SnapshotVisibility) []SnapshotPersonLink {
-	t.Helper()
-
-	vis.Persons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName, Kind: PersonKindCommunityBard}
-	doc := PersonDocument{SchemaVersion: DocumentSchemaVersion, Name: wrenName, Kind: PersonKindCommunityBard,
-		Status: PersonStatusActive, Links: links}
-	snapshot, err := NewPersonSnapshot(subjectPersonID, doc, vis)
-	require.NoError(t, err)
-	require.NotNil(t, snapshot.Profile)
-
-	return snapshot.Profile.Links
-}
-
-// TestNewPersonSnapshot_RespelledHiddenLinkDropped checks that a spelling of a hidden link's URL is dropped from a
-// person document, and any other URL shows as written.
-func TestNewPersonSnapshot_RespelledHiddenLinkDropped(t *testing.T) {
-	t.Parallel()
-
-	const written = "https://example.org/other?utm_source=share"
-	links := []DocPersonLink{
-		{DocLink: DocLink{URL: "https://Example.org:443/hidden?utm_source=share&utm_content=wren"}},
-		{DocLink: DocLink{URL: written}},
-	}
-
-	assert.Equal(t, []SnapshotPersonLink{{SnapshotLink: SnapshotLink{URL: written}}},
-		personLinks(t, links, testVisibility()))
-}
-
-// TestNewPersonSnapshot_UnnormalizableLinkDropped checks that a person document's link whose URL does not
-// normalize is never shown.
-func TestNewPersonSnapshot_UnnormalizableLinkDropped(t *testing.T) {
-	t.Parallel()
-
-	const unnormalizable = "mailto:wren@example.invalid"
-	vis := testVisibility()
-	links := []DocPersonLink{{DocLink: DocLink{URL: unnormalizable}}, {DocLink: DocLink{URL: visibleURL}}}
-
-	assert.Equal(t, []SnapshotPersonLink{{SnapshotLink: SnapshotLink{URL: visibleURL}}}, personLinks(t, links, vis))
+	version := new(LicenceVersion40)
+	assert.Equal(t, version, VisibleLicenceVersion(new(LicenceCCBYSA), version))
+	assert.Nil(t, VisibleLicenceVersion(new(LicenceARR), version))
+	assert.Nil(t, VisibleLicenceVersion(nil, version))
 }

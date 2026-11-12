@@ -36,6 +36,8 @@ tags:
     description: Liveness and readiness checks for the deployment platform
   - name: Users
     description: The caller's account
+  - name: Revisions
+    description: The caller's revisions, and editing and submitting the catalogue
   - name: Moderation
     description: Actions reserved for moderators
   - name: Catalogue
@@ -109,6 +111,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
     patch:
       tags:
         - Users
@@ -150,6 +154,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/users/{user_id}/blocked:
     put:
@@ -227,6 +233,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/pieces:
     get:
@@ -342,6 +350,8 @@ paths:
                     message: "invalid kind: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/pieces/{slug}:
     get:
@@ -351,9 +361,9 @@ paths:
       description: |
         Returns a public piece with everything its page shows: classification, credits, relations, links with
         their recorded performances, and conservation history. References to entities that are not public are
-        left out: unapproved terms, collections and events, and credits to and performers who are unapproved or
-        prefer not to have a page. Hidden links never appear. An unapproved piece is not found, exactly like an
-        unknown one. Credentials are ignored.
+        left out: unapproved terms, collections and events, and credits to and performers who are unapproved. A
+        person who prefers not to have a page is named without a link (`slug` null). Hidden links never appear.
+        An unapproved piece is not found, exactly like an unknown one. Credentials are ignored.
       operationId: getPiece
       security: []
       parameters:
@@ -378,6 +388,8 @@ paths:
                 message: piece not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/persons:
     get:
@@ -466,6 +478,8 @@ paths:
                 message: "unknown affiliation: northmarch"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/persons/{slug}:
     get:
@@ -494,6 +508,7 @@ paths:
                   summary: A person with a page
                   value:
                     slug: wren-of-the-vale
+                    updated_at: "2026-03-01T12:00:00Z"
                     name: Wren of the Vale
                     kind: community_bard
                     is_stub: false
@@ -525,6 +540,7 @@ paths:
                             secondary_kinds: []
                             conservation_status: low_risk
                             is_stub: false
+                            credit_names: []
                           role: lyrics
                           certainty: certain
                           part: null
@@ -535,6 +551,7 @@ paths:
                   summary: A person who prefers not to have a page
                   value:
                     slug: hollis-fenn
+                    updated_at: "2026-03-01T12:00:00Z"
                     name: Hollis Fenn
                     kind: community_bard
                     is_stub: true
@@ -555,6 +572,8 @@ paths:
                 message: person not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/terms:
     get:
@@ -596,6 +615,8 @@ paths:
                 message: "invalid facet: not one of its allowed values"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/terms/{slug}:
     get:
@@ -652,6 +673,8 @@ paths:
                 message: term not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/collections:
     get:
@@ -701,6 +724,8 @@ paths:
                 message: "invalid kind: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/collections/{collection_id}:
     get:
@@ -709,9 +734,9 @@ paths:
       summary: Get a collection
       description: |
         Returns a public collection with its public region, parent and children, and its citations: each
-        visible link in the collection, once for each public piece, or public person with a page, it is attached
-        to, with the roles it is attached with. Citations are ordered by the piece's sort title or the person's
-        sort name and capped at 200, with a total. Hidden links never appear. An unapproved collection is not
+        visible link in the collection, once for each public piece or public person it is attached to, with the
+        roles it is attached with. Citations are ordered by the piece's sort title or the person's sort name and
+        capped at 200, with a total. Hidden links never appear. An unapproved collection is not
         found, exactly like an unknown one. Credentials are ignored.
       operationId: getCollection
       security: []
@@ -725,15 +750,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Collection"
         "400":
-          description: |
-            The `collection_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                code: invalid_request
-                message: "invalid collection_id: must be an integer from 1 to 9223372036854775807"
+          $ref: "#/components/responses/InvalidCollectionID"
         "404":
           description: No public collection has this ID; the error code is `not_found`.
           content:
@@ -745,6 +762,8 @@ paths:
                 message: collection not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/events:
     get:
@@ -785,6 +804,8 @@ paths:
                 message: "invalid offset: must be an integer from 0 to 10000"
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/events/{slug}:
     get:
@@ -794,8 +815,8 @@ paths:
       description: |
         Returns a public event or venue with the performances recorded at it, newest year first (unknown years
         last), capped at 200, with a total. Performances on hidden links, of unapproved pieces, or recorded only
-        by links of entities that are unapproved or prefer not to have a page are left out, as are performers who
-        are unapproved or prefer not to have a page. An unapproved event is not found, exactly like an unknown
+        by links of unapproved entities are left out, as are unapproved performers. A performer who prefers not to
+        have a page is named without a link (`slug` null). An unapproved event is not found, exactly like an unknown
         one. Credentials are ignored.
       operationId: getEvent
       security: []
@@ -821,6 +842,8 @@ paths:
                 message: event not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/pieces/{slug}/history:
     get:
@@ -859,6 +882,8 @@ paths:
                 message: piece not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/persons/{slug}/history:
     get:
@@ -897,6 +922,8 @@ paths:
                 message: person not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/terms/{slug}/history:
     get:
@@ -935,6 +962,8 @@ paths:
                 message: term not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/collections/{collection_id}/history:
     get:
@@ -973,6 +1002,8 @@ paths:
                 message: collection not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/events/{slug}/history:
     get:
@@ -1011,6 +1042,8 @@ paths:
                 message: event not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/revisions/{revision_id}:
     get:
@@ -1024,8 +1057,9 @@ paths:
         no base. A view never shows the stored document as such: each reference to another entity is shown as
         that entity is now, and left out if it is not public now; links are shown as the snapshot wrote them,
         and left out if their URL does not normalise or is a hidden link's now; credits to, performers and
-        relations of persons who are not public or prefer not to have a page now are left out; and of a person who prefers not to have a page, now or in the snapshot, only the
-        identity is shown. System fields are never shown. `entity_type` says which of
+        relations of persons who are not public now are left out, and persons who prefer not to have a page now
+        are named without a link (`slug` null); of a person who prefers not to have a page, now or in the
+        snapshot, only the identity is shown. System fields are never shown. `entity_type` says which of
         the five shapes the revision has. A revision that is not approved, or whose entity is not public, is not
         found, exactly like an unknown one. Credentials are ignored.
       operationId: getRevision
@@ -1040,15 +1074,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Revision"
         "400":
-          description: |
-            The `revision_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                code: invalid_request
-                message: "invalid revision_id: must be an integer from 1 to 9223372036854775807"
+          $ref: "#/components/responses/InvalidRevisionID"
         "404":
           description: No public revision has this ID; the error code is `not_found`.
           content:
@@ -1060,6 +1086,8 @@ paths:
                 message: revision not found
         "500":
           $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /v1/needs-work:
     get:
@@ -1104,6 +1132,681 @@ paths:
                 message: "invalid reason: not one of its allowed values"
         "500":
           $ref: "#/components/responses/InternalSearch"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+
+  /v1/moderation/links:
+    get:
+      tags:
+        - Moderation
+      summary: Find a link by URL
+      description: |
+        Returns the link whose normalized URL is the given URL's, hidden or not, with where it is attached, so that
+        a moderator can take it down with `PUT /v1/links/{link_id}/hidden`. Requires the moderator role.
+      operationId: getModerationLink
+      parameters:
+        - name: url
+          in: query
+          required: true
+          description: The link's URL, in any spelling that normalizes to it.
+          schema:
+            type: string
+            minLength: 1
+            examples:
+              - https://example.org/kettle
+      responses:
+        "200":
+          description: The link.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationLink"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/links/{link_id}/hidden:
+    put:
+      tags:
+        - Moderation
+      summary: Hide or restore a link
+      description: |
+        Hides a link everywhere, or restores it. A hidden link is left out of every public read, and so is any link
+        with the same normalized URL. Setting the state a link is already in succeeds. Requires the moderator role.
+      operationId: setLinkHidden
+      parameters:
+        - $ref: "#/components/parameters/LinkID"
+      requestBody:
+        description: Whether the link should be hidden.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetLinkHiddenRequest"
+      responses:
+        "204":
+          description: The link is hidden or restored, as requested.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/contact:
+    post:
+      tags:
+        - Moderation
+      summary: Send a contact request
+      description: |
+        Sends a message to the moderators, from anyone, with no account. The Cloudflare Turnstile token is checked
+        with Cloudflare: it must pass, have been minted on the site's hostname and for the action `contact`;
+        otherwise the answer is 400 `turnstile_failed`. The name, email, message and URL are personal data: the
+        server never logs them. Credentials are
+        ignored. The body is at most 64 KiB.
+      operationId: createContactRequest
+      security: []
+      requestBody:
+        description: The message and its Turnstile token.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactRequest"
+      responses:
+        "202":
+          description: The request was stored.
+        "400":
+          description: |
+            The body is invalid (`invalid_request`), or the Turnstile check failed (`turnstile_failed`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid:
+                  summary: A field is missing or out of range
+                  value:
+                    code: invalid_request
+                    message: kind, email, message and turnstile_token are required and within their limits
+                turnstile:
+                  summary: The Turnstile check failed
+                  value:
+                    code: turnstile_failed
+                    message: the Turnstile check failed; reload the form and try again
+        "413":
+          description: The request body is larger than 64 KiB; the error code is `request_too_large`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: request_too_large
+                message: request body is too large
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/moderation/contact-requests:
+    get:
+      tags:
+        - Moderation
+      summary: List contact requests
+      description: |
+        Lists one page of contact requests with a status (`open` unless `status` says otherwise), oldest first, with
+        how many there are in all. Requires the moderator role.
+      operationId: listContactRequests
+      parameters:
+        - $ref: "#/components/parameters/ReportStatusFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRequestList"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/moderation/contact-requests/{request_id}:
+    post:
+      tags:
+        - Moderation
+      summary: Resolve or dismiss a contact request
+      description: |
+        Closes an open contact request as resolved or dismissed, with an optional note. Requires the moderator role.
+      operationId: closeContactRequest
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      requestBody:
+        description: How the request is closed.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseContactRequestRequest"
+      responses:
+        "204":
+          description: The request is closed.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/NotOpen"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/me/revisions:
+    get:
+      tags:
+        - Revisions
+      summary: List the caller's revisions
+      description: |
+        Lists one page of the caller's own revisions of every status (or of `status`), newest first, with how many
+        there are in all. `author` is always null here. Requires a signed-in user.
+      operationId: listMyRevisions
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Only list revisions with this status. Omitted, every status.
+          schema:
+            $ref: "#/components/schemas/RevisionStatus"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionList"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/me/revisions/{revision_id}:
+    get:
+      tags:
+        - Revisions
+      summary: Get one of the caller's revisions
+      description: |
+        Returns one of the caller's own revisions, of any status, with its review note and the same snapshot views
+        as a public revision. Another user's revision is not found. Requires a signed-in user.
+      operationId: getMyRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      responses:
+        "200":
+          description: The caller's revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionView"
+        "400":
+          $ref: "#/components/responses/InvalidRevisionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RevisionNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/pieces/{slug}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get a piece's editable document
+      description: |
+        Returns a public piece's document in the editor format, to edit and submit with `POST /v1/revisions`: the
+        caller's own pending revision of it if they have one, and otherwise its current revision. Hidden links are
+        left out.
+        Requires a signed-in user.
+      operationId: getEditablePiece
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          $ref: "#/components/responses/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EntityNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/persons/{slug}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get a person's editable document
+      description: As `GET /v1/pieces/{slug}/editable`, for a public person.
+      operationId: getEditablePerson
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          $ref: "#/components/responses/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EntityNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/terms/{slug}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get a term's editable document
+      description: As `GET /v1/pieces/{slug}/editable`, for a public term.
+      operationId: getEditableTerm
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          $ref: "#/components/responses/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EntityNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/events/{slug}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get an event's editable document
+      description: As `GET /v1/pieces/{slug}/editable`, for a public event or venue.
+      operationId: getEditableEvent
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          $ref: "#/components/responses/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidSlug"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EntityNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/collections/{collection_id}/editable:
+    get:
+      tags:
+        - Revisions
+      summary: Get a collection's editable document
+      description: As `GET /v1/pieces/{slug}/editable`, for a public collection.
+      operationId: getEditableCollection
+      parameters:
+        - $ref: "#/components/parameters/CollectionID"
+      responses:
+        "200":
+          $ref: "#/components/responses/Editable"
+        "400":
+          $ref: "#/components/responses/InvalidCollectionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EntityNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/revisions:
+    post:
+      tags:
+        - Revisions
+      summary: Submit a revision
+      description: |
+        Submits an edit of an existing entity (`base_revision_id`, from its editable document) or a new entity
+        (`base_revision_id` null). References are by slug, to public entities only; an unknown slug is a problem
+        `unknown_reference`. The document is validated, including its licensing sources, before anything is stored.
+
+        A contributor's revision is pending; it withdraws their earlier pending revision of the same entity, and
+        they may have at most 30 pending. A moderator's revision is approved at once, which refuses a stale base
+        (the entity has changed since) unless `acknowledge_stale`. A new entity whose title, name or an alias
+        matches a public entity of its type needs `acknowledge_duplicates`; one matching a person who prefers not
+        to have a page is refused. The body may be up to 1 MiB. Requires a signed-in user.
+      operationId: submitRevision
+      requestBody:
+        description: The revision to submit.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitRevisionRequest"
+      responses:
+        "201":
+          description: The revision was stored; the caller's view of it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionView"
+        "400":
+          description: |
+            The body is malformed, `entity_type` is not an entity type, or `document` is not its editor document
+            (a field has the wrong type or is unknown); the error code is `invalid_request`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_request
+                message: entity_type must be an entity type, and document its editor document
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            `base_revision_id` is not an approved revision of an entity of `entity_type`; the error code is
+            `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: base revision not found
+        "409":
+          description: |
+            The new entity may duplicate public ones (`possible_duplicate`, with the matches), the caller already
+            has 30 pending revisions (`pending_limit_reached`), or a moderator's base is stale (`stale_revision`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/PossibleDuplicate"
+                  - $ref: "#/components/schemas/Error"
+              example:
+                code: pending_limit_reached
+                message: you already have 30 pending revisions
+        "413":
+          description: The request body is larger than 1 MiB; the error code is `request_too_large`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: request_too_large
+                message: request body is too large
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/revisions/{revision_id}/withdraw:
+    post:
+      tags:
+        - Revisions
+      summary: Withdraw a revision
+      description: |
+        Withdraws one of the caller's own pending revisions. Another user's revision is not found. Requires a
+        signed-in user.
+      operationId: withdrawRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      responses:
+        "204":
+          description: The revision is withdrawn.
+        "400":
+          $ref: "#/components/responses/InvalidRevisionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RevisionNotFound"
+        "409":
+          $ref: "#/components/responses/RevisionNotPending"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/moderation/queue:
+    get:
+      tags:
+        - Moderation
+      summary: List the moderation queue
+      description: |
+        Lists one page of the pending revisions, oldest first, with their authors and how many there are in all.
+        Requires the moderator role.
+      operationId: listModerationQueue
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of pending revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionList"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/moderation/revisions/{revision_id}:
+    get:
+      tags:
+        - Moderation
+      summary: Get a revision for review
+      description: |
+        Returns any revision as a moderator sees it: the author's view with the author's user ID and, for a stale
+        revision, the entity's current revision with the fields changed since; for a new entity's pending revision,
+        the public entities it may duplicate. Requires the moderator role.
+      operationId: getModerationRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      responses:
+        "200":
+          description: The revision, as a moderator sees it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationRevisionView"
+        "400":
+          $ref: "#/components/responses/InvalidRevisionID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/RevisionNotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/revisions/{revision_id}/approve:
+    post:
+      tags:
+        - Moderation
+      summary: Approve a revision
+      description: |
+        Approves a pending revision and writes its document into the catalogue, creating a new entity. A stale
+        revision (its entity has changed since its base) is refused unless `acknowledge_stale`, which overwrites the
+        changes since. A document that no longer validates is refused with its problems. Requires the moderator
+        role.
+      operationId: approveRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      requestBody:
+        description: The approval.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveRevisionRequest"
+      responses:
+        "204":
+          description: The revision is approved and its entity's current revision.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/RevisionNotFound"
+        "409":
+          description: |
+            The revision is not pending (`revision_not_pending`), or is stale and not acknowledged
+            (`stale_revision`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: stale_revision
+                message: the entity has changed since the revision's base; acknowledge_stale to overwrite the changes
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/revisions/{revision_id}/reject:
+    post:
+      tags:
+        - Moderation
+      summary: Reject a revision
+      description: |
+        Rejects a pending revision with a note to its author, which they see in `GET /v1/me/revisions` and
+        `GET /v1/me/revisions/{revision_id}`.
+        Requires the moderator role.
+      operationId: rejectRevision
+      parameters:
+        - $ref: "#/components/parameters/RevisionID"
+      requestBody:
+        description: The rejection.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectRevisionRequest"
+      responses:
+        "204":
+          description: The revision is rejected.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/RevisionNotFound"
+        "409":
+          $ref: "#/components/responses/RevisionNotPending"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
 
 components:
@@ -1202,6 +1905,37 @@ components:
       schema:
         $ref: "#/components/schemas/Letter"
 
+    RequestID:
+      name: request_id
+      in: path
+      required: true
+      description: The contact request's `id`.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        examples:
+          - 3
+    LinkID:
+      name: link_id
+      in: path
+      required: true
+      description: The link's `id`, as `GET /v1/moderation/links` gives it.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        examples:
+          - 9
+    ReportStatusFilter:
+      name: status
+      in: query
+      required: false
+      description: Only list items with this status. Omitted, `open`.
+      schema:
+        type: string
+        enum: [open, resolved, dismissed]
+        default: open
   responses:
     InvalidHistoryRequest:
       description: |
@@ -1312,6 +2046,15 @@ components:
           example:
             code: internal
             message: internal error
+    Unavailable:
+      description: The database cannot be reached or is out of connections; try again. The error code is `unavailable`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unavailable
+            message: the database is busy or cannot be reached; try again
     InternalSearch:
       description: |
         The server failed to handle the request, or the search took longer than the server allows (2 seconds); a
@@ -1324,6 +2067,93 @@ components:
             code: internal
             message: internal error
 
+    InvalidListRequest:
+      description: |
+        A query parameter is missing or out of range, is given more than once, or the query string is not validly
+        percent-encoded; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid status: not one of its allowed values"
+    NotFound:
+      description: |
+        The request or link does not exist; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: link not found
+    NotOpen:
+      description: The request is already resolved or dismissed; the error code is `conflict`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: conflict
+            message: the contact request is not open
+    InvalidCollectionID:
+      description: The `collection_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid collection_id: must be an integer from 1 to 9223372036854775807"
+    InvalidRevisionID:
+      description: The `revision_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: "invalid revision_id: must be an integer from 1 to 9223372036854775807"
+    RevisionNotFound:
+      description: No revision the caller may see has this ID; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: revision not found
+    RevisionNotPending:
+      description: The revision is not pending; the error code is `revision_not_pending`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: revision_not_pending
+            message: the revision is not pending
+    EntityNotFound:
+      description: No public entity of the type has this slug or ID; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: piece not found
+    Editable:
+      description: The editable document.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Editable"
+    ValidationFailed:
+      description: The document does not validate; the error code is `validation_failed`, with every problem.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationFailed"
   schemas:
     Error:
       type: object
@@ -1348,6 +2178,12 @@ components:
             - conflict
             - internal
             - unavailable
+            - turnstile_failed
+            - validation_failed
+            - possible_duplicate
+            - pending_limit_reached
+            - stale_revision
+            - revision_not_pending
           examples:
             - unavailable
         message:
@@ -1518,6 +2354,7 @@ components:
               secondary_kinds: [dance_music]
               conservation_status: endangered
               is_stub: false
+              credit_names: []
           total: 1
           facets:
             terms:
@@ -1700,7 +2537,7 @@ components:
       type: object
       description: A public piece, as other entities refer to it.
       additionalProperties: false
-      required: [slug, title, kind, secondary_kinds, conservation_status, is_stub]
+      required: [slug, title, kind, secondary_kinds, conservation_status, is_stub, credit_names]
       properties:
         slug:
           type: string
@@ -1725,6 +2562,15 @@ components:
           description: Whether the piece's page is only a stub that needs filling in.
           examples:
             - false
+        credit_names:
+          type: array
+          description: |
+            The names of up to five credited public persons, in credit order.
+          maxItems: 5
+          items:
+            type: string
+          examples:
+            - [Wren of the Vale]
       examples:
         - slug: the-copper-kettle
           title: The Copper Kettle
@@ -1732,18 +2578,19 @@ components:
           secondary_kinds: [dance_music]
           conservation_status: endangered
           is_stub: false
+          credit_names: [Wren of the Vale]
 
     PersonSummary:
       type: object
       description: |
-        A public person, as other entities refer to them. Persons who prefer not to have a page are never
-        referred to; where they are listed, `is_stub` is true.
+        A public person, as other entities refer to them. A person who prefers not to have a page is named
+        without a link: `slug` is null and `is_stub` true. In lists of persons `slug` is always set.
       additionalProperties: false
       required: [slug, name, kind, is_stub]
       properties:
         slug:
-          type: string
-          description: The person's address.
+          type: [string, "null"]
+          description: The person's address, or null for a person who prefers not to have a page.
           examples:
             - wren-of-the-vale
         name:
@@ -1839,6 +2686,7 @@ components:
         - secondary_kinds
         - conservation_status
         - is_stub
+        - credit_names
         - notes_md
         - version_notes_md
         - licensing_status
@@ -1853,6 +2701,8 @@ components:
         - relations
         - links
         - conservation_history
+        - updated_at
+        - licence_version
       properties:
         slug:
           $ref: "#/components/schemas/PieceSummary/properties/slug"
@@ -1866,6 +2716,8 @@ components:
           $ref: "#/components/schemas/ConservationStatus"
         is_stub:
           $ref: "#/components/schemas/PieceSummary/properties/is_stub"
+        credit_names:
+          $ref: "#/components/schemas/PieceSummary/properties/credit_names"
         notes_md:
           type: [string, "null"]
           description: Notes about the piece, in Markdown.
@@ -1915,8 +2767,7 @@ components:
         credits:
           type: array
           description: |
-            The piece's credits, in order. A credit to a person who is not public or prefers not to have a page is
-            left out entirely.
+            The piece's credits, in order. A credit to a person who is not public is left out entirely.
           items:
             $ref: "#/components/schemas/PieceCredit"
         relations:
@@ -1937,13 +2788,27 @@ components:
           description: The piece's conservation status changes, oldest first.
           items:
             $ref: "#/components/schemas/ConservationChange"
+        updated_at:
+          type: string
+          format: date-time
+          description: When the current revision was approved.
+          examples:
+            - "2026-03-01T12:00:00Z"
+        licence_version:
+          oneOf:
+            - $ref: "#/components/schemas/LicenceVersion"
+            - type: "null"
+          description: The version of the Creative Commons licence; null unless the licence is a cc_* one.
       examples:
         - slug: the-copper-kettle
+          updated_at: "2026-03-01T12:00:00Z"
+          licence_version: null
           title: The Copper Kettle
           kind: song
           secondary_kinds: []
           conservation_status: endangered
           is_stub: false
+          credit_names: [Wren of the Vale]
           notes_md: A drinking song from the northern marches.
           version_notes_md: null
           licensing_status: known
@@ -2114,6 +2979,7 @@ components:
             secondary_kinds: []
             conservation_status: low_risk
             is_stub: false
+            credit_names: []
 
     PersonLink:
       type: object
@@ -2259,8 +3125,7 @@ components:
     PiecePerformance:
       type: object
       description: |
-        A recorded performance of a piece. Performers who are not public or prefer not to have a page are left
-        out.
+        A recorded performance of a piece. Performers who are not public are left out.
       additionalProperties: false
       required: [year, uploader, description_verbatim, event, performers]
       properties:
@@ -2306,7 +3171,7 @@ components:
           $ref: "#/components/schemas/ConservationStatus"
         reason:
           type: string
-          description: Why the status changed.
+          description: Why the status changed (the summary of the revision that changed it), which may be empty.
           examples:
             - Known to only a few singers.
         source_url:
@@ -2332,10 +3197,13 @@ components:
         A public person. `profile` is null exactly when the person prefers not to have a page; `is_stub` is then
         true.
       additionalProperties: false
-      required: [slug, name, kind, is_stub, status, status_date, status_source_url, profile]
+      required: [slug, name, kind, is_stub, status, status_date, status_source_url, profile, updated_at]
       properties:
         slug:
-          $ref: "#/components/schemas/PersonSummary/properties/slug"
+          type: string
+          description: The person's address.
+          examples:
+            - wren-of-the-vale
         name:
           $ref: "#/components/schemas/PersonSummary/properties/name"
         kind:
@@ -2360,8 +3228,11 @@ components:
           oneOf:
             - $ref: "#/components/schemas/PersonProfile"
             - type: "null"
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
       examples:
         - slug: hollis-fenn
+          updated_at: "2026-03-01T12:00:00Z"
           name: Hollis Fenn
           kind: community_bard
           is_stub: true
@@ -2423,7 +3294,7 @@ components:
         relations:
           type: array
           description: |
-            Relations to other public persons who do not prefer no page: the outgoing ones, then the incoming
+            Relations to other public persons: the outgoing ones, then the incoming
             ones, each by type and name.
           items:
             $ref: "#/components/schemas/PersonRelation"
@@ -2534,6 +3405,7 @@ components:
             secondary_kinds: []
             conservation_status: endangered
             is_stub: false
+            credit_names: []
           role: lyrics
           certainty: certain
           part: null
@@ -2676,6 +3548,7 @@ components:
         - person_count
         - pieces
         - persons
+        - updated_at
       properties:
         slug:
           $ref: "#/components/schemas/TermSummary/properties/slug"
@@ -2730,8 +3603,11 @@ components:
             name. Empty unless the term is an `affiliation` term.
           items:
             $ref: "#/components/schemas/PersonSummary"
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
       examples:
         - slug: war
+          updated_at: "2026-03-01T12:00:00Z"
           facet: topic
           name: War
           display_name: War
@@ -2755,6 +3631,7 @@ components:
               secondary_kinds: []
               conservation_status: endangered
               is_stub: false
+              credit_names: []
           persons: []
 
     TermChild:
@@ -2823,6 +3700,7 @@ components:
         - children
         - citations
         - citations_total
+        - updated_at
       properties:
         id:
           $ref: "#/components/schemas/CollectionRef/properties/id"
@@ -2859,8 +3737,8 @@ components:
         citations:
           type: array
           description: |
-            The collection's visible links, once for each public piece, or public person with a page, each is
-            attached to, by the piece's sort title or the person's sort name. At most 200.
+            The collection's visible links, once for each public piece or public person each is attached to, by
+            the piece's sort title or the person's sort name. At most 200.
           maxItems: 200
           items:
             $ref: "#/components/schemas/CollectionCitation"
@@ -2871,8 +3749,11 @@ components:
           description: How many citations the collection has in all.
           examples:
             - 1
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
       examples:
         - id: 12
+          updated_at: "2026-03-01T12:00:00Z"
           name: The Northmarch Songbook
           kind: songbook_pdf
           url: https://example.org/songbook.pdf
@@ -2890,6 +3771,7 @@ components:
                 secondary_kinds: []
                 conservation_status: endangered
                 is_stub: false
+                credit_names: []
               person: null
               url: https://example.org/songbook.pdf
               title: The Northmarch Songbook
@@ -2965,7 +3847,7 @@ components:
       type: object
       description: A public event's or venue's page.
       additionalProperties: false
-      required: [slug, name, kind, description_md, performances, performances_total]
+      required: [slug, name, kind, description_md, performances, performances_total, updated_at]
       properties:
         slug:
           $ref: "#/components/schemas/EventSummary/properties/slug"
@@ -2991,8 +3873,11 @@ components:
           description: How many performances the event has in all.
           examples:
             - 1
+        updated_at:
+          $ref: "#/components/schemas/Piece/properties/updated_at"
       examples:
         - slug: midwinter-revel
+          updated_at: "2026-03-01T12:00:00Z"
           name: Midwinter Revel
           kind: event
           description_md: null
@@ -3010,8 +3895,7 @@ components:
     EventPerformance:
       type: object
       description: |
-        A performance on an event's page. Performers who are not public or prefer not to have a page are left
-        out.
+        A performance on an event's page. Performers who are not public are left out.
       additionalProperties: false
       required: [piece, link, year, performers, description_verbatim]
       properties:
@@ -3065,7 +3949,8 @@ components:
     PersonStatus:
       type: string
       description: |
-        A person's status. A person who `prefers_no_page` is shown by identity only.
+        A person's status. A person who `prefers_no_page` has a page showing their identity only, and is
+        named without a link elsewhere.
       enum: [active, deceased, prefers_no_page]
       examples:
         - active
@@ -3100,6 +3985,13 @@ components:
       enum: [pd, cc_by, cc_by_sa, cc_by_nc, cc_by_nc_sa, cc_by_nd, cc_by_nc_nd, arr, other]
       examples:
         - cc_by_sa
+
+    LicenceVersion:
+      type: string
+      description: The version of a Creative Commons licence. It is shown only beside a `cc_*` licence.
+      enum: ["1.0", "2.0", "2.5", "3.0", "4.0"]
+      examples:
+        - "4.0"
 
     PieceAliasKind:
       type: string
@@ -3449,6 +4341,7 @@ components:
               - is_stub
               - kind
               - licence
+              - licence_version
               - licensing_notes_md
               - licensing_status
               - links
@@ -3470,6 +4363,7 @@ components:
             secondary_kinds: []
             conservation_status: endangered
             is_stub: false
+            credit_names: []
           base_revision_id: 41
           source: user
           summary: Credit the tune.
@@ -3489,6 +4383,7 @@ components:
             licensing_status: unknown
             licensing_notes_md: null
             licence: null
+            licence_version: null
             historical_source_md: null
             period_start: null
             period_end: null
@@ -3515,6 +4410,7 @@ components:
             licensing_status: unknown
             licensing_notes_md: null
             licence: null
+            licence_version: null
             historical_source_md: null
             period_start: null
             period_end: null
@@ -3864,6 +4760,7 @@ components:
         - credits
         - relations
         - links
+        - licence_version
       properties:
         title:
           $ref: "#/components/schemas/PieceSummary/properties/title"
@@ -3906,8 +4803,7 @@ components:
         credits:
           type: array
           description: |
-            The snapshot's credits, in order. A credit to a person who is not public or prefers not to have a page
-            now is left out entirely.
+            The snapshot's credits, in order. A credit to a person who is not public now is left out entirely.
           items:
             $ref: "#/components/schemas/PieceCredit"
         relations:
@@ -3920,8 +4816,11 @@ components:
           description: The snapshot's links that are not hidden now, in order, with no system state such as liveness.
           items:
             $ref: "#/components/schemas/SnapshotPieceLink"
+        licence_version:
+          $ref: "#/components/schemas/Piece/properties/licence_version"
       examples:
         - title: The Copper Kettle
+          licence_version: null
           kind: song
           secondary_kinds: []
           conservation_status: endangered
@@ -3960,6 +4859,7 @@ components:
             secondary_kinds: []
             conservation_status: low_risk
             is_stub: false
+            credit_names: []
 
     SnapshotPieceLink:
       type: object
@@ -4038,7 +4938,7 @@ components:
       type: object
       description: |
         A performance a person snapshot's link records, of a public piece or of none in particular. Performers
-        who are not public or prefer not to have a page now are left out.
+        who are not public now are left out.
       additionalProperties: false
       required: [piece, year, uploader, description_verbatim, event, performers]
       properties:
@@ -4140,8 +5040,7 @@ components:
         relations:
           type: array
           description: |
-            The person's relations to other persons who are public and do not prefer no page now; a snapshot holds
-            outgoing ones only.
+            The person's relations to other persons who are public now; a snapshot holds outgoing ones only.
           items:
             $ref: "#/components/schemas/SnapshotPersonRelation"
         links:
@@ -4162,7 +5061,7 @@ components:
 
     SnapshotPersonRelation:
       type: object
-      description: A relation of a person snapshot's person to another public person with a page.
+      description: A relation of a person snapshot's person to another public person.
       additionalProperties: false
       required: [type, person]
       properties:
@@ -4374,3 +5273,1343 @@ components:
       examples:
         - reason: stub
           count: 3
+
+    Resolution:
+      type: object
+      description: How a moderator closed a contact request.
+      additionalProperties: false
+      required: [resolved_by, resolved_at, note]
+      properties:
+        resolved_by:
+          type: string
+          description: The moderator's user `id`.
+          examples:
+            - google-oauth2|123
+        resolved_at:
+          type: string
+          format: date-time
+        note:
+          type:
+            - string
+            - "null"
+          examples:
+            - Link hidden.
+      examples:
+        - resolved_by: google-oauth2|123
+          resolved_at: "2026-11-11T12:00:00Z"
+          note: Link hidden.
+
+    CloseContactRequestRequest:
+      type: object
+      description: The body of a moderator's closing of a contact request.
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [resolved, dismissed]
+          examples:
+            - dismissed
+        note:
+          type:
+            - string
+            - "null"
+          maxLength: 2000
+          examples:
+            - Not for us.
+      examples:
+        - status: dismissed
+          note: Not for us.
+
+    ModerationLink:
+      type: object
+      description: A link as a moderator takes it down, hidden or not.
+      additionalProperties: false
+      required: [id, url, title, is_hidden, liveness, attachments]
+      properties:
+        id:
+          type: integer
+          format: int64
+          examples:
+            - 9
+        url:
+          type: string
+          examples:
+            - https://example.org/kettle
+        title:
+          type:
+            - string
+            - "null"
+          examples:
+            - The Copper Kettle, sung
+        is_hidden:
+          type: boolean
+          examples:
+            - false
+        liveness:
+          $ref: "#/components/schemas/Liveness"
+        attachments:
+          type: array
+          description: The pieces, then persons, the link is attached to, with its roles on each.
+          items:
+            type: object
+            additionalProperties: false
+            required: [entity_type, slug, title, roles]
+            properties:
+              entity_type:
+                type: string
+                enum: [piece, person]
+                examples:
+                  - piece
+              slug:
+                type: string
+                examples:
+                  - the-copper-kettle
+              title:
+                type: string
+                description: The attached piece's title or person's name.
+                examples:
+                  - The Copper Kettle
+              roles:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkRole"
+      examples:
+        - id: 9
+          url: https://example.org/kettle
+          title: The Copper Kettle, sung
+          is_hidden: false
+          liveness: ok
+          attachments:
+            - entity_type: piece
+              slug: the-copper-kettle
+              title: The Copper Kettle
+              roles: [lyrics]
+
+    SetLinkHiddenRequest:
+      type: object
+      description: The body of a request to hide or restore a link.
+      additionalProperties: false
+      required: [hidden]
+      properties:
+        hidden:
+          type: boolean
+          description: True to hide the link, false to restore it.
+          examples:
+            - true
+      examples:
+        - hidden: true
+
+    CreateContactRequest:
+      type: object
+      description: The body of a contact request. Every text field is trimmed.
+      additionalProperties: false
+      required: [kind, email, message, turnstile_token]
+      properties:
+        kind:
+          type: string
+          description: |
+            What the request is about. `link_report` reports a link on the site, and `url` is then the link's URL.
+            Moderators take a link down by finding it with `GET /v1/moderation/links`.
+          enum: [takedown, opt_out, correction, link_report, general]
+          examples:
+            - takedown
+        name:
+          type:
+            - string
+            - "null"
+          maxLength: 255
+          examples:
+            - Wren
+        email:
+          type: string
+          maxLength: 254
+          examples:
+            - wren@example.org
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+            - Please remove this recording.
+        url:
+          type:
+            - string
+            - "null"
+          maxLength: 2048
+          description: The page the request is about, if any, or for a `link_report` the link's URL. Stored as sent.
+          examples:
+            - https://example.org/kettle
+        turnstile_token:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: The token Cloudflare Turnstile's widget (action `contact`) gave the browser.
+          examples:
+            - 0.abc123
+      examples:
+        - kind: takedown
+          name: Wren
+          email: wren@example.org
+          message: Please remove this recording.
+          url: https://example.org/kettle
+          turnstile_token: 0.abc123
+
+    ContactRequest:
+      type: object
+      description: |
+        A message sent through the contact form. The name and URL are null when the sender gave
+        none.
+      additionalProperties: false
+      required: [id, kind, name, email, message, url, status, created_at, resolution]
+      properties:
+        id:
+          type: integer
+          format: int64
+          examples:
+            - 3
+        kind:
+          type: string
+          enum: [takedown, opt_out, correction, link_report, general]
+          examples:
+            - takedown
+        name:
+          type:
+            - string
+            - "null"
+          examples:
+            - Wren
+        email:
+          type:
+            - string
+            - "null"
+          examples:
+            - wren@example.org
+        message:
+          type:
+            - string
+            - "null"
+          examples:
+            - Please remove this recording.
+        url:
+          type:
+            - string
+            - "null"
+          examples:
+            - https://example.org/kettle
+        status:
+          type: string
+          enum: [open, resolved, dismissed]
+          examples:
+            - open
+        created_at:
+          type: string
+          format: date-time
+        resolution:
+          oneOf:
+            - $ref: "#/components/schemas/Resolution"
+            - type: "null"
+      examples:
+        - id: 3
+          kind: takedown
+          name: Wren
+          email: wren@example.org
+          message: Please remove this recording.
+          url: https://example.org/kettle
+          status: open
+          created_at: "2026-11-10T09:30:00Z"
+          resolution: null
+
+    ContactRequestList:
+      type: object
+      description: One page of contact requests, oldest first.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactRequest"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many requests have the status, over every page.
+          examples:
+            - 1
+      examples:
+        - data:
+            - id: 3
+              kind: takedown
+              name: Wren
+              email: wren@example.org
+              message: Please remove this recording.
+              url: https://example.org/kettle
+              status: open
+              created_at: "2026-11-10T09:30:00Z"
+              resolution: null
+          total: 1
+
+    EntityType:
+      type: string
+      description: The type of entity a revision edits.
+      enum: [piece, person, term, collection, event]
+      examples:
+        - piece
+
+    RevisionStatus:
+      type: string
+      description: |
+        Where a revision is in moderation: `pending` review, `approved`, `rejected` by a moderator, or `withdrawn` by
+        its author (or by their later submission for the same entity).
+      enum: [pending, approved, rejected, withdrawn]
+      examples:
+        - pending
+
+    ProblemCode:
+      type: string
+      description: What is wrong with a field of a submitted document.
+      enum:
+        - required
+        - too_long
+        - not_nfc
+        - control_character
+        - duplicate
+        - invalid
+        - out_of_range
+        - cycle
+        - too_deep
+        - wrong_facet
+        - unknown_reference
+        - source_required
+        - prefers_no_page
+      examples:
+        - required
+
+    Problem:
+      type: object
+      description: |
+        A problem with a field of a submitted document, at its path in the editor format (`credits[2].person_slug`);
+        `summary` is the revision's summary.
+      additionalProperties: false
+      required: [path, code]
+      properties:
+        path:
+          type: string
+          examples:
+            - title
+        code:
+          $ref: "#/components/schemas/ProblemCode"
+      examples:
+        - path: title
+          code: required
+
+    ValidationFailed:
+      type: object
+      description: The error body of a document that does not validate.
+      additionalProperties: false
+      required: [code, message, problems]
+      properties:
+        code:
+          type: string
+          enum: [validation_failed]
+        message:
+          $ref: "#/components/schemas/Error/properties/message"
+        problems:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Problem"
+      examples:
+        - code: validation_failed
+          message: the document does not validate
+          problems:
+            - path: title
+              code: required
+
+    DuplicateMatch:
+      type: object
+      description: A public entity a new one may duplicate, by `slug` (a collection by `collection_id`).
+      additionalProperties: false
+      required: [entity_type, slug, collection_id, name]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        slug:
+          type: [string, "null"]
+          examples:
+            - the-copper-kettle
+        collection_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - null
+        name:
+          type: string
+          description: The entity's title or name.
+          examples:
+            - The Copper Kettle
+      examples:
+        - entity_type: piece
+          slug: the-copper-kettle
+          collection_id: null
+          name: The Copper Kettle
+
+    PossibleDuplicate:
+      type: object
+      description: The error body of a new entity that may duplicate public ones.
+      additionalProperties: false
+      required: [code, message, possible_duplicates]
+      properties:
+        code:
+          type: string
+          enum: [possible_duplicate]
+        message:
+          $ref: "#/components/schemas/Error/properties/message"
+        possible_duplicates:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/DuplicateMatch"
+      examples:
+        - code: possible_duplicate
+          message: the new entity may duplicate public ones; acknowledge_duplicates to submit
+          possible_duplicates:
+            - entity_type: piece
+              slug: the-copper-kettle
+              collection_id: null
+              name: The Copper Kettle
+
+    EditorSlug:
+      type: string
+      description: The slug of a public piece, person, term or event the document references.
+      examples:
+        - the-copper-kettle
+
+    EditorText:
+      type: [string, "null"]
+      description: Markdown or plain text.
+      examples:
+        - Sung at every revel since the founding of the barony.
+
+    SchemaVersion:
+      type: integer
+      description: The document's schema version; send back the version the editable document gave.
+      minimum: 1
+      maximum: 1
+      examples:
+        - 1
+
+    EditorPerformance:
+      type: object
+      description: A performance a link records, with its event and performers by slug.
+      additionalProperties: false
+      required: [event_slug, year, uploader, description_verbatim, performer_slugs]
+      properties:
+        event_slug:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        year:
+          type: [integer, "null"]
+          examples:
+            - 2019
+        uploader:
+          type: [string, "null"]
+          examples:
+            - Morwen
+        description_verbatim:
+          type: string
+          description: How the source describes the performance, word for word.
+          examples:
+            - Sung at Midwinter Revel by Morwen.
+        performer_slugs:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditorSlug"
+      examples:
+        - event_slug: midwinter-revel
+          year: 2019
+          uploader: null
+          description_verbatim: Sung at Midwinter Revel by Morwen.
+          performer_slugs: [morwen]
+
+    EditorPieceLink:
+      type: object
+      description: |
+        A link attached to a piece, by URL, with the roles it has there and the performances of the piece it
+        records. Its hidden state and liveness are not the document's.
+      additionalProperties: false
+      required: [url, title, description, platform, place_type, collection_id, locator, roles, performances]
+      properties:
+        url:
+          type: string
+          examples:
+            - https://example.org/the-copper-kettle
+        title:
+          type: [string, "null"]
+          examples:
+            - The Copper Kettle, sung at Midwinter
+        description:
+          type: [string, "null"]
+          examples:
+            - A recording from the revel.
+        platform:
+          type: [string, "null"]
+          examples:
+            - example.org
+        place_type:
+          oneOf:
+            - $ref: "#/components/schemas/LinkPlaceType"
+            - type: "null"
+        collection_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The collection the link belongs to, by its `id`.
+          examples:
+            - 12
+        locator:
+          type: [string, "null"]
+          description: Where in the collection this piece appears, such as a page number.
+          examples:
+            - p. 12
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkRole"
+        performances:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditorPerformance"
+      examples:
+        - url: https://example.org/the-copper-kettle
+          title: null
+          description: null
+          platform: null
+          place_type: null
+          collection_id: null
+          locator: null
+          roles: [performance]
+          performances: []
+
+    EditorPieceDocument:
+      type: object
+      description: |
+        A piece's document in the editor format: the stored document's fields, with references to pieces, persons,
+        terms and events by slug (collections by ID).
+      additionalProperties: false
+      required: [schema_version, title, kind, secondary_kinds, conservation, is_stub, notes_md, version_notes_md,
+        licensing_status, licensing_notes_md, licence, licence_version, historical_source_md, period_start,
+        period_end, aliases, terms, relations, credits, links]
+      properties:
+        schema_version:
+          $ref: "#/components/schemas/SchemaVersion"
+        title:
+          type: string
+          examples:
+            - The Copper Kettle
+        kind:
+          $ref: "#/components/schemas/PieceKind"
+        secondary_kinds:
+          type: array
+          items:
+            $ref: "#/components/schemas/PieceKind"
+        conservation:
+          type: object
+          description: The piece's conservation status, with the source of an assessment.
+          additionalProperties: false
+          required: [status, source_url]
+          properties:
+            status:
+              $ref: "#/components/schemas/ConservationStatus"
+            source_url:
+              type: [string, "null"]
+              examples:
+                - https://example.org/survey
+          examples:
+            - status: unassessed
+              source_url: null
+        is_stub:
+          type: boolean
+        notes_md:
+          $ref: "#/components/schemas/EditorText"
+        version_notes_md:
+          $ref: "#/components/schemas/EditorText"
+        licensing_status:
+          $ref: "#/components/schemas/LicensingStatus"
+        licensing_notes_md:
+          $ref: "#/components/schemas/EditorText"
+        licence:
+          oneOf:
+            - $ref: "#/components/schemas/Licence"
+            - type: "null"
+        licence_version:
+          oneOf:
+            - $ref: "#/components/schemas/LicenceVersion"
+            - type: "null"
+        historical_source_md:
+          $ref: "#/components/schemas/EditorText"
+        period_start:
+          type: [integer, "null"]
+          examples:
+            - 1300
+        period_end:
+          type: [integer, "null"]
+          examples:
+            - 1400
+        aliases:
+          type: array
+          items:
+            type: object
+            description: Another title of the piece.
+            additionalProperties: false
+            required: [text, kind]
+            properties:
+              text:
+                type: string
+                examples:
+                  - Copper Kettle
+              kind:
+                $ref: "#/components/schemas/PieceAliasKind"
+        terms:
+          type: array
+          items:
+            type: object
+            description: A term classifying the piece, or a part of it.
+            additionalProperties: false
+            required: [term_slug, is_primary, part]
+            properties:
+              term_slug:
+                $ref: "#/components/schemas/EditorSlug"
+              is_primary:
+                type: boolean
+              part:
+                oneOf:
+                  - $ref: "#/components/schemas/PiecePart"
+                  - type: "null"
+        relations:
+          type: array
+          items:
+            type: object
+            description: A relation of the piece to another piece.
+            additionalProperties: false
+            required: [to_piece_slug, type]
+            properties:
+              to_piece_slug:
+                $ref: "#/components/schemas/EditorSlug"
+              type:
+                $ref: "#/components/schemas/PieceRelationType"
+        credits:
+          type: array
+          items:
+            type: object
+            description: A credit of the piece, or a part of it, to a person or to no one in particular.
+            additionalProperties: false
+            required: [person_slug, role, attribution, certainty, part, note]
+            properties:
+              person_slug:
+                oneOf:
+                  - $ref: "#/components/schemas/EditorSlug"
+                  - type: "null"
+              role:
+                $ref: "#/components/schemas/CreditRole"
+              attribution:
+                $ref: "#/components/schemas/Attribution"
+              certainty:
+                $ref: "#/components/schemas/Certainty"
+              part:
+                oneOf:
+                  - $ref: "#/components/schemas/PiecePart"
+                  - type: "null"
+              note:
+                type: [string, "null"]
+                examples:
+                  - Words by Morwen, after a ballad.
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditorPieceLink"
+      examples:
+        - schema_version: 1
+          title: The Copper Kettle
+          kind: song
+          secondary_kinds: []
+          conservation:
+            status: unassessed
+            source_url: null
+          is_stub: false
+          notes_md: null
+          version_notes_md: null
+          licensing_status: unknown
+          licensing_notes_md: null
+          licence: null
+          licence_version: null
+          historical_source_md: null
+          period_start: null
+          period_end: null
+          aliases: []
+          terms: [{term_slug: drinking-songs, is_primary: true, part: null}]
+          relations: []
+          credits: []
+          links: []
+
+    EditorPersonLink:
+      type: object
+      description: A link attached to a person, with the performances it records, each of a piece or of none.
+      additionalProperties: false
+      required: [url, title, description, platform, place_type, collection_id, locator, roles, performances]
+      properties:
+        url:
+          $ref: "#/components/schemas/EditorPieceLink/properties/url"
+        title:
+          $ref: "#/components/schemas/EditorPieceLink/properties/title"
+        description:
+          $ref: "#/components/schemas/EditorPieceLink/properties/description"
+        platform:
+          $ref: "#/components/schemas/EditorPieceLink/properties/platform"
+        place_type:
+          $ref: "#/components/schemas/EditorPieceLink/properties/place_type"
+        collection_id:
+          $ref: "#/components/schemas/EditorPieceLink/properties/collection_id"
+        locator:
+          $ref: "#/components/schemas/EditorPieceLink/properties/locator"
+        roles:
+          $ref: "#/components/schemas/EditorPieceLink/properties/roles"
+        performances:
+          type: array
+          items:
+            type: object
+            description: A performance the link records, of the piece `piece_slug` if it is set.
+            additionalProperties: false
+            required: [piece_slug, event_slug, year, uploader, description_verbatim, performer_slugs]
+            properties:
+              piece_slug:
+                oneOf:
+                  - $ref: "#/components/schemas/EditorSlug"
+                  - type: "null"
+              event_slug:
+                $ref: "#/components/schemas/EditorPerformance/properties/event_slug"
+              year:
+                $ref: "#/components/schemas/EditorPerformance/properties/year"
+              uploader:
+                $ref: "#/components/schemas/EditorPerformance/properties/uploader"
+              description_verbatim:
+                $ref: "#/components/schemas/EditorPerformance/properties/description_verbatim"
+              performer_slugs:
+                $ref: "#/components/schemas/EditorPerformance/properties/performer_slugs"
+      examples:
+        - url: https://example.org/morwen
+          title: Morwen's songs
+          description: null
+          platform: example.org
+          place_type: null
+          collection_id: null
+          locator: null
+          roles: [website]
+          performances: []
+
+    EditorPersonDocument:
+      type: object
+      description: A person's document in the editor format, with references by slug.
+      additionalProperties: false
+      required: [schema_version, name, kind, status, status_date, status_source_url, pronouns, notes_md,
+        licensing_status, licensing_notes_md, is_stub, aliases, roles, affiliation_slugs, relations, links]
+      properties:
+        schema_version:
+          $ref: "#/components/schemas/SchemaVersion"
+        name:
+          type: string
+          examples:
+            - Morwen
+        kind:
+          $ref: "#/components/schemas/PersonKind"
+        status:
+          $ref: "#/components/schemas/PersonStatus"
+        status_date:
+          type: [string, "null"]
+          format: date
+          examples:
+            - "2026-01-01"
+        status_source_url:
+          type: [string, "null"]
+          examples:
+            - https://example.org/notice
+        pronouns:
+          type: [string, "null"]
+          examples:
+            - she/her
+        notes_md:
+          $ref: "#/components/schemas/EditorText"
+        licensing_status:
+          $ref: "#/components/schemas/LicensingStatus"
+        licensing_notes_md:
+          $ref: "#/components/schemas/EditorText"
+        is_stub:
+          type: boolean
+        aliases:
+          type: array
+          items:
+            type: object
+            description: Another name of the person.
+            additionalProperties: false
+            required: [name, kind]
+            properties:
+              name:
+                type: string
+                examples:
+                  - Morwen of the Vale
+              kind:
+                $ref: "#/components/schemas/PersonAliasKind"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonRole"
+        affiliation_slugs:
+          type: array
+          description: The person's affiliation terms, by slug.
+          items:
+            $ref: "#/components/schemas/EditorSlug"
+        relations:
+          type: array
+          items:
+            type: object
+            description: A relation of the person to another person.
+            additionalProperties: false
+            required: [to_person_slug, type]
+            properties:
+              to_person_slug:
+                $ref: "#/components/schemas/EditorSlug"
+              type:
+                $ref: "#/components/schemas/PersonRelationType"
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditorPersonLink"
+      examples:
+        - schema_version: 1
+          name: Morwen
+          kind: community_bard
+          status: active
+          status_date: null
+          status_source_url: null
+          pronouns: null
+          notes_md: null
+          licensing_status: unknown
+          licensing_notes_md: null
+          is_stub: true
+          aliases: []
+          roles: []
+          affiliation_slugs: []
+          relations: []
+          links: []
+
+    EditorTermDocument:
+      type: object
+      description: A term's document in the editor format, with its parent and related affiliation by slug.
+      additionalProperties: false
+      required: [schema_version, facet, name, display_name, parent_slug, related_affiliation_slug, description_md,
+        position, aliases]
+      properties:
+        schema_version:
+          $ref: "#/components/schemas/SchemaVersion"
+        facet:
+          $ref: "#/components/schemas/Facet"
+        name:
+          type: string
+          examples:
+            - Drinking songs
+        display_name:
+          type: string
+          examples:
+            - Drinking songs
+        parent_slug:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        related_affiliation_slug:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        description_md:
+          $ref: "#/components/schemas/EditorText"
+        position:
+          type: integer
+          examples:
+            - 0
+        aliases:
+          type: array
+          items:
+            type: string
+            examples:
+              - Tavern songs
+      examples:
+        - schema_version: 1
+          facet: topic
+          name: Drinking songs
+          display_name: Drinking songs
+          parent_slug: null
+          related_affiliation_slug: null
+          description_md: null
+          position: 0
+          aliases: []
+
+    EditorCollectionDocument:
+      type: object
+      description: A collection's document in the editor format, with its region by slug and its parent by ID.
+      additionalProperties: false
+      required: [schema_version, name, url, kind, description_md, region_term_slug, parent_id, is_bardic_resource,
+        enumerable]
+      properties:
+        schema_version:
+          $ref: "#/components/schemas/SchemaVersion"
+        name:
+          type: string
+          examples:
+            - The Northmarch Songbook
+        url:
+          type: [string, "null"]
+          examples:
+            - https://example.org/songbook.pdf
+        kind:
+          $ref: "#/components/schemas/CollectionKind"
+        description_md:
+          $ref: "#/components/schemas/EditorText"
+        region_term_slug:
+          oneOf:
+            - $ref: "#/components/schemas/EditorSlug"
+            - type: "null"
+        parent_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The collection this one is part of, by its `id`.
+          examples:
+            - 3
+        is_bardic_resource:
+          type: boolean
+        enumerable:
+          $ref: "#/components/schemas/CollectionEnumerable"
+      examples:
+        - schema_version: 1
+          name: The Northmarch Songbook
+          url: https://example.org/songbook.pdf
+          kind: songbook_pdf
+          description_md: null
+          region_term_slug: null
+          parent_id: null
+          is_bardic_resource: true
+          enumerable: pdf
+
+    EditorEventDocument:
+      type: object
+      description: An event's or venue's document in the editor format.
+      additionalProperties: false
+      required: [schema_version, name, kind, description_md]
+      properties:
+        schema_version:
+          $ref: "#/components/schemas/SchemaVersion"
+        name:
+          type: string
+          examples:
+            - Midwinter Revel
+        kind:
+          $ref: "#/components/schemas/EventKind"
+        description_md:
+          $ref: "#/components/schemas/EditorText"
+      examples:
+        - schema_version: 1
+          name: Midwinter Revel
+          kind: event
+          description_md: null
+
+    EditorDocument:
+      description: A document in the editor format, in the shape of the `entity_type` beside it.
+      oneOf:
+        - $ref: "#/components/schemas/EditorPieceDocument"
+        - $ref: "#/components/schemas/EditorPersonDocument"
+        - $ref: "#/components/schemas/EditorTermDocument"
+        - $ref: "#/components/schemas/EditorCollectionDocument"
+        - $ref: "#/components/schemas/EditorEventDocument"
+      examples:
+        - schema_version: 1
+          name: Midwinter Revel
+          kind: event
+          description_md: null
+
+    Editable:
+      type: object
+      description: |
+        An entity's editable document: the caller's own pending revision of it (`pending_revision_id`) if they have
+        one, and otherwise its current revision. Submit the edit on `base_revision_id`.
+      additionalProperties: false
+      required: [entity_type, base_revision_id, pending_revision_id, document]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        base_revision_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The approved revision to submit the edit on.
+          examples:
+            - 46
+        pending_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: The caller's own pending revision the document is, or null.
+          examples:
+            - null
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+      examples:
+        - entity_type: event
+          base_revision_id: 46
+          pending_revision_id: null
+          document:
+            schema_version: 1
+            name: Midwinter Revel
+            kind: event
+            description_md: null
+
+    SubmitRevisionRequest:
+      type: object
+      description: |
+        A revision: an edit of the entity whose approved revision `base_revision_id` is, or with it null a new
+        entity of `entity_type`.
+      additionalProperties: false
+      required: [entity_type, base_revision_id, summary, document, acknowledge_duplicates, acknowledge_stale]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        base_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - 46
+        summary:
+          type: string
+          description: |
+            What the edit changes, at most 500 characters; may be empty. When the edit changes a piece's
+            conservation status, the summary is the reason in its conservation history.
+          examples:
+            - Describe the revel.
+        document:
+          $ref: "#/components/schemas/EditorDocument"
+        acknowledge_duplicates:
+          type: boolean
+          description: Submit a new entity that may duplicate public ones.
+        acknowledge_stale:
+          type: boolean
+          description: For a moderator, approve the edit even if the entity has changed since its base.
+      examples:
+        - entity_type: event
+          base_revision_id: 46
+          summary: Describe the revel.
+          document:
+            schema_version: 1
+            name: Midwinter Revel
+            kind: event
+            description_md: Held every year at the turning of the year.
+          acknowledge_duplicates: false
+          acknowledge_stale: false
+
+    ApproveRevisionRequest:
+      type: object
+      description: An approval.
+      additionalProperties: false
+      required: [acknowledge_stale]
+      properties:
+        acknowledge_stale:
+          type: boolean
+          description: Approve the revision even if it is stale, overwriting the changes since its base.
+      examples:
+        - acknowledge_stale: false
+
+    RejectRevisionRequest:
+      type: object
+      description: A rejection, with a note to the author.
+      additionalProperties: false
+      required: [note]
+      properties:
+        note:
+          type: string
+          description: Why the revision is rejected; required, at most 2000 characters, trimmed.
+          minLength: 1
+          examples:
+            - Please redo this on the current version.
+      examples:
+        - note: Please redo this on the current version.
+
+    ModerationAuthor:
+      type: object
+      description: A revision's author as moderators see them, with their user ID.
+      additionalProperties: false
+      required: [user_id, display_name]
+      properties:
+        user_id:
+          $ref: "#/components/schemas/User/properties/id"
+        display_name:
+          $ref: "#/components/schemas/User/properties/display_name"
+      examples:
+        - user_id: google-oauth2|456
+          display_name: Morwen
+
+    RevisionListItem:
+      type: object
+      description: |
+        A revision as the caller's own list and the moderation queue show it. `entity` is null for a new entity's
+        revision that is not approved; `review_note` is a moderator's note on rejecting it; `is_stale` is true when
+        its entity has changed since its base.
+      additionalProperties: false
+      required: [id, entity_type, entity, status, summary, created_at, review_note, reviewed_at, is_stale, author]
+      properties:
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        entity:
+          oneOf:
+            - type: object
+              description: The entity, by `slug` (a collection by `collection_id`), with its title or name.
+              additionalProperties: false
+              required: [slug, collection_id, name]
+              properties:
+                slug:
+                  $ref: "#/components/schemas/DuplicateMatch/properties/slug"
+                collection_id:
+                  $ref: "#/components/schemas/DuplicateMatch/properties/collection_id"
+                name:
+                  $ref: "#/components/schemas/DuplicateMatch/properties/name"
+            - type: "null"
+        status:
+          $ref: "#/components/schemas/RevisionStatus"
+        summary:
+          $ref: "#/components/schemas/RevisionSummary/properties/summary"
+        created_at:
+          $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        review_note:
+          $ref: "#/components/schemas/RevisionView/properties/review_note"
+        reviewed_at:
+          type: [string, "null"]
+          format: date-time
+          description: When a moderator approved or rejected the revision.
+          examples:
+            - null
+        is_stale:
+          type: boolean
+        author:
+          description: The revision's author, in the moderation queue; null in the caller's own list.
+          oneOf:
+            - $ref: "#/components/schemas/ModerationAuthor"
+            - type: "null"
+      examples:
+        - id: 51
+          entity_type: event
+          entity:
+            slug: midwinter-revel
+            collection_id: null
+            name: Midwinter Revel
+          status: pending
+          summary: Describe the revel.
+          created_at: "2026-10-01T09:00:00Z"
+          review_note: null
+          reviewed_at: null
+          is_stale: false
+          author: null
+
+    RevisionList:
+      type: object
+      description: One page of revisions, with how many there are in all.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RevisionListItem"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          examples:
+            - 1
+      examples:
+        - data: []
+          total: 0
+
+    Snapshot:
+      description: A snapshot view, in the shape of the `entity_type` beside it.
+      oneOf:
+        - $ref: "#/components/schemas/PieceSnapshot"
+        - $ref: "#/components/schemas/PersonSnapshot"
+        - $ref: "#/components/schemas/TermSnapshot"
+        - $ref: "#/components/schemas/CollectionSnapshot"
+        - $ref: "#/components/schemas/EventSnapshot"
+      examples:
+        - name: Midwinter Revel
+          kind: event
+          description_md: null
+
+    RevisionView:
+      type: object
+      description: |
+        A revision of any status as its author sees it, with the same snapshot views as a public revision
+        (`GET /v1/revisions/{revision_id}`). `entity` is null for a new entity's revision that is not approved;
+        `review_note` is a moderator's note on rejecting it.
+      additionalProperties: false
+      required: [entity_type, id, source, summary, author, contributors, created_at, status, review_note,
+        reviewed_at, entity, base_revision_id, snapshot, base_snapshot, changed_fields]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        summary:
+          $ref: "#/components/schemas/RevisionSummary/properties/summary"
+        author:
+          $ref: "#/components/schemas/RevisionSummary/properties/author"
+        contributors:
+          $ref: "#/components/schemas/RevisionSummary/properties/contributors"
+        created_at:
+          $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        status:
+          $ref: "#/components/schemas/RevisionStatus"
+        review_note:
+          type: [string, "null"]
+          examples:
+            - Please cite the source of the credit.
+        reviewed_at:
+          $ref: "#/components/schemas/RevisionListItem/properties/reviewed_at"
+        entity:
+          description: The entity as it is now, in the shape of `entity_type`, or null.
+          oneOf:
+            - $ref: "#/components/schemas/PieceSummary"
+            - $ref: "#/components/schemas/PersonSummary"
+            - $ref: "#/components/schemas/TermSummary"
+            - $ref: "#/components/schemas/CollectionRef"
+            - $ref: "#/components/schemas/EventSummary"
+            - type: "null"
+        base_revision_id:
+          $ref: "#/components/schemas/PieceRevision/properties/base_revision_id"
+        snapshot:
+          $ref: "#/components/schemas/Snapshot"
+        base_snapshot:
+          oneOf:
+            - $ref: "#/components/schemas/Snapshot"
+            - type: "null"
+        changed_fields:
+          type: array
+          description: The snapshot's top-level fields that differ from the base's or, with no base, are not empty.
+          uniqueItems: true
+          items:
+            type: string
+            examples:
+              - description_md
+      examples:
+        - entity_type: event
+          id: 51
+          source: user
+          summary: Describe the revel.
+          author: {display_name: Morwen}
+          contributors: []
+          created_at: "2026-10-01T09:00:00Z"
+          status: rejected
+          review_note: Please cite the source.
+          reviewed_at: "2026-10-02T09:00:00Z"
+          entity: {slug: midwinter-revel, name: Midwinter Revel, kind: event}
+          base_revision_id: 46
+          snapshot: {name: Midwinter Revel, kind: event, description_md: Held at midwinter.}
+          base_snapshot: {name: Midwinter Revel, kind: event, description_md: null}
+          changed_fields: [description_md]
+
+    ModerationRevisionView:
+      type: object
+      description: |
+        A revision as a moderator sees it: the author's view, with the author's user ID (null for an import); for a
+        stale revision the entity's current revision and the snapshot's fields that differ from it (otherwise
+        null); and for a new entity's pending revision the public entities it may duplicate.
+      additionalProperties: false
+      required: [entity_type, id, source, summary, author, contributors, created_at, status, review_note,
+        reviewed_at, entity, base_revision_id, snapshot, base_snapshot, changed_fields, author_user_id,
+        current_revision_id, current_snapshot, changed_fields_since_current, possible_duplicates]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/EntityType"
+        id:
+          $ref: "#/components/schemas/RevisionSummary/properties/id"
+        source:
+          $ref: "#/components/schemas/RevisionSource"
+        summary:
+          $ref: "#/components/schemas/RevisionSummary/properties/summary"
+        author:
+          $ref: "#/components/schemas/RevisionSummary/properties/author"
+        contributors:
+          $ref: "#/components/schemas/RevisionSummary/properties/contributors"
+        created_at:
+          $ref: "#/components/schemas/RevisionSummary/properties/created_at"
+        status:
+          $ref: "#/components/schemas/RevisionStatus"
+        review_note:
+          $ref: "#/components/schemas/RevisionView/properties/review_note"
+        reviewed_at:
+          $ref: "#/components/schemas/RevisionListItem/properties/reviewed_at"
+        entity:
+          $ref: "#/components/schemas/RevisionView/properties/entity"
+        base_revision_id:
+          $ref: "#/components/schemas/PieceRevision/properties/base_revision_id"
+        snapshot:
+          $ref: "#/components/schemas/Snapshot"
+        base_snapshot:
+          $ref: "#/components/schemas/RevisionView/properties/base_snapshot"
+        changed_fields:
+          $ref: "#/components/schemas/RevisionView/properties/changed_fields"
+        author_user_id:
+          type: [string, "null"]
+          examples:
+            - google-oauth2|456
+        current_revision_id:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          examples:
+            - 52
+        current_snapshot:
+          $ref: "#/components/schemas/RevisionView/properties/base_snapshot"
+        changed_fields_since_current:
+          type: [array, "null"]
+          uniqueItems: true
+          items:
+            type: string
+            examples:
+              - name
+        possible_duplicates:
+          type: array
+          items:
+            $ref: "#/components/schemas/DuplicateMatch"
+      examples:
+        - entity_type: event
+          id: 51
+          source: user
+          summary: Describe the revel.
+          author: {display_name: Morwen}
+          contributors: []
+          created_at: "2026-10-01T09:00:00Z"
+          status: pending
+          review_note: null
+          reviewed_at: null
+          entity: {slug: midwinter-revel, name: Midwinter Revel, kind: event}
+          base_revision_id: 46
+          snapshot: {name: Midwinter Revel, kind: event, description_md: Held at midwinter.}
+          base_snapshot: {name: Midwinter Revel, kind: event, description_md: null}
+          changed_fields: [description_md]
+          author_user_id: google-oauth2|456
+          current_revision_id: null
+          current_snapshot: null
+          changed_fields_since_current: null
+          possible_duplicates: []

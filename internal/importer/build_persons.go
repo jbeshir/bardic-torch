@@ -36,7 +36,7 @@ func (b *builder) bard(bard mediawiki.BardRecord, links []mediawiki.LinkRecord) 
 	ref := mediawiki.PersonRef(bard.Title)
 	id := b.personIDs[ref]
 	page, _ := b.c.Site.Page(bard.Title)
-	name := plainName(bard.Title)
+	name := plain(bard.Title)
 	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
 		Kind: domain.PersonKindCommunityBard, Status: bard.Status, StatusDate: bard.StatusDate,
 		NotesMD:          free(bard.NotesMD),
@@ -133,7 +133,7 @@ func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecor
 	if kind == domain.PersonKindCommunityBard && historical[ref] && !sca {
 		kind = domain.PersonKindHistorical
 	}
-	name := plainName(s.Name)
+	name := plain(s.Name)
 	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: kind,
 		Status: domain.PersonStatusActive, LicensingStatus: domain.LicensingStatusUnknown, IsStub: true,
 		Aliases: []domain.DocPersonAlias{}, Roles: []domain.PersonRole{}, AffiliationIDs: []int64{},

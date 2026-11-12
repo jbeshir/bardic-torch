@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/auth0test"
+	"github.com/jbeshir/bardic-torch/internal/testutil/catalogtest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/jbeshir/bardic-torch/internal/testutil/openapitest"
 	"github.com/jbeshir/bardic-torch/internal/transport/web/controller"
@@ -80,7 +82,9 @@ func sendRejected(
 func TestHTTP_EndToEnd(t *testing.T) {
 	t.Parallel()
 
-	repository := mysql.New(mysqltest.NewDatabase(t))
+	db := mysqltest.NewDatabase(t)
+	kettle := catalogtest.New(t, db).Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Copper Kettle"}})
+	repository := mysql.New(db)
 	bootstrap := &command.BootstrapModerators{Users: repository, Now: now}
 	_, err := bootstrap.Execute(t.Context(), []string{endToEndModeratorID})
 	require.NoError(t, err)
@@ -167,6 +171,70 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.RoleModerator,
 		sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK).Role)
+
+	revisionsEndToEnd(t, e, auth0("google-oauth2|e2e-editor"), moderator, kettle)
+}
+
+// revisionsEndToEnd walks a contributor's edit of the piece kettle through moderation: the contributor edits its
+// editable document, the moderator finds the revision in the queue and approves it, and the public page shows the
+// change; a second edit is rejected, and the contributor sees the note on it and in their list.
+func revisionsEndToEnd(t *testing.T, e endToEnd, contributor, moderator string, kettle catalogtest.Ref) {
+	t.Helper()
+
+	type editable struct {
+		BaseRevisionID int64           `json:"base_revision_id"`
+		Document       json.RawMessage `json:"document"`
+	}
+	type view struct {
+		ID         int64   `json:"id"`
+		Status     string  `json:"status"`
+		ReviewNote *string `json:"review_note"`
+	}
+	submit := func(notes string) view {
+		ed := sendOK[editable](t, e, http.MethodGet, "/v1/pieces/"+kettle.Slug+"/editable", contributor, "",
+			http.StatusOK)
+		var doc domain.EditorPieceDocument
+		require.NoError(t, json.Unmarshal(ed.Document, &doc))
+		doc.NotesMD = &notes
+		body, err := json.Marshal(map[string]any{"entity_type": "piece", "base_revision_id": ed.BaseRevisionID,
+			"summary": "Add notes.", "document": doc, "acknowledge_duplicates": false, "acknowledge_stale": false})
+		require.NoError(t, err)
+		return sendOK[view](t, e, http.MethodPost, "/v1/revisions", contributor, string(body), http.StatusCreated)
+	}
+
+	approved := submit("Sung at the end of the night.")
+	assert.Equal(t, "pending", approved.Status)
+	queue := sendOK[struct {
+		Data []struct {
+			ID     int64 `json:"id"`
+			Author struct {
+				UserID string `json:"user_id"`
+			} `json:"author"`
+		} `json:"data"`
+	}](t, e, http.MethodGet, "/v1/moderation/queue", moderator, "", http.StatusOK)
+	require.Len(t, queue.Data, 1)
+	assert.Equal(t, approved.ID, queue.Data[0].ID)
+	assert.Equal(t, "google-oauth2|e2e-editor", queue.Data[0].Author.UserID)
+	id := strconv.FormatInt(approved.ID, 10)
+	sendOK[map[string]any](t, e, http.MethodGet, "/v1/moderation/revisions/"+id, moderator, "", http.StatusOK)
+	rec := e.send(t, http.MethodPost, "/v1/revisions/"+id+"/approve", moderator, `{"acknowledge_stale":false}`)
+	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+	page := sendOK[struct {
+		NotesMD string `json:"notes_md"`
+	}](t, e, http.MethodGet, "/v1/pieces/"+kettle.Slug, "", "", http.StatusOK)
+	assert.Equal(t, "Sung at the end of the night.", page.NotesMD)
+
+	rejected := submit("Sung at dawn.")
+	rejectedPath := "/revisions/" + strconv.FormatInt(rejected.ID, 10)
+	rec = e.send(t, http.MethodPost, "/v1"+rejectedPath+"/reject", moderator, `{"note":"Please cite a source."}`)
+	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+	mine := sendOK[view](t, e, http.MethodGet, "/v1/me"+rejectedPath, contributor, "", http.StatusOK)
+	assert.Equal(t, "rejected", mine.Status)
+	assert.Equal(t, new("Please cite a source."), mine.ReviewNote)
+	list := sendOK[struct {
+		Data []view `json:"data"`
+	}](t, e, http.MethodGet, "/v1/me/revisions?status=rejected", contributor, "", http.StatusOK)
+	assert.Equal(t, []view{mine}, list.Data)
 }
 
 const (

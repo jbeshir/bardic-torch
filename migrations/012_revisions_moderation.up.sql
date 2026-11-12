@@ -1,0 +1,56 @@
+-- BE4: revisions and moderation. Every statement is additive or widens a view, so the previous release keeps
+-- working against it.
+
+-- A new entity's revision has no entity row until it is approved.
+ALTER TABLE `revisions`
+    MODIFY `entity_id` BIGINT UNSIGNED NULL;
+
+-- Which document owns each performance: the piece's or the person's, so that approving one document rewrites only
+-- the performances it records.
+ALTER TABLE `performances`
+    ADD COLUMN `owner_piece_id` BIGINT UNSIGNED NULL,
+    ADD COLUMN `owner_person_id` BIGINT UNSIGNED NULL,
+    ADD INDEX `idx_owner_piece` (`owner_piece_id`),
+    ADD INDEX `idx_owner_person` (`owner_person_id`),
+    ADD CONSTRAINT `fk_performances_owner_piece_id` FOREIGN KEY (`owner_piece_id`) REFERENCES `pieces` (`id`)
+        ON DELETE CASCADE,
+    ADD CONSTRAINT `fk_performances_owner_person_id` FOREIGN KEY (`owner_person_id`) REFERENCES `persons` (`id`)
+        ON DELETE CASCADE;
+
+-- The link checker's state: consecutive definite failures, and when the Wayback Machine was last asked.
+ALTER TABLE `links`
+    ADD COLUMN `liveness_failures` TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER `liveness`,
+    ADD COLUMN `archive_checked_at` DATETIME NULL AFTER `archived_url`,
+    ADD INDEX `idx_check_due` (`is_hidden`, `last_checked_at`, `id`),
+    ADD INDEX `idx_archive_due` (`is_hidden`, `archive_checked_at`, `id`);
+
+-- The version of a Creative Commons licence. Reads show it only beside a cc_* licence.
+ALTER TABLE `pieces`
+    ADD COLUMN `licence_version` ENUM('1.0', '2.0', '2.5', '3.0', '4.0') NULL AFTER `licence`;
+
+CREATE TABLE `contact_requests` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `kind` ENUM('takedown', 'opt_out', 'correction', 'link_report', 'general') NOT NULL,
+    `name` VARCHAR(255) NULL,
+    `email` VARCHAR(254) NULL,
+    `message` TEXT NULL,
+    `url` VARCHAR(2048) NULL,
+    `status` ENUM('open', 'resolved', 'dismissed') NOT NULL DEFAULT 'open',
+    `created_at` DATETIME NOT NULL,
+    `resolved_by_user_id` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NULL,
+    `resolved_at` DATETIME NULL,
+    `resolution_note` TEXT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `idx_status_created` (`status`, `created_at`, `id`),
+    CONSTRAINT `fk_contact_requests_resolved_by_user_id` FOREIGN KEY (`resolved_by_user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- A public attachment of a link: to a public piece or a public person. A person who prefers no page no longer
+-- hides the links attached to them, so this replaces 010's view, which joined listed_persons. The previous release
+-- only shows more performances and citations against it.
+CREATE OR REPLACE ALGORITHM = MERGE SQL SECURITY INVOKER VIEW `public_link_attachments` AS
+SELECT a.*
+FROM `link_attachments` a
+LEFT JOIN `pieces` p ON p.`id` = a.`piece_id` AND p.`current_revision_id` IS NOT NULL
+LEFT JOIN `persons` pe ON pe.`id` = a.`person_id` AND pe.`current_revision_id` IS NOT NULL
+WHERE p.`id` IS NOT NULL OR pe.`id` IS NOT NULL;

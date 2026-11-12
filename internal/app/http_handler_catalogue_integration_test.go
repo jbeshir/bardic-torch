@@ -61,6 +61,10 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 		LicensingStatus: domain.LicensingStatusKnown,
 		Aliases:         []domain.DocPersonAlias{{Name: "Jo Marker", Kind: domain.PersonAliasKindLegal}},
 	}})
+	quiet := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
+		Name: "Quiet Harper", Status: domain.PersonStatusPrefersNoPage,
+		StatusSourceURL: new("https://example.org/quiet-harper"), NotesMD: new("Not shown"),
+	}})
 
 	known := func(doc domain.PieceDocument) domain.PieceDocument {
 		doc.Kind = domain.PieceKindSong
@@ -74,10 +78,12 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 			{TermID: swords.ID, IsPrimary: true},
 			{TermID: warlike.ID},
 		},
-		Credits: []domain.DocCredit{{
-			PersonID: &wren.ID, Role: domain.CreditRoleLyrics,
-			Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
-		}},
+		Credits: []domain.DocCredit{
+			{PersonID: &wren.ID, Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed,
+				Certainty: domain.CertaintyCertain},
+			{PersonID: &quiet.ID, Role: domain.CreditRoleTune, Attribution: domain.AttributionNamed,
+				Certainty: domain.CertaintyCertain},
+		},
 	})
 	kettle := c.Piece(catalogtest.Piece{Doc: kettleDoc, SortTitle: "Copper Kettle"})
 	harbour := c.Piece(catalogtest.Piece{Doc: known(domain.PieceDocument{
@@ -148,9 +154,13 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 	piece := sendOK[controller.Piece](t, e, http.MethodGet, "/v1/pieces/"+kettle.Slug, "", "", http.StatusOK)
 	assert.Equal(t, catalogueKettleTitle, piece.Title)
 	require.Len(t, piece.Terms, 2)
-	require.Len(t, piece.Credits, 1)
+	require.Len(t, piece.Credits, 2)
 	require.NotNil(t, piece.Credits[0].Person)
-	assert.Equal(t, wren.Slug, piece.Credits[0].Person.Slug)
+	assert.Equal(t, &wren.Slug, piece.Credits[0].Person.Slug)
+	// A person who prefers no page is credited by name, without a link to their page.
+	require.NotNil(t, piece.Credits[1].Person)
+	assert.Equal(t, "Quiet Harper", piece.Credits[1].Person.Name)
+	assert.Nil(t, piece.Credits[1].Person.Slug)
 
 	// Term detail: War counts its descendants' pieces and lists them.
 	term := sendOK[controller.Term](t, e, http.MethodGet, "/v1/terms/"+war.Slug, "", "", http.StatusOK)
@@ -166,6 +176,11 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 	assert.Equal(t, kettle.Slug, person.Profile.Works[0].Piece.Slug)
 	require.Len(t, person.Profile.Aliases, 1)
 	assert.Equal(t, "Jo Marker", person.Profile.Aliases[0].Name)
+
+	// A person who prefers no page: only their identity and the cited statement.
+	noPage := sendOK[controller.Person](t, e, http.MethodGet, "/v1/persons/"+quiet.Slug, "", "", http.StatusOK)
+	assert.Nil(t, noPage.Profile)
+	assert.Equal(t, new("https://example.org/quiet-harper"), noPage.StatusSourceURL)
 
 	// History: the newest approved revision first.
 	history := sendOK[controller.RevisionHistory](t, e, http.MethodGet, "/v1/pieces/"+kettle.Slug+"/history", "", "",

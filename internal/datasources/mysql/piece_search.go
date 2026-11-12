@@ -271,10 +271,19 @@ func (c *catalogueReader) pieceSearchItems(ctx context.Context, s *statement) []
 				kinds = append(kinds, enumOf[domain.PieceKind](c, queries.PiecesKind(k)))
 			}
 		}
-		pieces = append(pieces, c.pieceSummary(map[string][]domain.PieceKind{slug: kinds}, slug, title, kind, status,
-			isStub))
+		pieces = append(pieces, c.pieceSummary(pieceExtras{kinds: map[string][]domain.PieceKind{slug: kinds}}, slug,
+			title, kind, status, isStub))
 		return nil
 	})
+
+	slugs := make([]string, len(pieces))
+	for i, p := range pieces {
+		slugs[i] = p.Slug
+	}
+	names := c.creditNames(ctx, slugs)
+	for i := range pieces {
+		pieces[i].CreditNames = names[pieces[i].Slug]
+	}
 
 	return pieces
 }

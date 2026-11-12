@@ -19,6 +19,8 @@ type Piece struct {
 	LicensingStatus     domain.LicensingStatus `json:"licensing_status"`
 	LicensingNotesMD    *string                `json:"licensing_notes_md"`
 	Licence             *domain.Licence        `json:"licence"`
+	LicenceVersion      *domain.LicenceVersion `json:"licence_version"`
+	UpdatedAt           time.Time              `json:"updated_at"`
 	HistoricalSourceMD  *string                `json:"historical_source_md"`
 	PeriodStart         *int16                 `json:"period_start"`
 	PeriodEnd           *int16                 `json:"period_end"`
@@ -117,6 +119,8 @@ func pieceFromDomain(p domain.Piece) Piece {
 		LicensingStatus:    p.LicensingStatus,
 		LicensingNotesMD:   p.LicensingNotesMD,
 		Licence:            p.Licence,
+		LicenceVersion:     p.LicenceVersion,
+		UpdatedAt:          p.UpdatedAt,
 		HistoricalSourceMD: p.HistoricalSourceMD,
 		PeriodStart:        p.PeriodStart,
 		PeriodEnd:          p.PeriodEnd,

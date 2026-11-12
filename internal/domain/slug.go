@@ -79,12 +79,20 @@ func (a *SlugAllocator) Allocate(name string, t SlugEntityType, id int64) string
 		a.taken[t] = taken
 	}
 
+	slug := FreeSlug(base, taken)
+	taken[slug] = true
+
+	return slug
+}
+
+// FreeSlug returns base, or if taken holds it, base with the first suffix "-2", "-3"… that taken does not hold,
+// the base cut (at a hyphen where it can) so that the slug stays within MaxSlugLength.
+func FreeSlug(base string, taken map[string]bool) string {
 	slug := base
 	for n := 2; taken[slug]; n++ {
 		suffix := "-" + strconv.Itoa(n)
 		slug = truncateSlug(base, MaxSlugLength-len(suffix)) + suffix
 	}
-	taken[slug] = true
 
 	return slug
 }

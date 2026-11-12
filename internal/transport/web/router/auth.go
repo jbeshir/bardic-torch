@@ -58,8 +58,7 @@ func authMiddleware(
 
 			user, err := resolveUser.Execute(ctx, identity.UserID)
 			if err != nil {
-				logger.ErrorContext(ctx, "unable to resolve user", "user_id", identity.UserID, "error", err)
-				httpjson.WriteError(ctx, w, http.StatusInternalServerError, httpjson.CodeInternal, "internal error")
+				httpjson.WriteInternalError(ctx, w, "unable to resolve user", err)
 				return
 			}
 

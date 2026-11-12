@@ -90,12 +90,12 @@ func subSchemas(location string, schema *openapi3.Schema) map[string]*openapi3.S
 func revisionBody(entityType string) string {
 	return `{"entity_type": "` + entityType + `", "id": 42,
 		"entity": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song", "secondary_kinds": [],
-			"conservation_status": "endangered", "is_stub": false},
+			"conservation_status": "endangered", "is_stub": false, "credit_names": []},
 		"base_revision_id": null, "source": "import", "summary": "", "author": null, "contributors": ["Archivist"],
 		"created_at": "2026-01-01T00:00:00Z",
 		"snapshot": {"title": "The Copper Kettle", "kind": "song", "secondary_kinds": [],
 			"conservation_status": "endangered", "conservation_source_url": null, "is_stub": false, "notes_md": null,
-			"version_notes_md": null, "licensing_status": "unknown", "licensing_notes_md": null, "licence": null,
+			"version_notes_md": null, "licensing_status": "unknown", "licensing_notes_md": null, "licence": null, "licence_version": null,
 			"historical_source_md": null, "period_start": null, "period_end": null, "aliases": [], "terms": [],
 			"credits": [], "relations": [], "links": []},
 		"base_snapshot": null, "changed_fields": ["conservation_status", "kind", "title"]}`

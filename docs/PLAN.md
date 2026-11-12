@@ -1,7 +1,8 @@
 # Bardic Torch: implementation plan
 
 **Status:** approved 2026-10-31; rewritten 2026-11-10 to a simpler scope (the commit that rewrote it lists what
-changed).
+changed); revised 2026-11-12 (monthly link check, link reports as contact requests, takedowns by link ID, sources
+for licensing only, no email withholding in the importer).
 This plan is the input every build pipeline reads.
 
 **Proportion is the main quality bar.** The site holds about 142 pieces and 48 bards, with two moderators (John
@@ -42,8 +43,9 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
 2. **Origin** (the wiki's "Source Category"): multi-valued with one primary; an optional `part` scope (words,
    tune, verses, chorus); century categories become child terms of Origin; topic centuries stay under Topic.
 3. **Conservation status:** an enum (unassessed, low_risk, endangered, critically_endangered, restricted). Every
-   change is recorded with a reason. A moderator sets it by the conservation guide, in which exactly three places
-   counts as Endangered. Restricted overrides everything and hides the "help preserve this" prompts.
+   change is recorded, with the revision's summary (which may be empty) as the reason. A moderator sets it by the
+   conservation guide, in which exactly three places counts as Endangered. Restricted overrides everything and
+   hides the "help preserve this" prompts.
 4. **Pseudo-bards:** "Traditional & Folk", Unknown, Anonymous and Various become an `attribution` on the credit,
    with a separate `certainty` (Disputed is a certainty). Bands and historical figures are persons with
    `kind = group | historical`.
@@ -52,8 +54,9 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
    them. There is no hidden-alias concept. Someone who wants a name removed asks, and a moderator deletes it.
 7. **Bard self-verification** is out of scope for v1. Every licensing claim needs a source URL, as on the wiki
    (R-12).
-8. **"Prefers no page"** is a person status: the page is a stub showing the cited statement, the person's links
-   and credits are hidden from public view, and creating a person with a matching name or alias is blocked.
+8. **"Prefers no page"** is a person status, as on the old wiki: their page shows only their name and the cited
+   statement, and creating a person with a matching name or alias is blocked. Elsewhere they are named like anyone
+   else, as plain text without a link to their page (decided 2026-11-12; nothing else is hidden).
 9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess.
 10. **Unparented categories:** Seasons, Fire, Hope → Topics; Archery → Topics › War; Short Pieces → Other;
     Jewish, Sephardic, Portuguese → Cultures, with Sephardic under Jewish.
@@ -114,21 +117,21 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
   `revision_contributors` credits wiki contributors on imports.
 - **`users`**: Auth0 ID, `display_name`, `role` (contributor / moderator), `blocked_at`. At startup the API
   promotes (and unblocks) the IDs in `BOOTSTRAP_MODERATOR_USER_IDS`; it never demotes (that is done in SQL).
-- **`link_reports`**: link, reporter, `reason` (broken / wrong_link / privacy / copyright / lyrics / other),
-  message, `status` (open / resolved / dismissed), resolver and note.
-- **`contact_requests`**: `kind` (takedown / opt_out / correction / general), name, email, message, URL, status,
-  resolver, note, `purged_at`.
+- **`contact_requests`**: `kind` (takedown / opt_out / correction / link_report / general), name, email, message,
+  URL (for a `link_report`, the link's), status, resolver, note.
 
 ### 4.1 Catalogue rules (built in BE2)
 
 - **Visibility is approval.** An entity is public when it has an approved revision (a term also needs its
   ancestors approved), defined once in the views `public_terms`, `listed_persons` and `public_link_attachments`.
   References to non-public entities are left out of every read, and an unknown or non-public slug is one 404.
-- **"Prefers no page" persons** (the one privacy rule) show only name, kind, status, date and source. They are
-  found by name only, and left out of every filter, count, credit, performer list, relation, citation and
-  needs-work.
-- **Hidden links** are left out of every read, revision views included: a snapshot drops a link whose URL
-  normalises to a hidden link's, or does not normalise, and otherwise shows its own URL.
+- **"Prefers no page" persons** have a page of their identity only: name, kind, status, date and the cited source.
+  Credits, performers, relations and citations name them like anyone else, without a link (`slug` null). The
+  lists of persons (`listed_persons`) list them as stubs, find them by name only, and leave them out of role and
+  affiliation filters, term member lists and counts, and needs-work.
+- **Hidden links** are left out of every read by their link ID. Current pages join on the link's row. A revision
+  view leaves out a snapshot URL whose row (matched by normalised URL, as approval upserts it) is hidden, and shows
+  every other URL as the snapshot wrote it.
 - **Kinds are an enum**, not terms. **Slugs and sort keys** are set by the writer (sort keys ignore a leading
   article).
 - **Search** is InnoDB FULLTEXT on tokens the API makes itself, with a prefix fallback; reads are capped at 2 s.
@@ -155,7 +158,8 @@ show. Authors appear by display name; imports list the wiki contributors.
 ### 5.1 Contributor edits
 
 - **Edit:** `GET /v1/{type}/{key}/editable` returns the document in editor format with its base revision, or the
-  caller's own pending revision of the entity if they have one.
+  caller's own pending revision of the entity if they have one. Any signed-in user who is not blocked may edit any
+  public entity.
 - **Submit** creates a `pending` revision; a contributor's next submit for the same entity withdraws their earlier
   one. At most 30 pending revisions per contributor. The author may **withdraw** a pending revision.
 - **Revert** has no endpoint of its own: the FE loads an older approved snapshot into the editor and submits it
@@ -164,10 +168,9 @@ show. Authors appear by display name; imports list the wiki contributors.
   get the same warning as in §5.3.
 - **Pending banner:** an author sees, on the entity's page, a banner linking to their pending revision (the FE
   finds it in `/v1/me/revisions`, at most 30).
-- **"Prefers no page":** a document whose editor would show such a person (their own, or one with them as a
-  credit, performer or relation) is editable by moderators only, so the editor never shows a contributor what
-  public reads hide. Hidden links are left out of editable documents, so an approved edit drops their attachment
-  (restoring the link later does not bring it back); a re-added URL that normalises to a hidden link stays hidden.
+- **Hidden links** are left out of editable documents, so an approved edit drops their attachment
+  (restoring the link later does not bring it back). Re-adding a taken-down URL is an ordinary edit for a
+  moderator to reject; there is no rule for it.
 
 ### 5.2 Validation
 
@@ -175,9 +178,10 @@ One `Validate` per document type, shared with the importer (widths, NFC, control
 and facet rules, trees without cycles, unique term names in a facet), answering 422 with a path and code per
 problem.
 
-- **Sourced fields** (R-12), for moderators too: changing licence, licence version, licensing notes or a known
-  licensing status needs a `licensing_source` link; a person status other than active needs its source; a
-  conservation status other than unassessed needs its source, and a change needs a summary (the reason).
+- **Licensing sources** (R-12), for moderators too: changing licence, licence version, licensing notes or a known
+  licensing status needs a `licensing_source` link. Nothing else needs a source or a summary: the person status
+  and conservation source URLs are optional, and a conservation change is recorded in its history with the
+  revision's summary as the reason, even if it is empty.
 - **Duplicate warning on create** (R-17): titles, names and aliases folded by `domain.DuplicateKey` (case,
   apostrophes, accents) are compared with public entities. A match needs `acknowledge_duplicates` (409
   `possible_duplicate` otherwise) and is shown to the moderator. A match on a "prefers no page" person blocks a
@@ -197,34 +201,34 @@ One transaction validates the snapshot, writes it into the entity and its childr
 - **References are to public entities only.** A revision may reference only entities that are already public. A
   new term is suggested as its own term revision and approved on its own; the piece uses it once it is public.
 
-### 5.4 Moderation, reports and contact
+### 5.4 Moderation and contact
 
 - **Queue:** pending revisions, oldest first. The moderator's revision view shows the full document and its diff
   against its base and, when stale, against current.
 - **Blocking:** moderators block and unblock contributors; moderators cannot be blocked. A blocked user gets 403 on
   every authenticated endpoint; their pending revisions stay for a moderator to reject.
 - **Display names** are set with `PATCH /v1/me` (non-blank, NFC, ≤ 255 characters). Moderators are badged.
-- **Link reports** (R-11): a signed-in user reports a link by URL with a reason and optional message, one open
-  report per user and link. Moderators resolve or dismiss each with a note, and may hide the link.
+- **Contact form** (R-13, no account): kind, name, email, message, URL and a Turnstile token checked server-side
+  (success, hostname, action `contact`). Moderators resolve or dismiss requests in one inbox. The personal fields
+  are never logged.
+- **Reporting a link** (R-11) is a contact request of kind `link_report`, its URL the link's, sent through the
+  same form with no account.
 - **Takedown:** moderators find a link by URL (`GET /v1/moderation/links`) and hide or restore it everywhere
   (`PUT /v1/links/{id}/hidden`).
-- **Contact form** (R-13, no account): kind, name, email, message, URL and a Turnstile token checked server-side
-  (success, hostname, action `contact`). Moderators resolve or dismiss requests. The personal fields are never
-  logged, and are nulled 180 days after resolution or dismissal (checked at startup and when the inbox is listed).
 
 ### 5.5 Link check (`cmd/check-links`)
 
-Daily, from dokku cron:
-- Checks up to 400 visible links unchecked for 7 days, politely (one request per host per second, 15 s and 5
+Monthly, from dokku cron:
+- Checks every visible link not checked in the last 25 days, politely (one request per host per second, 15 s and 5
   redirects per link); HEAD, then GET.
 - 2xx is `ok`; the third 404, 410 or NXDOMAIN in a row makes a link `dead`; 401, 403, 429 and other refusals are
   `blocked`; timeouts, 5xx and connection errors change only `last_checked_at`.
 - Asks the Wayback Machine's availability API for a copy of links without one (dead first), at most once a link
-  per 30 days, and stores what it finds.
+  per 25 days, and stores what it finds.
 - **Internal-address guard:** http(s) on ports 80 and 443 only, no credentials, and only global unicast addresses
   outside the special-purpose ranges, checked on every redirect and on the address dialled. A refused link is
   `blocked`.
-- Stops after 20 minutes and logs links by ID, never by URL.
+- Stops after 60 minutes, as a safety net, and logs links by ID, never by URL.
 
 ## 6. API surface
 
@@ -236,14 +240,13 @@ The OpenAPI spec is the exact contract.
   `/v1/collections/{collection_id}`, `/v1/events`, `/v1/events/{slug}`, each entity's `…/history`,
   `/v1/revisions/{revision_id}` and `/v1/needs-work`.
 - **Signed in:** `GET|PATCH /v1/me`; `GET /v1/me/revisions[/{revision_id}]`; `GET /v1/{type}/{key}/editable`;
-  `POST /v1/revisions`; `POST /v1/revisions/{id}/withdraw`; `POST /v1/link-reports`.
+  `POST /v1/revisions`; `POST /v1/revisions/{id}/withdraw`.
 - **Moderator:** `GET /v1/moderation/queue`,
   `GET /v1/moderation/revisions/{id}`, `POST /v1/revisions/{id}/approve|reject`,
-  `GET /v1/moderation/link-reports`, `POST /v1/moderation/link-reports/{id}`,
   `GET /v1/moderation/contact-requests`, `POST /v1/moderation/contact-requests/{id}`,
   `GET /v1/moderation/links?url=`, `PUT /v1/links/{id}/hidden`, `PUT /v1/users/{id}/blocked`. Moderation
   responses carry the author's user ID and link IDs that public reads never expose.
-- **No account:** `POST /v1/contact`. **Health:** `/healthz`, `/readyz`.
+- **No account:** `POST /v1/contact` (contact requests, link reports among them). **Health:** `/healthz`, `/readyz`.
 
 Bodies are limited to 1 MiB for documents, 64 KiB for `/v1/contact` and 16 KiB otherwise.
 
@@ -263,9 +266,8 @@ notes), setting `legacy_had_inline_lyrics`; and write everything as
 approved `import` revisions crediting wiki contributors.
 
 **Writing:** strings are NFC without control characters; wikitext becomes escaped Markdown with absolute http(s)
-links free of tracking parameters; email addresses in free text become `[email withheld]`; summaries come from
-fixed templates. `CatalogueImport.Validate` checks the import against the schema's constraints first, and it is
-written in one transaction into an empty catalogue.
+links free of tracking parameters; summaries come from fixed templates. `CatalogueImport.Validate` checks the
+import against the schema's constraints first, and it is written in one transaction into an empty catalogue.
 
 **Modes:** `--dump DIR (--dry-run | --apply)`; both print a short count summary, and `--dry-run` never opens a
 database. The launch run (a dry run, then `--apply` once) is in DEPLOY.md.
@@ -283,13 +285,13 @@ FAQ for bards, the Bard Preference Checklist as guidance, the conservation guide
 
 **Editing (FE3):** an edit form per entity type with structured pickers; a credit editor (attribution,
 certainty); a link editor (role, place type, collection, locator, performances); a term picker with "suggest a
-new term" (needs a parent, R-20); a sourced-field widget that needs a URL; preview with the read components; the
+new term" (needs a parent, R-20); a licensing-source prompt (R-12); preview with the read components; the
 duplicate warning; the pending banner; "my contributions"; withdraw; revert (an old version loaded into the
 editor and submitted); the CC BY-SA notice. "Suggest a new term" submits a term revision; the piece can use the
 term once it is approved.
 
 **Moderation and contact (FE4):** the queue; the review page (diffs, the stale warning, approve or reject with a
-note); the link-report and contact inboxes; takedown and blocking; the needs-work page; the
+note); the contact inbox (link reports included); takedown and blocking; the needs-work page; the
 contact / takedown / opt-out form with Turnstile.
 
 **Standards:** server-rendered with page metadata; the browser never calls the API; WCAG 2.2 AA and keyboard
@@ -301,7 +303,7 @@ Test the behaviour that matters at the cheapest level that proves it: one test p
 or combination. A test earns its place by catching a bug someone could plausibly write.
 
 **BE:**
-- Unit tests for domain rules: revision states, validation, sourced fields, the duplicate key, the stale check,
+- Unit tests for domain rules: revision states, validation, licensing sources, the duplicate key, the stale check,
   URL normalisation, and the link-check guard and classification.
 - Repository tests on real MySQL 8.4 (sandbox, host and CI) for the queries and the approval write: the main
   path and the cases that matter.
@@ -309,17 +311,16 @@ or combination. A test earns its place by catching a bug someone could plausibly
   path per route, checked against the spec. Controllers are tested through the HTTP tests or one hand-written fake
   repository, not generated mocks.
 - No tests of test helpers, of generated SQL strings, or of config files beyond "every env var is in `.env.dist`".
-- One small leak test: a "prefers no page" person and a hidden link, seeded with credits, performances and
-  citations, appear in no public read.
+- One small leak test: a hidden link, seeded with credits, performances and citations, appears in no public read.
 - The importer tests (§7); `make validate` and `make vulncheck` in CI.
 
 **FE:**
 - Component tests for components with logic (forms, editors, pickers, the facet drawer); loader and action tests
   against msw with spec-checked fixtures.
 - A short Playwright suite, one journey per main flow: browse and search, read a piece and a bard, sign in
-  (stubbed), edit and submit with the duplicate warning, approve and reject (one stale), report a link, contact.
-  axe on each page type in the default theme (the token contrast check covers dark mode); screenshots at 360 and
-  1280px for the UX review.
+  (stubbed), edit and submit with the duplicate warning, approve and reject (one stale), contact (including
+  reporting a link). axe on each page type in the default theme (the token contrast check covers dark mode);
+  screenshots at 360 and 1280px for the UX review.
 - `npm run validate`, the `e2e` job and `npm run audit` in CI.
 
 **Full stack (H1):** BE, FE and Playwright on the real import, then John and Fabian click through it.
@@ -341,7 +342,7 @@ goes to the owners as a question.
 | H0–BE3, FE1–FE2 | | | | *Done:* host setup, foundations, catalogue and read API, importer, read UI. |
 | BE-S | simplify | BE | BE3 | *Done:* removed what this plan no longer needs (below). |
 | FE-S | simplify | FE | FE2 | Remove what this plan no longer needs (below). |
-| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `link_reports`, `contact_requests`, performance owners, the link-check columns and `licence_version`; `updated_at` and `credit_names`; the `check-links` cron. |
+| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `contact_requests`, performance owners, the link-check columns and `licence_version`; `updated_at` and `credit_names`; the monthly `check-links` cron. |
 | FE3 | editing | FE | FE-S, BE4 spec | §8 "Editing". |
 | FE4 | moderation and contact | FE | FE3 | §8 "Moderation and contact". |
 | H1 | launch | host | all | The Cloudflare rate-limiting rule; full-stack e2e on the real import; staging; the real import; the click-through; production. |
@@ -359,7 +360,8 @@ the rule in §7; and the docs about them. It also brought the tests to §9:
 - merged the auth-matrix and routing tests into one table that also checks route parity with the spec;
 - cut the leak matrix to the one small leak test and the Auth0 validator tests to one per rule;
 - dropped the schema-mirroring import validator test, and trimmed `deploy_files_test.go` to the `.env.dist` check;
-- replaced hidden-link snapshot redaction with the §4.1 deny-set.
+- replaced hidden-link snapshot redaction with a deny-set of hidden normalised URLs (since reduced to the §4.1
+  rule by link ID).
 
 TESTING.md, DEPLOY.md and CLAUDE.md were rewritten to this plan, short. Public responses kept their shape, apart
 from what went with tokens.
@@ -383,7 +385,7 @@ DESIGN.md, TESTING.md and CLAUDE.md are rewritten to this plan, short (DESIGN ab
 breakpoints, voice, accessibility). Event and venue pages stay.
 
 **BE4 reuses** from the closed `milestone/be4-moderation` and `milestone/be5-extras` branches where they fit: the
-`link_reports` and `contact_requests` DDL and code, the Turnstile and Wayback clients, the link-check guard and
+`contact_requests` DDL and code, the Turnstile and Wayback clients, the link-check guard and
 prober, the entity writer shared with the importer, the document `Validate` functions and `DuplicateKey` (without
 hidden-data handling), the bounded connection pools and the 503 for a refused connection (BE4's connection
 fix), and the `licence_version`, `updated_at` and `credit_names` read changes. It reuses none of the merge,

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"maps"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -104,7 +103,8 @@ func (c *catalogueReader) history(
 	ctx context.Context, entityType queries.RevisionsEntityType, id uint64, page domain.Page,
 ) domain.RevisionHistory {
 	rows := fetch(ctx, c, "revisions", c.q.ListApprovedRevisions, queries.ListApprovedRevisionsParams{
-		EntityType: entityType, EntityID: id, Limit: page.Limit, Offset: page.Offset,
+		EntityType: entityType, EntityID: sql.NullInt64{Int64: c.signedID(id), Valid: true}, Limit: page.Limit,
+		Offset: page.Offset,
 	})
 	ids := make([]uint64, 0, len(rows))
 	for _, row := range rows {
@@ -121,7 +121,8 @@ func (c *catalogueReader) history(
 	return domain.RevisionHistory{
 		Revisions: revisions,
 		Total: fetch(ctx, c, "revision count", c.q.CountApprovedRevisions,
-			queries.CountApprovedRevisionsParams{EntityType: entityType, EntityID: id}),
+			queries.CountApprovedRevisionsParams{EntityType: entityType,
+				EntityID: sql.NullInt64{Int64: c.signedID(id), Valid: true}}),
 	}
 }
 
@@ -159,22 +160,17 @@ func (c *catalogueReader) revisionSummary(
 // GetPublicRevision retrieves an approved revision of a public entity with its snapshot views, returning
 // datasources.ErrNotFound if there is none with id. A snapshot that cannot be decoded fails the read.
 func (r *Repository) GetPublicRevision(ctx context.Context, id int64) (domain.Revision, error) {
-	if id < 1 {
-		return nil, fmt.Errorf("getting public revision [%d]: %w", id, datasources.ErrNotFound)
-	}
-	key := uint64(id)
-
 	var revision domain.Revision
 	err := r.readOnly(ctx, func(c *catalogueReader) error {
-		row, err := c.q.GetApprovedRevision(ctx, key)
-		if err != nil {
-			return lookupError("revision", err)
-		}
-		revision, err = c.revision(ctx, row)
+		row, err := getRevision(ctx, c.q, id)
 		if err != nil {
 			return err
 		}
-		return c.err
+		if row.Status != queries.RevisionsStatusApproved || !c.entityIsPublic(ctx, row) {
+			return datasources.ErrNotFound
+		}
+		_, revision, err = c.revisionView(ctx, row, false)
+		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("getting public revision [%d]: %w", id, err)
@@ -183,53 +179,100 @@ func (r *Repository) GetPublicRevision(ctx context.Context, id int64) (domain.Re
 	return revision, nil
 }
 
-// revision returns the views of an approved revision, or datasources.ErrNotFound if its entity is not public.
-// That is decided before its snapshots are decoded, so a revision of an entity that is not public is
-// not found whatever its snapshots hold.
-func (c *catalogueReader) revision(ctx context.Context, row queries.GetApprovedRevisionRow) (domain.Revision, error) {
-	entityID := c.signedID(row.EntityID)
-	entity := c.visibility(ctx, entityReferences(row.EntityType, entityID))
+// getRevision returns the revision id, or datasources.ErrNotFound.
+func getRevision(ctx context.Context, q *queries.Queries, id int64) (queries.GetRevisionRow, error) {
+	if id < 1 {
+		return queries.GetRevisionRow{}, datasources.ErrNotFound
+	}
+	row, err := q.GetRevision(ctx, uint64(id))
+	if err != nil {
+		return queries.GetRevisionRow{}, lookupError("revision", err)
+	}
+
+	return row, nil
+}
+
+// entityIsPublic reports whether a revision's entity is public. It is decided before the revision's snapshots
+// are decoded, so a revision of an entity that is not public is not found whatever its snapshots hold.
+func (c *catalogueReader) entityIsPublic(ctx context.Context, row queries.GetRevisionRow) bool {
+	vis := c.visibility(ctx, entityReferences(row.EntityType, row.EntityID))
+	id := row.EntityID.Int64
+	_, piece := vis.Pieces[id]
+	_, person := vis.Persons[id]
+	_, term := vis.Terms[id]
+	_, collection := vis.Collections[id]
+	_, event := vis.Events[id]
+
+	return piece || person || term || collection || event
+}
+
+// revisionView returns the views of a revision, as its author sees it or, if moderator, as a moderator does, and
+// as the public sees it, which is nil if its entity is not public.
+func (c *catalogueReader) revisionView(
+	ctx context.Context, row queries.GetRevisionRow, moderator bool,
+) (domain.RevisionView, domain.Revision, error) {
+	entity := c.visibility(ctx, entityReferences(row.EntityType, row.EntityID))
 	if c.err != nil {
-		return nil, c.err
+		return nil, nil, c.err
 	}
 
 	switch row.EntityType {
 	case queries.RevisionsEntityTypePiece:
-		return entityRevision(ctx, c, row, entity.Pieces, pieceSnapshots)
+		return views(entityView(ctx, c, row, entity.Pieces, pieceSnapshots, moderator))
 	case queries.RevisionsEntityTypePerson:
-		// A person who prefers no page is public: their revisions show their identity only.
-		persons := maps.Clone(entity.Persons)
-		maps.Copy(persons, entity.NoPagePersons)
-		return entityRevision(ctx, c, row, persons, personSnapshots(entityID))
+		// A revision links to its own person's page, which a person who prefers no page has too.
+		persons := map[int64]domain.PersonSummary{}
+		if person, ok := entity.Persons[row.EntityID.Int64]; ok {
+			person.NoLink = false
+			persons[row.EntityID.Int64] = person
+		}
+		return views(entityView(ctx, c, row, persons, personSnapshots(row.EntityID.Int64), moderator))
 	case queries.RevisionsEntityTypeTerm:
-		return entityRevision(ctx, c, row, entity.Terms, termSnapshots)
+		return views(entityView(ctx, c, row, entity.Terms, termSnapshots, moderator))
 	case queries.RevisionsEntityTypeCollection:
 		collections := make(map[int64]domain.CollectionRef, len(entity.Collections))
 		for id, collection := range entity.Collections {
 			collections[id] = domain.CollectionRef{ID: collection.ID, Name: collection.Name}
 		}
-		return entityRevision(ctx, c, row, collections, collectionSnapshots)
+		return views(entityView(ctx, c, row, collections, collectionSnapshots, moderator))
 	case queries.RevisionsEntityTypeEvent:
-		return entityRevision(ctx, c, row, entity.Events, eventSnapshots)
+		return views(entityView(ctx, c, row, entity.Events, eventSnapshots, moderator))
 	default:
-		return nil, fmt.Errorf("%w [%s] of revision entity type", domain.ErrUnknownEnumValue, row.EntityType)
+		return nil, nil, fmt.Errorf("%w [%s] of revision entity type", domain.ErrUnknownEnumValue, row.EntityType)
 	}
 }
 
-// entityReferences returns the references of the entity of entityType with id alone.
-func entityReferences(entityType queries.RevisionsEntityType, id int64) domain.SnapshotReferences {
+// views returns a revision's view and its public form, nil if its entity is not public.
+func views[E, S any](
+	v domain.EntityRevisionView[E, S], err error,
+) (domain.RevisionView, domain.Revision, error) {
+	if err != nil {
+		return nil, nil, err
+	}
+	if v.Entity == nil {
+		return v, nil, nil
+	}
+
+	return v, v.Public(), nil
+}
+
+// entityReferences returns the references of the entity of entityType with id alone, none for no entity.
+func entityReferences(entityType queries.RevisionsEntityType, id sql.NullInt64) domain.SnapshotReferences {
 	var refs domain.SnapshotReferences
+	if !id.Valid {
+		return refs
+	}
 	switch entityType {
 	case queries.RevisionsEntityTypePiece:
-		refs.PieceIDs = append(refs.PieceIDs, id)
+		refs.PieceIDs = append(refs.PieceIDs, id.Int64)
 	case queries.RevisionsEntityTypePerson:
-		refs.PersonIDs = append(refs.PersonIDs, id)
+		refs.PersonIDs = append(refs.PersonIDs, id.Int64)
 	case queries.RevisionsEntityTypeTerm:
-		refs.TermIDs = append(refs.TermIDs, id)
+		refs.TermIDs = append(refs.TermIDs, id.Int64)
 	case queries.RevisionsEntityTypeCollection:
-		refs.CollectionIDs = append(refs.CollectionIDs, id)
+		refs.CollectionIDs = append(refs.CollectionIDs, id.Int64)
 	case queries.RevisionsEntityTypeEvent:
-		refs.EventIDs = append(refs.EventIDs, id)
+		refs.EventIDs = append(refs.EventIDs, id.Int64)
 	}
 
 	return refs
@@ -269,100 +312,189 @@ var (
 	}
 )
 
-// personSnapshots are the views of the documents of the person personID.
+// personSnapshots are the views of the documents of the person personID, or of a new person if it is 0, who is
+// shown as a person with a page.
 func personSnapshots(personID int64) snapshotKind[domain.PersonDocument, domain.PersonSnapshot] {
 	return snapshotKind[domain.PersonDocument, domain.PersonSnapshot]{
 		addReferences: func(d domain.PersonDocument, refs *domain.SnapshotReferences) {
 			d.AddReferences(personID, refs)
 		},
 		view: func(d domain.PersonDocument, vis domain.SnapshotVisibility) (domain.PersonSnapshot, error) {
+			if personID == 0 {
+				vis.Persons[0] = domain.PersonSummary{Name: d.Name}
+			}
 			return domain.NewPersonSnapshot(personID, d, vis)
 		},
 	}
 }
 
-// entityRevision decodes a revision's snapshot and base snapshot, loads the visibility of what they reference,
-// and returns the revision with their views. entities are the public entities of the revision's type, which it
-// returns datasources.ErrNotFound unless the revision's entity is among.
-func entityRevision[D domain.Document, E, S any](
-	ctx context.Context, c *catalogueReader, row queries.GetApprovedRevisionRow, entities map[int64]E,
-	kind snapshotKind[D, S],
-) (domain.Revision, error) {
-	entity, ok := entities[c.signedID(row.EntityID)]
-	if !ok {
-		return nil, datasources.ErrNotFound
+// entityView decodes a revision's snapshot, its base's and, for a moderator when the revision is stale, its
+// entity's current revision's, loads the visibility of what they reference, and returns the revision with their
+// views. entities are the public entities of the revision's type.
+func entityView[D domain.Document, E, S any](
+	ctx context.Context, c *catalogueReader, row queries.GetRevisionRow, entities map[int64]E,
+	kind snapshotKind[D, S], moderator bool,
+) (domain.EntityRevisionView[E, S], error) {
+	var view domain.EntityRevisionView[E, S]
+	if entity, ok := entities[row.EntityID.Int64]; ok && row.EntityID.Valid {
+		view.Entity = &entity
 	}
-
+	docs, err := revisionDocuments[D](ctx, c, row, moderator)
+	if err != nil {
+		return view, err
+	}
 	var refs domain.SnapshotReferences
-	snapshot, err := domain.DecodeDocument[D](row.SnapshotJson)
-	if err != nil {
-		return nil, fmt.Errorf("snapshot: %w", err)
+	for _, d := range docs {
+		if d != nil {
+			kind.addReferences(d.doc, &refs)
+		}
 	}
-	kind.addReferences(snapshot, &refs)
-
-	baseID, base, err := baseDocument[D](ctx, c, row.ID)
-	if err != nil {
-		return nil, err
-	}
-	if base != nil {
-		kind.addReferences(*base, &refs)
-	}
-
 	vis := c.visibility(ctx, refs)
 	if c.err != nil {
-		return nil, c.err
+		return view, c.err
 	}
 
-	revision := domain.EntityRevision[E, S]{
-		RevisionSummary: c.revisionSummary(c.contributors(ctx, []uint64{row.ID}), row.ID, row.Source,
-			row.Summary, row.CreatedAt, row.AuthorDisplayName),
-		Entity: entity,
+	view.RevisionSummary = c.revisionSummary(c.contributors(ctx, []uint64{row.ID}), row.ID, row.Source,
+		row.Summary, row.CreatedAt, row.AuthorDisplayName)
+	view.Status = enumOf[domain.RevisionStatus](c, row.Status)
+	view.ReviewNote = stringPtr(row.ReviewNote)
+	view.ReviewedAt = timePtr(row.ReviewedAt)
+	if view.Snapshot, err = kind.view(docs[0].doc, vis); err != nil {
+		return view, fmt.Errorf("snapshot: %w", err)
 	}
-	if revision.Snapshot, err = kind.view(snapshot, vis); err != nil {
-		return nil, fmt.Errorf("snapshot: %w", err)
+	if view.Base, err = documentView(docs[1], kind, vis); err != nil {
+		return view, err
 	}
-	if base != nil {
-		view, err := kind.view(*base, vis)
-		if err != nil {
-			return nil, fmt.Errorf("base snapshot [%d]: %w", baseID, err)
-		}
-		revision.Base = &domain.RevisionBase[S]{ID: baseID, Snapshot: view}
+	if view.Current, err = documentView(docs[2], kind, vis); err != nil {
+		return view, err
+	}
+	if moderator {
+		view.AuthorUserID = stringPtr(row.AuthorUserID)
+		view.PossibleDuplicates, err = newEntityDuplicates(ctx, c, row, docs[0].doc)
 	}
 
-	return revision, c.err
+	return view, errors.Join(err, c.err)
 }
 
-// baseDocument returns the ID and decoded snapshot of the base of the revision with id, or a nil document if it has
-// no base that is an approved revision of the same entity.
-func baseDocument[D domain.Document](ctx context.Context, c *catalogueReader, id uint64) (int64, *D, error) {
+// newEntityDuplicates returns the public entities a pending revision of a new entity may duplicate, and nil for any
+// other revision.
+func newEntityDuplicates[D domain.Document](
+	ctx context.Context, c *catalogueReader, row queries.GetRevisionRow, doc D,
+) ([]domain.DuplicateCandidate, error) {
+	if row.EntityID.Valid || row.Status != queries.RevisionsStatusPending {
+		return nil, nil
+	}
+
+	return c.possibleDuplicates(ctx, row.EntityType, document(doc))
+}
+
+// revisionDocuments returns a revision's document, its base's (nil for none) and, for a moderator when the
+// revision is stale, its entity's current revision's (nil otherwise).
+func revisionDocuments[D domain.Document](
+	ctx context.Context, c *catalogueReader, row queries.GetRevisionRow, moderator bool,
+) ([3]*revisionDocument[D], error) {
+	var docs [3]*revisionDocument[D]
+	var err error
+	if docs[0], err = decodeRevision[D](c.signedID(row.ID), row.SnapshotJson); err != nil {
+		return docs, err
+	}
+	if docs[1], err = baseDocument[D](ctx, c, row.ID); err != nil {
+		return docs, err
+	}
+	if moderator {
+		docs[2], err = staleCurrentDocument[D](ctx, c, row)
+	}
+
+	return docs, err
+}
+
+// revisionDocument is a revision's decoded snapshot.
+type revisionDocument[D domain.Document] struct {
+	id  int64
+	doc D
+}
+
+// documentView returns the view of a revision's document, or nil for no revision.
+func documentView[D domain.Document, S any](
+	d *revisionDocument[D], kind snapshotKind[D, S], vis domain.SnapshotVisibility,
+) (*domain.RevisionBase[S], error) {
+	if d == nil {
+		return nil, nil
+	}
+	view, err := kind.view(d.doc, vis)
+	if err != nil {
+		return nil, fmt.Errorf("snapshot [%d]: %w", d.id, err)
+	}
+
+	return &domain.RevisionBase[S]{ID: d.id, Snapshot: view}, nil
+}
+
+// baseDocument returns the base of the revision with id, or nil if it has no base that is an approved revision of
+// the same entity.
+func baseDocument[D domain.Document](ctx context.Context, c *catalogueReader, id uint64) (*revisionDocument[D], error) {
 	row, err := c.q.GetApprovedBaseRevision(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil, nil
+		return nil, nil
 	}
 	if err != nil {
-		return 0, nil, fmt.Errorf("fetching base revision: %w", err)
+		return nil, fmt.Errorf("fetching base revision: %w", err)
 	}
 
-	baseID := c.signedID(row.ID)
-	doc, err := domain.DecodeDocument[D](row.SnapshotJson)
+	return decodeRevision[D](c.signedID(row.ID), row.SnapshotJson)
+}
+
+// staleCurrentDocument returns the current revision of a revision's entity if the revision is stale, and nil
+// otherwise.
+func staleCurrentDocument[D domain.Document](
+	ctx context.Context, c *catalogueReader, row queries.GetRevisionRow,
+) (*revisionDocument[D], error) {
+	current, err := currentRevisionID(ctx, c.q, row.EntityType, row.EntityID)
+	if err != nil || !domain.IsStale(int64Ptr(row.BaseRevisionID), current) {
+		return nil, err
+	}
+	currentRow, err := getRevision(ctx, c.q, *current)
 	if err != nil {
-		return 0, nil, fmt.Errorf("base snapshot [%d]: %w", baseID, err)
+		return nil, fmt.Errorf("current revision [%d]: %w", *current, err)
 	}
 
-	return baseID, &doc, nil
+	return decodeRevision[D](*current, currentRow.SnapshotJson)
+}
+
+// currentRevisionID returns the current revision of the entity entityID of entityType, nil for none.
+func currentRevisionID(
+	ctx context.Context, q *queries.Queries, entityType queries.RevisionsEntityType, entityID sql.NullInt64,
+) (*int64, error) {
+	if !entityID.Valid || entityID.Int64 < 1 {
+		return nil, nil
+	}
+	current, err := q.GetCurrentRevisionID(ctx, queries.GetCurrentRevisionIDParams{EntityType: string(entityType),
+		ID: uint64(entityID.Int64)})
+	if err != nil {
+		return nil, fmt.Errorf("fetching current revision: %w", err)
+	}
+
+	return int64Ptr(current), nil
+}
+
+func decodeRevision[D domain.Document](id int64, snapshot []byte) (*revisionDocument[D], error) {
+	doc, err := domain.DecodeDocument[D](snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("snapshot [%d]: %w", id, err)
+	}
+
+	return &revisionDocument[D]{id: id, doc: doc}, nil
 }
 
 // visibility loads the current state of what refs references, running a query only for each kind of reference
 // there is.
 func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotReferences) domain.SnapshotVisibility {
 	vis := domain.SnapshotVisibility{
-		Pieces:        make(map[int64]domain.PieceSummary),
-		Persons:       make(map[int64]domain.PersonSummary),
-		NoPagePersons: make(map[int64]domain.PersonSummary),
-		Terms:         make(map[int64]domain.TermSummary),
-		Collections:   make(map[int64]domain.CollectionSummary),
-		Events:        make(map[int64]domain.EventSummary),
-		HiddenLinks:   make(map[string]bool),
+		Pieces:      make(map[int64]domain.PieceSummary),
+		Persons:     make(map[int64]domain.PersonSummary),
+		Terms:       make(map[int64]domain.TermSummary),
+		Collections: make(map[int64]domain.CollectionSummary),
+		Events:      make(map[int64]domain.EventSummary),
+		HiddenLinks: make(map[string]bool),
 	}
 
 	if ids := unsignedIDs(refs.PieceIDs); len(ids) > 0 {
@@ -394,9 +526,9 @@ func (c *catalogueReader) pieceVisibility(ctx context.Context, ids []uint64, vis
 	for _, row := range rows {
 		slugs = append(slugs, row.Slug)
 	}
-	kinds := c.secondaryKinds(ctx, slugs)
+	extras := c.summaryExtras(ctx, slugs)
 	for _, row := range rows {
-		vis.Pieces[c.signedID(row.ID)] = c.pieceSummary(kinds, row.Slug, row.Title, row.Kind, row.ConservationStatus,
+		vis.Pieces[c.signedID(row.ID)] = c.pieceSummary(extras, row.Slug, row.Title, row.Kind, row.ConservationStatus,
 			row.IsStub)
 	}
 }
@@ -424,7 +556,7 @@ func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis
 }
 
 // linkVisibility loads which of the referenced URLs' normalized forms are hidden links'. A URL that does not
-// normalize is dropped by the view itself. Normalized URLs are ASCII, so none is refused by the ASCII column
+// normalize has no link, and is shown. Normalized URLs are ASCII, so none is refused by the ASCII column
 // (MySQL error 3988).
 func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis *domain.SnapshotVisibility) {
 	normalized := make([]string, 0, len(urls))
@@ -442,20 +574,10 @@ func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis
 	}
 }
 
-// personVisibility loads the referenced public persons, with and without a page.
+// personVisibility loads the referenced public persons.
 func (c *catalogueReader) personVisibility(ctx context.Context, ids []uint64, vis *domain.SnapshotVisibility) {
 	for _, row := range fetch(ctx, c, "referenced persons", c.q.ListPublicPersonsByID, ids) {
-		id := c.signedID(row.ID)
-		status := enumOf[domain.PersonStatus](c, row.Status)
-		summary := domain.PersonSummary{
-			Slug: row.Slug, Name: row.Name, Kind: enumOf[domain.PersonKind](c, row.Kind),
-			IsStub: domain.PersonIsStub(row.IsStub, status),
-		}
-		if status == domain.PersonStatusPrefersNoPage {
-			vis.NoPagePersons[id] = summary
-		} else {
-			vis.Persons[id] = summary
-		}
+		vis.Persons[c.signedID(row.ID)] = c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub, row.Status)
 	}
 }
 

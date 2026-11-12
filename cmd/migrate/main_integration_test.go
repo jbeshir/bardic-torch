@@ -101,7 +101,7 @@ func setSchemaVersion(t *testing.T, databaseURL string, version uint, dirty bool
 
 	cfg, err := mysql.ConfigFromURL(databaseURL)
 	require.NoError(t, err)
-	db, err := mysql.Connect(t.Context(), cfg)
+	db, err := mysql.Connect(t.Context(), cfg, mysqltest.Pool())
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 

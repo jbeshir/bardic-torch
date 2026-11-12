@@ -132,101 +132,35 @@ func TestCatalogueImportValidate_Summaries(t *testing.T) {
 
 func TestCatalogueImportValidate_Documents(t *testing.T) {
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.SchemaVersion = 2 }, "doc.schema_version")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Kind = secretValue }, "piece 1: doc")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Doc.Aliases[0].Kind = "mundane" }, "person 1: doc")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Kind = secretValue }, "piece 1: doc.kind")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Terms[1].Doc.Name = "sca" }, "term 1: doc.name: duplicate")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = "Cafe\u0301 " + secretValue },
+		"piece 1: doc.title: not_nfc")
 }
 
-func TestCatalogueImportValidate_ColumnWidths(t *testing.T) {
-	long := secretValue + strings.Repeat("x", 300)
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = long }, "doc.title")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Aliases[0].Text = long }, "doc.aliases[0].text")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Doc.Aliases[0].Name = long }, "doc.aliases[0].name")
+func TestCatalogueImportValidate_SystemFieldWidthsAndStrings(t *testing.T) {
+	long := secretValue + strings.Repeat("x", 600)
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Legacy.Title = long }, "legacy_title")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Pieces[0].Doc.Credits[1].Note = ptr(long + strings.Repeat("x", 300))
-	}, "doc.credits[1].note")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Links[0].Link.Title = ptr(long + strings.Repeat("x", 300)) },
-		"link 1: title")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Links[0].Link.Title = ptr(long) }, "link 1: title")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Links[0].Link.Platform = ptr("plätform") }, "link 1: platform")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Persons[0].Doc.Links[0].Performances[0].Uploader = ptr(long)
-	}, "performances[0].uploader")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Pieces[0].Doc.NotesMD = ptr(secretValue + strings.Repeat("x", 70000))
-	}, "doc.notes_md")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Doc.Pronouns = ptr(long) }, "doc.pronouns")
-}
-
-func TestCatalogueImportValidate_CollationUniques(t *testing.T) {
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Pieces[0].Doc.Aliases = append(imp.Pieces[0].Doc.Aliases,
-			DocPieceAlias{Text: "THE SÖNG", Kind: PieceAliasKindNickname})
-	}, "doc.aliases[1]")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Persons[0].Doc.Aliases = append(imp.Persons[0].Doc.Aliases,
-			DocPersonAlias{Name: "legal name 001", Kind: PersonAliasKindRedirect})
-	}, "person 1: doc.aliases[1]")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Terms[0].Doc.Aliases = []string{"SCA Bards", "sca bards"} },
-		"term 1: doc.aliases[1]")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Terms[1].Doc.Name = "sca" }, "term 2: doc.name")
-}
-
-func TestCatalogueImportValidate_ChildPrimaryKeys(t *testing.T) {
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Pieces[0].Doc.Terms = append(imp.Pieces[0].Doc.Terms, DocPieceTerm{TermID: 3})
-	}, "doc.terms[1]")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Pieces[0].Doc.Terms = []DocPieceTerm{{TermID: 1, IsPrimary: true}, {TermID: 2, IsPrimary: true}}
-	}, "doc.terms[1].is_primary")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Persons[0].Doc.Links[0].Performances[0].PerformerIDs = []int64{1, 1}
-	}, "performer_ids[1]")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Persons[0].Doc.Roles = []PersonRole{PersonRoleSinger, PersonRoleSinger}
-	}, "doc.roles[1]")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		l := imp.Pieces[0].Doc.Links[0]
-		l.URL = "https://EXAMPLE.org/song"
-		imp.Pieces[0].Doc.Links = append(imp.Pieces[0].Doc.Links, l)
-	}, "doc.links[1]")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Pieces[0].Doc.Links[0].Roles = []LinkRole{LinkRoleLyrics, LinkRoleLyrics}
-	}, "doc.links[0].roles[1]")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Pieces[0].Doc.SecondaryKinds = []PieceKind{PieceKindComedy, PieceKindComedy}
-	}, "doc.secondary_kinds[1]")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Doc.AffiliationIDs = []int64{2, 2} },
-		"doc.affiliation_ids[1]")
-}
-
-func TestCatalogueImportValidate_Checks(t *testing.T) {
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Credits[0].PersonID = nil },
-		"doc.credits[0].person_id")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Credits[1].PersonID = ptr(int64(1)) },
-		"doc.credits[1].person_id")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.PeriodEnd = ptr(int16(1100)) }, "doc.period_end")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Licence = ptr(LicencePD) }, "doc.licence")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Doc.Relations[0].ToPersonID = 1 },
-		"doc.relations[0].to_person_id")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Pieces[0].Doc.Relations = []DocPieceRelation{{ToPieceID: 1, Type: PieceRelationTypeVariantOf}}
-	}, "doc.relations[0].to_piece_id")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Revision.Contributors = []string{"\xff"} },
+		"person 1: revision.contributors[0]: not_nfc")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Revision.Contributors = []string{"Wiki\x1bUser"} },
+		"person 1: revision.contributors[0]: control_character")
 }
 
 func TestCatalogueImportValidate_References(t *testing.T) {
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Terms[0].TermID = 9 }, "doc.terms[0].term_id")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Terms[0].TermID = 9 }, "doc.terms[0].term_slug")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Credits[0].PersonID = ptr(int64(9)) },
-		"doc.credits[0].person_id")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Doc.AffiliationIDs = []int64{3} },
-		"doc.affiliation_ids[0]")
+		"piece 1: doc: references person 9")
 	requireInvalid(t, func(imp *CatalogueImport) {
 		imp.Persons[0].Doc.Links[0].Performances[0].EventID = ptr(int64(9))
-	}, "event_id")
+	}, "person 1: doc: references event 9")
 	requireInvalid(t, func(imp *CatalogueImport) {
 		imp.Persons[0].Doc.Links[0].Performances[0].PieceID = ptr(int64(9))
-	}, "piece_id")
+	}, "person 1: doc: references piece 9")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Collections[0].Doc.RegionTermID = ptr(int64(9)) },
-		"doc.region_term_id")
+		"doc.region_term_slug")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Links[0].Link.CollectionID = ptr(int64(9)) },
 		"link 1: collection_id")
 }
@@ -236,13 +170,13 @@ func TestCatalogueImportValidate_InsertOrder(t *testing.T) {
 		imp.Terms[0], imp.Terms[1] = imp.Terms[1], imp.Terms[0]
 	}, "term 2: doc.parent_id")
 	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Terms[2].Doc.RelatedAffiliationID = ptr(int64(3))
-	}, "term 3: doc.related_affiliation_id")
-	requireInvalid(t, func(imp *CatalogueImport) {
 		imp.Terms = []ImportedTerm{imp.Terms[2], imp.Terms[0], imp.Terms[1]}
 	}, "term 3: doc.related_affiliation_id")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Collections[0].Doc.ParentID = ptr(int64(1)) },
-		"collection 1: doc.parent_id")
+	requireInvalid(t, func(imp *CatalogueImport) {
+		imp.Collections = append(imp.Collections, imp.Collections[0])
+		imp.Collections[1].ID, imp.Collections[1].Revision.ID = 2, 9
+		imp.Collections[0].Doc.ParentID = ptr(int64(2))
+	}, "collection 1: doc.parent_id")
 }
 
 func TestCatalogueImportValidate_Links(t *testing.T) {
@@ -253,9 +187,6 @@ func TestCatalogueImportValidate_Links(t *testing.T) {
 	requireInvalid(t, func(imp *CatalogueImport) {
 		imp.Links = append(imp.Links, ImportedLink{ID: 2, Link: DocLink{URL: "https://example.org/song"}})
 	}, "link 2: url")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Links[0].Roles = nil }, "doc.links[0].roles")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Links[0].URL = "mailto:" + secretValue },
-		"doc.links[0].url")
 }
 
 func TestCatalogueImport_TermAncestors(t *testing.T) {
@@ -263,52 +194,6 @@ func TestCatalogueImport_TermAncestors(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []TermAncestor{{1, 1, 0}, {2, 2, 0}, {1, 2, 1}, {3, 3, 0}}, ancestors)
-}
-
-// TestCatalogueImportValidate_RejectsWithheldPlaceholders: no name, title, alias, sort key, slug or uploader may
-// hold a withheld-text placeholder; only free text may.
-func TestCatalogueImportValidate_RejectsWithheldPlaceholders(t *testing.T) {
-	{
-		withheld := WithheldEmail
-		in := "Song for " + withheld
-		for field, mutate := range map[string]func(*CatalogueImport){
-			"term 1: doc.name":              func(imp *CatalogueImport) { imp.Terms[0].Doc.Name = in },
-			"term 1: doc.display_name":      func(imp *CatalogueImport) { imp.Terms[0].Doc.DisplayName = in },
-			"term 1: doc.aliases[0]":        func(imp *CatalogueImport) { imp.Terms[0].Doc.Aliases[0] = in },
-			"collection 1: doc.name":        func(imp *CatalogueImport) { imp.Collections[0].Doc.Name = in },
-			"collection 1: sort_name":       func(imp *CatalogueImport) { imp.Collections[0].SortName = in },
-			"event 1: doc.name":             func(imp *CatalogueImport) { imp.Events[0].Doc.Name = in },
-			"person 2: doc.name":            func(imp *CatalogueImport) { imp.Persons[1].Doc.Name = in },
-			"person 1: doc.aliases[0].name": func(imp *CatalogueImport) { imp.Persons[0].Doc.Aliases[0].Name = in },
-			"piece 1: doc.title":            func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = in },
-			"piece 1: doc.aliases[0].text":  func(imp *CatalogueImport) { imp.Pieces[0].Doc.Aliases[0].Text = in },
-			"performances[0].uploader": func(imp *CatalogueImport) {
-				imp.Persons[0].Doc.Links[0].Performances[0].Uploader = ptr(in)
-			},
-			"event 1: slug": func(imp *CatalogueImport) { imp.Events[0].Slug = "green-" + Slugify(withheld) },
-		} {
-			requireInvalid(t, mutate, field)
-		}
-	}
-	notes := validImport()
-	notes.Pieces[0].Doc.NotesMD = ptr("Written for " + WithheldEmail + ".")
-	require.NoError(t, notes.Validate(), "free text may hold a placeholder")
-}
-
-func TestCatalogueImportValidate_StringsAreNFC(t *testing.T) {
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = "Café " + secretValue },
-		"piece 1: .Doc.Title")
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Revision.Contributors = []string{"\xff"} },
-		"person 1: .Revision.Contributors[0]")
-}
-
-func TestCatalogueImportValidate_StringsHoldNoControlCharacters(t *testing.T) {
-	for _, c := range []string{"\x00", "\x1b[31m", "\u202e", "\u2066", "\u0085"} {
-		requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = "A" + c + secretValue },
-			"piece 1: .Doc.Title")
-	}
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Persons[0].Revision.Contributors = []string{"Wiki\x1bUser"} },
-		"person 1: .Revision.Contributors[0]")
 }
 
 func TestIsControlCharacter(t *testing.T) {

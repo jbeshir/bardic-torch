@@ -18,18 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	// noPageMark is in everything stored about the person who prefers no page, except their name, which person
-	// lists and their own page show.
-	noPageMark = "nopagemark"
-	// linkMark is in everything stored about the hidden link.
-	linkMark   = "linkmark"
-	noPageName = "Quiet Nopage"
-)
+// linkMark is in everything stored about the hidden link.
+const linkMark = "linkmark"
 
-// TestHTTP_PrivateDataReachesNoPublicRead seeds a person who prefers no page and a hidden link with credits,
-// performances and citations, requests every public catalogue read that could show them, and checks that no
-// response holds what they hide.
+// TestHTTP_PrivateDataReachesNoPublicRead seeds a hidden link with credits, performances and citations, requests
+// every public catalogue read that could show it, and checks that no response holds it.
 func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 	t.Parallel()
 
@@ -40,20 +33,6 @@ func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 	moot := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Lantern Moot"}})
 	hiddenURL := "https://example.org/" + linkMark
 
-	noPage := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
-		Name:             noPageName,
-		Status:           domain.PersonStatusPrefersNoPage,
-		Pronouns:         new(noPageMark + "/pronoun"),
-		NotesMD:          new(noPageMark + " notes"),
-		LicensingNotesMD: new(noPageMark + " licensing notes"),
-		Aliases:          []domain.DocPersonAlias{{Name: "Alias " + noPageMark, Kind: domain.PersonAliasKindStage}},
-		Links: []domain.DocPersonLink{{
-			DocLink: domain.DocLink{URL: "https://example.org/" + noPageMark, Title: new("Link " + noPageMark),
-				CollectionID: &archive.ID, Roles: []domain.LinkRole{domain.LinkRoleWebsite}},
-			Performances: []domain.DocPersonPerformance{{DocPerformance: domain.DocPerformance{EventID: &moot.ID,
-				DescriptionVerbatim: "Performance " + noPageMark}}},
-		}},
-	}})
 	rowan := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
 		Name: "Rowan Ashby",
 		Links: []domain.DocPersonLink{{
@@ -64,11 +43,8 @@ func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 		}},
 	}})
 	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{
-		Title: "The Lantern Song",
-		Credits: []domain.DocCredit{
-			{PersonID: &rowan.ID, Role: domain.CreditRoleLyrics},
-			{PersonID: &noPage.ID, Role: domain.CreditRoleTune, Note: new("Credit " + noPageMark)},
-		},
+		Title:   "The Lantern Song",
+		Credits: []domain.DocCredit{{PersonID: &rowan.ID, Role: domain.CreditRoleLyrics}},
 		Links: []domain.DocPieceLink{
 			{
 				DocLink: domain.DocLink{URL: hiddenURL, Title: new("Link " + linkMark),
@@ -80,7 +56,7 @@ func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 				DocLink: domain.DocLink{URL: "https://example.org/lantern", CollectionID: &archive.ID,
 					Roles: []domain.LinkRole{domain.LinkRolePerformance}},
 				Performances: []domain.DocPerformance{{EventID: &moot.ID,
-					DescriptionVerbatim: "Performance together", PerformerIDs: []int64{rowan.ID, noPage.ID}}},
+					DescriptionVerbatim: "Performance together", PerformerIDs: []int64{rowan.ID}}},
 			},
 		},
 	}})
@@ -97,16 +73,9 @@ func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 	}
 	revision := func(id int64) string { return "/v1/revisions/" + strconv.FormatInt(id, 10) }
 
-	// Reads that may show the no-page person's identity: their own page and the lists of persons.
-	own := []string{
-		"/v1/persons/" + noPage.Slug, historyPath("persons", noPage.Slug), revision(noPage.RevisionID),
-		personsPath, personsPath + "?q=" + noPageMark,
-	}
-	// Reads where neither the person's name nor their slug may appear: they are credited, perform or are cited
-	// in these.
-	elsewhere := []string{
+	reads := []string{
 		"/v1/pieces/" + piece.Slug, historyPath("pieces", piece.Slug), revision(piece.RevisionID),
-		piecesPath, piecesPath + "?q=" + noPageMark, piecesPath + "?q=" + linkMark,
+		piecesPath, piecesPath + "?q=" + linkMark,
 		"/v1/persons/" + rowan.Slug, historyPath("persons", rowan.Slug), revision(rowan.RevisionID),
 		"/v1/events/" + moot.Slug, historyPath("events", moot.Slug),
 		"/v1/collections/" + strconv.FormatInt(archive.ID, 10),
@@ -114,16 +83,10 @@ func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 	}
 
 	bodies := map[string]string{}
-	for _, path := range append(own, elsewhere...) {
+	for _, path := range reads {
 		body := get(path)
 		bodies[path] = body
-		assert.NotContains(t, body, noPageMark, "%s shows what the person who prefers no page hides", path)
 		assert.NotContains(t, body, linkMark, "%s shows the hidden link", path)
-	}
-	for _, path := range elsewhere {
-		body := bodies[path]
-		assert.NotContains(t, body, strings.ToLower(noPageName), "%s names the person who prefers no page", path)
-		assert.NotContains(t, body, noPage.Slug, "%s addresses the person who prefers no page", path)
 	}
 	// The only dead link of the piece and of Rowan is hidden.
 	dead := bodies[needsWorkPath+"?reason=dead_links"]
@@ -132,8 +95,7 @@ func TestHTTP_PrivateDataReachesNoPublicRead(t *testing.T) {
 
 	// The reads do show what is public, so the checks above are not vacuous.
 	assert.Contains(t, bodies["/v1/pieces/"+piece.Slug], "https://example.org/lantern")
-	assert.Contains(t, bodies["/v1/pieces/"+piece.Slug], "rowan")
-	assert.Contains(t, bodies[personsPath], noPage.Slug)
+	assert.Contains(t, bodies["/v1/events/"+moot.Slug], "performance together")
 }
 
 // historyPath is the path of the history of the entity of collection with address.

@@ -13,4 +13,6 @@ type Repository interface {
 	Pinger
 	Users
 	Catalogue
+	Moderation
+	Revisions
 }

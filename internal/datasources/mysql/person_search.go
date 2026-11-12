@@ -77,7 +77,7 @@ const (
 	personMatchedEnd sqlFragment = ") hits GROUP BY hits.person_id), "
 	personCandidates sqlFragment = "candidates AS (SELECT p.id, p.slug, p.name, p.sort_name, p.sort_letter, " +
 		"p.kind, p.status, p.is_stub"
-	personHasPage sqlFragment = " AND EXISTS (SELECT 1 FROM listed_persons lp WHERE lp.id = p.id)"
+	personListed  sqlFragment = " AND EXISTS (SELECT 1 FROM listed_persons lp WHERE lp.id = p.id)"
 	personHasRole sqlFragment = " AND EXISTS (SELECT 1 FROM person_roles r " +
 		"WHERE r.person_id = p.id AND r.role IN ("
 	personAffiliated sqlFragment = " AND EXISTS (SELECT 1 FROM person_affiliations pa " +
@@ -115,12 +115,12 @@ func (ps personSearch) writeWith(s *statement) {
 		s.write(")")
 	}
 	if len(q.Roles) > 0 {
-		s.write(personHasPage, personHasRole)
+		s.write(personListed, personHasRole)
 		list(s, q.Roles)
 		s.write("))")
 	}
 	if ps.affiliationID != nil {
-		s.write(personHasPage, personAffiliated)
+		s.write(personListed, personAffiliated)
 		s.arg(*ps.affiliationID)
 		s.write(")")
 	}
@@ -167,8 +167,8 @@ func (c *catalogueReader) personSearchItems(ctx context.Context, s *statement) [
 		if err := scan(&slug, &name, &kind, &status, &isStub); err != nil {
 			return err
 		}
-		persons = append(persons, c.personSummary(slug, name, kind,
-			domain.PersonIsStub(isStub, enumOf[domain.PersonStatus](c, status))))
+		persons = append(persons, domain.PersonSummary{Slug: slug, Name: name, Kind: enumOf[domain.PersonKind](c, kind),
+			IsStub: domain.PersonIsStub(isStub, enumOf[domain.PersonStatus](c, status))})
 		return nil
 	})
 

@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -13,6 +14,7 @@ import (
 type Event struct {
 	EventSummary
 
+	UpdatedAt         time.Time          `json:"updated_at"`
 	DescriptionMD     *string            `json:"description_md"`
 	Performances      []EventPerformance `json:"performances"`
 	PerformancesTotal int64              `json:"performances_total"`
@@ -55,6 +57,7 @@ func (c EventGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func eventFromDomain(e domain.Event) Event {
 	return Event{
 		EventSummary:  eventSummaryFromDomain(e.EventSummary),
+		UpdatedAt:     e.UpdatedAt,
 		DescriptionMD: e.DescriptionMD,
 		Performances: mapSlice(e.Performances, func(p domain.EventPerformance) EventPerformance {
 			return EventPerformance{

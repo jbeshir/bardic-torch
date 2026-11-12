@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/testutil/mysqltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,4 +40,17 @@ func TestConnect_SelectTimeLimit(t *testing.T) {
 	var slept int64
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT slept FROM probe_writes").Scan(&slept))
 	assert.Equal(t, int64(0), slept)
+}
+
+// TestProductionPool_IsBounded checks that the application's pool has the open-connection cap it was given.
+func TestProductionPool_IsBounded(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := mysql.ConfigFromURL(mysqltest.NewDatabaseURL(t))
+	require.NoError(t, err)
+	db, err := mysql.Connect(t.Context(), cfg, mysql.ProductionPool())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	assert.Equal(t, mysql.ProductionPool().MaxOpenConns, db.Stats().MaxOpenConnections)
 }

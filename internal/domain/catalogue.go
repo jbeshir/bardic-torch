@@ -1,5 +1,7 @@
 package domain
 
+import "strings"
+
 // The catalogue's vocabularies. Each type mirrors a MySQL ENUM column (see migrations 003–008) or a request
 // parameter; the integration test TestMigrations_EnumColumns keeps the two in step. Types parsed from requests
 // have a Parse function; the others are only read from the database and from snapshot documents. Each type's values
@@ -197,7 +199,8 @@ const (
 	PersonStatusActive PersonStatus = "active"
 	// PersonStatusDeceased is a person who has died.
 	PersonStatusDeceased PersonStatus = "deceased"
-	// PersonStatusPrefersNoPage is a person who asked not to have a page: only their identity is shown.
+	// PersonStatusPrefersNoPage is a person who asked not to have a page: their page shows only their identity, and
+	// references to them name them without a link.
 	PersonStatusPrefersNoPage PersonStatus = "prefers_no_page"
 )
 
@@ -336,6 +339,25 @@ const (
 	// LicenceOther is any other licence.
 	LicenceOther Licence = "other"
 )
+
+// LicenceVersion is the version of a Creative Commons licence.
+type LicenceVersion string
+
+const (
+	// LicenceVersion10 is version 1.0.
+	LicenceVersion10 LicenceVersion = "1.0"
+	// LicenceVersion20 is version 2.0.
+	LicenceVersion20 LicenceVersion = "2.0"
+	// LicenceVersion25 is version 2.5.
+	LicenceVersion25 LicenceVersion = "2.5"
+	// LicenceVersion30 is version 3.0.
+	LicenceVersion30 LicenceVersion = "3.0"
+	// LicenceVersion40 is version 4.0.
+	LicenceVersion40 LicenceVersion = "4.0"
+)
+
+// IsCC reports whether l is a Creative Commons licence, the only kind that has a version.
+func (l Licence) IsCC() bool { return strings.HasPrefix(string(l), "cc_") }
 
 // PieceAliasKind is what sort of alternative title a piece alias is.
 type PieceAliasKind string
@@ -553,4 +575,14 @@ const (
 // ParsePersonSort returns the PersonSort named by s, or an error if s is not a known person order.
 func ParsePersonSort(s string) (PersonSort, error) {
 	return parseEnum[PersonSort](s, "person sort")
+}
+
+// VisibleLicenceVersion returns v if l is a Creative Commons licence and nil otherwise: a version is shown only
+// beside one.
+func VisibleLicenceVersion(l *Licence, v *LicenceVersion) *LicenceVersion {
+	if l == nil || !l.IsCC() {
+		return nil
+	}
+
+	return v
 }

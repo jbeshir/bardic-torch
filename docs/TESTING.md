@@ -21,7 +21,7 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
 ## Tiers
 
 - **Unit tests (no build tag; `go test -short ./...`).** Domain rules in `internal/domain`: revision states,
-  validation, sourced fields, the duplicate key, the stale check, URL normalisation, the snapshot views (pure
+  validation, licensing sources, the duplicate key, the stale check, URL normalisation, the snapshot views (pure
   functions over a hand-built `SnapshotVisibility`), the search tokeniser, and `TestSpec_EnumSchemasMatchDomain`
   (every enum schema in `openapi/api.yaml` lists the domain's values). Commands (`internal/command`) and controllers run over the one fake below.
 - **Route table (`internal/transport/web/router/routes_test.go`).** One row per spec operation: who may call it
@@ -37,15 +37,15 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
   `TestSpec_ResponseObjectsAreClosed`). Use it for any test of a spec operation. Controller tests of list queries
   assert one case per rule (`list_query_test.go`), not per status.
 - **Integration tests (`//go:build integration`, `go test -tags integration`).** Real MySQL 8.4 through
-  `internal/testutil/mysqltest`, which gives each test its own migrated database (24 tables, four with FULLTEXT
+  `internal/testutil/mysqltest`, which gives each test its own migrated database (25 tables, four with FULLTEXT
   indexes), and `internal/testutil/catalogtest`, which seeds catalogue rows. They cover the queries, the approval
   write, the search, the redaction of revision views, `TestMigrations_UpDownUp` and the other schema checks, and
   `TestHTTP_EndToEnd` for the flows. `document_coverage_integration_test.go` requires every document field to map
   to a column or be listed as excluded.
-- **Leak test (`internal/app/leak_matrix_integration_test.go`).** One test seeds a "prefers no page" person and a
-  hidden link with credits, performances and citations, requests the public reads that could show them (piece,
-  person, event and collection pages, lists and search, history, revisions, needs-work) and checks no response holds
-  what they hide. A new public read that could show them is added to its request list.
+- **Leak test (`internal/app/leak_matrix_integration_test.go`).** One test seeds a hidden link with credits,
+  performances and citations, requests the public reads that could show it (piece, person, event and collection
+  pages, lists and search, history, revisions, needs-work) and checks no response holds it. A new public read that
+  could show it is added to its request list.
 - **Importer tests (`internal/mediawiki`, `internal/importer`).** They run on synthetic wikis and on the committed
   scrubbed dump in `testdata/wiki-dump`, which is frozen: it is never regenerated, and the real crawl, which holds
   the wiki's lyrics, is never committed. Counts (`TestBuild_ResearchCounts` and the per-parser count tests) pin what

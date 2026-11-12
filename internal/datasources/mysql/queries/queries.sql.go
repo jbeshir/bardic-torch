@@ -32,6 +32,31 @@ func (q *Queries) BlockUser(ctx context.Context, arg BlockUserParams) (int64, er
 	return result.RowsAffected()
 }
 
+const closeContactRequest = `-- name: CloseContactRequest :exec
+UPDATE contact_requests
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ?
+`
+
+type CloseContactRequestParams struct {
+	Status           ContactRequestsStatus
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+	ID               uint64
+}
+
+func (q *Queries) CloseContactRequest(ctx context.Context, arg CloseContactRequestParams) error {
+	_, err := q.db.ExecContext(ctx, closeContactRequest,
+		arg.Status,
+		arg.ResolvedByUserID,
+		arg.ResolvedAt,
+		arg.ResolutionNote,
+		arg.ID,
+	)
+	return err
+}
+
 const countApprovedRevisions = `-- name: CountApprovedRevisions :one
 SELECT COUNT(*)
 FROM revisions
@@ -40,11 +65,51 @@ WHERE entity_type = ? AND entity_id = ? AND status = 'approved'
 
 type CountApprovedRevisionsParams struct {
 	EntityType RevisionsEntityType
-	EntityID   uint64
+	EntityID   sql.NullInt64
 }
 
 func (q *Queries) CountApprovedRevisions(ctx context.Context, arg CountApprovedRevisionsParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countApprovedRevisions, arg.EntityType, arg.EntityID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countAuthorRevisions = `-- name: CountAuthorRevisions :one
+SELECT COUNT(*)
+FROM revisions
+WHERE author_user_id = ? AND (? IS NULL OR status = ?)
+`
+
+type CountAuthorRevisionsParams struct {
+	AuthorUserID sql.NullString
+	Status       NullRevisionsStatus
+}
+
+func (q *Queries) CountAuthorRevisions(ctx context.Context, arg CountAuthorRevisionsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAuthorRevisions, arg.AuthorUserID, arg.Status, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countContactRequests = `-- name: CountContactRequests :one
+SELECT COUNT(*) FROM contact_requests WHERE status = ?
+`
+
+func (q *Queries) CountContactRequests(ctx context.Context, status ContactRequestsStatus) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countContactRequests, status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPendingRevisions = `-- name: CountPendingRevisions :one
+SELECT COUNT(*) FROM revisions WHERE status = 'pending'
+`
+
+func (q *Queries) CountPendingRevisions(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPendingRevisions)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -143,6 +208,134 @@ func (q *Queries) CountPublicPersonWorks(ctx context.Context, personID sql.NullI
 	return count, err
 }
 
+const deleteLinkAttachments = `-- name: DeleteLinkAttachments :exec
+DELETE FROM link_attachments WHERE piece_id <=> ? AND person_id <=> ?
+`
+
+type DeleteLinkAttachmentsParams struct {
+	PieceID  sql.NullInt64
+	PersonID sql.NullInt64
+}
+
+func (q *Queries) DeleteLinkAttachments(ctx context.Context, arg DeleteLinkAttachmentsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteLinkAttachments, arg.PieceID, arg.PersonID)
+	return err
+}
+
+const deleteOwnedPerformances = `-- name: DeleteOwnedPerformances :exec
+DELETE FROM performances
+WHERE owner_piece_id <=> ? AND owner_person_id <=> ?
+`
+
+type DeleteOwnedPerformancesParams struct {
+	OwnerPieceID  sql.NullInt64
+	OwnerPersonID sql.NullInt64
+}
+
+func (q *Queries) DeleteOwnedPerformances(ctx context.Context, arg DeleteOwnedPerformancesParams) error {
+	_, err := q.db.ExecContext(ctx, deleteOwnedPerformances, arg.OwnerPieceID, arg.OwnerPersonID)
+	return err
+}
+
+const deletePersonAffiliations = `-- name: DeletePersonAffiliations :exec
+DELETE FROM person_affiliations WHERE person_id = ?
+`
+
+func (q *Queries) DeletePersonAffiliations(ctx context.Context, personID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonAffiliations, personID)
+	return err
+}
+
+const deletePersonAliases = `-- name: DeletePersonAliases :exec
+DELETE FROM person_aliases WHERE person_id = ?
+`
+
+func (q *Queries) DeletePersonAliases(ctx context.Context, personID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonAliases, personID)
+	return err
+}
+
+const deletePersonRelations = `-- name: DeletePersonRelations :exec
+DELETE FROM person_relations WHERE from_person_id = ?
+`
+
+func (q *Queries) DeletePersonRelations(ctx context.Context, fromPersonID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonRelations, fromPersonID)
+	return err
+}
+
+const deletePersonRoles = `-- name: DeletePersonRoles :exec
+DELETE FROM person_roles WHERE person_id = ?
+`
+
+func (q *Queries) DeletePersonRoles(ctx context.Context, personID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePersonRoles, personID)
+	return err
+}
+
+const deletePieceAliases = `-- name: DeletePieceAliases :exec
+DELETE FROM piece_aliases WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePieceAliases(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceAliases, pieceID)
+	return err
+}
+
+const deletePieceCredits = `-- name: DeletePieceCredits :exec
+DELETE FROM piece_credits WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePieceCredits(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceCredits, pieceID)
+	return err
+}
+
+const deletePieceRelations = `-- name: DeletePieceRelations :exec
+DELETE FROM piece_relations WHERE from_piece_id = ?
+`
+
+func (q *Queries) DeletePieceRelations(ctx context.Context, fromPieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceRelations, fromPieceID)
+	return err
+}
+
+const deletePieceSecondaryKinds = `-- name: DeletePieceSecondaryKinds :exec
+DELETE FROM piece_secondary_kinds WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePieceSecondaryKinds(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceSecondaryKinds, pieceID)
+	return err
+}
+
+const deletePieceTerms = `-- name: DeletePieceTerms :exec
+DELETE FROM piece_terms WHERE piece_id = ?
+`
+
+func (q *Queries) DeletePieceTerms(ctx context.Context, pieceID uint64) error {
+	_, err := q.db.ExecContext(ctx, deletePieceTerms, pieceID)
+	return err
+}
+
+const deleteTermAliases = `-- name: DeleteTermAliases :exec
+DELETE FROM term_aliases WHERE term_id = ?
+`
+
+func (q *Queries) DeleteTermAliases(ctx context.Context, termID uint64) error {
+	_, err := q.db.ExecContext(ctx, deleteTermAliases, termID)
+	return err
+}
+
+const deleteTermAncestors = `-- name: DeleteTermAncestors :exec
+DELETE FROM term_ancestors
+`
+
+func (q *Queries) DeleteTermAncestors(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteTermAncestors)
+	return err
+}
+
 const getApprovedBaseRevision = `-- name: GetApprovedBaseRevision :one
 
 SELECT b.id, b.snapshot_json
@@ -164,47 +357,135 @@ func (q *Queries) GetApprovedBaseRevision(ctx context.Context, id uint64) (GetAp
 	return i, err
 }
 
-const getApprovedRevision = `-- name: GetApprovedRevision :one
-SELECT r.id, r.entity_type, r.entity_id, r.source, r.summary, r.created_at, r.snapshot_json,
-    u.display_name AS author_display_name
-FROM revisions r
-LEFT JOIN users u ON u.id = r.author_user_id
-WHERE r.id = ? AND r.status = 'approved'
+const getApprovedRevisionEntity = `-- name: GetApprovedRevisionEntity :one
+SELECT entity_id FROM revisions WHERE id = ? AND entity_type = ? AND status = 'approved'
 `
 
-type GetApprovedRevisionRow struct {
-	ID                uint64
-	EntityType        RevisionsEntityType
-	EntityID          uint64
-	Source            RevisionsSource
-	Summary           string
-	CreatedAt         time.Time
-	SnapshotJson      json.RawMessage
-	AuthorDisplayName sql.NullString
+type GetApprovedRevisionEntityParams struct {
+	ID         uint64
+	EntityType RevisionsEntityType
 }
 
-func (q *Queries) GetApprovedRevision(ctx context.Context, id uint64) (GetApprovedRevisionRow, error) {
-	row := q.db.QueryRowContext(ctx, getApprovedRevision, id)
-	var i GetApprovedRevisionRow
+func (q *Queries) GetApprovedRevisionEntity(ctx context.Context, arg GetApprovedRevisionEntityParams) (sql.NullInt64, error) {
+	row := q.db.QueryRowContext(ctx, getApprovedRevisionEntity, arg.ID, arg.EntityType)
+	var entity_id sql.NullInt64
+	err := row.Scan(&entity_id)
+	return entity_id, err
+}
+
+const getContactRequestStatus = `-- name: GetContactRequestStatus :one
+SELECT status FROM contact_requests WHERE id = ?
+`
+
+func (q *Queries) GetContactRequestStatus(ctx context.Context, id uint64) (ContactRequestsStatus, error) {
+	row := q.db.QueryRowContext(ctx, getContactRequestStatus, id)
+	var status ContactRequestsStatus
+	err := row.Scan(&status)
+	return status, err
+}
+
+const getCurrentRevisionID = `-- name: GetCurrentRevisionID :one
+SELECT x.current_revision_id FROM pieces x WHERE ? = 'piece' AND x.id = ?
+UNION ALL SELECT x.current_revision_id FROM persons x WHERE ? = 'person' AND x.id = ?
+UNION ALL SELECT x.current_revision_id FROM terms x WHERE ? = 'term' AND x.id = ?
+UNION ALL SELECT x.current_revision_id FROM collections x WHERE ? = 'collection' AND x.id = ?
+UNION ALL SELECT x.current_revision_id FROM events x WHERE ? = 'event' AND x.id = ?
+`
+
+type GetCurrentRevisionIDParams struct {
+	EntityType interface{}
+	ID         uint64
+}
+
+func (q *Queries) GetCurrentRevisionID(ctx context.Context, arg GetCurrentRevisionIDParams) (sql.NullInt64, error) {
+	row := q.db.QueryRowContext(ctx, getCurrentRevisionID,
+		arg.EntityType,
+		arg.ID,
+		arg.EntityType,
+		arg.ID,
+		arg.EntityType,
+		arg.ID,
+		arg.EntityType,
+		arg.ID,
+		arg.EntityType,
+		arg.ID,
+	)
+	var current_revision_id sql.NullInt64
+	err := row.Scan(&current_revision_id)
+	return current_revision_id, err
+}
+
+const getModerationLink = `-- name: GetModerationLink :one
+SELECT id, url, title, liveness, is_hidden FROM links WHERE normalized_url = ?
+`
+
+type GetModerationLinkRow struct {
+	ID       uint64
+	Url      string
+	Title    sql.NullString
+	Liveness LinksLiveness
+	IsHidden bool
+}
+
+func (q *Queries) GetModerationLink(ctx context.Context, normalizedUrl string) (GetModerationLinkRow, error) {
+	row := q.db.QueryRowContext(ctx, getModerationLink, normalizedUrl)
+	var i GetModerationLinkRow
 	err := row.Scan(
 		&i.ID,
-		&i.EntityType,
-		&i.EntityID,
-		&i.Source,
-		&i.Summary,
-		&i.CreatedAt,
-		&i.SnapshotJson,
-		&i.AuthorDisplayName,
+		&i.Url,
+		&i.Title,
+		&i.Liveness,
+		&i.IsHidden,
 	)
 	return i, err
+}
+
+const getOwnPendingRevision = `-- name: GetOwnPendingRevision :one
+SELECT id, base_revision_id, snapshot_json
+FROM revisions
+WHERE entity_type = ? AND entity_id = ? AND author_user_id = ? AND status = 'pending'
+ORDER BY id DESC
+LIMIT 1
+`
+
+type GetOwnPendingRevisionParams struct {
+	EntityType   RevisionsEntityType
+	EntityID     sql.NullInt64
+	AuthorUserID sql.NullString
+}
+
+type GetOwnPendingRevisionRow struct {
+	ID             uint64
+	BaseRevisionID sql.NullInt64
+	SnapshotJson   json.RawMessage
+}
+
+func (q *Queries) GetOwnPendingRevision(ctx context.Context, arg GetOwnPendingRevisionParams) (GetOwnPendingRevisionRow, error) {
+	row := q.db.QueryRowContext(ctx, getOwnPendingRevision, arg.EntityType, arg.EntityID, arg.AuthorUserID)
+	var i GetOwnPendingRevisionRow
+	err := row.Scan(&i.ID, &i.BaseRevisionID, &i.SnapshotJson)
+	return i, err
+}
+
+const getPieceConservationStatus = `-- name: GetPieceConservationStatus :one
+SELECT conservation_status FROM pieces WHERE id = ?
+`
+
+func (q *Queries) GetPieceConservationStatus(ctx context.Context, id uint64) (PiecesConservationStatus, error) {
+	row := q.db.QueryRowContext(ctx, getPieceConservationStatus, id)
+	var conservation_status PiecesConservationStatus
+	err := row.Scan(&conservation_status)
+	return conservation_status, err
 }
 
 const getPublicCollection = `-- name: GetPublicCollection :one
 SELECT c.id, c.name, c.kind, c.url, c.is_bardic_resource, c.description_md, c.enumerable,
     r.slug AS region_slug, r.facet AS region_facet, r.display_name AS region_display_name,
     parent.id AS parent_id, parent.name AS parent_name, parent.kind AS parent_kind, parent.url AS parent_url,
-    parent.is_bardic_resource AS parent_is_bardic_resource
+    parent.is_bardic_resource AS parent_is_bardic_resource,
+    COALESCE(rev.reviewed_at, rev.created_at) AS updated_at
 FROM collections c
+JOIN revisions rev ON rev.id = c.current_revision_id
 LEFT JOIN public_terms r ON r.id = c.region_term_id
 LEFT JOIN collections parent ON parent.id = c.parent_id AND parent.current_revision_id IS NOT NULL
 WHERE c.id = ? AND c.current_revision_id IS NOT NULL
@@ -226,6 +507,7 @@ type GetPublicCollectionRow struct {
 	ParentKind             NullCollectionsKind
 	ParentUrl              sql.NullString
 	ParentIsBardicResource sql.NullBool
+	UpdatedAt              time.Time
 }
 
 func (q *Queries) GetPublicCollection(ctx context.Context, id uint64) (GetPublicCollectionRow, error) {
@@ -247,6 +529,7 @@ func (q *Queries) GetPublicCollection(ctx context.Context, id uint64) (GetPublic
 		&i.ParentKind,
 		&i.ParentUrl,
 		&i.ParentIsBardicResource,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -263,9 +546,10 @@ func (q *Queries) GetPublicCollectionID(ctx context.Context, id uint64) (uint64,
 }
 
 const getPublicEvent = `-- name: GetPublicEvent :one
-SELECT id, slug, name, kind, description_md
-FROM events
-WHERE slug = ? AND current_revision_id IS NOT NULL
+SELECT e.id, e.slug, e.name, e.kind, e.description_md, COALESCE(r.reviewed_at, r.created_at) AS updated_at
+FROM events e
+JOIN revisions r ON r.id = e.current_revision_id
+WHERE e.slug = ?
 `
 
 type GetPublicEventRow struct {
@@ -274,6 +558,7 @@ type GetPublicEventRow struct {
 	Name          string
 	Kind          EventsKind
 	DescriptionMd sql.NullString
+	UpdatedAt     time.Time
 }
 
 func (q *Queries) GetPublicEvent(ctx context.Context, slug string) (GetPublicEventRow, error) {
@@ -285,6 +570,7 @@ func (q *Queries) GetPublicEvent(ctx context.Context, slug string) (GetPublicEve
 		&i.Name,
 		&i.Kind,
 		&i.DescriptionMd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -301,10 +587,11 @@ func (q *Queries) GetPublicEventID(ctx context.Context, slug string) (uint64, er
 }
 
 const getPublicPerson = `-- name: GetPublicPerson :one
-SELECT id, slug, name, kind, status, status_date, status_source_url, is_stub, pronouns, notes_md, licensing_status,
-    licensing_notes_md
-FROM persons
-WHERE slug = ? AND current_revision_id IS NOT NULL
+SELECT p.id, p.slug, p.name, p.kind, p.status, p.status_date, p.status_source_url, p.is_stub, p.pronouns,
+    p.notes_md, p.licensing_status, p.licensing_notes_md, COALESCE(r.reviewed_at, r.created_at) AS updated_at
+FROM persons p
+JOIN revisions r ON r.id = p.current_revision_id
+WHERE p.slug = ?
 `
 
 type GetPublicPersonRow struct {
@@ -320,6 +607,7 @@ type GetPublicPersonRow struct {
 	NotesMd          sql.NullString
 	LicensingStatus  PersonsLicensingStatus
 	LicensingNotesMd sql.NullString
+	UpdatedAt        time.Time
 }
 
 func (q *Queries) GetPublicPerson(ctx context.Context, slug string) (GetPublicPersonRow, error) {
@@ -338,6 +626,7 @@ func (q *Queries) GetPublicPerson(ctx context.Context, slug string) (GetPublicPe
 		&i.NotesMd,
 		&i.LicensingStatus,
 		&i.LicensingNotesMd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -355,10 +644,12 @@ func (q *Queries) GetPublicPersonID(ctx context.Context, slug string) (uint64, e
 
 const getPublicPiece = `-- name: GetPublicPiece :one
 
-SELECT id, slug, title, kind, conservation_status, is_stub, notes_md, version_notes_md, licensing_status,
-    licensing_notes_md, licence, historical_source_md, period_start, period_end
-FROM pieces
-WHERE slug = ? AND current_revision_id IS NOT NULL
+SELECT p.id, p.slug, p.title, p.kind, p.conservation_status, p.is_stub, p.notes_md, p.version_notes_md,
+    p.licensing_status, p.licensing_notes_md, p.licence, p.licence_version, p.historical_source_md, p.period_start,
+    p.period_end, COALESCE(r.reviewed_at, r.created_at) AS updated_at
+FROM pieces p
+JOIN revisions r ON r.id = p.current_revision_id
+WHERE p.slug = ?
 `
 
 type GetPublicPieceRow struct {
@@ -373,17 +664,20 @@ type GetPublicPieceRow struct {
 	LicensingStatus    PiecesLicensingStatus
 	LicensingNotesMd   sql.NullString
 	Licence            NullPiecesLicence
+	LicenceVersion     NullPiecesLicenceVersion
 	HistoricalSourceMd sql.NullString
 	PeriodStart        sql.NullInt16
 	PeriodEnd          sql.NullInt16
+	UpdatedAt          time.Time
 }
 
 // ============================================
 // Catalogue: public reads
 //
 // An entity is public when it has an approved revision (current_revision_id IS NOT NULL); a term also needs
-// every ancestor approved (the public_terms view). Persons who prefer no page are dropped from every list that
-// references them (the listed_persons view), and hidden links from every read. What a link records is shown on
+// every ancestor approved (the public_terms view). Persons who prefer no page are left out of the lists of persons
+// (the listed_persons view) but named, without a link, wherever else they are referenced. Hidden links are left out
+// of every read. What a link records is shown on
 // another entity's page only if the link has a public attachment (the public_link_attachments view).
 // ============================================
 func (q *Queries) GetPublicPiece(ctx context.Context, slug string) (GetPublicPieceRow, error) {
@@ -401,9 +695,11 @@ func (q *Queries) GetPublicPiece(ctx context.Context, slug string) (GetPublicPie
 		&i.LicensingStatus,
 		&i.LicensingNotesMd,
 		&i.Licence,
+		&i.LicenceVersion,
 		&i.HistoricalSourceMd,
 		&i.PeriodStart,
 		&i.PeriodEnd,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -427,8 +723,10 @@ func (q *Queries) GetPublicPieceID(ctx context.Context, slug string) (uint64, er
 
 const getPublicTerm = `-- name: GetPublicTerm :one
 SELECT t.id, t.slug, t.facet, t.name, t.display_name, t.description_md,
-    ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name
+    ra.slug AS related_slug, ra.facet AS related_facet, ra.display_name AS related_display_name,
+    COALESCE(r.reviewed_at, r.created_at) AS updated_at
 FROM public_terms t
+JOIN revisions r ON r.id = t.current_revision_id
 LEFT JOIN public_terms ra ON ra.id = t.related_affiliation_id
 WHERE t.slug = ?
 `
@@ -443,6 +741,7 @@ type GetPublicTermRow struct {
 	RelatedSlug        sql.NullString
 	RelatedFacet       NullTermsFacet
 	RelatedDisplayName sql.NullString
+	UpdatedAt          time.Time
 }
 
 func (q *Queries) GetPublicTerm(ctx context.Context, slug string) (GetPublicTermRow, error) {
@@ -458,6 +757,7 @@ func (q *Queries) GetPublicTerm(ctx context.Context, slug string) (GetPublicTerm
 		&i.RelatedSlug,
 		&i.RelatedFacet,
 		&i.RelatedDisplayName,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -473,6 +773,51 @@ func (q *Queries) GetPublicTermID(ctx context.Context, slug string) (uint64, err
 	var id uint64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getRevision = `-- name: GetRevision :one
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.author_user_id, r.source, r.status, r.summary,
+    r.review_note, r.reviewed_at, r.created_at, r.snapshot_json, u.display_name AS author_display_name
+FROM revisions r
+LEFT JOIN users u ON u.id = r.author_user_id
+WHERE r.id = ?
+`
+
+type GetRevisionRow struct {
+	ID                uint64
+	EntityType        RevisionsEntityType
+	EntityID          sql.NullInt64
+	BaseRevisionID    sql.NullInt64
+	AuthorUserID      sql.NullString
+	Source            RevisionsSource
+	Status            RevisionsStatus
+	Summary           string
+	ReviewNote        sql.NullString
+	ReviewedAt        sql.NullTime
+	CreatedAt         time.Time
+	SnapshotJson      json.RawMessage
+	AuthorDisplayName sql.NullString
+}
+
+func (q *Queries) GetRevision(ctx context.Context, id uint64) (GetRevisionRow, error) {
+	row := q.db.QueryRowContext(ctx, getRevision, id)
+	var i GetRevisionRow
+	err := row.Scan(
+		&i.ID,
+		&i.EntityType,
+		&i.EntityID,
+		&i.BaseRevisionID,
+		&i.AuthorUserID,
+		&i.Source,
+		&i.Status,
+		&i.Summary,
+		&i.ReviewNote,
+		&i.ReviewedAt,
+		&i.CreatedAt,
+		&i.SnapshotJson,
+		&i.AuthorDisplayName,
+	)
+	return i, err
 }
 
 const getUser = `-- name: GetUser :one
@@ -496,6 +841,48 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 		&i.BlockedAt,
 	)
 	return i, err
+}
+
+const insertCollection = `-- name: InsertCollection :execlastid
+INSERT INTO collections (id, name, sort_name, sort_letter, url, kind, description_md, region_term_id, parent_id,
+    is_bardic_resource, enumerable, current_revision_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertCollectionParams struct {
+	ID                sql.NullInt64
+	Name              string
+	SortName          string
+	SortLetter        string
+	Url               sql.NullString
+	Kind              CollectionsKind
+	DescriptionMd     sql.NullString
+	RegionTermID      sql.NullInt64
+	ParentID          sql.NullInt64
+	IsBardicResource  bool
+	Enumerable        CollectionsEnumerable
+	CurrentRevisionID sql.NullInt64
+}
+
+func (q *Queries) InsertCollection(ctx context.Context, arg InsertCollectionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertCollection,
+		arg.ID,
+		arg.Name,
+		arg.SortName,
+		arg.SortLetter,
+		arg.Url,
+		arg.Kind,
+		arg.DescriptionMd,
+		arg.RegionTermID,
+		arg.ParentID,
+		arg.IsBardicResource,
+		arg.Enumerable,
+		arg.CurrentRevisionID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 const insertConservationHistory = `-- name: InsertConservationHistory :exec
@@ -524,52 +911,38 @@ func (q *Queries) InsertConservationHistory(ctx context.Context, arg InsertConse
 	return err
 }
 
-const insertImportedCollection = `-- name: InsertImportedCollection :exec
-INSERT INTO collections (id, name, sort_name, sort_letter, url, kind, description_md, region_term_id, parent_id,
-    is_bardic_resource, enumerable, current_revision_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const insertContactRequest = `-- name: InsertContactRequest :execresult
+INSERT INTO contact_requests (kind, name, email, message, url, created_at)
+VALUES (?, ?, ?, ?, ?, ?)
 `
 
-type InsertImportedCollectionParams struct {
-	ID                uint64
-	Name              string
-	SortName          string
-	SortLetter        string
-	Url               sql.NullString
-	Kind              CollectionsKind
-	DescriptionMd     sql.NullString
-	RegionTermID      sql.NullInt64
-	ParentID          sql.NullInt64
-	IsBardicResource  bool
-	Enumerable        CollectionsEnumerable
-	CurrentRevisionID sql.NullInt64
+type InsertContactRequestParams struct {
+	Kind      ContactRequestsKind
+	Name      sql.NullString
+	Email     sql.NullString
+	Message   sql.NullString
+	Url       sql.NullString
+	CreatedAt time.Time
 }
 
-func (q *Queries) InsertImportedCollection(ctx context.Context, arg InsertImportedCollectionParams) error {
-	_, err := q.db.ExecContext(ctx, insertImportedCollection,
-		arg.ID,
-		arg.Name,
-		arg.SortName,
-		arg.SortLetter,
-		arg.Url,
+func (q *Queries) InsertContactRequest(ctx context.Context, arg InsertContactRequestParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, insertContactRequest,
 		arg.Kind,
-		arg.DescriptionMd,
-		arg.RegionTermID,
-		arg.ParentID,
-		arg.IsBardicResource,
-		arg.Enumerable,
-		arg.CurrentRevisionID,
+		arg.Name,
+		arg.Email,
+		arg.Message,
+		arg.Url,
+		arg.CreatedAt,
 	)
-	return err
 }
 
-const insertImportedEvent = `-- name: InsertImportedEvent :exec
+const insertEvent = `-- name: InsertEvent :execlastid
 INSERT INTO events (id, slug, name, kind, description_md, current_revision_id, legacy_wiki_pageid, legacy_title)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
-type InsertImportedEventParams struct {
-	ID                uint64
+type InsertEventParams struct {
+	ID                sql.NullInt64
 	Slug              string
 	Name              string
 	Kind              EventsKind
@@ -579,8 +952,8 @@ type InsertImportedEventParams struct {
 	LegacyTitle       sql.NullString
 }
 
-func (q *Queries) InsertImportedEvent(ctx context.Context, arg InsertImportedEventParams) error {
-	_, err := q.db.ExecContext(ctx, insertImportedEvent,
+func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertEvent,
 		arg.ID,
 		arg.Slug,
 		arg.Name,
@@ -590,7 +963,10 @@ func (q *Queries) InsertImportedEvent(ctx context.Context, arg InsertImportedEve
 		arg.LegacyWikiPageid,
 		arg.LegacyTitle,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 const insertImportedLink = `-- name: InsertImportedLink :exec
@@ -628,111 +1004,6 @@ func (q *Queries) InsertImportedLink(ctx context.Context, arg InsertImportedLink
 	return err
 }
 
-const insertImportedPerson = `-- name: InsertImportedPerson :exec
-INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, status_date, status_source_url, pronouns,
-    notes_md, licensing_notes_md, licensing_status, is_stub, current_revision_id, legacy_wiki_pageid, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type InsertImportedPersonParams struct {
-	ID                uint64
-	Slug              string
-	Name              string
-	SortName          string
-	SortLetter        string
-	Kind              PersonsKind
-	Status            PersonsStatus
-	StatusDate        sql.NullTime
-	StatusSourceUrl   sql.NullString
-	Pronouns          sql.NullString
-	NotesMd           sql.NullString
-	LicensingNotesMd  sql.NullString
-	LicensingStatus   PersonsLicensingStatus
-	IsStub            bool
-	CurrentRevisionID sql.NullInt64
-	LegacyWikiPageid  sql.NullInt32
-	LegacyTitle       sql.NullString
-}
-
-func (q *Queries) InsertImportedPerson(ctx context.Context, arg InsertImportedPersonParams) error {
-	_, err := q.db.ExecContext(ctx, insertImportedPerson,
-		arg.ID,
-		arg.Slug,
-		arg.Name,
-		arg.SortName,
-		arg.SortLetter,
-		arg.Kind,
-		arg.Status,
-		arg.StatusDate,
-		arg.StatusSourceUrl,
-		arg.Pronouns,
-		arg.NotesMd,
-		arg.LicensingNotesMd,
-		arg.LicensingStatus,
-		arg.IsStub,
-		arg.CurrentRevisionID,
-		arg.LegacyWikiPageid,
-		arg.LegacyTitle,
-	)
-	return err
-}
-
-const insertImportedPiece = `-- name: InsertImportedPiece :exec
-INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
-    version_notes_md, licensing_notes_md, licensing_status, licence, historical_source_md, period_start, period_end,
-    legacy_had_inline_lyrics, current_revision_id, legacy_wiki_pageid, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type InsertImportedPieceParams struct {
-	ID                    uint64
-	Slug                  string
-	Title                 string
-	SortTitle             string
-	SortLetter            string
-	Kind                  PiecesKind
-	ConservationStatus    PiecesConservationStatus
-	IsStub                bool
-	NotesMd               sql.NullString
-	VersionNotesMd        sql.NullString
-	LicensingNotesMd      sql.NullString
-	LicensingStatus       PiecesLicensingStatus
-	Licence               NullPiecesLicence
-	HistoricalSourceMd    sql.NullString
-	PeriodStart           sql.NullInt16
-	PeriodEnd             sql.NullInt16
-	LegacyHadInlineLyrics bool
-	CurrentRevisionID     sql.NullInt64
-	LegacyWikiPageid      sql.NullInt32
-	LegacyTitle           sql.NullString
-}
-
-func (q *Queries) InsertImportedPiece(ctx context.Context, arg InsertImportedPieceParams) error {
-	_, err := q.db.ExecContext(ctx, insertImportedPiece,
-		arg.ID,
-		arg.Slug,
-		arg.Title,
-		arg.SortTitle,
-		arg.SortLetter,
-		arg.Kind,
-		arg.ConservationStatus,
-		arg.IsStub,
-		arg.NotesMd,
-		arg.VersionNotesMd,
-		arg.LicensingNotesMd,
-		arg.LicensingStatus,
-		arg.Licence,
-		arg.HistoricalSourceMd,
-		arg.PeriodStart,
-		arg.PeriodEnd,
-		arg.LegacyHadInlineLyrics,
-		arg.CurrentRevisionID,
-		arg.LegacyWikiPageid,
-		arg.LegacyTitle,
-	)
-	return err
-}
-
 const insertImportedRevision = `-- name: InsertImportedRevision :exec
 
 INSERT INTO revisions (id, entity_type, entity_id, source, status, snapshot_json, summary, created_at)
@@ -742,19 +1013,20 @@ VALUES (?, ?, ?, 'import', 'approved', ?, ?, ?)
 type InsertImportedRevisionParams struct {
 	ID           uint64
 	EntityType   RevisionsEntityType
-	EntityID     uint64
+	EntityID     sql.NullInt64
 	SnapshotJson json.RawMessage
 	Summary      string
 	CreatedAt    time.Time
 }
 
 // ============================================
-// Catalogue import
+// Catalogue writes: the import and approval
 //
 // The importer writes a whole catalogue into an empty database in one transaction, with the IDs the import
-// assigned, every row of a table before the rows of tables referring to it. Each entity row carries its approved
-// import revision as its current revision directly. A links row's normalized_url is domain.NormalizeURL(url)
-// (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
+// assigned, every row of a table before the rows of tables referring to it. Approval writes one document. Both
+// use the entity inserts (an approval's id is NULL, for a new auto-increment ID) and the child inserts. Each entity
+// row carries its approved revision as its current revision directly. A links row's normalized_url is
+// domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
 // ============================================
 func (q *Queries) InsertImportedRevision(ctx context.Context, arg InsertImportedRevisionParams) error {
 	_, err := q.db.ExecContext(ctx, insertImportedRevision,
@@ -764,45 +1036,6 @@ func (q *Queries) InsertImportedRevision(ctx context.Context, arg InsertImported
 		arg.SnapshotJson,
 		arg.Summary,
 		arg.CreatedAt,
-	)
-	return err
-}
-
-const insertImportedTerm = `-- name: InsertImportedTerm :exec
-INSERT INTO terms (id, facet, name, display_name, slug, parent_id, related_affiliation_id, description_md, position,
-    current_revision_id, legacy_wiki_pageid, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type InsertImportedTermParams struct {
-	ID                   uint64
-	Facet                TermsFacet
-	Name                 string
-	DisplayName          string
-	Slug                 string
-	ParentID             sql.NullInt64
-	RelatedAffiliationID sql.NullInt64
-	DescriptionMd        sql.NullString
-	Position             int32
-	CurrentRevisionID    sql.NullInt64
-	LegacyWikiPageid     sql.NullInt32
-	LegacyTitle          sql.NullString
-}
-
-func (q *Queries) InsertImportedTerm(ctx context.Context, arg InsertImportedTermParams) error {
-	_, err := q.db.ExecContext(ctx, insertImportedTerm,
-		arg.ID,
-		arg.Facet,
-		arg.Name,
-		arg.DisplayName,
-		arg.Slug,
-		arg.ParentID,
-		arg.RelatedAffiliationID,
-		arg.DescriptionMd,
-		arg.Position,
-		arg.CurrentRevisionID,
-		arg.LegacyWikiPageid,
-		arg.LegacyTitle,
 	)
 	return err
 }
@@ -832,8 +1065,9 @@ func (q *Queries) InsertLinkAttachment(ctx context.Context, arg InsertLinkAttach
 }
 
 const insertPerformance = `-- name: InsertPerformance :execlastid
-INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO performances (link_id, piece_id, event_id, year, uploader, description_verbatim, owner_piece_id,
+    owner_person_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertPerformanceParams struct {
@@ -843,6 +1077,8 @@ type InsertPerformanceParams struct {
 	Year                sql.NullInt16
 	Uploader            sql.NullString
 	DescriptionVerbatim string
+	OwnerPieceID        sql.NullInt64
+	OwnerPersonID       sql.NullInt64
 }
 
 func (q *Queries) InsertPerformance(ctx context.Context, arg InsertPerformanceParams) (int64, error) {
@@ -853,6 +1089,8 @@ func (q *Queries) InsertPerformance(ctx context.Context, arg InsertPerformancePa
 		arg.Year,
 		arg.Uploader,
 		arg.DescriptionVerbatim,
+		arg.OwnerPieceID,
+		arg.OwnerPersonID,
 	)
 	if err != nil {
 		return 0, err
@@ -874,6 +1112,58 @@ type InsertPerformancePerformerParams struct {
 func (q *Queries) InsertPerformancePerformer(ctx context.Context, arg InsertPerformancePerformerParams) error {
 	_, err := q.db.ExecContext(ctx, insertPerformancePerformer, arg.PerformanceID, arg.PersonID, arg.Position)
 	return err
+}
+
+const insertPerson = `-- name: InsertPerson :execlastid
+INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, status_date, status_source_url, pronouns,
+    notes_md, licensing_notes_md, licensing_status, is_stub, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertPersonParams struct {
+	ID                sql.NullInt64
+	Slug              string
+	Name              string
+	SortName          string
+	SortLetter        string
+	Kind              PersonsKind
+	Status            PersonsStatus
+	StatusDate        sql.NullTime
+	StatusSourceUrl   sql.NullString
+	Pronouns          sql.NullString
+	NotesMd           sql.NullString
+	LicensingNotesMd  sql.NullString
+	LicensingStatus   PersonsLicensingStatus
+	IsStub            bool
+	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
+	LegacyTitle       sql.NullString
+}
+
+func (q *Queries) InsertPerson(ctx context.Context, arg InsertPersonParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertPerson,
+		arg.ID,
+		arg.Slug,
+		arg.Name,
+		arg.SortName,
+		arg.SortLetter,
+		arg.Kind,
+		arg.Status,
+		arg.StatusDate,
+		arg.StatusSourceUrl,
+		arg.Pronouns,
+		arg.NotesMd,
+		arg.LicensingNotesMd,
+		arg.LicensingStatus,
+		arg.IsStub,
+		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
+		arg.LegacyTitle,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 const insertPersonAffiliation = `-- name: InsertPersonAffiliation :exec
@@ -936,6 +1226,68 @@ type InsertPersonRoleParams struct {
 func (q *Queries) InsertPersonRole(ctx context.Context, arg InsertPersonRoleParams) error {
 	_, err := q.db.ExecContext(ctx, insertPersonRole, arg.PersonID, arg.Role)
 	return err
+}
+
+const insertPiece = `-- name: InsertPiece :execlastid
+INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
+    version_notes_md, licensing_notes_md, licensing_status, licence, licence_version, historical_source_md,
+    period_start, period_end,
+    legacy_had_inline_lyrics, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertPieceParams struct {
+	ID                    sql.NullInt64
+	Slug                  string
+	Title                 string
+	SortTitle             string
+	SortLetter            string
+	Kind                  PiecesKind
+	ConservationStatus    PiecesConservationStatus
+	IsStub                bool
+	NotesMd               sql.NullString
+	VersionNotesMd        sql.NullString
+	LicensingNotesMd      sql.NullString
+	LicensingStatus       PiecesLicensingStatus
+	Licence               NullPiecesLicence
+	LicenceVersion        NullPiecesLicenceVersion
+	HistoricalSourceMd    sql.NullString
+	PeriodStart           sql.NullInt16
+	PeriodEnd             sql.NullInt16
+	LegacyHadInlineLyrics bool
+	CurrentRevisionID     sql.NullInt64
+	LegacyWikiPageid      sql.NullInt32
+	LegacyTitle           sql.NullString
+}
+
+func (q *Queries) InsertPiece(ctx context.Context, arg InsertPieceParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertPiece,
+		arg.ID,
+		arg.Slug,
+		arg.Title,
+		arg.SortTitle,
+		arg.SortLetter,
+		arg.Kind,
+		arg.ConservationStatus,
+		arg.IsStub,
+		arg.NotesMd,
+		arg.VersionNotesMd,
+		arg.LicensingNotesMd,
+		arg.LicensingStatus,
+		arg.Licence,
+		arg.LicenceVersion,
+		arg.HistoricalSourceMd,
+		arg.PeriodStart,
+		arg.PeriodEnd,
+		arg.LegacyHadInlineLyrics,
+		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
+		arg.LegacyTitle,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 const insertPieceAlias = `-- name: InsertPieceAlias :exec
@@ -1039,6 +1391,38 @@ func (q *Queries) InsertPieceTerm(ctx context.Context, arg InsertPieceTermParams
 	return err
 }
 
+const insertRevision = `-- name: InsertRevision :execlastid
+INSERT INTO revisions (entity_type, entity_id, base_revision_id, author_user_id, source, status, snapshot_json,
+    summary, created_at)
+VALUES (?, ?, ?, ?, 'user', 'pending', ?, ?, ?)
+`
+
+type InsertRevisionParams struct {
+	EntityType     RevisionsEntityType
+	EntityID       sql.NullInt64
+	BaseRevisionID sql.NullInt64
+	AuthorUserID   sql.NullString
+	SnapshotJson   json.RawMessage
+	Summary        string
+	CreatedAt      time.Time
+}
+
+func (q *Queries) InsertRevision(ctx context.Context, arg InsertRevisionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertRevision,
+		arg.EntityType,
+		arg.EntityID,
+		arg.BaseRevisionID,
+		arg.AuthorUserID,
+		arg.SnapshotJson,
+		arg.Summary,
+		arg.CreatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
 const insertRevisionContributor = `-- name: InsertRevisionContributor :exec
 INSERT INTO revision_contributors (revision_id, position, name)
 VALUES (?, ?, ?)
@@ -1053,6 +1437,48 @@ type InsertRevisionContributorParams struct {
 func (q *Queries) InsertRevisionContributor(ctx context.Context, arg InsertRevisionContributorParams) error {
 	_, err := q.db.ExecContext(ctx, insertRevisionContributor, arg.RevisionID, arg.Position, arg.Name)
 	return err
+}
+
+const insertTerm = `-- name: InsertTerm :execlastid
+INSERT INTO terms (id, facet, name, display_name, slug, parent_id, related_affiliation_id, description_md, position,
+    current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertTermParams struct {
+	ID                   sql.NullInt64
+	Facet                TermsFacet
+	Name                 string
+	DisplayName          string
+	Slug                 string
+	ParentID             sql.NullInt64
+	RelatedAffiliationID sql.NullInt64
+	DescriptionMd        sql.NullString
+	Position             int32
+	CurrentRevisionID    sql.NullInt64
+	LegacyWikiPageid     sql.NullInt32
+	LegacyTitle          sql.NullString
+}
+
+func (q *Queries) InsertTerm(ctx context.Context, arg InsertTermParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertTerm,
+		arg.ID,
+		arg.Facet,
+		arg.Name,
+		arg.DisplayName,
+		arg.Slug,
+		arg.ParentID,
+		arg.RelatedAffiliationID,
+		arg.DescriptionMd,
+		arg.Position,
+		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
+		arg.LegacyTitle,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 const insertTermAlias = `-- name: InsertTermAlias :exec
@@ -1114,7 +1540,7 @@ LIMIT ? OFFSET ?
 
 type ListApprovedRevisionsParams struct {
 	EntityType RevisionsEntityType
-	EntityID   uint64
+	EntityID   sql.NullInt64
 	Limit      int32
 	Offset     int32
 }
@@ -1148,6 +1574,124 @@ func (q *Queries) ListApprovedRevisions(ctx context.Context, arg ListApprovedRev
 			&i.CreatedAt,
 			&i.AuthorDisplayName,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuthorRevisions = `-- name: ListAuthorRevisions :many
+
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.status, r.summary, r.created_at, r.review_note,
+    r.reviewed_at,
+    COALESCE(p.slug, pe.slug, t.slug, e.slug, '') AS entity_slug,
+    COALESCE(p.title, pe.name, t.display_name, c.name, e.name, '') AS entity_name,
+    COALESCE(p.current_revision_id, pe.current_revision_id, t.current_revision_id, c.current_revision_id,
+        e.current_revision_id) AS current_revision_id
+FROM revisions r
+LEFT JOIN pieces p ON r.entity_type = 'piece' AND p.id = r.entity_id
+LEFT JOIN persons pe ON r.entity_type = 'person' AND pe.id = r.entity_id
+LEFT JOIN terms t ON r.entity_type = 'term' AND t.id = r.entity_id
+LEFT JOIN collections c ON r.entity_type = 'collection' AND c.id = r.entity_id
+LEFT JOIN events e ON r.entity_type = 'event' AND e.id = r.entity_id
+WHERE r.author_user_id = ?
+    AND (? IS NULL OR r.status = ?)
+ORDER BY r.created_at DESC, r.id DESC
+LIMIT ? OFFSET ?
+`
+
+type ListAuthorRevisionsParams struct {
+	AuthorUserID sql.NullString
+	Status       NullRevisionsStatus
+	Limit        int32
+	Offset       int32
+}
+
+type ListAuthorRevisionsRow struct {
+	ID                uint64
+	EntityType        RevisionsEntityType
+	EntityID          sql.NullInt64
+	BaseRevisionID    sql.NullInt64
+	Status            RevisionsStatus
+	Summary           string
+	CreatedAt         time.Time
+	ReviewNote        sql.NullString
+	ReviewedAt        sql.NullTime
+	EntitySlug        string
+	EntityName        string
+	CurrentRevisionID sql.NullInt64
+}
+
+// A listed revision's entity: its slug (” for a collection), name and current revision; for a new entity's
+// revision, ” and NULL.
+func (q *Queries) ListAuthorRevisions(ctx context.Context, arg ListAuthorRevisionsParams) ([]ListAuthorRevisionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAuthorRevisions,
+		arg.AuthorUserID,
+		arg.Status,
+		arg.Status,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAuthorRevisionsRow
+	for rows.Next() {
+		var i ListAuthorRevisionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.BaseRevisionID,
+			&i.Status,
+			&i.Summary,
+			&i.CreatedAt,
+			&i.ReviewNote,
+			&i.ReviewedAt,
+			&i.EntitySlug,
+			&i.EntityName,
+			&i.CurrentRevisionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCollectionParents = `-- name: ListCollectionParents :many
+SELECT CAST(id AS SIGNED) AS id, parent_id FROM collections
+`
+
+type ListCollectionParentsRow struct {
+	ID       int64
+	ParentID sql.NullInt64
+}
+
+func (q *Queries) ListCollectionParents(ctx context.Context) ([]ListCollectionParentsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCollectionParents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCollectionParentsRow
+	for rows.Next() {
+		var i ListCollectionParentsRow
+		if err := rows.Scan(&i.ID, &i.ParentID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1203,6 +1747,124 @@ func (q *Queries) ListConservationHistory(ctx context.Context, pieceID uint64) (
 	return items, nil
 }
 
+const listContactRequests = `-- name: ListContactRequests :many
+SELECT id, kind, name, email, message, url, status, created_at, resolved_by_user_id, resolved_at, resolution_note
+FROM contact_requests
+WHERE status = ?
+ORDER BY created_at, id
+LIMIT ? OFFSET ?
+`
+
+type ListContactRequestsParams struct {
+	Status ContactRequestsStatus
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListContactRequests(ctx context.Context, arg ListContactRequestsParams) ([]ContactRequest, error) {
+	rows, err := q.db.QueryContext(ctx, listContactRequests, arg.Status, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ContactRequest
+	for rows.Next() {
+		var i ContactRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Name,
+			&i.Email,
+			&i.Message,
+			&i.Url,
+			&i.Status,
+			&i.CreatedAt,
+			&i.ResolvedByUserID,
+			&i.ResolvedAt,
+			&i.ResolutionNote,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCurrentDocuments = `-- name: ListCurrentDocuments :many
+
+SELECT r.entity_id, r.snapshot_json
+FROM revisions r
+WHERE r.entity_type = ? AND r.id IN (
+    SELECT current_revision_id FROM pieces
+    UNION ALL SELECT current_revision_id FROM persons
+    UNION ALL SELECT current_revision_id FROM terms
+    UNION ALL SELECT current_revision_id FROM collections
+    UNION ALL SELECT current_revision_id FROM events
+)
+`
+
+type ListCurrentDocumentsRow struct {
+	EntityID     sql.NullInt64
+	SnapshotJson json.RawMessage
+}
+
+// The current documents of the public entities of a type, for duplicate checks.
+func (q *Queries) ListCurrentDocuments(ctx context.Context, entityType RevisionsEntityType) ([]ListCurrentDocumentsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCurrentDocuments, entityType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCurrentDocumentsRow
+	for rows.Next() {
+		var i ListCurrentDocumentsRow
+		if err := rows.Scan(&i.EntityID, &i.SnapshotJson); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEventSlugs = `-- name: ListEventSlugs :many
+SELECT slug FROM events
+`
+
+func (q *Queries) ListEventSlugs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listEventSlugs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		items = append(items, slug)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHiddenNormalizedURLs = `-- name: ListHiddenNormalizedURLs :many
 
 SELECT normalized_url
@@ -1210,9 +1872,9 @@ FROM links
 WHERE is_hidden AND normalized_url IN (/*SLICE:normalized_urls*/?)
 `
 
-// A snapshot drops a link whose URL normalizes to a hidden link's. Every link's normalized_url is
-// domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies to the snapshot's
-// URLs too. The caller queries with normalized (ASCII) URLs only, and trusts only the normalized URLs these rows hold.
+// The hidden links among a snapshot's, found by normalized URL as approval upserts them. Every link's normalized_url
+// is domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"); the caller queries with normalized
+// (ASCII) URLs only.
 func (q *Queries) ListHiddenNormalizedURLs(ctx context.Context, normalizedUrls []string) ([]string, error) {
 	query := listHiddenNormalizedURLs
 	var queryParams []interface{}
@@ -1298,6 +1960,207 @@ func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64)
 	return items, nil
 }
 
+const listLinksDueForArchive = `-- name: ListLinksDueForArchive :many
+
+SELECT id, url
+FROM links
+WHERE is_hidden = FALSE AND archived_url IS NULL
+    AND (archive_checked_at IS NULL OR archive_checked_at < ?)
+ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id
+`
+
+type ListLinksDueForArchiveRow struct {
+	ID  uint64
+	Url string
+}
+
+// Links with no archived copy whose archive was never looked up, or not since the cutoff: dead links first.
+func (q *Queries) ListLinksDueForArchive(ctx context.Context, checkedBefore sql.NullTime) ([]ListLinksDueForArchiveRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLinksDueForArchive, checkedBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinksDueForArchiveRow
+	for rows.Next() {
+		var i ListLinksDueForArchiveRow
+		if err := rows.Scan(&i.ID, &i.Url); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinksDueForCheck = `-- name: ListLinksDueForCheck :many
+
+SELECT id, url, liveness, liveness_failures
+FROM links
+WHERE is_hidden = FALSE AND (last_checked_at IS NULL OR last_checked_at < ?)
+ORDER BY last_checked_at IS NOT NULL, last_checked_at, id
+`
+
+type ListLinksDueForCheckRow struct {
+	ID               uint64
+	Url              string
+	Liveness         LinksLiveness
+	LivenessFailures uint8
+}
+
+// Links never checked come first, then the longest unchecked.
+func (q *Queries) ListLinksDueForCheck(ctx context.Context, checkedBefore sql.NullTime) ([]ListLinksDueForCheckRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLinksDueForCheck, checkedBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinksDueForCheckRow
+	for rows.Next() {
+		var i ListLinksDueForCheckRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Liveness,
+			&i.LivenessFailures,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listModerationLinkAttachments = `-- name: ListModerationLinkAttachments :many
+SELECT a.role, pc.slug AS piece_slug, pc.title AS piece_title, ps.slug AS person_slug, ps.name AS person_name
+FROM link_attachments a
+LEFT JOIN pieces pc ON pc.id = a.piece_id
+LEFT JOIN persons ps ON ps.id = a.person_id
+WHERE a.link_id = ?
+ORDER BY a.piece_id IS NULL, a.piece_id, a.person_id, a.position, a.id
+`
+
+type ListModerationLinkAttachmentsRow struct {
+	Role       LinkAttachmentsRole
+	PieceSlug  sql.NullString
+	PieceTitle sql.NullString
+	PersonSlug sql.NullString
+	PersonName sql.NullString
+}
+
+func (q *Queries) ListModerationLinkAttachments(ctx context.Context, linkID uint64) ([]ListModerationLinkAttachmentsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listModerationLinkAttachments, linkID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListModerationLinkAttachmentsRow
+	for rows.Next() {
+		var i ListModerationLinkAttachmentsRow
+		if err := rows.Scan(
+			&i.Role,
+			&i.PieceSlug,
+			&i.PieceTitle,
+			&i.PersonSlug,
+			&i.PersonName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingRevisions = `-- name: ListPendingRevisions :many
+SELECT r.id, r.entity_type, r.entity_id, r.base_revision_id, r.author_user_id, r.summary, r.created_at,
+    u.display_name AS author_display_name,
+    COALESCE(p.slug, pe.slug, t.slug, e.slug, '') AS entity_slug,
+    COALESCE(p.title, pe.name, t.display_name, c.name, e.name, '') AS entity_name,
+    COALESCE(p.current_revision_id, pe.current_revision_id, t.current_revision_id, c.current_revision_id,
+        e.current_revision_id) AS current_revision_id
+FROM revisions r
+JOIN users u ON u.id = r.author_user_id
+LEFT JOIN pieces p ON r.entity_type = 'piece' AND p.id = r.entity_id
+LEFT JOIN persons pe ON r.entity_type = 'person' AND pe.id = r.entity_id
+LEFT JOIN terms t ON r.entity_type = 'term' AND t.id = r.entity_id
+LEFT JOIN collections c ON r.entity_type = 'collection' AND c.id = r.entity_id
+LEFT JOIN events e ON r.entity_type = 'event' AND e.id = r.entity_id
+WHERE r.status = 'pending'
+ORDER BY r.created_at, r.id
+LIMIT ? OFFSET ?
+`
+
+type ListPendingRevisionsParams struct {
+	Limit  int32
+	Offset int32
+}
+
+type ListPendingRevisionsRow struct {
+	ID                uint64
+	EntityType        RevisionsEntityType
+	EntityID          sql.NullInt64
+	BaseRevisionID    sql.NullInt64
+	AuthorUserID      sql.NullString
+	Summary           string
+	CreatedAt         time.Time
+	AuthorDisplayName string
+	EntitySlug        string
+	EntityName        string
+	CurrentRevisionID sql.NullInt64
+}
+
+func (q *Queries) ListPendingRevisions(ctx context.Context, arg ListPendingRevisionsParams) ([]ListPendingRevisionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingRevisions, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingRevisionsRow
+	for rows.Next() {
+		var i ListPendingRevisionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.BaseRevisionID,
+			&i.AuthorUserID,
+			&i.Summary,
+			&i.CreatedAt,
+			&i.AuthorDisplayName,
+			&i.EntitySlug,
+			&i.EntityName,
+			&i.CurrentRevisionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPersonAliases = `-- name: ListPersonAliases :many
 SELECT name, kind
 FROM person_aliases
@@ -1363,6 +2226,33 @@ func (q *Queries) ListPersonRoles(ctx context.Context, personID uint64) ([]Perso
 	return items, nil
 }
 
+const listPersonSlugs = `-- name: ListPersonSlugs :many
+SELECT slug FROM persons
+`
+
+func (q *Queries) ListPersonSlugs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPersonSlugs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		items = append(items, slug)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPieceAliases = `-- name: ListPieceAliases :many
 SELECT text, kind
 FROM piece_aliases
@@ -1385,6 +2275,55 @@ func (q *Queries) ListPieceAliases(ctx context.Context, pieceID uint64) ([]ListP
 	for rows.Next() {
 		var i ListPieceAliasesRow
 		if err := rows.Scan(&i.Text, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPieceCreditNames = `-- name: ListPieceCreditNames :many
+SELECT pc.slug AS piece_slug, p.slug AS person_slug, p.name AS person_name
+FROM piece_credits c
+JOIN pieces pc ON pc.id = c.piece_id
+JOIN persons p ON p.id = c.person_id
+WHERE pc.slug IN (/*SLICE:slugs*/?) AND p.current_revision_id IS NOT NULL
+ORDER BY pc.slug, c.position, c.id
+`
+
+type ListPieceCreditNamesRow struct {
+	PieceSlug  string
+	PersonSlug string
+	PersonName string
+}
+
+// Named credits of public pieces to public persons, in credit order.
+func (q *Queries) ListPieceCreditNames(ctx context.Context, slugs []string) ([]ListPieceCreditNamesRow, error) {
+	query := listPieceCreditNames
+	var queryParams []interface{}
+	if len(slugs) > 0 {
+		for _, v := range slugs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:slugs*/?", strings.Repeat(",?", len(slugs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:slugs*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPieceCreditNamesRow
+	for rows.Next() {
+		var i ListPieceCreditNamesRow
+		if err := rows.Scan(&i.PieceSlug, &i.PersonSlug, &i.PersonName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1434,6 +2373,35 @@ func (q *Queries) ListPieceSecondaryKinds(ctx context.Context, slugs []string) (
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPieceSlugs = `-- name: ListPieceSlugs :many
+
+SELECT slug FROM pieces
+`
+
+// The taken slugs of each type, for a new entity's slug.
+func (q *Queries) ListPieceSlugs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPieceSlugs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		items = append(items, slug)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -1494,7 +2462,8 @@ SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, a.piece_id, a.person
     COALESCE(p.sort_title, pe.sort_name) AS sort_key,
     p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
-    pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub
+    pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub,
+    pe.status AS person_status
 FROM links l
 JOIN public_link_attachments a ON a.link_id = l.id
 LEFT JOIN pieces p ON p.id = a.piece_id
@@ -1526,9 +2495,10 @@ type ListPublicCollectionCitationsRow struct {
 	PersonName              sql.NullString
 	PersonKind              NullPersonsKind
 	PersonIsStub            sql.NullBool
+	PersonStatus            NullPersonsStatus
 }
 
-// A collection's citations are its visible links, once per public piece or public person with a page that each
+// A collection's citations are its visible links, once per public piece or public person that each
 // is attached to, whatever roles it is attached with.
 func (q *Queries) ListPublicCollectionCitations(ctx context.Context, arg ListPublicCollectionCitationsParams) ([]ListPublicCollectionCitationsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPublicCollectionCitations, arg.CollectionID, arg.Limit)
@@ -1556,6 +2526,7 @@ func (q *Queries) ListPublicCollectionCitations(ctx context.Context, arg ListPub
 			&i.PersonName,
 			&i.PersonKind,
 			&i.PersonIsStub,
+			&i.PersonStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -1623,6 +2594,48 @@ func (q *Queries) ListPublicCollectionsByID(ctx context.Context, ids []uint64) (
 	return items, nil
 }
 
+const listPublicEventIDsBySlug = `-- name: ListPublicEventIDsBySlug :many
+SELECT id, slug FROM events WHERE slug IN (/*SLICE:slugs*/?) AND current_revision_id IS NOT NULL
+`
+
+type ListPublicEventIDsBySlugRow struct {
+	ID   uint64
+	Slug string
+}
+
+func (q *Queries) ListPublicEventIDsBySlug(ctx context.Context, slugs []string) ([]ListPublicEventIDsBySlugRow, error) {
+	query := listPublicEventIDsBySlug
+	var queryParams []interface{}
+	if len(slugs) > 0 {
+		for _, v := range slugs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:slugs*/?", strings.Repeat(",?", len(slugs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:slugs*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicEventIDsBySlugRow
+	for rows.Next() {
+		var i ListPublicEventIDsBySlugRow
+		if err := rows.Scan(&i.ID, &i.Slug); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPublicEventPerformances = `-- name: ListPublicEventPerformances :many
 
 SELECT perf.id, perf.year, perf.description_verbatim, l.url, l.title, l.platform,
@@ -1657,8 +2670,8 @@ type ListPublicEventPerformancesRow struct {
 	PieceIsStub             sql.NullBool
 }
 
-// An event's performances are on visible links attached to a public piece or a public person with a page, as
-// a performance only an unapproved or no-page entity's links record may name them. A performance of a piece
+// An event's performances are on visible links attached to a public piece or a public person, as
+// a performance only an unapproved entity's links record may name them. A performance of a piece
 // that is not public is left out entirely, as on a person's page.
 func (q *Queries) ListPublicEventPerformances(ctx context.Context, arg ListPublicEventPerformancesParams) ([]ListPublicEventPerformancesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPublicEventPerformances, arg.EventID, arg.Limit)
@@ -1795,10 +2808,10 @@ func (q *Queries) ListPublicEventsByID(ctx context.Context, ids []uint64) ([]Lis
 }
 
 const listPublicPerformers = `-- name: ListPublicPerformers :many
-SELECT pp.performance_id, p.slug, p.name, p.kind, p.is_stub
+SELECT pp.performance_id, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM performance_performers pp
-JOIN listed_persons p ON p.id = pp.person_id
-WHERE pp.performance_id IN (/*SLICE:performance_ids*/?)
+JOIN persons p ON p.id = pp.person_id
+WHERE pp.performance_id IN (/*SLICE:performance_ids*/?) AND p.current_revision_id IS NOT NULL
 ORDER BY pp.performance_id, pp.position
 `
 
@@ -1808,6 +2821,7 @@ type ListPublicPerformersRow struct {
 	Name          string
 	Kind          PersonsKind
 	IsStub        bool
+	Status        PersonsStatus
 }
 
 func (q *Queries) ListPublicPerformers(ctx context.Context, performanceIds []uint64) ([]ListPublicPerformersRow, error) {
@@ -1835,6 +2849,7 @@ func (q *Queries) ListPublicPerformers(ctx context.Context, performanceIds []uin
 			&i.Name,
 			&i.Kind,
 			&i.IsStub,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -1873,6 +2888,48 @@ func (q *Queries) ListPublicPersonAffiliations(ctx context.Context, personID uin
 	for rows.Next() {
 		var i ListPublicPersonAffiliationsRow
 		if err := rows.Scan(&i.Slug, &i.Facet, &i.DisplayName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPersonIDsBySlug = `-- name: ListPublicPersonIDsBySlug :many
+SELECT id, slug FROM persons WHERE slug IN (/*SLICE:slugs*/?) AND current_revision_id IS NOT NULL
+`
+
+type ListPublicPersonIDsBySlugRow struct {
+	ID   uint64
+	Slug string
+}
+
+func (q *Queries) ListPublicPersonIDsBySlug(ctx context.Context, slugs []string) ([]ListPublicPersonIDsBySlugRow, error) {
+	query := listPublicPersonIDsBySlug
+	var queryParams []interface{}
+	if len(slugs) > 0 {
+		for _, v := range slugs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:slugs*/?", strings.Repeat(",?", len(slugs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:slugs*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPersonIDsBySlugRow
+	for rows.Next() {
+		var i ListPublicPersonIDsBySlugRow
+		if err := rows.Scan(&i.ID, &i.Slug); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1997,7 +3054,7 @@ type ListPublicPersonPerformancesRow struct {
 }
 
 // A person's performances are those recorded by links attached to them, and those they perform in on links with
-// a public attachment, as a performance only an unapproved or no-page entity's links record may name them. A
+// a public attachment, as a performance only an unapproved entity's links record may name them. A
 // performance of a piece that is not public is left out entirely, as its description may name the piece.
 func (q *Queries) ListPublicPersonPerformances(ctx context.Context, arg ListPublicPersonPerformancesParams) ([]ListPublicPersonPerformancesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPublicPersonPerformances, arg.PerformerID, arg.AttachedPersonID, arg.Limit)
@@ -2037,10 +3094,10 @@ func (q *Queries) ListPublicPersonPerformances(ctx context.Context, arg ListPubl
 }
 
 const listPublicPersonRelationsFrom = `-- name: ListPublicPersonRelationsFrom :many
-SELECT r.type, p.slug, p.name, p.kind, p.is_stub
+SELECT r.type, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM person_relations r
-JOIN listed_persons p ON p.id = r.from_person_id
-WHERE r.to_person_id = ?
+JOIN persons p ON p.id = r.from_person_id
+WHERE r.to_person_id = ? AND p.current_revision_id IS NOT NULL
 ORDER BY r.type, p.sort_name, p.id
 `
 
@@ -2050,6 +3107,7 @@ type ListPublicPersonRelationsFromRow struct {
 	Name   string
 	Kind   PersonsKind
 	IsStub bool
+	Status PersonsStatus
 }
 
 func (q *Queries) ListPublicPersonRelationsFrom(ctx context.Context, toPersonID uint64) ([]ListPublicPersonRelationsFromRow, error) {
@@ -2067,6 +3125,7 @@ func (q *Queries) ListPublicPersonRelationsFrom(ctx context.Context, toPersonID 
 			&i.Name,
 			&i.Kind,
 			&i.IsStub,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -2082,10 +3141,10 @@ func (q *Queries) ListPublicPersonRelationsFrom(ctx context.Context, toPersonID 
 }
 
 const listPublicPersonRelationsTo = `-- name: ListPublicPersonRelationsTo :many
-SELECT r.type, p.slug, p.name, p.kind, p.is_stub
+SELECT r.type, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM person_relations r
-JOIN listed_persons p ON p.id = r.to_person_id
-WHERE r.from_person_id = ?
+JOIN persons p ON p.id = r.to_person_id
+WHERE r.from_person_id = ? AND p.current_revision_id IS NOT NULL
 ORDER BY r.type, p.sort_name, p.id
 `
 
@@ -2095,6 +3154,7 @@ type ListPublicPersonRelationsToRow struct {
 	Name   string
 	Kind   PersonsKind
 	IsStub bool
+	Status PersonsStatus
 }
 
 func (q *Queries) ListPublicPersonRelationsTo(ctx context.Context, fromPersonID uint64) ([]ListPublicPersonRelationsToRow, error) {
@@ -2112,6 +3172,7 @@ func (q *Queries) ListPublicPersonRelationsTo(ctx context.Context, fromPersonID 
 			&i.Name,
 			&i.Kind,
 			&i.IsStub,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -2240,9 +3301,10 @@ func (q *Queries) ListPublicPersonsByID(ctx context.Context, ids []uint64) ([]Li
 
 const listPublicPieceCredits = `-- name: ListPublicPieceCredits :many
 SELECT c.role, c.attribution, c.certainty, c.part, c.note,
-    p.slug AS person_slug, p.name AS person_name, p.kind AS person_kind, p.is_stub AS person_is_stub
+    p.slug AS person_slug, p.name AS person_name, p.kind AS person_kind, p.is_stub AS person_is_stub,
+    p.status AS person_status
 FROM piece_credits c
-LEFT JOIN listed_persons p ON p.id = c.person_id
+LEFT JOIN persons p ON p.id = c.person_id AND p.current_revision_id IS NOT NULL
 WHERE c.piece_id = ? AND (c.person_id IS NULL OR p.id IS NOT NULL)
 ORDER BY c.position, c.id
 `
@@ -2257,6 +3319,7 @@ type ListPublicPieceCreditsRow struct {
 	PersonName   sql.NullString
 	PersonKind   NullPersonsKind
 	PersonIsStub sql.NullBool
+	PersonStatus NullPersonsStatus
 }
 
 func (q *Queries) ListPublicPieceCredits(ctx context.Context, pieceID uint64) ([]ListPublicPieceCreditsRow, error) {
@@ -2278,7 +3341,54 @@ func (q *Queries) ListPublicPieceCredits(ctx context.Context, pieceID uint64) ([
 			&i.PersonName,
 			&i.PersonKind,
 			&i.PersonIsStub,
+			&i.PersonStatus,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicPieceIDsBySlug = `-- name: ListPublicPieceIDsBySlug :many
+
+SELECT id, slug FROM pieces WHERE slug IN (/*SLICE:slugs*/?) AND current_revision_id IS NOT NULL
+`
+
+type ListPublicPieceIDsBySlugRow struct {
+	ID   uint64
+	Slug string
+}
+
+// ============================================
+// Revisions: what an editor document references
+// ============================================
+func (q *Queries) ListPublicPieceIDsBySlug(ctx context.Context, slugs []string) ([]ListPublicPieceIDsBySlugRow, error) {
+	query := listPublicPieceIDsBySlug
+	var queryParams []interface{}
+	if len(slugs) > 0 {
+		for _, v := range slugs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:slugs*/?", strings.Repeat(",?", len(slugs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:slugs*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPieceIDsBySlugRow
+	for rows.Next() {
+		var i ListPublicPieceIDsBySlugRow
+		if err := rows.Scan(&i.ID, &i.Slug); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2681,9 +3791,9 @@ type ListPublicTermCountsRow struct {
 	N      int64
 }
 
-// A term's counts are of the distinct public pieces tagged with, and public persons with a page affiliated
-// with, the term or any public descendant: both ends of the closure are checked, so a pending term hides its
-// subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
+// A term's counts are of the distinct public pieces tagged with, and public persons who do not prefer no page
+// affiliated with, the term or any public descendant: both ends of the closure are checked, so a pending term
+// hides its subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
 func (q *Queries) ListPublicTermCounts(ctx context.Context, arg ListPublicTermCountsParams) ([]ListPublicTermCountsRow, error) {
 	query := listPublicTermCounts
 	var queryParams []interface{}
@@ -2712,6 +3822,48 @@ func (q *Queries) ListPublicTermCounts(ctx context.Context, arg ListPublicTermCo
 	for rows.Next() {
 		var i ListPublicTermCountsRow
 		if err := rows.Scan(&i.TermID, &i.Member, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicTermIDsBySlug = `-- name: ListPublicTermIDsBySlug :many
+SELECT t.id, t.slug FROM public_terms t WHERE t.slug IN (/*SLICE:slugs*/?)
+`
+
+type ListPublicTermIDsBySlugRow struct {
+	ID   uint64
+	Slug string
+}
+
+func (q *Queries) ListPublicTermIDsBySlug(ctx context.Context, slugs []string) ([]ListPublicTermIDsBySlugRow, error) {
+	query := listPublicTermIDsBySlug
+	var queryParams []interface{}
+	if len(slugs) > 0 {
+		for _, v := range slugs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:slugs*/?", strings.Repeat(",?", len(slugs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:slugs*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicTermIDsBySlugRow
+	for rows.Next() {
+		var i ListPublicTermIDsBySlugRow
+		if err := rows.Scan(&i.ID, &i.Slug); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3054,6 +4206,107 @@ func (q *Queries) ListTermAncestors(ctx context.Context, descendantID uint64) ([
 	return items, nil
 }
 
+const listTermSlugs = `-- name: ListTermSlugs :many
+SELECT slug FROM terms
+`
+
+func (q *Queries) ListTermSlugs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listTermSlugs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		items = append(items, slug)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTerms = `-- name: ListTerms :many
+SELECT CAST(id AS SIGNED) AS id, facet, parent_id, name FROM terms
+`
+
+type ListTermsRow struct {
+	ID       int64
+	Facet    TermsFacet
+	ParentID sql.NullInt64
+	Name     string
+}
+
+func (q *Queries) ListTerms(ctx context.Context) ([]ListTermsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTerms)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTermsRow
+	for rows.Next() {
+		var i ListTermsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Facet,
+			&i.ParentID,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockRevision = `-- name: LockRevision :one
+SELECT id, status, author_user_id FROM revisions WHERE id = ? FOR UPDATE
+`
+
+type LockRevisionRow struct {
+	ID           uint64
+	Status       RevisionsStatus
+	AuthorUserID sql.NullString
+}
+
+func (q *Queries) LockRevision(ctx context.Context, id uint64) (LockRevisionRow, error) {
+	row := q.db.QueryRowContext(ctx, lockRevision, id)
+	var i LockRevisionRow
+	err := row.Scan(&i.ID, &i.Status, &i.AuthorUserID)
+	return i, err
+}
+
+const lockUser = `-- name: LockUser :one
+
+SELECT id FROM users WHERE id = ? FOR UPDATE
+`
+
+// ============================================
+// Revisions: submission and moderation
+//
+// Each change is one transaction that locks the revision it changes, or the author's user row for a submission,
+// with FOR UPDATE.
+// ============================================
+func (q *Queries) LockUser(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRowContext(ctx, lockUser, id)
+	var id_2 string
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
 const promoteToModerator = `-- name: PromoteToModerator :exec
 INSERT INTO users (id, display_name, role, created_at)
 VALUES (?, ?, 'moderator', ?)
@@ -3071,6 +4324,41 @@ func (q *Queries) PromoteToModerator(ctx context.Context, arg PromoteToModerator
 	return err
 }
 
+const setLinkHidden = `-- name: SetLinkHidden :execrows
+
+UPDATE links SET is_hidden = ? WHERE id = ?
+`
+
+type SetLinkHiddenParams struct {
+	IsHidden bool
+	ID       uint64
+}
+
+// ============================================
+// Link takedown and contact requests
+// ============================================
+func (q *Queries) SetLinkHidden(ctx context.Context, arg SetLinkHiddenParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setLinkHidden, arg.IsHidden, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setRevisionEntity = `-- name: SetRevisionEntity :exec
+UPDATE revisions SET entity_id = ? WHERE id = ?
+`
+
+type SetRevisionEntityParams struct {
+	EntityID sql.NullInt64
+	ID       uint64
+}
+
+func (q *Queries) SetRevisionEntity(ctx context.Context, arg SetRevisionEntityParams) error {
+	_, err := q.db.ExecContext(ctx, setRevisionEntity, arg.EntityID, arg.ID)
+	return err
+}
+
 const unblockUser = `-- name: UnblockUser :execrows
 UPDATE users
 SET blocked_at = NULL
@@ -3083,6 +4371,46 @@ func (q *Queries) UnblockUser(ctx context.Context, id string) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateCollection = `-- name: UpdateCollection :exec
+UPDATE collections
+SET name = ?, sort_name = ?, sort_letter = ?, url = ?, kind = ?, description_md = ?, region_term_id = ?,
+    parent_id = ?, is_bardic_resource = ?, enumerable = ?, current_revision_id = ?
+WHERE id = ?
+`
+
+type UpdateCollectionParams struct {
+	Name              string
+	SortName          string
+	SortLetter        string
+	Url               sql.NullString
+	Kind              CollectionsKind
+	DescriptionMd     sql.NullString
+	RegionTermID      sql.NullInt64
+	ParentID          sql.NullInt64
+	IsBardicResource  bool
+	Enumerable        CollectionsEnumerable
+	CurrentRevisionID sql.NullInt64
+	ID                uint64
+}
+
+func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) error {
+	_, err := q.db.ExecContext(ctx, updateCollection,
+		arg.Name,
+		arg.SortName,
+		arg.SortLetter,
+		arg.Url,
+		arg.Kind,
+		arg.DescriptionMd,
+		arg.RegionTermID,
+		arg.ParentID,
+		arg.IsBardicResource,
+		arg.Enumerable,
+		arg.CurrentRevisionID,
+		arg.ID,
+	)
+	return err
 }
 
 const updateDisplayName = `-- name: UpdateDisplayName :execrows
@@ -3102,4 +4430,285 @@ func (q *Queries) UpdateDisplayName(ctx context.Context, arg UpdateDisplayNamePa
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateEvent = `-- name: UpdateEvent :exec
+UPDATE events
+SET name = ?, kind = ?, description_md = ?, current_revision_id = ?
+WHERE id = ?
+`
+
+type UpdateEventParams struct {
+	Name              string
+	Kind              EventsKind
+	DescriptionMd     sql.NullString
+	CurrentRevisionID sql.NullInt64
+	ID                uint64
+}
+
+func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) error {
+	_, err := q.db.ExecContext(ctx, updateEvent,
+		arg.Name,
+		arg.Kind,
+		arg.DescriptionMd,
+		arg.CurrentRevisionID,
+		arg.ID,
+	)
+	return err
+}
+
+const updateLinkArchive = `-- name: UpdateLinkArchive :exec
+
+UPDATE links
+SET archived_url = COALESCE(?, archived_url), archive_checked_at = ?
+WHERE id = ?
+`
+
+type UpdateLinkArchiveParams struct {
+	ArchivedUrl sql.NullString
+	CheckedAt   sql.NullTime
+	ID          uint64
+}
+
+// A NULL archived_url records a lookup that found nothing.
+func (q *Queries) UpdateLinkArchive(ctx context.Context, arg UpdateLinkArchiveParams) error {
+	_, err := q.db.ExecContext(ctx, updateLinkArchive, arg.ArchivedUrl, arg.CheckedAt, arg.ID)
+	return err
+}
+
+const updateLinkCheck = `-- name: UpdateLinkCheck :exec
+UPDATE links
+SET liveness = ?, liveness_failures = ?,
+    last_checked_at = ?
+WHERE id = ?
+`
+
+type UpdateLinkCheckParams struct {
+	Liveness         LinksLiveness
+	LivenessFailures uint8
+	CheckedAt        sql.NullTime
+	ID               uint64
+}
+
+func (q *Queries) UpdateLinkCheck(ctx context.Context, arg UpdateLinkCheckParams) error {
+	_, err := q.db.ExecContext(ctx, updateLinkCheck,
+		arg.Liveness,
+		arg.LivenessFailures,
+		arg.CheckedAt,
+		arg.ID,
+	)
+	return err
+}
+
+const updatePerson = `-- name: UpdatePerson :exec
+UPDATE persons
+SET name = ?, sort_name = ?, sort_letter = ?, kind = ?, status = ?, status_date = ?, status_source_url = ?,
+    pronouns = ?, notes_md = ?, licensing_notes_md = ?, licensing_status = ?, is_stub = ?, current_revision_id = ?
+WHERE id = ?
+`
+
+type UpdatePersonParams struct {
+	Name              string
+	SortName          string
+	SortLetter        string
+	Kind              PersonsKind
+	Status            PersonsStatus
+	StatusDate        sql.NullTime
+	StatusSourceUrl   sql.NullString
+	Pronouns          sql.NullString
+	NotesMd           sql.NullString
+	LicensingNotesMd  sql.NullString
+	LicensingStatus   PersonsLicensingStatus
+	IsStub            bool
+	CurrentRevisionID sql.NullInt64
+	ID                uint64
+}
+
+func (q *Queries) UpdatePerson(ctx context.Context, arg UpdatePersonParams) error {
+	_, err := q.db.ExecContext(ctx, updatePerson,
+		arg.Name,
+		arg.SortName,
+		arg.SortLetter,
+		arg.Kind,
+		arg.Status,
+		arg.StatusDate,
+		arg.StatusSourceUrl,
+		arg.Pronouns,
+		arg.NotesMd,
+		arg.LicensingNotesMd,
+		arg.LicensingStatus,
+		arg.IsStub,
+		arg.CurrentRevisionID,
+		arg.ID,
+	)
+	return err
+}
+
+const updatePiece = `-- name: UpdatePiece :exec
+
+UPDATE pieces
+SET title = ?, sort_title = ?, sort_letter = ?, kind = ?, conservation_status = ?, is_stub = ?, notes_md = ?,
+    version_notes_md = ?, licensing_notes_md = ?, licensing_status = ?, licence = ?, licence_version = ?,
+    historical_source_md = ?, period_start = ?, period_end = ?, current_revision_id = ?
+WHERE id = ?
+`
+
+type UpdatePieceParams struct {
+	Title              string
+	SortTitle          string
+	SortLetter         string
+	Kind               PiecesKind
+	ConservationStatus PiecesConservationStatus
+	IsStub             bool
+	NotesMd            sql.NullString
+	VersionNotesMd     sql.NullString
+	LicensingNotesMd   sql.NullString
+	LicensingStatus    PiecesLicensingStatus
+	Licence            NullPiecesLicence
+	LicenceVersion     NullPiecesLicenceVersion
+	HistoricalSourceMd sql.NullString
+	PeriodStart        sql.NullInt16
+	PeriodEnd          sql.NullInt16
+	CurrentRevisionID  sql.NullInt64
+	ID                 uint64
+}
+
+// Approval of an edit rewrites the entity row and replaces its child rows, the attachments of its links and the
+// performances it owns. Links are shared: one is inserted, or its editor fields updated, by normalized URL, and its
+// hidden, liveness, check and archive state is never written.
+func (q *Queries) UpdatePiece(ctx context.Context, arg UpdatePieceParams) error {
+	_, err := q.db.ExecContext(ctx, updatePiece,
+		arg.Title,
+		arg.SortTitle,
+		arg.SortLetter,
+		arg.Kind,
+		arg.ConservationStatus,
+		arg.IsStub,
+		arg.NotesMd,
+		arg.VersionNotesMd,
+		arg.LicensingNotesMd,
+		arg.LicensingStatus,
+		arg.Licence,
+		arg.LicenceVersion,
+		arg.HistoricalSourceMd,
+		arg.PeriodStart,
+		arg.PeriodEnd,
+		arg.CurrentRevisionID,
+		arg.ID,
+	)
+	return err
+}
+
+const updateRevisionStatus = `-- name: UpdateRevisionStatus :exec
+UPDATE revisions
+SET status = ?, reviewer_user_id = ?, reviewed_at = ?, review_note = ?
+WHERE id = ?
+`
+
+type UpdateRevisionStatusParams struct {
+	Status         RevisionsStatus
+	ReviewerUserID sql.NullString
+	ReviewedAt     sql.NullTime
+	ReviewNote     sql.NullString
+	ID             uint64
+}
+
+func (q *Queries) UpdateRevisionStatus(ctx context.Context, arg UpdateRevisionStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateRevisionStatus,
+		arg.Status,
+		arg.ReviewerUserID,
+		arg.ReviewedAt,
+		arg.ReviewNote,
+		arg.ID,
+	)
+	return err
+}
+
+const updateTerm = `-- name: UpdateTerm :exec
+UPDATE terms
+SET facet = ?, name = ?, display_name = ?, parent_id = ?, related_affiliation_id = ?, description_md = ?,
+    position = ?, current_revision_id = ?
+WHERE id = ?
+`
+
+type UpdateTermParams struct {
+	Facet                TermsFacet
+	Name                 string
+	DisplayName          string
+	ParentID             sql.NullInt64
+	RelatedAffiliationID sql.NullInt64
+	DescriptionMd        sql.NullString
+	Position             int32
+	CurrentRevisionID    sql.NullInt64
+	ID                   uint64
+}
+
+func (q *Queries) UpdateTerm(ctx context.Context, arg UpdateTermParams) error {
+	_, err := q.db.ExecContext(ctx, updateTerm,
+		arg.Facet,
+		arg.Name,
+		arg.DisplayName,
+		arg.ParentID,
+		arg.RelatedAffiliationID,
+		arg.DescriptionMd,
+		arg.Position,
+		arg.CurrentRevisionID,
+		arg.ID,
+	)
+	return err
+}
+
+const upsertLink = `-- name: UpsertLink :execlastid
+
+INSERT INTO links (url, normalized_url, title, description, platform, place_type, collection_id, locator)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), url = VALUES(url), title = VALUES(title),
+    description = VALUES(description), platform = VALUES(platform), place_type = VALUES(place_type),
+    collection_id = VALUES(collection_id), locator = VALUES(locator)
+`
+
+type UpsertLinkParams struct {
+	Url           string
+	NormalizedUrl string
+	Title         sql.NullString
+	Description   sql.NullString
+	Platform      sql.NullString
+	PlaceType     NullLinksPlaceType
+	CollectionID  sql.NullInt64
+	Locator       sql.NullString
+}
+
+// LAST_INSERT_ID(id) makes an existing row's ID the statement's insert ID.
+func (q *Queries) UpsertLink(ctx context.Context, arg UpsertLinkParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, upsertLink,
+		arg.Url,
+		arg.NormalizedUrl,
+		arg.Title,
+		arg.Description,
+		arg.Platform,
+		arg.PlaceType,
+		arg.CollectionID,
+		arg.Locator,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+const withdrawPendingRevisionsOfEntity = `-- name: WithdrawPendingRevisionsOfEntity :exec
+UPDATE revisions
+SET status = 'withdrawn'
+WHERE author_user_id = ? AND entity_type = ? AND entity_id = ? AND status = 'pending'
+`
+
+type WithdrawPendingRevisionsOfEntityParams struct {
+	AuthorUserID sql.NullString
+	EntityType   RevisionsEntityType
+	EntityID     sql.NullInt64
+}
+
+func (q *Queries) WithdrawPendingRevisionsOfEntity(ctx context.Context, arg WithdrawPendingRevisionsOfEntityParams) error {
+	_, err := q.db.ExecContext(ctx, withdrawPendingRevisionsOfEntity, arg.AuthorUserID, arg.EntityType, arg.EntityID)
+	return err
 }

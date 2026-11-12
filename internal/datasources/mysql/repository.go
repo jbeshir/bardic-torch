@@ -71,3 +71,10 @@ func int16Ptr(n sql.NullInt16) *int16 {
 	}
 	return &n.Int16
 }
+
+func int64Ptr(n sql.NullInt64) *int64 {
+	if !n.Valid {
+		return nil
+	}
+	return &n.Int64
+}
