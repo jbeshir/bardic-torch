@@ -28,28 +28,9 @@ ALTER TABLE `links`
 ALTER TABLE `pieces`
     ADD COLUMN `licence_version` ENUM('1.0', '2.0', '2.5', '3.0', '4.0') NULL AFTER `licence`;
 
-CREATE TABLE `link_reports` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `link_id` BIGINT UNSIGNED NOT NULL,
-    `reporter_user_id` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
-    `reason` ENUM('broken', 'wrong_link', 'privacy', 'copyright', 'lyrics', 'other') NOT NULL,
-    `message` TEXT NULL,
-    `status` ENUM('open', 'resolved', 'dismissed') NOT NULL DEFAULT 'open',
-    `created_at` DATETIME NOT NULL,
-    `resolved_by_user_id` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NULL,
-    `resolved_at` DATETIME NULL,
-    `resolution_note` TEXT NULL,
-    PRIMARY KEY (`id`),
-    INDEX `idx_status_created` (`status`, `created_at`, `id`),
-    INDEX `idx_reporter_link_status` (`reporter_user_id`, `link_id`, `status`),
-    CONSTRAINT `fk_link_reports_link_id` FOREIGN KEY (`link_id`) REFERENCES `links` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_link_reports_reporter_user_id` FOREIGN KEY (`reporter_user_id`) REFERENCES `users` (`id`),
-    CONSTRAINT `fk_link_reports_resolved_by_user_id` FOREIGN KEY (`resolved_by_user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE `contact_requests` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `kind` ENUM('takedown', 'opt_out', 'correction', 'general') NOT NULL,
+    `kind` ENUM('takedown', 'opt_out', 'correction', 'link_report', 'general') NOT NULL,
     `name` VARCHAR(255) NULL,
     `email` VARCHAR(254) NULL,
     `message` TEXT NULL,

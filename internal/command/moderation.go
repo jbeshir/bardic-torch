@@ -13,38 +13,7 @@ import (
 // ErrTurnstileFailed is returned for a contact request whose Turnstile token does not pass.
 var ErrTurnstileFailed = errors.New("the Turnstile check failed")
 
-var (
-	_ Command[CreateLinkReportRequest, int64]     = (*CreateLinkReport)(nil)
-	_ Command[CreateContactRequestRequest, int64] = (*CreateContactRequest)(nil)
-)
-
-// CreateLinkReportRequest is the request for the CreateLinkReport command.
-type CreateLinkReportRequest struct {
-	UserID  string
-	URL     string
-	Reason  domain.LinkReportReason
-	Message *string
-}
-
-// CreateLinkReport stores a user's report of a visible link.
-type CreateLinkReport struct {
-	Reports datasources.Moderation
-	Now     func() time.Time
-}
-
-// Execute normalizes the URL and stores the report, returning its ID. A URL that is not valid, or that no visible
-// link has, returns an error wrapping datasources.ErrNotFound, and an open report of the link by the same user one
-// wrapping datasources.ErrAlreadyReported.
-func (c *CreateLinkReport) Execute(ctx context.Context, req CreateLinkReportRequest) (int64, error) {
-	normalized, err := domain.NormalizeURL(req.URL)
-	if err != nil {
-		return 0, fmt.Errorf("link: %w", datasources.ErrNotFound)
-	}
-
-	return c.Reports.InsertLinkReport(ctx, datasources.NewLinkReport{
-		ReporterUserID: req.UserID, NormalizedURL: normalized, Reason: req.Reason, Message: req.Message, Now: c.Now(),
-	})
-}
+var _ Command[CreateContactRequestRequest, int64] = (*CreateContactRequest)(nil)
 
 // CreateContactRequestRequest is the request for the CreateContactRequest command. Name, Email, Message and URL
 // are personal data and are never logged.

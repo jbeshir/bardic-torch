@@ -39,40 +39,28 @@ func notFound(w http.ResponseWriter, r *http.Request, msg string) {
 	httpjson.WriteError(r.Context(), w, http.StatusNotFound, httpjson.CodeNotFound, msg)
 }
 
-// conflict writes 409 conflict with msg.
-func conflict(w http.ResponseWriter, r *http.Request, msg string) {
-	httpjson.WriteError(r.Context(), w, http.StatusConflict, httpjson.CodeConflict, msg)
-}
-
 // ClosingRequest is the JSON body of a moderator's closing of a contact request.
 type ClosingRequest struct {
 	Status domain.ReportStatus `json:"status"`
 	Note   *string             `json:"note"`
 }
 
-// LinkReportClosingRequest is the JSON body of a moderator's closing of a link report.
-type LinkReportClosingRequest struct {
-	ClosingRequest
-	HideLink bool `json:"hide_link"`
-}
-
-// closing decodes the body of a closing request into body, whose closing fields are fields, and returns a
-// datasources.Closing for the moderator. It writes 400 and returns false if the body is invalid.
-func closing(
-	w http.ResponseWriter, r *http.Request, idName string, now time.Time, body any, fields *ClosingRequest,
-) (datasources.Closing, bool) {
+// closing decodes the body of a closing request and returns a datasources.Closing for the moderator. It
+// writes 400 and returns false if the body is invalid.
+func closing(w http.ResponseWriter, r *http.Request, idName string, now time.Time) (datasources.Closing, bool) {
 	id, ok := idOrBadRequest(w, r, idName)
 	principal, authed := principalOrUnauthenticated(w, r)
-	if !ok || !authed || !httpjson.DecodeJSONBody(w, r, body) {
+	var body ClosingRequest
+	if !ok || !authed || !httpjson.DecodeJSONBody(w, r, &body) {
 		return datasources.Closing{}, false
 	}
-	note, noteOK := optionalText(fields.Note, domain.MaxNoteLength)
-	if !fields.Status.Closes() || !noteOK {
+	note, noteOK := optionalText(body.Note, domain.MaxNoteLength)
+	if !body.Status.Closes() || !noteOK {
 		badRequest(w, r, "status must be resolved or dismissed, and note at most 2000 characters")
 		return datasources.Closing{}, false
 	}
 
-	return datasources.Closing{ModeratorUserID: principal.User.ID, ID: id, Status: fields.Status, Note: note,
+	return datasources.Closing{ModeratorUserID: principal.User.ID, ID: id, Status: body.Status, Note: note,
 		Now: now}, true
 }
 
@@ -118,123 +106,13 @@ func resolutionFromDomain(res *domain.Resolution) *resolutionJSON {
 	return &resolutionJSON{ResolvedBy: res.ResolvedBy, ResolvedAt: res.ResolvedAt, Note: res.Note}
 }
 
-// LinkReportCreateRequest is the JSON body of a link report.
-type LinkReportCreateRequest struct {
-	URL     string                  `json:"url"`
-	Reason  domain.LinkReportReason `json:"reason"`
-	Message *string                 `json:"message"`
-}
-
-// IDResponse is the JSON body that names a created record.
-type IDResponse struct {
-	ID int64 `json:"id"`
-}
-
-// LinkReportCreate handles POST /v1/link-reports.
-type LinkReportCreate struct {
-	Command command.Command[command.CreateLinkReportRequest, int64]
-}
-
-func (c LinkReportCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	principal, ok := principalOrUnauthenticated(w, r)
-	if !ok {
-		return
-	}
-	var body LinkReportCreateRequest
-	if !httpjson.DecodeJSONBody(w, r, &body) {
-		return
-	}
-	message, messageOK := optionalText(body.Message, domain.MaxReportMessageLength)
-	if body.URL == "" || !body.Reason.Valid() || !messageOK {
-		badRequest(w, r, "url and a known reason are required, and message is at most 2000 characters")
-		return
-	}
-
-	id, err := c.Command.Execute(r.Context(), command.CreateLinkReportRequest{
-		UserID: principal.User.ID, URL: body.URL, Reason: body.Reason, Message: message,
-	})
-	switch {
-	case errors.Is(err, datasources.ErrNotFound):
-		notFound(w, r, "no visible link has this URL")
-	case errors.Is(err, datasources.ErrAlreadyReported):
-		conflict(w, r, "you already have an open report of this link")
-	case err != nil:
-		writeInternalError(w, r, "unable to create link report", err)
-	default:
-		httpjson.WriteJSON(r.Context(), w, http.StatusCreated, IDResponse{ID: id})
-	}
-}
-
-type linkReportJSON struct {
-	ID   uint64 `json:"id"`
-	Link struct {
-		ID       uint64 `json:"id"`
-		URL      string `json:"url"`
-		IsHidden bool   `json:"is_hidden"`
-	} `json:"link"`
-	Reporter struct {
-		UserID      string `json:"user_id"`
-		DisplayName string `json:"display_name"`
-	} `json:"reporter"`
-	Reason     domain.LinkReportReason `json:"reason"`
-	Message    *string                 `json:"message"`
-	Status     domain.ReportStatus     `json:"status"`
-	CreatedAt  time.Time               `json:"created_at"`
-	Resolution *resolutionJSON         `json:"resolution"`
-}
-
-// LinkReportListGet handles GET /v1/moderation/link-reports.
-type LinkReportListGet struct {
-	Moderation datasources.Moderation
-}
-
-func (c LinkReportListGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	status, page, ok := reportListQuery(w, r)
-	if !ok {
-		return
-	}
-	list, err := c.Moderation.ListLinkReports(r.Context(), status, page)
-	if err != nil {
-		writeInternalError(w, r, "unable to list link reports", err)
-		return
-	}
-
-	data := make([]linkReportJSON, 0, len(list.Reports))
-	for _, rep := range list.Reports {
-		item := linkReportJSON{ID: rep.ID, Reason: rep.Reason, Message: rep.Message, Status: rep.Status,
-			CreatedAt: rep.CreatedAt, Resolution: resolutionFromDomain(rep.Resolution)}
-		item.Link.ID, item.Link.URL, item.Link.IsHidden = rep.Link.ID, rep.Link.URL, rep.Link.IsHidden
-		item.Reporter.UserID, item.Reporter.DisplayName = rep.Reporter.UserID, rep.Reporter.DisplayName
-		data = append(data, item)
-	}
-	httpjson.WriteJSON(r.Context(), w, http.StatusOK, struct {
-		Data  []linkReportJSON `json:"data"`
-		Total int64            `json:"total"`
-	}{data, list.Total})
-}
-
-// LinkReportClose handles POST /v1/moderation/link-reports/{report_id}.
-type LinkReportClose struct {
-	Moderation datasources.Moderation
-	Now        func() time.Time
-}
-
-func (c LinkReportClose) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var body LinkReportClosingRequest
-	closed, ok := closing(w, r, "report_id", c.Now(), &body, &body.ClosingRequest)
-	if !ok {
-		return
-	}
-	writeClosed(w, r, c.Moderation.CloseLinkReport(r.Context(), closed, body.HideLink), "link report")
-}
-
-// writeClosed writes the answer to closing a report or request: 204, or the error err is.
+// writeClosed writes the answer to closing a request or setting a link hidden: 204, or the error err is.
 func writeClosed(w http.ResponseWriter, r *http.Request, err error, what string) {
 	switch {
 	case errors.Is(err, datasources.ErrNotFound):
 		notFound(w, r, what+" not found")
 	case errors.Is(err, datasources.ErrNotOpen):
-		conflict(w, r, "the "+what+" is not open")
+		httpjson.WriteError(r.Context(), w, http.StatusConflict, httpjson.CodeConflict, "the "+what+" is not open")
 	case err != nil:
 		writeInternalError(w, r, "unable to close "+what, err)
 	default:
@@ -428,8 +306,7 @@ type ContactRequestClose struct {
 }
 
 func (c ContactRequestClose) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var body ClosingRequest
-	closed, ok := closing(w, r, "request_id", c.Now(), &body, &body)
+	closed, ok := closing(w, r, "request_id", c.Now())
 	if !ok {
 		return
 	}

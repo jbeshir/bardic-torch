@@ -207,6 +207,7 @@ const (
 	ContactRequestsKindTakedown   ContactRequestsKind = "takedown"
 	ContactRequestsKindOptOut     ContactRequestsKind = "opt_out"
 	ContactRequestsKindCorrection ContactRequestsKind = "correction"
+	ContactRequestsKindLinkReport ContactRequestsKind = "link_report"
 	ContactRequestsKindGeneral    ContactRequestsKind = "general"
 )
 
@@ -250,6 +251,7 @@ func (e ContactRequestsKind) Valid() bool {
 	case ContactRequestsKindTakedown,
 		ContactRequestsKindOptOut,
 		ContactRequestsKindCorrection,
+		ContactRequestsKindLinkReport,
 		ContactRequestsKindGeneral:
 		return true
 	}
@@ -426,118 +428,6 @@ func (e LinkAttachmentsRole) Valid() bool {
 		LinkAttachmentsRoleWebsite,
 		LinkAttachmentsRoleExternalProfile,
 		LinkAttachmentsRoleOther:
-		return true
-	}
-	return false
-}
-
-type LinkReportsReason string
-
-const (
-	LinkReportsReasonBroken    LinkReportsReason = "broken"
-	LinkReportsReasonWrongLink LinkReportsReason = "wrong_link"
-	LinkReportsReasonPrivacy   LinkReportsReason = "privacy"
-	LinkReportsReasonCopyright LinkReportsReason = "copyright"
-	LinkReportsReasonLyrics    LinkReportsReason = "lyrics"
-	LinkReportsReasonOther     LinkReportsReason = "other"
-)
-
-func (e *LinkReportsReason) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = LinkReportsReason(s)
-	case string:
-		*e = LinkReportsReason(s)
-	default:
-		return fmt.Errorf("unsupported scan type for LinkReportsReason: %T", src)
-	}
-	return nil
-}
-
-type NullLinkReportsReason struct {
-	LinkReportsReason LinkReportsReason
-	Valid             bool // Valid is true if LinkReportsReason is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullLinkReportsReason) Scan(value interface{}) error {
-	if value == nil {
-		ns.LinkReportsReason, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.LinkReportsReason.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullLinkReportsReason) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.LinkReportsReason), nil
-}
-
-func (e LinkReportsReason) Valid() bool {
-	switch e {
-	case LinkReportsReasonBroken,
-		LinkReportsReasonWrongLink,
-		LinkReportsReasonPrivacy,
-		LinkReportsReasonCopyright,
-		LinkReportsReasonLyrics,
-		LinkReportsReasonOther:
-		return true
-	}
-	return false
-}
-
-type LinkReportsStatus string
-
-const (
-	LinkReportsStatusOpen      LinkReportsStatus = "open"
-	LinkReportsStatusResolved  LinkReportsStatus = "resolved"
-	LinkReportsStatusDismissed LinkReportsStatus = "dismissed"
-)
-
-func (e *LinkReportsStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = LinkReportsStatus(s)
-	case string:
-		*e = LinkReportsStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for LinkReportsStatus: %T", src)
-	}
-	return nil
-}
-
-type NullLinkReportsStatus struct {
-	LinkReportsStatus LinkReportsStatus
-	Valid             bool // Valid is true if LinkReportsStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullLinkReportsStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.LinkReportsStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.LinkReportsStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullLinkReportsStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.LinkReportsStatus), nil
-}
-
-func (e LinkReportsStatus) Valid() bool {
-	switch e {
-	case LinkReportsStatusOpen,
-		LinkReportsStatusResolved,
-		LinkReportsStatusDismissed:
 		return true
 	}
 	return false
@@ -2092,19 +1982,6 @@ type LinkAttachment struct {
 	PersonID sql.NullInt64
 	Role     LinkAttachmentsRole
 	Position uint16
-}
-
-type LinkReport struct {
-	ID               uint64
-	LinkID           uint64
-	ReporterUserID   string
-	Reason           LinkReportsReason
-	Message          sql.NullString
-	Status           LinkReportsStatus
-	CreatedAt        time.Time
-	ResolvedByUserID sql.NullString
-	ResolvedAt       sql.NullTime
-	ResolutionNote   sql.NullString
 }
 
 type ListedPerson struct {

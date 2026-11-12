@@ -138,7 +138,7 @@ func TestRepository_ImportCatalogue_CatalogueTablesAreEveryCatalogueTable(t *tes
 
 	var tables []string
 	for table := range tableColumns(t, mysqltest.NewDatabase(t)) {
-		if table != "users" && table != "link_reports" && table != "contact_requests" {
+		if table != "users" && table != "contact_requests" {
 			tables = append(tables, table)
 		}
 	}

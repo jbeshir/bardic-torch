@@ -36,7 +36,6 @@ type Repo struct {
 	Revision    domain.Revision
 	NeedsWork   domain.NeedsWorkList
 
-	LinkReports     domain.LinkReportList
 	ModerationLink  *domain.ModerationLink
 	ContactRequests domain.ContactRequestList
 	// ContactRequest is the last contact request stored.
@@ -233,16 +232,6 @@ func notFoundOr(err error) error {
 	}
 	return datasources.ErrNotFound
 }
-
-func (r *Repo) InsertLinkReport(context.Context, datasources.NewLinkReport) (int64, error) {
-	return 1, r.Err
-}
-
-func (r *Repo) ListLinkReports(context.Context, domain.ReportStatus, domain.Page) (domain.LinkReportList, error) {
-	return r.LinkReports, r.Err
-}
-
-func (r *Repo) CloseLinkReport(context.Context, datasources.Closing, bool) error { return r.Err }
 
 func (r *Repo) GetModerationLink(context.Context, string) (domain.ModerationLink, error) {
 	if r.Err != nil || r.ModerationLink == nil {

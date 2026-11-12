@@ -1,7 +1,8 @@
 # Bardic Torch: implementation plan
 
 **Status:** approved 2026-10-31; rewritten 2026-11-10 to a simpler scope (the commit that rewrote it lists what
-changed).
+changed); revised 2026-11-12 (monthly link check, link reports as contact requests, takedowns by link ID, sources
+for licensing only, no email withholding in the importer).
 This plan is the input every build pipeline reads.
 
 **Proportion is the main quality bar.** The site holds about 142 pieces and 48 bards, with two moderators (John
@@ -115,10 +116,8 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
   `revision_contributors` credits wiki contributors on imports.
 - **`users`**: Auth0 ID, `display_name`, `role` (contributor / moderator), `blocked_at`. At startup the API
   promotes (and unblocks) the IDs in `BOOTSTRAP_MODERATOR_USER_IDS`; it never demotes (that is done in SQL).
-- **`link_reports`**: link, reporter, `reason` (broken / wrong_link / privacy / copyright / lyrics / other),
-  message, `status` (open / resolved / dismissed), resolver and note.
-- **`contact_requests`**: `kind` (takedown / opt_out / correction / general), name, email, message, URL, status,
-  resolver, note.
+- **`contact_requests`**: `kind` (takedown / opt_out / correction / link_report / general), name, email, message,
+  URL (for a `link_report`, the link's), status, resolver, note.
 
 ### 4.1 Catalogue rules (built in BE2)
 
@@ -198,20 +197,20 @@ One transaction validates the snapshot, writes it into the entity and its childr
 - **References are to public entities only.** A revision may reference only entities that are already public. A
   new term is suggested as its own term revision and approved on its own; the piece uses it once it is public.
 
-### 5.4 Moderation, reports and contact
+### 5.4 Moderation and contact
 
 - **Queue:** pending revisions, oldest first. The moderator's revision view shows the full document and its diff
   against its base and, when stale, against current.
 - **Blocking:** moderators block and unblock contributors; moderators cannot be blocked. A blocked user gets 403 on
   every authenticated endpoint; their pending revisions stay for a moderator to reject.
 - **Display names** are set with `PATCH /v1/me` (non-blank, NFC, ≤ 255 characters). Moderators are badged.
-- **Link reports** (R-11): a signed-in user reports a link by URL with a reason and optional message, one open
-  report per user and link. Moderators resolve or dismiss each with a note, and may hide the link.
+- **Contact form** (R-13, no account): kind, name, email, message, URL and a Turnstile token checked server-side
+  (success, hostname, action `contact`). Moderators resolve or dismiss requests in one inbox. The personal fields
+  are never logged.
+- **Reporting a link** (R-11) is a contact request of kind `link_report`, its URL the link's, sent through the
+  same form with no account.
 - **Takedown:** moderators find a link by URL (`GET /v1/moderation/links`) and hide or restore it everywhere
   (`PUT /v1/links/{id}/hidden`).
-- **Contact form** (R-13, no account): kind, name, email, message, URL and a Turnstile token checked server-side
-  (success, hostname, action `contact`). Moderators resolve or dismiss requests. The personal fields are never
-  logged.
 
 ### 5.5 Link check (`cmd/check-links`)
 
@@ -237,14 +236,13 @@ The OpenAPI spec is the exact contract.
   `/v1/collections/{collection_id}`, `/v1/events`, `/v1/events/{slug}`, each entity's `…/history`,
   `/v1/revisions/{revision_id}` and `/v1/needs-work`.
 - **Signed in:** `GET|PATCH /v1/me`; `GET /v1/me/revisions[/{revision_id}]`; `GET /v1/{type}/{key}/editable`;
-  `POST /v1/revisions`; `POST /v1/revisions/{id}/withdraw`; `POST /v1/link-reports`.
+  `POST /v1/revisions`; `POST /v1/revisions/{id}/withdraw`.
 - **Moderator:** `GET /v1/moderation/queue`,
   `GET /v1/moderation/revisions/{id}`, `POST /v1/revisions/{id}/approve|reject`,
-  `GET /v1/moderation/link-reports`, `POST /v1/moderation/link-reports/{id}`,
   `GET /v1/moderation/contact-requests`, `POST /v1/moderation/contact-requests/{id}`,
   `GET /v1/moderation/links?url=`, `PUT /v1/links/{id}/hidden`, `PUT /v1/users/{id}/blocked`. Moderation
   responses carry the author's user ID and link IDs that public reads never expose.
-- **No account:** `POST /v1/contact`. **Health:** `/healthz`, `/readyz`.
+- **No account:** `POST /v1/contact` (contact requests, link reports among them). **Health:** `/healthz`, `/readyz`.
 
 Bodies are limited to 1 MiB for documents, 64 KiB for `/v1/contact` and 16 KiB otherwise.
 
@@ -290,7 +288,7 @@ editor and submitted); the CC BY-SA notice. "Suggest a new term" submits a term 
 term once it is approved.
 
 **Moderation and contact (FE4):** the queue; the review page (diffs, the stale warning, approve or reject with a
-note); the link-report and contact inboxes; takedown and blocking; the needs-work page; the
+note); the contact inbox (link reports included); takedown and blocking; the needs-work page; the
 contact / takedown / opt-out form with Turnstile.
 
 **Standards:** server-rendered with page metadata; the browser never calls the API; WCAG 2.2 AA and keyboard
@@ -317,7 +315,7 @@ or combination. A test earns its place by catching a bug someone could plausibly
 - Component tests for components with logic (forms, editors, pickers, the facet drawer); loader and action tests
   against msw with spec-checked fixtures.
 - A short Playwright suite, one journey per main flow: browse and search, read a piece and a bard, sign in
-  (stubbed), edit and submit with the duplicate warning, approve and reject (one stale), report a link, contact.
+  (stubbed), edit and submit with the duplicate warning, approve and reject (one stale), contact (including reporting a link).
   axe on each page type in the default theme (the token contrast check covers dark mode); screenshots at 360 and
   1280px for the UX review.
 - `npm run validate`, the `e2e` job and `npm run audit` in CI.
@@ -341,7 +339,7 @@ goes to the owners as a question.
 | H0–BE3, FE1–FE2 | | | | *Done:* host setup, foundations, catalogue and read API, importer, read UI. |
 | BE-S | simplify | BE | BE3 | *Done:* removed what this plan no longer needs (below). |
 | FE-S | simplify | FE | FE2 | Remove what this plan no longer needs (below). |
-| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `link_reports`, `contact_requests`, performance owners, the link-check columns and `licence_version`; `updated_at` and `credit_names`; the `check-links` cron. |
+| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `contact_requests`, performance owners, the link-check columns and `licence_version`; `updated_at` and `credit_names`; the `check-links` cron. |
 | FE3 | editing | FE | FE-S, BE4 spec | §8 "Editing". |
 | FE4 | moderation and contact | FE | FE3 | §8 "Moderation and contact". |
 | H1 | launch | host | all | The Cloudflare rate-limiting rule; full-stack e2e on the real import; staging; the real import; the click-through; production. |
@@ -383,7 +381,7 @@ DESIGN.md, TESTING.md and CLAUDE.md are rewritten to this plan, short (DESIGN ab
 breakpoints, voice, accessibility). Event and venue pages stay.
 
 **BE4 reuses** from the closed `milestone/be4-moderation` and `milestone/be5-extras` branches where they fit: the
-`link_reports` and `contact_requests` DDL and code, the Turnstile and Wayback clients, the link-check guard and
+`contact_requests` DDL and code, the Turnstile and Wayback clients, the link-check guard and
 prober, the entity writer shared with the importer, the document `Validate` functions and `DuplicateKey` (without
 hidden-data handling), the bounded connection pools and the 503 for a refused connection (BE4's connection
 fix), and the `licence_version`, `updated_at` and `credit_names` read changes. It reuses none of the merge,

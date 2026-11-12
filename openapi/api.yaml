@@ -1136,127 +1136,6 @@ paths:
           $ref: "#/components/responses/Unavailable"
 
 
-  /v1/link-reports:
-    post:
-      tags:
-        - Moderation
-      summary: Report a link
-      description: |
-        Reports a link to the moderators. The URL is normalized as links are, and must belong to a visible link: one
-        that is not hidden and is attached to a public piece or person; otherwise it is not found, as for a hidden
-        link. A user has at most one open report per link. Requires a signed-in user.
-      operationId: createLinkReport
-      requestBody:
-        description: The link and why it is reported.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateLinkReportRequest"
-      responses:
-        "201":
-          description: The report was stored.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CreatedID"
-        "400":
-          $ref: "#/components/responses/InvalidRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          description: The user already has an open report of this link; the error code is `conflict`.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                code: conflict
-                message: you already have an open report of this link
-        "413":
-          $ref: "#/components/responses/RequestTooLarge"
-        "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
-        "500":
-          $ref: "#/components/responses/Internal"
-        "503":
-          $ref: "#/components/responses/Unavailable"
-
-  /v1/moderation/link-reports:
-    get:
-      tags:
-        - Moderation
-      summary: List link reports
-      description: |
-        Lists one page of link reports with a status (`open` unless `status` says otherwise), oldest first, with how
-        many there are in all. Requires the moderator role.
-      operationId: listLinkReports
-      parameters:
-        - $ref: "#/components/parameters/ReportStatusFilter"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
-      responses:
-        "200":
-          description: The page of reports.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LinkReportList"
-        "400":
-          $ref: "#/components/responses/InvalidListRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/ModeratorForbidden"
-        "500":
-          $ref: "#/components/responses/Internal"
-        "503":
-          $ref: "#/components/responses/Unavailable"
-
-  /v1/moderation/link-reports/{report_id}:
-    post:
-      tags:
-        - Moderation
-      summary: Resolve or dismiss a link report
-      description: |
-        Closes an open link report as resolved or dismissed, with an optional note. With `hide_link` the report's
-        link is also hidden, as `PUT /v1/links/{link_id}/hidden` does. Requires the moderator role.
-      operationId: closeLinkReport
-      parameters:
-        - $ref: "#/components/parameters/ReportID"
-      requestBody:
-        description: How the report is closed.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CloseLinkReportRequest"
-      responses:
-        "204":
-          description: The report is closed.
-        "400":
-          $ref: "#/components/responses/InvalidRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/ModeratorForbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/NotOpen"
-        "413":
-          $ref: "#/components/responses/RequestTooLarge"
-        "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
-        "500":
-          $ref: "#/components/responses/Internal"
-        "503":
-          $ref: "#/components/responses/Unavailable"
-
   /v1/moderation/links:
     get:
       tags:
@@ -2025,17 +1904,6 @@ components:
       schema:
         $ref: "#/components/schemas/Letter"
 
-    ReportID:
-      name: report_id
-      in: path
-      required: true
-      description: The link report's `id`.
-      schema:
-        type: integer
-        format: int64
-        minimum: 1
-        examples:
-          - 7
     RequestID:
       name: request_id
       in: path
@@ -2211,8 +2079,7 @@ components:
             message: "invalid status: not one of its allowed values"
     NotFound:
       description: |
-        The report, request or link does not exist, or for a link report no visible link has the URL; the error code
-        is `not_found`.
+        The request or link does not exist; the error code is `not_found`.
       content:
         application/json:
           schema:
@@ -2221,14 +2088,14 @@ components:
             code: not_found
             message: link not found
     NotOpen:
-      description: The report or request is already resolved or dismissed; the error code is `conflict`.
+      description: The request is already resolved or dismissed; the error code is `conflict`.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
           example:
             code: conflict
-            message: the link report is not open
+            message: the contact request is not open
     InvalidCollectionID:
       description: The `collection_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
       content:
@@ -5406,54 +5273,9 @@ components:
         - reason: stub
           count: 3
 
-    CreatedID:
-      type: object
-      description: The ID of a stored record.
-      additionalProperties: false
-      required: [id]
-      properties:
-        id:
-          type: integer
-          format: int64
-          minimum: 1
-          examples:
-            - 7
-      examples:
-        - id: 7
-
-    CreateLinkReportRequest:
-      type: object
-      description: The body of a link report.
-      additionalProperties: false
-      required: [url, reason]
-      properties:
-        url:
-          type: string
-          minLength: 1
-          description: The URL of the link, in any spelling that normalizes to it.
-          examples:
-            - https://example.org/kettle
-        reason:
-          type: string
-          enum: [broken, wrong_link, privacy, copyright, lyrics, other]
-          examples:
-            - broken
-        message:
-          type:
-            - string
-            - "null"
-          maxLength: 2000
-          description: What the moderators should know. Surrounding space is trimmed; empty is the same as null.
-          examples:
-            - The page is gone.
-      examples:
-        - url: https://example.org/kettle
-          reason: broken
-          message: The page is gone.
-
     Resolution:
       type: object
-      description: How a moderator closed a report or request.
+      description: How a moderator closed a contact request.
       additionalProperties: false
       required: [resolved_by, resolved_at, note]
       properties:
@@ -5475,149 +5297,6 @@ components:
         - resolved_by: google-oauth2|123
           resolved_at: "2026-11-11T12:00:00Z"
           note: Link hidden.
-
-    LinkReport:
-      type: object
-      description: A user's report of a link.
-      additionalProperties: false
-      required: [id, link, reporter, reason, message, status, created_at, resolution]
-      properties:
-        id:
-          type: integer
-          format: int64
-          examples:
-            - 7
-        link:
-          type: object
-          additionalProperties: false
-          required: [id, url, is_hidden]
-          properties:
-            id:
-              type: integer
-              format: int64
-              examples:
-                - 9
-            url:
-              type: string
-              examples:
-                - https://example.org/kettle
-            is_hidden:
-              type: boolean
-              examples:
-                - false
-        reporter:
-          type: object
-          additionalProperties: false
-          required: [user_id, display_name]
-          properties:
-            user_id:
-              type: string
-              examples:
-                - google-oauth2|456
-            display_name:
-              type: string
-              examples:
-                - Morwen
-        reason:
-          type: string
-          enum: [broken, wrong_link, privacy, copyright, lyrics, other]
-          examples:
-            - broken
-        message:
-          type:
-            - string
-            - "null"
-          examples:
-            - The page is gone.
-        status:
-          type: string
-          enum: [open, resolved, dismissed]
-          examples:
-            - open
-        created_at:
-          type: string
-          format: date-time
-        resolution:
-          oneOf:
-            - $ref: "#/components/schemas/Resolution"
-            - type: "null"
-      examples:
-        - id: 7
-          link:
-            id: 9
-            url: https://example.org/kettle
-            is_hidden: false
-          reporter:
-            user_id: google-oauth2|456
-            display_name: Morwen
-          reason: broken
-          message: The page is gone.
-          status: open
-          created_at: "2026-11-10T09:30:00Z"
-          resolution: null
-
-    LinkReportList:
-      type: object
-      description: One page of link reports, oldest first.
-      additionalProperties: false
-      required: [data, total]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/LinkReport"
-        total:
-          type: integer
-          format: int64
-          minimum: 0
-          description: How many reports have the status, over every page.
-          examples:
-            - 1
-      examples:
-        - data:
-            - id: 7
-              link:
-                id: 9
-                url: https://example.org/kettle
-                is_hidden: false
-              reporter:
-                user_id: google-oauth2|456
-                display_name: Morwen
-              reason: broken
-              message: The page is gone.
-              status: open
-              created_at: "2026-11-10T09:30:00Z"
-              resolution: null
-          total: 1
-
-    CloseLinkReportRequest:
-      type: object
-      description: The body of a moderator's closing of a link report.
-      additionalProperties: false
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [resolved, dismissed]
-          examples:
-            - resolved
-        note:
-          type:
-            - string
-            - "null"
-          maxLength: 2000
-          examples:
-            - Link hidden.
-        hide_link:
-          type: boolean
-          default: false
-          description: Also hide the report's link.
-          examples:
-            - true
-      examples:
-        - status: resolved
-          note: Link hidden.
-          hide_link: true
 
     CloseContactRequestRequest:
       type: object
@@ -5728,7 +5407,10 @@ components:
       properties:
         kind:
           type: string
-          enum: [takedown, opt_out, correction, general]
+          description: |
+            What the request is about. `link_report` reports a link on the site, and `url` is then the link's URL.
+            Moderators take a link down by finding it with `GET /v1/moderation/links`.
+          enum: [takedown, opt_out, correction, link_report, general]
           examples:
             - takedown
         name:
@@ -5754,7 +5436,7 @@ components:
             - string
             - "null"
           maxLength: 2048
-          description: The page the request is about, if any. It is stored as sent.
+          description: The page the request is about, if any, or for a `link_report` the link's URL. Stored as sent.
           examples:
             - https://example.org/kettle
         turnstile_token:
@@ -5787,7 +5469,7 @@ components:
             - 3
         kind:
           type: string
-          enum: [takedown, opt_out, correction, general]
+          enum: [takedown, opt_out, correction, link_report, general]
           examples:
             - takedown
         name:

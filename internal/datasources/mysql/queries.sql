@@ -893,44 +893,8 @@ SET archived_url = COALESCE(sqlc.narg(archived_url), archived_url), archive_chec
 WHERE id = sqlc.arg(id);
 
 -- ============================================
--- Link reports, link takedown and contact requests
+-- Link takedown and contact requests
 -- ============================================
-
--- A visible link: not hidden, with a public attachment, so that it is shown on a public page.
-
--- name: GetVisibleLinkID :one
-SELECT l.id
-FROM links l
-WHERE l.normalized_url = ? AND NOT l.is_hidden
-    AND EXISTS (SELECT 1 FROM public_link_attachments a WHERE a.link_id = l.id);
-
--- name: HasOpenLinkReport :one
-SELECT EXISTS (SELECT 1 FROM link_reports WHERE reporter_user_id = ? AND link_id = ? AND status = 'open');
-
--- name: InsertLinkReport :execresult
-INSERT INTO link_reports (link_id, reporter_user_id, reason, message, created_at)
-VALUES (?, ?, ?, ?, ?);
-
--- name: ListLinkReports :many
-SELECT r.id, r.link_id, l.url, l.is_hidden, r.reporter_user_id, u.display_name AS reporter_display_name, r.reason,
-    r.message, r.status, r.created_at, r.resolved_by_user_id, r.resolved_at, r.resolution_note
-FROM link_reports r
-JOIN links l ON l.id = r.link_id
-JOIN users u ON u.id = r.reporter_user_id
-WHERE r.status = ?
-ORDER BY r.created_at, r.id
-LIMIT ? OFFSET ?;
-
--- name: CountLinkReports :one
-SELECT COUNT(*) FROM link_reports WHERE status = ?;
-
--- name: GetLinkReportState :one
-SELECT link_id, status FROM link_reports WHERE id = ?;
-
--- name: CloseLinkReport :exec
-UPDATE link_reports
-SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
-WHERE id = ?;
 
 -- name: SetLinkHidden :execrows
 UPDATE links SET is_hidden = ? WHERE id = ?;

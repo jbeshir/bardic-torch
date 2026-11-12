@@ -8,21 +8,8 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var (
-	// ErrAlreadyReported is a link report by a user who already has an open report of the link.
-	ErrAlreadyReported = errors.New("the user already has an open report of the link")
-	// ErrNotOpen is the resolution of a link report or contact request that is already closed.
-	ErrNotOpen = errors.New("not open")
-)
-
-// NewLinkReport is a user's report of the visible link whose normalized URL is NormalizedURL.
-type NewLinkReport struct {
-	ReporterUserID string
-	NormalizedURL  string
-	Reason         domain.LinkReportReason
-	Message        *string
-	Now            time.Time
-}
+// ErrNotOpen is the resolution of a contact request that is already closed.
+var ErrNotOpen = errors.New("not open")
 
 // NewContactRequest is a message sent through the contact form. Name, Email, Message and URL are personal data,
 // which must never be logged.
@@ -35,7 +22,7 @@ type NewContactRequest struct {
 	Now     time.Time
 }
 
-// Closing is a moderator closing an open report or contact request.
+// Closing is a moderator closing an open contact request.
 type Closing struct {
 	ModeratorUserID string
 	ID              int64
@@ -44,16 +31,8 @@ type Closing struct {
 	Now             time.Time
 }
 
-// Moderation stores link reports, link takedowns and contact requests.
+// Moderation stores link takedowns and contact requests.
 type Moderation interface {
-	// InsertLinkReport stores a report and returns its ID. It returns ErrNotFound if no visible link (not hidden,
-	// attached to a public entity) has the URL, and ErrAlreadyReported if the reporter has an open report of it.
-	InsertLinkReport(ctx context.Context, report NewLinkReport) (int64, error)
-	// ListLinkReports lists one page of the reports with the status, oldest first.
-	ListLinkReports(ctx context.Context, status domain.ReportStatus, page domain.Page) (domain.LinkReportList, error)
-	// CloseLinkReport resolves or dismisses an open report, and with hideLink also hides its link. It returns
-	// ErrNotFound for no such report and ErrNotOpen for one already closed.
-	CloseLinkReport(ctx context.Context, closing Closing, hideLink bool) error
 	// GetModerationLink returns the link with the normalized URL, hidden or not, or ErrNotFound.
 	GetModerationLink(ctx context.Context, normalizedURL string) (domain.ModerationLink, error)
 	// SetLinkHidden hides or restores a link, or returns ErrNotFound.
@@ -65,7 +44,8 @@ type Moderation interface {
 	ListContactRequests(
 		ctx context.Context, status domain.ReportStatus, page domain.Page,
 	) (domain.ContactRequestList, error)
-	// CloseContactRequest resolves or dismisses an open request, as CloseLinkReport does a report.
+	// CloseContactRequest resolves or dismisses an open request. It returns ErrNotFound for no such
+	// request and ErrNotOpen for one already closed.
 	CloseContactRequest(ctx context.Context, closing Closing) error
 }
 

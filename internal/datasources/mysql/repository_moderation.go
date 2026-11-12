@@ -13,113 +13,13 @@ import (
 
 var _ datasources.Moderation = (*Repository)(nil)
 
-// InsertLinkReport stores a report of a visible link, refusing a second open report of it by the same user.
-func (r *Repository) InsertLinkReport(ctx context.Context, report datasources.NewLinkReport) (int64, error) {
-	var id int64
-	err := r.inTransaction(ctx, func(q *queries.Queries) error {
-		linkID, err := q.GetVisibleLinkID(ctx, report.NormalizedURL)
-		if errors.Is(err, sql.ErrNoRows) {
-			return datasources.ErrNotFound
-		} else if err != nil {
-			return err
-		}
-		exists, err := q.HasOpenLinkReport(ctx, queries.HasOpenLinkReportParams{
-			ReporterUserID: report.ReporterUserID, LinkID: linkID,
-		})
-		if err != nil {
-			return err
-		}
-		if exists {
-			return datasources.ErrAlreadyReported
-		}
-		res, err := q.InsertLinkReport(ctx, queries.InsertLinkReportParams{
-			LinkID: linkID, ReporterUserID: report.ReporterUserID, Reason: queries.LinkReportsReason(report.Reason),
-			Message: nullString(report.Message), CreatedAt: report.Now,
-		})
-		if err != nil {
-			return err
-		}
-		id, err = res.LastInsertId()
-
-		return err
-	})
-	if err != nil {
-		return 0, fmt.Errorf("inserting link report: %w", err)
-	}
-
-	return id, nil
-}
-
-// ListLinkReports lists one page of the reports with the status, oldest first.
-func (r *Repository) ListLinkReports(
-	ctx context.Context, status domain.ReportStatus, page domain.Page,
-) (domain.LinkReportList, error) {
-	rows, err := r.queries.ListLinkReports(ctx, queries.ListLinkReportsParams{
-		Status: queries.LinkReportsStatus(status), Limit: page.Limit, Offset: page.Offset,
-	})
-	if err != nil {
-		return domain.LinkReportList{}, fmt.Errorf("listing link reports: %w", unavailableIfDisconnected(err))
-	}
-	total, err := r.queries.CountLinkReports(ctx, queries.LinkReportsStatus(status))
-	if err != nil {
-		return domain.LinkReportList{}, fmt.Errorf("counting link reports: %w", unavailableIfDisconnected(err))
-	}
-
-	list := domain.LinkReportList{Reports: make([]domain.LinkReport, 0, len(rows)), Total: total}
-	for _, row := range rows {
-		list.Reports = append(list.Reports, domain.LinkReport{
-			ID:       row.ID,
-			Link:     domain.ReportedLink{ID: row.LinkID, URL: row.Url, IsHidden: row.IsHidden},
-			Reporter: domain.ModerationUser{UserID: row.ReporterUserID, DisplayName: row.ReporterDisplayName},
-			Reason:   domain.LinkReportReason(row.Reason), Message: stringPtr(row.Message),
-			Status: domain.ReportStatus(row.Status), CreatedAt: row.CreatedAt,
-			Resolution: resolution(row.ResolvedByUserID, row.ResolvedAt, row.ResolutionNote),
-		})
-	}
-
-	return list, nil
-}
-
-// resolution is how a report was closed, or nil if it is open.
+// resolution is how a request was closed, or nil if it is open.
 func resolution(by sql.NullString, at sql.NullTime, note sql.NullString) *domain.Resolution {
 	if !by.Valid || !at.Valid {
 		return nil
 	}
 
 	return &domain.Resolution{ResolvedBy: by.String, ResolvedAt: at.Time, Note: stringPtr(note)}
-}
-
-// CloseLinkReport resolves or dismisses an open report, hiding its link too if hideLink.
-func (r *Repository) CloseLinkReport(ctx context.Context, closing datasources.Closing, hideLink bool) error {
-	id := closing.ID
-	err := r.inTransaction(ctx, func(q *queries.Queries) error {
-		if id < 1 {
-			return datasources.ErrNotFound
-		}
-		state, err := q.GetLinkReportState(ctx, uint64(id))
-		if errors.Is(err, sql.ErrNoRows) {
-			return datasources.ErrNotFound
-		} else if err != nil {
-			return err
-		}
-		if state.Status != queries.LinkReportsStatusOpen {
-			return datasources.ErrNotOpen
-		}
-		err = q.CloseLinkReport(ctx, queries.CloseLinkReportParams{
-			Status: queries.LinkReportsStatus(closing.Status), ResolvedByUserID: nullString(&closing.ModeratorUserID),
-			ResolvedAt: nullTime(closing.Now), ResolutionNote: nullString(closing.Note), ID: uint64(id),
-		})
-		if err != nil || !hideLink {
-			return err
-		}
-
-		return requireMatched(q.SetLinkHidden(ctx, queries.SetLinkHiddenParams{IsHidden: true, ID: state.LinkID}))
-	})
-	if err != nil {
-		return fmt.Errorf("closing link report [%d]: %w", closing.ID, err)
-	}
-
-	return nil
 }
 
 // GetModerationLink returns the link with the normalized URL, hidden or not, with its attachments.

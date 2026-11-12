@@ -95,11 +95,6 @@ var (
 )
 
 var (
-	linkReports = domain.LinkReportList{Total: 1, Reports: []domain.LinkReport{{ID: 7,
-		Link:     domain.ReportedLink{ID: 9, URL: "https://example.org/kettle"},
-		Reporter: domain.ModerationUser{UserID: contributorID, DisplayName: "Rook"},
-		Reason:   domain.LinkReportReasonBroken, Status: domain.ReportStatusOpen, CreatedAt: testNow,
-	}}}
 	moderationLink = domain.ModerationLink{ID: 9, URL: "https://example.org/kettle", Liveness: domain.LivenessOK,
 		Attachments: []domain.LinkAttachment{{EntityType: domain.EntityTypePiece, Slug: routeSlug,
 			Title: "The Copper Kettle", Roles: []domain.LinkRole{domain.LinkRoleLyrics}}}}
@@ -152,14 +147,6 @@ var routeTable = map[openapitest.Operation]routeRow{
 	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: {access: moderator,
 		path: "/v1/users/google-oauth2%7C123/blocked", body: `{"blocked":true}`, success: http.StatusOK,
 		seed: nothingSeeded},
-	{Method: http.MethodPost, Path: "/v1/link-reports"}: {access: signedIn, path: "/v1/link-reports",
-		body: `{"url":"https://example.org/kettle","reason":"broken","message":"Gone."}`, success: http.StatusCreated,
-		seed: nothingSeeded},
-	{Method: http.MethodGet, Path: "/v1/moderation/link-reports"}: {access: moderator,
-		path: "/v1/moderation/link-reports", success: http.StatusOK, seed: func(r *fakerepo.Repo) { r.LinkReports = linkReports }},
-	{Method: http.MethodPost, Path: "/v1/moderation/link-reports/{report_id}"}: {access: moderator,
-		path: "/v1/moderation/link-reports/7", body: `{"status":"resolved","note":"Hidden.","hide_link":true}`,
-		success: http.StatusNoContent, seed: nothingSeeded},
 	{Method: http.MethodGet, Path: "/v1/moderation/links"}: {access: moderator,
 		path: "/v1/moderation/links?url=https%3A%2F%2Fexample.org%2Fkettle", success: http.StatusOK,
 		seed: func(r *fakerepo.Repo) { r.ModerationLink = &moderationLink }},
@@ -335,7 +322,6 @@ func newHandler(t *testing.T, seed func(*fakerepo.Repo)) http.Handler {
 		UpdateDisplayName: &command.UpdateDisplayName{Users: users},
 		SetUserBlocked:    &command.SetUserBlocked{Users: users, Now: now},
 		Now:               now,
-		CreateLinkReport:  &command.CreateLinkReport{Reports: users, Now: now},
 		SubmitRevision:    &command.SubmitRevision{Revisions: users, Now: now},
 		CreateContactRequest: &command.CreateContactRequest{
 			Verifier: turnstilePasses{}, Contacts: users, Now: now,

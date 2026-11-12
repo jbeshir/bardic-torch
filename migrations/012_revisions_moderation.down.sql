@@ -6,7 +6,6 @@ LEFT JOIN `listed_persons` lp ON lp.`id` = a.`person_id`
 WHERE p.`id` IS NOT NULL OR lp.`id` IS NOT NULL;
 
 DROP TABLE `contact_requests`;
-DROP TABLE `link_reports`;
 
 ALTER TABLE `pieces` DROP COLUMN `licence_version`;
 
