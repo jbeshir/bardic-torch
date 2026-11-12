@@ -128,8 +128,9 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
   Credits, performers, relations and citations name them like anyone else, without a link (`slug` null). The
   lists of persons (`listed_persons`) list them as stubs, find them by name only, and leave them out of role and
   affiliation filters, term member lists and counts, and needs-work.
-- **Hidden links** are left out of every read, revision views included: a snapshot drops a link whose URL
-  normalises to a hidden link's, or does not normalise, and otherwise shows its own URL.
+- **Hidden links** are left out of every read by their link ID: current pages through the link's row, and revision
+  views by the link each snapshot URL is (the row approval upserts it to, by normalised URL). Every other link is
+  shown as the snapshot wrote it.
 - **Kinds are an enum**, not terms. **Slugs and sort keys** are set by the writer (sort keys ignore a leading
   article).
 - **Search** is InnoDB FULLTEXT on tokens the API makes itself, with a prefix fallback; reads are capped at 2 s.
@@ -167,7 +168,8 @@ show. Authors appear by display name; imports list the wiki contributors.
 - **Pending banner:** an author sees, on the entity's page, a banner linking to their pending revision (the FE
   finds it in `/v1/me/revisions`, at most 30).
 - **Hidden links** are left out of editable documents, so an approved edit drops their attachment
-  (restoring the link later does not bring it back); a re-added URL that normalises to a hidden link stays hidden.
+  (restoring the link later does not bring it back). Re-adding a taken-down URL is an ordinary edit, which a
+  moderator rejects.
 
 ### 5.2 Validation
 
@@ -357,7 +359,8 @@ the rule in §7; and the docs about them. It also brought the tests to §9:
 - merged the auth-matrix and routing tests into one table that also checks route parity with the spec;
 - cut the leak matrix to the one small leak test and the Auth0 validator tests to one per rule;
 - dropped the schema-mirroring import validator test, and trimmed `deploy_files_test.go` to the `.env.dist` check;
-- replaced hidden-link snapshot redaction with the §4.1 deny-set.
+- replaced hidden-link snapshot redaction with a deny-set of hidden normalised URLs (since reduced to the §4.1
+  rule by link ID).
 
 TESTING.md, DEPLOY.md and CLAUDE.md were rewritten to this plan, short. Public responses kept their shape, apart
 from what went with tokens.

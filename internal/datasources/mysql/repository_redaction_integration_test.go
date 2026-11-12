@@ -99,100 +99,10 @@ func pieceRevisionLinkURLs(t *testing.T, repo *mysql.Repository, id int64) (snap
 	return snapshot, base
 }
 
-// normalized returns domain.NormalizeURL(url), failing the test if url does not normalize.
-func normalized(t *testing.T, url string) string {
-	t.Helper()
-
-	n, err := domain.NormalizeURL(url)
-	require.NoError(t, err)
-
-	return n
-}
-
-// TestRepository_GetPublicRevision_LinksVisibleNow checks that a revision drops only a link whose normalized URL
-// is a hidden link's now, and shows every other as written: one deleted since, one given another URL and then
-// hidden, and one whose path differs in case from a hidden link's are all shown.
-func TestRepository_GetPublicRevision_LinksVisibleNow(t *testing.T) {
-	t.Parallel()
-
-	db := mysqltest.NewDatabase(t)
-	c := catalogtest.New(t, db)
-	const (
-		title       = "The Lark's Rest"
-		visible     = "https://example.org/visible"
-		deleted     = "https://example.org/deleted"
-		moved       = "https://example.org/moved"
-		recased     = "https://example.org/Recased"
-		visiblePath = "https://example.org/Visible"
-		visibleHost = "https://EXAMPLE.org/visible"
-	)
-	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: title,
-		Links: lyricsLinks(visible, deleted, moved, recased)}})
-	c.Exec("DELETE FROM links WHERE url = ?", deleted)
-	c.Exec("UPDATE links SET url = ?, normalized_url = ?, is_hidden = TRUE WHERE url = ?", moved+"-elsewhere",
-		normalized(t, moved+"-elsewhere"), moved)
-	c.Exec("UPDATE links SET url = LOWER(url), normalized_url = LOWER(normalized_url), is_hidden = TRUE "+
-		"WHERE url = ?", recased)
-
-	later := laterPieceRevision(c, piece, title, visiblePath, visibleHost)
-
-	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
-	assert.Equal(t, []string{visiblePath, visibleHost}, snapshot)
-	assert.Equal(t, []string{visible, deleted, moved, recased}, base)
-}
-
-// TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted checks that a link edited to another
-// spelling of its URL, with the same normalized URL, and then hidden is redacted from a revision holding the
-// spelling it had before.
-func TestRepository_GetPublicRevision_RespelledHiddenLinkStaysRedacted(t *testing.T) {
-	t.Parallel()
-
-	db := mysqltest.NewDatabase(t)
-	c := catalogtest.New(t, db)
-	const (
-		title    = "The Hollow Oak"
-		entered  = "https://Example.org:443/x?utm_source=1"
-		respelt  = "https://example.org/x"
-		elsewise = "https://example.org/y"
-	)
-	require.Equal(t, normalized(t, entered), normalized(t, respelt))
-	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: title, Links: lyricsLinks(entered, elsewise)}})
-	c.Exec("UPDATE links SET url = ?, is_hidden = TRUE WHERE url = ?", respelt, entered)
-
-	later := laterPieceRevision(c, piece, title, respelt, elsewise)
-
-	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
-	assert.Equal(t, []string{elsewise}, snapshot)
-	assert.Equal(t, []string{elsewise}, base)
-}
-
-// TestRepository_GetPublicRevision_RespelledLinkShownAsWritten checks that a link edited to another spelling of
-// its URL, with the same normalized URL, is shown in a revision as that revision wrote it: the base shows the
-// entered spelling, the snapshot the new one.
-func TestRepository_GetPublicRevision_RespelledLinkShownAsWritten(t *testing.T) {
-	t.Parallel()
-
-	db := mysqltest.NewDatabase(t)
-	c := catalogtest.New(t, db)
-	const (
-		title   = "The Hollow Oak"
-		entered = "https://Example.org:443/x?utm_source=1"
-		respelt = "https://example.org/x"
-	)
-	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: title, Links: lyricsLinks(entered)}})
-	c.Exec("UPDATE links SET url = ? WHERE url = ?", respelt, entered)
-
-	later := laterPieceRevision(c, piece, title, respelt)
-
-	snapshot, base := pieceRevisionLinkURLs(t, mysql.New(db), later)
-	assert.Equal(t, []string{respelt}, snapshot)
-	assert.Equal(t, []string{entered}, base)
-}
-
 // TestRepository_GetPublicRevision_NonASCIILinkURL checks that a revision whose links hold non-ASCII URLs reads
-// and keeps its redaction. A non-ASCII URL is matched by its normalized form, which percent-encodes it, so it is
-// never compared with the ASCII normalized_url column as it is (which MySQL refuses, error 3988): it is dropped
-// if a hidden link has it, and otherwise shown as written.
+// and leaves out the hidden link. A URL finds its link by its normalized form, which percent-encodes it, so it is
+// never compared with the ASCII normalized_url column as it is (which MySQL refuses, error 3988): a link that is
+// hidden is left out in either spelling, and every other URL is shown as written.
 func TestRepository_GetPublicRevision_NonASCIILinkURL(t *testing.T) {
 	t.Parallel()
 

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -555,22 +557,24 @@ func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis
 	}
 }
 
-// linkVisibility loads which of the referenced URLs' normalized forms are hidden links'. A URL that does not
-// normalize is dropped by the view itself. Normalized URLs are ASCII, so none is refused by the ASCII column
-// (MySQL error 3988).
+// linkVisibility loads which of the referenced URLs are hidden links': those whose links row, found by normalized
+// URL as approval upserts it, is hidden. A URL that does not normalize has no row. Normalized URLs are ASCII, so
+// none is refused by the ASCII column (MySQL error 3988).
 func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis *domain.SnapshotVisibility) {
-	normalized := make([]string, 0, len(urls))
+	written := make(map[string][]string, len(urls))
 	for _, url := range urls {
 		if n, err := domain.NormalizeURL(url); err == nil {
-			normalized = append(normalized, n)
+			written[n] = append(written[n], url)
 		}
 	}
-	if len(normalized) == 0 {
+	if len(written) == 0 {
 		return
 	}
 
-	for _, url := range fetch(ctx, c, "hidden links", c.q.ListHiddenNormalizedURLs, normalized) {
-		vis.HiddenLinks[url] = true
+	for _, n := range fetch(ctx, c, "hidden links", c.q.ListHiddenNormalizedURLs, slices.Collect(maps.Keys(written))) {
+		for _, url := range written[n] {
+			vis.HiddenLinks[url] = true
+		}
 	}
 }
 

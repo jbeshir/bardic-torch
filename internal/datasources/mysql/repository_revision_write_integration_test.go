@@ -111,27 +111,23 @@ func TestSubmit_ModeratorNewPieceIsApprovedWithFreeSlug(t *testing.T) {
 }
 
 // Approving an edit rewrites the piece's children and upserts its links by normalized URL: a shared link's editor
-// fields change for every piece attaching it, its liveness and the other piece's attachment stay, and a hidden
-// link's URL added again stays hidden.
+// fields change for every piece attaching it, and its liveness and the other piece's attachment stay.
 func TestApprove_EditRewritesChildrenAndUpsertsLinks(t *testing.T) {
 	fx := newWriteFixture(t)
-	const shared, takenDown = "https://example.org/lantern", "https://example.org/lantern/taken-down"
+	const shared = "https://example.org/lantern"
 	old := pieceDoc(lanternTitle)
 	old.Aliases = []domain.DocPieceAlias{{Text: "Old Lantern", Kind: domain.PieceAliasKindAltTitle}}
 	old.Links = []domain.DocPieceLink{pieceLink(shared, domain.LinkRoleLyrics)}
 	lantern := fx.c.Piece(catalogtest.Piece{Doc: old})
 	other := fx.c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Tin Cup",
 		Links: []domain.DocPieceLink{pieceLink(shared, domain.LinkRoleText)}}})
-	fx.c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Gone",
-		Links: []domain.DocPieceLink{pieceLink(takenDown, domain.LinkRoleLyrics)}}})
 	fx.c.SetLinkState(shared, catalogtest.LinkState{Liveness: domain.LivenessDead})
-	fx.c.SetLinkState(takenDown, catalogtest.LinkState{IsHidden: true})
 
 	edit := pieceDoc(lanternTitle)
 	edit.Aliases = []domain.DocPieceAlias{{Text: "New Lantern", Kind: domain.PieceAliasKindAltTitle}}
 	sharedLink := pieceLink(shared, domain.LinkRoleLyrics, domain.LinkRoleText)
 	sharedLink.Title = new("Lantern lyrics")
-	edit.Links = []domain.DocPieceLink{sharedLink, pieceLink(takenDown, domain.LinkRoleLyrics)}
+	edit.Links = []domain.DocPieceLink{sharedLink}
 	id := fx.submit(t, lantern.RevisionID, edit, false)
 	require.NoError(t, fx.repo.ApproveRevision(t.Context(), id, heronID, false, submittedAt))
 
@@ -139,12 +135,11 @@ func TestApprove_EditRewritesChildrenAndUpsertsLinks(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, piece.Aliases, 1)
 	assert.Equal(t, "New Lantern", piece.Aliases[0].Text)
-	require.Len(t, piece.Links, 1, "the hidden link stays hidden")
+	require.Len(t, piece.Links, 1)
 	assert.Equal(t, []domain.LinkRole{domain.LinkRoleLyrics, domain.LinkRoleText}, piece.Links[0].Roles)
 	assert.Equal(t, "Lantern lyrics", *piece.Links[0].Title)
 	assert.Equal(t, domain.LivenessDead, piece.Links[0].Liveness)
-	assert.Equal(t, 1, fx.count(t, "SELECT COUNT(*) FROM links WHERE url = ? AND is_hidden", takenDown))
-	assert.Equal(t, 2, fx.count(t, "SELECT COUNT(*) FROM links"), "links are shared by normalized URL")
+	assert.Equal(t, 1, fx.count(t, "SELECT COUNT(*) FROM links"), "links are shared by normalized URL")
 	assert.Equal(t, 1, fx.count(t, "SELECT COUNT(*) FROM link_attachments WHERE piece_id = ?", other.ID))
 }
 

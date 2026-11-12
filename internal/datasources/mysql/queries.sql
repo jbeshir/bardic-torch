@@ -515,9 +515,9 @@ SELECT id, slug, name, kind
 FROM events
 WHERE id IN (sqlc.slice('ids')) AND current_revision_id IS NOT NULL;
 
--- A snapshot drops a link whose URL normalizes to a hidden link's. Every link's normalized_url is
--- domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), which the caller applies to the snapshot's
--- URLs too. The caller queries with normalized (ASCII) URLs only, and trusts only the normalized URLs these rows hold.
+-- The hidden links among a snapshot's, found by normalized URL as approval upserts them. Every link's normalized_url
+-- is domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"); the caller queries with normalized
+-- (ASCII) URLs only.
 
 -- name: ListHiddenNormalizedURLs :many
 SELECT normalized_url

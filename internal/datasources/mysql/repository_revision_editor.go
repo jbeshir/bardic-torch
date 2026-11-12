@@ -150,17 +150,13 @@ func editorDocument(doc document, vis domain.SnapshotVisibility) any {
 	for id, e := range vis.Events {
 		s.Events[id] = e.Slug
 	}
-	hidden := func(url string) bool {
-		normalized, err := domain.NormalizeURL(url)
-		return err == nil && vis.HiddenLinks[normalized]
-	}
 
 	switch d := doc.(type) {
 	case domain.PieceDocument:
-		d.Links = slices.DeleteFunc(d.Links, func(l domain.DocPieceLink) bool { return hidden(l.URL) })
+		d.Links = slices.DeleteFunc(d.Links, func(l domain.DocPieceLink) bool { return vis.HiddenLinks[l.URL] })
 		return d.ToEditor(s)
 	case domain.PersonDocument:
-		d.Links = slices.DeleteFunc(d.Links, func(l domain.DocPersonLink) bool { return hidden(l.URL) })
+		d.Links = slices.DeleteFunc(d.Links, func(l domain.DocPersonLink) bool { return vis.HiddenLinks[l.URL] })
 		return d.ToEditor(s)
 	case domain.TermDocument:
 		return d.ToEditor(s)
