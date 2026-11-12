@@ -39,15 +39,6 @@ func (imp CatalogueImport) TermAncestors() ([]TermAncestor, error) {
 // ErrInvalidImport is returned by CatalogueImport.Validate. Its messages name the entity type, ID and field.
 var ErrInvalidImport = errors.New("invalid catalogue import")
 
-// WithheldEmail is what the import writes in free text in place of an email address it withholds.
-const WithheldEmail = "[email withheld]"
-
-// HoldsWithheldText reports whether s holds a withheld-text placeholder, as written or slugified
-// ("email-withheld").
-func HoldsWithheldText(s string) bool {
-	return strings.Contains(s, WithheldEmail) || strings.Contains(s, Slugify(WithheldEmail))
-}
-
 // ImportedRevision is an imported entity's first revision: approved, of source import, with no author. Summary is
 // one of the neutral import summaries (ImportSummary…), and Contributors are the wiki users credited for the page
 // (revision_contributors, in order).

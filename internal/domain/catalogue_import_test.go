@@ -196,28 +196,6 @@ func TestCatalogueImport_TermAncestors(t *testing.T) {
 	assert.Equal(t, []TermAncestor{{1, 1, 0}, {2, 2, 0}, {1, 2, 1}, {3, 3, 0}}, ancestors)
 }
 
-// TestCatalogueImportValidate_RejectsWithheldPlaceholders: no name, title, alias, sort key, slug or uploader may
-// hold a withheld-text placeholder; only free text may.
-func TestCatalogueImportValidate_RejectsWithheldPlaceholders(t *testing.T) {
-	in := "Song for " + WithheldEmail
-	for field, mutate := range map[string]func(*CatalogueImport){
-		"term 1: doc":             func(imp *CatalogueImport) { imp.Terms[0].Doc.DisplayName = in },
-		"collection 1: sort_name": func(imp *CatalogueImport) { imp.Collections[0].SortName = in },
-		"event 1: doc":            func(imp *CatalogueImport) { imp.Events[0].Doc.Name = in },
-		"person 1: doc":           func(imp *CatalogueImport) { imp.Persons[0].Doc.Aliases[0].Name = in },
-		"piece 1: doc":            func(imp *CatalogueImport) { imp.Pieces[0].Doc.Title = in },
-		"person 1: doc ": func(imp *CatalogueImport) {
-			imp.Persons[0].Doc.Links[0].Performances[0].Uploader = ptr(in)
-		},
-		"event 1: slug": func(imp *CatalogueImport) { imp.Events[0].Slug = "green-" + Slugify(WithheldEmail) },
-	} {
-		requireInvalid(t, mutate, strings.TrimSpace(field))
-	}
-	notes := validImport()
-	notes.Pieces[0].Doc.NotesMD = ptr("Written for " + WithheldEmail + ".")
-	require.NoError(t, notes.Validate(), "free text may hold a placeholder")
-}
-
 func TestIsControlCharacter(t *testing.T) {
 	for _, r := range []rune{0, 0x1b, '\r', 0x7f, 0x85, 0x9f, 0x202a, 0x202e, 0x2066, 0x2069} {
 		assert.True(t, IsControlCharacter(r), "%U", r)

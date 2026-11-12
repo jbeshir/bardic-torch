@@ -37,8 +37,8 @@ func (b *builder) docLink(f mediawiki.LinkFields, roles []domain.LinkRole) domai
 	return l
 }
 
-// attachment is a document's link: the canonical fields of its normalised URL (already withheld once, so that
-// every document carries the same) and its roles here.
+// attachment is a document's link: the canonical fields of its normalised URL (so that every document
+// carries the same) and its roles here.
 func (b *builder) attachment(l mediawiki.LinkRecord) domain.DocLink {
 	out := b.links[l.NormalizedURL]
 	out.Roles = slices.Clone(l.Roles)
@@ -79,12 +79,12 @@ func (b *builder) personLinks(links []mediawiki.LinkRecord) []domain.DocPersonLi
 	return out
 }
 
-// performance is a performance's document form. Its description is kept as written, but for the addresses
-// withheld from it and its URLs' tracking parameters.
+// performance is a performance's document form. Its description is kept as written, but for its URLs' tracking
+// parameters.
 func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 	out := domain.DocPerformance{
 		Uploader:            free(p.Uploader),
-		DescriptionVerbatim: freeText(withoutTracking(p.DescriptionVerbatim)),
+		DescriptionVerbatim: plainName(withoutTracking(p.DescriptionVerbatim)),
 		PerformerIDs:        []int64{},
 	}
 	if id, ok := b.eventIDs[p.Event]; ok && p.Event != "" {

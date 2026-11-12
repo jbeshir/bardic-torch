@@ -117,15 +117,6 @@ func TestBuild_SlugCollisionsStable(t *testing.T) {
 	assert.Equal(t, imp.Pieces, again.Pieces)
 }
 
-func TestBuild_EmailsWithheld(t *testing.T) {
-	imp := syntheticImport(t)
-
-	assert.NotContains(t, publicJSON(t, imp), "@example.org")
-	notes := personNamed(t, imp, wren).Doc.LicensingNotesMD
-	require.NotNil(t, notes)
-	assert.Contains(t, *notes, domain.WithheldEmail)
-}
-
 func TestBuild_LinkStatesOnePerNormalizedURL(t *testing.T) {
 	imp := syntheticImport(t)
 

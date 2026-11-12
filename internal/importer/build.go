@@ -40,8 +40,7 @@ type Counts struct {
 // first seen; bards by page ID, then stub persons by name; pieces by page ID, then stub pieces by title), and so
 // are slugs, collisions getting "-2", "-3"…
 //
-// Email addresses in public text are withheld (domain.WithheldEmail); names are imported as written, placeholders
-// of the scrubbed copy included.
+// Names and free text are imported as written, placeholders of the scrubbed copy included.
 func Build(c mediawiki.Corpus, now time.Time) (domain.CatalogueImport, Counts) {
 	b := newBuilder(c, now)
 	b.assignIDs()
@@ -196,9 +195,9 @@ func cleanURL(u string) string {
 	return clean(domain.WithControlCharactersEscaped(domain.WithScheme(u)))
 }
 
-// free is the text of a public free-text field, with its emails withheld, or nil if empty.
+// free is the text of a public free-text field, or nil if empty.
 func free(s string) *string {
-	out := freeText(s)
+	out := plainName(s)
 	if out == "" {
 		return nil
 	}
@@ -206,19 +205,9 @@ func free(s string) *string {
 	return &out
 }
 
-// freeText is free without the nil for empty text.
-func freeText(s string) string {
-	return withholdEmails(strings.TrimSpace(domain.WithoutControlCharacters(s)))
-}
-
-// withholdEmails is s in NFC with its email addresses replaced by domain.WithheldEmail.
-func withholdEmails(s string) string {
-	return mediawiki.EmailAddress.ReplaceAllLiteralString(norm.NFC.String(s), domain.WithheldEmail)
-}
-
-// plainName is a public name or title (one line), with its email addresses withheld.
+// plainName is a public name, title or text, trimmed, in NFC and without control characters.
 func plainName(s string) string {
-	return withholdEmails(strings.TrimSpace(domain.WithoutControlCharacters(s)))
+	return norm.NFC.String(strings.TrimSpace(domain.WithoutControlCharacters(s)))
 }
 
 // position is a sibling position as the column holds it, capped at its range.

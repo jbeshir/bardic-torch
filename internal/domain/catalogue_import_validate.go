@@ -3,7 +3,6 @@ package domain
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -15,9 +14,7 @@ import (
 //   - every reference resolves, and the parents (and related affiliations) of terms and the parents of collections
 //     come before them, so the writer can insert in list order;
 //   - each document link's URL normalises to a Links row whose fields it carries, roles aside;
-//   - every summary is an import summary;
-//   - no name, title, alias, slug, sort key or uploader holds a withheld-text placeholder (HoldsWithheldText):
-//     only free text may.
+//   - every summary is an import summary.
 //
 // It fails with ErrInvalidImport, naming the entity type, ID and field of the first problem, never its value.
 func (imp CatalogueImport) Validate() error {
@@ -119,7 +116,6 @@ func (v *importValidator) system(c *entityCheck, ids map[int64]bool, slugs map[s
 	ids[c.id] = true
 	if slug != nil {
 		c.require(IsSlug(*slug), "slug", "is not a slug")
-		c.require(!HoldsWithheldText(*slug), "slug", "holds a withheld-text placeholder")
 		c.require(!slugs[*slug], "slug", "is not unique")
 		slugs[*slug] = true
 	}
@@ -150,18 +146,7 @@ func (c *entityCheck) sortKey(key string, letter Letter, field string) {
 	var p problems
 	p.name(key, field)
 	c.problems("", p)
-	c.require(!HoldsWithheldText(key), field, "holds a withheld-text placeholder")
 	c.require(letter == SortLetter(key), "sort_letter", "is not the letter of the sort key")
-}
-
-// withheldKey is the DuplicateKey of the withheld-text placeholder, which a name's key holds if the name holds it.
-var withheldKey = DuplicateKey(WithheldEmail)
-
-// names checks that no name (its DuplicateKey) holds a withheld-text placeholder.
-func (c *entityCheck) names(keys []string) {
-	for _, key := range keys {
-		c.require(!strings.Contains(key, withheldKey), "doc", "a name holds a withheld-text placeholder")
-	}
 }
 
 func (v *importValidator) checkTerms() error {
@@ -170,7 +155,6 @@ func (v *importValidator) checkTerms() error {
 		c := &entityCheck{entity: EntityTypeTerm, id: t.ID}
 		v.system(c, ids, slugs, &t.Slug, t.Legacy, legacy, t.Revision, t)
 		c.problems("doc.", t.Doc.Validate(v.context(t.ID)))
-		c.names(t.Doc.DuplicateKeys())
 		d := t.Doc
 		if d.ParentID != nil {
 			c.require(ids[*d.ParentID] && *d.ParentID != t.ID, "doc.parent_id", "is not an earlier term")
@@ -194,7 +178,6 @@ func (v *importValidator) checkCollections() error {
 		v.system(c, ids, nil, nil, nil, nil, col.Revision, col)
 		c.sortKey(col.SortName, col.SortLetter, "sort_name")
 		c.problems("doc.", col.Doc.Validate(v.context(col.ID)))
-		c.names(col.Doc.DuplicateKeys())
 		if col.Doc.ParentID != nil {
 			c.require(ids[*col.Doc.ParentID] && *col.Doc.ParentID != col.ID, "doc.parent_id",
 				"is not an earlier collection")
@@ -213,7 +196,6 @@ func (v *importValidator) checkEvents() error {
 		c := &entityCheck{entity: EntityTypeEvent, id: e.ID}
 		v.system(c, ids, slugs, &e.Slug, e.Legacy, legacy, e.Revision, e)
 		c.problems("doc.", e.Doc.Validate(v.context(e.ID)))
-		c.names(e.Doc.DuplicateKeys())
 		if c.err != nil {
 			return c.err
 		}
@@ -229,16 +211,12 @@ func (v *importValidator) checkPersons() error {
 		v.system(c, ids, slugs, &p.Slug, p.Legacy, legacy, p.Revision, p)
 		c.sortKey(p.SortName, p.SortLetter, "sort_name")
 		c.problems("doc.", p.Doc.Validate(v.context(p.ID)))
-		c.names(p.Doc.DuplicateKeys())
 		var refs SnapshotReferences
 		p.Doc.AddReferences(p.ID, &refs)
 		v.references(c, refs)
 		links := make([]DocLink, 0, len(p.Doc.Links))
 		for _, l := range p.Doc.Links {
 			links = append(links, l.DocLink)
-			for _, perf := range l.Performances {
-				c.names(duplicateKeys(deref(perf.Uploader)...))
-			}
 		}
 		v.docLinks(c, links)
 		if c.err != nil {
@@ -256,16 +234,12 @@ func (v *importValidator) checkPieces() error {
 		v.system(c, ids, slugs, &p.Slug, p.Legacy, legacy, p.Revision, p)
 		c.sortKey(p.SortTitle, p.SortLetter, "sort_title")
 		c.problems("doc.", p.Doc.Validate(v.context(p.ID)))
-		c.names(p.Doc.DuplicateKeys())
 		var refs SnapshotReferences
 		p.Doc.AddReferences(&refs)
 		v.references(c, refs)
 		links := make([]DocLink, 0, len(p.Doc.Links))
 		for _, l := range p.Doc.Links {
 			links = append(links, l.DocLink)
-			for _, perf := range l.Performances {
-				c.names(duplicateKeys(deref(perf.Uploader)...))
-			}
 		}
 		v.docLinks(c, links)
 		if c.err != nil {
@@ -337,13 +311,4 @@ func (v *importValidator) checkLinks() error {
 	}
 
 	return nil
-}
-
-// deref returns the strings of the optional s: none or one.
-func deref(s *string) []string {
-	if s == nil {
-		return nil
-	}
-
-	return []string{*s}
 }

@@ -2,7 +2,6 @@ package mediawiki
 
 import (
 	"maps"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -97,6 +96,3 @@ func sortedByLengthDescending(words []string) []string {
 // capitalisedName is one to four capitalised words or initials ("J."), which may have the lower-case particles
 // of names between them.
 var capitalisedName = capitalisedWord + `(?:[ \t]+(?:` + nameParticle + `[ \t]+)*` + capitalisedWord + `){0,3}`
-
-// EmailAddress matches an email address.
-var EmailAddress = regexp.MustCompile(`[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+`)

@@ -265,9 +265,8 @@ notes), setting `legacy_had_inline_lyrics`; and write everything as
 approved `import` revisions crediting wiki contributors.
 
 **Writing:** strings are NFC without control characters; wikitext becomes escaped Markdown with absolute http(s)
-links free of tracking parameters; email addresses in free text become `[email withheld]`; summaries come from
-fixed templates. `CatalogueImport.Validate` checks the import against the schema's constraints first, and it is
-written in one transaction into an empty catalogue.
+links free of tracking parameters; summaries come from fixed templates. `CatalogueImport.Validate` checks the
+import against the schema's constraints first, and it is written in one transaction into an empty catalogue.
 
 **Modes:** `--dump DIR (--dry-run | --apply)`; both print a short count summary, and `--dry-run` never opens a
 database. The launch run (a dry run, then `--apply` once) is in DEPLOY.md.
