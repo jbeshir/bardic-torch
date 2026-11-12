@@ -1544,7 +1544,7 @@ paths:
       description: |
         Submits an edit of an existing entity (`base_revision_id`, from its editable document) or a new entity
         (`base_revision_id` null). References are by slug, to public entities only; an unknown slug is a problem
-        `unknown_reference`. The document is validated, including the sourced fields, before anything is stored.
+        `unknown_reference`. The document is validated, including its licensing sources, before anything is stored.
 
         A contributor's revision is pending; it withdraws their earlier pending revision of the same entity, and
         they may have at most 30 pending. A moderator's revision is approved at once, which refuses a stale base
@@ -5581,7 +5581,6 @@ components:
         - wrong_facet
         - unknown_reference
         - source_required
-        - summary_required
         - prefers_no_page
       examples:
         - required

@@ -21,7 +21,7 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
 ## Tiers
 
 - **Unit tests (no build tag; `go test -short ./...`).** Domain rules in `internal/domain`: revision states,
-  validation, sourced fields, the duplicate key, the stale check, URL normalisation, the snapshot views (pure
+  validation, licensing sources, the duplicate key, the stale check, URL normalisation, the snapshot views (pure
   functions over a hand-built `SnapshotVisibility`), the search tokeniser, and `TestSpec_EnumSchemasMatchDomain`
   (every enum schema in `openapi/api.yaml` lists the domain's values). Commands (`internal/command`) and controllers run over the one fake below.
 - **Route table (`internal/transport/web/router/routes_test.go`).** One row per spec operation: who may call it

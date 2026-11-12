@@ -29,7 +29,7 @@ var (
 	problemCodeValues = []ProblemCode{
 		ProblemRequired, ProblemTooLong, ProblemNotNFC, ProblemControlCharacter, ProblemDuplicate, ProblemInvalid,
 		ProblemOutOfRange, ProblemCycle, ProblemTooDeep, ProblemWrongFacet, ProblemUnknownReference,
-		ProblemSourceRequired, ProblemSummaryRequired, ProblemPrefersNoPage,
+		ProblemSourceRequired, ProblemPrefersNoPage,
 	}
 	revisionSourceValues = []RevisionSource{
 		RevisionSourceUser, RevisionSourceImport,

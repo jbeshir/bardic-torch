@@ -75,7 +75,7 @@ func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest)
 	}
 	problems = append(problems, doc.Validate(vctx)...)
 	problems = append(problems, domain.ValidateSummary(req.Summary)...)
-	problems = append(problems, sourceProblems(doc, base, req.Summary)...)
+	problems = append(problems, sourceProblems(doc, base)...)
 	if len(problems) > 0 {
 		return nil, &datasources.ValidationError{Problems: problems}
 	}
@@ -137,23 +137,21 @@ func convert[E editorDocument[D], D storedDocument](
 	return entityType, doc, problems, nil
 }
 
-// sourceProblems returns the sourced-field problems of a piece or person document, a piece's compared with its
-// base's document.
-func sourceProblems(doc storedDocument, base *datasources.RevisionBase, summary string) []domain.Problem {
-	switch d := doc.(type) {
-	case domain.PieceDocument:
-		var old *domain.PieceDocument
-		if base != nil {
-			if o, ok := base.Document.(domain.PieceDocument); ok {
-				old = &o
-			}
-		}
-		return domain.ValidatePieceSources(old, d, summary)
-	case domain.PersonDocument:
-		return domain.ValidatePersonSources(d)
-	default:
+// sourceProblems returns the licensing-source problems of a piece document, compared with its base's document.
+// Other documents have none.
+func sourceProblems(doc storedDocument, base *datasources.RevisionBase) []domain.Problem {
+	d, ok := doc.(domain.PieceDocument)
+	if !ok {
 		return nil
 	}
+	var old *domain.PieceDocument
+	if base != nil {
+		if o, ok := base.Document.(domain.PieceDocument); ok {
+			old = &o
+		}
+	}
+
+	return domain.ValidatePieceSources(old, d)
 }
 
 // checkDuplicates returns a *DuplicateError if a new entity's document matches public entities of its type

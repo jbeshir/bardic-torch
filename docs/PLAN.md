@@ -177,9 +177,10 @@ One `Validate` per document type, shared with the importer (widths, NFC, control
 and facet rules, trees without cycles, unique term names in a facet), answering 422 with a path and code per
 problem.
 
-- **Sourced fields** (R-12), for moderators too: changing licence, licence version, licensing notes or a known
-  licensing status needs a `licensing_source` link; a person status other than active needs its source; a
-  conservation status other than unassessed needs its source, and a change needs a summary (the reason).
+- **Licensing sources** (R-12), for moderators too: changing licence, licence version, licensing notes or a known
+  licensing status needs a `licensing_source` link. Nothing else needs a source or a summary: the person status
+  and conservation source URLs are optional, and a conservation change is recorded in its history with the
+  revision's summary as the reason, even if it is empty.
 - **Duplicate warning on create** (R-17): titles, names and aliases folded by `domain.DuplicateKey` (case,
   apostrophes, accents) are compared with public entities. A match needs `acknowledge_duplicates` (409
   `possible_duplicate` otherwise) and is shown to the moderator. A match on a "prefers no page" person blocks a
@@ -284,7 +285,7 @@ FAQ for bards, the Bard Preference Checklist as guidance, the conservation guide
 
 **Editing (FE3):** an edit form per entity type with structured pickers; a credit editor (attribution,
 certainty); a link editor (role, place type, collection, locator, performances); a term picker with "suggest a
-new term" (needs a parent, R-20); a sourced-field widget that needs a URL; preview with the read components; the
+new term" (needs a parent, R-20); a licensing-source prompt (R-12); preview with the read components; the
 duplicate warning; the pending banner; "my contributions"; withdraw; revert (an old version loaded into the
 editor and submitted); the CC BY-SA notice. "Suggest a new term" submits a term revision; the piece can use the
 term once it is approved.
@@ -302,7 +303,7 @@ Test the behaviour that matters at the cheapest level that proves it: one test p
 or combination. A test earns its place by catching a bug someone could plausibly write.
 
 **BE:**
-- Unit tests for domain rules: revision states, validation, sourced fields, the duplicate key, the stale check,
+- Unit tests for domain rules: revision states, validation, licensing sources, the duplicate key, the stale check,
   URL normalisation, and the link-check guard and classification.
 - Repository tests on real MySQL 8.4 (sandbox, host and CI) for the queries and the approval write: the main
   path and the cases that matter.

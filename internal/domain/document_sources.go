@@ -5,14 +5,12 @@ import (
 	"strings"
 )
 
-// ValidatePieceSources returns the problems of a revision's sourced piece fields, compared with old, the current
-// document (nil for a new piece, compared with no licensing information and an unassessed status): a changed
-// licence, licence version or licensing notes, or a licensing status changed to known, needs a link with role
-// licensing_source; a conservation status other than unassessed needs a source URL, and a changed one a summary.
+// ValidatePieceSources returns the problems of a revision's licensing fields (R-12), compared with old, the
+// current document (nil for a new piece, compared with no licensing information): a changed licence, licence
+// version or licensing notes, or a licensing status changed to known, needs a link with role licensing_source.
 // The importer does not run it.
-func ValidatePieceSources(old *PieceDocument, doc PieceDocument, summary string) []Problem {
-	prev := PieceDocument{LicensingStatus: LicensingStatusUnknown,
-		Conservation: DocConservation{Status: ConservationStatusUnassessed}}
+func ValidatePieceSources(old *PieceDocument, doc PieceDocument) []Problem {
+	prev := PieceDocument{LicensingStatus: LicensingStatusUnknown}
 	if old != nil {
 		prev = *old
 	}
@@ -28,20 +26,6 @@ func ValidatePieceSources(old *PieceDocument, doc PieceDocument, summary string)
 		"licensing_notes_md", ProblemSourceRequired)
 	p.check(sourced || doc.LicensingStatus != LicensingStatusKnown || prev.LicensingStatus == LicensingStatusKnown,
 		"licensing_status", ProblemSourceRequired)
-	p.check(doc.Conservation.Status == ConservationStatusUnassessed || !blank(doc.Conservation.SourceURL),
-		"conservation.source_url", ProblemSourceRequired)
-	p.check(doc.Conservation.Status == prev.Conservation.Status || strings.TrimSpace(summary) != "", "summary",
-		ProblemSummaryRequired)
-
-	return p
-}
-
-// ValidatePersonSources returns the problems of a revision's sourced person fields: a status other than active
-// needs a source URL. The importer does not run it.
-func ValidatePersonSources(doc PersonDocument) []Problem {
-	var p problems
-	p.check(doc.Status == PersonStatusActive || !blank(doc.StatusSourceURL), "status_source_url",
-		ProblemSourceRequired)
 
 	return p
 }

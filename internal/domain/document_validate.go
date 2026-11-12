@@ -26,7 +26,6 @@ const (
 	ProblemWrongFacet       ProblemCode = "wrong_facet"
 	ProblemUnknownReference ProblemCode = "unknown_reference"
 	ProblemSourceRequired   ProblemCode = "source_required"
-	ProblemSummaryRequired  ProblemCode = "summary_required"
 	// ProblemPrefersNoPage is a new person whose name or an alias matches a person who prefers no page.
 	ProblemPrefersNoPage ProblemCode = "prefers_no_page"
 )

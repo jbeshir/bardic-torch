@@ -137,27 +137,17 @@ func TestValidatePieceSources(t *testing.T) {
 
 	assert.ElementsMatch(t, []domain.Problem{problem("licence", "source_required"),
 		problem("licence_version", "source_required"), problem("licensing_notes_md", "source_required"),
-		problem("licensing_status", "source_required"), problem("summary", "summary_required")},
-		domain.ValidatePieceSources(nil, unsourced, ""))
-	assert.Empty(t, domain.ValidatePieceSources(nil, sourced, "Surveyed."))
-	assert.Empty(t, domain.ValidatePieceSources(&unsourced, unsourced, ""), "unchanged fields need nothing")
+		problem("licensing_status", "source_required")},
+		domain.ValidatePieceSources(nil, unsourced))
+	assert.Empty(t, domain.ValidatePieceSources(nil, sourced))
+	assert.Empty(t, domain.ValidatePieceSources(&unsourced, unsourced), "unchanged fields need nothing")
 
+	// Only licensing needs a source: a conservation change needs neither a source nor a summary.
 	changed := unsourced
 	changed.Licence = ptr(domain.LicencePD)
 	changed.Conservation = domain.DocConservation{Status: domain.ConservationStatusLowRisk}
-	assert.ElementsMatch(t, []domain.Problem{problem("licence", "source_required"),
-		problem("conservation.source_url", "source_required"), problem("summary", "summary_required")},
-		domain.ValidatePieceSources(&unsourced, changed, " "))
-}
-
-func TestValidatePersonSources(t *testing.T) {
-	doc := fullPersonDocument()
-	assert.Empty(t, domain.ValidatePersonSources(doc))
-	doc.StatusSourceURL = nil
-	assert.Equal(t, []domain.Problem{problem("status_source_url", "source_required")},
-		domain.ValidatePersonSources(doc))
-	doc.Status = domain.PersonStatusActive
-	assert.Empty(t, domain.ValidatePersonSources(doc))
+	assert.Equal(t, []domain.Problem{problem("licence", "source_required")},
+		domain.ValidatePieceSources(&unsourced, changed))
 }
 
 func problem(path string, code domain.ProblemCode) domain.Problem {
