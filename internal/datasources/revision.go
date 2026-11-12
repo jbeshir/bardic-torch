@@ -47,9 +47,6 @@ type RevisionBase struct {
 	EntityID int64
 	// Document is the base's stored-format document, of the type of NewRevision.Document.
 	Document any
-	// ShowsUnlistedPerson is domain.ShowsUnlistedPerson of the entity's current document: only a moderator may
-	// edit it.
-	ShowsUnlistedPerson bool
 }
 
 // Editable is what an editor starts from for an existing entity.
@@ -61,8 +58,6 @@ type Editable struct {
 	PendingRevisionID *int64
 	// Document is the editor-format document (domain.EditorPieceDocument …) without hidden links.
 	Document any
-	// ShowsUnlistedPerson is domain.ShowsUnlistedPerson of the document: only a moderator may edit it.
-	ShowsUnlistedPerson bool
 }
 
 // Revisions submits and moderates revisions. Each change is one transaction; approval writes the document into
@@ -90,8 +85,8 @@ type Revisions interface {
 	// ErrNotFound if there is no such public entity.
 	GetEditable(ctx context.Context, entityType domain.EntityType, key, userID string) (Editable, error)
 	// ResolveReferences returns the IDs of the public entities with the slugs refs holds; slugs that resolve to
-	// none are left out. Persons who prefer no page are included only if includeUnlisted.
-	ResolveReferences(ctx context.Context, refs domain.SlugReferences, includeUnlisted bool) (domain.IDs, error)
+	// none are left out.
+	ResolveReferences(ctx context.Context, refs domain.SlugReferences) (domain.IDs, error)
 	// ValidationContext returns the context validating a document of the entity entityID (0 for a new one) needs:
 	// every term and every collection's parent.
 	ValidationContext(ctx context.Context, entityID int64) (domain.ValidationContext, error)

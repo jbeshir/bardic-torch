@@ -3,7 +3,6 @@ package domain
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 )
 
 // Editor documents are what editors read and submit: the stored documents' JSON with every reference to a piece,
@@ -346,12 +345,6 @@ func (e EditorEventDocument) FromEditor(IDs) (EventDocument, []Problem) { return
 
 // References returns the slugs the document references: none.
 func (e EditorEventDocument) References() SlugReferences { return SlugReferences{} }
-
-// ShowsUnlistedPerson reports whether a document whose references are refs (AddReferences) shows any of the
-// unlisted persons, who prefer no page: such a document only a moderator may edit.
-func ShowsUnlistedPerson(refs SnapshotReferences, unlisted map[int64]bool) bool {
-	return slices.ContainsFunc(refs.PersonIDs, func(id int64) bool { return unlisted[id] })
-}
 
 // toEditor returns e, the performance's other fields in the editor format, with its event and performers.
 func (p DocPerformance) toEditor(e EditorPerformance, s Slugs) EditorPerformance {

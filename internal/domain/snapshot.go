@@ -12,11 +12,12 @@ import (
 //   - each link shown as written in the document, unless its URL normalizes (NormalizeURL) to the URL of a link
 //     that is hidden now, or does not normalize: such a link is left out;
 //   - a person's name and aliases as the document has them;
-//   - credits, performers and relations of persons who are not public, or prefer no page, now left out;
+//   - credits, performers and relations of persons who are not public now left out, and of persons who prefer no
+//     page now named without a link;
 //   - of a person who prefers no page, now or in the document, only the identity.
 //
-// Redaction follows the catalogue's current state, not the document's, so that hiding a link, or a person's
-// choosing not to have a page, also hides them in every earlier revision.
+// Redaction follows the catalogue's current state, not the document's, so that hiding a link also hides it in
+// every earlier revision.
 
 // SnapshotReferences are the other entities and the links that one or more documents reference, which the
 // SnapshotVisibility for their views must cover. IDs and URLs may repeat.
@@ -35,10 +36,8 @@ type SnapshotReferences struct {
 type SnapshotVisibility struct {
 	// Pieces are the public pieces.
 	Pieces map[int64]PieceSummary
-	// Persons are the public persons who do not prefer no page: the only persons a view refers to.
+	// Persons are the public persons; NoLink is set for those who prefer no page.
 	Persons map[int64]PersonSummary
-	// NoPagePersons are the public persons who prefer no page.
-	NoPagePersons map[int64]PersonSummary
 	// Terms are the public terms: approved, with every ancestor approved.
 	Terms map[int64]TermSummary
 	// Collections are the public collections.
@@ -69,7 +68,7 @@ type PieceSnapshot struct {
 	Aliases               []PieceAlias
 	// Terms are the public terms, in the document's order.
 	Terms []PieceTerm
-	// Credits are in the document's order; a named credit to a person a view does not refer to is left out.
+	// Credits are in the document's order; a named credit to a person who is not public is left out.
 	Credits []PieceCredit
 	// Relations are the piece's relations to public pieces: a document holds its outgoing relations only.
 	Relations []SnapshotPieceRelation
@@ -137,13 +136,12 @@ type PersonSnapshotProfile struct {
 	Aliases      []PersonAlias
 	Roles        []PersonRole
 	Affiliations []TermSummary
-	// Relations are the person's relations to persons a view refers to: a document holds its outgoing relations
-	// only.
+	// Relations are the person's relations to public persons: a document holds its outgoing relations only.
 	Relations []SnapshotPersonRelation
 	Links     []SnapshotPersonLink
 }
 
-// SnapshotPersonRelation is a relation of the snapshot's person to another public person with a page.
+// SnapshotPersonRelation is a relation of the snapshot's person to another public person.
 type SnapshotPersonRelation struct {
 	Type   PersonRelationType
 	Person PersonSummary
@@ -305,7 +303,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 	return snapshot
 }
 
-// credit returns the view of a credit, or false if it is a named credit to a person a view does not refer to.
+// credit returns the view of a credit, or false if it is a named credit to a person who is not public.
 // A credit that is not named never shows a person.
 func (v SnapshotVisibility) credit(c DocCredit) (PieceCredit, bool) {
 	credit := PieceCredit{
@@ -368,9 +366,8 @@ var ErrPersonNotPublic = errors.New("person is not public")
 // NewPersonSnapshot returns the public view of the document of the person personID. It fails with
 // ErrPersonNotPublic if vis does not hold the person as public.
 func NewPersonSnapshot(personID int64, d PersonDocument, vis SnapshotVisibility) (PersonSnapshot, error) {
-	_, public := vis.Persons[personID]
-	_, noPage := vis.NoPagePersons[personID]
-	if !public && !noPage {
+	person, public := vis.Persons[personID]
+	if !public {
 		return PersonSnapshot{}, fmt.Errorf("%w [%d]", ErrPersonNotPublic, personID)
 	}
 
@@ -383,7 +380,7 @@ func NewPersonSnapshot(personID int64, d PersonDocument, vis SnapshotVisibility)
 		IsStub:          d.IsStub,
 	}
 
-	if noPage || d.Status == PersonStatusPrefersNoPage {
+	if person.NoLink || d.Status == PersonStatusPrefersNoPage {
 		snapshot.IsStub = true
 		return snapshot, nil
 	}

@@ -14,8 +14,8 @@ import (
 )
 
 // TestRepository_GetPublicPerson_PerformancesNeedPublicAttachment checks that a person's page shows the
-// performances they perform in only on links with a public attachment: to a public piece, or to a public person
-// with a page. A link attached only to a person who prefers no page, or to one who is not public, is theirs.
+// performances they perform in only on links with a public attachment, to a public piece or person: a link
+// attached only to a person who is not public is theirs.
 func TestRepository_GetPublicPerson_PerformancesNeedPublicAttachment(t *testing.T) {
 	t.Parallel()
 
@@ -29,8 +29,6 @@ func TestRepository_GetPublicPerson_PerformancesNeedPublicAttachment(t *testing.
 				DescriptionVerbatim: description, PerformerIDs: []int64{performer.ID}}}},
 		}}
 	}
-	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Nell Hart", Status: domain.PersonStatusPrefersNoPage,
-		Links: performance("https://example.org/nell", "On a no-page person's link")}})
 	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Draft Bard",
 		Links: performance("https://example.org/draft", "On an unapproved person's link")}, Unapproved: true})
 	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Odo Marsh",
@@ -41,9 +39,9 @@ func TestRepository_GetPublicPerson_PerformancesNeedPublicAttachment(t *testing.
 			Performances: []domain.DocPerformance{{DescriptionVerbatim: "On a public piece's link",
 				PerformerIDs: []int64{performer.ID}}},
 		}}}})
-	// A link attached both to a no-page person and to a public piece has a public attachment.
-	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Ivy Lowe", Status: domain.PersonStatusPrefersNoPage,
-		Links: performance("https://example.org/shared", "On a shared link")}})
+	// A link attached both to an unapproved person and to a public piece has a public attachment.
+	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Ivy Lowe",
+		Links: performance("https://example.org/shared", "On a shared link")}, Unapproved: true})
 	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Shared Tune",
 		Links: []domain.DocPieceLink{{DocLink: domain.DocLink{URL: "https://example.org/shared",
 			Roles: []domain.LinkRole{domain.LinkRolePerformance}}}}}})

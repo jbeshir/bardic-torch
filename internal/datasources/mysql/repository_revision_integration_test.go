@@ -282,6 +282,8 @@ var (
 	guildSummary   = termSummary("bards-guild", domain.FacetAffiliation, bardsName)
 	larkSummary    = domain.PersonSummary{Slug: "lark-ashdown", Name: larkName, Kind: domain.PersonKindCommunityBard}
 	choirSummary   = domain.PersonSummary{Slug: "hearth-choir", Name: choirName, Kind: domain.PersonKindGroup}
+	quietSummary   = domain.PersonSummary{Slug: "quiet-harper", Name: quietName, Kind: domain.PersonKindCommunityBard,
+		IsStub: true, NoLink: true}
 	reapingSummary = domain.PieceSummary{Slug: "reaping-song", Title: "Reaping Song", Kind: domain.PieceKindSong,
 		ConservationStatus: domain.ConservationStatusUnassessed}
 	harvestFairSummary = domain.EventSummary{Slug: "harvest-fair", Name: fairName, Kind: domain.EventKindEvent}
@@ -304,6 +306,8 @@ func harvestView() domain.PieceSnapshot {
 		Credits: []domain.PieceCredit{
 			{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
 				Person: &larkSummary},
+			{Role: domain.CreditRoleTune, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyProbable,
+				Note: new(quietTuneNote), Person: &quietSummary},
 			{Role: domain.CreditRoleArrangement, Attribution: domain.AttributionTraditional,
 				Certainty: domain.CertaintyPossible},
 		},
@@ -312,7 +316,7 @@ func harvestView() domain.PieceSnapshot {
 				Roles: []domain.LinkRole{domain.LinkRoleLyrics}},
 			Performances: []domain.PiecePerformance{
 				{Year: new(int16(2024)), DescriptionVerbatim: fairPerformance, Event: &harvestFairSummary,
-					Performers: []domain.PersonSummary{larkSummary}},
+					Performers: []domain.PersonSummary{larkSummary, quietSummary}},
 				{DescriptionVerbatim: pendingFairDesc},
 			},
 		}},
@@ -437,7 +441,7 @@ func TestRepository_GetPublicRevision_Piece(t *testing.T) {
 			Author: quillAuthor, CreatedAt: revisionsAt(time.June, 1)},
 		Entity: domain.PieceSummary{Slug: fx.harvest.Slug, Title: harvestTitle, Kind: domain.PieceKindSong,
 			SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusEndangered,
-			CreditNames: []string{larkName}},
+			CreditNames: []string{larkName, quietName}},
 		Snapshot: edited,
 		Base:     &domain.RevisionBase[domain.PieceSnapshot]{ID: harvestID, Snapshot: base},
 	}, revision)
@@ -484,8 +488,8 @@ func TestRepository_GetPublicRevision_Base(t *testing.T) {
 }
 
 // TestRepository_GetPublicRevision_Person checks a person revision's view: an alias public in the snapshot is
-// shown only if it is public now, and a link hidden since, relations to a person who chose since not to have a
-// page, and references to unapproved entities are left out.
+// shown only if it is public now, a link hidden since and references to unapproved entities are left out, and a
+// person who chose since not to have a page is named without a link.
 func TestRepository_GetPublicRevision_Person(t *testing.T) {
 	t.Parallel()
 
@@ -509,14 +513,15 @@ func TestRepository_GetPublicRevision_Person(t *testing.T) {
 				{Name: larkFormerName, Kind: domain.PersonAliasKindFormer}},
 			Roles:        []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
 			Affiliations: []domain.TermSummary{guildSummary},
-			Relations:    []domain.SnapshotPersonRelation{{Type: domain.PersonRelationTypeMemberOf, Person: choirSummary}},
+			Relations: []domain.SnapshotPersonRelation{{Type: domain.PersonRelationTypeHeirOf, Person: quietSummary},
+				{Type: domain.PersonRelationTypeMemberOf, Person: choirSummary}},
 			Links: []domain.SnapshotPersonLink{{
 				SnapshotLink: domain.SnapshotLink{URL: larkSiteURL,
 					Collection: &domain.CollectionRef{ID: fx.archive.ID, Name: archiveName},
 					Roles:      []domain.LinkRole{domain.LinkRoleWebsite}},
 				Performances: []domain.SnapshotPersonPerformance{{PiecePerformance: domain.PiecePerformance{
 					DescriptionVerbatim: larkFairTale, Event: &harvestFairSummary,
-					Performers: []domain.PersonSummary{choirSummary},
+					Performers: []domain.PersonSummary{quietSummary, choirSummary},
 				}}},
 			}},
 		},

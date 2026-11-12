@@ -58,10 +58,7 @@ func (r *Repository) GetEditable(
 		if err != nil {
 			return err
 		}
-		refs := documentReferences(doc, id)
-		vis := c.visibility(ctx, refs)
-		editable.Document = editorDocument(doc, vis)
-		editable.ShowsUnlistedPerson = showsUnlistedPerson(refs, vis)
+		editable.Document = editorDocument(doc, c.visibility(ctx, documentReferences(doc, id)))
 		return c.err
 	})
 	if err != nil {
@@ -91,8 +88,7 @@ func (c *catalogueReader) editableEntityID(
 	return c.signedID(found), nil
 }
 
-// GetRevisionBase returns an approved revision of an entity of entityType, as a submission's base, with
-// ShowsUnlistedPerson computed from the entity's current revision.
+// GetRevisionBase returns an approved revision of an entity of entityType, as a submission's base.
 func (r *Repository) GetRevisionBase(
 	ctx context.Context, entityType domain.EntityType, baseRevisionID int64,
 ) (datasources.RevisionBase, error) {
@@ -110,22 +106,8 @@ func (r *Repository) GetRevisionBase(
 		if err != nil {
 			return err
 		}
-		current, err := currentRevisionID(ctx, c.q, row.EntityType, row.EntityID)
-		if err != nil {
-			return err
-		}
-		currentRow, err := getRevision(ctx, c.q, *current)
-		if err != nil {
-			return err
-		}
-		currentDoc, err := decodeDocument(currentRow.EntityType, currentRow.SnapshotJson)
-		if err != nil {
-			return err
-		}
-		refs := documentReferences(currentDoc, row.EntityID.Int64)
-		base = datasources.RevisionBase{EntityID: row.EntityID.Int64, Document: doc,
-			ShowsUnlistedPerson: showsUnlistedPerson(refs, c.visibility(ctx, refs))}
-		return c.err
+		base = datasources.RevisionBase{EntityID: row.EntityID.Int64, Document: doc}
+		return nil
 	})
 	if err != nil {
 		return datasources.RevisionBase{}, fmt.Errorf("getting base revision [%d]: %w", baseRevisionID, err)
@@ -151,16 +133,6 @@ func documentReferences(doc document, entityID int64) domain.SnapshotReferences 
 	return refs
 }
 
-// showsUnlistedPerson is domain.ShowsUnlistedPerson, the unlisted persons being those vis holds without a page.
-func showsUnlistedPerson(refs domain.SnapshotReferences, vis domain.SnapshotVisibility) bool {
-	unlisted := make(map[int64]bool, len(vis.NoPagePersons))
-	for id := range vis.NoPagePersons {
-		unlisted[id] = true
-	}
-
-	return domain.ShowsUnlistedPerson(refs, unlisted)
-}
-
 // editorDocument returns a document in the editor format, its references by the slugs vis holds and without the
 // links vis holds hidden.
 func editorDocument(doc document, vis domain.SnapshotVisibility) any {
@@ -169,10 +141,8 @@ func editorDocument(doc document, vis domain.SnapshotVisibility) any {
 	for id, p := range vis.Pieces {
 		s.Pieces[id] = p.Slug
 	}
-	for _, persons := range []map[int64]domain.PersonSummary{vis.Persons, vis.NoPagePersons} {
-		for id, p := range persons {
-			s.Persons[id] = p.Slug
-		}
+	for id, p := range vis.Persons {
+		s.Persons[id] = p.Slug
 	}
 	for id, t := range vis.Terms {
 		s.Terms[id] = t.Slug
@@ -205,7 +175,7 @@ func editorDocument(doc document, vis domain.SnapshotVisibility) any {
 
 // ResolveReferences returns the IDs of the public entities with the slugs refs holds.
 func (r *Repository) ResolveReferences(
-	ctx context.Context, refs domain.SlugReferences, includeUnlisted bool,
+	ctx context.Context, refs domain.SlugReferences,
 ) (domain.IDs, error) {
 	ids := domain.IDs{Pieces: map[string]int64{}, Persons: map[string]int64{}, Terms: map[string]int64{},
 		Events: map[string]int64{}}
@@ -217,9 +187,7 @@ func (r *Repository) ResolveReferences(
 		}
 		if len(refs.Persons) > 0 {
 			for _, row := range fetch(ctx, c, "persons", c.q.ListPublicPersonIDsBySlug, refs.Persons) {
-				if includeUnlisted || row.Status != queries.PersonsStatusPrefersNoPage {
-					ids.Persons[row.Slug] = c.signedID(row.ID)
-				}
+				ids.Persons[row.Slug] = c.signedID(row.ID)
 			}
 		}
 		if len(refs.Terms) > 0 {
@@ -335,10 +303,7 @@ func duplicateCandidate(
 	case domain.PieceDocument:
 		name, slug = d.Title, vis.Pieces[id].Slug
 	case domain.PersonDocument:
-		name, slug = d.Name, vis.Persons[id].Slug
-		if person, ok := vis.NoPagePersons[id]; ok {
-			slug, noPage = person.Slug, true
-		}
+		name, slug, noPage = d.Name, vis.Persons[id].Slug, d.Status == domain.PersonStatusPrefersNoPage
 	case domain.TermDocument:
 		if d.Facet == facet {
 			name, slug = d.Name, vis.Terms[id].Slug

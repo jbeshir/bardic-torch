@@ -167,8 +167,8 @@ func (c *catalogueReader) personSearchItems(ctx context.Context, s *statement) [
 		if err := scan(&slug, &name, &kind, &status, &isStub); err != nil {
 			return err
 		}
-		persons = append(persons, c.personSummary(slug, name, kind,
-			domain.PersonIsStub(isStub, enumOf[domain.PersonStatus](c, status))))
+		persons = append(persons, domain.PersonSummary{Slug: slug, Name: name, Kind: enumOf[domain.PersonKind](c, kind),
+			IsStub: domain.PersonIsStub(isStub, enumOf[domain.PersonStatus](c, status))})
 		return nil
 	})
 

@@ -199,7 +199,8 @@ const (
 	PersonStatusActive PersonStatus = "active"
 	// PersonStatusDeceased is a person who has died.
 	PersonStatusDeceased PersonStatus = "deceased"
-	// PersonStatusPrefersNoPage is a person who asked not to have a page: only their identity is shown.
+	// PersonStatusPrefersNoPage is a person who asked not to have a page: their page shows only their identity, and
+	// references to them name them without a link.
 	PersonStatusPrefersNoPage PersonStatus = "prefers_no_page"
 )
 

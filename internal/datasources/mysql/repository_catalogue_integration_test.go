@@ -44,6 +44,7 @@ const (
 	northmarchName   = "Northmarch"
 	eastmarchName    = "Eastmarch"
 	hollisName       = "Hollis Fenn"
+	hollisURL        = "https://example.org/hollis"
 	revelPerformance = "Sung at the revel"
 	wrenName         = "Wren of the Vale"
 	wrenURL          = "https://example.org/wren"
@@ -123,7 +124,7 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 			Roles:          []domain.PersonRole{domain.PersonRoleSinger},
 			AffiliationIDs: []int64{northmarch.ID},
 			Relations:      []domain.DocPersonRelation{{ToPersonID: wren.ID, Type: domain.PersonRelationTypeHeirOf}},
-			Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: "https://example.org/hollis",
+			Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: hollisURL,
 				Roles: []domain.LinkRole{domain.LinkRoleWebsite}}}},
 		},
 	})
@@ -283,10 +284,13 @@ var (
 	wrenSummary  = domain.PersonSummary{Slug: "wren-of-the-vale", Name: wrenName, Kind: domain.PersonKindCommunityBard}
 	bardsSummary = domain.PersonSummary{Slug: "northmarch-bards", Name: "Northmarch Bards", Kind: domain.PersonKindGroup,
 		IsStub: true}
+	// hollisSummary is the person who prefers no page, as a reference names them: without a link.
+	hollisSummary = domain.PersonSummary{Slug: hollisFennSlug, Name: hollisName, Kind: domain.PersonKindCommunityBard,
+		IsStub: true, NoLink: true}
 	kettleSummary = domain.PieceSummary{
 		Slug: "the-copper-kettle", Title: kettleTitle, Kind: domain.PieceKindSong,
 		SecondaryKinds:     []domain.PieceKind{domain.PieceKindDanceMusic, domain.PieceKindComedy},
-		ConservationStatus: domain.ConservationStatusEndangered, IsStub: true, CreditNames: []string{wrenName},
+		ConservationStatus: domain.ConservationStatusEndangered, IsStub: true, CreditNames: []string{hollisName, wrenName},
 	}
 	brassSummary = domain.PieceSummary{
 		Slug: "the-brass-kettle", Title: "The Brass Kettle", Kind: domain.PieceKindPoem,
@@ -296,8 +300,8 @@ var (
 )
 
 // TestRepository_GetPublicPiece reads a piece with every field and list set, with the references to
-// entities that are not public left out, credits by attribution and certainty without no-page or
-// unapproved persons, and links without the hidden one, each once with all its roles, with collections,
+// entities that are not public left out, credits by attribution and certainty without unapproved persons and
+// with the person who prefers no page unlinked, and links without the hidden one, each once with all its roles, with collections,
 // locators and performances with public events and performers only.
 func TestRepository_GetPublicPiece(t *testing.T) {
 	t.Parallel()
@@ -333,6 +337,8 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 		Credits: []domain.PieceCredit{
 			{Role: domain.CreditRoleTranslation, Attribution: domain.AttributionUnknown,
 				Certainty: domain.CertaintyDisputed},
+			{Role: domain.CreditRoleMusic, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
+				Note: new("Hollis's tune"), Person: &hollisSummary},
 			{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
 				Certainty: domain.CertaintyProbable, Part: &tune, Note: new("An old reel.")},
 			{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
@@ -365,7 +371,7 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 						DescriptionVerbatim: revelPerformance,
 						Event: &domain.EventSummary{Slug: revelSlug, Name: revelName,
 							Kind: domain.EventKindEvent},
-						Performers: []domain.PersonSummary{wrenSummary, bardsSummary},
+						Performers: []domain.PersonSummary{wrenSummary, hollisSummary, bardsSummary},
 					},
 					{DescriptionVerbatim: "Sung at the moot"},
 				},
@@ -391,7 +397,7 @@ func TestRepository_GetPublicPiece_NotFound(t *testing.T) {
 }
 
 // TestRepository_GetPublicPerson reads a person with public aliases only, roles, affiliations without the
-// unapproved one, relations in both directions without unapproved or no-page persons, links without the hidden
+// unapproved one, relations in both directions without unapproved persons, links without the hidden
 // one, works on public pieces and performances.
 func TestRepository_GetPublicPerson(t *testing.T) {
 	t.Parallel()
@@ -424,6 +430,7 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 				{Type: domain.PersonRelationTypeMemberOf, Direction: domain.RelationDirectionOutgoing, Person: bardsSummary},
 				{Type: domain.PersonRelationTypeHeirOf, Direction: domain.RelationDirectionIncoming,
 					Person: domain.PersonSummary{Slug: "ash-tallow", Name: "Ash Tallow", Kind: domain.PersonKindHistorical}},
+				{Type: domain.PersonRelationTypeHeirOf, Direction: domain.RelationDirectionIncoming, Person: hollisSummary},
 			},
 			Links: []domain.Link{{URL: wrenURL, Title: new("Wren's songs"),
 				Liveness: domain.LivenessUnknown, Roles: []domain.LinkRole{domain.LinkRoleWebsite}}},
@@ -451,21 +458,6 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 			PerformancesTotal: 2,
 		},
 	}, person)
-}
-
-// TestRepository_GetPublicPerson_RelationsSkipNoPage checks that a relation to a no-page person is left out from
-// the other side too.
-func TestRepository_GetPublicPerson_RelationsSkipNoPage(t *testing.T) {
-	t.Parallel()
-
-	repo, fx := detailRepository(t)
-	person, err := repo.GetPublicPerson(t.Context(), fx.ash.Slug)
-	require.NoError(t, err)
-	clearUpdatedAt(t, &person.UpdatedAt)
-
-	require.NotNil(t, person.Profile)
-	assert.Equal(t, []domain.PersonRelation{{Type: domain.PersonRelationTypeHeirOf,
-		Direction: domain.RelationDirectionOutgoing, Person: wrenSummary}}, person.Profile.Relations)
 }
 
 // TestRepository_GetPublicPerson_NoPage checks that a person who prefers no page has only their identity, as a
@@ -548,7 +540,7 @@ func TestRepository_CatalogueReads_UnknownEnumValue(t *testing.T) {
 	require.ErrorContains(t, err, "[harper]")
 }
 
-// TestRepository_PieceCreditNamesAndUpdatedAt checks that a piece's credit_names are up to five listed persons in
+// TestRepository_PieceCreditNamesAndUpdatedAt checks that a piece's credit_names are up to five public persons in
 // credit order without repeats, on its page and in a list, and that updated_at is the current revision's approval
 // time, or its creation time when nobody approved it.
 func TestRepository_PieceCreditNamesAndUpdatedAt(t *testing.T) {
@@ -565,10 +557,7 @@ func TestRepository_PieceCreditNamesAndUpdatedAt(t *testing.T) {
 			want = append(want, name)
 		}
 		if name == "Ann" {
-			noPage := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Quiet",
-				Status: domain.PersonStatusPrefersNoPage}})
-			credits = append(credits, domain.DocCredit{PersonID: &noPage.ID, Role: domain.CreditRoleTune},
-				domain.DocCredit{PersonID: &person.ID, Role: domain.CreditRoleTune})
+			credits = append(credits, domain.DocCredit{PersonID: &person.ID, Role: domain.CreditRoleTune})
 		}
 	}
 	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: kettleTitle, Credits: credits}})

@@ -45,9 +45,9 @@ func TestSubmitRevision_Duplicates(t *testing.T) {
 	assert.False(t, repo.Submitted.ByModerator)
 }
 
-// TestSubmitRevision_NewPersonMatchingUnlistedPerson checks that a new person matching a person who prefers no
+// TestSubmitRevision_NewPersonMatchingNoPagePerson checks that a new person matching a person who prefers no
 // page is refused, acknowledged or not.
-func TestSubmitRevision_NewPersonMatchingUnlistedPerson(t *testing.T) {
+func TestSubmitRevision_NewPersonMatchingNoPagePerson(t *testing.T) {
 	t.Parallel()
 
 	repo := &fakerepo.Repo{Candidates: []domain.DuplicateCandidate{{EntityType: domain.EntityTypePerson,
@@ -61,19 +61,4 @@ func TestSubmitRevision_NewPersonMatchingUnlistedPerson(t *testing.T) {
 	require.ErrorAs(t, err, &invalid)
 	assert.Equal(t, []domain.Problem{{Path: "name", Code: domain.ProblemPrefersNoPage}}, invalid.Problems)
 	assert.Nil(t, repo.Submitted)
-}
-
-// TestSubmitRevision_UnlistedPersonIsForModerators checks that only a moderator may edit an entity whose current
-// document shows a person who prefers no page.
-func TestSubmitRevision_UnlistedPersonIsForModerators(t *testing.T) {
-	t.Parallel()
-
-	repo := &fakerepo.Repo{RevisionBase: &datasources.RevisionBase{EntityID: 7, ShowsUnlistedPerson: true,
-		Document: domain.EventDocument(revelEdit)}}
-	req := SubmitRevisionRequest{User: submitter, BaseRevisionID: new(int64(42)), Document: revelEdit}
-	require.ErrorIs(t, submit(t, repo, req), ErrModeratorOnly)
-
-	req.User.Role = domain.RoleModerator
-	require.NoError(t, submit(t, repo, req))
-	assert.True(t, repo.Submitted.ByModerator)
 }

@@ -361,9 +361,9 @@ paths:
       description: |
         Returns a public piece with everything its page shows: classification, credits, relations, links with
         their recorded performances, and conservation history. References to entities that are not public are
-        left out: unapproved terms, collections and events, and credits to and performers who are unapproved or
-        prefer not to have a page. Hidden links never appear. An unapproved piece is not found, exactly like an
-        unknown one. Credentials are ignored.
+        left out: unapproved terms, collections and events, and credits to and performers who are unapproved. A
+        person who prefers not to have a page is named without a link (`slug` null). Hidden links never appear.
+        An unapproved piece is not found, exactly like an unknown one. Credentials are ignored.
       operationId: getPiece
       security: []
       parameters:
@@ -734,8 +734,7 @@ paths:
       summary: Get a collection
       description: |
         Returns a public collection with its public region, parent and children, and its citations: each
-        visible link in the collection, once for each public piece, or public person with a page, it is attached
-        to, with the roles it is attached with. Citations are ordered by the piece's sort title or the person's
+        visible link in the collection, once for each public piece or public person it is attached to, with the roles it is attached with. Citations are ordered by the piece's sort title or the person's
         sort name and capped at 200, with a total. Hidden links never appear. An unapproved collection is not
         found, exactly like an unknown one. Credentials are ignored.
       operationId: getCollection
@@ -815,8 +814,8 @@ paths:
       description: |
         Returns a public event or venue with the performances recorded at it, newest year first (unknown years
         last), capped at 200, with a total. Performances on hidden links, of unapproved pieces, or recorded only
-        by links of entities that are unapproved or prefer not to have a page are left out, as are performers who
-        are unapproved or prefer not to have a page. An unapproved event is not found, exactly like an unknown
+        by links of unapproved entities are left out, as are unapproved performers. A performer who prefers not to
+        have a page is named without a link (`slug` null). An unapproved event is not found, exactly like an unknown
         one. Credentials are ignored.
       operationId: getEvent
       security: []
@@ -1057,8 +1056,9 @@ paths:
         no base. A view never shows the stored document as such: each reference to another entity is shown as
         that entity is now, and left out if it is not public now; links are shown as the snapshot wrote them,
         and left out if their URL does not normalise or is a hidden link's now; credits to, performers and
-        relations of persons who are not public or prefer not to have a page now are left out; and of a person who prefers not to have a page, now or in the snapshot, only the
-        identity is shown. System fields are never shown. `entity_type` says which of
+        relations of persons who are not public now are left out, and persons who prefer not to have a page now
+        are named without a link (`slug` null); of a person who prefers not to have a page, now or in the
+        snapshot, only the identity is shown. System fields are never shown. `entity_type` says which of
         the five shapes the revision has. A revision that is not approved, or whose entity is not public, is not
         found, exactly like an unknown one. Credentials are ignored.
       operationId: getRevision
@@ -1535,7 +1535,7 @@ paths:
       description: |
         Returns a public piece's document in the editor format, to edit and submit with `POST /v1/revisions`: the
         caller's own pending revision of it if they have one, and otherwise its current revision. Hidden links are
-        left out. A document that shows a person who prefers not to have a page is editable by moderators only.
+        left out.
         Requires a signed-in user.
       operationId: getEditablePiece
       parameters:
@@ -1548,7 +1548,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/EditableForbidden"
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/EntityNotFound"
         "500":
@@ -1573,7 +1573,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/EditableForbidden"
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/EntityNotFound"
         "500":
@@ -1598,7 +1598,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/EditableForbidden"
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/EntityNotFound"
         "500":
@@ -1623,7 +1623,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/EditableForbidden"
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/EntityNotFound"
         "500":
@@ -1648,7 +1648,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/EditableForbidden"
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/EntityNotFound"
         "500":
@@ -1663,16 +1663,14 @@ paths:
       summary: Submit a revision
       description: |
         Submits an edit of an existing entity (`base_revision_id`, from its editable document) or a new entity
-        (`base_revision_id` null). References are by slug, to public entities only (for moderators, also persons
-        who prefer not to have a page); an unknown slug is a problem `unknown_reference`. The document is validated,
+        (`base_revision_id` null). References are by slug, to public entities only; an unknown slug is a problem `unknown_reference`. The document is validated,
         including the sourced fields, before anything is stored.
 
         A contributor's revision is pending; it withdraws their earlier pending revision of the same entity, and
         they may have at most 30 pending. A moderator's revision is approved at once, which refuses a stale base
         (the entity has changed since) unless `acknowledge_stale`. A new entity whose title, name or an alias
         matches a public entity of its type needs `acknowledge_duplicates`; one matching a person who prefers not
-        to have a page is refused. A contributor may not edit a document that shows a person who prefers not to
-        have a page. The body may be up to 1 MiB. Requires a signed-in user.
+        to have a page is refused. The body may be up to 1 MiB. Requires a signed-in user.
       operationId: submitRevision
       requestBody:
         description: The revision to submit.
@@ -1702,7 +1700,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/EditableForbidden"
+          $ref: "#/components/responses/Forbidden"
         "404":
           description: |
             `base_revision_id` is not an approved revision of an entity of `entity_type`; the error code is
@@ -2281,25 +2279,6 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Editable"
-    EditableForbidden:
-      description: |
-        The caller is blocked (`user_blocked`), or is not a moderator and the document shows a person who prefers
-        not to have a page (`moderator_only`). Blocking takes precedence.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            userBlocked:
-              summary: The caller is blocked
-              value:
-                code: user_blocked
-                message: user is blocked
-            moderatorOnly:
-              summary: Only a moderator may edit the document
-              value:
-                code: moderator_only
-                message: this document shows a person who prefers not to have a page; only a moderator may edit it
     ValidationFailed:
       description: The document does not validate; the error code is `validation_failed`, with every problem.
       content:
@@ -2333,7 +2312,6 @@ components:
             - turnstile_failed
             - validation_failed
             - possible_duplicate
-            - moderator_only
             - pending_limit_reached
             - stale_revision
             - revision_not_pending
@@ -2718,8 +2696,7 @@ components:
         credit_names:
           type: array
           description: |
-            The names of up to five credited persons who have a page, in credit order. A person who prefers not to
-            have a page is never named.
+            The names of up to five credited public persons, in credit order.
           maxItems: 5
           items:
             type: string
@@ -2737,14 +2714,14 @@ components:
     PersonSummary:
       type: object
       description: |
-        A public person, as other entities refer to them. Persons who prefer not to have a page are never
-        referred to; where they are listed, `is_stub` is true.
+        A public person, as other entities refer to them. A person who prefers not to have a page is named
+        without a link: `slug` is null and `is_stub` true. In lists of persons `slug` is always set.
       additionalProperties: false
       required: [slug, name, kind, is_stub]
       properties:
         slug:
-          type: string
-          description: The person's address.
+          type: [string, "null"]
+          description: The person's address, or null for a person who prefers not to have a page.
           examples:
             - wren-of-the-vale
         name:
@@ -2921,8 +2898,7 @@ components:
         credits:
           type: array
           description: |
-            The piece's credits, in order. A credit to a person who is not public or prefers not to have a page is
-            left out entirely.
+            The piece's credits, in order. A credit to a person who is not public is left out entirely.
           items:
             $ref: "#/components/schemas/PieceCredit"
         relations:
@@ -3280,8 +3256,7 @@ components:
     PiecePerformance:
       type: object
       description: |
-        A recorded performance of a piece. Performers who are not public or prefer not to have a page are left
-        out.
+        A recorded performance of a piece. Performers who are not public are left out.
       additionalProperties: false
       required: [year, uploader, description_verbatim, event, performers]
       properties:
@@ -3447,7 +3422,7 @@ components:
         relations:
           type: array
           description: |
-            Relations to other public persons who do not prefer no page: the outgoing ones, then the incoming
+            Relations to other public persons: the outgoing ones, then the incoming
             ones, each by type and name.
           items:
             $ref: "#/components/schemas/PersonRelation"
@@ -3890,8 +3865,7 @@ components:
         citations:
           type: array
           description: |
-            The collection's visible links, once for each public piece, or public person with a page, each is
-            attached to, by the piece's sort title or the person's sort name. At most 200.
+            The collection's visible links, once for each public piece or public person each is attached to, by the piece's sort title or the person's sort name. At most 200.
           maxItems: 200
           items:
             $ref: "#/components/schemas/CollectionCitation"
@@ -4048,8 +4022,7 @@ components:
     EventPerformance:
       type: object
       description: |
-        A performance on an event's page. Performers who are not public or prefer not to have a page are left
-        out.
+        A performance on an event's page. Performers who are not public are left out.
       additionalProperties: false
       required: [piece, link, year, performers, description_verbatim]
       properties:
@@ -4103,7 +4076,8 @@ components:
     PersonStatus:
       type: string
       description: |
-        A person's status. A person who `prefers_no_page` is shown by identity only.
+        A person's status. A person who `prefers_no_page` has a page showing their identity only, and is
+        named without a link elsewhere.
       enum: [active, deceased, prefers_no_page]
       examples:
         - active
@@ -4956,8 +4930,7 @@ components:
         credits:
           type: array
           description: |
-            The snapshot's credits, in order. A credit to a person who is not public or prefers not to have a page
-            now is left out entirely.
+            The snapshot's credits, in order. A credit to a person who is not public now is left out entirely.
           items:
             $ref: "#/components/schemas/PieceCredit"
         relations:
@@ -5092,7 +5065,7 @@ components:
       type: object
       description: |
         A performance a person snapshot's link records, of a public piece or of none in particular. Performers
-        who are not public or prefer not to have a page now are left out.
+        who are not public now are left out.
       additionalProperties: false
       required: [piece, year, uploader, description_verbatim, event, performers]
       properties:
@@ -5194,8 +5167,7 @@ components:
         relations:
           type: array
           description: |
-            The person's relations to other persons who are public and do not prefer no page now; a snapshot holds
-            outgoing ones only.
+            The person's relations to other persons who are public now; a snapshot holds outgoing ones only.
           items:
             $ref: "#/components/schemas/SnapshotPersonRelation"
         links:
@@ -5216,7 +5188,7 @@ components:
 
     SnapshotPersonRelation:
       type: object
-      description: A relation of a person snapshot's person to another public person with a page.
+      description: A relation of a person snapshot's person to another public person.
       additionalProperties: false
       required: [type, person]
       properties:

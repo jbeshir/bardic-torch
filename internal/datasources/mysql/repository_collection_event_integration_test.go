@@ -75,7 +75,7 @@ var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
 	noPage := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: hollisName,
 		Status: domain.PersonStatusPrefersNoPage,
 		Links: []domain.DocPersonLink{{
-			DocLink:      cited("https://example.org/hollis", domain.LinkRoleWebsite),
+			DocLink:      cited(hollisURL, domain.LinkRoleWebsite),
 			Performances: []domain.DocPersonPerformance{{DocPerformance: at(nil, "Hollis at the revel")}},
 		}}}})
 	pendingPiece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Pewter Kettle",
@@ -166,8 +166,7 @@ var (
 )
 
 // TestRepository_GetPublicCollection reads a collection with its public region, parent and children, and its
-// citations: one per visible link and public piece or person with a page, with the roles of that attachment,
-// by sort key.
+// citations: one per visible link and public piece or person, with the roles of that attachment, by sort key.
 func TestRepository_GetPublicCollection(t *testing.T) {
 	t.Parallel()
 
@@ -198,10 +197,11 @@ func TestRepository_GetPublicCollection(t *testing.T) {
 				URL: "https://example.org/eastmarch#ale", Roles: []domain.LinkRole{domain.LinkRoleText}},
 			{Piece: &plainKettleSummary, URL: kettleBookURL, Title: new("Kettle entry"), Locator: new("p. 12"),
 				Roles: []domain.LinkRole{domain.LinkRoleLyrics, domain.LinkRoleSheetMusic}},
+			{Person: &hollisSummary, URL: hollisURL, Roles: []domain.LinkRole{domain.LinkRoleWebsite}},
 			{Person: &plainWrenSummary, URL: kettleBookURL, Title: new("Kettle entry"), Locator: new("p. 12"),
 				Roles: []domain.LinkRole{domain.LinkRoleExternalProfile}},
 		},
-		CitationsTotal: 3,
+		CitationsTotal: 4,
 	}, collection)
 }
 
@@ -295,8 +295,8 @@ func TestRepository_ListPublicEvents(t *testing.T) {
 }
 
 // TestRepository_GetPublicEvent reads an event's performances newest first, unknown years last, without those
-// on hidden links, of unapproved pieces, or recorded only by unapproved or no-page entities' links, and with
-// public performers only.
+// on hidden links, of unapproved pieces, or recorded only by unapproved entities' links, and with public
+// performers only.
 func TestRepository_GetPublicEvent(t *testing.T) {
 	t.Parallel()
 
@@ -311,13 +311,14 @@ func TestRepository_GetPublicEvent(t *testing.T) {
 		DescriptionMD: new("A winter gathering."),
 		Performances: []domain.EventPerformance{
 			{Piece: &plainKettleSummary, Link: revelLink, Year: new(int16(2025)),
-				Performers: []domain.PersonSummary{plainWrenSummary}, DescriptionVerbatim: revelPerformance},
+				Performers: []domain.PersonSummary{plainWrenSummary, hollisSummary}, DescriptionVerbatim: revelPerformance},
 			{Link: domain.PerformanceLink{URL: wrenURL, Title: new("Wren's songs")}, Year: new(int16(2023)),
 				DescriptionVerbatim: "Wren at the revel"},
 			{Piece: &plainKettleSummary, Link: revelLink, Year: new(int16(2020)), DescriptionVerbatim: "Older"},
+			{Link: domain.PerformanceLink{URL: hollisURL}, DescriptionVerbatim: "Hollis at the revel"},
 			{Piece: &plainKettleSummary, Link: revelLink, DescriptionVerbatim: "Undated"},
 		},
-		PerformancesTotal: 4,
+		PerformancesTotal: 5,
 	}, event)
 }
 

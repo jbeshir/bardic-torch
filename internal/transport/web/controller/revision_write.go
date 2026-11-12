@@ -55,18 +55,11 @@ func (c EditableGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		notFound(w, r, string(c.EntityType)+" not found")
 	case err != nil:
 		writeInternalError(w, r, "unable to get editable document", err)
-	case editable.ShowsUnlistedPerson && principal.User.Role != domain.RoleModerator:
-		moderatorOnly(w, r)
 	default:
 		httpjson.WriteJSON(r.Context(), w, http.StatusOK, EditableResponse{EntityType: c.EntityType,
 			BaseRevisionID: editable.BaseRevisionID, PendingRevisionID: editable.PendingRevisionID,
 			Document: editable.Document})
 	}
-}
-
-func moderatorOnly(w http.ResponseWriter, r *http.Request) {
-	httpjson.WriteError(r.Context(), w, http.StatusForbidden, httpjson.CodeModeratorOnly,
-		"this document shows a person who prefers not to have a page; only a moderator may edit it")
 }
 
 // RevisionCreateRequest is the JSON body of a revision submission. Document is decoded as the editor document of
@@ -113,8 +106,6 @@ func (c RevisionCreate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Duplicates []DuplicateMatch   `json:"possible_duplicates"`
 		}{httpjson.CodePossibleDuplicate, "the new entity may duplicate public ones; acknowledge_duplicates to submit",
 			mapSlice(duplicate.Matches, duplicateMatchFromDomain)})
-	case errors.Is(err, command.ErrModeratorOnly):
-		moderatorOnly(w, r)
 	case errors.Is(err, datasources.ErrNotFound):
 		notFound(w, r, "base revision not found")
 	case err != nil:

@@ -1,4 +1,5 @@
--- BE4: revisions and moderation. Every statement is additive, so the previous release keeps working against it.
+-- BE4: revisions and moderation. Every statement is additive or widens a view, so the previous release keeps
+-- working against it.
 
 -- A new entity's revision has no entity row until it is approved.
 ALTER TABLE `revisions`
@@ -62,3 +63,13 @@ CREATE TABLE `contact_requests` (
     INDEX `idx_status_created` (`status`, `created_at`, `id`),
     CONSTRAINT `fk_contact_requests_resolved_by_user_id` FOREIGN KEY (`resolved_by_user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- A public attachment of a link: to a public piece or a public person. A person who prefers no page no longer
+-- hides the links attached to them, so this replaces 010's view, which joined listed_persons. The previous release
+-- only shows more performances and citations against it.
+CREATE OR REPLACE ALGORITHM = MERGE SQL SECURITY INVOKER VIEW `public_link_attachments` AS
+SELECT a.*
+FROM `link_attachments` a
+LEFT JOIN `pieces` p ON p.`id` = a.`piece_id` AND p.`current_revision_id` IS NOT NULL
+LEFT JOIN `persons` pe ON pe.`id` = a.`person_id` AND pe.`current_revision_id` IS NOT NULL
+WHERE p.`id` IS NOT NULL OR pe.`id` IS NOT NULL;

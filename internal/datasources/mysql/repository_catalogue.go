@@ -14,7 +14,7 @@ import (
 
 // GetPublicPiece retrieves a public piece by slug with everything its page shows, returning
 // datasources.ErrNotFound if no public piece has the slug. Visibility is decided by the queries: unapproved
-// entities, references to them, hidden links and prefers_no_page persons are filtered out in SQL.
+// entities, references to them and hidden links are filtered out in SQL.
 func (r *Repository) GetPublicPiece(ctx context.Context, slug string) (domain.Piece, error) {
 	var piece domain.Piece
 	err := r.readOnly(ctx, func(c *catalogueReader) error {
@@ -202,7 +202,7 @@ type pieceExtras struct {
 }
 
 // summaryExtras returns the extras of the pieces with slugs: the secondary kinds in PieceKind's declaration
-// order, and the names of up to five listed persons credited, in credit order and without repeats.
+// order, and the names of up to five public persons credited, in credit order and without repeats.
 func (c *catalogueReader) summaryExtras(ctx context.Context, slugs []string) pieceExtras {
 	extras := pieceExtras{kinds: make(map[string][]domain.PieceKind), creditNames: c.creditNames(ctx, slugs)}
 	for _, row := range fetch(ctx, c, "secondary kinds", c.q.ListPieceSecondaryKinds, slugs) {
@@ -212,7 +212,7 @@ func (c *catalogueReader) summaryExtras(ctx context.Context, slugs []string) pie
 	return extras
 }
 
-// creditNames returns the names of the listed persons credited on the pieces with slugs, by piece slug.
+// creditNames returns the names of the public persons credited on the pieces with slugs, by piece slug.
 func (c *catalogueReader) creditNames(ctx context.Context, slugs []string) map[string][]string {
 	names := make(map[string][]string)
 	seen := make(map[[2]string]bool)
@@ -244,10 +244,16 @@ func (c *catalogueReader) pieceSummary(
 	}
 }
 
-// personSummary returns the summary of a public person who does not prefer no page; persons who do are left
-// out of every query that references persons.
-func (c *catalogueReader) personSummary(slug, name string, kind queries.PersonsKind, isStub bool) domain.PersonSummary {
-	return domain.PersonSummary{Slug: slug, Name: name, Kind: enumOf[domain.PersonKind](c, kind), IsStub: isStub}
+// personSummary returns the summary of a public person where another entity refers to them: one who prefers no
+// page is a stub, named without a link.
+func (c *catalogueReader) personSummary(
+	slug, name string, kind queries.PersonsKind, isStub bool, status queries.PersonsStatus,
+) domain.PersonSummary {
+	noPage := status == queries.PersonsStatusPrefersNoPage
+
+	return domain.PersonSummary{
+		Slug: slug, Name: name, Kind: enumOf[domain.PersonKind](c, kind), IsStub: isStub || noPage, NoLink: noPage,
+	}
 }
 
 func (c *catalogueReader) termSummary(slug string, facet queries.TermsFacet, displayName string) domain.TermSummary {
@@ -315,7 +321,7 @@ func (c *catalogueReader) pieceCredits(rows []queries.ListPublicPieceCreditsRow)
 		}
 		if row.PersonSlug.Valid {
 			person := c.personSummary(row.PersonSlug.String, row.PersonName.String, row.PersonKind.PersonsKind,
-				row.PersonIsStub.Bool)
+				row.PersonIsStub.Bool, row.PersonStatus.PersonsStatus)
 			credit.Person = &person
 		}
 		credits = append(credits, credit)
@@ -428,7 +434,7 @@ func (c *catalogueReader) performers(ctx context.Context, performanceIDs []uint6
 	}
 	for _, row := range fetch(ctx, c, "performers", c.q.ListPublicPerformers, performanceIDs) {
 		performers[row.PerformanceID] = append(performers[row.PerformanceID],
-			c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub))
+			c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub, row.Status))
 	}
 
 	return performers
@@ -569,7 +575,7 @@ func (c *catalogueReader) personRelations(
 		relations = append(relations, domain.PersonRelation{
 			Type:      enumOf[domain.PersonRelationType](c, row.Type),
 			Direction: direction,
-			Person:    c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub),
+			Person:    c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub, row.Status),
 		})
 	}
 	for _, row := range to {

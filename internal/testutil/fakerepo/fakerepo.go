@@ -291,7 +291,7 @@ func (r *Repo) GetEditable(context.Context, domain.EntityType, string, string) (
 	return *r.Editable, nil
 }
 
-func (r *Repo) ResolveReferences(context.Context, domain.SlugReferences, bool) (domain.IDs, error) {
+func (r *Repo) ResolveReferences(context.Context, domain.SlugReferences) (domain.IDs, error) {
 	return r.IDs, r.Err
 }
 

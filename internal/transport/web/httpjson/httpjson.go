@@ -39,7 +39,6 @@ const (
 	CodeTurnstileFailed      ErrorCode = "turnstile_failed"
 	CodeValidationFailed     ErrorCode = "validation_failed"
 	CodePossibleDuplicate    ErrorCode = "possible_duplicate"
-	CodeModeratorOnly        ErrorCode = "moderator_only"
 	CodePendingLimitReached  ErrorCode = "pending_limit_reached"
 	CodeStaleRevision        ErrorCode = "stale_revision"
 	CodeRevisionNotPending   ErrorCode = "revision_not_pending"

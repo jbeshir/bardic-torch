@@ -43,24 +43,24 @@ var (
 	brassKettle = PieceSummary{Slug: "the-brass-kettle", Title: "The Brass Kettle", Kind: PieceKindSong,
 		ConservationStatus: ConservationStatusLowRisk}
 	hollis      = PersonSummary{Slug: "hollis-fenn", Name: "Hollis Fenn", Kind: PersonKindCommunityBard}
-	quietPerson = PersonSummary{Slug: "quiet-one", Name: "Quiet One", Kind: PersonKindCommunityBard, IsStub: true}
-	war         = TermSummary{Slug: "war", Facet: FacetTopic, DisplayName: "War"}
-	songbook    = CollectionSummary{ID: publicCollectionID, Name: "The Northmarch Songbook",
+	quietPerson = PersonSummary{Slug: "quiet-one", Name: "Quiet One", Kind: PersonKindCommunityBard, IsStub: true,
+		NoLink: true}
+	war      = TermSummary{Slug: "war", Facet: FacetTopic, DisplayName: "War"}
+	songbook = CollectionSummary{ID: publicCollectionID, Name: "The Northmarch Songbook",
 		Kind: CollectionKindSongbookPDF}
 	revel = EventSummary{Slug: "midwinter-revel", Name: revelName, Kind: EventKindEvent}
 )
 
-// testVisibility is the current state of the referenced entities: one public entity of each type, a no-page
-// person, and a hidden link: hiddenURL.
+// testVisibility is the current state of the referenced entities: one public entity of each type, a person who
+// prefers no page, and a hidden link: hiddenURL.
 func testVisibility() SnapshotVisibility {
 	return SnapshotVisibility{
-		Pieces:        map[int64]PieceSummary{publicPieceID: brassKettle},
-		Persons:       map[int64]PersonSummary{publicPersonID: hollis},
-		NoPagePersons: map[int64]PersonSummary{noPagePersonID: quietPerson},
-		Terms:         map[int64]TermSummary{publicTermID: war},
-		Collections:   map[int64]CollectionSummary{publicCollectionID: songbook},
-		Events:        map[int64]EventSummary{publicEventID: revel},
-		HiddenLinks:   map[string]bool{hiddenURL: true},
+		Pieces:      map[int64]PieceSummary{publicPieceID: brassKettle},
+		Persons:     map[int64]PersonSummary{publicPersonID: hollis, noPagePersonID: quietPerson},
+		Terms:       map[int64]TermSummary{publicTermID: war},
+		Collections: map[int64]CollectionSummary{publicCollectionID: songbook},
+		Events:      map[int64]EventSummary{publicEventID: revel},
+		HiddenLinks: map[string]bool{hiddenURL: true},
 	}
 }
 
@@ -139,6 +139,8 @@ func TestNewPieceSnapshot(t *testing.T) {
 		Terms:                 []PieceTerm{{Term: war, Part: new(PiecePartWords)}},
 		Credits: []PieceCredit{
 			{Role: CreditRoleLyrics, Attribution: AttributionNamed, Certainty: CertaintyCertain, Person: &hollis},
+			{Role: CreditRoleTune, Attribution: AttributionNamed, Certainty: CertaintyCertain,
+				Note: new("by the quiet one"), Person: &quietPerson},
 			{Role: CreditRoleTune, Attribution: AttributionTraditional, Certainty: CertaintyDisputed,
 				Part: new(PiecePartChorus)},
 		},
@@ -151,7 +153,7 @@ func TestNewPieceSnapshot(t *testing.T) {
 					Locator:    new("p. 12"), Roles: []LinkRole{LinkRoleLyrics, LinkRoleSheetMusic}},
 				Performances: []PiecePerformance{
 					{Year: new(int16(2025)), Uploader: new("Northmarch Bards"), DescriptionVerbatim: "At the revel",
-						Event: &revel, Performers: []PersonSummary{hollis}},
+						Event: &revel, Performers: []PersonSummary{hollis, quietPerson}},
 					{DescriptionVerbatim: "Elsewhere"},
 				},
 			},
@@ -240,7 +242,8 @@ func TestNewPersonSnapshot(t *testing.T) {
 				{Name: "Wren the Elder", Kind: PersonAliasKindFormer}},
 			Roles:        []PersonRole{PersonRoleSinger, PersonRolePoet},
 			Affiliations: []TermSummary{war},
-			Relations:    []SnapshotPersonRelation{{Type: PersonRelationTypeMemberOf, Person: hollis}},
+			Relations: []SnapshotPersonRelation{{Type: PersonRelationTypeHeirOf, Person: quietPerson},
+				{Type: PersonRelationTypeMemberOf, Person: hollis}},
 			Links: []SnapshotPersonLink{{
 				SnapshotLink: SnapshotLink{URL: visibleURL, Roles: []LinkRole{LinkRoleWebsite}},
 				Performances: []SnapshotPersonPerformance{
@@ -283,8 +286,8 @@ func TestNewPersonSnapshot_NoPage(t *testing.T) {
 		t.Parallel()
 
 		vis := testVisibility()
-		vis.NoPagePersons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName,
-			Kind: PersonKindCommunityBard, IsStub: true}
+		vis.Persons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName,
+			Kind: PersonKindCommunityBard, IsStub: true, NoLink: true}
 		snapshot, err := NewPersonSnapshot(subjectPersonID, personDocument(), vis)
 		require.NoError(t, err)
 		assert.Equal(t, identity, snapshot)

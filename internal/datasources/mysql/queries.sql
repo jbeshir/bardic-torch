@@ -36,8 +36,9 @@ WHERE id = ? AND role = 'contributor';
 -- Catalogue: public reads
 --
 -- An entity is public when it has an approved revision (current_revision_id IS NOT NULL); a term also needs
--- every ancestor approved (the public_terms view). Persons who prefer no page are dropped from every list that
--- references them (the listed_persons view), and hidden links from every read. What a link records is shown on
+-- every ancestor approved (the public_terms view). Persons who prefer no page are left out of the lists of persons
+-- (the listed_persons view) but named, without a link, wherever else they are referenced. Hidden links are left out
+-- of every read. What a link records is shown on
 -- another entity's page only if the link has a public attachment (the public_link_attachments view).
 -- ============================================
 
@@ -57,12 +58,12 @@ WHERE p.slug IN (sqlc.slice('slugs'))
 ORDER BY p.slug, k.kind;
 
 -- name: ListPieceCreditNames :many
--- Named credits of public pieces to persons with a page, in credit order.
+-- Named credits of public pieces to public persons, in credit order.
 SELECT pc.slug AS piece_slug, p.slug AS person_slug, p.name AS person_name
 FROM piece_credits c
 JOIN pieces pc ON pc.id = c.piece_id
-JOIN listed_persons p ON p.id = c.person_id
-WHERE pc.slug IN (sqlc.slice('slugs'))
+JOIN persons p ON p.id = c.person_id
+WHERE pc.slug IN (sqlc.slice('slugs')) AND p.current_revision_id IS NOT NULL
 ORDER BY pc.slug, c.position, c.id;
 
 -- name: ListPieceAliases :many
@@ -80,9 +81,10 @@ ORDER BY t.facet, pt.position, t.id;
 
 -- name: ListPublicPieceCredits :many
 SELECT c.role, c.attribution, c.certainty, c.part, c.note,
-    p.slug AS person_slug, p.name AS person_name, p.kind AS person_kind, p.is_stub AS person_is_stub
+    p.slug AS person_slug, p.name AS person_name, p.kind AS person_kind, p.is_stub AS person_is_stub,
+    p.status AS person_status
 FROM piece_credits c
-LEFT JOIN listed_persons p ON p.id = c.person_id
+LEFT JOIN persons p ON p.id = c.person_id AND p.current_revision_id IS NOT NULL
 WHERE c.piece_id = ? AND (c.person_id IS NULL OR p.id IS NOT NULL)
 ORDER BY c.position, c.id;
 
@@ -124,10 +126,10 @@ WHERE perf.piece_id = ? AND NOT l.is_hidden
 ORDER BY perf.link_id, perf.id;
 
 -- name: ListPublicPerformers :many
-SELECT pp.performance_id, p.slug, p.name, p.kind, p.is_stub
+SELECT pp.performance_id, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM performance_performers pp
-JOIN listed_persons p ON p.id = pp.person_id
-WHERE pp.performance_id IN (sqlc.slice('performance_ids'))
+JOIN persons p ON p.id = pp.person_id
+WHERE pp.performance_id IN (sqlc.slice('performance_ids')) AND p.current_revision_id IS NOT NULL
 ORDER BY pp.performance_id, pp.position;
 
 -- name: ListConservationHistory :many
@@ -163,17 +165,17 @@ WHERE pa.person_id = ?
 ORDER BY t.position, t.display_name, t.id;
 
 -- name: ListPublicPersonRelationsTo :many
-SELECT r.type, p.slug, p.name, p.kind, p.is_stub
+SELECT r.type, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM person_relations r
-JOIN listed_persons p ON p.id = r.to_person_id
-WHERE r.from_person_id = ?
+JOIN persons p ON p.id = r.to_person_id
+WHERE r.from_person_id = ? AND p.current_revision_id IS NOT NULL
 ORDER BY r.type, p.sort_name, p.id;
 
 -- name: ListPublicPersonRelationsFrom :many
-SELECT r.type, p.slug, p.name, p.kind, p.is_stub
+SELECT r.type, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM person_relations r
-JOIN listed_persons p ON p.id = r.from_person_id
-WHERE r.to_person_id = ?
+JOIN persons p ON p.id = r.from_person_id
+WHERE r.to_person_id = ? AND p.current_revision_id IS NOT NULL
 ORDER BY r.type, p.sort_name, p.id;
 
 -- Identical to ListPublicPieceLinks but for the attachment column.
@@ -202,7 +204,7 @@ JOIN pieces p ON p.id = c.piece_id
 WHERE c.person_id = ? AND p.current_revision_id IS NOT NULL;
 
 -- A person's performances are those recorded by links attached to them, and those they perform in on links with
--- a public attachment, as a performance only an unapproved or no-page entity's links record may name them. A
+-- a public attachment, as a performance only an unapproved entity's links record may name them. A
 -- performance of a piece that is not public is left out entirely, as its description may name the piece.
 
 -- name: ListPublicPersonPerformances :many
@@ -345,7 +347,7 @@ FROM collections
 WHERE parent_id = ? AND current_revision_id IS NOT NULL
 ORDER BY sort_name, id;
 
--- A collection's citations are its visible links, once per public piece or public person with a page that each
+-- A collection's citations are its visible links, once per public piece or public person that each
 -- is attached to, whatever roles it is attached with.
 
 -- name: ListPublicCollectionCitations :many
@@ -353,7 +355,8 @@ SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, a.piece_id, a.person
     COALESCE(p.sort_title, pe.sort_name) AS sort_key,
     p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
-    pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub
+    pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub,
+    pe.status AS person_status
 FROM links l
 JOIN public_link_attachments a ON a.link_id = l.id
 LEFT JOIN pieces p ON p.id = a.piece_id
@@ -395,8 +398,8 @@ FROM events e
 JOIN revisions r ON r.id = e.current_revision_id
 WHERE e.slug = ?;
 
--- An event's performances are on visible links attached to a public piece or a public person with a page, as
--- a performance only an unapproved or no-page entity's links record may name them. A performance of a piece
+-- An event's performances are on visible links attached to a public piece or a public person, as
+-- a performance only an unapproved entity's links record may name them. A performance of a piece
 -- that is not public is left out entirely, as on a person's page.
 
 -- name: ListPublicEventPerformances :many
@@ -826,7 +829,7 @@ SELECT COUNT(*) FROM revisions WHERE status = 'pending';
 SELECT id, slug FROM pieces WHERE slug IN (sqlc.slice('slugs')) AND current_revision_id IS NOT NULL;
 
 -- name: ListPublicPersonIDsBySlug :many
-SELECT id, slug, status FROM persons WHERE slug IN (sqlc.slice('slugs')) AND current_revision_id IS NOT NULL;
+SELECT id, slug FROM persons WHERE slug IN (sqlc.slice('slugs')) AND current_revision_id IS NOT NULL;
 
 -- name: ListPublicTermIDsBySlug :many
 SELECT t.id, t.slug FROM public_terms t WHERE t.slug IN (sqlc.slice('slugs'));

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"maps"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -200,12 +199,11 @@ func (c *catalogueReader) entityIsPublic(ctx context.Context, row queries.GetRev
 	id := row.EntityID.Int64
 	_, piece := vis.Pieces[id]
 	_, person := vis.Persons[id]
-	_, noPage := vis.NoPagePersons[id]
 	_, term := vis.Terms[id]
 	_, collection := vis.Collections[id]
 	_, event := vis.Events[id]
 
-	return piece || person || noPage || term || collection || event
+	return piece || person || term || collection || event
 }
 
 // revisionView returns the views of a revision, as its author sees it or, if moderator, as a moderator does, and
@@ -222,10 +220,12 @@ func (c *catalogueReader) revisionView(
 	case queries.RevisionsEntityTypePiece:
 		return views(entityView(ctx, c, row, entity.Pieces, pieceSnapshots, moderator))
 	case queries.RevisionsEntityTypePerson:
-		// A person who prefers no page is public: their revisions show their identity only.
-		persons := maps.Clone(entity.Persons)
-		maps.Copy(persons, entity.NoPagePersons)
-		return views(entityView(ctx, c, row, persons, personSnapshots(row.EntityID.Int64), moderator))
+		// A revision links to its own person's page, which a person who prefers no page has too.
+		for id, person := range entity.Persons {
+			person.NoLink = false
+			entity.Persons[id] = person
+		}
+		return views(entityView(ctx, c, row, entity.Persons, personSnapshots(row.EntityID.Int64), moderator))
 	case queries.RevisionsEntityTypeTerm:
 		return views(entityView(ctx, c, row, entity.Terms, termSnapshots, moderator))
 	case queries.RevisionsEntityTypeCollection:
@@ -488,13 +488,12 @@ func decodeRevision[D domain.Document](id int64, snapshot []byte) (*revisionDocu
 // there is.
 func (c *catalogueReader) visibility(ctx context.Context, refs domain.SnapshotReferences) domain.SnapshotVisibility {
 	vis := domain.SnapshotVisibility{
-		Pieces:        make(map[int64]domain.PieceSummary),
-		Persons:       make(map[int64]domain.PersonSummary),
-		NoPagePersons: make(map[int64]domain.PersonSummary),
-		Terms:         make(map[int64]domain.TermSummary),
-		Collections:   make(map[int64]domain.CollectionSummary),
-		Events:        make(map[int64]domain.EventSummary),
-		HiddenLinks:   make(map[string]bool),
+		Pieces:      make(map[int64]domain.PieceSummary),
+		Persons:     make(map[int64]domain.PersonSummary),
+		Terms:       make(map[int64]domain.TermSummary),
+		Collections: make(map[int64]domain.CollectionSummary),
+		Events:      make(map[int64]domain.EventSummary),
+		HiddenLinks: make(map[string]bool),
 	}
 
 	if ids := unsignedIDs(refs.PieceIDs); len(ids) > 0 {
@@ -574,20 +573,10 @@ func (c *catalogueReader) linkVisibility(ctx context.Context, urls []string, vis
 	}
 }
 
-// personVisibility loads the referenced public persons, with and without a page.
+// personVisibility loads the referenced public persons.
 func (c *catalogueReader) personVisibility(ctx context.Context, ids []uint64, vis *domain.SnapshotVisibility) {
 	for _, row := range fetch(ctx, c, "referenced persons", c.q.ListPublicPersonsByID, ids) {
-		id := c.signedID(row.ID)
-		status := enumOf[domain.PersonStatus](c, row.Status)
-		summary := domain.PersonSummary{
-			Slug: row.Slug, Name: row.Name, Kind: enumOf[domain.PersonKind](c, row.Kind),
-			IsStub: domain.PersonIsStub(row.IsStub, status),
-		}
-		if status == domain.PersonStatusPrefersNoPage {
-			vis.NoPagePersons[id] = summary
-		} else {
-			vis.Persons[id] = summary
-		}
+		vis.Persons[c.signedID(row.ID)] = c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub, row.Status)
 	}
 }
 

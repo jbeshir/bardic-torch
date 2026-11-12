@@ -2,16 +2,12 @@ package command
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
-
-// ErrModeratorOnly is returned for a contributor's edit of a document that shows a person who prefers no page.
-var ErrModeratorOnly = errors.New("only a moderator may edit this document")
 
 // DuplicateError is returned for a new entity whose title, name or an alias matches public entities, unless the
 // submission acknowledges them.
@@ -51,12 +47,11 @@ type storedDocument interface {
 
 // Execute resolves the document's slugs, validates it against its base and checks a new entity for duplicates,
 // then submits it and returns the author's view of the stored revision. A document that does not validate
-// returns a *datasources.ValidationError, duplicates a *DuplicateError, a contributor's edit of an entity whose
-// current document shows a person who prefers no page ErrModeratorOnly, and an unknown base an error wrapping
+// returns a *datasources.ValidationError, duplicates a *DuplicateError, and an unknown base an error wrapping
 // datasources.ErrNotFound; the submission's own errors are as datasources.Revisions.SubmitRevision's.
 func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest) (domain.RevisionView, error) {
 	moderator := req.User.Role == domain.RoleModerator
-	entityType, doc, problems, err := c.fromEditor(ctx, req.Document, moderator)
+	entityType, doc, problems, err := c.fromEditor(ctx, req.Document)
 	if err != nil {
 		return nil, err
 	}
@@ -66,9 +61,6 @@ func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest)
 		b, err := c.Revisions.GetRevisionBase(ctx, entityType, *req.BaseRevisionID)
 		if err != nil {
 			return nil, err
-		}
-		if b.ShowsUnlistedPerson && !moderator {
-			return nil, ErrModeratorOnly
 		}
 		base = &b
 	}
@@ -106,22 +98,22 @@ func (c *SubmitRevision) Execute(ctx context.Context, req SubmitRevisionRequest)
 }
 
 // fromEditor returns the entity type and stored-format document of an editor document, with the slugs it
-// references that resolve to no entity the caller may reference as problems.
+// references that resolve to no public entity as problems.
 func (c *SubmitRevision) fromEditor(
-	ctx context.Context, editor any, moderator bool,
+	ctx context.Context, editor any,
 ) (domain.EntityType, storedDocument, []domain.Problem, error) {
 	switch e := editor.(type) {
 	case domain.EditorPieceDocument:
-		return convert[domain.EditorPieceDocument, domain.PieceDocument](ctx, c, domain.EntityTypePiece, e, moderator)
+		return convert[domain.EditorPieceDocument, domain.PieceDocument](ctx, c, domain.EntityTypePiece, e)
 	case domain.EditorPersonDocument:
-		return convert[domain.EditorPersonDocument, domain.PersonDocument](ctx, c, domain.EntityTypePerson, e, moderator)
+		return convert[domain.EditorPersonDocument, domain.PersonDocument](ctx, c, domain.EntityTypePerson, e)
 	case domain.EditorTermDocument:
-		return convert[domain.EditorTermDocument, domain.TermDocument](ctx, c, domain.EntityTypeTerm, e, moderator)
+		return convert[domain.EditorTermDocument, domain.TermDocument](ctx, c, domain.EntityTypeTerm, e)
 	case domain.EditorCollectionDocument:
 		return convert[domain.EditorCollectionDocument, domain.CollectionDocument](ctx, c,
-			domain.EntityTypeCollection, e, moderator)
+			domain.EntityTypeCollection, e)
 	case domain.EditorEventDocument:
-		return convert[domain.EditorEventDocument, domain.EventDocument](ctx, c, domain.EntityTypeEvent, e, moderator)
+		return convert[domain.EditorEventDocument, domain.EventDocument](ctx, c, domain.EntityTypeEvent, e)
 	default:
 		return "", nil, nil, fmt.Errorf("unknown editor document type %T", editor)
 	}
@@ -134,9 +126,9 @@ type editorDocument[D storedDocument] interface {
 }
 
 func convert[E editorDocument[D], D storedDocument](
-	ctx context.Context, c *SubmitRevision, entityType domain.EntityType, editor E, moderator bool,
+	ctx context.Context, c *SubmitRevision, entityType domain.EntityType, editor E,
 ) (domain.EntityType, storedDocument, []domain.Problem, error) {
-	ids, err := c.Revisions.ResolveReferences(ctx, editor.References(), moderator)
+	ids, err := c.Revisions.ResolveReferences(ctx, editor.References())
 	if err != nil {
 		return "", nil, nil, err
 	}

@@ -180,7 +180,9 @@ func (c *catalogueReader) termPieces(
 func (c *catalogueReader) termPersons(rows []queries.ListPublicTermPersonsRow) []domain.PersonSummary {
 	persons := make([]domain.PersonSummary, 0, len(rows))
 	for _, row := range rows {
-		persons = append(persons, c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub))
+		persons = append(persons, domain.PersonSummary{
+			Slug: row.Slug, Name: row.Name, Kind: enumOf[domain.PersonKind](c, row.Kind), IsStub: row.IsStub,
+		})
 	}
 
 	return persons

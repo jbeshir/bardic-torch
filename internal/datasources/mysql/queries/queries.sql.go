@@ -727,8 +727,9 @@ type GetPublicPieceRow struct {
 // Catalogue: public reads
 //
 // An entity is public when it has an approved revision (current_revision_id IS NOT NULL); a term also needs
-// every ancestor approved (the public_terms view). Persons who prefer no page are dropped from every list that
-// references them (the listed_persons view), and hidden links from every read. What a link records is shown on
+// every ancestor approved (the public_terms view). Persons who prefer no page are left out of the lists of persons
+// (the listed_persons view) but named, without a link, wherever else they are referenced. Hidden links are left out
+// of every read. What a link records is shown on
 // another entity's page only if the link has a public attachment (the public_link_attachments view).
 // ============================================
 func (q *Queries) GetPublicPiece(ctx context.Context, slug string) (GetPublicPieceRow, error) {
@@ -2481,8 +2482,8 @@ const listPieceCreditNames = `-- name: ListPieceCreditNames :many
 SELECT pc.slug AS piece_slug, p.slug AS person_slug, p.name AS person_name
 FROM piece_credits c
 JOIN pieces pc ON pc.id = c.piece_id
-JOIN listed_persons p ON p.id = c.person_id
-WHERE pc.slug IN (/*SLICE:slugs*/?)
+JOIN persons p ON p.id = c.person_id
+WHERE pc.slug IN (/*SLICE:slugs*/?) AND p.current_revision_id IS NOT NULL
 ORDER BY pc.slug, c.position, c.id
 `
 
@@ -2492,7 +2493,7 @@ type ListPieceCreditNamesRow struct {
 	PersonName string
 }
 
-// Named credits of public pieces to persons with a page, in credit order.
+// Named credits of public pieces to public persons, in credit order.
 func (q *Queries) ListPieceCreditNames(ctx context.Context, slugs []string) ([]ListPieceCreditNamesRow, error) {
 	query := listPieceCreditNames
 	var queryParams []interface{}
@@ -2651,7 +2652,8 @@ SELECT DISTINCT l.id AS link_id, l.url, l.title, l.locator, a.piece_id, a.person
     COALESCE(p.sort_title, pe.sort_name) AS sort_key,
     p.slug AS piece_slug, p.title AS piece_title, p.kind AS piece_kind,
     p.conservation_status AS piece_conservation_status, p.is_stub AS piece_is_stub,
-    pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub
+    pe.slug AS person_slug, pe.name AS person_name, pe.kind AS person_kind, pe.is_stub AS person_is_stub,
+    pe.status AS person_status
 FROM links l
 JOIN public_link_attachments a ON a.link_id = l.id
 LEFT JOIN pieces p ON p.id = a.piece_id
@@ -2683,9 +2685,10 @@ type ListPublicCollectionCitationsRow struct {
 	PersonName              sql.NullString
 	PersonKind              NullPersonsKind
 	PersonIsStub            sql.NullBool
+	PersonStatus            NullPersonsStatus
 }
 
-// A collection's citations are its visible links, once per public piece or public person with a page that each
+// A collection's citations are its visible links, once per public piece or public person that each
 // is attached to, whatever roles it is attached with.
 func (q *Queries) ListPublicCollectionCitations(ctx context.Context, arg ListPublicCollectionCitationsParams) ([]ListPublicCollectionCitationsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPublicCollectionCitations, arg.CollectionID, arg.Limit)
@@ -2713,6 +2716,7 @@ func (q *Queries) ListPublicCollectionCitations(ctx context.Context, arg ListPub
 			&i.PersonName,
 			&i.PersonKind,
 			&i.PersonIsStub,
+			&i.PersonStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -2856,8 +2860,8 @@ type ListPublicEventPerformancesRow struct {
 	PieceIsStub             sql.NullBool
 }
 
-// An event's performances are on visible links attached to a public piece or a public person with a page, as
-// a performance only an unapproved or no-page entity's links record may name them. A performance of a piece
+// An event's performances are on visible links attached to a public piece or a public person, as
+// a performance only an unapproved entity's links record may name them. A performance of a piece
 // that is not public is left out entirely, as on a person's page.
 func (q *Queries) ListPublicEventPerformances(ctx context.Context, arg ListPublicEventPerformancesParams) ([]ListPublicEventPerformancesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPublicEventPerformances, arg.EventID, arg.Limit)
@@ -2994,10 +2998,10 @@ func (q *Queries) ListPublicEventsByID(ctx context.Context, ids []uint64) ([]Lis
 }
 
 const listPublicPerformers = `-- name: ListPublicPerformers :many
-SELECT pp.performance_id, p.slug, p.name, p.kind, p.is_stub
+SELECT pp.performance_id, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM performance_performers pp
-JOIN listed_persons p ON p.id = pp.person_id
-WHERE pp.performance_id IN (/*SLICE:performance_ids*/?)
+JOIN persons p ON p.id = pp.person_id
+WHERE pp.performance_id IN (/*SLICE:performance_ids*/?) AND p.current_revision_id IS NOT NULL
 ORDER BY pp.performance_id, pp.position
 `
 
@@ -3007,6 +3011,7 @@ type ListPublicPerformersRow struct {
 	Name          string
 	Kind          PersonsKind
 	IsStub        bool
+	Status        PersonsStatus
 }
 
 func (q *Queries) ListPublicPerformers(ctx context.Context, performanceIds []uint64) ([]ListPublicPerformersRow, error) {
@@ -3034,6 +3039,7 @@ func (q *Queries) ListPublicPerformers(ctx context.Context, performanceIds []uin
 			&i.Name,
 			&i.Kind,
 			&i.IsStub,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -3086,13 +3092,12 @@ func (q *Queries) ListPublicPersonAffiliations(ctx context.Context, personID uin
 }
 
 const listPublicPersonIDsBySlug = `-- name: ListPublicPersonIDsBySlug :many
-SELECT id, slug, status FROM persons WHERE slug IN (/*SLICE:slugs*/?) AND current_revision_id IS NOT NULL
+SELECT id, slug FROM persons WHERE slug IN (/*SLICE:slugs*/?) AND current_revision_id IS NOT NULL
 `
 
 type ListPublicPersonIDsBySlugRow struct {
-	ID     uint64
-	Slug   string
-	Status PersonsStatus
+	ID   uint64
+	Slug string
 }
 
 func (q *Queries) ListPublicPersonIDsBySlug(ctx context.Context, slugs []string) ([]ListPublicPersonIDsBySlugRow, error) {
@@ -3114,7 +3119,7 @@ func (q *Queries) ListPublicPersonIDsBySlug(ctx context.Context, slugs []string)
 	var items []ListPublicPersonIDsBySlugRow
 	for rows.Next() {
 		var i ListPublicPersonIDsBySlugRow
-		if err := rows.Scan(&i.ID, &i.Slug, &i.Status); err != nil {
+		if err := rows.Scan(&i.ID, &i.Slug); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3239,7 +3244,7 @@ type ListPublicPersonPerformancesRow struct {
 }
 
 // A person's performances are those recorded by links attached to them, and those they perform in on links with
-// a public attachment, as a performance only an unapproved or no-page entity's links record may name them. A
+// a public attachment, as a performance only an unapproved entity's links record may name them. A
 // performance of a piece that is not public is left out entirely, as its description may name the piece.
 func (q *Queries) ListPublicPersonPerformances(ctx context.Context, arg ListPublicPersonPerformancesParams) ([]ListPublicPersonPerformancesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPublicPersonPerformances, arg.PerformerID, arg.AttachedPersonID, arg.Limit)
@@ -3279,10 +3284,10 @@ func (q *Queries) ListPublicPersonPerformances(ctx context.Context, arg ListPubl
 }
 
 const listPublicPersonRelationsFrom = `-- name: ListPublicPersonRelationsFrom :many
-SELECT r.type, p.slug, p.name, p.kind, p.is_stub
+SELECT r.type, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM person_relations r
-JOIN listed_persons p ON p.id = r.from_person_id
-WHERE r.to_person_id = ?
+JOIN persons p ON p.id = r.from_person_id
+WHERE r.to_person_id = ? AND p.current_revision_id IS NOT NULL
 ORDER BY r.type, p.sort_name, p.id
 `
 
@@ -3292,6 +3297,7 @@ type ListPublicPersonRelationsFromRow struct {
 	Name   string
 	Kind   PersonsKind
 	IsStub bool
+	Status PersonsStatus
 }
 
 func (q *Queries) ListPublicPersonRelationsFrom(ctx context.Context, toPersonID uint64) ([]ListPublicPersonRelationsFromRow, error) {
@@ -3309,6 +3315,7 @@ func (q *Queries) ListPublicPersonRelationsFrom(ctx context.Context, toPersonID 
 			&i.Name,
 			&i.Kind,
 			&i.IsStub,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -3324,10 +3331,10 @@ func (q *Queries) ListPublicPersonRelationsFrom(ctx context.Context, toPersonID 
 }
 
 const listPublicPersonRelationsTo = `-- name: ListPublicPersonRelationsTo :many
-SELECT r.type, p.slug, p.name, p.kind, p.is_stub
+SELECT r.type, p.slug, p.name, p.kind, p.is_stub, p.status
 FROM person_relations r
-JOIN listed_persons p ON p.id = r.to_person_id
-WHERE r.from_person_id = ?
+JOIN persons p ON p.id = r.to_person_id
+WHERE r.from_person_id = ? AND p.current_revision_id IS NOT NULL
 ORDER BY r.type, p.sort_name, p.id
 `
 
@@ -3337,6 +3344,7 @@ type ListPublicPersonRelationsToRow struct {
 	Name   string
 	Kind   PersonsKind
 	IsStub bool
+	Status PersonsStatus
 }
 
 func (q *Queries) ListPublicPersonRelationsTo(ctx context.Context, fromPersonID uint64) ([]ListPublicPersonRelationsToRow, error) {
@@ -3354,6 +3362,7 @@ func (q *Queries) ListPublicPersonRelationsTo(ctx context.Context, fromPersonID 
 			&i.Name,
 			&i.Kind,
 			&i.IsStub,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -3482,9 +3491,10 @@ func (q *Queries) ListPublicPersonsByID(ctx context.Context, ids []uint64) ([]Li
 
 const listPublicPieceCredits = `-- name: ListPublicPieceCredits :many
 SELECT c.role, c.attribution, c.certainty, c.part, c.note,
-    p.slug AS person_slug, p.name AS person_name, p.kind AS person_kind, p.is_stub AS person_is_stub
+    p.slug AS person_slug, p.name AS person_name, p.kind AS person_kind, p.is_stub AS person_is_stub,
+    p.status AS person_status
 FROM piece_credits c
-LEFT JOIN listed_persons p ON p.id = c.person_id
+LEFT JOIN persons p ON p.id = c.person_id AND p.current_revision_id IS NOT NULL
 WHERE c.piece_id = ? AND (c.person_id IS NULL OR p.id IS NOT NULL)
 ORDER BY c.position, c.id
 `
@@ -3499,6 +3509,7 @@ type ListPublicPieceCreditsRow struct {
 	PersonName   sql.NullString
 	PersonKind   NullPersonsKind
 	PersonIsStub sql.NullBool
+	PersonStatus NullPersonsStatus
 }
 
 func (q *Queries) ListPublicPieceCredits(ctx context.Context, pieceID uint64) ([]ListPublicPieceCreditsRow, error) {
@@ -3520,6 +3531,7 @@ func (q *Queries) ListPublicPieceCredits(ctx context.Context, pieceID uint64) ([
 			&i.PersonName,
 			&i.PersonKind,
 			&i.PersonIsStub,
+			&i.PersonStatus,
 		); err != nil {
 			return nil, err
 		}

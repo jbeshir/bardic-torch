@@ -122,7 +122,7 @@ func (c *catalogueReader) citations(
 			citation.Piece = &piece
 		} else {
 			person := c.personSummary(row.PersonSlug.String, row.PersonName.String, row.PersonKind.PersonsKind,
-				row.PersonIsStub.Bool)
+				row.PersonIsStub.Bool, row.PersonStatus.PersonsStatus)
 			citation.Person = &person
 		}
 		citations = append(citations, citation)

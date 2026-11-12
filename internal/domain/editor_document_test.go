@@ -88,14 +88,6 @@ func TestFromEditor_UnknownSlug(t *testing.T) {
 		problem("links[0].performances[0].performer_slugs[0]", "unknown_reference")}, problems)
 }
 
-func TestShowsUnlistedPerson(t *testing.T) {
-	var refs domain.SnapshotReferences
-	fullPieceDocument().AddReferences(&refs)
-
-	assert.True(t, domain.ShowsUnlistedPerson(refs, map[int64]bool{6: true}), "a performer")
-	assert.False(t, domain.ShowsUnlistedPerson(refs, map[int64]bool{8: true}))
-}
-
 func TestDuplicateKey(t *testing.T) {
 	for _, s := range []string{"the wrens song", "The Wren's Song", "THE WREN’S  SONG!", "The Wrén´s Song"} {
 		assert.Equal(t, "the wrens song", domain.DuplicateKey(s), s)

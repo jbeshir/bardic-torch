@@ -4,7 +4,7 @@ import "time"
 
 // The public read models of the catalogue: what the API shows of public entities. They hold only public data:
 // the datasources leave out everything a public read must not show (unapproved entities and references to them,
-// hidden links, prefers_no_page persons' profiles and references to them) and every system field
+// hidden links, prefers_no_page persons' profiles) and every system field
 // that is never exposed (internal IDs other than collections', legacy fields, normalized URLs).
 
 // PieceSummary is how a public piece is shown where another entity refers to it.
@@ -15,7 +15,7 @@ type PieceSummary struct {
 	SecondaryKinds     []PieceKind
 	ConservationStatus ConservationStatus
 	IsStub             bool
-	// CreditNames are the names of up to five listed persons credited on the piece, in credit order.
+	// CreditNames are the names of up to five public persons credited on the piece, in credit order.
 	CreditNames []string
 }
 
@@ -26,6 +26,9 @@ type PersonSummary struct {
 	Kind PersonKind
 	// IsStub is true for a prefers_no_page person, whose page is only ever a stub; see PersonIsStub.
 	IsStub bool
+	// NoLink is true where another entity refers to a person who prefers no page: they are named without a link
+	// to their page.
+	NoLink bool
 }
 
 // PersonIsStub returns whether a person is shown as a stub: if they are marked as one, or prefer not to have a
@@ -83,7 +86,7 @@ type Piece struct {
 	Aliases            []PieceAlias
 	// Terms are ordered by facet, in Facet's declaration order, then by position.
 	Terms []PieceTerm
-	// Credits are in position order. A credit to a person who is not public or prefers no page is left out.
+	// Credits are in position order. A credit to a person who is not public is left out.
 	Credits []PieceCredit
 	// Relations are the outgoing relations, then the incoming ones, each by type and the other piece's sort
 	// title.
@@ -146,8 +149,7 @@ type PieceLink struct {
 	Performances []PiecePerformance
 }
 
-// PiecePerformance is a recorded performance of a piece. Performers who are not public or prefer no page are
-// left out.
+// PiecePerformance is a recorded performance of a piece. Performers who are not public are left out.
 type PiecePerformance struct {
 	Year                *int16
 	Uploader            *string
@@ -189,7 +191,7 @@ type PersonProfile struct {
 	// Affiliations are ordered by position, then display name.
 	Affiliations []TermSummary
 	// Relations are the outgoing relations, then the incoming ones, each by type and the other person's sort
-	// name. Persons who prefer no page are left out.
+	// name.
 	Relations []PersonRelation
 	// Links are ordered by their first attachment's position.
 	Links []Link
@@ -327,8 +329,7 @@ type Collection struct {
 	// Children are the collection's public children, by sort name.
 	Children []CollectionSummary
 	// Citations are the visible links in the collection, once per public piece or person each is attached to,
-	// by the piece's sort title or person's sort name, at most MaxNestedListItems. Persons who prefer no page are
-	// left out.
+	// by the piece's sort title or person's sort name, at most MaxNestedListItems.
 	Citations      []Citation
 	CitationsTotal int64
 }
@@ -358,13 +359,13 @@ type Event struct {
 	DescriptionMD *string
 	// Performances are the performances at the event on visible links, newest year first (unknown years last),
 	// at most MaxNestedListItems. A performance of a piece that is not public is left out, as is one whose link
-	// is attached to no public piece and no public person with a page.
+	// is attached to no public piece and no public person.
 	Performances      []EventPerformance
 	PerformancesTotal int64
 }
 
 // EventPerformance is a performance on an event's page. Piece is nil for a performance of no particular piece.
-// Performers who are not public or prefer no page are left out.
+// Performers who are not public are left out.
 type EventPerformance struct {
 	Piece               *PieceSummary
 	Link                PerformanceLink

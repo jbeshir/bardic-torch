@@ -276,7 +276,7 @@ func TestSubmit_ContributorPendingRevisions(t *testing.T) {
 }
 
 // The editable document is the caller's own pending revision if they have one, and otherwise the current one, in
-// the editor format without hidden links; it says when it shows a person who prefers no page.
+// the editor format without hidden links. A credit to a person who prefers no page keeps their slug.
 func TestGetEditable_OwnPendingOrCurrent(t *testing.T) {
 	fx := newWriteFixture(t)
 	const visible, takenDown = "https://example.org/lantern", "https://example.org/lantern/taken-down"
@@ -294,7 +294,6 @@ func TestGetEditable_OwnPendingOrCurrent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, lantern.RevisionID, current.BaseRevisionID)
 	assert.Nil(t, current.PendingRevisionID)
-	assert.True(t, current.ShowsUnlistedPerson)
 	editor := current.Document.(domain.EditorPieceDocument)
 	require.Len(t, editor.Links, 1)
 	assert.Equal(t, visible, editor.Links[0].URL)
@@ -306,7 +305,6 @@ func TestGetEditable_OwnPendingOrCurrent(t *testing.T) {
 	assert.Equal(t, &pending, own.PendingRevisionID)
 	assert.Equal(t, lantern.RevisionID, own.BaseRevisionID)
 	assert.Equal(t, "The Brass Lantern, edited", own.Document.(domain.EditorPieceDocument).Title)
-	assert.False(t, own.ShowsUnlistedPerson)
 	others, err := fx.repo.GetEditable(t.Context(), domain.EntityTypePiece, lantern.Slug, heronID)
 	require.NoError(t, err)
 	assert.Equal(t, lanternTitle, others.Document.(domain.EditorPieceDocument).Title)

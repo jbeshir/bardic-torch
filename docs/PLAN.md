@@ -52,8 +52,9 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
    them. There is no hidden-alias concept. Someone who wants a name removed asks, and a moderator deletes it.
 7. **Bard self-verification** is out of scope for v1. Every licensing claim needs a source URL, as on the wiki
    (R-12).
-8. **"Prefers no page"** is a person status: the page is a stub showing the cited statement, the person's links
-   and credits are hidden from public view, and creating a person with a matching name or alias is blocked.
+8. **"Prefers no page"** is a person status, as on the old wiki: their page shows only their name and the cited
+   statement, and creating a person with a matching name or alias is blocked. Elsewhere they are named like anyone
+   else, as plain text without a link to their page (decided 2026-11-12; nothing else is hidden).
 9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess.
 10. **Unparented categories:** Seasons, Fire, Hope → Topics; Archery → Topics › War; Short Pieces → Other;
     Jewish, Sephardic, Portuguese → Cultures, with Sephardic under Jewish.
@@ -124,9 +125,10 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 - **Visibility is approval.** An entity is public when it has an approved revision (a term also needs its
   ancestors approved), defined once in the views `public_terms`, `listed_persons` and `public_link_attachments`.
   References to non-public entities are left out of every read, and an unknown or non-public slug is one 404.
-- **"Prefers no page" persons** (the one privacy rule) show only name, kind, status, date and source. They are
-  found by name only, and left out of every filter, count, credit, performer list, relation, citation and
-  needs-work.
+- **"Prefers no page" persons** have a page of their identity only: name, kind, status, date and the cited source.
+  Credits, performers, relations and citations name them like anyone else, without a link (`slug` null). The
+  lists of persons (`listed_persons`) treat them as before: listed as stubs, found by name only, and left out of
+  role and affiliation filters, term member lists and counts, and needs-work.
 - **Hidden links** are left out of every read, revision views included: a snapshot drops a link whose URL
   normalises to a hidden link's, or does not normalise, and otherwise shows its own URL.
 - **Kinds are an enum**, not terms. **Slugs and sort keys** are set by the writer (sort keys ignore a leading
@@ -155,7 +157,8 @@ show. Authors appear by display name; imports list the wiki contributors.
 ### 5.1 Contributor edits
 
 - **Edit:** `GET /v1/{type}/{key}/editable` returns the document in editor format with its base revision, or the
-  caller's own pending revision of the entity if they have one.
+  caller's own pending revision of the entity if they have one. Any signed-in user who is not blocked may edit any
+  public entity, including documents naming a person who prefers no page.
 - **Submit** creates a `pending` revision; a contributor's next submit for the same entity withdraws their earlier
   one. At most 30 pending revisions per contributor. The author may **withdraw** a pending revision.
 - **Revert** has no endpoint of its own: the FE loads an older approved snapshot into the editor and submits it
@@ -164,9 +167,7 @@ show. Authors appear by display name; imports list the wiki contributors.
   get the same warning as in §5.3.
 - **Pending banner:** an author sees, on the entity's page, a banner linking to their pending revision (the FE
   finds it in `/v1/me/revisions`, at most 30).
-- **"Prefers no page":** a document whose editor would show such a person (their own, or one with them as a
-  credit, performer or relation) is editable by moderators only, so the editor never shows a contributor what
-  public reads hide. Hidden links are left out of editable documents, so an approved edit drops their attachment
+- **Hidden links** are left out of editable documents, so an approved edit drops their attachment
   (restoring the link later does not bring it back); a re-added URL that normalises to a hidden link stays hidden.
 
 ### 5.2 Validation
@@ -309,8 +310,7 @@ or combination. A test earns its place by catching a bug someone could plausibly
   path per route, checked against the spec. Controllers are tested through the HTTP tests or one hand-written fake
   repository, not generated mocks.
 - No tests of test helpers, of generated SQL strings, or of config files beyond "every env var is in `.env.dist`".
-- One small leak test: a "prefers no page" person and a hidden link, seeded with credits, performances and
-  citations, appear in no public read.
+- One small leak test: a hidden link, seeded with credits, performances and citations, appears in no public read.
 - The importer tests (§7); `make validate` and `make vulncheck` in CI.
 
 **FE:**
