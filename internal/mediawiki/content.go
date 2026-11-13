@@ -9,23 +9,20 @@ import (
 )
 
 // PieceContent is a piece's prose, as Markdown, taken from its wikitext after the inline lyrics are dropped:
-//   - NotesMD: the lead (without the H1, infobox and "Also known as" lines), Notes and unrecognised sections, each
-//     of the latter under its heading, and the prose of the link sections under theirs;
+//   - NotesMD: the lead (without the H1, infobox and "Also known as" lines), Notes, and Timeline of Text Sources
+//     and unrecognised sections, each of the latter under its heading, and the prose of the link sections under
+//     theirs;
 //   - VersionNotesMD: the version commentary of the Lyrics and Text sections (versionNotes);
-//   - LicensingNotesMD: Licensing & Etiquette without its hints and the "cannot find" sentence;
-//   - HistoricalSourceMD: Timeline of Text Sources.
+//   - LicensingNotesMD: Licensing & Etiquette without its hints and the "cannot find" sentence.
 //
-// LicensingStatus is known when the licensing section has text and a source link. The licence itself is never
-// inferred (it stays null). PeriodStart and PeriodEnd span the piece's century origin terms. Sections nested under
-// a Lyrics or Text section go nowhere.
+// LicensingStatus is known when the licensing section has text and a source link. EarliestYear is the first year
+// of the piece's earliest century origin term. Sections nested under a Lyrics or Text section go nowhere.
 type PieceContent struct {
-	NotesMD            string
-	VersionNotesMD     string
-	LicensingNotesMD   string
-	HistoricalSourceMD string
-	LicensingStatus    domain.LicensingStatus
-	PeriodStart        *int16
-	PeriodEnd          *int16
+	NotesMD          string
+	VersionNotesMD   string
+	LicensingNotesMD string
+	LicensingStatus  domain.LicensingStatus
+	EarliestYear     *int16
 }
 
 // linkSections are the sections of a piece's links whose prose goes to the notes. A line with an external link
@@ -36,7 +33,7 @@ var linkSections = map[SectionKey]bool{
 
 var centuryOrigin = regexp.MustCompile(`^(\d{1,2})(?:st|nd|rd|th) Century$`)
 
-// maxCentury is the last century a period can be in (the 99th: its end, 9900, fits a SMALLINT).
+// maxCentury is the last century origin term read (the 99th: its first year fits an int16).
 const maxCentury = 99
 
 // notesSectionMD is the Markdown heading prefix of an unrecognised section in the notes.
@@ -79,18 +76,16 @@ func pieceContent(r PieceRecord, s Site, versionWikitext string) PieceContent {
 			lyricsLevel = sec.Level
 		case sec.Key == SectionLead || sec.Key == SectionTitle || sec.Key == SectionNotes:
 			notes = appendNonEmpty(notes, WikitextToMarkdown(body))
-		case sec.Key.IsOther():
+		case sec.Key.IsOther() || sec.Key == SectionTextSources:
 			notes = appendSection(notes, sec, body)
 		case linkSections[sec.Key]:
 			notes = appendSection(notes, sec, linkSection(body))
 		case sec.Key == SectionLicensingEtiquette:
 			c.LicensingNotesMD, c.LicensingStatus = licensingSection(sec, body)
-		case sec.Key == SectionTextSources:
-			c.HistoricalSourceMD = WikitextToMarkdown(body)
 		}
 	}
 	c.NotesMD = strings.Join(notes, "\n\n")
-	c.period(r.Terms, s.Terms)
+	c.EarliestYear = earliestYear(r.Terms, s.Terms)
 
 	return c
 }
@@ -119,11 +114,13 @@ func licensingSection(sec PageSection, body string) (md string, status domain.Li
 	return md, status
 }
 
-// period spans the origin terms that are centuries ("13th Century" is 1201–1300).
-func (c *PieceContent) period(terms []PieceTerm, plan TermPlan) {
-	for _, t := range terms {
-		spec, ok := plan.Term(t.Category)
-		m := centuryOrigin.FindStringSubmatch(t.Category)
+// earliestYear is the first year of the earliest origin term that is a century ("13th Century" starts in 1201),
+// or nil.
+func earliestYear(terms []string, plan TermPlan) *int16 {
+	var earliest *int16
+	for _, category := range terms {
+		spec, ok := plan.Term(category)
+		m := centuryOrigin.FindStringSubmatch(category)
 		if !ok || spec.Facet != domain.FacetOrigin || m == nil {
 			continue
 		}
@@ -131,14 +128,13 @@ func (c *PieceContent) period(terms []PieceTerm, plan TermPlan) {
 		if err != nil || n < 1 || n > maxCentury {
 			continue
 		}
-		start, end := int16((n-1)*100+1), int16(n*100)
-		if c.PeriodStart == nil || start < *c.PeriodStart {
-			c.PeriodStart = &start
-		}
-		if c.PeriodEnd == nil || end > *c.PeriodEnd {
-			c.PeriodEnd = &end
+		start := int16((n-1)*100 + 1)
+		if earliest == nil || start < *earliest {
+			earliest = &start
 		}
 	}
+
+	return earliest
 }
 
 // ruleLine is a horizontal rule, or a list marker with nothing after it.

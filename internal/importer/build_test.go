@@ -147,27 +147,6 @@ func TestBuild_LinkStatesOnePerNormalizedURL(t *testing.T) {
 	assert.Equal(t, 1, video, "two spellings of one URL are one link with both roles")
 }
 
-// TestBuild_PersonStatusSource: a status is sourced to the link its date is read from; with no such link, to the wiki
-// page.
-func TestBuild_PersonStatusSource(t *testing.T) {
-	imp := syntheticImport(t)
-
-	doc := personNamed(t, imp, rowan).Doc
-	assert.Equal(t, domain.PersonStatusDeceased, doc.Status)
-	require.NotNil(t, doc.StatusSourceURL)
-	assert.Equal(t, "https://wiki.example.org/wiki/Rowan_Placeholder", *doc.StatusSourceURL, "no link: the page")
-	assert.Nil(t, personNamed(t, imp, wren).Doc.StatusSourceURL, "an active person needs no source")
-
-	d := syntheticDump()
-	obituary := "https://news.example.org/obituary-placeholder"
-	d.Pages = append(d.Pages,
-		page(12, "Elm Placeholder", []string{mediawiki.CategoryBards, "In Memoriam"}, "= Elm Placeholder =\n"+
-			"== Notes ==\n* ["+obituary+" Deceased October 31, 2020]\n"))
-	imp, _ = Build(mediawiki.ParseCorpus(d), buildTime)
-
-	assert.Equal(t, obituary, *personNamed(t, imp, "Elm Placeholder").Doc.StatusSourceURL, "the obituary")
-}
-
 func TestBuild_LegacyColumns(t *testing.T) {
 	imp := syntheticImport(t)
 

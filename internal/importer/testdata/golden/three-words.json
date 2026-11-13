@@ -8,84 +8,40 @@
       "schema_version": 1,
       "title": "Three Words",
       "kind": "song",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
       "notes_md": "### Key Links\n\n- According to Eliane's Bardic Book: \"Written for Her Stellar Highness Elashava's Bardic Challenge, on the occasion of Northshield Coronet Tourney and Investiture in Korsvag, May 4, AS XXXVII. Chorus tune: Anon. Sephardic song, 'Porque Llorax'. Remainder of tune and lyrics Š4/7/02 Eliane Halevy (Legal Name 021)\"",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": "According to Eliane's Bardic Book: Use of her work \"is limited to non-profit, non-recorded performances by individuals. All lyrics and tunes written by me, or translations of existing lyrics, are copyright Legal Name 021 and may not be reproduced in print or in electronic format without my express (written) permission.\"\n\nThe tune for the chorus is in the public domain.",
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": null,
-      "period_end": null,
       "aliases": [],
-      "terms": [
-        {
-          "term_id": 55,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 66,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 103,
-          "is_primary": true,
-          "part": "chorus"
-        },
-        {
-          "term_id": 102,
-          "is_primary": false,
-          "part": "chorus"
-        },
-        {
-          "term_id": 100,
-          "is_primary": false,
-          "part": "chorus"
-        },
-        {
-          "term_id": 120,
-          "is_primary": true,
-          "part": "verses"
-        },
-        {
-          "term_id": 112,
-          "is_primary": false,
-          "part": "chorus"
-        }
+      "term_ids": [
+        55,
+        66,
+        103,
+        102,
+        100,
+        120,
+        112
       ],
-      "relations": [],
       "credits": [
         {
           "person_id": 45,
           "role": "lyrics",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": 45,
           "role": "tune",
           "attribution": "named",
-          "certainty": "certain",
-          "part": "verses",
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": null,
           "role": "tune",
           "attribution": "anonymous",
-          "certainty": "certain",
-          "part": "chorus",
-          "note": null
+          "certainty": "certain"
         }
       ],
       "links": [

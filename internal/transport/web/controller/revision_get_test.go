@@ -28,40 +28,25 @@ const (
 	testVideoURL       = "https://video.example.org/watch/kettle"
 )
 
-var (
-	testKettle = domain.PieceSummary{
-		Slug: testPieceSlug, Title: testPieceTitle, Kind: domain.PieceKindSong,
-		ConservationStatus: domain.ConservationStatusEndangered,
-	}
-	testWren = domain.PersonSummary{Slug: testPersonSlug, Name: testPersonName, Kind: domain.PersonKindCommunityBard}
-)
+var testWren = domain.PersonSummary{Slug: testPersonSlug, Name: testPersonName, Kind: domain.PersonKindCommunityBard}
 
 // testPieceSnapshot is a piece snapshot with every field set, and every list one item long.
 func testPieceSnapshot() domain.PieceSnapshot {
 	return domain.PieceSnapshot{
-		Title:                 testPieceTitle,
-		Kind:                  domain.PieceKindSong,
-		SecondaryKinds:        []domain.PieceKind{domain.PieceKindDanceMusic},
-		ConservationStatus:    domain.ConservationStatusEndangered,
-		ConservationSourceURL: new("https://example.org/assessment"),
-		IsStub:                true,
-		NotesMD:               new("Notes"),
-		VersionNotesMD:        new("Versions"),
-		LicensingStatus:       domain.LicensingStatusKnown,
-		LicensingNotesMD:      new("Free to sing."),
-		Licence:               new(domain.LicenceCCBY),
-		HistoricalSourceMD:    new("A broadside."),
-		PeriodStart:           new(int16(1580)),
-		PeriodEnd:             new(int16(1600)),
-		Aliases:               []domain.PieceAlias{{Text: "Kettle Song", Kind: domain.PieceAliasKindNickname}},
-		Terms: []domain.PieceTerm{{
-			Term: domain.TermSummary{Slug: "war", Facet: domain.FacetTopic, DisplayName: testTermName}, IsPrimary: true,
-		}},
+		Title:              testPieceTitle,
+		Kind:               domain.PieceKindSong,
+		ConservationStatus: domain.ConservationStatusEndangered,
+		IsStub:             true,
+		NotesMD:            new("Notes"),
+		VersionNotesMD:     new("Versions"),
+		LicensingStatus:    domain.LicensingStatusKnown,
+		LicensingNotesMD:   new("Free to sing."),
+		Aliases:            []domain.PieceAlias{{Text: "Kettle Song", Kind: domain.PieceAliasKindSubtitle}},
+		Terms:              []domain.TermSummary{{Slug: "war", Facet: domain.FacetTopic, DisplayName: testTermName}},
 		Credits: []domain.PieceCredit{{
 			Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
 			Person: &testWren,
 		}},
-		Relations: []domain.SnapshotPieceRelation{{Type: domain.PieceRelationTypeVariantOf, Piece: testKettle}},
 		Links: []domain.SnapshotPieceLink{{
 			SnapshotLink: domain.SnapshotLink{
 				URL: testVideoURL, Title: new("At the revel"), Description: new("A recording."),
@@ -71,7 +56,7 @@ func testPieceSnapshot() domain.PieceSnapshot {
 			},
 			Performances: []domain.PiecePerformance{{
 				Year: new(int16(2025)), Uploader: new("Northmarch Bards"), DescriptionVerbatim: "Sung at the revel",
-				Event:      &domain.EventSummary{Slug: testEventSlug, Name: testEventName, Kind: domain.EventKindEvent},
+				Event:      &domain.EventSummary{Slug: testEventSlug, Name: testEventName},
 				Performers: []domain.PersonSummary{testWren},
 			}},
 		}},
@@ -100,22 +85,21 @@ func TestRevisionGet_UndecodableSnapshotLogged(t *testing.T) {
 func TestChangedFields(t *testing.T) {
 	t.Parallel()
 
-	snapshot := eventSnapshotFromDomain(domain.EventSnapshot{Name: testEventName, Kind: domain.EventKindEvent})
+	snapshot := eventSnapshotFromDomain(domain.EventSnapshot{Name: testEventName})
 	renamed := snapshot
 	renamed.Name = "Midsummer Revel"
-	described := snapshot
-	described.DescriptionMD = new("A gathering.")
-	emptyDescription := snapshot
-	emptyDescription.DescriptionMD = new("")
 
-	eventFields := []string{"kind", "name"}
 	piece := pieceSnapshotFromDomain(testPieceSnapshot())
+	withoutNotes := piece
+	withoutNotes.NotesMD = nil
 	moreAliases := piece
 	moreAliases.Aliases = append([]PieceAlias{{Text: "Old Kettle", Kind: domain.PieceAliasKindAltTitle}},
 		piece.Aliases...)
-	reordered := pieceSnapshotFromDomain(testPieceSnapshot())
-	reordered.SecondaryKinds = []domain.PieceKind{domain.PieceKindPoem, domain.PieceKindDanceMusic}
+	retagged := piece
+	retagged.Terms = []TermSummary{{Slug: "peace", Facet: domain.FacetTopic, DisplayName: "Peace"}}
 	emptyPiece := pieceSnapshotFromDomain(domain.PieceSnapshot{})
+	emptyNotes := emptyPiece
+	emptyNotes.NotesMD = new("")
 
 	for _, tc := range []struct {
 		name string
@@ -123,26 +107,25 @@ func TestChangedFields(t *testing.T) {
 		want []string
 	}{
 		{name: "no_base", got: func() ([]string, error) { return changedFields(snapshot, nil) },
-			want: eventFields},
+			want: []string{"name"}},
 		{name: "no_base_empty_string_unchanged", got: func() ([]string, error) {
-			return changedFields(emptyDescription, nil)
-		}, want: eventFields},
+			return changedFields(emptyNotes, nil)
+		}, want: []string{}},
 		{name: "no_base_empty", got: func() ([]string, error) { return changedFields(emptyPiece, nil) },
 			want: []string{}},
 		{name: "equal", got: func() ([]string, error) { return changedFields(piece, &piece) }, want: []string{}},
 		{name: "scalar", got: func() ([]string, error) { return changedFields(renamed, &snapshot) },
 			want: []string{"name"}},
-		{name: "null_to_value", got: func() ([]string, error) { return changedFields(described, &snapshot) },
-			want: []string{"description_md"}},
+		{name: "null_to_value", got: func() ([]string, error) { return changedFields(piece, &withoutNotes) },
+			want: []string{"notes_md"}},
 		{name: "list_item_added", got: func() ([]string, error) { return changedFields(moreAliases, &piece) },
 			want: []string{"aliases"}},
-		{name: "list_changed", got: func() ([]string, error) { return changedFields(reordered, &piece) },
-			want: []string{"secondary_kinds"}},
+		{name: "list_changed", got: func() ([]string, error) { return changedFields(retagged, &piece) },
+			want: []string{"terms"}},
 		{name: "everything", got: func() ([]string, error) { return changedFields(piece, &emptyPiece) },
 			want: []string{
-				"aliases", "conservation_source_url", "conservation_status", "credits", "historical_source_md",
-				"is_stub", "kind", "licence", "licensing_notes_md", "licensing_status", "links", "notes_md",
-				"period_end", "period_start", "relations", "secondary_kinds", "terms", "title", "version_notes_md",
+				"aliases", "conservation_status", "credits", "is_stub", "kind", "licensing_notes_md",
+				"licensing_status", "links", "notes_md", "terms", "title", "version_notes_md",
 			}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

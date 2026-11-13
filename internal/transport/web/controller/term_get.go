@@ -17,7 +17,6 @@ type Term struct {
 	UpdatedAt          time.Time       `json:"updated_at"`
 	Name               string          `json:"name"`
 	DescriptionMD      *string         `json:"description_md"`
-	Aliases            []string        `json:"aliases"`
 	Ancestors          []TermSummary   `json:"ancestors"`
 	Children           []TermChild     `json:"children"`
 	RelatedAffiliation *TermSummary    `json:"related_affiliation"`
@@ -74,7 +73,6 @@ func termFromDomain(t domain.Term) Term {
 		UpdatedAt:     t.UpdatedAt,
 		Name:          t.Name,
 		DescriptionMD: t.DescriptionMD,
-		Aliases:       nonNil(t.Aliases),
 		Ancestors:     mapSlice(t.Ancestors, termSummaryFromDomain),
 		Children: mapSlice(t.Children, func(child domain.TermChild) TermChild {
 			return TermChild{

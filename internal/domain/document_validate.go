@@ -20,7 +20,6 @@ const (
 	ProblemControlCharacter ProblemCode = "control_character"
 	ProblemDuplicate        ProblemCode = "duplicate"
 	ProblemInvalid          ProblemCode = "invalid"
-	ProblemOutOfRange       ProblemCode = "out_of_range"
 	ProblemCycle            ProblemCode = "cycle"
 	ProblemTooDeep          ProblemCode = "too_deep"
 	ProblemWrongFacet       ProblemCode = "wrong_facet"
@@ -43,8 +42,8 @@ type ValidationContext struct {
 	ID int64
 	// Terms are the terms the document references and, for a term document, every term of its facet.
 	Terms map[int64]TermInfo
-	// CollectionParents are the parents of the collections the document references and of their ancestors.
-	CollectionParents map[int64]*int64
+	// Collections are the known collections.
+	Collections map[int64]bool
 }
 
 // TermInfo is what validation knows of a term.
@@ -58,10 +57,8 @@ type TermInfo struct {
 const (
 	maxNameLength        = 255
 	maxLinkTitleLength   = 500
-	maxCreditNoteLength  = 500
 	maxSummaryLength     = 500
 	maxPlatformLength    = 64
-	maxPronounsLength    = 64
 	maxTextBytes         = 65535
 	maxContributorsCount = 65535
 )

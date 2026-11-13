@@ -11,29 +11,25 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-// ListPublicEvents lists page of the public events and venues of kind, or of both kinds if it is nil, by name
-// and ID, with how many there are in all.
-func (r *Repository) ListPublicEvents(
-	ctx context.Context, kind *domain.EventKind, page domain.Page,
-) (domain.EventList, error) {
-	var filter queries.NullEventsKind
-	if kind != nil {
-		filter = queries.NullEventsKind{EventsKind: queries.EventsKind(*kind), Valid: true}
-	}
-
+// ListPublicEvents lists page of the public events, by name and ID, with how many there are in all.
+func (r *Repository) ListPublicEvents(ctx context.Context, page domain.Page) (domain.EventList, error) {
 	var list domain.EventList
 	err := r.readOnly(ctx, func(c *catalogueReader) error {
 		rows := fetch(ctx, c, "events", c.q.ListPublicEvents,
-			queries.ListPublicEventsParams{Kind: filter, Limit: page.Limit, Offset: page.Offset})
+			queries.ListPublicEventsParams{Limit: page.Limit, Offset: page.Offset})
 		events := make([]domain.EventSummary, 0, len(rows))
 		for _, row := range rows {
-			events = append(events, c.eventSummary(row.Slug, row.Name, row.Kind))
+			events = append(events, domain.EventSummary(row))
 		}
-		list = domain.EventList{
-			Events: events,
-			Total:  fetch(ctx, c, "event count", c.q.CountPublicEvents, queries.CountPublicEventsParams{Kind: filter}),
+		list.Events = events
+		if c.err != nil {
+			return c.err
 		}
-		return c.err
+		var err error
+		if list.Total, err = c.q.CountPublicEvents(ctx); err != nil {
+			return fmt.Errorf("counting public events: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return domain.EventList{}, fmt.Errorf("listing public events: %w", err)
@@ -42,7 +38,7 @@ func (r *Repository) ListPublicEvents(
 	return list, nil
 }
 
-// GetPublicEvent retrieves a public event or venue by slug with the first of its performances, returning
+// GetPublicEvent retrieves a public event by slug with the first of its performances, returning
 // datasources.ErrNotFound if no public event has the slug.
 func (r *Repository) GetPublicEvent(ctx context.Context, slug string) (domain.Event, error) {
 	var event domain.Event
@@ -70,9 +66,8 @@ func (c *catalogueReader) event(ctx context.Context, slug string) domain.Event {
 	key := c.nullID(row.ID)
 
 	return domain.Event{
-		EventSummary:  c.eventSummary(row.Slug, row.Name, row.Kind),
-		UpdatedAt:     row.UpdatedAt,
-		DescriptionMD: stringPtr(row.DescriptionMd),
+		EventSummary: domain.EventSummary{Slug: row.Slug, Name: row.Name},
+		UpdatedAt:    row.UpdatedAt,
 		Performances: c.eventPerformances(ctx, fetch(ctx, c, "performances", c.q.ListPublicEventPerformances,
 			queries.ListPublicEventPerformancesParams{EventID: key, Limit: domain.MaxNestedListItems})),
 		PerformancesTotal: fetch(ctx, c, "performance count", c.q.CountPublicEventPerformances, key),
@@ -90,7 +85,7 @@ func (c *catalogueReader) eventPerformances(
 			slugs = append(slugs, row.PieceSlug.String)
 		}
 	}
-	extras := c.summaryExtras(ctx, slugs)
+	creditNames := c.creditNames(ctx, slugs)
 	performers := c.performers(ctx, ids)
 
 	performances := make([]domain.EventPerformance, 0, len(rows))
@@ -104,7 +99,7 @@ func (c *catalogueReader) eventPerformances(
 			DescriptionVerbatim: row.DescriptionVerbatim,
 		}
 		if row.PieceSlug.Valid {
-			piece := c.pieceSummary(extras, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
+			piece := c.pieceSummary(creditNames, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
 				row.PieceConservationStatus.PiecesConservationStatus, row.PieceIsStub.Bool)
 			performance.Piece = &piece
 		}

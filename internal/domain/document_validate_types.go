@@ -6,8 +6,7 @@ import (
 )
 
 // Validate returns the problems of a piece document: the column widths and CHECKs of its tables, its terms of
-// piece facets (one primary per facet), its credits naming a person exactly when the attribution is named, and
-// its children each once.
+// piece facets, its credits naming a person exactly when the attribution is named, and its children each once.
 func (d PieceDocument) Validate(ctx ValidationContext) []Problem {
 	var p problems
 	p.document(d, d.SchemaVersion)
@@ -15,24 +14,12 @@ func (d PieceDocument) Validate(ctx ValidationContext) []Problem {
 	p.text(d.NotesMD, "notes_md")
 	p.text(d.VersionNotesMD, "version_notes_md")
 	p.text(d.LicensingNotesMD, "licensing_notes_md")
-	p.text(d.HistoricalSourceMD, "historical_source_md")
-	p.url(d.Conservation.SourceURL, "conservation.source_url")
-	p.check(d.PeriodStart == nil || d.PeriodEnd == nil || *d.PeriodStart <= *d.PeriodEnd, "period_end",
-		ProblemOutOfRange)
-	p.check(d.Licence == nil || d.LicensingStatus == LicensingStatusKnown, "licence", ProblemInvalid)
-	p.unique(stringsOf(d.SecondaryKinds), "secondary_kinds")
 	aliases := make([]string, 0, len(d.Aliases))
 	for _, a := range d.Aliases {
 		aliases = append(aliases, a.Text)
 	}
 	p.aliases(aliases, "aliases", ".text")
-	p.pieceTerms(ctx.Terms, d.Terms)
-	relations := make([]string, 0, len(d.Relations))
-	for k, r := range d.Relations {
-		p.check(r.ToPieceID != ctx.ID, fmt.Sprintf("relations[%d].to_piece_slug", k), ProblemInvalid)
-		relations = append(relations, fmt.Sprint(r.ToPieceID, r.Type))
-	}
-	p.unique(relations, "relations")
+	p.pieceTerms(ctx.Terms, d.TermIDs)
 	p.credits(d.Credits)
 	links := make([]DocLink, 0, len(d.Links))
 	for k, l := range d.Links {
@@ -47,33 +34,26 @@ func (d PieceDocument) Validate(ctx ValidationContext) []Problem {
 	return p
 }
 
-// pieceTerms checks a piece's terms: each a known term of a piece facet (not affiliation), once, with at most one
-// primary term per facet.
-func (p *problems) pieceTerms(terms map[int64]TermInfo, pieceTerms []DocPieceTerm) {
-	ids := make([]string, 0, len(pieceTerms))
-	primaries := map[Facet]bool{}
-	for k, t := range pieceTerms {
-		path := fmt.Sprintf("terms[%d]", k)
-		term, ok := p.term(terms, t.TermID, "", path+".term_slug")
-		p.check(!ok || term.Facet != FacetAffiliation, path+".term_slug", ProblemWrongFacet)
-		if ok && t.IsPrimary {
-			p.check(!primaries[term.Facet], path+".is_primary", ProblemDuplicate)
-			primaries[term.Facet] = true
-		}
-		ids = append(ids, fmt.Sprint(t.TermID))
+// pieceTerms checks a piece's terms: each a known term of a piece facet (not affiliation), once.
+func (p *problems) pieceTerms(terms map[int64]TermInfo, termIDs []int64) {
+	ids := make([]string, 0, len(termIDs))
+	for k, id := range termIDs {
+		path := fmt.Sprintf("term_slugs[%d]", k)
+		term, ok := p.term(terms, id, "", path)
+		p.check(!ok || term.Facet != FacetAffiliation, path, ProblemWrongFacet)
+		ids = append(ids, fmt.Sprint(id))
 	}
-	p.unique(ids, "terms")
+	p.unique(ids, "term_slugs")
 }
 
 // credits checks a piece's credits: a person exactly when the attribution is named
-// (chk_piece_credits_named_person), and the note's width.
+// (chk_piece_credits_named_person).
 func (p *problems) credits(credits []DocCredit) {
 	for k, c := range credits {
 		path := fmt.Sprintf("credits[%d]", k)
 		named := c.Attribution == AttributionNamed
 		p.check(!named || c.PersonID != nil, path+".person_slug", ProblemRequired)
 		p.check(named || c.PersonID == nil, path+".person_slug", ProblemInvalid)
-		p.varchar(c.Note, maxCreditNoteLength, path+".note")
 	}
 }
 
@@ -81,8 +61,8 @@ func (p *problems) credits(credits []DocCredit) {
 func (p *problems) collections(ctx ValidationContext, links []DocLink) {
 	for k, l := range links {
 		if l.CollectionID != nil {
-			_, ok := ctx.CollectionParents[*l.CollectionID]
-			p.check(ok, fmt.Sprintf("links[%d].collection_id", k), ProblemUnknownReference)
+			p.check(ctx.Collections[*l.CollectionID], fmt.Sprintf("links[%d].collection_id", k),
+				ProblemUnknownReference)
 		}
 	}
 }
@@ -93,8 +73,6 @@ func (d PersonDocument) Validate(ctx ValidationContext) []Problem {
 	var p problems
 	p.document(d, d.SchemaVersion)
 	p.name(d.Name, "name")
-	p.url(d.StatusSourceURL, "status_source_url")
-	p.varchar(d.Pronouns, maxPronounsLength, "pronouns")
 	p.text(d.NotesMD, "notes_md")
 	p.text(d.LicensingNotesMD, "licensing_notes_md")
 	aliases := make([]string, 0, len(d.Aliases))
@@ -109,12 +87,6 @@ func (d PersonDocument) Validate(ctx ValidationContext) []Problem {
 		affiliations = append(affiliations, fmt.Sprint(id))
 	}
 	p.unique(affiliations, "affiliation_slugs")
-	relations := make([]string, 0, len(d.Relations))
-	for k, r := range d.Relations {
-		p.check(r.ToPersonID != ctx.ID, fmt.Sprintf("relations[%d].to_person_slug", k), ProblemInvalid)
-		relations = append(relations, fmt.Sprint(r.ToPersonID, r.Type))
-	}
-	p.unique(relations, "relations")
 	links := make([]DocLink, 0, len(d.Links))
 	for k, l := range d.Links {
 		links = append(links, l.DocLink)
@@ -137,7 +109,6 @@ func (d TermDocument) Validate(ctx ValidationContext) []Problem {
 	p.name(d.Name, "name")
 	p.name(d.DisplayName, "display_name")
 	p.text(d.DescriptionMD, "description_md")
-	p.aliases(d.Aliases, "aliases", "")
 	for id, t := range ctx.Terms {
 		p.check(id == ctx.ID || t.Facet != d.Facet || CollationKey(t.Name) != CollationKey(d.Name), "name",
 			ProblemDuplicate)
@@ -168,8 +139,7 @@ func (p *problems) termTree(ctx ValidationContext, d TermDocument) {
 	p.check(!errors.Is(err, ErrTermTooDeep), "parent_slug", ProblemTooDeep)
 }
 
-// Validate returns the problems of a collection document: its widths, a known region term, and a known parent
-// that does not make the collection its own ancestor.
+// Validate returns the problems of a collection document: its widths and a known region term.
 func (d CollectionDocument) Validate(ctx ValidationContext) []Problem {
 	var p problems
 	p.document(d, d.SchemaVersion)
@@ -178,16 +148,6 @@ func (d CollectionDocument) Validate(ctx ValidationContext) []Problem {
 	p.text(d.DescriptionMD, "description_md")
 	if d.RegionTermID != nil {
 		p.term(ctx.Terms, *d.RegionTermID, "", "region_term_slug")
-	}
-	seen := map[int64]bool{ctx.ID: true}
-	for parent := d.ParentID; parent != nil; parent = ctx.CollectionParents[*parent] {
-		if _, ok := ctx.CollectionParents[*parent]; !ok || seen[*parent] {
-			p.check(ok, "parent_id", ProblemUnknownReference)
-			p.check(!ok || !seen[*parent], "parent_id", ProblemCycle)
-
-			break
-		}
-		seen[*parent] = true
 	}
 
 	return p
@@ -198,7 +158,6 @@ func (d EventDocument) Validate(ValidationContext) []Problem {
 	var p problems
 	p.document(d, d.SchemaVersion)
 	p.name(d.Name, "name")
-	p.text(d.DescriptionMD, "description_md")
 
 	return p
 }

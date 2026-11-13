@@ -20,24 +20,12 @@ const (
 	CategoryStories      = "Stories"
 	CategoryDances       = "Dances"
 	CategoryInstrumental = "Instrumental"
-	CategoryComedy       = "Comedy"
 )
 
 // genreKinds are the piece kinds the genre categories give.
 var genreKinds = map[string]domain.PieceKind{
 	CategorySongs: domain.PieceKindSong, CategoryPoems: domain.PieceKindPoem, CategoryStories: domain.PieceKindStory,
 	CategoryDances: domain.PieceKindDanceMusic, CategoryInstrumental: domain.PieceKindInstrumental,
-	CategoryComedy: domain.PieceKindComedy,
-}
-
-// kindCategories are the genre categories that a primary kind implies, which are not secondary kinds.
-var kindCategories = map[domain.PieceKind][]string{
-	domain.PieceKindSong:         {CategorySongs},
-	domain.PieceKindPoem:         {CategoryPoems},
-	domain.PieceKindStory:        {CategoryStories},
-	domain.PieceKindDanceMusic:   {CategoryDances, CategoryInstrumental},
-	domain.PieceKindInstrumental: {CategoryInstrumental},
-	domain.PieceKindComedy:       {CategoryComedy},
 }
 
 // conservationCategory is a conservation category and the status it gives.
@@ -54,33 +42,18 @@ var conservationStatuses = []conservationCategory{
 	{"Restricted", domain.ConservationStatusRestricted},
 }
 
-// partQualifiers are the qualifiers that scope a term or credit to a part of a piece. "(chorus tune)" is the
-// chorus's tune, so it scopes to the chorus: a tune credit or an origin so qualified is the chorus's.
-var partQualifiers = map[string]domain.PiecePart{
-	"words": domain.PiecePartWords, "lyrics": domain.PiecePartWords, "tune": domain.PiecePartTune,
-	"chorus tune": domain.PiecePartChorus, "music": domain.PiecePartTune, "verses": domain.PiecePartVerses,
-	"verse": domain.PiecePartVerses, "chorus": domain.PiecePartChorus,
-}
-
-// PieceTerm tags a piece with the term planned from Category. IsPrimary marks the first term of its facet;
-// Part is the part of the piece the term applies to, or nil.
-type PieceTerm struct {
-	Category  string
-	IsPrimary bool
-	Part      *domain.PiecePart
-}
-
 // PieceRecord is a piece page parsed for import. Wikitext is the page's wikitext without its inline lyrics and
 // with its markup repaired, and Parsed is that text parsed; every later step reads these, never the original.
+// Terms are the categories of the piece's terms, in order. AlsoInstrumental is a page in Instrumental whose kind
+// is neither instrumental nor dance_music.
 type PieceRecord struct {
-	PageID         int64
-	Title          string
-	URL            string
-	Wikitext       string
-	Parsed         ParsedPage
-	Kind           domain.PieceKind
-	SecondaryKinds []domain.PieceKind
-	Terms          []PieceTerm
+	PageID           int64
+	Title            string
+	Wikitext         string
+	Parsed           ParsedPage
+	Kind             domain.PieceKind
+	AlsoInstrumental bool
+	Terms            []string
 	// ConservationStatuses are the statuses of the page's conservation categories, least severe first.
 	ConservationStatuses []domain.ConservationStatus
 	// BardNameCategories are the page's categories named after a credited person: credit signals.
@@ -111,11 +84,12 @@ func ParsePiece(p Page, s Site) PieceRecord {
 	kind := primaryKind(p, parsed.Infoboxes)
 	sorted := sortCategories(p, parsed.Infoboxes, s)
 	r := PieceRecord{
-		PageID: p.PageID, Title: p.Title, URL: p.URL, Wikitext: repaired, Parsed: parsed,
-		Kind: kind, SecondaryKinds: secondaryKinds(p, kind),
+		PageID: p.PageID, Title: p.Title, Wikitext: repaired, Parsed: parsed,
+		Kind: kind, AlsoInstrumental: p.HasCategory(CategoryInstrumental) && kind != domain.PieceKindInstrumental &&
+			kind != domain.PieceKindDanceMusic,
 		Terms: sorted.terms, ConservationStatuses: sorted.statuses, BardNameCategories: sorted.bardNames,
 		Titles:          pieceTitles(p, parsed, s),
-		Credits:         pieceCredits(parsed.Infoboxes, sorted.terms, s),
+		Credits:         pieceCredits(parsed.Infoboxes, s),
 		HadInlineLyrics: hadLyrics,
 	}
 	r.Content = pieceContent(r, s, versionNotes(dropped))
@@ -153,40 +127,19 @@ func primaryKind(p Page, boxes []Infobox) domain.PieceKind {
 	return domain.PieceKindSong
 }
 
-// secondaryKinds are the kinds of the page's genre categories other than those its primary kind implies.
-func secondaryKinds(p Page, kind domain.PieceKind) []domain.PieceKind {
-	var secondary []domain.PieceKind
-	for _, c := range p.Categories {
-		k, ok := genreKinds[c]
-		if ok && k != kind && !slices.Contains(kindCategories[kind], c) && !slices.Contains(secondary, k) {
-			secondary = append(secondary, k)
-		}
-	}
-
-	return secondary
-}
-
-// infoboxCategory is a category an infobox links to, at its position among the infobox's category links, with
-// the part a qualifier scopes it to.
-type infoboxCategory struct {
-	position int
-	part     *domain.PiecePart
-}
-
-// infoboxCategories returns the categories the infoboxes link to (read through redirect categories), first
-// position first.
-func infoboxCategories(boxes []Infobox, t Taxonomy) map[string]infoboxCategory {
-	out := map[string]infoboxCategory{}
+// infoboxCategories returns the positions of the categories the infoboxes link to (read through redirect
+// categories) among their category links, first position first.
+func infoboxCategories(boxes []Infobox, t Taxonomy) map[string]int {
+	out := map[string]int{}
 	for _, b := range boxes {
 		for _, param := range b.Params {
-			items := param.Value.Items
-			for k, it := range items {
+			for _, it := range param.Value.Items {
 				if !isCategoryItem(it) {
 					continue
 				}
 				target := t.Resolve(it.Target)
 				if _, seen := out[target]; !seen {
-					out[target] = infoboxCategory{position: len(out), part: itemPart(items, k)}
+					out[target] = len(out)
 				}
 			}
 		}
@@ -199,43 +152,23 @@ func isCategoryItem(it ValueItem) bool {
 	return it.Type == ValueCategoryLink || it.Type == ValueCategoryTag
 }
 
-// itemPart is the part a text qualifier in parentheses scopes items[k] to: a qualifier of the item, or of the
-// item the item itself qualifies.
-func itemPart(items []ValueItem, k int) *domain.PiecePart {
-	label := items[k].Label
-	if items[k].Qualifies != "" {
-		label = items[k].Qualifies
-	}
-	for _, q := range items {
-		if q.Type != ValueText || q.Qualifies != label {
-			continue
-		}
-		if part, ok := partQualifiers[strings.ToLower(q.Label)]; ok {
-			return &part
-		}
-	}
-
-	return nil
-}
-
 // sortedPieceCategories are a page's categories sorted by what they give a piece.
 type sortedPieceCategories struct {
-	terms     []PieceTerm
+	terms     []string
 	statuses  []domain.ConservationStatus
 	bardNames []string
 }
 
-// rankedTerm is a term of a piece with its facet and its rank: its infobox position, or after every infobox link
+// rankedTerm is the category of a term of a piece with its rank: its infobox position, or after every infobox link
 // in category order.
 type rankedTerm struct {
-	term  PieceTerm
-	facet domain.Facet
-	rank  int
+	category string
+	rank     int
 }
 
 // sortCategories sorts the page's categories into terms (affiliations, which classify persons, aside),
 // conservation statuses (least severe first) and bard-name signals; the rest give nothing. Terms are ordered by the
-// infobox and then by the categories; the first of each facet is primary.
+// infobox and then by the categories.
 func sortCategories(p Page, boxes []Infobox, s Site) sortedPieceCategories {
 	boxCategories := infoboxCategories(boxes, s.Taxonomy)
 	var out sortedPieceCategories
@@ -243,8 +176,8 @@ func sortCategories(p Page, boxes []Infobox, s Site) sortedPieceCategories {
 	for k, c := range p.Categories {
 		category := s.Taxonomy.Resolve(c)
 		if spec, ok := s.Terms.Term(category); ok && spec.Facet != domain.FacetAffiliation {
-			if !slices.ContainsFunc(terms, func(t rankedTerm) bool { return t.term.Category == category }) {
-				terms = append(terms, rankTerm(category, spec.Facet, len(boxCategories)+k, boxCategories))
+			if !slices.ContainsFunc(terms, func(t rankedTerm) bool { return t.category == category }) {
+				terms = append(terms, rankTerm(category, len(boxCategories)+k, boxCategories))
 			}
 
 			continue
@@ -257,23 +190,19 @@ func sortCategories(p Page, boxes []Infobox, s Site) sortedPieceCategories {
 	}
 	slices.SortStableFunc(terms, func(a, b rankedTerm) int { return a.rank - b.rank })
 	slices.SortStableFunc(out.statuses, func(a, b domain.ConservationStatus) int { return severity(a) - severity(b) })
-	primary := map[domain.Facet]bool{}
 	for _, t := range terms {
-		t.term.IsPrimary = !primary[t.facet]
-		primary[t.facet] = true
-		out.terms = append(out.terms, t.term)
+		out.terms = append(out.terms, t.category)
 	}
 
 	return out
 }
 
-func rankTerm(category string, facet domain.Facet, rank int, boxCategories map[string]infoboxCategory) rankedTerm {
-	t := rankedTerm{term: PieceTerm{Category: category}, facet: facet, rank: rank}
-	if at, ok := boxCategories[category]; ok {
-		t.rank, t.term.Part = at.position, at.part
+func rankTerm(category string, rank int, boxCategories map[string]int) rankedTerm {
+	if position, ok := boxCategories[category]; ok {
+		rank = position
 	}
 
-	return t
+	return rankedTerm{category: category, rank: rank}
 }
 
 func appendStatus(statuses []domain.ConservationStatus, category string) []domain.ConservationStatus {

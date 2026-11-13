@@ -2,7 +2,8 @@
 
 **Status:** approved 2026-10-31; rewritten 2026-11-10 to a simpler scope (the commit that rewrote it lists what
 changed); revised 2026-11-12 (monthly link check, link reports as contact requests, takedowns by link ID, sources
-for licensing only, no email withholding in the importer).
+for licensing only, no email withholding in the importer); revised 2026-11-13 (trimmed the data model to what the
+wiki fills).
 This plan is the input every build pipeline reads.
 
 **Proportion is the main quality bar.** The site holds about 142 pieces and 48 bards, with two moderators (John
@@ -38,14 +39,14 @@ profiles are on the backlog.
 
 Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
 
-1. **Kind:** a primary `kind` (song, poem, story, dance_music, instrumental, comedy, extensible) plus
-   `secondary_kinds[]`. Song + Instrumental and Story + Poem are both valid.
-2. **Origin** (the wiki's "Source Category"): multi-valued with one primary; an optional `part` scope (words,
-   tune, verses, chorus); century categories become child terms of Origin; topic centuries stay under Topic.
-3. **Conservation status:** an enum (unassessed, low_risk, endangered, critically_endangered, restricted). Every
-   change is recorded, with the revision's summary (which may be empty) as the reason. A moderator sets it by the
-   conservation guide, in which exactly three places counts as Endangered. Restricted overrides everything and
-   hides the "help preserve this" prompts.
+1. **Kind:** one `kind` per piece (song, poem, story, dance_music, instrumental; extensible). A song also played
+   as an instrumental says so in its notes.
+2. **Origin** (the wiki's "Source Category"): multi-valued and ordered, like every facet; century categories
+   become child terms of Origin; topic centuries stay under Topic.
+3. **Conservation status:** an enum (unassessed, low_risk, endangered, critically_endangered, restricted). Its
+   history is the piece's revision history, with each revision's summary (which may be empty) as the reason for a
+   change. A moderator sets it by the conservation guide, in which exactly three places counts as Endangered.
+   Restricted overrides everything and hides the "help preserve this" prompts.
 4. **Pseudo-bards:** "Traditional & Folk", Unknown, Anonymous and Various become an `attribution` on the credit,
    with a separate `certainty` (Disputed is a certainty). Bands and historical figures are persons with
    `kind = group | historical`.
@@ -54,9 +55,9 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
    them. There is no hidden-alias concept. Someone who wants a name removed asks, and a moderator deletes it.
 7. **Bard self-verification** is out of scope for v1. Every licensing claim needs a source URL, as on the wiki
    (R-12).
-8. **"Prefers no page"** is a person status, as on the old wiki: their page shows only their name and the cited
-   statement, and creating a person with a matching name or alias is blocked. Elsewhere they are named like anyone
-   else, as plain text without a link to their page (decided 2026-11-12; nothing else is hidden).
+8. **"Prefers no page"** is a person status, as on the old wiki: their page shows only their identity (name, kind
+   and status), and creating a person with a matching name or alias is blocked. Elsewhere they are named like
+   anyone else, as plain text without a link to their page (decided 2026-11-12; nothing else is hidden).
 9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess.
 10. **Unparented categories:** Seasons, Fire, Hope → Topics; Archery → Topics › War; Short Pieces → Other;
     Jewish, Sephardic, Portuguese → Cultures, with Sephardic under Jewish.
@@ -92,19 +93,16 @@ Two repos, both from the alignment-feed skeletons (layering, idioms, CLAUDE.md q
 The migrations hold the exact DDL. Each **editable entity** has `current_revision_id` (NULL until first approval)
 and the import columns `legacy_wiki_pageid` and `legacy_title`.
 
-- **`pieces`**: title, slug and sort keys; kind and secondary kinds; `conservation_status` with
-  `conservation_history` (status, reason, source, revision); `is_stub`; notes, version notes and historical source
-  (Markdown), `period_start`/`period_end` (R-23); licensing (`licensing_status`, `licence`, `licence_version`
-  beside a `cc_*` licence only, `licensing_notes_md`); `legacy_had_inline_lyrics`. Children: aliases, terms
-  (`is_primary`, `part`), relations (variant_of, contrafactum_of, setting_of, same_text_other_form) and credits
-  (person, role, attribution, certainty, part, note; a person exactly when `named`).
+- **`pieces`**: title, slug and sort keys; `kind`; `conservation_status`; `is_stub`; notes and version notes
+  (Markdown); licensing (`licensing_status`, `licensing_notes_md`); `legacy_had_inline_lyrics`. Children: aliases
+  (`alt_title`, `subtitle`, `redirect`), terms (ordered by `position`) and credits (person, role: lyrics, tune
+  or author, attribution, certainty; a person exactly when `named`).
 - **`persons`**: name, slug and sort keys; `kind` (community_bard / historical / group); `status` (active /
-  deceased / prefers_no_page) with date and source; pronouns, notes, licensing; `is_stub`. Children: aliases
-  (`legal`, `sca`, `stage`, `nickname`, `former`, `redirect`, all public), roles, affiliations and relations
-  (heir_of, member_of, same_as).
+  deceased / prefers_no_page); notes, licensing; `is_stub`. Children: aliases (`legal`, `sca`, all public), roles
+  and affiliations.
 - **`terms`**: facet, name, `display_name` (without the wiki's "(Topic)" suffix), slug, parent (depth ≤ 3),
-  `related_affiliation_id` (§2.12), description, position, aliases, and the `term_ancestors` closure.
-- **`collections`** (addressed by ID) and **`events`** (venue / event).
+  `related_affiliation_id` (§2.12), description, position, and the `term_ancestors` closure.
+- **`collections`** (addressed by ID: name, URL, kind, description, region) and **`events`** (a name).
 - **`links`**: `url`, unique `normalized_url`, title, description, platform, `place_type`, collection, locator,
   and system state: `liveness` (unknown / ok / dead / blocked), failure count, check and archive times,
   `archived_url`, and `is_hidden` (a moderator takedown, R-11). `link_attachments` give a link one or more roles
@@ -125,10 +123,10 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 - **Visibility is approval.** An entity is public when it has an approved revision (a term also needs its
   ancestors approved), defined once in the views `public_terms`, `listed_persons` and `public_link_attachments`.
   References to non-public entities are left out of every read, and an unknown or non-public slug is one 404.
-- **"Prefers no page" persons** have a page of their identity only: name, kind, status, date and the cited source.
-  Credits, performers, relations and citations name them like anyone else, without a link (`slug` null). The
-  lists of persons (`listed_persons`) list them as stubs, find them by name only, and leave them out of role and
-  affiliation filters, term member lists and counts, and needs-work.
+- **"Prefers no page" persons** have a page of their identity only: name, kind and status. Credits, performers
+  and citations name them like anyone else, without a link (`slug` null). The lists of persons (`listed_persons`)
+  list them as stubs, find them by name only, and leave them out of role and affiliation filters, term member
+  lists and counts, and needs-work.
 - **Hidden links** are left out of every read by their link ID. Current pages join on the link's row. A revision
   view leaves out a snapshot URL whose row (matched by normalised URL, as approval upserts it) is hidden, and shows
   every other URL as the snapshot wrote it.
@@ -147,10 +145,11 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 
 A revision is public only if it is approved and its entity is public; pending and rejected revisions are seen only
 by their author (`/v1/me/revisions`) and moderators. A snapshot holds only editor-owned fields, never IDs, sort
-keys, `legacy_*`, `conservation_history` (appended at approval) or link system state, so approving an old snapshot
-never un-hides a link or undoes a link check. Links are inline by URL; other entities are referenced by ID in
-storage and by slug in the editor format. An added field needs no `schema_version` bump; any other change of shape
-does. **Revision views** apply the §4.1 rules to the stored document, and compute `changed_fields` on what they
+keys, `legacy_*` or link system state, so approving an old snapshot never un-hides a link or undoes a link check.
+Links are inline by URL; other entities are referenced by ID in storage and by slug in the editor format: a
+piece's terms are one ordered list, `term_ids` (`term_slugs` in the editor format), beside its flat
+`conservation_status`. An added field needs no `schema_version` bump; any other change of shape does. **Revision
+views** apply the §4.1 rules to the stored document, and compute `changed_fields` on what they
 show. Authors appear by display name; imports list the wiki contributors.
 
 ## 5. Revisions and moderation
@@ -178,10 +177,9 @@ One `Validate` per document type, shared with the importer (widths, NFC, control
 and facet rules, trees without cycles, unique term names in a facet), answering 422 with a path and code per
 problem.
 
-- **Licensing sources** (R-12), for moderators too: changing licence, licence version, licensing notes or a known
-  licensing status needs a `licensing_source` link. Nothing else needs a source or a summary: the person status
-  and conservation source URLs are optional, and a conservation change is recorded in its history with the
-  revision's summary as the reason, even if it is empty.
+- **Licensing sources** (R-12), for moderators too: changing the licensing notes or setting a known licensing
+  status needs a `licensing_source` link. Nothing else needs a source or a summary: a conservation change is
+  recorded in the revision history with the revision's summary as the reason, even if it is empty.
 - **Duplicate warning on create** (R-17): titles, names and aliases folded by `domain.DuplicateKey` (case,
   apostrophes, accents) are compared with public entities. A match needs `acknowledge_duplicates` (409
   `possible_duplicate` otherwise) and is shown to the moderator. A match on a "prefers no page" person blocks a
@@ -190,8 +188,8 @@ problem.
 ### 5.3 Approval
 
 One transaction validates the snapshot, writes it into the entity and its children (links upserted by
-`normalized_url`, the closure rebuilt if a term changed, conservation history appended), and points
-`current_revision_id` at it. A rejection carries a note for the author.
+`normalized_url`, the closure rebuilt if a term changed), and points `current_revision_id` at it. A rejection
+carries a note for the author.
 
 - **Stale revisions:** if the base is no longer current, the moderator sees the diff against current and either
   approves anyway (`acknowledge_stale`), warned that changes since will be overwritten, or rejects asking the
@@ -257,13 +255,16 @@ Bodies are limited to 1 MiB for documents, 64 KiB for `/v1/contact` and 16 KiB o
 under `testdata/wiki-dump/`, so tests need no network; it is frozen and never regenerated.
 
 **Steps:** type the pages (pieces, bards) and parse their sections; take facets from the categories
-(`taxonomy.json`); parse credits with attribution, certainty and part, uniting the bard
+(`taxonomy.json`); parse credits with attribution and certainty, uniting the bard
 signals (infobox, bard category, works list) and matching plain-text names by folded name, then fuzzily; extract
 links with role, platform, collection and locator, deduplicated by normalised URL; parse performances, keeping
-the text verbatim; turn redirects into aliases and red links into stubs; **drop inline lyrics** (every `<poem>`
-block, and the lines without a link of a Lyrics or Text section when there are four or more; fewer are version
-notes), setting `legacy_had_inline_lyrics`; and write everything as
-approved `import` revisions crediting wiki contributors.
+the text verbatim, with venue pages and the names performances give after "at" as events; turn redirects to
+piece pages into aliases and red links into stubs; put into a piece's notes its Timeline of Text Sources section
+(under its heading), a sentence naming the other piece when its title is another piece's with "(Poem)", "(Song)"
+or "(SCA Version)", and "Also played as an instrumental." when it is in Instrumental but its kind is neither
+instrumental nor dance_music; **drop inline lyrics** (every `<poem>` block, and the lines without a link of a
+Lyrics or Text section when there are four or more; fewer are version notes), setting `legacy_had_inline_lyrics`;
+and write everything as approved `import` revisions crediting wiki contributors.
 
 **Writing:** strings are NFC without control characters; wikitext becomes escaped Markdown with absolute http(s)
 links free of tracking parameters; summaries come from fixed templates. `CatalogueImport.Validate` checks the
@@ -280,8 +281,8 @@ back on failure and refuses a non-empty catalogue; the imported catalogue reads 
 
 **Read pages (FE2, built):** home (mission, non-affiliation disclaimer R-1); A–Z; faceted browse with a desktop
 sidebar and mobile drawer (R-2, R-3); search; piece page (infobox, links by role, performances, licensing card,
-notes, related pieces); person, term, collection and event pages; history and diffs; help pages (contributing,
-FAQ for bards, the Bard Preference Checklist as guidance, the conservation guide, the licence).
+notes); person, term, collection and event pages; history and diffs; help pages (contributing, FAQ for bards,
+the Bard Preference Checklist as guidance, the conservation guide, the licence).
 
 **Editing (FE3):** an edit form per entity type with structured pickers; a credit editor (attribution,
 certainty); a link editor (role, place type, collection, locator, performances); a term picker with "suggest a
@@ -342,7 +343,7 @@ goes to the owners as a question.
 | H0–BE3, FE1–FE2 | | | | *Done:* host setup, foundations, catalogue and read API, importer, read UI. |
 | BE-S | simplify | BE | BE3 | *Done:* removed what this plan no longer needs (below). |
 | FE-S | simplify | FE | FE2 | Remove what this plan no longer needs (below). |
-| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `contact_requests`, performance owners, the link-check columns and `licence_version`; `updated_at` and `credit_names`; the monthly `check-links` cron. |
+| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `contact_requests`, performance owners and the link-check columns; `updated_at` and `credit_names`; the monthly `check-links` cron. |
 | FE3 | editing | FE | FE-S, BE4 spec | §8 "Editing". |
 | FE4 | moderation and contact | FE | FE3 | §8 "Moderation and contact". |
 | H1 | launch | host | all | The Cloudflare rate-limiting rule; full-stack e2e on the real import; staging; the real import; the click-through; production. |
@@ -382,13 +383,13 @@ prefix (the proxy sends `Authorization: Bearer <access_token>`), and brings the 
 - the audit workflow weekly and on pull requests to main; one knip pass.
 
 DESIGN.md, TESTING.md and CLAUDE.md are rewritten to this plan, short (DESIGN about 300 lines: principles, tokens,
-breakpoints, voice, accessibility). Event and venue pages stay.
+breakpoints, voice, accessibility). Event pages stay.
 
 **BE4 reuses** from the closed `milestone/be4-moderation` and `milestone/be5-extras` branches where they fit: the
 `contact_requests` DDL and code, the Turnstile and Wayback clients, the link-check guard and
 prober, the entity writer shared with the importer, the document `Validate` functions and `DuplicateKey` (without
 hidden-data handling), the bounded connection pools and the 503 for a refused connection (BE4's connection
-fix), and the `licence_version`, `updated_at` and `credit_names` read changes. It reuses none of the merge,
+fix), and the `updated_at` and `credit_names` read changes. It reuses none of the merge,
 withhold/restore, drafts, placeholder rows, pending-reference approval, flags, revert endpoint, rate limiting,
 display-name controls, repertoire, preferences or MCP code; the revision write path is rewritten smaller, using
 the old tests as a source of cases worth keeping, not as a list to reproduce.

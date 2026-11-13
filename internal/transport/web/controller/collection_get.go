@@ -12,25 +12,21 @@ import (
 
 // CollectionSummary is the JSON representation of a collection in a list of collections.
 type CollectionSummary struct {
-	ID               int64                 `json:"id"`
-	Name             string                `json:"name"`
-	Kind             domain.CollectionKind `json:"kind"`
-	URL              *string               `json:"url"`
-	IsBardicResource bool                  `json:"is_bardic_resource"`
+	ID   int64                 `json:"id"`
+	Name string                `json:"name"`
+	Kind domain.CollectionKind `json:"kind"`
+	URL  *string               `json:"url"`
 }
 
 // Collection is the JSON representation of a public collection's page.
 type Collection struct {
 	CollectionSummary
 
-	UpdatedAt      time.Time                   `json:"updated_at"`
-	DescriptionMD  *string                     `json:"description_md"`
-	Enumerable     domain.CollectionEnumerable `json:"enumerable"`
-	Region         *TermSummary                `json:"region"`
-	Parent         *CollectionSummary          `json:"parent"`
-	Children       []CollectionSummary         `json:"children"`
-	Citations      []Citation                  `json:"citations"`
-	CitationsTotal int64                       `json:"citations_total"`
+	UpdatedAt      time.Time    `json:"updated_at"`
+	DescriptionMD  *string      `json:"description_md"`
+	Region         *TermSummary `json:"region"`
+	Citations      []Citation   `json:"citations"`
+	CitationsTotal int64        `json:"citations_total"`
 }
 
 // Citation is the JSON representation of a link in a collection attached to a piece or person.
@@ -69,7 +65,7 @@ func (c CollectionGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func collectionSummaryFromDomain(s domain.CollectionSummary) CollectionSummary {
-	return CollectionSummary{ID: s.ID, Name: s.Name, Kind: s.Kind, URL: s.URL, IsBardicResource: s.IsBardicResource}
+	return CollectionSummary{ID: s.ID, Name: s.Name, Kind: s.Kind, URL: s.URL}
 }
 
 func collectionFromDomain(c domain.Collection) Collection {
@@ -77,10 +73,7 @@ func collectionFromDomain(c domain.Collection) Collection {
 		CollectionSummary: collectionSummaryFromDomain(c.CollectionSummary),
 		UpdatedAt:         c.UpdatedAt,
 		DescriptionMD:     c.DescriptionMD,
-		Enumerable:        c.Enumerable,
 		Region:            optional(c.Region, termSummaryFromDomain),
-		Parent:            optional(c.Parent, collectionSummaryFromDomain),
-		Children:          mapSlice(c.Children, collectionSummaryFromDomain),
 		Citations: mapSlice(c.Citations, func(citation domain.Citation) Citation {
 			return Citation{
 				Piece:   optional(citation.Piece, pieceSummaryFromDomain),

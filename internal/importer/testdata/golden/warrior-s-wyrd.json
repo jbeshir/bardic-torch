@@ -8,61 +8,31 @@
       "schema_version": 1,
       "title": "Warrior's Wyrd",
       "kind": "song",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
       "notes_md": "This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": "It is likely that Legal Name 064 still holds the copyright to the tune; please add to the wiki if you have more information.",
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": null,
-      "period_end": null,
       "aliases": [],
-      "terms": [
-        {
-          "term_id": 33,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 88,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 99,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 113,
-          "is_primary": true,
-          "part": null
-        }
+      "term_ids": [
+        33,
+        88,
+        99,
+        113
       ],
-      "relations": [],
       "credits": [
         {
           "person_id": 28,
           "role": "lyrics",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": 111,
           "role": "tune",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         }
       ],
       "links": [

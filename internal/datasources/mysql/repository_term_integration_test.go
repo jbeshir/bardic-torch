@@ -32,7 +32,7 @@ var terms = catalogtest.NewShared(func(c *catalogtest.Catalog) termFixture {
 		Unapproved: true})
 
 	war := c.Term(catalogtest.Term{Doc: domain.TermDocument{
-		Facet: domain.FacetTopic, Name: warName, DescriptionMD: new("Songs of war."), Aliases: []string{"Battle", "Strife"},
+		Facet: domain.FacetTopic, Name: warName, DescriptionMD: new("Songs of war."),
 	}})
 	c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Peace"}})
 	swords := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: swordsName,
@@ -58,15 +58,9 @@ var terms = catalogtest.NewShared(func(c *catalogtest.Catalog) termFixture {
 		RelatedAffiliationID: &southmarch.ID}})
 
 	tagged := func(title string, termIDs ...int64) catalogtest.Piece {
-		doc := domain.PieceDocument{Title: title}
-		for _, id := range termIDs {
-			doc.Terms = append(doc.Terms, domain.DocPieceTerm{TermID: id})
-		}
-		return catalogtest.Piece{Doc: doc}
+		return catalogtest.Piece{Doc: domain.PieceDocument{Title: title, TermIDs: termIDs}}
 	}
-	blades := tagged(ballad, swords.ID, war.ID)
-	blades.Doc.SecondaryKinds = []domain.PieceKind{domain.PieceKindPoem}
-	c.Piece(blades)
+	c.Piece(tagged(ballad, swords.ID, war.ID))
 	sabre := tagged("The Sabre Dance", sabres.ID)
 	sabre.SortTitle = "Sabre Dance"
 	c.Piece(sabre)
@@ -114,7 +108,7 @@ var (
 	baronySummary     = termSummary("northmarch-barony", domain.FacetAffiliation, "Northmarch Barony")
 
 	bladesSummary = domain.PieceSummary{Slug: "ballad-of-blades", Title: ballad, Kind: domain.PieceKindSong,
-		SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusUnassessed}
+		ConservationStatus: domain.ConservationStatusUnassessed}
 	sabreSummary = domain.PieceSummary{Slug: "the-sabre-dance", Title: "The Sabre Dance", Kind: domain.PieceKindSong,
 		ConservationStatus: domain.ConservationStatusUnassessed}
 	shieldSummary = domain.PieceSummary{Slug: "shield-song", Title: "Shield Song", Kind: domain.PieceKindSong,
@@ -166,15 +160,15 @@ func TestRepository_ListPublicTerms_Facet(t *testing.T) {
 		listItem(baronySummary, "Northmarch Barony", new("northmarch"), 0, 2),
 	}, list)
 
-	form := domain.FacetForm
-	list, err = repo.ListPublicTerms(t.Context(), &form)
+	legendaria := domain.FacetLegendaria
+	list, err = repo.ListPublicTerms(t.Context(), &legendaria)
 	require.NoError(t, err)
 	assert.Empty(t, list)
 }
 
 var firstPage = domain.Page{Limit: domain.DefaultPageLimit}
 
-// TestRepository_GetPublicTerm reads a term with aliases, public children with counts and pieces tagged with
+// TestRepository_GetPublicTerm reads a term with its description, public children with counts and pieces tagged with
 // it or a public descendant, each once.
 func TestRepository_GetPublicTerm(t *testing.T) {
 	t.Parallel()
@@ -188,7 +182,6 @@ func TestRepository_GetPublicTerm(t *testing.T) {
 		TermSummary:   warSummary,
 		Name:          warName,
 		DescriptionMD: new("Songs of war."),
-		Aliases:       []string{"Battle", "Strife"},
 		Ancestors:     []domain.TermSummary{},
 		// By position; not the pending Spears.
 		Children: []domain.TermChild{

@@ -19,7 +19,7 @@ import (
 // catalogue's current state: unapproved terms, pieces, persons, collections and events; a person who chose not
 // to have a page after the revision; an alias and links hidden after it.
 type revisionFixture struct {
-	harvest, reaping, broken, pendingPiece                 catalogtest.Ref
+	harvest, broken, pendingPiece                          catalogtest.Ref
 	lark, quiet, choir, pendingPerson                      catalogtest.Ref
 	ballads, seaBallads, underPending, pendingTopic, bards catalogtest.Ref
 	archive, volume, pendingBook, fair, pendingFair        catalogtest.Ref
@@ -49,10 +49,8 @@ const (
 	larkSiteURL      = "https://example.org/lark"
 	larkTakenDownURL = "https://example.org/lark/taken-down"
 	harvestAliasText = "Reapers' Ballad"
-	harvestSourceURL = "https://example.org/assessments/harvest"
-	larkStageName    = "Lark"
-	larkFormerName   = "Old Lark"
-	quietTuneNote    = "The tune is the harper's own"
+	larkSCAName      = "Lark"
+	larkLegalName    = "Jo Ashdown"
 	fairPerformance  = "Sung at the fair"
 	pendingFairDesc  = "Sung at a fair still pending"
 	larkFairTale     = "A tale at the fair"
@@ -65,28 +63,20 @@ const (
 // not to have a page, an unapproved collection and event, and a link that is later hidden.
 func harvestDocument(fx revisionFixture) domain.PieceDocument {
 	return domain.PieceDocument{
-		SchemaVersion:  domain.DocumentSchemaVersion,
-		Title:          harvestTitle,
-		Kind:           domain.PieceKindSong,
-		SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem},
-		Conservation: domain.DocConservation{Status: domain.ConservationStatusEndangered,
-			SourceURL: new(harvestSourceURL)},
-		LicensingStatus: domain.LicensingStatusUnknown,
-		Terms: []domain.DocPieceTerm{
-			{TermID: fx.ballads.ID, IsPrimary: true}, {TermID: fx.pendingTopic.ID}, {TermID: fx.underPending.ID},
-		},
-		Relations: []domain.DocPieceRelation{
-			{ToPieceID: fx.pendingPiece.ID, Type: domain.PieceRelationTypeVariantOf},
-			{ToPieceID: fx.reaping.ID, Type: domain.PieceRelationTypeSettingOf},
-		},
+		SchemaVersion:      domain.DocumentSchemaVersion,
+		Title:              harvestTitle,
+		Kind:               domain.PieceKindSong,
+		ConservationStatus: domain.ConservationStatusEndangered,
+		LicensingStatus:    domain.LicensingStatusUnknown,
+		TermIDs:            []int64{fx.ballads.ID, fx.pendingTopic.ID, fx.underPending.ID},
 		Credits: []domain.DocCredit{
 			{PersonID: &fx.lark.ID, Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed,
 				Certainty: domain.CertaintyCertain},
 			{PersonID: &fx.quiet.ID, Role: domain.CreditRoleTune, Attribution: domain.AttributionNamed,
-				Certainty: domain.CertaintyProbable, Note: new(quietTuneNote)},
-			{PersonID: &fx.pendingPerson.ID, Role: domain.CreditRoleMusic, Attribution: domain.AttributionNamed,
+				Certainty: domain.CertaintyProbable},
+			{PersonID: &fx.pendingPerson.ID, Role: domain.CreditRoleAuthor, Attribution: domain.AttributionNamed,
 				Certainty: domain.CertaintyCertain},
-			{Role: domain.CreditRoleArrangement, Attribution: domain.AttributionTraditional,
+			{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
 				Certainty: domain.CertaintyPossible},
 		},
 		Links: []domain.DocPieceLink{
@@ -105,28 +95,22 @@ func harvestDocument(fx revisionFixture) domain.PieceDocument {
 	}
 }
 
-// larkDocument is Lark's document as first imported: a link later hidden, a relation to a
-// person who later chose not to have a page, and references to unapproved entities.
+// larkDocument is Lark's document as first imported: a link later hidden, a performer who later chose not to
+// have a page, and references to unapproved entities.
 func larkDocument(fx revisionFixture) domain.PersonDocument {
 	return domain.PersonDocument{
 		SchemaVersion:   domain.DocumentSchemaVersion,
 		Name:            larkName,
 		Kind:            domain.PersonKindCommunityBard,
 		Status:          domain.PersonStatusActive,
-		Pronouns:        new("they/them"),
 		NotesMD:         new("A singer of harvest songs."),
 		LicensingStatus: domain.LicensingStatusKnown,
 		Aliases: []domain.DocPersonAlias{
-			{Name: larkStageName, Kind: domain.PersonAliasKindStage},
-			{Name: larkFormerName, Kind: domain.PersonAliasKindFormer},
+			{Name: larkSCAName, Kind: domain.PersonAliasKindSCA},
+			{Name: larkLegalName, Kind: domain.PersonAliasKindLegal},
 		},
 		Roles:          []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
 		AffiliationIDs: []int64{fx.pendingTopic.ID, fx.bards.ID},
-		Relations: []domain.DocPersonRelation{
-			{ToPersonID: fx.quiet.ID, Type: domain.PersonRelationTypeHeirOf},
-			{ToPersonID: fx.pendingPerson.ID, Type: domain.PersonRelationTypeSameAs},
-			{ToPersonID: fx.choir.ID, Type: domain.PersonRelationTypeMemberOf},
-		},
 		Links: []domain.DocPersonLink{
 			{
 				DocLink: domain.DocLink{URL: larkSiteURL, CollectionID: &fx.archive.ID,
@@ -152,10 +136,9 @@ func quietDocument(fx revisionFixture) domain.PersonDocument {
 		Status:          domain.PersonStatusActive,
 		NotesMD:         new("Plays the harp at every fair."),
 		LicensingStatus: domain.LicensingStatusUnknown,
-		Aliases:         []domain.DocPersonAlias{{Name: "Harper", Kind: domain.PersonAliasKindStage}},
+		Aliases:         []domain.DocPersonAlias{{Name: "Harper", Kind: domain.PersonAliasKindSCA}},
 		Roles:           []domain.PersonRole{domain.PersonRoleMusician},
 		AffiliationIDs:  []int64{fx.bards.ID},
-		Relations:       []domain.DocPersonRelation{{ToPersonID: fx.choir.ID, Type: domain.PersonRelationTypeMemberOf}},
 		Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: "https://example.org/harper",
 			Roles: []domain.LinkRole{domain.LinkRoleWebsite}}}},
 	}
@@ -181,8 +164,7 @@ var revisions = catalogtest.NewShared(func(c *catalogtest.Catalog) revisionFixtu
 		Name: "Under Pending", ParentID: &fx.pendingTopic.ID}})
 	fx.bards = c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation, Name: bardsName}})
 	fx.seaBallads = c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: seaBalladsName,
-		ParentID: &fx.ballads.ID, RelatedAffiliationID: &fx.pendingTopic.ID, Position: 2,
-		Aliases: []string{"Shanties"}}})
+		ParentID: &fx.ballads.ID, RelatedAffiliationID: &fx.pendingTopic.ID, Position: 2}})
 
 	fx.archive = c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: archiveName,
 		Kind: domain.CollectionKindWiki}})
@@ -190,14 +172,11 @@ var revisions = catalogtest.NewShared(func(c *catalogtest.Catalog) revisionFixtu
 		Unapproved: true})
 	fx.volume = c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: volumeName,
 		URL: new("https://example.org/volume-two.pdf"), Kind: domain.CollectionKindSongbookPDF,
-		RegionTermID: &fx.pendingTopic.ID, ParentID: &fx.archive.ID, IsBardicResource: true,
-		Enumerable: domain.CollectionEnumerablePDF}})
-	fx.fair = c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: fairName,
-		DescriptionMD: new("An autumn fair.")}})
+		RegionTermID: &fx.pendingTopic.ID}})
+	fx.fair = c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: fairName}})
 	fx.pendingFair = c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Pending Fair"}, Unapproved: true})
 
 	fx.pendingPiece = c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Pending Piece"}, Unapproved: true})
-	fx.reaping = c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Reaping Song"}})
 	fx.choir = c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: choirName, Kind: domain.PersonKindGroup}})
 	fx.pendingPerson = c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Pending Piper"},
 		Unapproved: true})
@@ -224,14 +203,12 @@ var revisions = catalogtest.NewShared(func(c *catalogtest.Catalog) revisionFixtu
 	// A revision changing only what its view redacts: its view equals its base's.
 	redacted := edited
 	redacted.Credits = append(append([]domain.DocCredit{}, edited.Credits...), domain.DocCredit{
-		PersonID: &fx.pendingPerson.ID, Role: domain.CreditRoleTranslation, Attribution: domain.AttributionNamed,
+		PersonID: &fx.pendingPerson.ID, Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed,
 		Certainty: domain.CertaintyCertain})
-	redacted.Relations = append(append([]domain.DocPieceRelation{}, edited.Relations...),
-		domain.DocPieceRelation{ToPieceID: fx.pendingPiece.ID, Type: domain.PieceRelationTypeContrafactumOf})
 	redacted.Links = append(append([]domain.DocPieceLink{}, edited.Links[:1]...), domain.DocPieceLink{
 		DocLink: domain.DocLink{URL: larkTakenDownURL, Roles: []domain.LinkRole{domain.LinkRoleOther}}})
 	fx.redacted = harvest(catalogtest.Revision{Snapshot: redacted, Source: domain.RevisionSourceUser,
-		BaseRevisionID: fx.edit, AuthorUserID: quillID, Summary: "Credit a translator",
+		BaseRevisionID: fx.edit, AuthorUserID: quillID, Summary: "Credit a lyricist",
 		CreatedAt: revisionsAt(time.July, 1)})
 	fx.pending = harvest(catalogtest.Revision{Snapshot: edited, Status: domain.RevisionStatusPending,
 		BaseRevisionID: fx.edit, AuthorUserID: quillID, CreatedAt: revisionsAt(time.August, 1)})
@@ -259,12 +236,12 @@ var revisions = catalogtest.NewShared(func(c *catalogtest.Catalog) revisionFixtu
 	fx.futureVersion = broken(json.RawMessage(`{"schema_version": 2, "title": "From a newer release"}`), 0)
 	fx.wrongShape = broken(json.RawMessage(`{"schema_version": 1, "title": 7}`), 0)
 	fx.brokenBase = broken(domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: "Broken Song",
-		Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+		Kind: domain.PieceKindSong, ConservationStatus: domain.ConservationStatusUnassessed,
 		LicensingStatus: domain.LicensingStatusUnknown}, fx.wrongShape)
 	fx.unknownEnum = broken(json.RawMessage(`{"schema_version": 1, "title": "Broken Ballad", "kind": "ballad", `+
-		`"conservation": {"status": "unassessed", "source_url": null}, "licensing_status": "unknown"}`), 0)
+		`"conservation_status": "unassessed", "licensing_status": "unknown"}`), 0)
 	fx.addedField = broken(json.RawMessage(`{"schema_version": 1, "title": "Later Song", "kind": "song", `+
-		`"conservation": {"status": "unassessed", "source_url": null}, "licensing_status": "unknown", `+
+		`"conservation_status": "unassessed", "licensing_status": "unknown", `+
 		`"added_in_a_later_release": {"nested": true}}`), 0)
 
 	return fx
@@ -284,31 +261,25 @@ var (
 	choirSummary   = domain.PersonSummary{Slug: "hearth-choir", Name: choirName, Kind: domain.PersonKindGroup}
 	quietSummary   = domain.PersonSummary{Slug: "quiet-harper", Name: quietName, Kind: domain.PersonKindCommunityBard,
 		IsStub: true, NoLink: true}
-	reapingSummary = domain.PieceSummary{Slug: "reaping-song", Title: "Reaping Song", Kind: domain.PieceKindSong,
-		ConservationStatus: domain.ConservationStatusUnassessed}
-	harvestFairSummary = domain.EventSummary{Slug: "harvest-fair", Name: fairName, Kind: domain.EventKindEvent}
+	harvestFairSummary = domain.EventSummary{Slug: "harvest-fair", Name: fairName}
 	quillAuthor        = &domain.RevisionAuthor{DisplayName: quillName}
 )
 
-// harvestView is the view of harvestDocument: of what it references, only the public term, the related public
-// piece, the credits to the public person with a page and the one with no person, the visible link without its
+// harvestView is the view of harvestDocument: of what it references, only the public term, the credits to the public person with a page and the one with no person, the visible link without its
 // unapproved collection, and its performance at the public event with the public performer remain.
 func harvestView() domain.PieceSnapshot {
 	return domain.PieceSnapshot{
-		Title:                 harvestTitle,
-		Kind:                  domain.PieceKindSong,
-		SecondaryKinds:        []domain.PieceKind{domain.PieceKindPoem},
-		ConservationStatus:    domain.ConservationStatusEndangered,
-		ConservationSourceURL: new(harvestSourceURL),
-		LicensingStatus:       domain.LicensingStatusUnknown,
-		Terms:                 []domain.PieceTerm{{Term: balladsSummary, IsPrimary: true}},
-		Relations:             []domain.SnapshotPieceRelation{{Type: domain.PieceRelationTypeSettingOf, Piece: reapingSummary}},
+		Title:              harvestTitle,
+		Kind:               domain.PieceKindSong,
+		ConservationStatus: domain.ConservationStatusEndangered,
+		LicensingStatus:    domain.LicensingStatusUnknown,
+		Terms:              []domain.TermSummary{balladsSummary},
 		Credits: []domain.PieceCredit{
 			{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
 				Person: &larkSummary},
 			{Role: domain.CreditRoleTune, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyProbable,
-				Note: new(quietTuneNote), Person: &quietSummary},
-			{Role: domain.CreditRoleArrangement, Attribution: domain.AttributionTraditional,
+				Person: &quietSummary},
+			{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
 				Certainty: domain.CertaintyPossible},
 		},
 		Links: []domain.SnapshotPieceLink{{
@@ -334,7 +305,7 @@ func TestRepository_ListPublicHistory(t *testing.T) {
 	imported := domain.RevisionSummary{ID: fx.imported, Source: domain.RevisionSourceImport,
 		Contributors: importContributors(), CreatedAt: revisionsAt(time.July, 1)}
 	redacted := domain.RevisionSummary{ID: fx.redacted, Source: domain.RevisionSourceUser,
-		Summary: "Credit a translator", Author: quillAuthor, CreatedAt: revisionsAt(time.July, 1)}
+		Summary: "Credit a lyricist", Author: quillAuthor, CreatedAt: revisionsAt(time.July, 1)}
 	edit := domain.RevisionSummary{ID: fx.edit, Source: domain.RevisionSourceUser, Summary: editSummary,
 		Author: quillAuthor, CreatedAt: revisionsAt(time.June, 1)}
 	foreignBase := domain.RevisionSummary{ID: fx.foreignBase, Source: domain.RevisionSourceImport,
@@ -440,8 +411,7 @@ func TestRepository_GetPublicRevision_Piece(t *testing.T) {
 		RevisionSummary: domain.RevisionSummary{ID: fx.edit, Source: domain.RevisionSourceUser, Summary: editSummary,
 			Author: quillAuthor, CreatedAt: revisionsAt(time.June, 1)},
 		Entity: domain.PieceSummary{Slug: fx.harvest.Slug, Title: harvestTitle, Kind: domain.PieceKindSong,
-			SecondaryKinds: []domain.PieceKind{domain.PieceKindPoem}, ConservationStatus: domain.ConservationStatusEndangered,
-			CreditNames: []string{larkName, quietName}},
+			ConservationStatus: domain.ConservationStatusEndangered, CreditNames: []string{larkName, quietName}},
 		Snapshot: edited,
 		Base:     &domain.RevisionBase[domain.PieceSnapshot]{ID: harvestID, Snapshot: base},
 	}, revision)
@@ -506,15 +476,12 @@ func TestRepository_GetPublicRevision_Person(t *testing.T) {
 		Kind:   domain.PersonKindCommunityBard,
 		Status: domain.PersonStatusActive,
 		Profile: &domain.PersonSnapshotProfile{
-			Pronouns:        new("they/them"),
 			NotesMD:         new("A singer of harvest songs."),
 			LicensingStatus: domain.LicensingStatusKnown,
-			Aliases: []domain.PersonAlias{{Name: larkStageName, Kind: domain.PersonAliasKindStage},
-				{Name: larkFormerName, Kind: domain.PersonAliasKindFormer}},
+			Aliases: []domain.PersonAlias{{Name: larkSCAName, Kind: domain.PersonAliasKindSCA},
+				{Name: larkLegalName, Kind: domain.PersonAliasKindLegal}},
 			Roles:        []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
 			Affiliations: []domain.TermSummary{guildSummary},
-			Relations: []domain.SnapshotPersonRelation{{Type: domain.PersonRelationTypeHeirOf, Person: quietSummary},
-				{Type: domain.PersonRelationTypeMemberOf, Person: choirSummary}},
 			Links: []domain.SnapshotPersonLink{{
 				SnapshotLink: domain.SnapshotLink{URL: larkSiteURL,
 					Collection: &domain.CollectionRef{ID: fx.archive.ID, Name: archiveName},
@@ -564,7 +531,7 @@ func TestRepository_GetPublicRevision_OtherTypes(t *testing.T) {
 			CreatedAt: term.(domain.TermRevision).CreatedAt},
 		Entity: termSummary("sea-ballads", domain.FacetTopic, seaBalladsName),
 		Snapshot: domain.TermSnapshot{Facet: domain.FacetTopic, Name: seaBalladsName, DisplayName: seaBalladsName,
-			Parent: &balladsSummary, Position: 2, Aliases: []string{"Shanties"}},
+			Parent: &balladsSummary, Position: 2},
 	}, term)
 
 	collection, err := repo.GetPublicRevision(t.Context(), fx.volume.RevisionID)
@@ -574,9 +541,7 @@ func TestRepository_GetPublicRevision_OtherTypes(t *testing.T) {
 			CreatedAt: collection.(domain.CollectionRevision).CreatedAt},
 		Entity: domain.CollectionRef{ID: fx.volume.ID, Name: volumeName},
 		Snapshot: domain.CollectionSnapshot{Name: volumeName,
-			URL: new("https://example.org/volume-two.pdf"), Kind: domain.CollectionKindSongbookPDF,
-			Parent:           &domain.CollectionSummary{ID: fx.archive.ID, Name: archiveName, Kind: domain.CollectionKindWiki},
-			IsBardicResource: true, Enumerable: domain.CollectionEnumerablePDF},
+			URL: new("https://example.org/volume-two.pdf"), Kind: domain.CollectionKindSongbookPDF},
 	}, collection)
 
 	event, err := repo.GetPublicRevision(t.Context(), fx.fair.RevisionID)
@@ -585,7 +550,7 @@ func TestRepository_GetPublicRevision_OtherTypes(t *testing.T) {
 		RevisionSummary: domain.RevisionSummary{ID: fx.fair.RevisionID, Source: domain.RevisionSourceImport,
 			CreatedAt: event.(domain.EventRevision).CreatedAt},
 		Entity:   harvestFairSummary,
-		Snapshot: domain.EventSnapshot{Name: fairName, Kind: domain.EventKindEvent, DescriptionMD: new("An autumn fair.")},
+		Snapshot: domain.EventSnapshot{Name: fairName},
 	}, event)
 }
 

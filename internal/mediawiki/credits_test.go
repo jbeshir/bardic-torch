@@ -89,7 +89,6 @@ func TestParseCredits_DisputedExternal(t *testing.T) {
 	assert.Equal(t, domain.CertaintyDisputed, credits[0].Certainty)
 	assert.Equal(t, PersonName{Name: ash, Form: NameExternalLink, URL: "https://en.wikipedia.org/wiki/Ash_Placeholder"},
 		credits[0].Name)
-	assert.Empty(t, credits[0].Note)
 }
 
 func TestParseCredits_Unknown(t *testing.T) {
@@ -103,18 +102,6 @@ func TestParseCredits_Unknown(t *testing.T) {
 func TestParseCredits_Various(t *testing.T) {
 	assert.Equal(t, []creditShape{unnamed(domain.AttributionVarious)}, shapes(lyricsCredits("Various")))
 	assert.Equal(t, []creditShape{unnamed(domain.AttributionVarious)}, shapes(lyricsCredits("Many")))
-}
-
-func TestParseCredits_DanceAndMusicRoles(t *testing.T) {
-	text := "= Black Placeholder =\n{{Infobox dance&music\n| dance_by = [[" + wren + "]]\n| music_by = " + ash +
-		"\n}}\n"
-	p := parseFixturePiece(standardWiki(), Page{Title: "Black Placeholder", Wikitext: text,
-		Categories: []string{CategoryPieces, CategoryDances, CategoryInstrumental}})
-
-	assert.Equal(t, []creditShape{
-		{domain.CreditRoleChoreography, domain.AttributionNamed, domain.CertaintyCertain, PersonName{Name: wren, Form: NamePageLink}},
-		{domain.CreditRoleMusic, domain.AttributionNamed, domain.CertaintyCertain, PersonName{Name: ash, Form: NameText}},
-	}, shapes(p.Credits))
 }
 
 func TestParseCredits_NoSplitInsideLink(t *testing.T) {
@@ -135,45 +122,9 @@ func TestParseCredits_PageLinkReadThroughRedirects(t *testing.T) {
 	assert.Equal(t, PersonName{Name: wren, Form: NamePageLink}, credits[0].Name)
 }
 
-func TestParseCredits_Qualifiers(t *testing.T) {
-	credits := lyricsCredits("[[" + wren + "]] (verses) & [[" + ash + "]] (chorus, arranged) & [[" + rowan + "]] (" +
-		"Legal Name)")
-
-	require.Len(t, credits, 3)
-	require.NotNil(t, credits[0].Part)
-	assert.Equal(t, domain.PiecePartVerses, *credits[0].Part)
-	require.NotNil(t, credits[1].Part)
-	assert.Equal(t, domain.PiecePartChorus, *credits[1].Part)
-	assert.Equal(t, "arranged", credits[1].Note)
-	// Any other text qualifier is the note.
-	assert.Equal(t, "Legal Name", credits[2].Note)
-	assert.Nil(t, credits[2].Part)
-}
-
-func TestParseCredits_ChorusTuneIsTheChorus(t *testing.T) {
-	credits := ParseCredits(domain.CreditRoleTune, ParseValue("anonymous (chorus tune)"), standardWiki().site())
-
-	require.Len(t, credits, 1)
-	require.NotNil(t, credits[0].Part)
-	assert.Equal(t, domain.PiecePartChorus, *credits[0].Part)
-}
-
-func TestParseCredits_PartsInferredFromScopedOrigins(t *testing.T) {
-	// The Three Words shape: the tune credits a bard and "anonymous", and the origins are scoped to the verses
-	// (SCA Pieces) and the chorus (Contrafacta).
-	text := pieceWikitext(aSong, [][2]string{
-		{lyricsByParam, "[[" + wren + "]]"},
-		{tuneByParam, "[[" + wren + "]] & anonymous"},
-		{sourceParam, categoryLink(catSCAPieces) + " (verses) / " + categoryLink(catContrafacta) + " (chorus)"},
-	})
-	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text,
-		Categories: pieceCategories(catSCAPieces, catContrafacta)})
-
-	require.Len(t, p.Credits, 3)
-	assert.Nil(t, p.Credits[0].Part, "a field with only a named credit is not scoped")
-	for k, want := range map[int]domain.PiecePart{1: domain.PiecePartVerses, 2: domain.PiecePartChorus} {
-		require.NotNil(t, p.Credits[k].Part)
-		assert.Equal(t, want, *p.Credits[k].Part)
-	}
-	assert.Equal(t, domain.AttributionAnonymous, p.Credits[2].Attribution)
+func TestParseCredits_OtherQualifiersDropped(t *testing.T) {
+	assert.Equal(t, []creditShape{
+		named(wren, NamePageLink, domain.CertaintyCertain), named(ash, NamePageLink, domain.CertaintyCertain),
+		named(rowan, NamePageLink, domain.CertaintyCertain),
+	}, shapes(lyricsCredits("[["+wren+"]] (verses) & [["+ash+"]] (chorus, arranged) & [["+rowan+"]] (Legal Name)")))
 }

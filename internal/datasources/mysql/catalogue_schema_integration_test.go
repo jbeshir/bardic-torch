@@ -52,55 +52,35 @@ func TestMigrations_EnumColumns(t *testing.T) {
 	revisionStatuses := enumColumnType(domain.RevisionStatusPending, domain.RevisionStatusApproved,
 		domain.RevisionStatusRejected, domain.RevisionStatusWithdrawn)
 	facets := enumColumnType(domain.FacetMood, domain.FacetTopic, domain.FacetCulture, domain.FacetLanguage,
-		domain.FacetLegendaria, domain.FacetForm, domain.FacetOrigin, domain.FacetOther, domain.FacetAffiliation)
+		domain.FacetLegendaria, domain.FacetOrigin, domain.FacetOther, domain.FacetAffiliation)
 	collectionKinds := enumColumnType(domain.CollectionKindIndexOrLinkList, domain.CollectionKindSongbookPDF,
 		domain.CollectionKindSongbookWebsite, domain.CollectionKindWebsite, domain.CollectionKindWikiCategory,
 		domain.CollectionKindWiki, domain.CollectionKindYouTubeChannel, domain.CollectionKindYouTubePlaylist,
 		domain.CollectionKindGoogleDocSongbook, domain.CollectionKindBlog, domain.CollectionKindArchivedSongbook,
-		domain.CollectionKindHostedDocument, domain.CollectionKindOther)
-	enumerable := enumColumnType(domain.CollectionEnumerableUnknown, domain.CollectionEnumerableYes,
-		domain.CollectionEnumerablePDF, domain.CollectionEnumerableBrowser, domain.CollectionEnumerableAPI,
-		domain.CollectionEnumerableNo)
-	eventKinds := enumColumnType(domain.EventKindVenue, domain.EventKindEvent)
+		domain.CollectionKindHostedDocument)
 	personKinds := enumColumnType(domain.PersonKindCommunityBard, domain.PersonKindHistorical,
 		domain.PersonKindGroup)
 	personStatuses := enumColumnType(domain.PersonStatusActive, domain.PersonStatusDeceased,
 		domain.PersonStatusPrefersNoPage)
 	licensingStatuses := enumColumnType(domain.LicensingStatusKnown, domain.LicensingStatusUnknown)
-	personAliasKinds := enumColumnType(domain.PersonAliasKindLegal, domain.PersonAliasKindSCA,
-		domain.PersonAliasKindStage, domain.PersonAliasKindNickname, domain.PersonAliasKindFormer,
-		domain.PersonAliasKindRedirect)
+	personAliasKinds := enumColumnType(domain.PersonAliasKindLegal, domain.PersonAliasKindSCA)
 	personRoles := enumColumnType(domain.PersonRoleSinger, domain.PersonRoleSongwriter, domain.PersonRoleMusician,
 		domain.PersonRoleInstrumentalist, domain.PersonRoleStoryteller, domain.PersonRolePoet,
 		domain.PersonRoleJester, domain.PersonRoleDancer)
-	personRelationTypes := enumColumnType(domain.PersonRelationTypeHeirOf, domain.PersonRelationTypeMemberOf,
-		domain.PersonRelationTypeSameAs)
 	pieceKinds := enumColumnType(domain.PieceKindSong, domain.PieceKindPoem, domain.PieceKindStory,
-		domain.PieceKindDanceMusic, domain.PieceKindInstrumental, domain.PieceKindComedy)
+		domain.PieceKindDanceMusic, domain.PieceKindInstrumental)
 	conservationStatuses := enumColumnType(domain.ConservationStatusUnassessed, domain.ConservationStatusLowRisk,
 		domain.ConservationStatusEndangered, domain.ConservationStatusCriticallyEndangered,
 		domain.ConservationStatusRestricted)
-	licences := enumColumnType(domain.LicencePD, domain.LicenceCCBY, domain.LicenceCCBYSA, domain.LicenceCCBYNC,
-		domain.LicenceCCBYNCSA, domain.LicenceCCBYND, domain.LicenceCCBYNCND, domain.LicenceARR,
-		domain.LicenceOther)
-	pieceAliasKinds := enumColumnType(domain.PieceAliasKindAltTitle, domain.PieceAliasKindNickname,
-		domain.PieceAliasKindSubtitle, domain.PieceAliasKindRedirect)
-	parts := enumColumnType(domain.PiecePartWords, domain.PiecePartTune, domain.PiecePartVerses,
-		domain.PiecePartChorus)
-	pieceRelationTypes := enumColumnType(domain.PieceRelationTypeVariantOf,
-		domain.PieceRelationTypeContrafactumOf, domain.PieceRelationTypeSettingOf,
-		domain.PieceRelationTypeSameTextOtherForm)
-	creditRoles := enumColumnType(domain.CreditRoleLyrics, domain.CreditRoleTune, domain.CreditRoleAuthor,
-		domain.CreditRoleChoreography, domain.CreditRoleMusic, domain.CreditRoleArrangement,
-		domain.CreditRoleTranslation)
+	pieceAliasKinds := enumColumnType(domain.PieceAliasKindAltTitle, domain.PieceAliasKindSubtitle,
+		domain.PieceAliasKindRedirect)
+	creditRoles := enumColumnType(domain.CreditRoleLyrics, domain.CreditRoleTune, domain.CreditRoleAuthor)
 	attributions := enumColumnType(domain.AttributionNamed, domain.AttributionTraditional,
 		domain.AttributionUnknown, domain.AttributionAnonymous, domain.AttributionVarious)
 	certainties := enumColumnType(domain.CertaintyCertain, domain.CertaintyProbable, domain.CertaintyPossible,
 		domain.CertaintyDisputed)
 	placeTypes := enumColumnType(domain.LinkPlaceTypeRecordingPlatform, domain.LinkPlaceTypeStreaming,
-		domain.LinkPlaceTypeAuthorSite, domain.LinkPlaceTypeCommunityArchive, domain.LinkPlaceTypePhysicalArchive,
-		domain.LinkPlaceTypeBook, domain.LinkPlaceTypeVendor, domain.LinkPlaceTypeAuthorContact,
-		domain.LinkPlaceTypeOralTradition, domain.LinkPlaceTypeOther)
+		domain.LinkPlaceTypeAuthorSite, domain.LinkPlaceTypeCommunityArchive, domain.LinkPlaceTypeBook)
 	liveness := enumColumnType(domain.LivenessUnknown, domain.LivenessOK, domain.LivenessDead,
 		domain.LivenessBlocked)
 	linkRoles := enumColumnType(domain.LinkRoleOfficial, domain.LinkRoleLyrics, domain.LinkRoleText,
@@ -115,34 +95,23 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		"revisions.status":           revisionStatuses,
 		"terms.facet":                facets,
 		"collections.kind":           collectionKinds,
-		"collections.enumerable":     enumerable,
-		"events.kind":                eventKinds,
 		"persons.kind":               personKinds,
 		"persons.status":             personStatuses,
 		"persons.licensing_status":   licensingStatuses,
 		"person_aliases.kind":        personAliasKinds,
 		"person_roles.role":          personRoles,
-		"person_relations.type":      personRelationTypes,
 		"pieces.kind":                pieceKinds,
 		"pieces.conservation_status": conservationStatuses,
 		"pieces.licensing_status":    licensingStatuses,
-		"pieces.licence":             licences,
-		"pieces.licence_version": enumColumnType(domain.LicenceVersion10, domain.LicenceVersion20, domain.LicenceVersion25,
-			domain.LicenceVersion30, domain.LicenceVersion40),
-		"contact_requests.kind":       enumColumnType("takedown", "opt_out", "correction", "link_report", "general"),
-		"contact_requests.status":     enumColumnType("open", "resolved", "dismissed"),
-		"piece_secondary_kinds.kind":  pieceKinds,
-		"piece_aliases.kind":          pieceAliasKinds,
-		"piece_terms.part":            parts,
-		"piece_relations.type":        pieceRelationTypes,
-		"piece_credits.role":          creditRoles,
-		"piece_credits.attribution":   attributions,
-		"piece_credits.certainty":     certainties,
-		"piece_credits.part":          parts,
-		"conservation_history.status": conservationStatuses,
-		"links.place_type":            placeTypes,
-		"links.liveness":              liveness,
-		"link_attachments.role":       linkRoles,
+		"contact_requests.kind":      enumColumnType("takedown", "opt_out", "correction", "link_report", "general"),
+		"contact_requests.status":    enumColumnType("open", "resolved", "dismissed"),
+		"piece_aliases.kind":         pieceAliasKinds,
+		"piece_credits.role":         creditRoles,
+		"piece_credits.attribution":  attributions,
+		"piece_credits.certainty":    certainties,
+		"links.place_type":           placeTypes,
+		"links.liveness":             liveness,
+		"link_attachments.role":      linkRoles,
 	}
 
 	db := mysqltest.NewDatabase(t)
@@ -176,7 +145,7 @@ const (
 type catalogueRows struct {
 	term, affiliation, otherTerm         int64
 	person, otherPerson                  int64
-	piece, otherPiece                    int64
+	piece                                int64
 	collection, link, event, performance int64
 }
 
@@ -195,16 +164,13 @@ func seedCatalogue(t *testing.T, db *sql.DB) catalogueRows {
 		"VALUES ('wren-of-the-vale', 'Wren of the Vale', 'Wren of the Vale', 'W', 'community_bard')")
 	r.otherPerson = insertRow(t, db, "INSERT INTO persons (slug, name, sort_name, sort_letter, kind) "+
 		"VALUES ('the-lantern-singers', 'The Lantern Singers', 'Lantern Singers', 'L', 'group')")
-	r.piece = insertRow(t, db, "INSERT INTO pieces (slug, title, sort_title, sort_letter, kind, licensing_status, "+
-		"licence, period_start, period_end) VALUES ('the-copper-kettle', 'The Copper Kettle', 'Copper Kettle', 'C', "+
-		"'song', 'known', 'cc_by', 1500, 1500)")
-	r.otherPiece = insertRow(t, db, "INSERT INTO pieces (slug, title, sort_title, sort_letter, kind) "+
-		"VALUES ('ballad-of-grey-hill', 'Ballad of Grey Hill', 'Ballad of Grey Hill', 'B', 'poem')")
+	r.piece = insertRow(t, db, "INSERT INTO pieces (slug, title, sort_title, sort_letter, kind) "+
+		"VALUES ('the-copper-kettle', 'The Copper Kettle', 'Copper Kettle', 'C', 'song')")
 	r.collection = insertRow(t, db, "INSERT INTO collections (name, sort_name, sort_letter, kind) "+
 		"VALUES ('Fireside Songbook', 'Fireside Songbook', 'F', 'songbook_pdf')")
 	r.link = insertRow(t, db, "INSERT INTO links (url, normalized_url, collection_id) "+
 		"VALUES ('https://example.org/Kettle', 'https://example.org/Kettle', ?)", r.collection)
-	r.event = insertRow(t, db, "INSERT INTO events (slug, name, kind) VALUES ('harvest-revel', 'Harvest Revel', 'event')")
+	r.event = insertRow(t, db, "INSERT INTO events (slug, name) VALUES ('harvest-revel', 'Harvest Revel')")
 	r.performance = insertRow(t, db, "INSERT INTO performances (link_id, piece_id, event_id, description_verbatim) "+
 		"VALUES (?, ?, ?, 'Sung at the revel')", r.link, r.piece, r.event)
 
@@ -220,10 +186,6 @@ func seedCatalogue(t *testing.T, db *sql.DB) catalogueRows {
 		"VALUES (?, ?, 'performance', 0)", r.link, r.otherPerson)
 	insertRow(t, db, "INSERT INTO performance_performers (performance_id, person_id, position) VALUES (?, ?, 0)",
 		r.performance, r.otherPerson)
-	insertRow(t, db, "INSERT INTO person_relations (from_person_id, to_person_id, type) VALUES (?, ?, 'member_of')",
-		r.person, r.otherPerson)
-	insertRow(t, db, "INSERT INTO piece_relations (from_piece_id, to_piece_id, type) VALUES (?, ?, 'variant_of')",
-		r.otherPiece, r.piece)
 
 	return r
 }
@@ -261,14 +223,14 @@ func TestMigrations_Constraints(t *testing.T) {
 		{
 			name: "named credit without a person",
 			query: "INSERT INTO piece_credits (piece_id, role, attribution, position) " +
-				"VALUES (?, 'music', 'named', 2)",
+				"VALUES (?, 'tune', 'named', 2)",
 			args: []any{r.piece},
 			want: errCheckConstraintViolated,
 		},
 		{
 			name: "traditional credit with a person",
 			query: "INSERT INTO piece_credits (piece_id, person_id, role, attribution, position) " +
-				"VALUES (?, ?, 'music', 'traditional', 2)",
+				"VALUES (?, ?, 'tune', 'traditional', 2)",
 			args: []any{r.piece, r.person},
 			want: errCheckConstraintViolated,
 		},
@@ -284,36 +246,6 @@ func TestMigrations_Constraints(t *testing.T) {
 				"VALUES (?, ?, ?, 'official', 1)",
 			args: []any{r.link, r.piece, r.person},
 			want: errCheckConstraintViolated,
-		},
-		{
-			name:  "person related to themself",
-			query: "INSERT INTO person_relations (from_person_id, to_person_id, type) VALUES (?, ?, 'same_as')",
-			args:  []any{r.person, r.person},
-			want:  errCheckConstraintViolated,
-		},
-		{
-			name:  "piece related to itself",
-			query: "INSERT INTO piece_relations (from_piece_id, to_piece_id, type) VALUES (?, ?, 'setting_of')",
-			args:  []any{r.piece, r.piece},
-			want:  errCheckConstraintViolated,
-		},
-		{
-			name:  "period ending before it starts",
-			query: "UPDATE pieces SET period_start = 1600, period_end = 1599 WHERE id = ?",
-			args:  []any{r.piece},
-			want:  errCheckConstraintViolated,
-		},
-		{
-			name:  "licence with unknown licensing",
-			query: "UPDATE pieces SET licence = 'pd' WHERE id = ?",
-			args:  []any{r.otherPiece},
-			want:  errCheckConstraintViolated,
-		},
-		{
-			name:  "licensing made unknown under a licence",
-			query: "UPDATE pieces SET licensing_status = 'unknown' WHERE id = ?",
-			args:  []any{r.piece},
-			want:  errCheckConstraintViolated,
 		},
 		{
 			name:  "duplicate normalized URL",
@@ -340,7 +272,7 @@ func TestMigrations_Constraints(t *testing.T) {
 		},
 		{
 			name:  "duplicate event slug",
-			query: "INSERT INTO events (slug, name, kind) VALUES ('harvest-revel', 'Harvest Revel Hall', 'venue')",
+			query: "INSERT INTO events (slug, name) VALUES ('harvest-revel', 'Harvest Revel Hall')",
 			want:  errDuplicateEntry,
 		},
 		{
@@ -393,7 +325,7 @@ func TestMigrations_Constraints(t *testing.T) {
 		{
 			name: "credit to a missing person",
 			query: "INSERT INTO piece_credits (piece_id, person_id, role, attribution, position) " +
-				"VALUES (?, ?, 'music', 'named', 2)",
+				"VALUES (?, ?, 'tune', 'named', 2)",
 			args: []any{r.piece, r.otherPerson + 1000},
 			want: errNoReferencedRow,
 		},
@@ -425,7 +357,7 @@ func TestMigrations_ConstraintsAllowCascades(t *testing.T) {
 
 	_, err = db.ExecContext(ctx, "DELETE FROM pieces WHERE id = ?", r.piece)
 	require.NoError(t, err)
-	for _, table := range []string{"piece_terms", "piece_credits", "piece_relations", "performances"} {
+	for _, table := range []string{"piece_terms", "piece_credits", "performances"} {
 		var count int
 		require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count))
 		assert.Zero(t, count, "table [%s]", table)

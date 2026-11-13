@@ -14,7 +14,7 @@ const wrenSlug, ashSlug = "wren", "ash"
 // editorSlugs are slugs of every entity the full documents reference.
 func editorSlugs() domain.Slugs {
 	return domain.Slugs{
-		Pieces:  map[int64]string{1: "a-song", 9: "kettle-variant"},
+		Pieces:  map[int64]string{1: "a-song"},
 		Persons: map[int64]string{5: wrenSlug, 6: ashSlug},
 		Terms:   map[int64]string{1: "weapons", 2: "calontir", 3: "drinking-songs", 4: "merry", 11: "sca"},
 		Events:  map[int64]string{7: "revel"},
@@ -61,9 +61,9 @@ func TestEditorPieceDocument_JSONAndReferences(t *testing.T) {
 	e := fullPieceDocument().ToEditor(editorSlugs())
 	data, err := json.Marshal(e.Credits[0])
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"person_slug":"wren","role":"lyrics","attribution":"named","certainty":"probable",
-		"part":"verses","note":"Verse 3 only"}`, string(data))
-	assert.Equal(t, domain.SlugReferences{Pieces: []string{"kettle-variant"}, Persons: []string{wrenSlug, wrenSlug, ashSlug},
+	assert.JSONEq(t, `{"person_slug":"wren","role":"lyrics","attribution":"named","certainty":"probable"}`,
+		string(data))
+	assert.Equal(t, domain.SlugReferences{Persons: []string{wrenSlug, wrenSlug, ashSlug},
 		Terms: []string{"drinking-songs", "merry"}, Events: []string{"revel"}}, e.References())
 }
 
@@ -80,11 +80,11 @@ func TestToEditor_LeavesOutReferencesWithoutSlug(t *testing.T) {
 
 func TestFromEditor_UnknownSlug(t *testing.T) {
 	e := fullPieceDocument().ToEditor(editorSlugs())
-	e.Terms[1].TermSlug = "no-such-term"
+	e.TermSlugs[1] = "no-such-term"
 	e.Links[0].Performances[0].PerformerSlugs[0] = "nobody"
 
 	_, problems := e.FromEditor(editorIDs())
-	assert.Equal(t, []domain.Problem{problem("terms[1].term_slug", "unknown_reference"),
+	assert.Equal(t, []domain.Problem{problem("term_slugs[1]", "unknown_reference"),
 		problem("links[0].performances[0].performer_slugs[0]", "unknown_reference")}, problems)
 }
 

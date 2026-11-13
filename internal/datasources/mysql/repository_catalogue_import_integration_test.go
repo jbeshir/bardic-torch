@@ -66,7 +66,6 @@ func importRowCounts(t *testing.T, imp domain.CatalogueImport) map[string]int {
 	}
 	for _, t := range imp.Terms {
 		revision(t.Revision)
-		n["term_aliases"] += len(t.Doc.Aliases)
 	}
 	for _, c := range imp.Collections {
 		revision(c.Revision)
@@ -80,7 +79,6 @@ func importRowCounts(t *testing.T, imp domain.CatalogueImport) map[string]int {
 		n["person_aliases"] += len(d.Aliases)
 		n["person_roles"] += len(d.Roles)
 		n["person_affiliations"] += len(d.AffiliationIDs)
-		n["person_relations"] += len(d.Relations)
 		for _, l := range d.Links {
 			attach(l.DocLink)
 			for _, perf := range l.Performances {
@@ -91,14 +89,9 @@ func importRowCounts(t *testing.T, imp domain.CatalogueImport) map[string]int {
 	for _, p := range imp.Pieces {
 		revision(p.Revision)
 		d := p.Doc
-		n["piece_secondary_kinds"] += len(d.SecondaryKinds)
 		n["piece_aliases"] += len(d.Aliases)
-		n["piece_terms"] += len(d.Terms)
-		n["piece_relations"] += len(d.Relations)
+		n["piece_terms"] += len(d.TermIDs)
 		n["piece_credits"] += len(d.Credits)
-		if d.Conservation.Status != domain.ConservationStatusUnassessed {
-			n["conservation_history"]++
-		}
 		for _, l := range d.Links {
 			attach(l.DocLink)
 			for _, perf := range l.Performances {

@@ -2,9 +2,7 @@ package mysql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
@@ -71,24 +69,18 @@ const (
 	pieceKindMatch   sqlFragment = "kind_match"
 	pieceStatusMatch sqlFragment = "status_match"
 	pieceItemsSelect sqlFragment = " SELECT " + executionTimeHint +
-		" c.slug, c.title, c.kind, c.conservation_status, c.is_stub, " +
-		"(SELECT GROUP_CONCAT(sk.kind ORDER BY sk.kind SEPARATOR ',') FROM piece_secondary_kinds sk " +
-		"WHERE sk.piece_id = c.id) FROM candidates c WHERE TRUE"
+		" c.slug, c.title, c.kind, c.conservation_status, c.is_stub FROM candidates c WHERE TRUE"
 	pieceTermCounts sqlFragment = " UNION ALL SELECT 'term', t.slug, 0, COUNT(DISTINCT c.id) FROM candidates c " +
 		"JOIN piece_terms pt ON pt.piece_id = c.id JOIN term_ancestors ta ON ta.descendant_id = pt.term_id" +
 		publicDescendantJoin + " JOIN terms t ON t.id = ta.ancestor_id WHERE TRUE"
 	pieceTermGroup  sqlFragment = " GROUP BY t.id, t.slug"
-	pieceKindCounts sqlFragment = " UNION ALL SELECT 'kind', k.kind, k.ordinal, COUNT(DISTINCT c.id) " +
-		"FROM candidates c JOIN (SELECT id AS piece_id, kind, kind + 0 AS ordinal FROM pieces " +
-		"UNION ALL SELECT piece_id, kind, kind + 0 FROM piece_secondary_kinds) k ON k.piece_id = c.id WHERE TRUE"
-	pieceKindGroup    sqlFragment = " GROUP BY k.kind, k.ordinal"
+	pieceKindCounts sqlFragment = " UNION ALL SELECT 'kind', c.kind, c.kind + 0, COUNT(*) FROM candidates c " +
+		"WHERE TRUE"
+	pieceKindGroup    sqlFragment = " GROUP BY c.kind"
 	pieceStatusCounts sqlFragment = " UNION ALL SELECT 'conservation_status', c.conservation_status, " +
 		"c.conservation_status + 0, COUNT(*) FROM candidates c WHERE TRUE"
 	pieceStatusGroup sqlFragment = " GROUP BY c.conservation_status"
 )
-
-// secondaryKindSeparator separates the secondary kinds the items statement aggregates with GROUP_CONCAT.
-const secondaryKindSeparator = ","
 
 // facetMatch returns the name of the candidates column saying whether a candidate matches the terms of facet.
 func facetMatch(facet domain.Facet) sqlFragment {
@@ -103,8 +95,6 @@ func facetMatch(facet domain.Facet) sqlFragment {
 		return "facet_language"
 	case domain.FacetLegendaria:
 		return "facet_legendaria"
-	case domain.FacetForm:
-		return "facet_form"
 	case domain.FacetOrigin:
 		return "facet_origin"
 	case domain.FacetOther:
@@ -167,11 +157,9 @@ func (ps pieceSearch) writeWith(s *statement) {
 		s.write(")) AS ", facetMatch(group.facet))
 	}
 	if len(q.Kinds) > 0 {
-		s.write(", (p.kind IN (")
+		s.write(", p.kind IN (")
 		list(s, q.Kinds)
-		s.write(") OR EXISTS (SELECT 1 FROM piece_secondary_kinds sk WHERE sk.piece_id = p.id AND sk.kind IN (")
-		list(s, q.Kinds)
-		s.write("))) AS ", pieceKindMatch)
+		s.write(") AS ", pieceKindMatch)
 	}
 	if len(q.ConservationStatuses) > 0 {
 		s.write(", p.conservation_status IN (")
@@ -192,9 +180,8 @@ func (ps pieceSearch) writeWith(s *statement) {
 	s.write(")")
 }
 
-// itemsStatement selects the page of matching pieces: (slug, title, kind, conservation_status, is_stub,
-// secondary kinds as a comma-separated list in the ENUM's order, or NULL), ordered by score if by relevance,
-// then sort title and ID.
+// itemsStatement selects the page of matching pieces: (slug, title, kind, conservation_status, is_stub), ordered
+// by score if by relevance, then sort title and ID.
 func (ps pieceSearch) itemsStatement() *statement {
 	s := &statement{}
 	ps.writeWith(s)
@@ -214,7 +201,7 @@ func (ps pieceSearch) itemsStatement() *statement {
 
 // countsStatement selects every count of the search as rows (dimension, value, n): the total; for each public
 // term of a piece facet, the matching pieces tagged with it or a descendant, ignoring the search's terms of that
-// facet; and likewise by kind (primary or secondary), conservation status and sort letter, each ignoring its own
+// facet; and likewise by kind, conservation status and sort letter, each ignoring its own
 // filter. Each dimension's rows are in order: terms by slug, kinds and statuses in their ENUMs' order, letters
 // alphabetically after "0".
 func (ps pieceSearch) countsStatement() *statement {
@@ -260,19 +247,10 @@ func (c *catalogueReader) pieceSearchItems(ctx context.Context, s *statement) []
 		var kind queries.PiecesKind
 		var status queries.PiecesConservationStatus
 		var isStub bool
-		var secondary sql.NullString
-		if err := scan(&slug, &title, &kind, &status, &isStub, &secondary); err != nil {
+		if err := scan(&slug, &title, &kind, &status, &isStub); err != nil {
 			return err
 		}
-
-		var kinds []domain.PieceKind
-		if secondary.Valid {
-			for _, k := range strings.Split(secondary.String, secondaryKindSeparator) {
-				kinds = append(kinds, enumOf[domain.PieceKind](c, queries.PiecesKind(k)))
-			}
-		}
-		pieces = append(pieces, c.pieceSummary(pieceExtras{kinds: map[string][]domain.PieceKind{slug: kinds}}, slug,
-			title, kind, status, isStub))
+		pieces = append(pieces, c.pieceSummary(nil, slug, title, kind, status, isStub))
 		return nil
 	})
 

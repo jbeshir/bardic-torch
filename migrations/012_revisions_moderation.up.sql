@@ -24,10 +24,6 @@ ALTER TABLE `links`
     ADD INDEX `idx_check_due` (`is_hidden`, `last_checked_at`, `id`),
     ADD INDEX `idx_archive_due` (`is_hidden`, `archive_checked_at`, `id`);
 
--- The version of a Creative Commons licence. Reads show it only beside a cc_* licence.
-ALTER TABLE `pieces`
-    ADD COLUMN `licence_version` ENUM('1.0', '2.0', '2.5', '3.0', '4.0') NULL AFTER `licence`;
-
 CREATE TABLE `contact_requests` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `kind` ENUM('takedown', 'opt_out', 'correction', 'link_report', 'general') NOT NULL,

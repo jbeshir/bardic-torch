@@ -32,8 +32,7 @@ func (r *Repository) ListPublicCollections(
 // writeCollectionListWith writes the WITH clause defining candidates: every public collection of the query's
 // kinds, with a letter_match column if the query has a letter.
 func writeCollectionListWith(s *statement, query datasources.CollectionQuery) {
-	s.write("WITH candidates AS (SELECT col.id, col.name, col.sort_name, col.sort_letter, col.kind, col.url, " +
-		"col.is_bardic_resource")
+	s.write("WITH candidates AS (SELECT col.id, col.name, col.sort_name, col.sort_letter, col.kind, col.url")
 	writeLetterMatch(s, "col.sort_letter", query.Letter)
 	s.write(" FROM collections col WHERE col.current_revision_id IS NOT NULL")
 	if len(query.Kinds) > 0 {
@@ -44,13 +43,12 @@ func writeCollectionListWith(s *statement, query datasources.CollectionQuery) {
 	s.write(")")
 }
 
-// collectionListItemsStatement selects the page of matching collections: (id, name, kind, url,
-// is_bardic_resource), by sort name and ID.
+// collectionListItemsStatement selects the page of matching collections: (id, name, kind, url), by sort name and
+// ID.
 func collectionListItemsStatement(query datasources.CollectionQuery) *statement {
 	s := &statement{}
 	writeCollectionListWith(s, query)
-	s.write(" SELECT ", executionTimeHint, " c.id, c.name, c.kind, c.url, c.is_bardic_resource "+
-		"FROM candidates c WHERE TRUE")
+	s.write(" SELECT ", executionTimeHint, " c.id, c.name, c.kind, c.url FROM candidates c WHERE TRUE")
 	if query.Letter != nil {
 		s.write(" AND c.", letterMatch)
 	}
@@ -76,11 +74,10 @@ func (c *catalogueReader) collectionListItems(ctx context.Context, s *statement)
 		var name string
 		var kind queries.CollectionsKind
 		var url sql.NullString
-		var isBardicResource bool
-		if err := scan(&id, &name, &kind, &url, &isBardicResource); err != nil {
+		if err := scan(&id, &name, &kind, &url); err != nil {
 			return err
 		}
-		collections = append(collections, c.collectionSummary(c.signedID(id), name, kind, url, isBardicResource))
+		collections = append(collections, c.collectionSummary(c.signedID(id), name, kind, url))
 		return nil
 	})
 

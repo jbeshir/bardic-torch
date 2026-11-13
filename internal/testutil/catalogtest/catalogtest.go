@@ -15,7 +15,7 @@
 //	kettle := c.Piece(catalogtest.Piece{
 //		Doc: domain.PieceDocument{
 //			Title: "The Copper Kettle",
-//			Terms: []domain.DocPieceTerm{{TermID: swords.ID, IsPrimary: true}},
+//			TermIDs: []int64{swords.ID},
 //			Credits: []domain.DocCredit{{PersonID: &wren.ID, Role: domain.CreditRoleLyrics}},
 //		},
 //		SortTitle: "Copper Kettle",
@@ -85,30 +85,20 @@ type Person struct {
 	Unapproved bool
 }
 
-// Piece is a piece to seed. Doc.Kind defaults to song, Doc.Conservation.Status to unassessed and
+// Piece is a piece to seed. Doc.Kind defaults to song, Doc.ConservationStatus to unassessed and
 // Doc.LicensingStatus to unknown; Slug defaults to domain.Slugify(Doc.Title), SortTitle to
 // domain.SortTitle(Doc.Title) and SortLetter to domain.SortLetter(SortTitle). Credits default to certainty
 // certain and attribution named.
 type Piece struct {
-	Doc                 domain.PieceDocument
-	Slug                string
-	SortTitle           string
-	SortLetter          string
-	ConservationHistory []ConservationEntry
-	Unapproved          bool
+	Doc        domain.PieceDocument
+	Slug       string
+	SortTitle  string
+	SortLetter string
+	Unapproved bool
 }
 
-// ConservationEntry is a conservation_history row. At defaults to the time of the first default revision.
-type ConservationEntry struct {
-	Status    domain.ConservationStatus
-	Reason    string
-	SourceURL *string
-	At        time.Time
-}
-
-// Collection is a collection to seed. Doc.Kind defaults to other and Doc.Enumerable to unknown, SortName to
-// domain.SortTitle(Doc.Name) and SortLetter to domain.SortLetter(SortName). Doc.IsBardicResource is written as
-// given.
+// Collection is a collection to seed. Doc.Kind defaults to website, SortName to domain.SortTitle(Doc.Name) and
+// SortLetter to domain.SortLetter(SortName).
 type Collection struct {
 	Doc        domain.CollectionDocument
 	SortName   string
@@ -116,7 +106,7 @@ type Collection struct {
 	Unapproved bool
 }
 
-// Event is an event or venue to seed. Doc.Kind defaults to event and Slug to domain.Slugify(Doc.Name).
+// Event is an event to seed. Slug defaults to domain.Slugify(Doc.Name).
 type Event struct {
 	Doc        domain.EventDocument
 	Slug       string
@@ -148,7 +138,7 @@ type LinkState struct {
 	IsHidden      bool
 }
 
-// Term seeds a term with its aliases and closure rows.
+// Term seeds a term with its closure rows.
 func (c *Catalog) Term(f Term) Ref {
 	doc := f.Doc
 	doc.SchemaVersion = domain.DocumentSchemaVersion
@@ -160,9 +150,6 @@ func (c *Catalog) Term(f Term) Ref {
 		ref.ID = w.exec("INSERT INTO terms (facet, name, display_name, slug, parent_id, related_affiliation_id, "+
 			"description_md, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", doc.Facet, doc.Name, doc.DisplayName,
 			ref.Slug, doc.ParentID, doc.RelatedAffiliationID, doc.DescriptionMD, doc.Position)
-		for _, alias := range doc.Aliases {
-			w.exec("INSERT INTO term_aliases (term_id, name) VALUES (?, ?)", ref.ID, alias)
-		}
 		// The closure: the term itself at depth 0 and each ancestor, found through parent_id, one level deeper.
 		w.exec("INSERT INTO term_ancestors (ancestor_id, descendant_id, depth) "+
 			"WITH RECURSIVE up (id, depth) AS ("+
@@ -176,7 +163,7 @@ func (c *Catalog) Term(f Term) Ref {
 	return ref
 }
 
-// Person seeds a person with their aliases, roles, affiliations, outgoing relations and links.
+// Person seeds a person with their aliases, roles, affiliations and links.
 func (c *Catalog) Person(f Person) Ref {
 	doc := f.Doc
 	doc.SchemaVersion = domain.DocumentSchemaVersion
@@ -188,11 +175,10 @@ func (c *Catalog) Person(f Person) Ref {
 	sortLetter := orDefault(f.SortLetter, string(domain.SortLetter(sortName)))
 
 	c.write(func(w writer) {
-		ref.ID = w.exec("INSERT INTO persons (slug, name, sort_name, sort_letter, kind, status, status_date, "+
-			"status_source_url, pronouns, notes_md, licensing_notes_md, licensing_status, is_stub) "+
-			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ref.Slug, doc.Name, sortName, sortLetter, doc.Kind,
-			doc.Status, dateValue(doc.StatusDate), doc.StatusSourceURL, doc.Pronouns, doc.NotesMD, doc.LicensingNotesMD,
-			doc.LicensingStatus, doc.IsStub)
+		ref.ID = w.exec("INSERT INTO persons (slug, name, sort_name, sort_letter, kind, status, notes_md, "+
+			"licensing_notes_md, licensing_status, is_stub) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ref.Slug, doc.Name,
+			sortName, sortLetter, doc.Kind, doc.Status, doc.NotesMD, doc.LicensingNotesMD, doc.LicensingStatus,
+			doc.IsStub)
 		for _, alias := range doc.Aliases {
 			w.exec("INSERT INTO person_aliases (person_id, name, kind) VALUES (?, ?, ?)",
 				ref.ID, alias.Name, alias.Kind)
@@ -202,10 +188,6 @@ func (c *Catalog) Person(f Person) Ref {
 		}
 		for _, termID := range doc.AffiliationIDs {
 			w.exec("INSERT INTO person_affiliations (person_id, term_id) VALUES (?, ?)", ref.ID, termID)
-		}
-		for _, rel := range doc.Relations {
-			w.exec("INSERT INTO person_relations (from_person_id, to_person_id, type) VALUES (?, ?, ?)",
-				ref.ID, rel.ToPersonID, rel.Type)
 		}
 		for position, link := range doc.Links {
 			linkID := w.link(link.DocLink)
@@ -223,12 +205,12 @@ func (c *Catalog) Person(f Person) Ref {
 	return ref
 }
 
-// Piece seeds a piece with all its child rows, its conservation history and its links.
+// Piece seeds a piece with all its child rows and its links.
 func (c *Catalog) Piece(f Piece) Ref {
 	doc := f.Doc
 	doc.SchemaVersion = domain.DocumentSchemaVersion
 	doc.Kind = orDefault(doc.Kind, domain.PieceKindSong)
-	doc.Conservation.Status = orDefault(doc.Conservation.Status, domain.ConservationStatusUnassessed)
+	doc.ConservationStatus = orDefault(doc.ConservationStatus, domain.ConservationStatusUnassessed)
 	doc.LicensingStatus = orDefault(doc.LicensingStatus, domain.LicensingStatusUnknown)
 	doc.Credits = append([]domain.DocCredit(nil), doc.Credits...)
 	for i := range doc.Credits {
@@ -241,35 +223,20 @@ func (c *Catalog) Piece(f Piece) Ref {
 
 	c.write(func(w writer) {
 		ref.ID = w.exec("INSERT INTO pieces (slug, title, sort_title, sort_letter, kind, conservation_status, "+
-			"is_stub, notes_md, version_notes_md, licensing_notes_md, licensing_status, licence, licence_version, "+
-			"historical_source_md, period_start, period_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			ref.Slug, doc.Title, sortTitle, sortLetter, doc.Kind, doc.Conservation.Status, doc.IsStub, doc.NotesMD,
-			doc.VersionNotesMD, doc.LicensingNotesMD, doc.LicensingStatus, doc.Licence, doc.LicenceVersion,
-			doc.HistoricalSourceMD,
-			doc.PeriodStart, doc.PeriodEnd)
-		for _, kind := range doc.SecondaryKinds {
-			w.exec("INSERT INTO piece_secondary_kinds (piece_id, kind) VALUES (?, ?)", ref.ID, kind)
-		}
+			"is_stub, notes_md, version_notes_md, licensing_notes_md, licensing_status) "+
+			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			ref.Slug, doc.Title, sortTitle, sortLetter, doc.Kind, doc.ConservationStatus, doc.IsStub, doc.NotesMD,
+			doc.VersionNotesMD, doc.LicensingNotesMD, doc.LicensingStatus)
 		for _, alias := range doc.Aliases {
 			w.exec("INSERT INTO piece_aliases (piece_id, text, kind) VALUES (?, ?, ?)", ref.ID, alias.Text, alias.Kind)
 		}
-		for position, term := range doc.Terms {
-			w.exec("INSERT INTO piece_terms (piece_id, term_id, is_primary, part, position) VALUES (?, ?, ?, ?, ?)",
-				ref.ID, term.TermID, term.IsPrimary, term.Part, position)
-		}
-		for _, rel := range doc.Relations {
-			w.exec("INSERT INTO piece_relations (from_piece_id, to_piece_id, type) VALUES (?, ?, ?)",
-				ref.ID, rel.ToPieceID, rel.Type)
+		for position, termID := range doc.TermIDs {
+			w.exec("INSERT INTO piece_terms (piece_id, term_id, position) VALUES (?, ?, ?)", ref.ID, termID, position)
 		}
 		for position, credit := range doc.Credits {
-			w.exec("INSERT INTO piece_credits (piece_id, person_id, role, attribution, certainty, part, note, "+
-				"position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", ref.ID, credit.PersonID, credit.Role, credit.Attribution,
-				credit.Certainty, credit.Part, credit.Note, position)
-		}
-		for _, entry := range f.ConservationHistory {
-			w.exec("INSERT INTO conservation_history (piece_id, status, reason, source_url, at) "+
-				"VALUES (?, ?, ?, ?, ?)", ref.ID, entry.Status, entry.Reason, entry.SourceURL,
-				orDefault(entry.At, revisionBaseTime))
+			w.exec("INSERT INTO piece_credits (piece_id, person_id, role, attribution, certainty, position) "+
+				"VALUES (?, ?, ?, ?, ?, ?)", ref.ID, credit.PersonID, credit.Role, credit.Attribution, credit.Certainty,
+				position)
 		}
 		for position, link := range doc.Links {
 			linkID := w.link(link.DocLink)
@@ -291,33 +258,29 @@ func (c *Catalog) Piece(f Piece) Ref {
 func (c *Catalog) Collection(f Collection) Ref {
 	doc := f.Doc
 	doc.SchemaVersion = domain.DocumentSchemaVersion
-	doc.Kind = orDefault(doc.Kind, domain.CollectionKindOther)
-	doc.Enumerable = orDefault(doc.Enumerable, domain.CollectionEnumerableUnknown)
+	doc.Kind = orDefault(doc.Kind, domain.CollectionKindWebsite)
 	sortName := orDefault(f.SortName, domain.SortTitle(doc.Name))
 	sortLetter := orDefault(f.SortLetter, string(domain.SortLetter(sortName)))
 
 	var ref Ref
 	c.write(func(w writer) {
 		ref.ID = w.exec("INSERT INTO collections (name, sort_name, sort_letter, url, kind, description_md, "+
-			"region_term_id, parent_id, is_bardic_resource, enumerable) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			doc.Name, sortName, sortLetter, doc.URL, doc.Kind, doc.DescriptionMD, doc.RegionTermID, doc.ParentID,
-			doc.IsBardicResource, doc.Enumerable)
+			"region_term_id) VALUES (?, ?, ?, ?, ?, ?, ?)", doc.Name, sortName, sortLetter, doc.URL, doc.Kind,
+			doc.DescriptionMD, doc.RegionTermID)
 		ref.RevisionID = w.approve(domain.EntityTypeCollection, ref.ID, doc, f.Unapproved)
 	})
 
 	return ref
 }
 
-// Event seeds an event or venue.
+// Event seeds an event.
 func (c *Catalog) Event(f Event) Ref {
 	doc := f.Doc
 	doc.SchemaVersion = domain.DocumentSchemaVersion
-	doc.Kind = orDefault(doc.Kind, domain.EventKindEvent)
 	ref := Ref{Slug: orDefault(f.Slug, domain.Slugify(doc.Name))}
 
 	c.write(func(w writer) {
-		ref.ID = w.exec("INSERT INTO events (slug, name, kind, description_md) VALUES (?, ?, ?, ?)",
-			ref.Slug, doc.Name, doc.Kind, doc.DescriptionMD)
+		ref.ID = w.exec("INSERT INTO events (slug, name) VALUES (?, ?)", ref.Slug, doc.Name)
 		ref.RevisionID = w.approve(domain.EntityTypeEvent, ref.ID, doc, f.Unapproved)
 	})
 
@@ -485,15 +448,6 @@ func orDefault[T comparable](v, def T) T {
 	}
 
 	return v
-}
-
-// dateValue returns d as a DATE column's value: its time, or NULL for nil.
-func dateValue(d *domain.Date) any {
-	if d == nil {
-		return nil
-	}
-
-	return d.Time
 }
 
 // Import writes a whole catalogue import, as the importer's --apply does (mysql.Repository.ImportCatalogue), into

@@ -28,20 +28,10 @@ func TestScrubbedLinks_ResearchCounts(t *testing.T) {
 	assert.Empty(t, c.Dropped)
 	require.Len(t, c.Duplicates, 1)
 	assert.Equal(t, "https://history.westkingdom.org/bardic/bardic_list.php", c.Duplicates[0].NormalizedURL)
-	nested, notBardic := 0, 0
 	kinds := map[domain.CollectionKind]int{}
 	for _, r := range append(append([]CollectionRecord(nil), c.Records...), c.Duplicates...) {
-		if r.Depth > 1 {
-			nested++
-			assert.NotEmpty(t, r.ParentURL)
-		}
-		if !r.IsBardicResource {
-			notBardic++
-		}
 		kinds[r.Kind]++
 	}
-	assert.Equal(t, 2, nested)
-	assert.Equal(t, 1, notBardic)
 	assert.Equal(t, map[domain.CollectionKind]int{
 		domain.CollectionKindIndexOrLinkList: 7, domain.CollectionKindSongbookPDF: 11,
 		domain.CollectionKindSongbookWebsite: 18, domain.CollectionKindWebsite: 12,
@@ -60,7 +50,7 @@ func TestScrubbedLinks_EventsAndPerformers(t *testing.T) {
 	l, people := scrubbedLinks(t)
 
 	require.NotEmpty(t, l.Events)
-	assert.Equal(t, EventRecord{Name: greenDragon, Kind: domain.EventKindVenue, PageID: 131, Pages: l.Events[0].Pages},
+	assert.Equal(t, EventRecord{Name: greenDragon, PageID: 131, Pages: l.Events[0].Pages},
 		l.Events[0], "the Green Dragon venue page is the first event")
 	assert.NotEmpty(t, l.Events[0].Pages)
 

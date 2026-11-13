@@ -182,14 +182,6 @@ func TestTermPlan_GroupsUnderTheirBardsKingdom(t *testing.T) {
 	assert.Equal(t, CategorySCABards, terms["Placeholder Canton"].Parent)
 }
 
-func TestTermPlan_RedirectsBecomeAliases(t *testing.T) {
-	w := standardWiki()
-	w.redirectCategory("Dance", CategoryDances)
-	plan := PlanTerms(ClassifyCategories(w.dump()))
-
-	assert.Equal(t, []string{catTraditionalRedirect}, termCategories(plan)[catTraditional].Aliases)
-}
-
 func TestTermPlan_PlaceholderDropped(t *testing.T) {
 	w := standardWiki()
 	w.page(Page{Title: ash, Categories: []string{CategoryBards, catKingdomName}})
@@ -269,6 +261,5 @@ func TestTermPlan_ScrubbedCopy(t *testing.T) {
 	assert.Equal(t, domain.FacetOrigin, terms[cat13thCentury].Facet)
 	assert.Equal(t, domain.FacetTopic, terms["10th Century (Topic)"].Facet)
 	assert.Equal(t, kingdom, terms[catPatrioticKingdom].RelatedAffiliation)
-	assert.ElementsMatch(t, []string{catTraditionalRedirect, "Traditional/Folk"}, terms[catTraditional].Aliases)
 	assert.NotContains(t, terms, catKingdomName)
 }

@@ -152,41 +152,20 @@ func (c *catalogueReader) piece(ctx context.Context, slug string) domain.Piece {
 		c.fail(fmt.Errorf("fetching piece: %w", err))
 		return domain.Piece{}
 	}
-	licence := nullEnumOf[domain.Licence](c, row.Licence.PiecesLicence, row.Licence.Valid)
-	licenceVersion := nullEnumOf[domain.LicenceVersion](c, row.LicenceVersion.PiecesLicenceVersion,
-		row.LicenceVersion.Valid)
 	key := c.nullID(row.ID)
 
-	relationsTo := fetch(ctx, c, "outgoing relations", c.q.ListPublicPieceRelationsTo, row.ID)
-	relationsFrom := fetch(ctx, c, "incoming relations", c.q.ListPublicPieceRelationsFrom, row.ID)
-	slugs := []string{row.Slug}
-	for _, rel := range relationsTo {
-		slugs = append(slugs, rel.Slug)
-	}
-	for _, rel := range relationsFrom {
-		slugs = append(slugs, rel.Slug)
-	}
-	extras := c.summaryExtras(ctx, slugs)
-
 	piece := domain.Piece{
-		PieceSummary:       c.pieceSummary(extras, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub),
-		UpdatedAt:          row.UpdatedAt,
-		NotesMD:            stringPtr(row.NotesMd),
-		VersionNotesMD:     stringPtr(row.VersionNotesMd),
-		LicensingStatus:    enumOf[domain.LicensingStatus](c, row.LicensingStatus),
-		LicensingNotesMD:   stringPtr(row.LicensingNotesMd),
-		Licence:            licence,
-		LicenceVersion:     domain.VisibleLicenceVersion(licence, licenceVersion),
-		HistoricalSourceMD: stringPtr(row.HistoricalSourceMd),
-		PeriodStart:        int16Ptr(row.PeriodStart),
-		PeriodEnd:          int16Ptr(row.PeriodEnd),
-		Aliases:            c.pieceAliases(fetch(ctx, c, "aliases", c.q.ListPieceAliases, row.ID)),
-		Terms:              c.pieceTerms(fetch(ctx, c, "terms", c.q.ListPublicPieceTerms, row.ID)),
-		Credits:            c.pieceCredits(fetch(ctx, c, "credits", c.q.ListPublicPieceCredits, row.ID)),
-		Relations:          c.pieceRelations(extras, relationsTo, relationsFrom),
-		Links:              c.pieceLinks(ctx, key),
-		ConservationHistory: c.conservationHistory(
-			fetch(ctx, c, "conservation history", c.q.ListConservationHistory, row.ID)),
+		PieceSummary: c.pieceSummary(c.creditNames(ctx, []string{row.Slug}), row.Slug, row.Title, row.Kind,
+			row.ConservationStatus, row.IsStub),
+		UpdatedAt:        row.UpdatedAt,
+		NotesMD:          stringPtr(row.NotesMd),
+		VersionNotesMD:   stringPtr(row.VersionNotesMd),
+		LicensingStatus:  enumOf[domain.LicensingStatus](c, row.LicensingStatus),
+		LicensingNotesMD: stringPtr(row.LicensingNotesMd),
+		Aliases:          c.pieceAliases(fetch(ctx, c, "aliases", c.q.ListPieceAliases, row.ID)),
+		Terms:            c.pieceTerms(fetch(ctx, c, "terms", c.q.ListPublicPieceTerms, row.ID)),
+		Credits:          c.pieceCredits(fetch(ctx, c, "credits", c.q.ListPublicPieceCredits, row.ID)),
+		Links:            c.pieceLinks(ctx, key),
 	}
 
 	return piece
@@ -195,24 +174,8 @@ func (c *catalogueReader) piece(ctx context.Context, slug string) domain.Piece {
 // maxCreditNames is how many credited persons a piece summary names.
 const maxCreditNames = 5
 
-// pieceExtras are what a piece summary shows beside the piece's own row, by piece slug.
-type pieceExtras struct {
-	kinds       map[string][]domain.PieceKind
-	creditNames map[string][]string
-}
-
-// summaryExtras returns the extras of the pieces with slugs: the secondary kinds in PieceKind's declaration
-// order, and the names of up to five public persons credited, in credit order and without repeats.
-func (c *catalogueReader) summaryExtras(ctx context.Context, slugs []string) pieceExtras {
-	extras := pieceExtras{kinds: make(map[string][]domain.PieceKind), creditNames: c.creditNames(ctx, slugs)}
-	for _, row := range fetch(ctx, c, "secondary kinds", c.q.ListPieceSecondaryKinds, slugs) {
-		extras.kinds[row.Slug] = append(extras.kinds[row.Slug], enumOf[domain.PieceKind](c, row.Kind))
-	}
-
-	return extras
-}
-
-// creditNames returns the names of the public persons credited on the pieces with slugs, by piece slug.
+// creditNames returns the names of up to five public persons credited on each of the pieces with slugs, in credit
+// order and without repeats, by piece slug.
 func (c *catalogueReader) creditNames(ctx context.Context, slugs []string) map[string][]string {
 	names := make(map[string][]string)
 	seen := make(map[[2]string]bool)
@@ -228,17 +191,16 @@ func (c *catalogueReader) creditNames(ctx context.Context, slugs []string) map[s
 	return names
 }
 
-// pieceSummary returns a public piece's summary, with its extras.
+// pieceSummary returns a public piece's summary, with its credit names among creditNames (by piece slug).
 func (c *catalogueReader) pieceSummary(
-	extras pieceExtras, slug, title string, kind queries.PiecesKind,
+	creditNames map[string][]string, slug, title string, kind queries.PiecesKind,
 	status queries.PiecesConservationStatus, isStub bool,
 ) domain.PieceSummary {
 	return domain.PieceSummary{
 		Slug:               slug,
 		Title:              title,
 		Kind:               enumOf[domain.PieceKind](c, kind),
-		SecondaryKinds:     extras.kinds[slug],
-		CreditNames:        extras.creditNames[slug],
+		CreditNames:        creditNames[slug],
 		ConservationStatus: enumOf[domain.ConservationStatus](c, status),
 		IsStub:             isStub,
 	}
@@ -259,31 +221,20 @@ func (c *catalogueReader) termSummary(slug string, facet queries.TermsFacet, dis
 	return domain.TermSummary{Slug: slug, Facet: enumOf[domain.Facet](c, facet), DisplayName: displayName}
 }
 
-// eventSummary returns the summary of a public event.
-func (c *catalogueReader) eventSummary(slug, name string, kind queries.EventsKind) domain.EventSummary {
-	return domain.EventSummary{Slug: slug, Name: name, Kind: enumOf[domain.EventKind](c, kind)}
-}
-
 // optionalEventSummary returns the summary of a public event from LEFT JOINed columns, or nil if there is none.
-func (c *catalogueReader) optionalEventSummary(
-	slug, name sql.NullString, kind queries.NullEventsKind,
-) *domain.EventSummary {
+func optionalEventSummary(slug, name sql.NullString) *domain.EventSummary {
 	if !slug.Valid {
 		return nil
 	}
-	summary := c.eventSummary(slug.String, name.String, kind.EventsKind)
 
-	return &summary
+	return &domain.EventSummary{Slug: slug.String, Name: name.String}
 }
 
 // collectionSummary returns the summary of a public collection.
 func (c *catalogueReader) collectionSummary(
-	id int64, name string, kind queries.CollectionsKind, url sql.NullString, isBardicResource bool,
+	id int64, name string, kind queries.CollectionsKind, url sql.NullString,
 ) domain.CollectionSummary {
-	return domain.CollectionSummary{
-		ID: id, Name: name, Kind: enumOf[domain.CollectionKind](c, kind), URL: stringPtr(url),
-		IsBardicResource: isBardicResource,
-	}
+	return domain.CollectionSummary{ID: id, Name: name, Kind: enumOf[domain.CollectionKind](c, kind), URL: stringPtr(url)}
 }
 
 func (c *catalogueReader) pieceAliases(rows []queries.ListPieceAliasesRow) []domain.PieceAlias {
@@ -295,14 +246,10 @@ func (c *catalogueReader) pieceAliases(rows []queries.ListPieceAliasesRow) []dom
 	return aliases
 }
 
-func (c *catalogueReader) pieceTerms(rows []queries.ListPublicPieceTermsRow) []domain.PieceTerm {
-	terms := make([]domain.PieceTerm, 0, len(rows))
+func (c *catalogueReader) pieceTerms(rows []queries.ListPublicPieceTermsRow) []domain.TermSummary {
+	terms := make([]domain.TermSummary, 0, len(rows))
 	for _, row := range rows {
-		terms = append(terms, domain.PieceTerm{
-			Term:      c.termSummary(row.Slug, row.Facet, row.DisplayName),
-			IsPrimary: row.IsPrimary,
-			Part:      nullEnumOf[domain.PiecePart](c, row.Part.PieceTermsPart, row.Part.Valid),
-		})
+		terms = append(terms, c.termSummary(row.Slug, row.Facet, row.DisplayName))
 	}
 
 	return terms
@@ -315,8 +262,6 @@ func (c *catalogueReader) pieceCredits(rows []queries.ListPublicPieceCreditsRow)
 			Role:        enumOf[domain.CreditRole](c, row.Role),
 			Attribution: enumOf[domain.Attribution](c, row.Attribution),
 			Certainty:   enumOf[domain.Certainty](c, row.Certainty),
-			Part:        nullEnumOf[domain.PiecePart](c, row.Part.PieceCreditsPart, row.Part.Valid),
-			Note:        stringPtr(row.Note),
 		}
 		if row.PersonSlug.Valid {
 			person := c.personSummary(row.PersonSlug.String, row.PersonName.String, row.PersonKind.PersonsKind,
@@ -327,31 +272,6 @@ func (c *catalogueReader) pieceCredits(rows []queries.ListPublicPieceCreditsRow)
 	}
 
 	return credits
-}
-
-// pieceRelations returns the outgoing relations, then the incoming ones. The two queries' rows have the same
-// columns.
-func (c *catalogueReader) pieceRelations(
-	extras pieceExtras,
-	to []queries.ListPublicPieceRelationsToRow,
-	from []queries.ListPublicPieceRelationsFromRow,
-) []domain.PieceRelation {
-	relations := make([]domain.PieceRelation, 0, len(to)+len(from))
-	add := func(row queries.ListPublicPieceRelationsToRow, direction domain.RelationDirection) {
-		relations = append(relations, domain.PieceRelation{
-			Type:      enumOf[domain.PieceRelationType](c, row.Type),
-			Direction: direction,
-			Piece:     c.pieceSummary(extras, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub),
-		})
-	}
-	for _, row := range to {
-		add(row, domain.RelationDirectionOutgoing)
-	}
-	for _, row := range from {
-		add(queries.ListPublicPieceRelationsToRow(row), domain.RelationDirectionIncoming)
-	}
-
-	return relations
 }
 
 // links groups attachment rows, ordered by position, into one Link per link in the order of its first
@@ -412,7 +332,7 @@ func (c *catalogueReader) pieceLinks(ctx context.Context, key sql.NullInt64) []d
 			Year:                int16Ptr(row.Year),
 			Uploader:            stringPtr(row.Uploader),
 			DescriptionVerbatim: row.DescriptionVerbatim,
-			Event:               c.optionalEventSummary(row.EventSlug, row.EventName, row.EventKind),
+			Event:               optionalEventSummary(row.EventSlug, row.EventName),
 			Performers:          performers[row.ID],
 		})
 	}
@@ -439,20 +359,6 @@ func (c *catalogueReader) performers(ctx context.Context, performanceIDs []uint6
 	return performers
 }
 
-func (c *catalogueReader) conservationHistory(rows []queries.ListConservationHistoryRow) []domain.ConservationChange {
-	history := make([]domain.ConservationChange, 0, len(rows))
-	for _, row := range rows {
-		history = append(history, domain.ConservationChange{
-			Status:    enumOf[domain.ConservationStatus](c, row.Status),
-			Reason:    row.Reason,
-			SourceURL: stringPtr(row.SourceUrl),
-			At:        row.At,
-		})
-	}
-
-	return history
-}
-
 func (c *catalogueReader) person(ctx context.Context, slug string) domain.Person {
 	row, err := c.q.GetPublicPerson(ctx, slug)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -473,9 +379,7 @@ func (c *catalogueReader) person(ctx context.Context, slug string) domain.Person
 			Kind:   enumOf[domain.PersonKind](c, row.Kind),
 			IsStub: domain.PersonIsStub(row.IsStub, status),
 		},
-		Status:          status,
-		StatusDate:      timePtr(row.StatusDate),
-		StatusSourceURL: stringPtr(row.StatusSourceUrl),
+		Status: status,
 	}
 	if status != domain.PersonStatusPrefersNoPage {
 		person.Profile = c.personProfile(ctx, row)
@@ -502,25 +406,21 @@ func (c *catalogueReader) personProfile(ctx context.Context, row queries.GetPubl
 			slugs = append(slugs, performance.PieceSlug.String)
 		}
 	}
-	extras := c.summaryExtras(ctx, slugs)
+	creditNames := c.creditNames(ctx, slugs)
 
 	links, _ := c.links(personLinkRows(fetch(ctx, c, "links", c.q.ListPublicPersonLinks, key)))
 
 	return &domain.PersonProfile{
-		Pronouns:         stringPtr(row.Pronouns),
 		NotesMD:          stringPtr(row.NotesMd),
 		LicensingStatus:  enumOf[domain.LicensingStatus](c, row.LicensingStatus),
 		LicensingNotesMD: stringPtr(row.LicensingNotesMd),
 		Aliases:          c.personAliases(fetch(ctx, c, "aliases", c.q.ListPersonAliases, row.ID)),
 		Roles:            c.personRoles(fetch(ctx, c, "roles", c.q.ListPersonRoles, row.ID)),
 		Affiliations:     c.affiliations(fetch(ctx, c, "affiliations", c.q.ListPublicPersonAffiliations, row.ID)),
-		Relations: c.personRelations(
-			fetch(ctx, c, "outgoing relations", c.q.ListPublicPersonRelationsTo, row.ID),
-			fetch(ctx, c, "incoming relations", c.q.ListPublicPersonRelationsFrom, row.ID)),
-		Links:        links,
-		Works:        c.personWorks(extras, works),
-		WorksTotal:   fetch(ctx, c, "work count", c.q.CountPublicPersonWorks, key),
-		Performances: c.personPerformances(extras, performances),
+		Links:            links,
+		Works:            c.personWorks(creditNames, works),
+		WorksTotal:       fetch(ctx, c, "work count", c.q.CountPublicPersonWorks, key),
+		Performances:     c.personPerformances(creditNames, performances),
 		PerformancesTotal: fetch(ctx, c, "performance count", c.q.CountPublicPersonPerformances,
 			queries.CountPublicPersonPerformancesParams{PerformerID: row.ID, AttachedPersonID: key}),
 	}
@@ -564,39 +464,15 @@ func (c *catalogueReader) affiliations(rows []queries.ListPublicPersonAffiliatio
 	return terms
 }
 
-// personRelations returns the outgoing relations, then the incoming ones. The two queries' rows have the same
-// columns.
-func (c *catalogueReader) personRelations(
-	to []queries.ListPublicPersonRelationsToRow, from []queries.ListPublicPersonRelationsFromRow,
-) []domain.PersonRelation {
-	relations := make([]domain.PersonRelation, 0, len(to)+len(from))
-	add := func(row queries.ListPublicPersonRelationsToRow, direction domain.RelationDirection) {
-		relations = append(relations, domain.PersonRelation{
-			Type:      enumOf[domain.PersonRelationType](c, row.Type),
-			Direction: direction,
-			Person:    c.personSummary(row.Slug, row.Name, row.Kind, row.IsStub, row.Status),
-		})
-	}
-	for _, row := range to {
-		add(row, domain.RelationDirectionOutgoing)
-	}
-	for _, row := range from {
-		add(queries.ListPublicPersonRelationsToRow(row), domain.RelationDirectionIncoming)
-	}
-
-	return relations
-}
-
 func (c *catalogueReader) personWorks(
-	extras pieceExtras, rows []queries.ListPublicPersonWorksRow,
+	creditNames map[string][]string, rows []queries.ListPublicPersonWorksRow,
 ) []domain.PersonWork {
 	works := make([]domain.PersonWork, 0, len(rows))
 	for _, row := range rows {
 		works = append(works, domain.PersonWork{
-			Piece:     c.pieceSummary(extras, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub),
+			Piece:     c.pieceSummary(creditNames, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub),
 			Role:      enumOf[domain.CreditRole](c, row.Role),
 			Certainty: enumOf[domain.Certainty](c, row.Certainty),
-			Part:      nullEnumOf[domain.PiecePart](c, row.Part.PieceCreditsPart, row.Part.Valid),
 		})
 	}
 
@@ -604,7 +480,7 @@ func (c *catalogueReader) personWorks(
 }
 
 func (c *catalogueReader) personPerformances(
-	extras pieceExtras, rows []queries.ListPublicPersonPerformancesRow,
+	creditNames map[string][]string, rows []queries.ListPublicPersonPerformancesRow,
 ) []domain.PersonPerformance {
 	performances := make([]domain.PersonPerformance, 0, len(rows))
 	for _, row := range rows {
@@ -613,11 +489,11 @@ func (c *catalogueReader) personPerformances(
 				URL: row.Url, Title: stringPtr(row.Title), Platform: stringPtr(row.Platform),
 			},
 			Year:                int16Ptr(row.Year),
-			Event:               c.optionalEventSummary(row.EventSlug, row.EventName, row.EventKind),
+			Event:               optionalEventSummary(row.EventSlug, row.EventName),
 			DescriptionVerbatim: row.DescriptionVerbatim,
 		}
 		if row.PieceSlug.Valid {
-			piece := c.pieceSummary(extras, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
+			piece := c.pieceSummary(creditNames, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
 				row.PieceConservationStatus.PiecesConservationStatus, row.PieceIsStub.Bool)
 			performance.Piece = &piece
 		}

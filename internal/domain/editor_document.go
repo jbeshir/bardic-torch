@@ -27,39 +27,19 @@ type SlugReferences struct {
 
 // EditorPieceDocument is a PieceDocument in the editor format.
 type EditorPieceDocument struct {
-	SchemaVersion      int                   `json:"schema_version"`
-	Title              string                `json:"title"`
-	Kind               PieceKind             `json:"kind"`
-	SecondaryKinds     []PieceKind           `json:"secondary_kinds"`
-	Conservation       DocConservation       `json:"conservation"`
-	IsStub             bool                  `json:"is_stub"`
-	NotesMD            *string               `json:"notes_md"`
-	VersionNotesMD     *string               `json:"version_notes_md"`
-	LicensingStatus    LicensingStatus       `json:"licensing_status"`
-	LicensingNotesMD   *string               `json:"licensing_notes_md"`
-	Licence            *Licence              `json:"licence"`
-	LicenceVersion     *LicenceVersion       `json:"licence_version"`
-	HistoricalSourceMD *string               `json:"historical_source_md"`
-	PeriodStart        *int16                `json:"period_start"`
-	PeriodEnd          *int16                `json:"period_end"`
-	Aliases            []DocPieceAlias       `json:"aliases"`
-	Terms              []EditorPieceTerm     `json:"terms"`
-	Relations          []EditorPieceRelation `json:"relations"`
-	Credits            []EditorCredit        `json:"credits"`
-	Links              []EditorPieceLink     `json:"links"`
-}
-
-// EditorPieceTerm is a DocPieceTerm in the editor format.
-type EditorPieceTerm struct {
-	TermSlug  string     `json:"term_slug"`
-	IsPrimary bool       `json:"is_primary"`
-	Part      *PiecePart `json:"part"`
-}
-
-// EditorPieceRelation is a DocPieceRelation in the editor format.
-type EditorPieceRelation struct {
-	ToPieceSlug string            `json:"to_piece_slug"`
-	Type        PieceRelationType `json:"type"`
+	SchemaVersion      int                `json:"schema_version"`
+	Title              string             `json:"title"`
+	Kind               PieceKind          `json:"kind"`
+	ConservationStatus ConservationStatus `json:"conservation_status"`
+	IsStub             bool               `json:"is_stub"`
+	NotesMD            *string            `json:"notes_md"`
+	VersionNotesMD     *string            `json:"version_notes_md"`
+	LicensingStatus    LicensingStatus    `json:"licensing_status"`
+	LicensingNotesMD   *string            `json:"licensing_notes_md"`
+	Aliases            []DocPieceAlias    `json:"aliases"`
+	TermSlugs          []string           `json:"term_slugs"`
+	Credits            []EditorCredit     `json:"credits"`
+	Links              []EditorPieceLink  `json:"links"`
 }
 
 // EditorCredit is a DocCredit in the editor format.
@@ -68,8 +48,6 @@ type EditorCredit struct {
 	Role        CreditRole  `json:"role"`
 	Attribution Attribution `json:"attribution"`
 	Certainty   Certainty   `json:"certainty"`
-	Part        *PiecePart  `json:"part"`
-	Note        *string     `json:"note"`
 }
 
 // EditorPieceLink is a DocPieceLink in the editor format.
@@ -101,54 +79,40 @@ type EditorPersonPerformance struct {
 
 // EditorPersonDocument is a PersonDocument in the editor format.
 type EditorPersonDocument struct {
-	SchemaVersion    int                    `json:"schema_version"`
-	Name             string                 `json:"name"`
-	Kind             PersonKind             `json:"kind"`
-	Status           PersonStatus           `json:"status"`
-	StatusDate       *Date                  `json:"status_date"`
-	StatusSourceURL  *string                `json:"status_source_url"`
-	Pronouns         *string                `json:"pronouns"`
-	NotesMD          *string                `json:"notes_md"`
-	LicensingStatus  LicensingStatus        `json:"licensing_status"`
-	LicensingNotesMD *string                `json:"licensing_notes_md"`
-	IsStub           bool                   `json:"is_stub"`
-	Aliases          []DocPersonAlias       `json:"aliases"`
-	Roles            []PersonRole           `json:"roles"`
-	AffiliationSlugs []string               `json:"affiliation_slugs"`
-	Relations        []EditorPersonRelation `json:"relations"`
-	Links            []EditorPersonLink     `json:"links"`
-}
-
-// EditorPersonRelation is a DocPersonRelation in the editor format.
-type EditorPersonRelation struct {
-	ToPersonSlug string             `json:"to_person_slug"`
-	Type         PersonRelationType `json:"type"`
+	SchemaVersion    int                `json:"schema_version"`
+	Name             string             `json:"name"`
+	Kind             PersonKind         `json:"kind"`
+	Status           PersonStatus       `json:"status"`
+	NotesMD          *string            `json:"notes_md"`
+	LicensingStatus  LicensingStatus    `json:"licensing_status"`
+	LicensingNotesMD *string            `json:"licensing_notes_md"`
+	IsStub           bool               `json:"is_stub"`
+	Aliases          []DocPersonAlias   `json:"aliases"`
+	Roles            []PersonRole       `json:"roles"`
+	AffiliationSlugs []string           `json:"affiliation_slugs"`
+	Links            []EditorPersonLink `json:"links"`
 }
 
 // EditorTermDocument is a TermDocument in the editor format.
 type EditorTermDocument struct {
-	SchemaVersion          int      `json:"schema_version"`
-	Facet                  Facet    `json:"facet"`
-	Name                   string   `json:"name"`
-	DisplayName            string   `json:"display_name"`
-	ParentSlug             *string  `json:"parent_slug"`
-	RelatedAffiliationSlug *string  `json:"related_affiliation_slug"`
-	DescriptionMD          *string  `json:"description_md"`
-	Position               int32    `json:"position"`
-	Aliases                []string `json:"aliases"`
+	SchemaVersion          int     `json:"schema_version"`
+	Facet                  Facet   `json:"facet"`
+	Name                   string  `json:"name"`
+	DisplayName            string  `json:"display_name"`
+	ParentSlug             *string `json:"parent_slug"`
+	RelatedAffiliationSlug *string `json:"related_affiliation_slug"`
+	DescriptionMD          *string `json:"description_md"`
+	Position               int32   `json:"position"`
 }
 
 // EditorCollectionDocument is a CollectionDocument in the editor format.
 type EditorCollectionDocument struct {
-	SchemaVersion    int                  `json:"schema_version"`
-	Name             string               `json:"name"`
-	URL              *string              `json:"url"`
-	Kind             CollectionKind       `json:"kind"`
-	DescriptionMD    *string              `json:"description_md"`
-	RegionTermSlug   *string              `json:"region_term_slug"`
-	ParentID         *int64               `json:"parent_id"`
-	IsBardicResource bool                 `json:"is_bardic_resource"`
-	Enumerable       CollectionEnumerable `json:"enumerable"`
+	SchemaVersion  int            `json:"schema_version"`
+	Name           string         `json:"name"`
+	URL            *string        `json:"url"`
+	Kind           CollectionKind `json:"kind"`
+	DescriptionMD  *string        `json:"description_md"`
+	RegionTermSlug *string        `json:"region_term_slug"`
 }
 
 // EditorEventDocument is an EventDocument in the editor format, which is the same: events reference nothing.
@@ -157,14 +121,7 @@ type EditorEventDocument EventDocument
 // ToEditor returns the piece document in the editor format.
 func (d PieceDocument) ToEditor(s Slugs) EditorPieceDocument {
 	e := copyFields[EditorPieceDocument](d)
-	for k, t := range d.Terms {
-		e.Terms[k].TermSlug = s.Terms[t.TermID]
-	}
-	e.Terms = keep(e.Terms, func(k int) bool { return e.Terms[k].TermSlug != "" })
-	for k, r := range d.Relations {
-		e.Relations[k].ToPieceSlug = s.Pieces[r.ToPieceID]
-	}
-	e.Relations = keep(e.Relations, func(k int) bool { return e.Relations[k].ToPieceSlug != "" })
+	e.TermSlugs = slugsOf(s.Terms, d.TermIDs)
 	for k, c := range d.Credits {
 		e.Credits[k].PersonSlug = slugOf(s.Persons, c.PersonID)
 	}
@@ -177,7 +134,7 @@ func (d PieceDocument) ToEditor(s Slugs) EditorPieceDocument {
 		}
 		e.Links[k].Performances = orEmpty(e.Links[k].Performances)
 	}
-	e.SecondaryKinds, e.Aliases, e.Links = orEmpty(e.SecondaryKinds), orEmpty(e.Aliases), orEmpty(e.Links)
+	e.Aliases, e.Links = orEmpty(e.Aliases), orEmpty(e.Links)
 
 	return e
 }
@@ -186,12 +143,7 @@ func (d PieceDocument) ToEditor(s Slugs) EditorPieceDocument {
 func (e EditorPieceDocument) FromEditor(ids IDs) (PieceDocument, []Problem) {
 	d := copyFields[PieceDocument](e)
 	var p problems
-	for k, t := range e.Terms {
-		d.Terms[k].TermID = p.resolve(ids.Terms, t.TermSlug, fmt.Sprintf("terms[%d].term_slug", k))
-	}
-	for k, r := range e.Relations {
-		d.Relations[k].ToPieceID = p.resolve(ids.Pieces, r.ToPieceSlug, fmt.Sprintf("relations[%d].to_piece_slug", k))
-	}
+	d.TermIDs = p.resolveAll(ids.Terms, e.TermSlugs, "term_slugs")
 	for k, c := range e.Credits {
 		d.Credits[k].PersonID = p.resolveOptional(ids.Persons, c.PersonSlug, fmt.Sprintf("credits[%d].person_slug", k))
 	}
@@ -207,13 +159,7 @@ func (e EditorPieceDocument) FromEditor(ids IDs) (PieceDocument, []Problem) {
 
 // References returns the slugs the document references.
 func (e EditorPieceDocument) References() SlugReferences {
-	var r SlugReferences
-	for _, t := range e.Terms {
-		r.Terms = append(r.Terms, t.TermSlug)
-	}
-	for _, rel := range e.Relations {
-		r.Pieces = append(r.Pieces, rel.ToPieceSlug)
-	}
+	r := SlugReferences{Terms: e.TermSlugs}
 	for _, c := range e.Credits {
 		r.Persons = appendSlug(r.Persons, c.PersonSlug)
 	}
@@ -230,10 +176,6 @@ func (e EditorPieceDocument) References() SlugReferences {
 func (d PersonDocument) ToEditor(s Slugs) EditorPersonDocument {
 	e := copyFields[EditorPersonDocument](d)
 	e.AffiliationSlugs = slugsOf(s.Terms, d.AffiliationIDs)
-	for k, r := range d.Relations {
-		e.Relations[k].ToPersonSlug = s.Persons[r.ToPersonID]
-	}
-	e.Relations = keep(e.Relations, func(k int) bool { return e.Relations[k].ToPersonSlug != "" })
 	for k, l := range d.Links {
 		for j, p := range l.Performances {
 			e.Links[k].Performances[j].EditorPerformance = p.toEditor(e.Links[k].Performances[j].EditorPerformance, s)
@@ -252,16 +194,7 @@ func (d PersonDocument) ToEditor(s Slugs) EditorPersonDocument {
 func (e EditorPersonDocument) FromEditor(ids IDs) (PersonDocument, []Problem) {
 	d := copyFields[PersonDocument](e)
 	var p problems
-	if e.AffiliationSlugs != nil {
-		d.AffiliationIDs = make([]int64, len(e.AffiliationSlugs))
-	}
-	for k, slug := range e.AffiliationSlugs {
-		d.AffiliationIDs[k] = p.resolve(ids.Terms, slug, fmt.Sprintf("affiliation_slugs[%d]", k))
-	}
-	for k, r := range e.Relations {
-		d.Relations[k].ToPersonID = p.resolve(ids.Persons, r.ToPersonSlug,
-			fmt.Sprintf("relations[%d].to_person_slug", k))
-	}
+	d.AffiliationIDs = p.resolveAll(ids.Terms, e.AffiliationSlugs, "affiliation_slugs")
 	for k, l := range e.Links {
 		for j, perf := range l.Performances {
 			path := fmt.Sprintf("links[%d].performances[%d]", k, j)
@@ -277,9 +210,6 @@ func (e EditorPersonDocument) FromEditor(ids IDs) (PersonDocument, []Problem) {
 // References returns the slugs the document references.
 func (e EditorPersonDocument) References() SlugReferences {
 	r := SlugReferences{Terms: e.AffiliationSlugs}
-	for _, rel := range e.Relations {
-		r.Persons = append(r.Persons, rel.ToPersonSlug)
-	}
 	for _, l := range e.Links {
 		for _, p := range l.Performances {
 			r.Pieces = appendSlug(r.Pieces, p.PieceSlug)
@@ -295,7 +225,6 @@ func (d TermDocument) ToEditor(s Slugs) EditorTermDocument {
 	e := copyFields[EditorTermDocument](d)
 	e.ParentSlug = slugOf(s.Terms, d.ParentID)
 	e.RelatedAffiliationSlug = slugOf(s.Terms, d.RelatedAffiliationID)
-	e.Aliases = orEmpty(e.Aliases)
 
 	return e
 }
@@ -357,12 +286,7 @@ func (p DocPerformance) toEditor(e EditorPerformance, s Slugs) EditorPerformance
 // resolvePerformance returns d, the performance's other fields, with the event and performers of e.
 func (p *problems) resolvePerformance(e EditorPerformance, d DocPerformance, ids IDs, path string) DocPerformance {
 	d.EventID = p.resolveOptional(ids.Events, e.EventSlug, path+".event_slug")
-	if e.PerformerSlugs != nil {
-		d.PerformerIDs = make([]int64, len(e.PerformerSlugs))
-	}
-	for k, slug := range e.PerformerSlugs {
-		d.PerformerIDs[k] = p.resolve(ids.Persons, slug, fmt.Sprintf("%s.performer_slugs[%d]", path, k))
-	}
+	d.PerformerIDs = p.resolveAll(ids.Persons, e.PerformerSlugs, path+".performer_slugs")
 
 	return d
 }
@@ -378,6 +302,19 @@ func (p *problems) resolve(ids map[string]int64, slug, path string) int64 {
 	p.check(ok, path, ProblemUnknownReference)
 
 	return id
+}
+
+// resolveAll is resolve for each of slugs, at path[k]; it returns nil for nil slugs.
+func (p *problems) resolveAll(ids map[string]int64, slugs []string, path string) []int64 {
+	if slugs == nil {
+		return nil
+	}
+	out := make([]int64, len(slugs))
+	for k, slug := range slugs {
+		out[k] = p.resolve(ids, slug, fmt.Sprintf("%s[%d]", path, k))
+	}
+
+	return out
 }
 
 // resolveOptional is resolve for an optional reference.

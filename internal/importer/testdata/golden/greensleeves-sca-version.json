@@ -8,71 +8,32 @@
       "schema_version": 1,
       "title": "Greensleeves (SCA Version)",
       "kind": "song",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
-      "notes_md": null,
+      "notes_md": "New words to the tune of Greensleeves.",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": null,
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": null,
-      "period_end": null,
       "aliases": [],
-      "terms": [
-        {
-          "term_id": 19,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 75,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 76,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 77,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 112,
-          "is_primary": true,
-          "part": null
-        }
-      ],
-      "relations": [
-        {
-          "to_piece_id": 99,
-          "type": "contrafactum_of"
-        }
+      "term_ids": [
+        19,
+        75,
+        76,
+        77,
+        112
       ],
       "credits": [
         {
           "person_id": null,
           "role": "lyrics",
           "attribution": "unknown",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": null,
           "role": "tune",
           "attribution": "traditional",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         }
       ],
       "links": [

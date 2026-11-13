@@ -82,15 +82,14 @@ var (
 	collection = domain.Collection{
 		CollectionSummary: domain.CollectionSummary{ID: 12, Name: "The Northmarch Songbook",
 			Kind: domain.CollectionKindSongbookPDF},
-		Enumerable: domain.CollectionEnumerableUnknown,
 	}
 	event = domain.Event{
-		EventSummary: domain.EventSummary{Slug: routeSlug, Name: "Midwinter Revel", Kind: domain.EventKindEvent},
+		EventSummary: domain.EventSummary{Slug: routeSlug, Name: "Midwinter Revel"},
 	}
 	revision = domain.EventRevision{
 		RevisionSummary: domain.RevisionSummary{ID: 42, Source: domain.RevisionSourceImport},
 		Entity:          event.EventSummary,
-		Snapshot:        domain.EventSnapshot{Name: event.Name, Kind: event.Kind},
+		Snapshot:        domain.EventSnapshot{Name: event.Name},
 	}
 )
 
@@ -109,10 +108,10 @@ type turnstilePasses struct{}
 func (turnstilePasses) VerifyTurnstile(context.Context, string) (bool, error) { return true, nil }
 
 var (
-	eventDocument = domain.EditorEventDocument{SchemaVersion: 1, Name: event.Name, Kind: event.Kind}
+	eventDocument = domain.EditorEventDocument{SchemaVersion: 1, Name: event.Name}
 	revisionList  = domain.RevisionList{Total: 1, Revisions: []domain.RevisionListItem{{ID: 51,
 		EntityType: domain.EntityTypeEvent, Entity: &domain.RevisionEntity{Slug: new(routeSlug), Name: event.Name},
-		Status: domain.RevisionStatusPending, Summary: "Describe the revel.", CreatedAt: testNow,
+		Status: domain.RevisionStatusPending, Summary: "Rename the revel.", CreatedAt: testNow,
 	}}}
 )
 
@@ -123,7 +122,7 @@ func seedRevisionView(r *fakerepo.Repo) {
 			Author: &domain.RevisionAuthor{DisplayName: "Rook"}},
 		Status:   domain.RevisionStatusPending,
 		Entity:   &event.EventSummary,
-		Snapshot: domain.EventSnapshot{Name: event.Name, Kind: event.Kind},
+		Snapshot: domain.EventSnapshot{Name: event.Name},
 		Base:     &domain.RevisionBase[domain.EventSnapshot]{ID: 42, Snapshot: revision.Snapshot},
 	}
 }
@@ -196,8 +195,7 @@ var routeTable = map[openapitest.Operation]routeRow{
 		path: "/v1/me/revisions/51", success: http.StatusOK, seed: seedRevisionView},
 	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/editable"}: editableRow("/v1/pieces/"+routeSlug+"/editable",
 		domain.PieceDocument{SchemaVersion: 1, Title: piece.Title, Kind: piece.Kind,
-			Conservation:    domain.DocConservation{Status: piece.ConservationStatus},
-			LicensingStatus: piece.LicensingStatus}.ToEditor(domain.Slugs{})),
+			ConservationStatus: piece.ConservationStatus, LicensingStatus: piece.LicensingStatus}.ToEditor(domain.Slugs{})),
 	{Method: http.MethodGet, Path: "/v1/persons/{slug}/editable"}: editableRow("/v1/persons/"+routeSlug+"/editable",
 		domain.PersonDocument{SchemaVersion: 1, Name: person.Name, Kind: person.Kind, Status: person.Status,
 			LicensingStatus: domain.LicensingStatusUnknown}.ToEditor(domain.Slugs{})),
@@ -208,10 +206,10 @@ var routeTable = map[openapitest.Operation]routeRow{
 		eventDocument),
 	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/editable"}: editableRow(
 		"/v1/collections/12/editable", domain.EditorCollectionDocument{SchemaVersion: 1, Name: collection.Name,
-			Kind: collection.Kind, Enumerable: collection.Enumerable}),
+			Kind: collection.Kind}),
 	{Method: http.MethodPost, Path: "/v1/revisions"}: {access: signedIn, path: "/v1/revisions",
-		body: `{"entity_type":"event","base_revision_id":42,"summary":"Describe the revel.","document":` +
-			`{"schema_version":1,"name":"Midwinter Revel","kind":"event","description_md":"Held at midwinter."},` +
+		body: `{"entity_type":"event","base_revision_id":42,"summary":"Rename the revel.","document":` +
+			`{"schema_version":1,"name":"Midwinter Revel"},` +
 			`"acknowledge_duplicates":false,"acknowledge_stale":false}`,
 		success: http.StatusCreated, seed: func(r *fakerepo.Repo) {
 			seedRevisionView(r)

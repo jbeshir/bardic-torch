@@ -13,16 +13,15 @@ func TestParsePiece_Kind(t *testing.T) {
 		template   string
 		categories []string
 		want       domain.PieceKind
-		secondary  []domain.PieceKind
 	}{
-		"song infobox":             {"Infobox song", pieceCategories(), domain.PieceKindSong, nil},
-		"poem infobox":             {"Infobox poem", []string{CategoryPieces, CategoryPoems}, domain.PieceKindPoem, nil},
-		"story infobox, also poem": {"Infobox story", []string{CategoryPieces, CategoryPoems, CategoryStories}, domain.PieceKindStory, []domain.PieceKind{domain.PieceKindPoem}},
-		"dance infobox":            {"Infobox dance&music", []string{CategoryPieces, CategoryDances, CategoryInstrumental}, domain.PieceKindDanceMusic, nil},
-		"dances and instrumental":  {"Infobox song", pieceCategories(CategoryDances, CategoryInstrumental), domain.PieceKindDanceMusic, []domain.PieceKind{domain.PieceKindSong}},
-		"no infobox, poem":         {"", []string{CategoryPieces, CategoryPoems}, domain.PieceKindPoem, nil},
-		"no infobox, no genre":     {"", []string{CategoryPieces}, domain.PieceKindSong, nil},
-		"no infobox, instrumental": {"", []string{CategoryPieces, CategoryInstrumental}, domain.PieceKindInstrumental, nil},
+		"song infobox":             {"Infobox song", pieceCategories(), domain.PieceKindSong},
+		"poem infobox":             {"Infobox poem", []string{CategoryPieces, CategoryPoems}, domain.PieceKindPoem},
+		"story infobox in poems":   {"Infobox story", []string{CategoryPieces, CategoryPoems, CategoryStories}, domain.PieceKindStory},
+		"dance infobox":            {"Infobox dance&music", []string{CategoryPieces, CategoryDances, CategoryInstrumental}, domain.PieceKindDanceMusic},
+		"dances and instrumental":  {"Infobox song", pieceCategories(CategoryDances, CategoryInstrumental), domain.PieceKindDanceMusic},
+		"no infobox, poem":         {"", []string{CategoryPieces, CategoryPoems}, domain.PieceKindPoem},
+		"no infobox, no genre":     {"", []string{CategoryPieces}, domain.PieceKindSong},
+		"no infobox, instrumental": {"", []string{CategoryPieces, CategoryInstrumental}, domain.PieceKindInstrumental},
 	} {
 		t.Run(name, func(t *testing.T) {
 			text := "= A Song =\n"
@@ -32,17 +31,16 @@ func TestParsePiece_Kind(t *testing.T) {
 			p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: tc.categories})
 
 			assert.Equal(t, tc.want, p.Kind)
-			assert.Equal(t, tc.secondary, p.SecondaryKinds)
 		})
 	}
 }
 
-func TestParsePiece_SecondaryInstrumental(t *testing.T) {
+func TestParsePiece_AlsoInstrumental(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil),
 		Categories: pieceCategories(CategoryInstrumental)})
 
 	assert.Equal(t, domain.PieceKindSong, p.Kind)
-	assert.Equal(t, []domain.PieceKind{domain.PieceKindInstrumental}, p.SecondaryKinds)
+	assert.True(t, p.AlsoInstrumental)
 }
 
 func TestParsePiece_TermsFromCategories(t *testing.T) {
@@ -57,34 +55,10 @@ func TestParsePiece_TermsFromCategories(t *testing.T) {
 
 	// Infobox order first (Warlike, Patriotic, Patriotic (Calontir)), then the remaining categories in order;
 	// Comedic and Welsh are in the infobox but not tagged, so they are not terms.
-	assert.Equal(t, []PieceTerm{
-		{Category: catWarlike, IsPrimary: true},
-		{Category: patriotic, IsPrimary: true},
-		{Category: catPatrioticKingdom},
-		{Category: catSCAPieces, IsPrimary: true},
-		{Category: catWar},
-	}, p.Terms)
+	assert.Equal(t, []string{catWarlike, patriotic, catPatrioticKingdom, catSCAPieces, catWar}, p.Terms)
 	assert.Equal(t, []domain.ConservationStatus{domain.ConservationStatusEndangered}, p.ConservationStatuses)
 	assert.Equal(t, domain.ConservationStatusEndangered, p.Conservation())
 	assert.Equal(t, []string{wren}, p.BardNameCategories)
-}
-
-// TestParsePiece_PartQualifiers: "(chorus tune)" scopes an origin to the chorus, as it does a credit.
-func TestParsePiece_PartQualifiers(t *testing.T) {
-	text := pieceWikitext(aSong, [][2]string{
-		{"culture", categoryLink(catWelsh) + " (" + categoryLink(catPatrioticWales) + ") (chorus tune)"},
-		{sourceParam, categoryLink(catSCAPieces) + " (verses) / " + categoryLink(catContrafacta) + " (chorus)"},
-	})
-	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text,
-		Categories: pieceCategories(catContrafacta, catPatrioticWales, catSCAPieces, catWelsh)})
-
-	part := func(p domain.PiecePart) *domain.PiecePart { return &p }
-	assert.Equal(t, []PieceTerm{
-		{Category: catWelsh, IsPrimary: true, Part: part(domain.PiecePartChorus)},
-		{Category: catPatrioticWales, IsPrimary: true, Part: part(domain.PiecePartChorus)},
-		{Category: catSCAPieces, IsPrimary: true, Part: part(domain.PiecePartVerses)},
-		{Category: catContrafacta, Part: part(domain.PiecePartChorus)},
-	}, p.Terms)
 }
 
 func TestParsePiece_RedirectCategoryResolves(t *testing.T) {
@@ -92,7 +66,7 @@ func TestParsePiece_RedirectCategoryResolves(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text,
 		Categories: pieceCategories(catTraditional, catTraditionalRedirect)})
 
-	assert.Equal(t, []PieceTerm{{Category: catTraditional, IsPrimary: true}}, p.Terms,
+	assert.Equal(t, []string{catTraditional}, p.Terms,
 		"both the redirect and its target are one term, first in infobox order")
 }
 
@@ -122,7 +96,7 @@ func TestParsePiece_RepairsMarkupBeforeParsing(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text,
 		Categories: pieceCategories(catTraditional)})
 
-	assert.Equal(t, []PieceTerm{{Category: catTraditional, IsPrimary: true}}, p.Terms)
+	assert.Equal(t, []string{catTraditional}, p.Terms)
 	names := []string{}
 	for _, param := range p.Parsed.Infoboxes[0].Params {
 		names = append(names, param.Name)
@@ -159,20 +133,11 @@ func TestScrubbedPieces_Examples(t *testing.T) {
 	for _, p := range scrubbedSite(t).Pieces() {
 		pieces[p.Title] = p
 	}
-	part := func(p domain.PiecePart) *domain.PiecePart { return &p }
-
 	black := pieces["Black Alman"]
 	assert.Equal(t, domain.PieceKindDanceMusic, black.Kind)
-	assert.Empty(t, black.SecondaryKinds)
+	assert.False(t, black.AlsoInstrumental, "dance music implies its instrumental category")
 
-	three := pieces["Three Words"]
-	assert.Contains(t, three.Terms, PieceTerm{Category: catSCAPieces, IsPrimary: true,
-		Part: part(domain.PiecePartVerses)})
-	assert.Contains(t, three.Terms, PieceTerm{Category: catContrafacta, Part: part(domain.PiecePartChorus)})
-	assert.Contains(t, three.Terms, PieceTerm{Category: catSephardic, IsPrimary: true,
-		Part: part(domain.PiecePartChorus)}, "(chorus tune): the chorus")
-
-	assert.Equal(t, []domain.PieceKind{domain.PieceKindInstrumental}, pieces["Burden of the Crown"].SecondaryKinds)
+	assert.True(t, pieces["Burden of the Crown"].AlsoInstrumental)
 	assert.Equal(t, domain.ConservationStatusCriticallyEndangered, pieces["Oathkeeping"].Conservation())
 	assert.True(t, pieces["Band of Brothers"].HadInlineLyrics)
 }

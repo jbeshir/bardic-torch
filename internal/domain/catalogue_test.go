@@ -37,8 +37,8 @@ func testParseEnum[T ~string](t *testing.T, parse func(string) (T, error), valid
 func TestParseFacet(t *testing.T) {
 	t.Parallel()
 
-	testParseEnum(t, ParseFacet, FacetMood, FacetTopic, FacetCulture, FacetLanguage, FacetLegendaria, FacetForm,
-		FacetOrigin, FacetOther, FacetAffiliation)
+	testParseEnum(t, ParseFacet, FacetMood, FacetTopic, FacetCulture, FacetLanguage, FacetLegendaria, FacetOrigin,
+		FacetOther, FacetAffiliation)
 
 	_, err := ParseFacet("kind")
 	assert.Error(t, err, "kinds are not a term facet")
@@ -50,13 +50,7 @@ func TestParseCollectionKind(t *testing.T) {
 	testParseEnum(t, ParseCollectionKind, CollectionKindIndexOrLinkList, CollectionKindSongbookPDF,
 		CollectionKindSongbookWebsite, CollectionKindWebsite, CollectionKindWikiCategory, CollectionKindWiki,
 		CollectionKindYouTubeChannel, CollectionKindYouTubePlaylist, CollectionKindGoogleDocSongbook,
-		CollectionKindBlog, CollectionKindArchivedSongbook, CollectionKindHostedDocument, CollectionKindOther)
-}
-
-func TestParseEventKind(t *testing.T) {
-	t.Parallel()
-
-	testParseEnum(t, ParseEventKind, EventKindVenue, EventKindEvent)
+		CollectionKindBlog, CollectionKindArchivedSongbook, CollectionKindHostedDocument)
 }
 
 func TestParsePersonKind(t *testing.T) {
@@ -76,7 +70,7 @@ func TestParsePieceKind(t *testing.T) {
 	t.Parallel()
 
 	testParseEnum(t, ParsePieceKind, PieceKindSong, PieceKindPoem, PieceKindStory, PieceKindDanceMusic,
-		PieceKindInstrumental, PieceKindComedy)
+		PieceKindInstrumental)
 }
 
 func TestParseConservationStatus(t *testing.T) {

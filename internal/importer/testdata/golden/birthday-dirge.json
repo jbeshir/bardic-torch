@@ -8,61 +8,35 @@
       "schema_version": 1,
       "title": "Birthday Dirge",
       "kind": "song",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
       "notes_md": "This song is known by any number of alternative names, including:\n- The Barbarian Birthday Dirge / The Barbarian Birthday Song\n- The Viking Birthday Dirge / The Viking Birthday Song\n- The Vulgar Birthday Song\n- The Mongolian Birthday Song\n- The SCA Birthday Song / The SCA Happy Birthday\n- HAPPY BIRTHDAY (THUD)",
       "version_notes_md": "There are numerous verses and numerous versions of the verses; the number of verses sung will depend on the occasion and on the tolerance of the birthday celebrant.\nAfter each 'happy birthday', it is traditional to either make a loud thud by dropping something heavy, stomp your feet, or literally say the word 'thud'.",
       "licensing_status": "unknown",
       "licensing_notes_md": "There is no known author for most of the SCA verses and they are presumed to belong to the public domain.",
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": null,
-      "period_end": null,
       "aliases": [
         {
           "text": "The Birthday Dirge",
           "kind": "alt_title"
         }
       ],
-      "terms": [
-        {
-          "term_id": 19,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 46,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 112,
-          "is_primary": true,
-          "part": null
-        }
+      "term_ids": [
+        19,
+        46,
+        112
       ],
-      "relations": [],
       "credits": [
         {
           "person_id": null,
           "role": "lyrics",
           "attribution": "unknown",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": null,
           "role": "tune",
           "attribution": "traditional",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         }
       ],
       "links": [

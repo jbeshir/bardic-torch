@@ -10,30 +10,23 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
-// dateLayout is how dates without a time are written, as OpenAPI's date format.
-const dateLayout = "2006-01-02"
-
 // Person is the JSON representation of a public person's page.
 type Person struct {
 	PersonSummary
 
-	UpdatedAt       time.Time           `json:"updated_at"`
-	Status          domain.PersonStatus `json:"status"`
-	StatusDate      *string             `json:"status_date"`
-	StatusSourceURL *string             `json:"status_source_url"`
-	Profile         *PersonProfile      `json:"profile"`
+	UpdatedAt time.Time           `json:"updated_at"`
+	Status    domain.PersonStatus `json:"status"`
+	Profile   *PersonProfile      `json:"profile"`
 }
 
 // PersonProfile is the JSON representation of everything a person's page shows beyond their identity.
 type PersonProfile struct {
-	Pronouns          *string                `json:"pronouns"`
 	NotesMD           *string                `json:"notes_md"`
 	LicensingStatus   domain.LicensingStatus `json:"licensing_status"`
 	LicensingNotesMD  *string                `json:"licensing_notes_md"`
 	Aliases           []PersonAlias          `json:"aliases"`
 	Roles             []domain.PersonRole    `json:"roles"`
 	Affiliations      []TermSummary          `json:"affiliations"`
-	Relations         []PersonRelation       `json:"relations"`
 	Links             []Link                 `json:"links"`
 	Works             []PersonWork           `json:"works"`
 	WorksTotal        int64                  `json:"works_total"`
@@ -47,19 +40,11 @@ type PersonAlias struct {
 	Kind domain.PersonAliasKind `json:"kind"`
 }
 
-// PersonRelation is the JSON representation of a relation between two persons.
-type PersonRelation struct {
-	Type      domain.PersonRelationType `json:"type"`
-	Direction domain.RelationDirection  `json:"direction"`
-	Person    PersonSummary             `json:"person"`
-}
-
 // PersonWork is the JSON representation of a person's credit on a piece.
 type PersonWork struct {
 	Piece     PieceSummary      `json:"piece"`
 	Role      domain.CreditRole `json:"role"`
 	Certainty domain.Certainty  `json:"certainty"`
-	Part      *domain.PiecePart `json:"part"`
 }
 
 // PersonPerformance is the JSON representation of a performance on a person's page.
@@ -104,36 +89,25 @@ func (c PersonGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func personFromDomain(p domain.Person) Person {
-	person := Person{
-		PersonSummary:   personSummaryFromDomain(p.PersonSummary),
-		UpdatedAt:       p.UpdatedAt,
-		Status:          p.Status,
-		StatusSourceURL: p.StatusSourceURL,
-		Profile:         optional(p.Profile, personProfileFromDomain),
+	return Person{
+		PersonSummary: personSummaryFromDomain(p.PersonSummary),
+		UpdatedAt:     p.UpdatedAt,
+		Status:        p.Status,
+		Profile:       optional(p.Profile, personProfileFromDomain),
 	}
-	if p.StatusDate != nil {
-		date := p.StatusDate.Format(dateLayout)
-		person.StatusDate = &date
-	}
-
-	return person
 }
 
 func personProfileFromDomain(p domain.PersonProfile) PersonProfile {
 	return PersonProfile{
-		Pronouns:         p.Pronouns,
 		NotesMD:          p.NotesMD,
 		LicensingStatus:  p.LicensingStatus,
 		LicensingNotesMD: p.LicensingNotesMD,
 		Aliases:          mapSlice(p.Aliases, personAliasFromDomain),
 		Roles:            nonNil(p.Roles),
 		Affiliations:     mapSlice(p.Affiliations, termSummaryFromDomain),
-		Relations: mapSlice(p.Relations, func(r domain.PersonRelation) PersonRelation {
-			return PersonRelation{Type: r.Type, Direction: r.Direction, Person: personSummaryFromDomain(r.Person)}
-		}),
-		Links: mapSlice(p.Links, linkFromDomain),
+		Links:            mapSlice(p.Links, linkFromDomain),
 		Works: mapSlice(p.Works, func(w domain.PersonWork) PersonWork {
-			return PersonWork{Piece: pieceSummaryFromDomain(w.Piece), Role: w.Role, Certainty: w.Certainty, Part: w.Part}
+			return PersonWork{Piece: pieceSummaryFromDomain(w.Piece), Role: w.Role, Certainty: w.Certainty}
 		}),
 		WorksTotal: p.WorksTotal,
 		Performances: mapSlice(p.Performances, func(pp domain.PersonPerformance) PersonPerformance {

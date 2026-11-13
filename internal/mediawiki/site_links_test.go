@@ -170,9 +170,9 @@ func TestEvents_DedupeByFold(t *testing.T) {
 	l, _ := linksWiki(performanceWiki())
 
 	assert.Equal(t, []EventRecord{
-		{Name: greenDragon, Kind: domain.EventKindVenue, PageID: venuePageID, Pages: []string{aSong}},
-		{Name: springRevel, Kind: domain.EventKindEvent, Pages: []string{ash}},
-		{Name: "Pennsic", Kind: domain.EventKindEvent, Pages: []string{ash}},
+		{Name: greenDragon, PageID: venuePageID, Pages: []string{aSong}},
+		{Name: springRevel, Pages: []string{ash}},
+		{Name: "Pennsic", Pages: []string{ash}},
 	}, l.Events)
 }
 
@@ -182,7 +182,7 @@ func TestEvents_VenuePage(t *testing.T) {
 
 	l, _ := linksWiki(w)
 
-	assert.Equal(t, []EventRecord{{Name: greenDragon, Kind: domain.EventKindVenue, PageID: venuePageID}}, l.Events,
+	assert.Equal(t, []EventRecord{{Name: greenDragon, PageID: venuePageID}}, l.Events,
 		"a greenDragon is an event even with no performance at it")
 }
 

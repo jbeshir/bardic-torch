@@ -18,7 +18,6 @@ type PieceSummary struct {
 	Slug               string                    `json:"slug"`
 	Title              string                    `json:"title"`
 	Kind               domain.PieceKind          `json:"kind"`
-	SecondaryKinds     []domain.PieceKind        `json:"secondary_kinds"`
 	ConservationStatus domain.ConservationStatus `json:"conservation_status"`
 	IsStub             bool                      `json:"is_stub"`
 	CreditNames        []string                  `json:"credit_names"`
@@ -46,11 +45,10 @@ type CollectionRef struct {
 	Name string `json:"name"`
 }
 
-// EventSummary is the JSON representation of an event or venue another entity refers to.
+// EventSummary is the JSON representation of an event another entity refers to.
 type EventSummary struct {
-	Slug string           `json:"slug"`
-	Name string           `json:"name"`
-	Kind domain.EventKind `json:"kind"`
+	Slug string `json:"slug"`
+	Name string `json:"name"`
 }
 
 // Link is the JSON representation of a link attached to a person (the spec's PersonLink), and the common part
@@ -103,7 +101,6 @@ func pieceSummaryFromDomain(s domain.PieceSummary) PieceSummary {
 		Slug:               s.Slug,
 		Title:              s.Title,
 		Kind:               s.Kind,
-		SecondaryKinds:     nonNil(s.SecondaryKinds),
 		ConservationStatus: s.ConservationStatus,
 		IsStub:             s.IsStub,
 		CreditNames:        nonNil(s.CreditNames),
@@ -128,7 +125,7 @@ func collectionRefFromDomain(c domain.CollectionRef) CollectionRef {
 }
 
 func eventSummaryFromDomain(e domain.EventSummary) EventSummary {
-	return EventSummary{Slug: e.Slug, Name: e.Name, Kind: e.Kind}
+	return EventSummary{Slug: e.Slug, Name: e.Name}
 }
 
 func linkFromDomain(l domain.Link) Link {

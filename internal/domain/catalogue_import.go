@@ -14,9 +14,6 @@ import (
 // normalised URL: the link fields every document attaching the URL carries (one canonical set) and the
 // moderator state the import writes directly. Liveness is not imported: the wiki records none, so it is the
 // column's default (unknown).
-//
-// Conservation history follows from each piece's document: a piece whose status is not unassessed gets one
-// history row, with ImportConservationReason and the document's source, at its revision.
 type CatalogueImport struct {
 	Terms       []ImportedTerm       `json:"terms"`
 	Collections []ImportedCollection `json:"collections"`
@@ -74,7 +71,7 @@ type ImportedCollection struct {
 	Revision   ImportedRevision   `json:"revision"`
 }
 
-// ImportedEvent is an imported event or venue. Legacy is its venue page, if it has one.
+// ImportedEvent is an imported event. Legacy is its page, if it has one.
 type ImportedEvent struct {
 	ID       int64            `json:"id"`
 	Slug     string           `json:"slug"`
@@ -114,9 +111,6 @@ type ImportedLink struct {
 	Link     DocLink `json:"link"`
 	IsHidden bool    `json:"is_hidden"`
 }
-
-// ImportConservationReason is the reason of the conservation history row of an imported piece's status.
-const ImportConservationReason = "Imported from the wiki's Conservation Status category."
 
 // The neutral summaries of imported revisions. They name no one: a summary is shown on every approved revision,
 // including those of persons without a page, and nothing checks it against aliases.

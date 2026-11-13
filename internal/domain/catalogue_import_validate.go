@@ -11,8 +11,8 @@ import (
 //   - IDs are positive and unique per table (revisions across all entities), slugs are slugs and unique per table,
 //     legacy page IDs are unique per table, sort keys are set and each letter is its key's (SortLetter);
 //   - every string is valid UTF-8 in NFC, holds no control character (IsControlCharacter) and fits its column;
-//   - every reference resolves, and the parents (and related affiliations) of terms and the parents of collections
-//     come before them, so the writer can insert in list order;
+//   - every reference resolves, and the parents (and related affiliations) of terms come before them, so the
+//     writer can insert in list order;
 //   - each document link's URL normalises to a Links row whose fields it carries, roles aside;
 //   - every summary is an import summary.
 //
@@ -43,13 +43,13 @@ type importValidator struct {
 }
 
 func (v *importValidator) index() {
-	v.ctx = ValidationContext{Terms: map[int64]TermInfo{}, CollectionParents: map[int64]*int64{}}
+	v.ctx = ValidationContext{Terms: map[int64]TermInfo{}, Collections: map[int64]bool{}}
 	v.events, v.persons, v.pieces, v.links = map[int64]bool{}, map[int64]bool{}, map[int64]bool{}, map[string]DocLink{}
 	for _, t := range v.imp.Terms {
 		v.ctx.Terms[t.ID] = TermInfo{Facet: t.Doc.Facet, ParentID: t.Doc.ParentID, Name: t.Doc.Name}
 	}
 	for _, c := range v.imp.Collections {
-		v.ctx.CollectionParents[c.ID] = c.Doc.ParentID
+		v.ctx.Collections[c.ID] = true
 	}
 	for _, e := range v.imp.Events {
 		v.events[e.ID] = true
@@ -178,10 +178,6 @@ func (v *importValidator) checkCollections() error {
 		v.system(c, ids, nil, nil, nil, nil, col.Revision, col)
 		c.sortKey(col.SortName, col.SortLetter, "sort_name")
 		c.problems("doc.", col.Doc.Validate(v.context(col.ID)))
-		if col.Doc.ParentID != nil {
-			c.require(ids[*col.Doc.ParentID] && *col.Doc.ParentID != col.ID, "doc.parent_id",
-				"is not an earlier collection")
-		}
 		if c.err != nil {
 			return c.err
 		}
@@ -301,10 +297,7 @@ func (v *importValidator) checkLinks() error {
 		c.require(err != nil || !urls[u], "url", "has the normalised URL of another link")
 		urls[u] = true
 		c.require(len(l.Roles) == 0, "roles", "is set")
-		if l.CollectionID != nil {
-			_, ok := v.ctx.CollectionParents[*l.CollectionID]
-			c.require(ok, "collection_id", "is not a collection")
-		}
+		c.require(l.CollectionID == nil || v.ctx.Collections[*l.CollectionID], "collection_id", "is not a collection")
 		if c.err != nil {
 			return c.err
 		}

@@ -109,7 +109,6 @@ func (c *catalogueReader) term(ctx context.Context, slug string, members domain.
 		UpdatedAt:     row.UpdatedAt,
 		Name:          row.Name,
 		DescriptionMD: stringPtr(row.DescriptionMd),
-		Aliases:       fetch(ctx, c, "aliases", c.q.ListTermAliases, row.ID),
 		Ancestors:     c.termAncestors(fetch(ctx, c, "ancestors", c.q.ListTermAncestors, row.ID)),
 	}
 	children := fetch(ctx, c, "children", c.q.ListPublicTermChildren, c.nullID(row.ID))
@@ -167,11 +166,12 @@ func (c *catalogueReader) termPieces(
 	for _, row := range rows {
 		slugs = append(slugs, row.Slug)
 	}
-	extras := c.summaryExtras(ctx, slugs)
+	creditNames := c.creditNames(ctx, slugs)
 
 	pieces := make([]domain.PieceSummary, 0, len(rows))
 	for _, row := range rows {
-		pieces = append(pieces, c.pieceSummary(extras, row.Slug, row.Title, row.Kind, row.ConservationStatus, row.IsStub))
+		pieces = append(pieces, c.pieceSummary(creditNames, row.Slug, row.Title, row.Kind, row.ConservationStatus,
+			row.IsStub))
 	}
 
 	return pieces

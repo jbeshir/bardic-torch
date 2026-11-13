@@ -277,12 +277,12 @@ paths:
         - name: kind
           in: query
           required: false
-          description: Kinds to filter on, matching a piece's primary or secondary kinds; repeat for several.
+          description: Piece kinds to filter on; repeat for several.
           style: form
           explode: true
           schema:
             type: array
-            maxItems: 6
+            maxItems: 5
             uniqueItems: true
             items:
               $ref: "#/components/schemas/PieceKind"
@@ -359,8 +359,8 @@ paths:
         - Catalogue
       summary: Get a piece
       description: |
-        Returns a public piece with everything its page shows: classification, credits, relations, links with
-        their recorded performances, and conservation history. References to entities that are not public are
+        Returns a public piece with everything its page shows: classification, credits, and links with their
+        recorded performances. References to entities that are not public are
         left out: unapproved terms, collections and events, and credits to and performers who are unapproved. A
         person who prefers not to have a page is named without a link (`slug` null). Hidden links never appear.
         An unapproved piece is not found, exactly like an unknown one. Credentials are ignored.
@@ -487,10 +487,9 @@ paths:
         - Catalogue
       summary: Get a person
       description: |
-        Returns a public person. A person who prefers not to have a page is shown by identity only: name, kind,
-        status and its source, with `is_stub` true and `profile` null. Otherwise the profile has their
-        aliases, roles, affiliations, relations to other public persons, links,
-        works and performances. Works and performances are capped at 200 each, with totals. An unapproved person
+        Returns a public person. A person who prefers not to have a page is shown by identity only: name, kind
+        and status, with `is_stub` true and `profile` null. Otherwise the profile has their aliases, roles,
+        affiliations, links, works and performances. Works and performances are capped at 200 each, with totals. An unapproved person
         is not found, exactly like an unknown one. Credentials are ignored.
       operationId: getPerson
       security: []
@@ -513,16 +512,13 @@ paths:
                     kind: community_bard
                     is_stub: false
                     status: active
-                    status_date: null
-                    status_source_url: null
                     profile:
-                      pronouns: she/her
                       notes_md: A bard of the northern marches.
                       licensing_status: known
                       licensing_notes_md: Happy for her songs to be sung anywhere.
                       aliases:
                         - name: Wren
-                          kind: nickname
+                          kind: sca
                       roles:
                         - singer
                         - songwriter
@@ -530,20 +526,17 @@ paths:
                         - slug: northmarch
                           facet: affiliation
                           display_name: Northmarch
-                      relations: []
                       links: []
                       works:
                         - piece:
                             slug: the-copper-kettle
                             title: The Copper Kettle
                             kind: song
-                            secondary_kinds: []
                             conservation_status: low_risk
                             is_stub: false
                             credit_names: []
                           role: lyrics
                           certainty: certain
-                          part: null
                       works_total: 1
                       performances: []
                       performances_total: 0
@@ -556,8 +549,6 @@ paths:
                     kind: community_bard
                     is_stub: true
                     status: prefers_no_page
-                    status_date: "2026-03-01"
-                    status_source_url: https://example.org/requests/12
                     profile: null
         "400":
           $ref: "#/components/responses/InvalidSlug"
@@ -624,7 +615,7 @@ paths:
         - Catalogue
       summary: Get a term
       description: |
-        Returns a public term with its aliases, ancestors, public children and related affiliation, and one page
+        Returns a public term with its ancestors, public children and related affiliation, and one page
         of its members: the public pieces it or any public descendant classifies, or for an `affiliation` term,
         the public persons with a page affiliated with it or any public descendant. The other member list is
         empty. Members are ordered by sort title or sort name; `piece_count` and `person_count` are their totals.
@@ -733,7 +724,7 @@ paths:
         - Catalogue
       summary: Get a collection
       description: |
-        Returns a public collection with its public region, parent and children, and its citations: each
+        Returns a public collection with its public region and its citations: each
         visible link in the collection, once for each public piece or public person it is attached to, with the
         roles it is attached with. Citations are ordered by the piece's sort title or the person's sort name and
         capped at 200, with a total. Hidden links never appear. An unapproved collection is not
@@ -771,17 +762,11 @@ paths:
         - Catalogue
       summary: List events
       description: |
-        Lists one page of the public events and venues, by name, with how many there are in all. Unapproved
-        events are not listed. Credentials are ignored.
+        Lists one page of the public events, by name, with how many there are in all. Unapproved events are not
+        listed. Credentials are ignored.
       operationId: listEvents
       security: []
       parameters:
-        - name: kind
-          in: query
-          required: false
-          description: Only list events of this kind. Omitted, both kinds are listed.
-          schema:
-            $ref: "#/components/schemas/EventKind"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
       responses:
@@ -793,8 +778,8 @@ paths:
                 $ref: "#/components/schemas/EventList"
         "400":
           description: |
-            The `kind` is not an event kind, `limit` or `offset` is out of range, a parameter is given more than
-            once, or the query string is not validly percent-encoded; the error code is `invalid_request`.
+            The `limit` or `offset` is out of range, a parameter is given more than once, or the query string is
+            not validly percent-encoded; the error code is `invalid_request`.
           content:
             application/json:
               schema:
@@ -813,7 +798,7 @@ paths:
         - Catalogue
       summary: Get an event
       description: |
-        Returns a public event or venue with the performances recorded at it, newest year first (unknown years
+        Returns a public event with the performances recorded at it, newest year first (unknown years
         last), capped at 200, with a total. Performances on hidden links, of unapproved pieces, or recorded only
         by links of unapproved entities are left out, as are unapproved performers. A performer who prefers not to
         have a page is named without a link (`slug` null). An unapproved event is not found, exactly like an unknown
@@ -1056,9 +1041,8 @@ paths:
         names of the snapshot's top-level fields that differ from the base's, or that are not empty if there is
         no base. A view never shows the stored document as such: each reference to another entity is shown as
         that entity is now, and left out if it is not public now; links are shown as the snapshot wrote them,
-        and left out if their URL does not normalise or is a hidden link's now; credits to, performers and
-        relations of persons who are not public now are left out, and persons who prefer not to have a page now
-        are named without a link (`slug` null); of a person who prefers not to have a page, now or in the
+        and left out if their URL does not normalise or is a hidden link's now; credits to and performers who
+        are not public now are left out, and persons who prefer not to have a page now are named without a link (`slug` null); of a person who prefers not to have a page, now or in the
         snapshot, only the identity is shown. System fields are never shown. `entity_type` says which of
         the five shapes the revision has. A revision that is not approved, or whose entity is not public, is not
         found, exactly like an unknown one. Credentials are ignored.
@@ -1491,7 +1475,7 @@ paths:
       tags:
         - Revisions
       summary: Get an event's editable document
-      description: As `GET /v1/pieces/{slug}/editable`, for a public event or venue.
+      description: As `GET /v1/pieces/{slug}/editable`, for a public event.
       operationId: getEditableEvent
       parameters:
         - $ref: "#/components/parameters/Slug"
@@ -2351,7 +2335,6 @@ components:
             - slug: the-copper-kettle
               title: The Copper Kettle
               kind: song
-              secondary_kinds: [dance_music]
               conservation_status: endangered
               is_stub: false
               credit_names: []
@@ -2388,7 +2371,7 @@ components:
             $ref: "#/components/schemas/TermCount"
         kinds:
           type: array
-          description: Kinds, in the enum's order, counting pieces of the kind as primary or secondary kind.
+          description: Kinds, in the enum's order.
           items:
             $ref: "#/components/schemas/PieceKindCount"
         conservation_statuses:
@@ -2527,7 +2510,6 @@ components:
               name: The Northmarch Songbook
               kind: songbook_pdf
               url: https://example.org/songbook.pdf
-              is_bardic_resource: true
           total: 1
           letters:
             - letter: N
@@ -2537,7 +2519,7 @@ components:
       type: object
       description: A public piece, as other entities refer to it.
       additionalProperties: false
-      required: [slug, title, kind, secondary_kinds, conservation_status, is_stub, credit_names]
+      required: [slug, title, kind, conservation_status, is_stub, credit_names]
       properties:
         slug:
           type: string
@@ -2550,11 +2532,6 @@ components:
             - The Copper Kettle
         kind:
           $ref: "#/components/schemas/PieceKind"
-        secondary_kinds:
-          type: array
-          description: Further kinds the piece also is, in the enum's order.
-          items:
-            $ref: "#/components/schemas/PieceKind"
         conservation_status:
           $ref: "#/components/schemas/ConservationStatus"
         is_stub:
@@ -2575,7 +2552,6 @@ components:
         - slug: the-copper-kettle
           title: The Copper Kettle
           kind: song
-          secondary_kinds: [dance_music]
           conservation_status: endangered
           is_stub: false
           credit_names: [Wren of the Vale]
@@ -2655,9 +2631,9 @@ components:
 
     EventSummary:
       type: object
-      description: A public event or venue, as other entities refer to it.
+      description: A public event, as other entities refer to it.
       additionalProperties: false
-      required: [slug, name, kind]
+      required: [slug, name]
       properties:
         slug:
           type: string
@@ -2668,12 +2644,9 @@ components:
           type: string
           examples:
             - Midwinter Revel
-        kind:
-          $ref: "#/components/schemas/EventKind"
       examples:
         - slug: midwinter-revel
           name: Midwinter Revel
-          kind: event
 
     Piece:
       type: object
@@ -2683,7 +2656,6 @@ components:
         - slug
         - title
         - kind
-        - secondary_kinds
         - conservation_status
         - is_stub
         - credit_names
@@ -2691,18 +2663,11 @@ components:
         - version_notes_md
         - licensing_status
         - licensing_notes_md
-        - licence
-        - historical_source_md
-        - period_start
-        - period_end
         - aliases
         - terms
         - credits
-        - relations
         - links
-        - conservation_history
         - updated_at
-        - licence_version
       properties:
         slug:
           $ref: "#/components/schemas/PieceSummary/properties/slug"
@@ -2710,8 +2675,6 @@ components:
           $ref: "#/components/schemas/PieceSummary/properties/title"
         kind:
           $ref: "#/components/schemas/PieceKind"
-        secondary_kinds:
-          $ref: "#/components/schemas/PieceSummary/properties/secondary_kinds"
         conservation_status:
           $ref: "#/components/schemas/ConservationStatus"
         is_stub:
@@ -2735,25 +2698,6 @@ components:
           description: Notes on the piece's licensing, in Markdown.
           examples:
             - Free to perform with credit.
-        licence:
-          oneOf:
-            - $ref: "#/components/schemas/Licence"
-            - type: "null"
-        historical_source_md:
-          type: [string, "null"]
-          description: The historical source of the piece, in Markdown.
-          examples:
-            - A broadside of about 1590.
-        period_start:
-          type: [integer, "null"]
-          description: The first year of the period the piece dates from.
-          examples:
-            - 1580
-        period_end:
-          type: [integer, "null"]
-          description: The last year of the period the piece dates from.
-          examples:
-            - 1600
         aliases:
           type: array
           description: Other titles of the piece.
@@ -2763,19 +2707,13 @@ components:
           type: array
           description: The public terms the piece is classified with, by facet in the enum's order, then position.
           items:
-            $ref: "#/components/schemas/PieceTerm"
+            $ref: "#/components/schemas/TermSummary"
         credits:
           type: array
           description: |
             The piece's credits, in order. A credit to a person who is not public is left out entirely.
           items:
             $ref: "#/components/schemas/PieceCredit"
-        relations:
-          type: array
-          description: |
-            Relations to other public pieces: the outgoing ones, then the incoming ones, each by type and title.
-          items:
-            $ref: "#/components/schemas/PieceRelation"
         links:
           type: array
           description: |
@@ -2783,29 +2721,17 @@ components:
             curated per piece.
           items:
             $ref: "#/components/schemas/PieceLink"
-        conservation_history:
-          type: array
-          description: The piece's conservation status changes, oldest first.
-          items:
-            $ref: "#/components/schemas/ConservationChange"
         updated_at:
           type: string
           format: date-time
           description: When the current revision was approved.
           examples:
             - "2026-03-01T12:00:00Z"
-        licence_version:
-          oneOf:
-            - $ref: "#/components/schemas/LicenceVersion"
-            - type: "null"
-          description: The version of the Creative Commons licence; null unless the licence is a cc_* one.
       examples:
         - slug: the-copper-kettle
           updated_at: "2026-03-01T12:00:00Z"
-          licence_version: null
           title: The Copper Kettle
           kind: song
-          secondary_kinds: []
           conservation_status: endangered
           is_stub: false
           credit_names: [Wren of the Vale]
@@ -2813,26 +2739,17 @@ components:
           version_notes_md: null
           licensing_status: known
           licensing_notes_md: Free to perform with credit.
-          licence: cc_by_sa
-          historical_source_md: null
-          period_start: null
-          period_end: null
           aliases:
             - text: Kettle Song
-              kind: nickname
+              kind: alt_title
           terms:
-            - term:
-                slug: drinking
-                facet: topic
-                display_name: Drinking
-              is_primary: true
-              part: null
+            - slug: drinking
+              facet: topic
+              display_name: Drinking
           credits:
             - role: lyrics
               attribution: named
               certainty: certain
-              part: null
-              note: null
               person:
                 slug: wren-of-the-vale
                 name: Wren of the Vale
@@ -2841,10 +2758,7 @@ components:
             - role: tune
               attribution: traditional
               certainty: probable
-              part: null
-              note: An old reel.
               person: null
-          relations: []
           links:
             - url: https://video.example.org/watch/kettle
               title: The Copper Kettle at Midwinter Revel
@@ -2864,17 +2778,11 @@ components:
                   event:
                     slug: midwinter-revel
                     name: Midwinter Revel
-                    kind: event
                   performers:
                     - slug: wren-of-the-vale
                       name: Wren of the Vale
                       kind: community_bard
                       is_stub: false
-          conservation_history:
-            - conservation_status: endangered
-              reason: Known to only a few singers.
-              source_url: null
-              at: "2026-01-01T00:00:00Z"
 
     PieceAlias:
       type: object
@@ -2890,39 +2798,13 @@ components:
           $ref: "#/components/schemas/PieceAliasKind"
       examples:
         - text: Kettle Song
-          kind: nickname
-
-    PieceTerm:
-      type: object
-      description: A term a piece is classified with.
-      additionalProperties: false
-      required: [term, is_primary, part]
-      properties:
-        term:
-          $ref: "#/components/schemas/TermSummary"
-        is_primary:
-          type: boolean
-          description: Whether this is the piece's primary term in its facet.
-          examples:
-            - true
-        part:
-          description: The part of the piece the term applies to, or null for the whole piece.
-          oneOf:
-            - $ref: "#/components/schemas/PiecePart"
-            - type: "null"
-      examples:
-        - term:
-            slug: drinking
-            facet: topic
-            display_name: Drinking
-          is_primary: true
-          part: null
+          kind: alt_title
 
     PieceCredit:
       type: object
       description: A credit of a piece. `person` is set exactly when `attribution` is `named`.
       additionalProperties: false
-      required: [role, attribution, certainty, part, note, person]
+      required: [role, attribution, certainty, person]
       properties:
         role:
           $ref: "#/components/schemas/CreditRole"
@@ -2930,16 +2812,6 @@ components:
           $ref: "#/components/schemas/Attribution"
         certainty:
           $ref: "#/components/schemas/Certainty"
-        part:
-          description: The part of the piece credited, or null for the whole of the role.
-          oneOf:
-            - $ref: "#/components/schemas/PiecePart"
-            - type: "null"
-        note:
-          type: [string, "null"]
-          description: A note on the credit.
-          examples:
-            - Words adapted from an older ballad.
         person:
           description: The person credited, for a named credit.
           oneOf:
@@ -2949,37 +2821,11 @@ components:
         - role: lyrics
           attribution: named
           certainty: certain
-          part: null
-          note: null
           person:
             slug: wren-of-the-vale
             name: Wren of the Vale
             kind: community_bard
             is_stub: false
-
-    PieceRelation:
-      type: object
-      description: A relation between the piece shown and another public piece.
-      additionalProperties: false
-      required: [type, direction, piece]
-      properties:
-        type:
-          $ref: "#/components/schemas/PieceRelationType"
-        direction:
-          $ref: "#/components/schemas/RelationDirection"
-        piece:
-          $ref: "#/components/schemas/PieceSummary"
-      examples:
-        - type: variant_of
-          direction: outgoing
-          piece:
-            slug: the-brass-kettle
-            title: The Brass Kettle
-            kind: song
-            secondary_kinds: []
-            conservation_status: low_risk
-            is_stub: false
-            credit_names: []
 
     PersonLink:
       type: object
@@ -3161,43 +3007,13 @@ components:
           event: null
           performers: []
 
-    ConservationChange:
-      type: object
-      description: A change of a piece's conservation status.
-      additionalProperties: false
-      required: [conservation_status, reason, source_url, at]
-      properties:
-        conservation_status:
-          $ref: "#/components/schemas/ConservationStatus"
-        reason:
-          type: string
-          description: Why the status changed (the summary of the revision that changed it), which may be empty.
-          examples:
-            - Known to only a few singers.
-        source_url:
-          type: [string, "null"]
-          description: The source of the assessment.
-          examples:
-            - https://example.org/assessments/kettle
-        at:
-          type: string
-          format: date-time
-          description: When the status changed.
-          examples:
-            - "2026-01-01T00:00:00Z"
-      examples:
-        - conservation_status: endangered
-          reason: Known to only a few singers.
-          source_url: null
-          at: "2026-01-01T00:00:00Z"
-
     Person:
       type: object
       description: |
         A public person. `profile` is null exactly when the person prefers not to have a page; `is_stub` is then
         true.
       additionalProperties: false
-      required: [slug, name, kind, is_stub, status, status_date, status_source_url, profile, updated_at]
+      required: [slug, name, kind, is_stub, status, profile, updated_at]
       properties:
         slug:
           type: string
@@ -3212,17 +3028,6 @@ components:
           $ref: "#/components/schemas/PersonSummary/properties/is_stub"
         status:
           $ref: "#/components/schemas/PersonStatus"
-        status_date:
-          type: [string, "null"]
-          format: date
-          description: When the status took effect.
-          examples:
-            - "2026-03-01"
-        status_source_url:
-          type: [string, "null"]
-          description: The source of the status.
-          examples:
-            - https://example.org/requests/12
         profile:
           description: Everything the person's page shows beyond their identity.
           oneOf:
@@ -3237,8 +3042,6 @@ components:
           kind: community_bard
           is_stub: true
           status: prefers_no_page
-          status_date: "2026-03-01"
-          status_source_url: https://example.org/requests/12
           profile: null
 
     PersonProfile:
@@ -3246,24 +3049,18 @@ components:
       description: Everything a person's page shows beyond their identity.
       additionalProperties: false
       required:
-        - pronouns
         - notes_md
         - licensing_status
         - licensing_notes_md
         - aliases
         - roles
         - affiliations
-        - relations
         - links
         - works
         - works_total
         - performances
         - performances_total
       properties:
-        pronouns:
-          type: [string, "null"]
-          examples:
-            - she/her
         notes_md:
           type: [string, "null"]
           description: Notes about the person, in Markdown.
@@ -3291,13 +3088,6 @@ components:
           description: The public affiliation terms of the person, by position, then name.
           items:
             $ref: "#/components/schemas/TermSummary"
-        relations:
-          type: array
-          description: |
-            Relations to other public persons: the outgoing ones, then the incoming
-            ones, each by type and name.
-          items:
-            $ref: "#/components/schemas/PersonRelation"
         links:
           type: array
           description: The person's visible links, each once with all its roles, in order.
@@ -3332,14 +3122,12 @@ components:
           examples:
             - 0
       examples:
-        - pronouns: null
-          notes_md: null
+        - notes_md: null
           licensing_status: unknown
           licensing_notes_md: null
           aliases: []
           roles: [singer]
           affiliations: []
-          relations: []
           links: []
           works: []
           works_total: 0
@@ -3360,34 +3148,13 @@ components:
           $ref: "#/components/schemas/PersonAliasKind"
       examples:
         - name: Wren
-          kind: nickname
-
-    PersonRelation:
-      type: object
-      description: A relation between the person shown and another public person.
-      additionalProperties: false
-      required: [type, direction, person]
-      properties:
-        type:
-          $ref: "#/components/schemas/PersonRelationType"
-        direction:
-          $ref: "#/components/schemas/RelationDirection"
-        person:
-          $ref: "#/components/schemas/PersonSummary"
-      examples:
-        - type: member_of
-          direction: outgoing
-          person:
-            slug: northmarch-bards
-            name: Northmarch Bards
-            kind: group
-            is_stub: false
+          kind: sca
 
     PersonWork:
       type: object
       description: A person's credit on a public piece. Its attribution is always named.
       additionalProperties: false
-      required: [piece, role, certainty, part]
+      required: [piece, role, certainty]
       properties:
         piece:
           $ref: "#/components/schemas/PieceSummary"
@@ -3395,20 +3162,16 @@ components:
           $ref: "#/components/schemas/CreditRole"
         certainty:
           $ref: "#/components/schemas/Certainty"
-        part:
-          $ref: "#/components/schemas/PieceCredit/properties/part"
       examples:
         - piece:
             slug: the-copper-kettle
             title: The Copper Kettle
             kind: song
-            secondary_kinds: []
             conservation_status: endangered
             is_stub: false
             credit_names: []
           role: lyrics
           certainty: certain
-          part: null
 
     PersonPerformance:
       type: object
@@ -3540,7 +3303,6 @@ components:
         - name
         - display_name
         - description_md
-        - aliases
         - ancestors
         - children
         - related_affiliation
@@ -3563,13 +3325,6 @@ components:
           description: What the term covers, in Markdown.
           examples:
             - Songs about war and warriors.
-        aliases:
-          type: array
-          description: Other names of the term.
-          items:
-            type: string
-            examples:
-              - Battle
         ancestors:
           type: array
           description: The term's ancestors, root first.
@@ -3612,7 +3367,6 @@ components:
           name: War
           display_name: War
           description_md: null
-          aliases: [Battle]
           ancestors: []
           children:
             - term:
@@ -3628,7 +3382,6 @@ components:
             - slug: the-copper-kettle
               title: The Copper Kettle
               kind: song
-              secondary_kinds: []
               conservation_status: endangered
               is_stub: false
               credit_names: []
@@ -3658,7 +3411,7 @@ components:
       type: object
       description: A public collection, as lists of collections show it.
       additionalProperties: false
-      required: [id, name, kind, url, is_bardic_resource]
+      required: [id, name, kind, url]
       properties:
         id:
           $ref: "#/components/schemas/CollectionRef/properties/id"
@@ -3671,17 +3424,11 @@ components:
           description: Where the collection is.
           examples:
             - https://example.org/songbook.pdf
-        is_bardic_resource:
-          type: boolean
-          description: Whether the collection is a resource made for or by bards.
-          examples:
-            - true
       examples:
         - id: 12
           name: The Northmarch Songbook
           kind: songbook_pdf
           url: https://example.org/songbook.pdf
-          is_bardic_resource: true
 
     Collection:
       type: object
@@ -3692,12 +3439,8 @@ components:
         - name
         - kind
         - url
-        - is_bardic_resource
         - description_md
-        - enumerable
         - region
-        - parent
-        - children
         - citations
         - citations_total
         - updated_at
@@ -3710,30 +3453,16 @@ components:
           $ref: "#/components/schemas/CollectionKind"
         url:
           $ref: "#/components/schemas/CollectionSummary/properties/url"
-        is_bardic_resource:
-          $ref: "#/components/schemas/CollectionSummary/properties/is_bardic_resource"
         description_md:
           type: [string, "null"]
           description: What the collection holds, in Markdown.
           examples:
             - Songs of the northern marches.
-        enumerable:
-          $ref: "#/components/schemas/CollectionEnumerable"
         region:
           description: The public term for the region the collection is from, if any.
           oneOf:
             - $ref: "#/components/schemas/TermSummary"
             - type: "null"
-        parent:
-          description: The public collection this one is part of, if any.
-          oneOf:
-            - $ref: "#/components/schemas/CollectionSummary"
-            - type: "null"
-        children:
-          type: array
-          description: The public collections that are part of this one, by sort name.
-          items:
-            $ref: "#/components/schemas/CollectionSummary"
         citations:
           type: array
           description: |
@@ -3757,18 +3486,13 @@ components:
           name: The Northmarch Songbook
           kind: songbook_pdf
           url: https://example.org/songbook.pdf
-          is_bardic_resource: true
           description_md: null
-          enumerable: pdf
           region: null
-          parent: null
-          children: []
           citations:
             - piece:
                 slug: the-copper-kettle
                 title: The Copper Kettle
                 kind: song
-                secondary_kinds: []
                 conservation_status: endangered
                 is_stub: false
                 credit_names: []
@@ -3821,7 +3545,7 @@ components:
 
     EventList:
       type: object
-      description: One page of the public events and venues, by name.
+      description: One page of the public events, by name.
       additionalProperties: false
       required: [data, total]
       properties:
@@ -3840,26 +3564,18 @@ components:
         - data:
             - slug: midwinter-revel
               name: Midwinter Revel
-              kind: event
           total: 1
 
     Event:
       type: object
-      description: A public event's or venue's page.
+      description: A public event's page.
       additionalProperties: false
-      required: [slug, name, kind, description_md, performances, performances_total, updated_at]
+      required: [slug, name, performances, performances_total, updated_at]
       properties:
         slug:
           $ref: "#/components/schemas/EventSummary/properties/slug"
         name:
           $ref: "#/components/schemas/EventSummary/properties/name"
-        kind:
-          $ref: "#/components/schemas/EventKind"
-        description_md:
-          type: [string, "null"]
-          description: About the event or venue, in Markdown.
-          examples:
-            - A winter gathering of the northern marches.
         performances:
           type: array
           description: The performances recorded at the event, newest year first, unknown years last. At most 200.
@@ -3879,8 +3595,6 @@ components:
         - slug: midwinter-revel
           updated_at: "2026-03-01T12:00:00Z"
           name: Midwinter Revel
-          kind: event
-          description_md: null
           performances:
             - piece: null
               link:
@@ -3926,7 +3640,7 @@ components:
     PieceKind:
       type: string
       description: What sort of piece a piece is.
-      enum: [song, poem, story, dance_music, instrumental, comedy]
+      enum: [song, poem, story, dance_music, instrumental]
       examples:
         - song
 
@@ -3959,16 +3673,9 @@ components:
       type: string
       description: |
         The dimension a term classifies along. `affiliation` terms classify persons; the others classify pieces.
-      enum: [mood, topic, culture, language, legendaria, form, origin, other, affiliation]
+      enum: [mood, topic, culture, language, legendaria, origin, other, affiliation]
       examples:
         - topic
-
-    EventKind:
-      type: string
-      description: Whether an event is a venue or a one-off event.
-      enum: [venue, event]
-      examples:
-        - event
 
     LicensingStatus:
       type: string
@@ -3977,47 +3684,24 @@ components:
       examples:
         - known
 
-    Licence:
-      type: string
-      description: |
-        The licence a piece is published under: public domain, a Creative Commons licence, all rights reserved
-        or another licence.
-      enum: [pd, cc_by, cc_by_sa, cc_by_nc, cc_by_nc_sa, cc_by_nd, cc_by_nc_nd, arr, other]
-      examples:
-        - cc_by_sa
-
-    LicenceVersion:
-      type: string
-      description: The version of a Creative Commons licence. It is shown only beside a `cc_*` licence.
-      enum: ["1.0", "2.0", "2.5", "3.0", "4.0"]
-      examples:
-        - "4.0"
-
     PieceAliasKind:
       type: string
       description: What sort of alternative title an alias is.
-      enum: [alt_title, nickname, subtitle, redirect]
+      enum: [alt_title, subtitle, redirect]
       examples:
         - alt_title
 
     PersonAliasKind:
       type: string
       description: What sort of name an alias is.
-      enum: [legal, sca, stage, nickname, former, redirect]
+      enum: [legal, sca]
       examples:
-        - stage
-
-    PiecePart:
-      type: string
-      description: The part of a piece a term or credit applies to.
-      enum: [words, tune, verses, chorus]
-      examples:
-        - tune
+        - sca
 
     CreditRole:
       type: string
       description: What a credit credits.
-      enum: [lyrics, tune, author, choreography, music, arrangement, translation]
+      enum: [lyrics, tune, author]
       examples:
         - lyrics
 
@@ -4035,29 +3719,6 @@ components:
       examples:
         - certain
 
-    PieceRelationType:
-      type: string
-      description: How one piece relates to another, read from the relation's source to its target.
-      enum: [variant_of, contrafactum_of, setting_of, same_text_other_form]
-      examples:
-        - variant_of
-
-    PersonRelationType:
-      type: string
-      description: How one person relates to another, read from the relation's source to its target.
-      enum: [heir_of, member_of, same_as]
-      examples:
-        - member_of
-
-    RelationDirection:
-      type: string
-      description: |
-        Which way a relation points: `outgoing` reads "this entity <type> the other", `incoming` reads "the other
-        <type> this entity".
-      enum: [outgoing, incoming]
-      examples:
-        - outgoing
-
     PersonRole:
       type: string
       description: Something a person does.
@@ -4068,17 +3729,7 @@ components:
     LinkPlaceType:
       type: string
       description: What sort of place a link points to.
-      enum:
-        - recording_platform
-        - streaming
-        - author_site
-        - community_archive
-        - physical_archive
-        - book
-        - vendor
-        - author_contact
-        - oral_tradition
-        - other
+      enum: [recording_platform, streaming, author_site, community_archive, book]
       examples:
         - recording_platform
 
@@ -4126,18 +3777,8 @@ components:
         - blog
         - archived_songbook
         - hosted_document
-        - other
       examples:
         - songbook_pdf
-
-    CollectionEnumerable:
-      type: string
-      description: |
-        Whether, and how, a collection's contents can be listed: `yes`, from a `pdf`, with a `browser`, through
-        an `api`, `no`, or `unknown` if not yet assessed.
-      enum: [unknown, "yes", pdf, browser, api, "no"]
-      examples:
-        - pdf
 
     RevisionSource:
       type: string
@@ -4258,7 +3899,6 @@ components:
           entity:
             slug: midwinter-revel
             name: Midwinter Revel
-            kind: event
           base_revision_id: null
           source: import
           summary: ""
@@ -4267,10 +3907,8 @@ components:
           created_at: "2026-01-01T00:00:00Z"
           snapshot:
             name: Midwinter Revel
-            kind: event
-            description_md: null
           base_snapshot: null
-          changed_fields: [kind, name]
+          changed_fields: [name]
 
     PieceRevision:
       type: object
@@ -4334,22 +3972,14 @@ components:
             type: string
             enum:
               - aliases
-              - conservation_source_url
               - conservation_status
               - credits
-              - historical_source_md
               - is_stub
               - kind
-              - licence
-              - licence_version
               - licensing_notes_md
               - licensing_status
               - links
               - notes_md
-              - period_end
-              - period_start
-              - relations
-              - secondary_kinds
               - terms
               - title
               - version_notes_md
@@ -4360,7 +3990,6 @@ components:
             slug: the-copper-kettle
             title: The Copper Kettle
             kind: song
-            secondary_kinds: []
             conservation_status: endangered
             is_stub: false
             credit_names: []
@@ -4374,50 +4003,32 @@ components:
           snapshot:
             title: The Copper Kettle
             kind: song
-            secondary_kinds: []
             conservation_status: endangered
-            conservation_source_url: null
             is_stub: false
             notes_md: A drinking song from the northern marches.
             version_notes_md: null
             licensing_status: unknown
             licensing_notes_md: null
-            licence: null
-            licence_version: null
-            historical_source_md: null
-            period_start: null
-            period_end: null
             aliases: []
             terms: []
             credits:
               - role: tune
                 attribution: traditional
                 certainty: probable
-                part: null
-                note: An old reel.
                 person: null
-            relations: []
             links: []
           base_snapshot:
             title: The Copper Kettle
             kind: song
-            secondary_kinds: []
             conservation_status: endangered
-            conservation_source_url: null
             is_stub: false
             notes_md: A drinking song from the northern marches.
             version_notes_md: null
             licensing_status: unknown
             licensing_notes_md: null
-            licence: null
-            licence_version: null
-            historical_source_md: null
-            period_start: null
-            period_end: null
             aliases: []
             terms: []
             credits: []
-            relations: []
             links: []
           changed_fields: [credits]
 
@@ -4474,7 +4085,7 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [is_stub, kind, name, profile, status, status_date, status_source_url]
+            enum: [is_stub, kind, name, profile, status]
       examples:
         - entity_type: person
           id: 43
@@ -4493,12 +4104,10 @@ components:
             name: Hollis Fenn
             kind: community_bard
             status: prefers_no_page
-            status_date: "2026-03-01"
-            status_source_url: https://example.org/requests/12
             is_stub: true
             profile: null
           base_snapshot: null
-          changed_fields: [is_stub, kind, name, status, status_date, status_source_url]
+          changed_fields: [is_stub, kind, name, status]
 
     TermRevision:
       type: object
@@ -4553,7 +4162,7 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [aliases, description_md, display_name, facet, name, parent, position, related_affiliation]
+            enum: [description_md, display_name, facet, name, parent, position, related_affiliation]
       examples:
         - entity_type: term
           id: 44
@@ -4578,7 +4187,6 @@ components:
             related_affiliation: null
             description_md: null
             position: 0
-            aliases: []
           base_snapshot: null
           changed_fields: [display_name, facet, name, parent]
 
@@ -4635,7 +4243,7 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [description_md, enumerable, is_bardic_resource, kind, name, parent, region, url]
+            enum: [description_md, kind, name, region, url]
       examples:
         - entity_type: collection
           id: 45
@@ -4654,15 +4262,12 @@ components:
             kind: songbook_pdf
             description_md: null
             region: null
-            parent: null
-            is_bardic_resource: true
-            enumerable: pdf
           base_snapshot: null
-          changed_fields: [enumerable, is_bardic_resource, kind, name, url]
+          changed_fields: [kind, name, url]
 
     EventRevision:
       type: object
-      description: A public revision of an event or venue, with its snapshot views.
+      description: A public revision of an event, with its snapshot views.
       additionalProperties: false
       required:
         - entity_type
@@ -4713,14 +4318,13 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [description_md, kind, name]
+            enum: [name]
       examples:
         - entity_type: event
           id: 46
           entity:
             slug: midwinter-revel
             name: Midwinter Revel
-            kind: event
           base_revision_id: null
           source: import
           summary: ""
@@ -4729,10 +4333,8 @@ components:
           created_at: "2026-01-01T00:00:00Z"
           snapshot:
             name: Midwinter Revel
-            kind: event
-            description_md: A winter gathering of the northern marches.
           base_snapshot: null
-          changed_fields: [description_md, kind, name]
+          changed_fields: [name]
 
     PieceSnapshot:
       type: object
@@ -4743,38 +4345,23 @@ components:
       required:
         - title
         - kind
-        - secondary_kinds
         - conservation_status
-        - conservation_source_url
         - is_stub
         - notes_md
         - version_notes_md
         - licensing_status
         - licensing_notes_md
-        - licence
-        - historical_source_md
-        - period_start
-        - period_end
         - aliases
         - terms
         - credits
-        - relations
         - links
-        - licence_version
       properties:
         title:
           $ref: "#/components/schemas/PieceSummary/properties/title"
         kind:
           $ref: "#/components/schemas/PieceKind"
-        secondary_kinds:
-          $ref: "#/components/schemas/PieceSummary/properties/secondary_kinds"
         conservation_status:
           $ref: "#/components/schemas/ConservationStatus"
-        conservation_source_url:
-          type: [string, "null"]
-          description: The source supporting the conservation status.
-          examples:
-            - https://example.org/assessments/kettle
         is_stub:
           $ref: "#/components/schemas/PieceSummary/properties/is_stub"
         notes_md:
@@ -4785,81 +4372,37 @@ components:
           $ref: "#/components/schemas/LicensingStatus"
         licensing_notes_md:
           $ref: "#/components/schemas/Piece/properties/licensing_notes_md"
-        licence:
-          $ref: "#/components/schemas/Piece/properties/licence"
-        historical_source_md:
-          $ref: "#/components/schemas/Piece/properties/historical_source_md"
-        period_start:
-          $ref: "#/components/schemas/Piece/properties/period_start"
-        period_end:
-          $ref: "#/components/schemas/Piece/properties/period_end"
         aliases:
           $ref: "#/components/schemas/Piece/properties/aliases"
         terms:
           type: array
           description: The public terms the piece was classified with, in the snapshot's order.
           items:
-            $ref: "#/components/schemas/PieceTerm"
+            $ref: "#/components/schemas/TermSummary"
         credits:
           type: array
           description: |
             The snapshot's credits, in order. A credit to a person who is not public now is left out entirely.
           items:
             $ref: "#/components/schemas/PieceCredit"
-        relations:
-          type: array
-          description: The piece's relations to other pieces that are public now; a snapshot holds outgoing ones only.
-          items:
-            $ref: "#/components/schemas/SnapshotPieceRelation"
         links:
           type: array
           description: The snapshot's links that are not hidden now, in order, with no system state such as liveness.
           items:
             $ref: "#/components/schemas/SnapshotPieceLink"
-        licence_version:
-          $ref: "#/components/schemas/Piece/properties/licence_version"
       examples:
         - title: The Copper Kettle
-          licence_version: null
           kind: song
-          secondary_kinds: []
           conservation_status: endangered
-          conservation_source_url: null
           is_stub: false
           notes_md: null
           version_notes_md: null
           licensing_status: unknown
           licensing_notes_md: null
-          licence: null
-          historical_source_md: null
-          period_start: null
-          period_end: null
           aliases: []
           terms: []
           credits: []
-          relations: []
           links: []
-
-    SnapshotPieceRelation:
-      type: object
-      description: A relation of a piece snapshot's piece to another public piece.
-      additionalProperties: false
-      required: [type, piece]
-      properties:
-        type:
-          $ref: "#/components/schemas/PieceRelationType"
-        piece:
-          $ref: "#/components/schemas/PieceSummary"
-      examples:
-        - type: variant_of
-          piece:
-            slug: the-brass-kettle
-            title: The Brass Kettle
-            kind: song
-            secondary_kinds: []
-            conservation_status: low_risk
-            is_stub: false
-            credit_names: []
 
     SnapshotPieceLink:
       type: object
@@ -4971,7 +4514,7 @@ components:
         The view of a person snapshot. `profile` is null, and `is_stub` true, for a person who prefers not to
         have a page, now or in the snapshot: only their identity is shown.
       additionalProperties: false
-      required: [name, kind, status, status_date, status_source_url, is_stub, profile]
+      required: [name, kind, status, is_stub, profile]
       properties:
         name:
           $ref: "#/components/schemas/PersonSummary/properties/name"
@@ -4979,10 +4522,6 @@ components:
           $ref: "#/components/schemas/PersonKind"
         status:
           $ref: "#/components/schemas/PersonStatus"
-        status_date:
-          $ref: "#/components/schemas/Person/properties/status_date"
-        status_source_url:
-          $ref: "#/components/schemas/Person/properties/status_source_url"
         is_stub:
           $ref: "#/components/schemas/PersonSummary/properties/is_stub"
         profile:
@@ -4994,8 +4533,6 @@ components:
         - name: Hollis Fenn
           kind: community_bard
           status: prefers_no_page
-          status_date: "2026-03-01"
-          status_source_url: https://example.org/requests/12
           is_stub: true
           profile: null
 
@@ -5004,18 +4541,14 @@ components:
       description: Everything a person snapshot shows beyond the person's identity.
       additionalProperties: false
       required:
-        - pronouns
         - notes_md
         - licensing_status
         - licensing_notes_md
         - aliases
         - roles
         - affiliations
-        - relations
         - links
       properties:
-        pronouns:
-          $ref: "#/components/schemas/PersonProfile/properties/pronouns"
         notes_md:
           $ref: "#/components/schemas/PersonProfile/properties/notes_md"
         licensing_status:
@@ -5037,51 +4570,25 @@ components:
           description: The person's affiliation terms that are public now, in the snapshot's order.
           items:
             $ref: "#/components/schemas/TermSummary"
-        relations:
-          type: array
-          description: |
-            The person's relations to other persons who are public now; a snapshot holds outgoing ones only.
-          items:
-            $ref: "#/components/schemas/SnapshotPersonRelation"
         links:
           type: array
           description: The snapshot's links that are not hidden now, in order.
           items:
             $ref: "#/components/schemas/SnapshotPersonLink"
       examples:
-        - pronouns: null
-          notes_md: null
+        - notes_md: null
           licensing_status: unknown
           licensing_notes_md: null
           aliases: []
           roles: [singer]
           affiliations: []
-          relations: []
           links: []
-
-    SnapshotPersonRelation:
-      type: object
-      description: A relation of a person snapshot's person to another public person.
-      additionalProperties: false
-      required: [type, person]
-      properties:
-        type:
-          $ref: "#/components/schemas/PersonRelationType"
-        person:
-          $ref: "#/components/schemas/PersonSummary"
-      examples:
-        - type: member_of
-          person:
-            slug: the-northmarch-bards
-            name: The Northmarch Bards
-            kind: group
-            is_stub: false
 
     TermSnapshot:
       type: object
       description: The view of a term snapshot.
       additionalProperties: false
-      required: [facet, name, display_name, parent, related_affiliation, description_md, position, aliases]
+      required: [facet, name, display_name, parent, related_affiliation, description_md, position]
       properties:
         facet:
           $ref: "#/components/schemas/Facet"
@@ -5107,8 +4614,6 @@ components:
           description: Where the term sorts among its siblings.
           examples:
             - 0
-        aliases:
-          $ref: "#/components/schemas/Term/properties/aliases"
       examples:
         - facet: topic
           name: Swords
@@ -5117,13 +4622,12 @@ components:
           related_affiliation: null
           description_md: null
           position: 0
-          aliases: []
 
     CollectionSnapshot:
       type: object
       description: The view of a collection snapshot.
       additionalProperties: false
-      required: [name, url, kind, description_md, region, parent, is_bardic_resource, enumerable]
+      required: [name, url, kind, description_md, region]
       properties:
         name:
           $ref: "#/components/schemas/CollectionRef/properties/name"
@@ -5138,41 +4642,23 @@ components:
           oneOf:
             - $ref: "#/components/schemas/TermSummary"
             - type: "null"
-        parent:
-          description: The collection this one is part of, if it is public now.
-          oneOf:
-            - $ref: "#/components/schemas/CollectionSummary"
-            - type: "null"
-        is_bardic_resource:
-          $ref: "#/components/schemas/CollectionSummary/properties/is_bardic_resource"
-        enumerable:
-          $ref: "#/components/schemas/CollectionEnumerable"
       examples:
         - name: The Northmarch Songbook
           url: https://example.org/songbook.pdf
           kind: songbook_pdf
           description_md: null
           region: null
-          parent: null
-          is_bardic_resource: true
-          enumerable: pdf
 
     EventSnapshot:
       type: object
       description: The view of an event snapshot.
       additionalProperties: false
-      required: [name, kind, description_md]
+      required: [name]
       properties:
         name:
           $ref: "#/components/schemas/EventSummary/properties/name"
-        kind:
-          $ref: "#/components/schemas/EventKind"
-        description_md:
-          $ref: "#/components/schemas/Event/properties/description_md"
       examples:
         - name: Midwinter Revel
-          kind: event
-          description_md: null
 
     NeedsWorkReason:
       type: string
@@ -5576,7 +5062,6 @@ components:
         - control_character
         - duplicate
         - invalid
-        - out_of_range
         - cycle
         - too_deep
         - wrong_facet
@@ -5797,12 +5282,11 @@ components:
     EditorPieceDocument:
       type: object
       description: |
-        A piece's document in the editor format: the stored document's fields, with references to pieces, persons,
-        terms and events by slug (collections by ID).
+        A piece's document in the editor format: the stored document's fields, with references to persons, terms
+        and events by slug (collections by ID).
       additionalProperties: false
-      required: [schema_version, title, kind, secondary_kinds, conservation, is_stub, notes_md, version_notes_md,
-        licensing_status, licensing_notes_md, licence, licence_version, historical_source_md, period_start,
-        period_end, aliases, terms, relations, credits, links]
+      required: [schema_version, title, kind, conservation_status, is_stub, notes_md, version_notes_md,
+        licensing_status, licensing_notes_md, aliases, term_slugs, credits, links]
       properties:
         schema_version:
           $ref: "#/components/schemas/SchemaVersion"
@@ -5812,25 +5296,8 @@ components:
             - The Copper Kettle
         kind:
           $ref: "#/components/schemas/PieceKind"
-        secondary_kinds:
-          type: array
-          items:
-            $ref: "#/components/schemas/PieceKind"
-        conservation:
-          type: object
-          description: The piece's conservation status, with the source of an assessment.
-          additionalProperties: false
-          required: [status, source_url]
-          properties:
-            status:
-              $ref: "#/components/schemas/ConservationStatus"
-            source_url:
-              type: [string, "null"]
-              examples:
-                - https://example.org/survey
-          examples:
-            - status: unassessed
-              source_url: null
+        conservation_status:
+          $ref: "#/components/schemas/ConservationStatus"
         is_stub:
           type: boolean
         notes_md:
@@ -5841,24 +5308,6 @@ components:
           $ref: "#/components/schemas/LicensingStatus"
         licensing_notes_md:
           $ref: "#/components/schemas/EditorText"
-        licence:
-          oneOf:
-            - $ref: "#/components/schemas/Licence"
-            - type: "null"
-        licence_version:
-          oneOf:
-            - $ref: "#/components/schemas/LicenceVersion"
-            - type: "null"
-        historical_source_md:
-          $ref: "#/components/schemas/EditorText"
-        period_start:
-          type: [integer, "null"]
-          examples:
-            - 1300
-        period_end:
-          type: [integer, "null"]
-          examples:
-            - 1400
         aliases:
           type: array
           items:
@@ -5873,41 +5322,18 @@ components:
                   - Copper Kettle
               kind:
                 $ref: "#/components/schemas/PieceAliasKind"
-        terms:
+        term_slugs:
           type: array
+          description: The terms classifying the piece, by slug.
           items:
-            type: object
-            description: A term classifying the piece, or a part of it.
-            additionalProperties: false
-            required: [term_slug, is_primary, part]
-            properties:
-              term_slug:
-                $ref: "#/components/schemas/EditorSlug"
-              is_primary:
-                type: boolean
-              part:
-                oneOf:
-                  - $ref: "#/components/schemas/PiecePart"
-                  - type: "null"
-        relations:
-          type: array
-          items:
-            type: object
-            description: A relation of the piece to another piece.
-            additionalProperties: false
-            required: [to_piece_slug, type]
-            properties:
-              to_piece_slug:
-                $ref: "#/components/schemas/EditorSlug"
-              type:
-                $ref: "#/components/schemas/PieceRelationType"
+            $ref: "#/components/schemas/EditorSlug"
         credits:
           type: array
           items:
             type: object
-            description: A credit of the piece, or a part of it, to a person or to no one in particular.
+            description: A credit of the piece to a person or to no one in particular.
             additionalProperties: false
-            required: [person_slug, role, attribution, certainty, part, note]
+            required: [person_slug, role, attribution, certainty]
             properties:
               person_slug:
                 oneOf:
@@ -5919,14 +5345,6 @@ components:
                 $ref: "#/components/schemas/Attribution"
               certainty:
                 $ref: "#/components/schemas/Certainty"
-              part:
-                oneOf:
-                  - $ref: "#/components/schemas/PiecePart"
-                  - type: "null"
-              note:
-                type: [string, "null"]
-                examples:
-                  - Words by Morwen, after a ballad.
         links:
           type: array
           items:
@@ -5935,23 +5353,14 @@ components:
         - schema_version: 1
           title: The Copper Kettle
           kind: song
-          secondary_kinds: []
-          conservation:
-            status: unassessed
-            source_url: null
+          conservation_status: unassessed
           is_stub: false
           notes_md: null
           version_notes_md: null
           licensing_status: unknown
           licensing_notes_md: null
-          licence: null
-          licence_version: null
-          historical_source_md: null
-          period_start: null
-          period_end: null
           aliases: []
-          terms: [{term_slug: drinking-songs, is_primary: true, part: null}]
-          relations: []
+          term_slugs: [drinking-songs]
           credits: []
           links: []
 
@@ -6014,8 +5423,8 @@ components:
       type: object
       description: A person's document in the editor format, with references by slug.
       additionalProperties: false
-      required: [schema_version, name, kind, status, status_date, status_source_url, pronouns, notes_md,
-        licensing_status, licensing_notes_md, is_stub, aliases, roles, affiliation_slugs, relations, links]
+      required: [schema_version, name, kind, status, notes_md, licensing_status, licensing_notes_md, is_stub, aliases,
+        roles, affiliation_slugs, links]
       properties:
         schema_version:
           $ref: "#/components/schemas/SchemaVersion"
@@ -6027,19 +5436,6 @@ components:
           $ref: "#/components/schemas/PersonKind"
         status:
           $ref: "#/components/schemas/PersonStatus"
-        status_date:
-          type: [string, "null"]
-          format: date
-          examples:
-            - "2026-01-01"
-        status_source_url:
-          type: [string, "null"]
-          examples:
-            - https://example.org/notice
-        pronouns:
-          type: [string, "null"]
-          examples:
-            - she/her
         notes_md:
           $ref: "#/components/schemas/EditorText"
         licensing_status:
@@ -6071,18 +5467,6 @@ components:
           description: The person's affiliation terms, by slug.
           items:
             $ref: "#/components/schemas/EditorSlug"
-        relations:
-          type: array
-          items:
-            type: object
-            description: A relation of the person to another person.
-            additionalProperties: false
-            required: [to_person_slug, type]
-            properties:
-              to_person_slug:
-                $ref: "#/components/schemas/EditorSlug"
-              type:
-                $ref: "#/components/schemas/PersonRelationType"
         links:
           type: array
           items:
@@ -6092,9 +5476,6 @@ components:
           name: Morwen
           kind: community_bard
           status: active
-          status_date: null
-          status_source_url: null
-          pronouns: null
           notes_md: null
           licensing_status: unknown
           licensing_notes_md: null
@@ -6102,7 +5483,6 @@ components:
           aliases: []
           roles: []
           affiliation_slugs: []
-          relations: []
           links: []
 
     EditorTermDocument:
@@ -6110,7 +5490,7 @@ components:
       description: A term's document in the editor format, with its parent and related affiliation by slug.
       additionalProperties: false
       required: [schema_version, facet, name, display_name, parent_slug, related_affiliation_slug, description_md,
-        position, aliases]
+        position]
       properties:
         schema_version:
           $ref: "#/components/schemas/SchemaVersion"
@@ -6138,12 +5518,6 @@ components:
           type: integer
           examples:
             - 0
-        aliases:
-          type: array
-          items:
-            type: string
-            examples:
-              - Tavern songs
       examples:
         - schema_version: 1
           facet: topic
@@ -6153,14 +5527,12 @@ components:
           related_affiliation_slug: null
           description_md: null
           position: 0
-          aliases: []
 
     EditorCollectionDocument:
       type: object
-      description: A collection's document in the editor format, with its region by slug and its parent by ID.
+      description: A collection's document in the editor format, with its region by slug.
       additionalProperties: false
-      required: [schema_version, name, url, kind, description_md, region_term_slug, parent_id, is_bardic_resource,
-        enumerable]
+      required: [schema_version, name, url, kind, description_md, region_term_slug]
       properties:
         schema_version:
           $ref: "#/components/schemas/SchemaVersion"
@@ -6180,17 +5552,6 @@ components:
           oneOf:
             - $ref: "#/components/schemas/EditorSlug"
             - type: "null"
-        parent_id:
-          type: [integer, "null"]
-          format: int64
-          minimum: 1
-          description: The collection this one is part of, by its `id`.
-          examples:
-            - 3
-        is_bardic_resource:
-          type: boolean
-        enumerable:
-          $ref: "#/components/schemas/CollectionEnumerable"
       examples:
         - schema_version: 1
           name: The Northmarch Songbook
@@ -6198,15 +5559,12 @@ components:
           kind: songbook_pdf
           description_md: null
           region_term_slug: null
-          parent_id: null
-          is_bardic_resource: true
-          enumerable: pdf
 
     EditorEventDocument:
       type: object
-      description: An event's or venue's document in the editor format.
+      description: An event's document in the editor format.
       additionalProperties: false
-      required: [schema_version, name, kind, description_md]
+      required: [schema_version, name]
       properties:
         schema_version:
           $ref: "#/components/schemas/SchemaVersion"
@@ -6214,15 +5572,9 @@ components:
           type: string
           examples:
             - Midwinter Revel
-        kind:
-          $ref: "#/components/schemas/EventKind"
-        description_md:
-          $ref: "#/components/schemas/EditorText"
       examples:
         - schema_version: 1
           name: Midwinter Revel
-          kind: event
-          description_md: null
 
     EditorDocument:
       description: A document in the editor format, in the shape of the `entity_type` beside it.
@@ -6235,8 +5587,6 @@ components:
       examples:
         - schema_version: 1
           name: Midwinter Revel
-          kind: event
-          description_md: null
 
     Editable:
       type: object
@@ -6271,8 +5621,6 @@ components:
           document:
             schema_version: 1
             name: Midwinter Revel
-            kind: event
-            description_md: null
 
     SubmitRevisionRequest:
       type: object
@@ -6294,9 +5642,9 @@ components:
           type: string
           description: |
             What the edit changes, at most 500 characters; may be empty. When the edit changes a piece's
-            conservation status, the summary is the reason in its conservation history.
+            conservation status, the summary is the reason, as the piece's revision history shows.
           examples:
-            - Describe the revel.
+            - Rename the revel.
         document:
           $ref: "#/components/schemas/EditorDocument"
         acknowledge_duplicates:
@@ -6308,12 +5656,10 @@ components:
       examples:
         - entity_type: event
           base_revision_id: 46
-          summary: Describe the revel.
+          summary: Rename the revel.
           document:
             schema_version: 1
             name: Midwinter Revel
-            kind: event
-            description_md: Held every year at the turning of the year.
           acknowledge_duplicates: false
           acknowledge_stale: false
 
@@ -6414,7 +5760,7 @@ components:
             collection_id: null
             name: Midwinter Revel
           status: pending
-          summary: Describe the revel.
+          summary: Rename the revel.
           created_at: "2026-10-01T09:00:00Z"
           review_note: null
           reviewed_at: null
@@ -6451,8 +5797,6 @@ components:
         - $ref: "#/components/schemas/EventSnapshot"
       examples:
         - name: Midwinter Revel
-          kind: event
-          description_md: null
 
     RevisionView:
       type: object
@@ -6510,23 +5854,23 @@ components:
           items:
             type: string
             examples:
-              - description_md
+              - name
       examples:
         - entity_type: event
           id: 51
           source: user
-          summary: Describe the revel.
+          summary: Rename the revel.
           author: {display_name: Morwen}
           contributors: []
           created_at: "2026-10-01T09:00:00Z"
           status: rejected
           review_note: Please cite the source.
           reviewed_at: "2026-10-02T09:00:00Z"
-          entity: {slug: midwinter-revel, name: Midwinter Revel, kind: event}
+          entity: {slug: midwinter-revel, name: Midwinter Revel}
           base_revision_id: 46
-          snapshot: {name: Midwinter Revel, kind: event, description_md: Held at midwinter.}
-          base_snapshot: {name: Midwinter Revel, kind: event, description_md: null}
-          changed_fields: [description_md]
+          snapshot: {name: Midwinter Revel}
+          base_snapshot: {name: Midwinter Feast}
+          changed_fields: [name]
 
     ModerationRevisionView:
       type: object
@@ -6596,18 +5940,18 @@ components:
         - entity_type: event
           id: 51
           source: user
-          summary: Describe the revel.
+          summary: Rename the revel.
           author: {display_name: Morwen}
           contributors: []
           created_at: "2026-10-01T09:00:00Z"
           status: pending
           review_note: null
           reviewed_at: null
-          entity: {slug: midwinter-revel, name: Midwinter Revel, kind: event}
+          entity: {slug: midwinter-revel, name: Midwinter Revel}
           base_revision_id: 46
-          snapshot: {name: Midwinter Revel, kind: event, description_md: Held at midwinter.}
-          base_snapshot: {name: Midwinter Revel, kind: event, description_md: null}
-          changed_fields: [description_md]
+          snapshot: {name: Midwinter Revel}
+          base_snapshot: {name: Midwinter Feast}
+          changed_fields: [name]
           author_user_id: google-oauth2|456
           current_revision_id: null
           current_snapshot: null

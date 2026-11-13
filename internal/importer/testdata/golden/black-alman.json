@@ -8,45 +8,23 @@
       "schema_version": 1,
       "title": "Black Alman",
       "kind": "dance_music",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
       "notes_md": "This is a joint page for the musical piece and the dance that is performed to it.\n\n### Key Links\n\n- Black Alman is one of many dances found in Orchesographie, written by Legal Name 098 and published in 1588-1589.",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": null,
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": 1501,
-      "period_end": 1600,
       "aliases": [
         {
           "text": "Black Allemande",
           "kind": "alt_title"
         }
       ],
-      "terms": [
-        {
-          "term_id": 115,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 119,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 21,
-          "is_primary": true,
-          "part": null
-        }
+      "term_ids": [
+        115,
+        119,
+        21
       ],
-      "relations": [],
       "credits": [],
       "links": [
         {

@@ -9,9 +9,6 @@
       "name": "Dahrien Cordell",
       "kind": "community_bard",
       "status": "active",
-      "status_date": null,
-      "status_source_url": null,
-      "pronouns": null,
       "notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": null,
@@ -25,7 +22,6 @@
         14,
         1
       ],
-      "relations": [],
       "links": [
         {
           "url": "https://youtube.com/watch?v=oDRTvZHFl9o",

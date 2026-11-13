@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,10 +36,7 @@ func parseFixtureBard(w *wikiFixture, title, wikitext string, categories ...stri
 }
 
 func TestParseBard_Aliases(t *testing.T) {
-	w := standardWiki()
-	w.redirect("Rowan the Bold", rowan)
-	w.redirect(ash, rowan)
-	b := parseFixtureBard(w, rowan, bardWikitext(rowan+" ("+ashOfTheVale+" / "+ash+")"))
+	b := parseFixtureBard(standardWiki(), rowan, bardWikitext(rowan+" ("+ashOfTheVale+" / "+ash+")"))
 
 	type alias struct {
 		name   string
@@ -54,8 +50,6 @@ func TestParseBard_Aliases(t *testing.T) {
 	assert.Equal(t, []alias{
 		{ashOfTheVale, AliasFromH1Parenthetical, domain.PersonAliasKindSCA},
 		{ash, AliasFromH1Parenthetical, domain.PersonAliasKindLegal},
-		{ash, AliasFromRedirect, domain.PersonAliasKindRedirect},
-		{"Rowan the Bold", AliasFromRedirect, domain.PersonAliasKindRedirect},
 	}, got)
 }
 
@@ -86,19 +80,13 @@ func TestParseBard_KingdomNamePlaceholderDropped(t *testing.T) {
 	assert.Equal(t, []string{kingdom}, b.Affiliations)
 }
 
-func TestParseBard_DeceasedWithDate(t *testing.T) {
+func TestParseBard_Deceased(t *testing.T) {
 	b := parseFixtureBard(standardWiki(), wren, bardWikitext(wren,
 		"Notes", "* [https://example.org/in-memoriam Deceased October 31, 2020]"), CategoryInMemoriam)
 
 	assert.Equal(t, domain.PersonStatusDeceased, b.Status)
-	require.NotNil(t, b.StatusDate)
-	assert.Equal(t, time.Date(2020, 10, 31, 0, 0, 0, 0, time.UTC), b.StatusDate.Time)
-	assert.Equal(t, "https://example.org/in-memoriam", b.StatusSourceURL, "the link the date is read from")
-
-	undated := parseFixtureBard(standardWiki(), ash, bardWikitext(ash), CategoryInMemoriam)
-	assert.Equal(t, domain.PersonStatusDeceased, undated.Status)
-	assert.Nil(t, undated.StatusDate)
-	assert.Empty(t, undated.StatusSourceURL)
+	assert.Equal(t, "- [Deceased October 31, 2020](https://example.org/in-memoriam)", b.NotesMD,
+		"the date and its source stay in the notes")
 }
 
 func TestParseBard_LicensingUnknownSentence(t *testing.T) {
@@ -118,13 +106,13 @@ func TestParseBard_LicensingUnknownSentence(t *testing.T) {
 	assert.Equal(t, "Sing it at events.", unsourced.LicensingNotesMD)
 }
 
-func TestParseBard_HeirRelation(t *testing.T) {
+func TestParseBard_HeirOf(t *testing.T) {
 	w := standardWiki()
 	w.page(Page{Title: ash, Wikitext: bardWikitext(ash), Categories: []string{CategoryBards}})
 	b := parseFixtureBard(w, rowan, bardWikitext(rowan, "Affiliations",
 		"* The chosen heir of [["+ash+"]], and owner of all her music.\n* "+categoryLink(CategorySCABards)))
 
-	assert.Equal(t, []PersonRelation{{Type: domain.PersonRelationTypeHeirOf, To: ash}}, b.Relations)
+	assert.Equal(t, []string{ash}, b.HeirOf)
 	assert.Equal(t, "### Affiliations\n\n- The chosen heir of "+ash+", and owner of all her music.", b.NotesMD)
 }
 

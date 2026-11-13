@@ -13,22 +13,18 @@ import (
 const CollectionsPage = "Collections"
 
 // CollectionRecord is one entry of the Collections page: a "*" line under a letter heading whose first external
-// link is the collection. Label is the link's text (or its URL), Note the line's text after the link, Depth the
-// number of "*" and ParentURL the normalised URL of the depth-1 entry above a nested one. Kind is guessed from the
-// URL and label. IsBardicResource is false for an entry noted as "not a bardic community resource". RegionTerm is
-// the category of the one kingdom the label names, if it names exactly one.
+// link is the collection. Label is the link's text (or its URL) and Note the line's text after the link. Kind is
+// guessed from the URL and label. RegionTerm is the category of the one kingdom the label names, if it names
+// exactly one.
 type CollectionRecord struct {
-	Letter           string
-	Label            string
-	URL              string
-	NormalizedURL    string
-	Note             string
-	Depth            int
-	ParentURL        string
-	Kind             domain.CollectionKind
-	Description      string
-	IsBardicResource bool
-	RegionTerm       string
+	Letter        string
+	Label         string
+	URL           string
+	NormalizedURL string
+	Note          string
+	Kind          domain.CollectionKind
+	Description   string
+	RegionTerm    string
 }
 
 // Name is the collection's name: its label up to the first " - ", the rest being its description.
@@ -58,7 +54,6 @@ func (c Collections) Entries() int {
 var (
 	collectionItem   = regexp.MustCompile(`^(\*+)[` + jsSpaces + `]*(.*)$`)
 	leadingDash      = regexp.MustCompile(`^[` + jsSpaces + `]*-[` + jsSpaces + `]*`)
-	notBardicNote    = regexp.MustCompile(`(?i)\bnot a bardic community resource\b`)
 	youTubePlaylist  = regexp.MustCompile(`youtube\.com/playlist`)
 	youTubeURL       = regexp.MustCompile(`youtube\.com|youtu\.be`)
 	pdfURL           = regexp.MustCompile(`\.pdf($|\?)`)
@@ -130,14 +125,10 @@ func ParseCollections(p Page, terms TermPlan) Collections {
 		if sec.Level != 2 {
 			continue
 		}
-		parent := ""
 		for _, line := range strings.Split(sec.Body(p.Wikitext), "\n") {
 			rec, ok := collectionEntry(sec.Heading, line)
 			if !ok {
 				continue
-			}
-			if rec.Depth > 1 {
-				rec.ParentURL = parent
 			}
 			rec.RegionTerm = region(rec.Label, kingdoms)
 			normalized, err := domain.NormalizeURL(rec.URL)
@@ -153,9 +144,6 @@ func ParseCollections(p Page, terms TermPlan) Collections {
 				rec.NormalizedURL = normalized
 				byURL[normalized] = true
 				out.Records = append(out.Records, rec)
-			}
-			if rec.Depth == 1 {
-				parent = rec.NormalizedURL
 			}
 		}
 	}
@@ -185,8 +173,7 @@ func collectionEntry(letter, line string) (CollectionRecord, bool) {
 	}
 	label = DecodeEntities(label)
 	rec := CollectionRecord{
-		Letter: letter, Label: label, URL: l.URL, Note: note, Depth: len(m[1]),
-		Kind: classifyCollection(l.URL, label), IsBardicResource: !notBardicNote.MatchString(note),
+		Letter: letter, Label: label, URL: l.URL, Note: note, Kind: classifyCollection(l.URL, label),
 	}
 	var description []string
 	if _, rest, ok := strings.Cut(label, collectionLabelSeparator); ok && rest != "" {

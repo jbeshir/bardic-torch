@@ -1,7 +1,5 @@
 package domain
 
-import "strings"
-
 // The catalogue's vocabularies. Each type mirrors a MySQL ENUM column (see migrations 003–008) or a request
 // parameter; the integration test TestMigrations_EnumColumns keeps the two in step. Types parsed from requests
 // have a Parse function; the others are only read from the database and from snapshot documents. Each type's values
@@ -22,7 +20,7 @@ const (
 	EntityTypeTerm EntityType = "term"
 	// EntityTypeCollection is a collection (collections).
 	EntityTypeCollection EntityType = "collection"
-	// EntityTypeEvent is an event or venue (events).
+	// EntityTypeEvent is an event (events).
 	EntityTypeEvent EntityType = "event"
 )
 
@@ -89,8 +87,6 @@ const (
 	FacetLanguage Facet = "language"
 	// FacetLegendaria is the legend or story cycle a piece belongs to.
 	FacetLegendaria Facet = "legendaria"
-	// FacetForm is a piece's poetic or musical form.
-	FacetForm Facet = "form"
 	// FacetOrigin is where or when a piece originated, such as "16th Century" or "SCA Pieces".
 	FacetOrigin Facet = "origin"
 	// FacetOther is any other classification.
@@ -132,46 +128,11 @@ const (
 	CollectionKindArchivedSongbook CollectionKind = "archived_songbook"
 	// CollectionKindHostedDocument is a document hosted on a file-sharing service.
 	CollectionKindHostedDocument CollectionKind = "hosted_document"
-	// CollectionKindOther is any other kind of collection.
-	CollectionKindOther CollectionKind = "other"
 )
 
 // ParseCollectionKind returns the CollectionKind named by s, or an error if s is not a known collection kind.
 func ParseCollectionKind(s string) (CollectionKind, error) {
 	return parseEnum[CollectionKind](s, "collection kind")
-}
-
-// CollectionEnumerable is whether, and how, a collection's contents can be listed.
-type CollectionEnumerable string
-
-const (
-	// CollectionEnumerableUnknown is not yet assessed.
-	CollectionEnumerableUnknown CollectionEnumerable = "unknown"
-	// CollectionEnumerableYes can be listed.
-	CollectionEnumerableYes CollectionEnumerable = "yes"
-	// CollectionEnumerablePDF can be listed from a PDF.
-	CollectionEnumerablePDF CollectionEnumerable = "pdf"
-	// CollectionEnumerableBrowser can be listed with a browser.
-	CollectionEnumerableBrowser CollectionEnumerable = "browser"
-	// CollectionEnumerableAPI can be listed through an API.
-	CollectionEnumerableAPI CollectionEnumerable = "api"
-	// CollectionEnumerableNo cannot be listed.
-	CollectionEnumerableNo CollectionEnumerable = "no"
-)
-
-// EventKind is whether an event row is a venue or an event.
-type EventKind string
-
-const (
-	// EventKindVenue is a place where performances happen.
-	EventKindVenue EventKind = "venue"
-	// EventKindEvent is an event.
-	EventKindEvent EventKind = "event"
-)
-
-// ParseEventKind returns the EventKind named by s, or an error if s is not a known event kind.
-func ParseEventKind(s string) (EventKind, error) {
-	return parseEnum[EventKind](s, "event kind")
 }
 
 // PersonKind is what sort of person a person row is.
@@ -222,14 +183,6 @@ const (
 	PersonAliasKindLegal PersonAliasKind = "legal"
 	// PersonAliasKindSCA is a Society for Creative Anachronism name.
 	PersonAliasKindSCA PersonAliasKind = "sca"
-	// PersonAliasKindStage is a stage name.
-	PersonAliasKindStage PersonAliasKind = "stage"
-	// PersonAliasKindNickname is a nickname.
-	PersonAliasKindNickname PersonAliasKind = "nickname"
-	// PersonAliasKindFormer is a name the person no longer uses.
-	PersonAliasKindFormer PersonAliasKind = "former"
-	// PersonAliasKindRedirect is a name the legacy wiki redirected to the person's page.
-	PersonAliasKindRedirect PersonAliasKind = "redirect"
 )
 
 // PersonRole is something a person does.
@@ -259,19 +212,7 @@ func ParsePersonRole(s string) (PersonRole, error) {
 	return parseEnum[PersonRole](s, "person role")
 }
 
-// PersonRelationType is how one person relates to another.
-type PersonRelationType string
-
-const (
-	// PersonRelationTypeHeirOf is a person who inherited another's rights or repertoire.
-	PersonRelationTypeHeirOf PersonRelationType = "heir_of"
-	// PersonRelationTypeMemberOf is a person who is a member of a group.
-	PersonRelationTypeMemberOf PersonRelationType = "member_of"
-	// PersonRelationTypeSameAs is a person row describing the same person as another.
-	PersonRelationTypeSameAs PersonRelationType = "same_as"
-)
-
-// PieceKind is what sort of piece a piece is. A piece has one primary kind and any number of secondary kinds.
+// PieceKind is what sort of piece a piece is.
 type PieceKind string
 
 const (
@@ -285,8 +226,6 @@ const (
 	PieceKindDanceMusic PieceKind = "dance_music"
 	// PieceKindInstrumental is an instrumental piece.
 	PieceKindInstrumental PieceKind = "instrumental"
-	// PieceKindComedy is a comic piece.
-	PieceKindComedy PieceKind = "comedy"
 )
 
 // ParsePieceKind returns the PieceKind named by s, or an error if s is not a known piece kind.
@@ -316,89 +255,16 @@ func ParseConservationStatus(s string) (ConservationStatus, error) {
 	return parseEnum[ConservationStatus](s, "conservation status")
 }
 
-// Licence is the licence a piece is published under.
-type Licence string
-
-const (
-	// LicencePD is the public domain.
-	LicencePD Licence = "pd"
-	// LicenceCCBY is Creative Commons Attribution.
-	LicenceCCBY Licence = "cc_by"
-	// LicenceCCBYSA is Creative Commons Attribution-ShareAlike.
-	LicenceCCBYSA Licence = "cc_by_sa"
-	// LicenceCCBYNC is Creative Commons Attribution-NonCommercial.
-	LicenceCCBYNC Licence = "cc_by_nc"
-	// LicenceCCBYNCSA is Creative Commons Attribution-NonCommercial-ShareAlike.
-	LicenceCCBYNCSA Licence = "cc_by_nc_sa"
-	// LicenceCCBYND is Creative Commons Attribution-NoDerivatives.
-	LicenceCCBYND Licence = "cc_by_nd"
-	// LicenceCCBYNCND is Creative Commons Attribution-NonCommercial-NoDerivatives.
-	LicenceCCBYNCND Licence = "cc_by_nc_nd"
-	// LicenceARR is all rights reserved.
-	LicenceARR Licence = "arr"
-	// LicenceOther is any other licence.
-	LicenceOther Licence = "other"
-)
-
-// LicenceVersion is the version of a Creative Commons licence.
-type LicenceVersion string
-
-const (
-	// LicenceVersion10 is version 1.0.
-	LicenceVersion10 LicenceVersion = "1.0"
-	// LicenceVersion20 is version 2.0.
-	LicenceVersion20 LicenceVersion = "2.0"
-	// LicenceVersion25 is version 2.5.
-	LicenceVersion25 LicenceVersion = "2.5"
-	// LicenceVersion30 is version 3.0.
-	LicenceVersion30 LicenceVersion = "3.0"
-	// LicenceVersion40 is version 4.0.
-	LicenceVersion40 LicenceVersion = "4.0"
-)
-
-// IsCC reports whether l is a Creative Commons licence, the only kind that has a version.
-func (l Licence) IsCC() bool { return strings.HasPrefix(string(l), "cc_") }
-
 // PieceAliasKind is what sort of alternative title a piece alias is.
 type PieceAliasKind string
 
 const (
 	// PieceAliasKindAltTitle is an alternative title.
 	PieceAliasKindAltTitle PieceAliasKind = "alt_title"
-	// PieceAliasKindNickname is an informal name.
-	PieceAliasKindNickname PieceAliasKind = "nickname"
 	// PieceAliasKindSubtitle is a subtitle.
 	PieceAliasKindSubtitle PieceAliasKind = "subtitle"
 	// PieceAliasKindRedirect is a title the legacy wiki redirected to the piece's page.
 	PieceAliasKindRedirect PieceAliasKind = "redirect"
-)
-
-// PiecePart is the part of a piece that a term or credit applies to.
-type PiecePart string
-
-const (
-	// PiecePartWords is the words.
-	PiecePartWords PiecePart = "words"
-	// PiecePartTune is the tune.
-	PiecePartTune PiecePart = "tune"
-	// PiecePartVerses is the verses.
-	PiecePartVerses PiecePart = "verses"
-	// PiecePartChorus is the chorus.
-	PiecePartChorus PiecePart = "chorus"
-)
-
-// PieceRelationType is how one piece relates to another.
-type PieceRelationType string
-
-const (
-	// PieceRelationTypeVariantOf is a variant of another piece.
-	PieceRelationTypeVariantOf PieceRelationType = "variant_of"
-	// PieceRelationTypeContrafactumOf is new words set to another piece's tune.
-	PieceRelationTypeContrafactumOf PieceRelationType = "contrafactum_of"
-	// PieceRelationTypeSettingOf is a musical setting of another piece's text.
-	PieceRelationTypeSettingOf PieceRelationType = "setting_of"
-	// PieceRelationTypeSameTextOtherForm is the same text as another piece in another form.
-	PieceRelationTypeSameTextOtherForm PieceRelationType = "same_text_other_form"
 )
 
 // CreditRole is what a credit credits.
@@ -411,14 +277,6 @@ const (
 	CreditRoleTune CreditRole = "tune"
 	// CreditRoleAuthor is the whole of a text, such as a poem or story.
 	CreditRoleAuthor CreditRole = "author"
-	// CreditRoleChoreography is a dance's choreography.
-	CreditRoleChoreography CreditRole = "choreography"
-	// CreditRoleMusic is the music.
-	CreditRoleMusic CreditRole = "music"
-	// CreditRoleArrangement is an arrangement.
-	CreditRoleArrangement CreditRole = "arrangement"
-	// CreditRoleTranslation is a translation.
-	CreditRoleTranslation CreditRole = "translation"
 )
 
 // Attribution is who a credit is attributed to. Only a named credit has a person.
@@ -463,18 +321,8 @@ const (
 	LinkPlaceTypeAuthorSite LinkPlaceType = "author_site"
 	// LinkPlaceTypeCommunityArchive is an archive kept by the community.
 	LinkPlaceTypeCommunityArchive LinkPlaceType = "community_archive"
-	// LinkPlaceTypePhysicalArchive is a physical archive or library.
-	LinkPlaceTypePhysicalArchive LinkPlaceType = "physical_archive"
 	// LinkPlaceTypeBook is a book.
 	LinkPlaceTypeBook LinkPlaceType = "book"
-	// LinkPlaceTypeVendor is a shop.
-	LinkPlaceTypeVendor LinkPlaceType = "vendor"
-	// LinkPlaceTypeAuthorContact is a way to contact an author.
-	LinkPlaceTypeAuthorContact LinkPlaceType = "author_contact"
-	// LinkPlaceTypeOralTradition is a piece passed on by performance rather than in writing.
-	LinkPlaceTypeOralTradition LinkPlaceType = "oral_tradition"
-	// LinkPlaceTypeOther is any other place.
-	LinkPlaceTypeOther LinkPlaceType = "other"
 )
 
 // Liveness is whether a link still works, as last checked.
@@ -575,14 +423,4 @@ const (
 // ParsePersonSort returns the PersonSort named by s, or an error if s is not a known person order.
 func ParsePersonSort(s string) (PersonSort, error) {
 	return parseEnum[PersonSort](s, "person sort")
-}
-
-// VisibleLicenceVersion returns v if l is a Creative Commons licence and nil otherwise: a version is shown only
-// beside one.
-func VisibleLicenceVersion(l *Licence, v *LicenceVersion) *LicenceVersion {
-	if l == nil || !l.IsCC() {
-		return nil
-	}
-
-	return v
 }

@@ -24,7 +24,7 @@ var needsWorkCatalogue = catalogtest.NewShared(func(c *catalogtest.Catalog) stru
 	piece := func(title string, status domain.ConservationStatus, licensing domain.LicensingStatus, stub bool,
 		links ...string) {
 		doc := domain.PieceDocument{Title: title, IsStub: stub, LicensingStatus: licensing,
-			Conservation: domain.DocConservation{Status: status}}
+			ConservationStatus: status}
 		for _, url := range links {
 			doc.Links = append(doc.Links, domain.DocPieceLink{DocLink: domain.DocLink{URL: url,
 				Roles: []domain.LinkRole{domain.LinkRoleLyrics}}})

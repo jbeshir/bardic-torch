@@ -18,8 +18,8 @@ import (
 // something to leave out: hidden links, unapproved and no-page entities, and unapproved collections, terms and
 // events.
 type recordFixture struct {
-	songbooks, eastmarchBook, supplement, appendix, orphan, pendingShelf, greatIndex catalogtest.Ref
-	revel, pendingMoot, endlessFair                                                  catalogtest.Ref
+	eastmarchBook, orphan, pendingShelf, greatIndex catalogtest.Ref
+	revel, pendingMoot, endlessFair                 catalogtest.Ref
 }
 
 // Fixture strings the tests compare more than once.
@@ -35,27 +35,17 @@ var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
 	westmarch := c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetAffiliation, Name: "Westmarch"},
 		Unapproved: true})
 
-	songbooks := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Songbooks of the Marches",
-		Kind: domain.CollectionKindWiki}})
 	pendingShelf := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Pending Shelf"},
 		Unapproved: true})
 	eastmarchBook := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{
 		Name: eastmarchBookName, URL: new("https://example.org/eastmarch.pdf"), Kind: domain.CollectionKindSongbookPDF,
-		DescriptionMD: new("Songs of the east."), RegionTermID: &eastmarch.ID, ParentID: &songbooks.ID,
-		IsBardicResource: true, Enumerable: domain.CollectionEnumerablePDF,
+		DescriptionMD: new("Songs of the east."), RegionTermID: &eastmarch.ID,
 	}})
-	supplement := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{
-		Name: "Eastmarch Supplement", ParentID: &eastmarchBook.ID, Kind: domain.CollectionKindHostedDocument}})
-	c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Draft Supplement",
-		ParentID: &eastmarchBook.ID}, Unapproved: true})
-	appendix := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "The Appendix",
-		ParentID: &eastmarchBook.ID, URL: new("https://example.org/appendix")}, SortName: "Appendix"})
 	orphan := c.Collection(catalogtest.Collection{Doc: domain.CollectionDocument{Name: "Orphan Book",
-		ParentID: &pendingShelf.ID, RegionTermID: &westmarch.ID}})
+		RegionTermID: &westmarch.ID}})
 
-	revel := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: revelName,
-		DescriptionMD: new("A winter gathering.")}})
-	c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "The Green Hall", Kind: domain.EventKindVenue}})
+	revel := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: revelName}})
+	c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "The Green Hall"}})
 	c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Autumn Moot"}})
 	pendingMoot := c.Event(catalogtest.Event{Doc: domain.EventDocument{Name: "Secret Moot"}, Unapproved: true})
 
@@ -125,8 +115,7 @@ var records = catalogtest.NewShared(func(c *catalogtest.Catalog) recordFixture {
 	greatIndex, endlessFair := seedLongRecords(c)
 
 	return recordFixture{
-		songbooks: songbooks, eastmarchBook: eastmarchBook, supplement: supplement, appendix: appendix, orphan: orphan,
-		pendingShelf: pendingShelf, greatIndex: greatIndex,
+		eastmarchBook: eastmarchBook, orphan: orphan, pendingShelf: pendingShelf, greatIndex: greatIndex,
 		revel: revel, pendingMoot: pendingMoot, endlessFair: endlessFair,
 	}
 })
@@ -165,8 +154,7 @@ var (
 		Kind: domain.PersonKindCommunityBard}
 )
 
-// TestRepository_GetPublicCollection reads a collection with its public region, parent and children, and its
-// citations: one per visible link and public piece or person, with the roles of that attachment, by sort key.
+// TestRepository_GetPublicCollection reads a collection with its public region and its citations: one per visible link and public piece or person, with the roles of that attachment, by sort key.
 func TestRepository_GetPublicCollection(t *testing.T) {
 	t.Parallel()
 
@@ -178,19 +166,10 @@ func TestRepository_GetPublicCollection(t *testing.T) {
 	assert.Equal(t, domain.Collection{
 		CollectionSummary: domain.CollectionSummary{
 			ID: fx.eastmarchBook.ID, Name: eastmarchBookName, Kind: domain.CollectionKindSongbookPDF,
-			URL: new("https://example.org/eastmarch.pdf"), IsBardicResource: true,
+			URL: new("https://example.org/eastmarch.pdf"),
 		},
 		DescriptionMD: new("Songs of the east."),
-		Enumerable:    domain.CollectionEnumerablePDF,
 		Region:        &domain.TermSummary{Slug: "eastmarch", Facet: domain.FacetAffiliation, DisplayName: eastmarchName},
-		Parent: &domain.CollectionSummary{ID: fx.songbooks.ID, Name: "Songbooks of the Marches",
-			Kind: domain.CollectionKindWiki},
-		// By sort name; not the unapproved draft.
-		Children: []domain.CollectionSummary{
-			{ID: fx.appendix.ID, Name: "The Appendix", Kind: domain.CollectionKindOther,
-				URL: new("https://example.org/appendix")},
-			{ID: fx.supplement.ID, Name: "Eastmarch Supplement", Kind: domain.CollectionKindHostedDocument},
-		},
 		Citations: []domain.Citation{
 			{Piece: &domain.PieceSummary{Slug: "the-ale-song", Title: aleTitle, Kind: domain.PieceKindSong,
 				ConservationStatus: domain.ConservationStatusUnassessed},
@@ -205,8 +184,7 @@ func TestRepository_GetPublicCollection(t *testing.T) {
 	}, collection)
 }
 
-// TestRepository_GetPublicCollection_NonPublicReferences checks that an unapproved parent and region are left
-// out.
+// TestRepository_GetPublicCollection_NonPublicReferences checks that an unapproved region is left out.
 func TestRepository_GetPublicCollection_NonPublicReferences(t *testing.T) {
 	t.Parallel()
 
@@ -215,9 +193,7 @@ func TestRepository_GetPublicCollection_NonPublicReferences(t *testing.T) {
 	require.NoError(t, err)
 	clearUpdatedAt(t, &collection.UpdatedAt)
 
-	assert.Nil(t, collection.Parent)
 	assert.Nil(t, collection.Region)
-	assert.Empty(t, collection.Children)
 	assert.Empty(t, collection.Citations)
 	assert.Zero(t, collection.CitationsTotal)
 }
@@ -247,37 +223,31 @@ func TestRepository_GetPublicCollection_NotFound(t *testing.T) {
 }
 
 var (
-	autumnSummary = domain.EventSummary{Slug: "autumn-moot", Name: "Autumn Moot", Kind: domain.EventKindEvent}
-	fairSummary   = domain.EventSummary{Slug: "endless-fair", Name: "Endless Fair", Kind: domain.EventKindEvent}
-	revelSummary  = domain.EventSummary{Slug: revelSlug, Name: revelName, Kind: domain.EventKindEvent}
-	hallSummary   = domain.EventSummary{Slug: "the-green-hall", Name: "The Green Hall", Kind: domain.EventKindVenue}
+	autumnSummary = domain.EventSummary{Slug: "autumn-moot", Name: "Autumn Moot"}
+	fairSummary   = domain.EventSummary{Slug: "endless-fair", Name: "Endless Fair"}
+	revelSummary  = domain.EventSummary{Slug: revelSlug, Name: revelName}
+	hallSummary   = domain.EventSummary{Slug: "the-green-hall", Name: "The Green Hall"}
 )
 
-// TestRepository_ListPublicEvents checks the order by name, the kind filter, pagination and totals, without the
-// unapproved event.
+// TestRepository_ListPublicEvents checks the order by name, pagination and totals, without the unapproved event.
 func TestRepository_ListPublicEvents(t *testing.T) {
 	t.Parallel()
 
 	repo, _ := recordRepository(t)
-	venue, event := domain.EventKindVenue, domain.EventKindEvent
 	cases := []struct {
 		name string
-		kind *domain.EventKind
 		page domain.Page
 		want domain.EventList
 	}{
 		{
-			name: "every_kind",
+			name: "every_event",
 			page: firstPage,
 			want: domain.EventList{
 				Events: []domain.EventSummary{autumnSummary, fairSummary, revelSummary, hallSummary}, Total: 4,
 			},
 		},
-		{name: "venues", kind: &venue, page: firstPage, want: domain.EventList{
-			Events: []domain.EventSummary{hallSummary}, Total: 1,
-		}},
-		{name: "events_page", kind: &event, page: domain.Page{Limit: 2, Offset: 1}, want: domain.EventList{
-			Events: []domain.EventSummary{fairSummary, revelSummary}, Total: 3,
+		{name: "page", page: domain.Page{Limit: 2, Offset: 1}, want: domain.EventList{
+			Events: []domain.EventSummary{fairSummary, revelSummary}, Total: 4,
 		}},
 		{name: "past_the_end", page: domain.Page{Limit: 2, Offset: 10}, want: domain.EventList{
 			Events: []domain.EventSummary{}, Total: 4,
@@ -287,7 +257,7 @@ func TestRepository_ListPublicEvents(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			list, err := repo.ListPublicEvents(t.Context(), tc.kind, tc.page)
+			list, err := repo.ListPublicEvents(t.Context(), tc.page)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, list)
 		})
@@ -307,8 +277,7 @@ func TestRepository_GetPublicEvent(t *testing.T) {
 
 	revelLink := domain.PerformanceLink{URL: revelVideoURL, Title: new("At the revel"), Platform: new("example.org")}
 	assert.Equal(t, domain.Event{
-		EventSummary:  revelSummary,
-		DescriptionMD: new("A winter gathering."),
+		EventSummary: revelSummary,
 		Performances: []domain.EventPerformance{
 			{Piece: &plainKettleSummary, Link: revelLink, Year: new(int16(2025)),
 				Performers: []domain.PersonSummary{plainWrenSummary, hollisSummary}, DescriptionVerbatim: revelPerformance},

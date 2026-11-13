@@ -205,6 +205,19 @@ func free(s string) *string {
 	return &out
 }
 
+// notes is free of the non-empty paragraphs joined as Markdown paragraphs: a page's notes, then the sentences that
+// say what the catalogue has no field for.
+func notes(paragraphs ...string) *string {
+	var kept []string
+	for _, p := range paragraphs {
+		if p != "" {
+			kept = append(kept, p)
+		}
+	}
+
+	return free(strings.Join(kept, "\n\n"))
+}
+
 // plain is a public name, title or text, trimmed, in NFC and without control characters.
 func plain(s string) string {
 	return norm.NFC.String(strings.TrimSpace(domain.WithoutControlCharacters(s)))
@@ -248,16 +261,7 @@ func (b *builder) buildTerms() {
 		doc := domain.TermDocument{SchemaVersion: domain.DocumentSchemaVersion, Facet: t.Facet,
 			Name: name, DisplayName: display,
 			ParentID: b.termRef(t.Parent), RelatedAffiliationID: b.termRef(t.RelatedAffiliation),
-			DescriptionMD: free(t.DescriptionMD), Position: position(t.Position),
-			Aliases: []string{}}
-		seen := map[string]bool{domain.CollationKey(doc.Name): true}
-		for _, a := range t.Aliases {
-			a = plain(a)
-			if key := domain.CollationKey(a); !seen[key] {
-				seen[key] = true
-				doc.Aliases = append(doc.Aliases, a)
-			}
-		}
+			DescriptionMD: free(t.DescriptionMD), Position: position(t.Position)}
 		term := domain.ImportedTerm{ID: id, Slug: b.slugs.Allocate(doc.Name, domain.SlugEntityTypeTerm, id), Doc: doc}
 		if p, ok := b.page(mediawiki.NSCategory, "Category:"+t.Category); ok {
 			term.Legacy = legacy(p)
@@ -289,13 +293,7 @@ func (b *builder) buildCollections() {
 		doc := domain.CollectionDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
 			URL: optionalURL(r.URL), Kind: r.Kind,
 			DescriptionMD: free(r.Description),
-			RegionTermID:  b.termRef(r.RegionTerm), IsBardicResource: r.IsBardicResource,
-			Enumerable: domain.CollectionEnumerableUnknown}
-		if r.ParentURL != "" {
-			if parent, ok := b.collectionIDs[r.ParentURL]; ok {
-				doc.ParentID = &parent
-			}
-		}
+			RegionTermID:  b.termRef(r.RegionTerm)}
 		sortName := domain.SortTitle(name)
 		col := domain.ImportedCollection{ID: id, SortName: sortName, SortLetter: domain.SortLetter(sortName), Doc: doc}
 		if hasPage {
@@ -314,7 +312,7 @@ func (b *builder) buildEvents() {
 			continue
 		}
 		name := plain(e.Name)
-		doc := domain.EventDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: e.Kind}
+		doc := domain.EventDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name}
 		ev := domain.ImportedEvent{ID: id, Slug: b.slugs.Allocate(doc.Name, domain.SlugEntityTypeEvent, id), Doc: doc}
 		if p, ok := b.c.Site.Page(e.Name); ok && e.PageID != 0 {
 			ev.Legacy = legacy(p)

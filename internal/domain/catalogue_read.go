@@ -12,7 +12,6 @@ type PieceSummary struct {
 	Slug               string
 	Title              string
 	Kind               PieceKind
-	SecondaryKinds     []PieceKind
 	ConservationStatus ConservationStatus
 	IsStub             bool
 	// CreditNames are the names of up to five public persons credited on the piece, in credit order.
@@ -51,22 +50,11 @@ type CollectionRef struct {
 	Name string
 }
 
-// EventSummary is how a public event or venue is shown where another entity refers to it.
+// EventSummary is how a public event is shown where another entity refers to it.
 type EventSummary struct {
 	Slug string
 	Name string
-	Kind EventKind
 }
-
-// RelationDirection is which way a relation between two pieces or two persons points from the entity shown.
-type RelationDirection string
-
-const (
-	// RelationDirectionOutgoing is a relation the entity shown has to the other: "this is a variant of that".
-	RelationDirectionOutgoing RelationDirection = "outgoing"
-	// RelationDirectionIncoming is a relation the other entity has to the entity shown.
-	RelationDirectionIncoming RelationDirection = "incoming"
-)
 
 // Piece is a public piece with everything its page shows.
 type Piece struct {
@@ -77,24 +65,13 @@ type Piece struct {
 	VersionNotesMD   *string
 	LicensingStatus  LicensingStatus
 	LicensingNotesMD *string
-	Licence          *Licence
-	// LicenceVersion is set only beside a Creative Commons licence.
-	LicenceVersion     *LicenceVersion
-	HistoricalSourceMD *string
-	PeriodStart        *int16
-	PeriodEnd          *int16
-	Aliases            []PieceAlias
+	Aliases          []PieceAlias
 	// Terms are ordered by facet, in Facet's declaration order, then by position.
-	Terms []PieceTerm
+	Terms []TermSummary
 	// Credits are in position order. A credit to a person who is not public is left out.
 	Credits []PieceCredit
-	// Relations are the outgoing relations, then the incoming ones, each by type and the other piece's sort
-	// title.
-	Relations []PieceRelation
 	// Links are ordered by their first attachment's position.
 	Links []PieceLink
-	// ConservationHistory is oldest first.
-	ConservationHistory []ConservationChange
 }
 
 // PieceAlias is another title of a piece.
@@ -103,28 +80,12 @@ type PieceAlias struct {
 	Kind PieceAliasKind
 }
 
-// PieceTerm is a public term a piece is classified with.
-type PieceTerm struct {
-	Term      TermSummary
-	IsPrimary bool
-	Part      *PiecePart
-}
-
 // PieceCredit is a credit of a piece. Person is set exactly for a named credit.
 type PieceCredit struct {
 	Role        CreditRole
 	Attribution Attribution
 	Certainty   Certainty
-	Part        *PiecePart
-	Note        *string
 	Person      *PersonSummary
-}
-
-// PieceRelation is a relation between the piece shown and another public piece.
-type PieceRelation struct {
-	Type      PieceRelationType
-	Direction RelationDirection
-	Piece     PieceSummary
 }
 
 // Link is a visible link attached to a piece or person, once however many roles it is attached with.
@@ -158,29 +119,18 @@ type PiecePerformance struct {
 	Performers          []PersonSummary
 }
 
-// ConservationChange is an entry in a piece's conservation history.
-type ConservationChange struct {
-	Status    ConservationStatus
-	Reason    string
-	SourceURL *string
-	At        time.Time
-}
-
 // Person is a public person. Profile is nil exactly for a person who prefers not to have a page, of whom only
 // the identity is shown.
 type Person struct {
 	PersonSummary
 	// UpdatedAt is when the current revision was approved.
-	UpdatedAt       time.Time
-	Status          PersonStatus
-	StatusDate      *time.Time
-	StatusSourceURL *string
-	Profile         *PersonProfile
+	UpdatedAt time.Time
+	Status    PersonStatus
+	Profile   *PersonProfile
 }
 
 // PersonProfile is everything a person's page shows beyond their identity.
 type PersonProfile struct {
-	Pronouns         *string
 	NotesMD          *string
 	LicensingStatus  LicensingStatus
 	LicensingNotesMD *string
@@ -190,9 +140,6 @@ type PersonProfile struct {
 	Roles []PersonRole
 	// Affiliations are ordered by position, then display name.
 	Affiliations []TermSummary
-	// Relations are the outgoing relations, then the incoming ones, each by type and the other person's sort
-	// name.
-	Relations []PersonRelation
 	// Links are ordered by their first attachment's position.
 	Links []Link
 	// Works are the person's credits on public pieces, by the piece's sort title, at most MaxNestedListItems.
@@ -214,19 +161,11 @@ type PersonAlias struct {
 	Kind PersonAliasKind
 }
 
-// PersonRelation is a relation between the person shown and another public person.
-type PersonRelation struct {
-	Type      PersonRelationType
-	Direction RelationDirection
-	Person    PersonSummary
-}
-
 // PersonWork is a credit of a person on a public piece. Its attribution is always named.
 type PersonWork struct {
 	Piece     PieceSummary
 	Role      CreditRole
 	Certainty Certainty
-	Part      *PiecePart
 }
 
 // PersonPerformance is a performance on a person's page. Piece is nil for a performance of no particular piece.
@@ -284,7 +223,6 @@ type Term struct {
 	UpdatedAt     time.Time
 	Name          string
 	DescriptionMD *string
-	Aliases       []string
 	// Ancestors are the term's ancestors, root first.
 	Ancestors []TermSummary
 	// Children are the term's public children, by position, display name and ID.
@@ -308,11 +246,10 @@ type TermChild struct {
 
 // CollectionSummary is how a public collection is shown in lists of collections.
 type CollectionSummary struct {
-	ID               int64
-	Name             string
-	Kind             CollectionKind
-	URL              *string
-	IsBardicResource bool
+	ID   int64
+	Name string
+	Kind CollectionKind
+	URL  *string
 }
 
 // Collection is a public collection's page.
@@ -321,13 +258,8 @@ type Collection struct {
 	// UpdatedAt is when the current revision was approved.
 	UpdatedAt     time.Time
 	DescriptionMD *string
-	Enumerable    CollectionEnumerable
 	// Region is the collection's public region term, if any.
 	Region *TermSummary
-	// Parent is the collection's public parent, if any.
-	Parent *CollectionSummary
-	// Children are the collection's public children, by sort name.
-	Children []CollectionSummary
 	// Citations are the visible links in the collection, once per public piece or person each is attached to,
 	// by the piece's sort title or person's sort name, at most MaxNestedListItems.
 	Citations      []Citation
@@ -345,18 +277,17 @@ type Citation struct {
 	Roles []LinkRole
 }
 
-// EventList is one page of the public events and venues, by name, with how many there are in all.
+// EventList is one page of the public events, by name, with how many there are in all.
 type EventList struct {
 	Events []EventSummary
 	Total  int64
 }
 
-// Event is a public event's or venue's page.
+// Event is a public event's page.
 type Event struct {
 	EventSummary
 	// UpdatedAt is when the current revision was approved.
-	UpdatedAt     time.Time
-	DescriptionMD *string
+	UpdatedAt time.Time
 	// Performances are the performances at the event on visible links, newest year first (unknown years last),
 	// at most MaxNestedListItems. A performance of a piece that is not public is left out, as is one whose link
 	// is attached to no public piece and no public person.
@@ -394,7 +325,7 @@ type PieceFacets struct {
 	// Terms are the public piece terms, counting pieces tagged with the term or any of its descendants once, by
 	// slug.
 	Terms []TermCount
-	// Kinds count pieces with the kind as their primary or a secondary kind, in PieceKind's declaration order.
+	// Kinds are in PieceKind's declaration order.
 	Kinds []PieceKindCount
 	// ConservationStatuses are in ConservationStatus's declaration order.
 	ConservationStatuses []ConservationStatusCount

@@ -73,7 +73,7 @@ func lyricsLinks(urls ...string) []domain.DocPieceLink {
 func laterPieceRevision(c *catalogtest.Catalog, piece catalogtest.Ref, title string, urls ...string) int64 {
 	return c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
 		Snapshot: domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: title,
-			Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+			Kind: domain.PieceKindSong, ConservationStatus: domain.ConservationStatusUnassessed,
 			LicensingStatus: domain.LicensingStatusUnknown, Links: lyricsLinks(urls...)},
 		BaseRevisionID: piece.RevisionID})
 }

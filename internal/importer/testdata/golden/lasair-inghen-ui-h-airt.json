@@ -9,9 +9,6 @@
       "name": "Lasair inghen ui h’Airt",
       "kind": "community_bard",
       "status": "active",
-      "status_date": null,
-      "status_source_url": null,
-      "pronouns": null,
       "notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": "- [April 2021 - Permission to perform her work at Bardic War](https://scribhinnilasair.wordpress.com/2021/04/25/to-war/)",
@@ -22,7 +19,6 @@
         4,
         1
       ],
-      "relations": [],
       "links": [
         {
           "url": "https://scribhinnilasair.wordpress.com/",

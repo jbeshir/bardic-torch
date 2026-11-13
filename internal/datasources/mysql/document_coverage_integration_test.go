@@ -77,43 +77,29 @@ pieces.title                           = title
 pieces.sort_title                      ! derived from the title by the writer
 pieces.sort_letter                     ! derived from the title by the writer
 pieces.kind                            = kind
-pieces.conservation_status             = conservation.status
+pieces.conservation_status             = conservation_status
 pieces.is_stub                         = is_stub
 pieces.notes_md                        = notes_md
 pieces.version_notes_md                = version_notes_md
 pieces.licensing_notes_md              = licensing_notes_md
 pieces.licensing_status                = licensing_status
-pieces.licence                         = licence
-pieces.licence_version                 = licence_version
-pieces.historical_source_md            = historical_source_md
-pieces.period_start                    = period_start
-pieces.period_end                      = period_end
 pieces.legacy_had_inline_lyrics        ! imported from the legacy wiki; never edited or exposed
 pieces.current_revision_id             ! the entity's approved revision, set by approval
 pieces.legacy_wiki_pageid              ! imported from the legacy wiki; never edited or exposed
 pieces.legacy_title                    ! imported from the legacy wiki; never edited or exposed
-piece_secondary_kinds.piece_id         ! the document's entity
-piece_secondary_kinds.kind             = secondary_kinds
 piece_aliases.id                       ! the row's own ID
 piece_aliases.piece_id                 ! the document's entity
 piece_aliases.text                     = aliases.text
 piece_aliases.kind                     = aliases.kind
 piece_terms.piece_id                   ! the document's entity
-piece_terms.term_id                    = terms.term_id
-piece_terms.is_primary                 = terms.is_primary
-piece_terms.part                       = terms.part
+piece_terms.term_id                    = term_ids
 piece_terms.position                   ! the element's index in its document list
-piece_relations.from_piece_id          ! the document's entity
-piece_relations.to_piece_id            = relations.to_piece_id
-piece_relations.type                   = relations.type
 piece_credits.id                       ! the row's own ID
 piece_credits.piece_id                 ! the document's entity
 piece_credits.person_id                = credits.person_id
 piece_credits.role                     = credits.role
 piece_credits.attribution              = credits.attribution
 piece_credits.certainty                = credits.certainty
-piece_credits.part                     = credits.part
-piece_credits.note                     = credits.note
 piece_credits.position                 ! the element's index in its document list
 `
 
@@ -125,9 +111,6 @@ persons.sort_name                      ! derived from the name by the writer
 persons.sort_letter                    ! derived from the name by the writer
 persons.kind                           = kind
 persons.status                         = status
-persons.status_date                    = status_date
-persons.status_source_url              = status_source_url
-persons.pronouns                       = pronouns
 persons.notes_md                       = notes_md
 persons.licensing_notes_md             = licensing_notes_md
 persons.licensing_status               = licensing_status
@@ -143,9 +126,6 @@ person_roles.person_id                 ! the document's entity
 person_roles.role                      = roles
 person_affiliations.person_id          ! the document's entity
 person_affiliations.term_id            = affiliation_ids
-person_relations.from_person_id        ! the document's entity
-person_relations.to_person_id          = relations.to_person_id
-person_relations.type                  = relations.type
 `
 
 const termColumns = `
@@ -161,9 +141,6 @@ terms.position                         = position
 terms.current_revision_id              ! the entity's approved revision, set by approval
 terms.legacy_wiki_pageid               ! imported from the legacy wiki; never edited or exposed
 terms.legacy_title                     ! imported from the legacy wiki; never edited or exposed
-term_aliases.id                        ! the row's own ID
-term_aliases.term_id                   ! the document's entity
-term_aliases.name                      = aliases
 `
 
 const collectionColumns = `
@@ -175,9 +152,6 @@ collections.url                        = url
 collections.kind                       = kind
 collections.description_md             = description_md
 collections.region_term_id             = region_term_id
-collections.parent_id                  = parent_id
-collections.is_bardic_resource         = is_bardic_resource
-collections.enumerable                 = enumerable
 collections.current_revision_id        ! the entity's approved revision, set by approval
 `
 
@@ -185,8 +159,6 @@ const eventColumns = `
 events.id                              ! the row's own ID
 events.slug                            ! the entity's address, assigned once by the writer
 events.name                            = name
-events.kind                            = kind
-events.description_md                  = description_md
 events.current_revision_id             ! the entity's approved revision, set by approval
 events.legacy_wiki_pageid              ! imported from the legacy wiki; never edited or exposed
 events.legacy_title                    ! imported from the legacy wiki; never edited or exposed
@@ -198,7 +170,6 @@ users                  ! accounts
 revisions              ! the revision workflow that stores the documents
 revision_contributors  ! the revision workflow that stores the documents
 term_ancestors         ! derived from terms.parent_id by the importer and when a term revision is approved
-conservation_history   ! written by the importer, and appended when a revision changing a piece's status is approved
 contact_requests       ! moderation workflow: takedown, correction and link-report requests
 `
 
@@ -208,14 +179,10 @@ const schemaVersionField = "schema_version"
 type documentCoverage struct {
 	doc     any
 	columns string
-	// elsewhere maps a document field, other than schema_version, that no owned column stores to where it goes.
-	elsewhere map[string]string
 }
 
 var documentCoverages = []documentCoverage{
-	{doc: domain.PieceDocument{}, columns: pieceColumns, elsewhere: map[string]string{
-		"conservation.source_url": "conservation_history.source_url, appended when a status change is approved",
-	}},
+	{doc: domain.PieceDocument{}, columns: pieceColumns},
 	{doc: domain.PersonDocument{}, columns: personColumns},
 	{doc: domain.TermDocument{}, columns: termColumns},
 	{doc: domain.CollectionDocument{}, columns: collectionColumns},
@@ -264,8 +231,7 @@ func parseClasses(t *testing.T, spec string) map[string]map[string]columnClass {
 }
 
 // documentFieldPaths returns the leaf field paths of a document type: JSON names joined by ".", descending into
-// structs and lists of structs, and flattening embedded structs as encoding/json does. A struct with its own JSON
-// encoding, such as domain.Date, is a leaf.
+// structs and lists of structs, and flattening embedded structs as encoding/json does.
 func documentFieldPaths(typ reflect.Type, prefix string) []string {
 	var paths []string
 	for i := range typ.NumField() {
@@ -281,7 +247,7 @@ func documentFieldPaths(typ reflect.Type, prefix string) []string {
 		for elem.Kind() == reflect.Pointer || (elem.Kind() == reflect.Slice && elem != reflect.TypeFor[json.RawMessage]()) {
 			elem = elem.Elem()
 		}
-		if elem.Kind() == reflect.Struct && !reflect.PointerTo(elem).Implements(reflect.TypeFor[json.Unmarshaler]()) {
+		if elem.Kind() == reflect.Struct {
 			paths = append(paths, documentFieldPaths(elem, path+".")...)
 		} else {
 			paths = append(paths, path)
@@ -355,28 +321,23 @@ func checkColumns(t *testing.T, coverage documentCoverage, paths []string,
 	return stored, owned
 }
 
-// checkFieldsStored checks that every document field is stored by exactly one column, or listed as stored
-// elsewhere and stored by none.
-func checkFieldsStored(t *testing.T, coverage documentCoverage, paths []string, stored map[string]int) {
+// checkFieldsStored checks that every document field other than schema_version is stored by exactly one column,
+// and schema_version by none.
+func checkFieldsStored(t *testing.T, paths []string, stored map[string]int) {
 	t.Helper()
 
 	for _, path := range paths {
-		_, isElsewhere := coverage.elsewhere[path]
-		if path == schemaVersionField || isElsewhere {
-			assert.Zero(t, stored[path], "document field %s is listed as stored elsewhere", path)
+		if path == schemaVersionField {
+			assert.Zero(t, stored[path], "document field %s is stored by a column", path)
 		} else {
 			assert.Equal(t, 1, stored[path], "document field %s must be stored by exactly one column", path)
 		}
-	}
-	for path := range coverage.elsewhere {
-		assert.Contains(t, paths, path, "elsewhere lists %s, which the document lacks", path)
 	}
 }
 
 // TestDocumentCoverage requires every column of every table a snapshot document owns to be either a
 // document field or classified as system-owned with a reason, and every document field to be stored by exactly
-// one column of its tables or listed as stored elsewhere, so that a column or field added later fails here
-// until it is classified. Every other table must be listed as owned by no document.
+// one column of its tables, so that a column or field added later fails here until it is classified. Every other table must be listed as owned by no document.
 func TestDocumentCoverage(t *testing.T) {
 	t.Parallel()
 
@@ -388,7 +349,7 @@ func TestDocumentCoverage(t *testing.T) {
 		t.Run(typ.Name(), func(t *testing.T) {
 			paths := documentFieldPaths(typ, "")
 			stored, tables := checkColumns(t, coverage, paths, columns)
-			checkFieldsStored(t, coverage, paths, stored)
+			checkFieldsStored(t, paths, stored)
 			for _, table := range tables {
 				owned[table] = true
 			}

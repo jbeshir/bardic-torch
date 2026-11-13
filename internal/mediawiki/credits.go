@@ -17,7 +17,6 @@ type personParam struct {
 // personParams are the infobox parameters that credit persons, in the order credits are listed.
 var personParams = []personParam{
 	{"lyrics_by", domain.CreditRoleLyrics}, {"tune_by", domain.CreditRoleTune}, {"author", domain.CreditRoleAuthor},
-	{"dance_by", domain.CreditRoleChoreography}, {"music_by", domain.CreditRoleMusic},
 }
 
 // NameForm is how a page names a person.
@@ -53,15 +52,11 @@ func (n PersonName) linked() bool {
 }
 
 // CreditRecord is one credit of a piece, as its infobox gives it. A named credit has the Name of its person,
-// which is matched to a person later; other attributions name no one. Part is the part of the piece the credit
-// is for, from a qualifier ("(verses)") or inferred. Note is the qualifiers' remaining text; linked
-// qualifiers are dropped.
+// which is matched to a person later; other attributions name no one.
 type CreditRecord struct {
 	Role        domain.CreditRole
 	Attribution domain.Attribution
 	Certainty   domain.Certainty
-	Part        *domain.PiecePart
-	Note        string
 	Name        PersonName
 }
 
@@ -85,12 +80,12 @@ var certaintyPrefix = regexp.MustCompile(`(?i)^(possibly|perhaps|maybe|probably|
 	`]*:?[` + jsSpaces + `]+(.+)$`)
 
 // pieceCredits are the credits of every person parameter of a piece's infoboxes, in parameter order.
-func pieceCredits(boxes []Infobox, terms []PieceTerm, s Site) []CreditRecord {
+func pieceCredits(boxes []Infobox, s Site) []CreditRecord {
 	var out []CreditRecord
 	for _, b := range boxes {
 		for _, param := range personParams {
 			if p, ok := b.Param(param.name); ok {
-				out = append(out, scopeParts(ParseCredits(param.role, p.Value, s), terms)...)
+				out = append(out, ParseCredits(param.role, p.Value, s)...)
 			}
 		}
 	}
@@ -105,8 +100,8 @@ func pieceCredits(boxes []Infobox, terms []PieceTerm, s Site) []CreditRecord {
 //   - "Unknown", "anonymous", "Various" and "Many" are attributions with no person ("Unknown/Many" is unknown);
 //   - other text is a name, matched to a person later;
 //   - "possibly", "probably" and "disputed" set the certainty of the credit they qualify (as a prefix or in
-//     parentheses) or, alone, of the credit before them (or after them, if they come first);
-//   - a part qualifier in parentheses ("(verses)", "(chorus tune)") scopes the credit to a part.
+//     parentheses) or, alone, of the credit before them (or after them, if they come first); other qualifiers in
+//     parentheses are dropped.
 func ParseCredits(role domain.CreditRole, v Value, s Site) []CreditRecord {
 	var out []CreditRecord
 	pending := domain.CertaintyCertain
@@ -180,33 +175,18 @@ func qualifiersOf(items []ValueItem, k int) []ValueItem {
 	return items[k+1 : end]
 }
 
-// qualify applies qualifiers to a credit: a certainty word sets its certainty, a part word its part; other text
-// is its note, and a link is dropped.
+// qualify applies qualifiers to a credit: a certainty word sets its certainty; any other qualifier is dropped.
 func qualify(c CreditRecord, qualifiers []ValueItem) CreditRecord {
-	var notes []string
 	for _, q := range qualifiers {
-		label := trimSpace(q.Label)
-		lower := strings.ToLower(label)
-		if certainty, ok := certaintyWords[lower]; ok {
+		if certainty, ok := certaintyWords[strings.ToLower(trimSpace(q.Label))]; ok {
 			c.Certainty = certainty
-
-			continue
-		}
-		if part, ok := partQualifiers[lower]; ok && q.Type == ValueText {
-			c.Part = &part
-
-			continue
-		}
-		if q.Type == ValueText {
-			notes = append(notes, label)
 		}
 	}
-	c.Note = strings.Join(notes, "; ")
 
 	return c
 }
 
-// collapseAttributions keeps one credit per attribution naming no one and part, and drops "various" beside
+// collapseAttributions keeps one credit per attribution naming no one, and drops "various" beside
 // "unknown" ("Unknown/Many" is unknown).
 func collapseAttributions(credits []CreditRecord) []CreditRecord {
 	unknown := slices.ContainsFunc(credits, func(c CreditRecord) bool {
@@ -220,7 +200,7 @@ func collapseAttributions(credits []CreditRecord) []CreditRecord {
 			continue
 		}
 		duplicate := slices.ContainsFunc(out, func(o CreditRecord) bool {
-			return o.Attribution == c.Attribution && samePart(o.Part, c.Part)
+			return o.Attribution == c.Attribution
 		})
 		if !duplicate && (c.Attribution != domain.AttributionVarious || !unknown) {
 			out = append(out, c)
@@ -228,45 +208,4 @@ func collapseAttributions(credits []CreditRecord) []CreditRecord {
 	}
 
 	return out
-}
-
-func samePart(a, b *domain.PiecePart) bool {
-	return (a == nil && b == nil) || (a != nil && b != nil && *a == *b)
-}
-
-// scopeParts infers the parts of one parameter's credits when the piece's terms are scoped to its verses and its
-// chorus and the parameter credits one named person beside attributions naming no one, none of them scoped: the
-// named person wrote the verses' part and the others are the chorus's (Three Words: "[[X]] & anonymous", with
-// SCA Pieces for the verses and Contrafacta for the chorus).
-func scopeParts(credits []CreditRecord, terms []PieceTerm) []CreditRecord {
-	var named, unnamed int
-	for _, c := range credits {
-		if c.Part != nil {
-			return credits
-		}
-		if c.Attribution == domain.AttributionNamed {
-			named++
-		} else {
-			unnamed++
-		}
-	}
-	if named != 1 || unnamed == 0 || !hasTermPart(terms, domain.PiecePartVerses) ||
-		!hasTermPart(terms, domain.PiecePartChorus) {
-		return credits
-	}
-	out := make([]CreditRecord, len(credits))
-	for k, c := range credits {
-		part := domain.PiecePartChorus
-		if c.Attribution == domain.AttributionNamed {
-			part = domain.PiecePartVerses
-		}
-		c.Part = &part
-		out[k] = c
-	}
-
-	return out
-}
-
-func hasTermPart(terms []PieceTerm, part domain.PiecePart) bool {
-	return slices.ContainsFunc(terms, func(t PieceTerm) bool { return t.Part != nil && *t.Part == part })
 }

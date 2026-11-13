@@ -76,8 +76,7 @@ func (fx writeFixture) count(t *testing.T, query string, args ...any) int {
 // pieceDoc is a valid piece document with title.
 func pieceDoc(title string) domain.PieceDocument {
 	return domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: title, Kind: domain.PieceKindSong,
-		Conservation:    domain.DocConservation{Status: domain.ConservationStatusUnassessed},
-		LicensingStatus: domain.LicensingStatusUnknown}
+		ConservationStatus: domain.ConservationStatusUnassessed, LicensingStatus: domain.LicensingStatusUnknown}
 }
 
 func pieceLink(url string, roles ...domain.LinkRole) domain.DocPieceLink {
@@ -89,9 +88,9 @@ func pieceLink(url string, roles ...domain.LinkRole) domain.DocPieceLink {
 func TestSubmit_ModeratorNewPieceIsApprovedWithFreeSlug(t *testing.T) {
 	fx := newWriteFixture(t)
 	fx.c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: lanternTitle}})
-	ballads := fx.c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetForm, Name: "Ballads"}})
+	ballads := fx.c.Term(catalogtest.Term{Doc: domain.TermDocument{Facet: domain.FacetTopic, Name: "Ballads"}})
 	doc := pieceDoc(lanternTitle)
-	doc.Terms = []domain.DocPieceTerm{{TermID: ballads.ID, IsPrimary: true}}
+	doc.TermIDs = []int64{ballads.ID}
 
 	id := fx.submit(t, 0, doc, true)
 
@@ -99,7 +98,7 @@ func TestSubmit_ModeratorNewPieceIsApprovedWithFreeSlug(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, lanternTitle, piece.Title)
 	require.Len(t, piece.Terms, 1)
-	assert.Equal(t, "ballads", piece.Terms[0].Term.Slug)
+	assert.Equal(t, "ballads", piece.Terms[0].Slug)
 	var sortTitle, sortLetter string
 	var current int64
 	require.NoError(t, fx.db.QueryRowContext(t.Context(), "SELECT sort_title, sort_letter, current_revision_id "+
@@ -143,35 +142,13 @@ func TestApprove_EditRewritesChildrenAndUpsertsLinks(t *testing.T) {
 	assert.Equal(t, 1, fx.count(t, "SELECT COUNT(*) FROM link_attachments WHERE piece_id = ?", other.ID))
 }
 
-// A conservation history row is appended when an approval changes the status, with the summary as the reason and
-// the document's source, and not when it keeps it.
-func TestApprove_ConservationHistoryOnStatusChange(t *testing.T) {
-	fx := newWriteFixture(t)
-	lantern := fx.c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: lanternTitle}})
-	doc := pieceDoc(lanternTitle)
-	doc.Conservation = domain.DocConservation{Status: domain.ConservationStatusEndangered,
-		SourceURL: new("https://example.org/assessment")}
-	first := fx.submit(t, lantern.RevisionID, doc, true)
-	doc.NotesMD = new("Sung at every feast.")
-	fx.submit(t, first, doc, true)
-
-	piece, err := fx.repo.GetPublicPiece(t.Context(), lantern.Slug)
-	require.NoError(t, err)
-	require.Len(t, piece.ConservationHistory, 1)
-	change := piece.ConservationHistory[0]
-	assert.Equal(t, domain.ConservationStatusEndangered, change.Status)
-	assert.Equal(t, "An edit", change.Reason)
-	assert.Equal(t, "https://example.org/assessment", *change.SourceURL)
-}
-
 // Approving a term rebuilds the whole closure: a term moved under another root takes its pieces with it.
 func TestApprove_TermRebuildsClosure(t *testing.T) {
 	fx := newWriteFixture(t)
 	war := fx.c.Term(catalogtest.Term{Doc: domain.TermDocument{Name: "War"}})
 	sea := fx.c.Term(catalogtest.Term{Doc: domain.TermDocument{Name: "Sea"}})
 	battles := fx.c.Term(catalogtest.Term{Doc: domain.TermDocument{Name: "Battles", ParentID: &war.ID}})
-	fx.c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Broadside",
-		Terms: []domain.DocPieceTerm{{TermID: battles.ID, IsPrimary: true}}}})
+	fx.c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Broadside", TermIDs: []int64{battles.ID}}})
 
 	fx.submit(t, battles.RevisionID, domain.TermDocument{SchemaVersion: domain.DocumentSchemaVersion,
 		Facet: domain.FacetTopic, Name: "Battles", DisplayName: "Sea battles", ParentID: &sea.ID}, true)
@@ -279,7 +256,7 @@ func TestGetEditable_OwnPendingOrCurrent(t *testing.T) {
 	quiet := fx.c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Quiet Harper",
 		Status: domain.PersonStatusPrefersNoPage}})
 	doc := pieceDoc(lanternTitle)
-	doc.Credits = []domain.DocCredit{{PersonID: &quiet.ID, Role: domain.CreditRoleMusic,
+	doc.Credits = []domain.DocCredit{{PersonID: &quiet.ID, Role: domain.CreditRoleTune,
 		Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain}}
 	doc.Links = []domain.DocPieceLink{pieceLink(visible, domain.LinkRoleLyrics),
 		pieceLink(takenDown, domain.LinkRoleText)}

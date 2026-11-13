@@ -17,12 +17,12 @@ import (
 // The search fixture's piece slugs. Its pieces, with their facets (terms with descendants in brackets):
 //
 //	armada       1588 Armada       0  song                endangered             war, 16th-century
-//	ash-grove    The Ash Grove     A  song + poem         low_risk               war, swords
+//	ash-grove    The Ash Grove     A  song                low_risk               war, swords
 //	eire-abu     Éire Abú          E  instrumental        unassessed             sea, 16th-century
 //	iron-crown   Iron Crown        I  poem                endangered       stub  rapiers, mournful
-//	oi-polloi    Oi Polloi         O  comedy              unassessed             mournful
+//	oi-polloi    Oi Polloi         O  story               unassessed             mournful
 //	pike-march   Pike March        P  song                unassessed             pikes (under unapproved spears)
-//	salt-road    Salt Road         S  story + song        critically_endangered  sea, warlike
+//	salt-road    Salt Road         S  story               critically_endangered  sea, warlike
 //	salt-road-2  Salt Road         S  poem                unassessed             (none)
 //	masks        Theatre of Masks  T  dance_music         restricted       stub  (none)
 //	wild-heron   The Wild Heron    W  song                endangered             swords, warlike
@@ -82,44 +82,41 @@ var searches = catalogtest.NewShared(func(c *catalogtest.Catalog) searchFixture 
 	ravenmoor := term(domain.FacetAffiliation, "Ravenmoor", ravenmoorSlug, &northmarch, false)
 	term(domain.FacetAffiliation, "Southmarch", "southmarch", nil, true)
 
-	piece := func(slug, title, sortTitle, letter string, kind domain.PieceKind, secondary []domain.PieceKind,
-		status domain.ConservationStatus, stub, unapproved bool, terms ...catalogtest.Ref,
+	piece := func(slug, title, sortTitle, letter string, kind domain.PieceKind, status domain.ConservationStatus,
+		stub, unapproved bool, terms ...catalogtest.Ref,
 	) {
-		doc := domain.PieceDocument{Title: title, Kind: kind, SecondaryKinds: secondary,
-			Conservation: domain.DocConservation{Status: status}, IsStub: stub}
+		doc := domain.PieceDocument{Title: title, Kind: kind, ConservationStatus: status, IsStub: stub}
 		for _, t := range terms {
-			doc.Terms = append(doc.Terms, domain.DocPieceTerm{TermID: t.ID})
+			doc.TermIDs = append(doc.TermIDs, t.ID)
 		}
 		c.Piece(catalogtest.Piece{Doc: doc, Slug: slug, SortTitle: sortTitle, SortLetter: letter,
 			Unapproved: unapproved})
 		if !unapproved {
-			searchPieces[slug] = domain.PieceSummary{Slug: slug, Title: title, Kind: kind,
-				SecondaryKinds: secondary, ConservationStatus: status, IsStub: stub}
+			searchPieces[slug] = domain.PieceSummary{Slug: slug, Title: title, Kind: kind, ConservationStatus: status,
+				IsStub: stub}
 		}
 	}
-	poem := []domain.PieceKind{domain.PieceKindPoem}
-	song := []domain.PieceKind{domain.PieceKindSong}
-	piece(wildHeronSlug, "The Wild Heron", "Wild Heron", "W", domain.PieceKindSong, nil,
+	piece(wildHeronSlug, "The Wild Heron", "Wild Heron", "W", domain.PieceKindSong,
 		domain.ConservationStatusEndangered, false, false, swords, warlike)
-	piece(ashGroveSlug, "The Ash Grove", "Ash Grove", "A", domain.PieceKindSong, poem,
+	piece(ashGroveSlug, "The Ash Grove", "Ash Grove", "A", domain.PieceKindSong,
 		domain.ConservationStatusLowRisk, false, false, war, swords)
-	piece(ironCrownSlug, "Iron Crown", "", "I", domain.PieceKindPoem, nil,
+	piece(ironCrownSlug, "Iron Crown", "", "I", domain.PieceKindPoem,
 		domain.ConservationStatusEndangered, true, false, rapiers, mournful)
-	piece(saltRoadSlug, saltRoadTitle, "", "S", domain.PieceKindStory, song,
+	piece(saltRoadSlug, saltRoadTitle, "", "S", domain.PieceKindStory,
 		domain.ConservationStatusCriticallyEndangered, false, false, sea, warlike)
-	piece(eireAbuSlug, "Éire Abú", "", "E", domain.PieceKindInstrumental, nil,
+	piece(eireAbuSlug, "Éire Abú", "", "E", domain.PieceKindInstrumental,
 		domain.ConservationStatusUnassessed, false, false, sea, century)
-	piece(armadaSlug, "1588 Armada", "", "0", domain.PieceKindSong, nil,
+	piece(armadaSlug, "1588 Armada", "", "0", domain.PieceKindSong,
 		domain.ConservationStatusEndangered, false, false, war, century)
-	piece(oiPolloiSlug, "Oi Polloi", "", "O", domain.PieceKindComedy, nil,
+	piece(oiPolloiSlug, "Oi Polloi", "", "O", domain.PieceKindStory,
 		domain.ConservationStatusUnassessed, false, false, mournful)
-	piece(masksSlug, "Theatre of Masks", "", "T", domain.PieceKindDanceMusic, nil,
+	piece(masksSlug, "Theatre of Masks", "", "T", domain.PieceKindDanceMusic,
 		domain.ConservationStatusRestricted, true, false)
-	piece(pikeMarchSlug, "Pike March", "", "P", domain.PieceKindSong, nil,
+	piece(pikeMarchSlug, "Pike March", "", "P", domain.PieceKindSong,
 		domain.ConservationStatusUnassessed, false, false, pikes)
-	piece(saltRoad2Slug, saltRoadTitle, "", "S", domain.PieceKindPoem, nil,
+	piece(saltRoad2Slug, saltRoadTitle, "", "S", domain.PieceKindPoem,
 		domain.ConservationStatusUnassessed, false, false)
-	piece("pending-ballad", "Pending Ballad", "", "P", domain.PieceKindSong, nil,
+	piece("pending-ballad", "Pending Ballad", "", "P", domain.PieceKindSong,
 		domain.ConservationStatusEndangered, false, true, war, warlike)
 
 	seedSearchPersons(c, northmarch, ravenmoor)
@@ -177,7 +174,7 @@ func seedSearchPersons(c *catalogtest.Catalog, northmarch, ravenmoor catalogtest
 		Roles:          []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRolePoet},
 		AffiliationIDs: []int64{ravenmoor.ID},
 		Aliases: []domain.DocPersonAlias{
-			{Name: "Linnet Wren", Kind: domain.PersonAliasKindStage},
+			{Name: "Linnet Wren", Kind: domain.PersonAliasKindSCA},
 		}}, false)
 	person(ashTallowSlug, "", "A", domain.PersonDocument{Name: "Ashlin Tallow", Kind: domain.PersonKindHistorical,
 		Roles: []domain.PersonRole{domain.PersonRoleSongwriter}, AffiliationIDs: []int64{northmarch.ID}}, false)
@@ -186,7 +183,7 @@ func seedSearchPersons(c *catalogtest.Catalog, northmarch, ravenmoor catalogtest
 	person(hollisFennSlug, "", "H", domain.PersonDocument{Name: hollisName, Kind: domain.PersonKindCommunityBard,
 		Status: domain.PersonStatusPrefersNoPage, Roles: []domain.PersonRole{domain.PersonRoleSinger},
 		AffiliationIDs: []int64{northmarch.ID},
-		Aliases:        []domain.DocPersonAlias{{Name: "Owl of the Moor", Kind: domain.PersonAliasKindStage}},
+		Aliases:        []domain.DocPersonAlias{{Name: "Owl of the Moor", Kind: domain.PersonAliasKindSCA}},
 	}, false)
 	person(nineRavensSlug, "", "0", domain.PersonDocument{Name: "9 Ravens", Kind: domain.PersonKindGroup}, false)
 	person("pending-rook", "", "P", domain.PersonDocument{Name: "Pending Rook", Kind: domain.PersonKindCommunityBard,
@@ -252,8 +249,8 @@ var everyPieceFacets = domain.PieceFacets{
 	// tagged with war and its child swords, counts once under war.
 	Terms: termCounts(centurySlug, 2, mournfulSlug, 2, rapiersSlug, 1, seaSlug, 2, swordsSlug, 3, warSlug, 4,
 		warlikeSlug, 2),
-	Kinds: kindCounts(domain.PieceKindSong, 5, domain.PieceKindPoem, 3, domain.PieceKindStory, 1,
-		domain.PieceKindDanceMusic, 1, domain.PieceKindInstrumental, 1, domain.PieceKindComedy, 1),
+	Kinds: kindCounts(domain.PieceKindSong, 4, domain.PieceKindPoem, 2, domain.PieceKindStory, 2,
+		domain.PieceKindDanceMusic, 1, domain.PieceKindInstrumental, 1),
 	ConservationStatuses: statusCounts(domain.ConservationStatusUnassessed, 4, domain.ConservationStatusLowRisk, 1,
 		domain.ConservationStatusEndangered, 3, domain.ConservationStatusCriticallyEndangered, 1,
 		domain.ConservationStatusRestricted, 1),
@@ -297,7 +294,7 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 					// Topics and moods are counted among the pieces the other facets let through.
 					Terms: termCounts(seaSlug, 1, swordsSlug, 1, warSlug, 1, warlikeSlug, 2),
 					// Kinds ignore the kind selection, so the iron crown counts as a poem.
-					Kinds: kindCounts(domain.PieceKindSong, 2, domain.PieceKindPoem, 1, domain.PieceKindStory, 1),
+					Kinds: kindCounts(domain.PieceKindSong, 1, domain.PieceKindPoem, 1, domain.PieceKindStory, 1),
 					ConservationStatuses: statusCounts(domain.ConservationStatusEndangered, 1,
 						domain.ConservationStatusCriticallyEndangered, 1),
 					Letters: letters("S", 1, "W", 1),
@@ -305,17 +302,18 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 			},
 		},
 		{
-			// (sea or rapiers), warlike and (a song or a poem): only the salt road. The wild heron fails only the
-			// topic (swords are not rapiers) and the iron crown only the mood, so each is counted in its own facet.
+			// (sea or rapiers), warlike and (a song, a poem or a story): only the salt road. The wild heron fails
+			// only the topic (swords are not rapiers) and the iron crown only the mood, so each is counted in its
+			// own facet.
 			name: "facet_counts_ignore_own_selection",
 			query: datasources.PieceQuery{TermSlugs: []string{seaSlug, rapiersSlug, warlikeSlug},
-				Kinds: []domain.PieceKind{domain.PieceKindSong, domain.PieceKindPoem}},
+				Kinds: []domain.PieceKind{domain.PieceKindSong, domain.PieceKindPoem, domain.PieceKindStory}},
 			want: domain.PieceList{
 				Pieces: pieceSummaries(saltRoadSlug),
 				Total:  1,
 				Facets: domain.PieceFacets{
 					Terms:                termCounts(mournfulSlug, 1, seaSlug, 1, swordsSlug, 1, warSlug, 1, warlikeSlug, 1),
-					Kinds:                kindCounts(domain.PieceKindSong, 1, domain.PieceKindStory, 1),
+					Kinds:                kindCounts(domain.PieceKindStory, 1),
 					ConservationStatuses: statusCounts(domain.ConservationStatusCriticallyEndangered, 1),
 					Letters:              letters("S", 1),
 				},
@@ -347,7 +345,7 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 					// the topic counts ignore the topic selection, so they are every piece's.
 					Terms: termCounts(mournfulSlug, 1, rapiersSlug, 1, seaSlug, 2, swordsSlug, 3, warSlug, 4,
 						warlikeSlug, 1),
-					Kinds: kindCounts(domain.PieceKindSong, 2, domain.PieceKindPoem, 2),
+					Kinds: kindCounts(domain.PieceKindSong, 2, domain.PieceKindPoem, 1),
 					ConservationStatuses: statusCounts(domain.ConservationStatusLowRisk, 1,
 						domain.ConservationStatusEndangered, 2),
 					Letters: letters("A", 1, "I", 1, "W", 1),
@@ -355,24 +353,8 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 			},
 		},
 		{
-			// a poem as its primary or a secondary kind.
-			name:  "kind_primary_or_secondary",
-			query: datasources.PieceQuery{Kinds: []domain.PieceKind{domain.PieceKindPoem}},
-			want: domain.PieceList{
-				Pieces: pieceSummaries(ashGroveSlug, ironCrownSlug, saltRoad2Slug),
-				Total:  3,
-				Facets: domain.PieceFacets{
-					Terms: termCounts(mournfulSlug, 1, rapiersSlug, 1, swordsSlug, 2, warSlug, 2),
-					Kinds: everyPieceFacets.Kinds,
-					ConservationStatuses: statusCounts(domain.ConservationStatusUnassessed, 1,
-						domain.ConservationStatusLowRisk, 1, domain.ConservationStatusEndangered, 1),
-					Letters: letters("A", 1, "I", 1, "S", 1),
-				},
-			},
-		},
-		{
 			name: "kinds_or",
-			query: datasources.PieceQuery{Kinds: []domain.PieceKind{domain.PieceKindStory, domain.PieceKindComedy},
+			query: datasources.PieceQuery{Kinds: []domain.PieceKind{domain.PieceKindStory, domain.PieceKindInstrumental},
 				Letter: &letterZero},
 			want: domain.PieceList{
 				Pieces: []domain.PieceSummary{},
@@ -381,7 +363,7 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 					Terms: termCounts(), ConservationStatuses: statusCounts(),
 					// armada is the only piece under 0, a song.
 					Kinds:   kindCounts(domain.PieceKindSong, 1),
-					Letters: letters("O", 1, "S", 1),
+					Letters: letters("E", 1, "O", 1, "S", 1),
 				},
 			},
 		},
@@ -413,7 +395,7 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 				Total:  2,
 				Facets: domain.PieceFacets{
 					Terms: termCounts(seaSlug, 1, swordsSlug, 1, warSlug, 1, warlikeSlug, 1),
-					Kinds: kindCounts(domain.PieceKindSong, 2, domain.PieceKindPoem, 1, domain.PieceKindStory, 1),
+					Kinds: kindCounts(domain.PieceKindSong, 1, domain.PieceKindStory, 1),
 					ConservationStatuses: statusCounts(domain.ConservationStatusUnassessed, 4,
 						domain.ConservationStatusLowRisk, 1, domain.ConservationStatusEndangered, 2,
 						domain.ConservationStatusCriticallyEndangered, 1),
@@ -430,7 +412,7 @@ func TestRepository_ListPublicPieces(t *testing.T) {
 				Total:  2,
 				Facets: domain.PieceFacets{
 					Terms: termCounts(seaSlug, 1, warlikeSlug, 1),
-					Kinds: kindCounts(domain.PieceKindSong, 1, domain.PieceKindPoem, 1, domain.PieceKindStory, 1),
+					Kinds: kindCounts(domain.PieceKindPoem, 1, domain.PieceKindStory, 1),
 					ConservationStatuses: statusCounts(domain.ConservationStatusUnassessed, 1,
 						domain.ConservationStatusCriticallyEndangered, 1),
 					Letters: letters("S", 2),

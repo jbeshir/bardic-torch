@@ -38,29 +38,15 @@ func (b *builder) bard(bard mediawiki.BardRecord, links []mediawiki.LinkRecord) 
 	page, _ := b.c.Site.Page(bard.Title)
 	name := plain(bard.Title)
 	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name,
-		Kind: domain.PersonKindCommunityBard, Status: bard.Status, StatusDate: bard.StatusDate,
+		Kind: domain.PersonKindCommunityBard, Status: bard.Status,
 		NotesMD:          free(bard.NotesMD),
 		LicensingStatus:  bard.LicensingStatus,
 		LicensingNotesMD: free(bard.LicensingNotesMD),
 		Aliases:          b.personAliases(bard), Roles: uniqueOf(bard.Roles), AffiliationIDs: []int64{},
-		Relations: []domain.DocPersonRelation{}, Links: b.personLinks(links)}
-	if bard.Status != domain.PersonStatusActive {
-		b.status(&doc, bard)
-	}
+		Links: b.personLinks(links)}
 	for _, cat := range bard.Affiliations {
 		if tid, ok := b.termIDs[cat]; ok && !slices.Contains(doc.AffiliationIDs, tid) {
 			doc.AffiliationIDs = append(doc.AffiliationIDs, tid)
-		}
-	}
-	for _, r := range bard.Relations {
-		to, ok := b.c.People.Persons.Resolve(mediawiki.PersonName{Name: r.To, Form: mediawiki.NamePageLink})
-		toID := b.personIDs[to]
-		if !ok || toID == 0 || toID == id {
-			continue
-		}
-		rel := domain.DocPersonRelation{ToPersonID: toID, Type: r.Type}
-		if !slices.Contains(doc.Relations, rel) {
-			doc.Relations = append(doc.Relations, rel)
 		}
 	}
 	sortName := doc.Name
@@ -87,23 +73,14 @@ func (b *builder) personAliases(bard mediawiki.BardRecord) []domain.DocPersonAli
 	return out
 }
 
-// status sources a bard's status to the link its date was read from (StatusSourceURL), or else to the wiki page.
-func (b *builder) status(doc *domain.PersonDocument, bard mediawiki.BardRecord) {
-	source := bard.URL
-	if bard.StatusSourceURL != "" {
-		source = bard.StatusSourceURL
-	}
-	doc.StatusSourceURL = optionalURL(source)
-}
-
 // historicalCredits are the persons credited on a piece of a traditional origin (traditionalCategory) or of a
 // century origin before historicalBefore. On a piece that is also of the SCA (scaPiecesCategory or
 // contrafactaCategory), such as new words to a traditional tune, only the tune's credits are: its words are modern.
 func (b *builder) historicalCredits() map[mediawiki.PersonRef]bool {
 	out := map[mediawiki.PersonRef]bool{}
 	for _, p := range b.c.Pieces {
-		period := p.Content.PeriodStart != nil && int(*p.Content.PeriodStart) < historicalBefore
-		if !period && !hasTerm(p, traditionalCategory) {
+		early := p.Content.EarliestYear != nil && int(*p.Content.EarliestYear) < historicalBefore
+		if !early && !hasTerm(p, traditionalCategory) {
 			continue
 		}
 		modern := hasTerm(p, scaPiecesCategory) || hasTerm(p, contrafactaCategory)
@@ -118,7 +95,7 @@ func (b *builder) historicalCredits() map[mediawiki.PersonRef]bool {
 }
 
 func hasTerm(p mediawiki.PieceRecord, category string) bool {
-	return slices.ContainsFunc(p.Terms, func(t mediawiki.PieceTerm) bool { return t.Category == category })
+	return slices.Contains(p.Terms, category)
 }
 
 func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecord,
@@ -137,7 +114,7 @@ func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecor
 	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: kind,
 		Status: domain.PersonStatusActive, LicensingStatus: domain.LicensingStatusUnknown, IsStub: true,
 		Aliases: []domain.DocPersonAlias{}, Roles: []domain.PersonRole{}, AffiliationIDs: []int64{},
-		Relations: []domain.DocPersonRelation{}, Links: b.personLinks(links)}
+		Links: b.personLinks(links)}
 	person := domain.ImportedPerson{ID: id, Slug: b.slugs.Allocate(name, domain.SlugEntityTypePerson, id),
 		SortName: name, SortLetter: domain.SortLetter(name), Doc: doc, Revision: b.revision(nil,
 			domain.ImportSummaryStub)}

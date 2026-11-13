@@ -45,11 +45,9 @@ func (c *catalogueReader) collection(ctx context.Context, id uint64) domain.Coll
 	key := c.nullID(row.ID)
 
 	collection := domain.Collection{
-		CollectionSummary: c.collectionSummary(c.signedID(row.ID), row.Name, row.Kind, row.Url, row.IsBardicResource),
+		CollectionSummary: c.collectionSummary(c.signedID(row.ID), row.Name, row.Kind, row.Url),
 		UpdatedAt:         row.UpdatedAt,
 		DescriptionMD:     stringPtr(row.DescriptionMd),
-		Enumerable:        enumOf[domain.CollectionEnumerable](c, row.Enumerable),
-		Children:          c.collectionChildren(fetch(ctx, c, "children", c.q.ListPublicCollectionChildren, key)),
 		Citations: c.citations(ctx, fetch(ctx, c, "citations", c.q.ListPublicCollectionCitations,
 			queries.ListPublicCollectionCitationsParams{CollectionID: key, Limit: domain.MaxNestedListItems})),
 		CitationsTotal: fetch(ctx, c, "citation count", c.q.CountPublicCollectionCitations, key),
@@ -58,25 +56,8 @@ func (c *catalogueReader) collection(ctx context.Context, id uint64) domain.Coll
 		region := c.termSummary(row.RegionSlug.String, row.RegionFacet.TermsFacet, row.RegionDisplayName.String)
 		collection.Region = &region
 	}
-	if row.ParentID.Valid {
-		parent := c.collectionSummary(row.ParentID.Int64, row.ParentName.String, row.ParentKind.CollectionsKind,
-			row.ParentUrl, row.ParentIsBardicResource.Bool)
-		collection.Parent = &parent
-	}
 
 	return collection
-}
-
-func (c *catalogueReader) collectionChildren(
-	rows []queries.ListPublicCollectionChildrenRow,
-) []domain.CollectionSummary {
-	children := make([]domain.CollectionSummary, 0, len(rows))
-	for _, row := range rows {
-		children = append(children, c.collectionSummary(c.signedID(row.ID), row.Name, row.Kind, row.Url,
-			row.IsBardicResource))
-	}
-
-	return children
 }
 
 // attachmentKey identifies the attachments of one link to one piece or person, which make one citation.
@@ -98,7 +79,7 @@ func (c *catalogueReader) citations(
 			slugs = append(slugs, row.PieceSlug.String)
 		}
 	}
-	extras := c.summaryExtras(ctx, slugs)
+	creditNames := c.creditNames(ctx, slugs)
 
 	roles := make(map[attachmentKey][]domain.LinkRole)
 	if len(linkIDs) > 0 {
@@ -117,7 +98,7 @@ func (c *catalogueReader) citations(
 			Roles:   roles[attachmentKey{linkID: row.LinkID, pieceID: row.PieceID, personID: row.PersonID}],
 		}
 		if row.PieceSlug.Valid {
-			piece := c.pieceSummary(extras, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
+			piece := c.pieceSummary(creditNames, row.PieceSlug.String, row.PieceTitle.String, row.PieceKind.PiecesKind,
 				row.PieceConservationStatus.PiecesConservationStatus, row.PieceIsStub.Bool)
 			citation.Piece = &piece
 		} else {

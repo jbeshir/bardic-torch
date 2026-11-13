@@ -47,7 +47,8 @@ type People struct {
 }
 
 // ParsePeople parses the bard pages and matches every person the pieces and bard pages name: infobox credits,
-// bard-name categories, relations, the red links naming persons in prose and the performers of performance items.
+// bard-name categories, the persons bards are heir of, the red links naming persons in prose and the performers of
+// performance items.
 // Each piece's credits are then the union of three signals: its infobox's credits, its bard-name categories and the
 // bard pages listing it. A category or a works list naming a person the infobox does not credit adds a credit
 // (role lyrics, certainty possible), unless the person is related to a credited person.
@@ -67,8 +68,8 @@ func ParsePeople(s Site, pieces []PieceRecord) People {
 }
 
 // personMentions are the persons the pages name, in a fixed order: each piece's infobox credits and bard-name
-// categories, the bards' relations, the red links naming persons in prose and the performers of the performance
-// items.
+// categories, the persons the bards are heir of, the red links naming persons in prose and the performers of the
+// performance items.
 func personMentions(s Site, pieces []PieceRecord, bards []BardRecord, redLinks []RedLink) []PersonMention {
 	var out []PersonMention
 	for _, p := range pieces {
@@ -82,8 +83,8 @@ func personMentions(s Site, pieces []PieceRecord, bards []BardRecord, redLinks [
 		}
 	}
 	for _, b := range bards {
-		for _, r := range b.Relations {
-			out = append(out, PersonMention{Name: relationName(r)})
+		for _, heir := range b.HeirOf {
+			out = append(out, PersonMention{Name: heirName(heir)})
 		}
 	}
 
@@ -124,16 +125,16 @@ func performerName(s Site, target string) PersonName {
 	return PersonName{Name: s.ResolveRedirect(target), Form: NamePageLink}
 }
 
-func relationName(r PersonRelation) PersonName {
-	return PersonName{Name: r.To, Form: NamePageLink}
+func heirName(title string) PersonName {
+	return PersonName{Name: title, Form: NamePageLink}
 }
 
-// relatedPersons maps each person to those a bard page relates them to, both ways.
+// relatedPersons maps each person to those a bard page makes them heir of or heir to.
 func relatedPersons(bards []BardRecord, persons Persons) map[PersonRef][]PersonRef {
 	out := map[PersonRef][]PersonRef{}
 	for _, b := range bards {
-		for _, r := range b.Relations {
-			if to, ok := persons.Resolve(relationName(r)); ok {
+		for _, heir := range b.HeirOf {
+			if to, ok := persons.Resolve(heirName(heir)); ok {
 				out[PersonRef(b.Title)] = append(out[PersonRef(b.Title)], to)
 				out[to] = append(out[to], PersonRef(b.Title))
 			}

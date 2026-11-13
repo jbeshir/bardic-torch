@@ -36,21 +36,20 @@ func validImport() CatalogueImport {
 	return CatalogueImport{
 		Terms: []ImportedTerm{
 			{ID: 1, Slug: "sca", Revision: importRevision(1), Doc: TermDocument{SchemaVersion: DocumentSchemaVersion,
-				Facet: FacetAffiliation, Name: "SCA", DisplayName: "SCA", Aliases: []string{"SCA Bards"}}},
+				Facet: FacetAffiliation, Name: "SCA", DisplayName: "SCA"}},
 			{ID: 2, Slug: "calontir", Revision: importRevision(2), Doc: TermDocument{
 				SchemaVersion: DocumentSchemaVersion, Facet: FacetAffiliation, Name: "Calontir", DisplayName: "Calontir",
-				ParentID: ptr(int64(1)), Aliases: []string{}}},
+				ParentID: ptr(int64(1))}},
 			{ID: 3, Slug: "patriotic-calontir", Revision: importRevision(3), Doc: TermDocument{
 				SchemaVersion: DocumentSchemaVersion, Facet: FacetTopic, Name: "Patriotic (Calontir)",
-				DisplayName: "Patriotic (Calontir)", RelatedAffiliationID: ptr(int64(2)), Aliases: []string{}},
+				DisplayName: "Patriotic (Calontir)", RelatedAffiliationID: ptr(int64(2))},
 				Legacy: &LegacyPage{PageID: ptr(uint32(30)), Title: "Category:Patriotic (Calontir)"}},
 		},
 		Collections: []ImportedCollection{{ID: 1, SortName: "Songbook", SortLetter: "S", Revision: importRevision(4),
 			Doc: CollectionDocument{SchemaVersion: DocumentSchemaVersion, Name: "Songbook",
-				URL: ptr("https://example.org/"), Kind: CollectionKindWebsite, RegionTermID: ptr(int64(2)),
-				IsBardicResource: true, Enumerable: CollectionEnumerableUnknown}}},
+				URL: ptr("https://example.org/"), Kind: CollectionKindWebsite, RegionTermID: ptr(int64(2))}}},
 		Events: []ImportedEvent{{ID: 1, Slug: "green-dragon", Revision: importRevision(5),
-			Doc: EventDocument{SchemaVersion: DocumentSchemaVersion, Name: "Green Dragon", Kind: EventKindVenue}}},
+			Doc: EventDocument{SchemaVersion: DocumentSchemaVersion, Name: "Green Dragon"}}},
 		Persons: []ImportedPerson{
 			{ID: 1, Slug: "wren-placeholder", SortName: testBardName, SortLetter: "W", Revision: importRevision(6),
 				Legacy: &LegacyPage{PageID: ptr(uint32(10)), Title: testBardName},
@@ -58,7 +57,7 @@ func validImport() CatalogueImport {
 					Kind: PersonKindCommunityBard, Status: PersonStatusActive, LicensingStatus: LicensingStatusUnknown,
 					Aliases:        []DocPersonAlias{{Name: "Legal Name 001", Kind: PersonAliasKindLegal}},
 					Roles:          []PersonRole{PersonRoleSinger},
-					AffiliationIDs: []int64{2}, Relations: []DocPersonRelation{{ToPersonID: 2, Type: PersonRelationTypeHeirOf}},
+					AffiliationIDs: []int64{2},
 					Links: []DocPersonLink{{DocLink: personLink, Performances: []DocPersonPerformance{{
 						PieceID: ptr(int64(1)), DocPerformance: DocPerformance{EventID: ptr(int64(1)),
 							DescriptionVerbatim: "Video", PerformerIDs: []int64{1}}}}}}}},
@@ -70,10 +69,9 @@ func validImport() CatalogueImport {
 		Pieces: []ImportedPiece{{ID: 1, Slug: "a-song", SortTitle: "Song", SortLetter: "S", Revision: importRevision(8),
 			Legacy: &LegacyPage{PageID: ptr(uint32(20)), Title: "A Song"},
 			Doc: PieceDocument{SchemaVersion: DocumentSchemaVersion, Title: "A Song", Kind: PieceKindSong,
-				Conservation:    DocConservation{Status: ConservationStatusUnassessed},
-				LicensingStatus: LicensingStatusUnknown, PeriodStart: ptr(int16(1201)), PeriodEnd: ptr(int16(1300)),
+				ConservationStatus: ConservationStatusUnassessed, LicensingStatus: LicensingStatusUnknown,
 				Aliases: []DocPieceAlias{{Text: "The Song", Kind: PieceAliasKindAltTitle}},
-				Terms:   []DocPieceTerm{{TermID: 3, IsPrimary: true}},
+				TermIDs: []int64{3},
 				Credits: []DocCredit{{PersonID: ptr(int64(1)), Role: CreditRoleLyrics, Attribution: AttributionNamed,
 					Certainty: CertaintyCertain}, {Role: CreditRoleTune, Attribution: AttributionTraditional,
 					Certainty: CertaintyCertain}},
@@ -150,7 +148,7 @@ func TestCatalogueImportValidate_SystemFieldWidthsAndStrings(t *testing.T) {
 }
 
 func TestCatalogueImportValidate_References(t *testing.T) {
-	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Terms[0].TermID = 9 }, "doc.terms[0].term_slug")
+	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.TermIDs[0] = 9 }, "doc.term_slugs[0]")
 	requireInvalid(t, func(imp *CatalogueImport) { imp.Pieces[0].Doc.Credits[0].PersonID = ptr(int64(9)) },
 		"piece 1: doc: references person 9")
 	requireInvalid(t, func(imp *CatalogueImport) {
@@ -172,11 +170,6 @@ func TestCatalogueImportValidate_InsertOrder(t *testing.T) {
 	requireInvalid(t, func(imp *CatalogueImport) {
 		imp.Terms = []ImportedTerm{imp.Terms[2], imp.Terms[0], imp.Terms[1]}
 	}, "term 3: doc.related_affiliation_id")
-	requireInvalid(t, func(imp *CatalogueImport) {
-		imp.Collections = append(imp.Collections, imp.Collections[0])
-		imp.Collections[1].ID, imp.Collections[1].Revision.ID = 2, 9
-		imp.Collections[0].Doc.ParentID = ptr(int64(2))
-	}, "collection 1: doc.parent_id")
 }
 
 func TestCatalogueImportValidate_Links(t *testing.T) {
