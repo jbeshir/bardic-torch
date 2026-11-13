@@ -17,21 +17,21 @@ the product and implementation plan.
   authenticated endpoint. Moderators cannot be blocked.
 - **Principal** -- The authenticated user, resolved once per request by the auth middleware before any
   authorisation check.
-- **Piece** -- A bardic song, poem, story, dance tune, instrumental or comedy piece, addressed by slug. It has a
-  primary kind plus optional secondary kinds, a conservation status, licensing information, aliases (other titles),
-  credits, relations to other pieces, links and term tags. A stub is a piece with little recorded yet.
+- **Piece** -- A bardic song, poem, story, dance tune or instrumental piece, addressed by slug. It has a kind, a
+  conservation status, licensing information, aliases (other titles), credits, links and an ordered list of terms.
+  A stub is a piece with little recorded yet.
 - **Person** -- A community bard, historical author or group, addressed by slug, with aliases, roles, affiliations,
-  relations, links, the works they are credited on and the performances they appear in. A person with status
-  `prefers_no_page` has a page showing only their identity and the cited statement: they are listed as a stub,
-  found only by name, and left out of member lists, counts and needs-work; credits, performances and relations
-  name them without a link.
+  links, the works they are credited on and the performances they appear in. A person with status
+  `prefers_no_page` has a page showing only their identity (name, kind and status): they are listed as a stub,
+  found only by name, and left out of member lists, counts and needs-work; credits and performances name them
+  without a link.
 - **Term and facet** -- Terms classify pieces (and, for the `affiliation` facet, persons). Each belongs to one facet
-  (mood, topic, culture, language, legendaria, form, origin, other, affiliation) and may have a parent, up to three
+  (mood, topic, culture, language, legendaria, origin, other, affiliation) and may have a parent, up to three
   levels deep. Filtering by a term matches pieces tagged with it or any descendant. Within a facet terms combine
   with OR, across facets with AND. Piece kind and conservation status act as two more facets.
 - **Collection** -- A website or archive that hosts bardic material, addressed by numeric ID, with the links cited
   from it.
-- **Event** -- An event or venue where pieces were performed, addressed by slug.
+- **Event** -- An event where pieces were performed, addressed by slug.
 - **Link** -- An external URL attached to pieces or persons with one or more roles (lyrics, sheet music,
   performance...). Moderators can hide a link, and hidden links appear in no public read.
 - **Revision and visibility** -- Every change to a catalogue entity is a revision. An entity is public only once it
@@ -156,9 +156,9 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `GET` | `/v1/terms/{slug}` | No | A term with its ancestors, children and a page of its pieces or persons |
 | `GET` | `/v1/terms/{slug}/history` | No | A term's approved revisions |
 | `GET` | `/v1/collections` | No | Collections: `kind`, `letter` |
-| `GET` | `/v1/collections/{collection_id}` | No | A collection with its children and citations |
+| `GET` | `/v1/collections/{collection_id}` | No | A collection with its citations |
 | `GET` | `/v1/collections/{collection_id}/history` | No | A collection's approved revisions |
-| `GET` | `/v1/events` | No | Events and venues |
+| `GET` | `/v1/events` | No | Events |
 | `GET` | `/v1/events/{slug}` | No | An event with its performances |
 | `GET` | `/v1/events/{slug}/history` | No | An event's approved revisions |
 | `GET` | `/v1/revisions/{revision_id}` | No | An approved revision: redacted snapshot, base snapshot and changed fields |
