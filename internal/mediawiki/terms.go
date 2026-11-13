@@ -12,14 +12,14 @@ import (
 // "Other" tag the wiki put at the top level, is itself a term of the other facet.
 var topLevelFacets = map[string]domain.Facet{
 	"Moods": domain.FacetMood, "Topics": domain.FacetTopic, "Cultures": domain.FacetCulture,
-	"Languages": domain.FacetLanguage, "Legendaria": domain.FacetLegendaria, "Forms": domain.FacetForm,
-	"Source Category": domain.FacetOrigin, "True Events": domain.FacetOther,
+	"Languages": domain.FacetLanguage, "Legendaria": domain.FacetLegendaria, "Source Category": domain.FacetOrigin,
+	"True Events": domain.FacetOther,
 }
 
 // facetOrder is the order terms are planned in, facet by facet.
 var facetOrder = []domain.Facet{
 	domain.FacetMood, domain.FacetTopic, domain.FacetCulture, domain.FacetLanguage, domain.FacetLegendaria,
-	domain.FacetForm, domain.FacetOrigin, domain.FacetOther, domain.FacetAffiliation,
+	domain.FacetOrigin, domain.FacetOther, domain.FacetAffiliation,
 }
 
 // unparentedTerm is where PLAN §2.10 puts a category the wiki gave no parent: a facet and a parent term (empty
@@ -54,9 +54,8 @@ var (
 
 // TermSpec is a term to import, planned from a category. Category is the category it comes from, which identifies
 // the term in the plan; Parent and RelatedAffiliation name other terms by their category (empty for none).
-// Position is the term's place among its siblings, in wiki order. Aliases are the redirect categories that lead to
-// it (and, for an organisation, its category's name). DescriptionMD is the category page's description as
-// Markdown, without category tags and inline lyrics, or empty.
+// Position is the term's place among its siblings, in wiki order. DescriptionMD is the category page's description
+// as Markdown, without category tags and inline lyrics, or empty.
 type TermSpec struct {
 	Category           string
 	Facet              domain.Facet
@@ -66,7 +65,6 @@ type TermSpec struct {
 	RelatedAffiliation string
 	DescriptionMD      string
 	Position           int
-	Aliases            []string
 }
 
 // TermPlan is the terms to import, roots before their children.
@@ -101,7 +99,6 @@ func PlanTerms(t Taxonomy) TermPlan {
 	p.planFacetTerms()
 	p.planAffiliations()
 	p.linkPatrioticTopics()
-	p.addRedirectAliases()
 
 	return p.result()
 }
@@ -241,7 +238,6 @@ func (p *termPlanner) planOrganisations() string {
 		}
 		name := affiliationRootNames[org]
 		p.add(org, domain.FacetAffiliation, name, "")
-		p.specs[org].Aliases = []string{org}
 		if org == CategorySCABards {
 			root = org
 		}
@@ -283,18 +279,6 @@ func (p *termPlanner) linkPatrioticTopics() {
 		}
 		if spec, ok := p.specs[m[1]]; ok && spec.Facet == domain.FacetAffiliation {
 			p.specs[name].RelatedAffiliation = m[1]
-		}
-	}
-}
-
-func (p *termPlanner) addRedirectAliases() {
-	for _, name := range sortedCategories(p.taxonomy) {
-		if p.taxonomy.Class(name) != ClassRedirect {
-			continue
-		}
-		target := p.taxonomy.Resolve(name)
-		if spec, ok := p.specs[target]; ok {
-			spec.Aliases = append(spec.Aliases, name)
 		}
 	}
 }

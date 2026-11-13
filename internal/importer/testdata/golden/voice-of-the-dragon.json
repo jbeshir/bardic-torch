@@ -8,56 +8,30 @@
       "schema_version": 1,
       "title": "Voice of the Dragon",
       "kind": "song",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
       "notes_md": null,
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": null,
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": null,
-      "period_end": null,
       "aliases": [],
-      "terms": [
-        {
-          "term_id": 55,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 65,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 120,
-          "is_primary": true,
-          "part": null
-        }
+      "term_ids": [
+        55,
+        65,
+        120
       ],
-      "relations": [],
       "credits": [
         {
           "person_id": 80,
           "role": "lyrics",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": 80,
           "role": "tune",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         }
       ],
       "links": [

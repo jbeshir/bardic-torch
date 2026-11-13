@@ -209,7 +209,7 @@ func (r *Repository) ResolveReferences(
 	return ids, nil
 }
 
-// ValidationContext returns every term and every collection's parent, for validating a document of the entity
+// ValidationContext returns every term and every collection, for validating a document of the entity
 // entityID.
 func (r *Repository) ValidationContext(ctx context.Context, entityID int64) (domain.ValidationContext, error) {
 	var vctx domain.ValidationContext
@@ -227,18 +227,18 @@ func validationContext(ctx context.Context, q *queries.Queries, entityID int64) 
 	if err != nil {
 		return domain.ValidationContext{}, fmt.Errorf("listing terms: %w", err)
 	}
-	collections, err := q.ListCollectionParents(ctx)
+	collections, err := q.ListCollectionIDs(ctx)
 	if err != nil {
 		return domain.ValidationContext{}, fmt.Errorf("listing collections: %w", err)
 	}
 	vctx := domain.ValidationContext{ID: entityID, Terms: make(map[int64]domain.TermInfo, len(terms)),
-		CollectionParents: make(map[int64]*int64, len(collections))}
+		Collections: make(map[int64]bool, len(collections))}
 	for _, t := range terms {
 		vctx.Terms[t.ID] = domain.TermInfo{Facet: domain.Facet(t.Facet), ParentID: int64Ptr(t.ParentID),
 			Name: t.Name}
 	}
-	for _, c := range collections {
-		vctx.CollectionParents[c.ID] = int64Ptr(c.ParentID)
+	for _, id := range collections {
+		vctx.Collections[id] = true
 	}
 
 	return vctx, nil

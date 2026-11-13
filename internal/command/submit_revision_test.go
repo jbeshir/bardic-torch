@@ -15,8 +15,7 @@ var (
 	submitter  = domain.User{ID: "google-oauth2|123", Role: domain.RoleContributor}
 	revelMatch = domain.DuplicateCandidate{EntityType: domain.EntityTypeEvent, Slug: new("midwinter-revel"),
 		Name: "Midwinter Revel", Keys: []string{domain.DuplicateKey("Midwinter Revel")}}
-	revelEdit = domain.EditorEventDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: "Midwinter Revel",
-		Kind: domain.EventKindEvent}
+	revelEdit = domain.EditorEventDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: "Midwinter Revel"}
 )
 
 func submit(t *testing.T, repo *fakerepo.Repo, req SubmitRevisionRequest) error {

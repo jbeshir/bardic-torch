@@ -14,32 +14,18 @@ import (
 
 // PieceSnapshot is the JSON representation of a piece snapshot view.
 type PieceSnapshot struct {
-	Title                 string                    `json:"title"`
-	Kind                  domain.PieceKind          `json:"kind"`
-	SecondaryKinds        []domain.PieceKind        `json:"secondary_kinds"`
-	ConservationStatus    domain.ConservationStatus `json:"conservation_status"`
-	ConservationSourceURL *string                   `json:"conservation_source_url"`
-	IsStub                bool                      `json:"is_stub"`
-	NotesMD               *string                   `json:"notes_md"`
-	VersionNotesMD        *string                   `json:"version_notes_md"`
-	LicensingStatus       domain.LicensingStatus    `json:"licensing_status"`
-	LicensingNotesMD      *string                   `json:"licensing_notes_md"`
-	Licence               *domain.Licence           `json:"licence"`
-	LicenceVersion        *domain.LicenceVersion    `json:"licence_version"`
-	HistoricalSourceMD    *string                   `json:"historical_source_md"`
-	PeriodStart           *int16                    `json:"period_start"`
-	PeriodEnd             *int16                    `json:"period_end"`
-	Aliases               []PieceAlias              `json:"aliases"`
-	Terms                 []PieceTerm               `json:"terms"`
-	Credits               []PieceCredit             `json:"credits"`
-	Relations             []SnapshotPieceRelation   `json:"relations"`
-	Links                 []SnapshotPieceLink       `json:"links"`
-}
-
-// SnapshotPieceRelation is the JSON representation of a piece snapshot's relation to another piece.
-type SnapshotPieceRelation struct {
-	Type  domain.PieceRelationType `json:"type"`
-	Piece PieceSummary             `json:"piece"`
+	Title              string                    `json:"title"`
+	Kind               domain.PieceKind          `json:"kind"`
+	ConservationStatus domain.ConservationStatus `json:"conservation_status"`
+	IsStub             bool                      `json:"is_stub"`
+	NotesMD            *string                   `json:"notes_md"`
+	VersionNotesMD     *string                   `json:"version_notes_md"`
+	LicensingStatus    domain.LicensingStatus    `json:"licensing_status"`
+	LicensingNotesMD   *string                   `json:"licensing_notes_md"`
+	Aliases            []PieceAlias              `json:"aliases"`
+	Terms              []TermSummary             `json:"terms"`
+	Credits            []PieceCredit             `json:"credits"`
+	Links              []SnapshotPieceLink       `json:"links"`
 }
 
 // SnapshotLink is the JSON representation of the editor-owned part of a link in a snapshot.
@@ -76,32 +62,22 @@ type SnapshotPersonPerformance struct {
 
 // PersonSnapshot is the JSON representation of a person snapshot view.
 type PersonSnapshot struct {
-	Name            string                 `json:"name"`
-	Kind            domain.PersonKind      `json:"kind"`
-	Status          domain.PersonStatus    `json:"status"`
-	StatusDate      *string                `json:"status_date"`
-	StatusSourceURL *string                `json:"status_source_url"`
-	IsStub          bool                   `json:"is_stub"`
-	Profile         *PersonSnapshotProfile `json:"profile"`
+	Name    string                 `json:"name"`
+	Kind    domain.PersonKind      `json:"kind"`
+	Status  domain.PersonStatus    `json:"status"`
+	IsStub  bool                   `json:"is_stub"`
+	Profile *PersonSnapshotProfile `json:"profile"`
 }
 
 // PersonSnapshotProfile is the JSON representation of everything a person snapshot shows beyond the identity.
 type PersonSnapshotProfile struct {
-	Pronouns         *string                  `json:"pronouns"`
-	NotesMD          *string                  `json:"notes_md"`
-	LicensingStatus  domain.LicensingStatus   `json:"licensing_status"`
-	LicensingNotesMD *string                  `json:"licensing_notes_md"`
-	Aliases          []PersonAlias            `json:"aliases"`
-	Roles            []domain.PersonRole      `json:"roles"`
-	Affiliations     []TermSummary            `json:"affiliations"`
-	Relations        []SnapshotPersonRelation `json:"relations"`
-	Links            []SnapshotPersonLink     `json:"links"`
-}
-
-// SnapshotPersonRelation is the JSON representation of a person snapshot's relation to another person.
-type SnapshotPersonRelation struct {
-	Type   domain.PersonRelationType `json:"type"`
-	Person PersonSummary             `json:"person"`
+	NotesMD          *string                `json:"notes_md"`
+	LicensingStatus  domain.LicensingStatus `json:"licensing_status"`
+	LicensingNotesMD *string                `json:"licensing_notes_md"`
+	Aliases          []PersonAlias          `json:"aliases"`
+	Roles            []domain.PersonRole    `json:"roles"`
+	Affiliations     []TermSummary          `json:"affiliations"`
+	Links            []SnapshotPersonLink   `json:"links"`
 }
 
 // TermSnapshot is the JSON representation of a term snapshot view.
@@ -113,51 +89,35 @@ type TermSnapshot struct {
 	RelatedAffiliation *TermSummary `json:"related_affiliation"`
 	DescriptionMD      *string      `json:"description_md"`
 	Position           int32        `json:"position"`
-	Aliases            []string     `json:"aliases"`
 }
 
 // CollectionSnapshot is the JSON representation of a collection snapshot view.
 type CollectionSnapshot struct {
-	Name             string                      `json:"name"`
-	URL              *string                     `json:"url"`
-	Kind             domain.CollectionKind       `json:"kind"`
-	DescriptionMD    *string                     `json:"description_md"`
-	Region           *TermSummary                `json:"region"`
-	Parent           *CollectionSummary          `json:"parent"`
-	IsBardicResource bool                        `json:"is_bardic_resource"`
-	Enumerable       domain.CollectionEnumerable `json:"enumerable"`
+	Name          string                `json:"name"`
+	URL           *string               `json:"url"`
+	Kind          domain.CollectionKind `json:"kind"`
+	DescriptionMD *string               `json:"description_md"`
+	Region        *TermSummary          `json:"region"`
 }
 
 // EventSnapshot is the JSON representation of an event snapshot view.
 type EventSnapshot struct {
-	Name          string           `json:"name"`
-	Kind          domain.EventKind `json:"kind"`
-	DescriptionMD *string          `json:"description_md"`
+	Name string `json:"name"`
 }
 
 func pieceSnapshotFromDomain(s domain.PieceSnapshot) PieceSnapshot {
 	return PieceSnapshot{
-		Title:                 s.Title,
-		Kind:                  s.Kind,
-		SecondaryKinds:        nonNil(s.SecondaryKinds),
-		ConservationStatus:    s.ConservationStatus,
-		ConservationSourceURL: s.ConservationSourceURL,
-		IsStub:                s.IsStub,
-		NotesMD:               s.NotesMD,
-		VersionNotesMD:        s.VersionNotesMD,
-		LicensingStatus:       s.LicensingStatus,
-		LicensingNotesMD:      s.LicensingNotesMD,
-		Licence:               s.Licence,
-		LicenceVersion:        s.LicenceVersion,
-		HistoricalSourceMD:    s.HistoricalSourceMD,
-		PeriodStart:           s.PeriodStart,
-		PeriodEnd:             s.PeriodEnd,
-		Aliases:               mapSlice(s.Aliases, pieceAliasFromDomain),
-		Terms:                 mapSlice(s.Terms, pieceTermFromDomain),
-		Credits:               mapSlice(s.Credits, pieceCreditFromDomain),
-		Relations: mapSlice(s.Relations, func(r domain.SnapshotPieceRelation) SnapshotPieceRelation {
-			return SnapshotPieceRelation{Type: r.Type, Piece: pieceSummaryFromDomain(r.Piece)}
-		}),
+		Title:              s.Title,
+		Kind:               s.Kind,
+		ConservationStatus: s.ConservationStatus,
+		IsStub:             s.IsStub,
+		NotesMD:            s.NotesMD,
+		VersionNotesMD:     s.VersionNotesMD,
+		LicensingStatus:    s.LicensingStatus,
+		LicensingNotesMD:   s.LicensingNotesMD,
+		Aliases:            mapSlice(s.Aliases, pieceAliasFromDomain),
+		Terms:              mapSlice(s.Terms, termSummaryFromDomain),
+		Credits:            mapSlice(s.Credits, pieceCreditFromDomain),
 		Links: mapSlice(s.Links, func(l domain.SnapshotPieceLink) SnapshotPieceLink {
 			return SnapshotPieceLink{
 				SnapshotLink: snapshotLinkFromDomain(l.SnapshotLink),
@@ -181,34 +141,23 @@ func snapshotLinkFromDomain(l domain.SnapshotLink) SnapshotLink {
 }
 
 func personSnapshotFromDomain(s domain.PersonSnapshot) PersonSnapshot {
-	snapshot := PersonSnapshot{
-		Name:            s.Name,
-		Kind:            s.Kind,
-		Status:          s.Status,
-		StatusSourceURL: s.StatusSourceURL,
-		IsStub:          s.IsStub,
-		Profile:         optional(s.Profile, personSnapshotProfileFromDomain),
+	return PersonSnapshot{
+		Name:    s.Name,
+		Kind:    s.Kind,
+		Status:  s.Status,
+		IsStub:  s.IsStub,
+		Profile: optional(s.Profile, personSnapshotProfileFromDomain),
 	}
-	if s.StatusDate != nil {
-		date := s.StatusDate.Format(dateLayout)
-		snapshot.StatusDate = &date
-	}
-
-	return snapshot
 }
 
 func personSnapshotProfileFromDomain(p domain.PersonSnapshotProfile) PersonSnapshotProfile {
 	return PersonSnapshotProfile{
-		Pronouns:         p.Pronouns,
 		NotesMD:          p.NotesMD,
 		LicensingStatus:  p.LicensingStatus,
 		LicensingNotesMD: p.LicensingNotesMD,
 		Aliases:          mapSlice(p.Aliases, personAliasFromDomain),
 		Roles:            nonNil(p.Roles),
 		Affiliations:     mapSlice(p.Affiliations, termSummaryFromDomain),
-		Relations: mapSlice(p.Relations, func(r domain.SnapshotPersonRelation) SnapshotPersonRelation {
-			return SnapshotPersonRelation{Type: r.Type, Person: personSummaryFromDomain(r.Person)}
-		}),
 		Links: mapSlice(p.Links, func(l domain.SnapshotPersonLink) SnapshotPersonLink {
 			return SnapshotPersonLink{
 				SnapshotLink: snapshotLinkFromDomain(l.SnapshotLink),
@@ -232,25 +181,21 @@ func termSnapshotFromDomain(s domain.TermSnapshot) TermSnapshot {
 		RelatedAffiliation: optional(s.RelatedAffiliation, termSummaryFromDomain),
 		DescriptionMD:      s.DescriptionMD,
 		Position:           s.Position,
-		Aliases:            nonNil(s.Aliases),
 	}
 }
 
 func collectionSnapshotFromDomain(s domain.CollectionSnapshot) CollectionSnapshot {
 	return CollectionSnapshot{
-		Name:             s.Name,
-		URL:              s.URL,
-		Kind:             s.Kind,
-		DescriptionMD:    s.DescriptionMD,
-		Region:           optional(s.Region, termSummaryFromDomain),
-		Parent:           optional(s.Parent, collectionSummaryFromDomain),
-		IsBardicResource: s.IsBardicResource,
-		Enumerable:       s.Enumerable,
+		Name:          s.Name,
+		URL:           s.URL,
+		Kind:          s.Kind,
+		DescriptionMD: s.DescriptionMD,
+		Region:        optional(s.Region, termSummaryFromDomain),
 	}
 }
 
 func eventSnapshotFromDomain(s domain.EventSnapshot) EventSnapshot {
-	return EventSnapshot{Name: s.Name, Kind: s.Kind, DescriptionMD: s.DescriptionMD}
+	return EventSnapshot{Name: s.Name}
 }
 
 // emptyJSONValues are the encodings of the values a field of a snapshot with no base counts as unchanged from.

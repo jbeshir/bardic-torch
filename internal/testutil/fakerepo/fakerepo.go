@@ -191,7 +191,7 @@ func (r *Repo) GetPublicCollection(context.Context, int64) (domain.Collection, e
 	return *r.Collection, nil
 }
 
-func (r *Repo) ListPublicEvents(context.Context, *domain.EventKind, domain.Page) (domain.EventList, error) {
+func (r *Repo) ListPublicEvents(context.Context, domain.Page) (domain.EventList, error) {
 	return r.Events, r.Err
 }
 

@@ -62,22 +62,18 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 		Aliases:         []domain.DocPersonAlias{{Name: "Jo Marker", Kind: domain.PersonAliasKindLegal}},
 	}})
 	quiet := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
-		Name: "Quiet Harper", Status: domain.PersonStatusPrefersNoPage,
-		StatusSourceURL: new("https://example.org/quiet-harper"), NotesMD: new("Not shown"),
+		Name: "Quiet Harper", Status: domain.PersonStatusPrefersNoPage, NotesMD: new("Not shown"),
 	}})
 
 	known := func(doc domain.PieceDocument) domain.PieceDocument {
 		doc.Kind = domain.PieceKindSong
 		doc.LicensingStatus = domain.LicensingStatusKnown
-		doc.Conservation.Status = domain.ConservationStatusLowRisk
+		doc.ConservationStatus = domain.ConservationStatusLowRisk
 		return doc
 	}
 	kettleDoc := known(domain.PieceDocument{
-		Title: catalogueKettleTitle,
-		Terms: []domain.DocPieceTerm{
-			{TermID: swords.ID, IsPrimary: true},
-			{TermID: warlike.ID},
-		},
+		Title:   catalogueKettleTitle,
+		TermIDs: []int64{swords.ID, warlike.ID},
 		Credits: []domain.DocCredit{
 			{PersonID: &wren.ID, Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed,
 				Certainty: domain.CertaintyCertain},
@@ -87,12 +83,12 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 	})
 	kettle := c.Piece(catalogtest.Piece{Doc: kettleDoc, SortTitle: "Copper Kettle"})
 	harbour := c.Piece(catalogtest.Piece{Doc: known(domain.PieceDocument{
-		Title: "Harbour Lights",
-		Terms: []domain.DocPieceTerm{{TermID: war.ID, IsPrimary: true}, {TermID: gaelic.ID}},
+		Title:   "Harbour Lights",
+		TermIDs: []int64{war.ID, gaelic.ID},
 	})})
 	lanterns := c.Piece(catalogtest.Piece{Doc: known(domain.PieceDocument{
-		Title: "Lanterns of Dawn",
-		Terms: []domain.DocPieceTerm{{TermID: gaelic.ID, IsPrimary: true}},
+		Title:   "Lanterns of Dawn",
+		TermIDs: []int64{gaelic.ID},
 	})})
 	zephyr := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Zephyr Reel", IsStub: true}})
 	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "Unsung Draft"}, Unapproved: true})
@@ -177,10 +173,10 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 	require.Len(t, person.Profile.Aliases, 1)
 	assert.Equal(t, "Jo Marker", person.Profile.Aliases[0].Name)
 
-	// A person who prefers no page: only their identity and the cited statement.
+	// A person who prefers no page: only their identity.
 	noPage := sendOK[controller.Person](t, e, http.MethodGet, "/v1/persons/"+quiet.Slug, "", "", http.StatusOK)
 	assert.Nil(t, noPage.Profile)
-	assert.Equal(t, new("https://example.org/quiet-harper"), noPage.StatusSourceURL)
+	assert.Equal(t, domain.PersonStatusPrefersNoPage, noPage.Status)
 
 	// History: the newest approved revision first.
 	history := sendOK[controller.RevisionHistory](t, e, http.MethodGet, "/v1/pieces/"+kettle.Slug+"/history", "", "",
@@ -238,7 +234,7 @@ func TestHTTP_RevisionWithNonASCIILinkURL(t *testing.T) {
 	c.SetLinkState(hiddenRaw, catalogtest.LinkState{IsHidden: true})
 	later := c.Revision(catalogtest.Revision{EntityType: domain.EntityTypePiece, EntityID: piece.ID,
 		Snapshot: domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: "Songs of the Inn",
-			Kind: domain.PieceKindSong, Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed},
+			Kind: domain.PieceKindSong, ConservationStatus: domain.ConservationStatusUnassessed,
 			LicensingStatus: domain.LicensingStatusUnknown, Links: links(visibleRaw, hiddenRaw)},
 		BaseRevisionID: piece.RevisionID})
 

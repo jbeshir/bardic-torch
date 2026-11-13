@@ -2,7 +2,6 @@ package mediawiki
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,8 +68,6 @@ func TestScrubbedPeople_Credits(t *testing.T) {
 	three := credits("Three Words")
 	require.Len(t, three, 3)
 	assert.Equal(t, domain.AttributionAnonymous, three[2].Attribution)
-	require.NotNil(t, three[2].Part)
-	assert.Equal(t, domain.PiecePartChorus, *three[2].Part)
 
 	assert.Equal(t, domain.CertaintyProbable, credits("Moose")[0].Certainty)
 	assert.Equal(t, domain.CertaintyDisputed, credits("Wild Mountain Thyme")[0].Certainty)
@@ -99,17 +96,8 @@ func TestScrubbedPeople_Bards(t *testing.T) {
 
 	malkin := bards["Malkin Grey"]
 	assert.Equal(t, domain.PersonStatusDeceased, malkin.Status)
-	require.NotNil(t, malkin.StatusDate)
-	assert.Equal(t, time.Date(2020, 10, 31, 0, 0, 0, 0, time.UTC), malkin.StatusDate.Time)
-	assert.Equal(t, []PersonRelation{{Type: domain.PersonRelationTypeHeirOf, To: "Heather Alexander"}},
-		bards["Alexander James Adams"].Relations)
+	assert.Contains(t, malkin.NotesMD, "Deceased October 31, 2020", "the date stays in the notes")
+	assert.Equal(t, []string{"Heather Alexander"}, bards["Alexander James Adams"].HeirOf)
 	assert.Equal(t, domain.LicensingStatusUnknown, bards["Efenwealt Wystle"].LicensingStatus)
 	assert.Equal(t, domain.LicensingStatusKnown, bards["Heather Dale"].LicensingStatus)
-	var redirect PersonAlias
-	for _, a := range bards["Jim Pipkin"].Aliases {
-		if a.Source == AliasFromRedirect {
-			redirect = a
-		}
-	}
-	assert.Equal(t, domain.PersonAliasKindRedirect, redirect.Kind)
 }

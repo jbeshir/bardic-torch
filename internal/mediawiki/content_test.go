@@ -81,8 +81,8 @@ func TestPieceFields_NotesFromLeadNotesAndOtherSections(t *testing.T) {
 		"== Timeline of Text Sources ==\n* 1590: [https://example.invalid/s A source]\n"
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
-	assert.Equal(t, "Lead text.\n\nA **note**.\n\n### Translations of Note\n\nInto Welsh.", p.Content.NotesMD)
-	assert.Equal(t, "- 1590: [A source](https://example.invalid/s)", p.Content.HistoricalSourceMD)
+	assert.Equal(t, "Lead text.\n\nA **note**.\n\n### Translations of Note\n\nInto Welsh.\n\n"+
+		"### Timeline of Text Sources\n\n- 1590: [A source](https://example.invalid/s)", p.Content.NotesMD)
 }
 
 // TestPieceFields_LinkSectionProseInNotes: the prose of a link section, but its links, is in the notes under the
@@ -120,7 +120,7 @@ func TestPieceFields_LicensingHintsStripped(t *testing.T) {
 	assert.Equal(t, "[A page](https://example.invalid/p)", unknown.Content.LicensingNotesMD)
 }
 
-func TestPieceFields_PublicDomainIsNotALicence(t *testing.T) {
+func TestPieceFields_PublicDomainStaysInLicensingNotes(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Categories: pieceCategories(),
 		Wikitext: pieceWikitext(aSong, nil, "Licensing & Etiquette", "The song is in the Public Domain.")})
 
@@ -128,15 +128,14 @@ func TestPieceFields_PublicDomainIsNotALicence(t *testing.T) {
 	assert.Equal(t, domain.LicensingStatusUnknown, p.Content.LicensingStatus)
 }
 
-func TestPieceFields_PeriodFromCenturyOrigin(t *testing.T) {
+func TestPieceFields_EarliestYearFromCenturyOrigin(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil),
-		Categories: pieceCategories(cat13thCentury, "16th Century", "10th Century (Topic)")})
+		Categories: pieceCategories("16th Century", cat13thCentury, "10th Century (Topic)")})
 
-	start, end := int16(1201), int16(1600)
-	assert.Equal(t, &start, p.Content.PeriodStart)
-	assert.Equal(t, &end, p.Content.PeriodEnd, "a topic century is what the piece is about, not when it is from")
+	start := int16(1201)
+	assert.Equal(t, &start, p.Content.EarliestYear)
 
 	none := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil),
 		Categories: pieceCategories("10th Century (Topic)")})
-	assert.Nil(t, none.Content.PeriodStart)
+	assert.Nil(t, none.Content.EarliestYear, "a topic century is what the piece is about, not when it is from")
 }

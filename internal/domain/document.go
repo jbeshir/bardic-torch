@@ -9,19 +9,17 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"time"
 )
 
 // Snapshot documents are the editable content of a catalogue entity, as stored in revisions.snapshot_json. A
 // document holds only editor-owned fields:
 //   - no IDs of its own, current_revision_id, legacy_* columns or slug, which the system
 //     assigns, and no sort keys, which the writer derives (sort_title, sort_name, sort_letter);
-//   - no conservation history, which is appended when a revision with a new conservation status is approved;
 //   - no link system or moderator state (normalized_url, liveness, last_checked_at, archived_url, is_hidden), so
 //     approving an old snapshot cannot un-hide a link or undo a liveness check.
 //
-// Other entities are referenced by internal ID. A document owns its outgoing relations only. Links are inline and
-// identified by URL. The order of a list is the stored position of its elements.
+// Other entities are referenced by internal ID. Links are inline and identified by URL. The order of a list is the
+// stored position of its elements.
 //
 // TestDocumentCoverage (internal/datasources/mysql) fails when a column of a table a document owns is neither a
 // document field nor classified as system-owned.
@@ -46,7 +44,7 @@ type Document interface {
 
 // DecodeDocument decodes a stored snapshot document. It fails with ErrUnsupportedSchemaVersion if the document's
 // schema_version is not DocumentSchemaVersion, and with an error if the JSON is malformed or followed by more
-// data, a value has the wrong type, a date is not a date, or a vocabulary field holds a value this release does
+// data, a value has the wrong type, or a vocabulary field holds a value this release does
 // not know. Fields the document type does not have are ignored. It does not validate the other field values.
 func DecodeDocument[D Document](data []byte) (D, error) {
 	var doc D
@@ -149,60 +147,21 @@ func validateFieldEnums(v reflect.Value, path string) error {
 	return nil
 }
 
-// Date is a calendar date, without a time of day, in UTC. In JSON it is a string, YYYY-MM-DD.
-type Date struct {
-	time.Time
-}
-
-// MarshalJSON encodes d as YYYY-MM-DD.
-func (d Date) MarshalJSON() ([]byte, error) {
-	return json.Marshal(d.Format(time.DateOnly))
-}
-
-// UnmarshalJSON decodes a YYYY-MM-DD string, failing for anything else.
-func (d *Date) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return fmt.Errorf("decoding date: %w", err)
-	}
-	t, err := time.Parse(time.DateOnly, s)
-	if err != nil {
-		return fmt.Errorf("decoding date: %w", err)
-	}
-	d.Time = t
-
-	return nil
-}
-
 // PieceDocument is the editable content of a piece (pieces and its child tables, plus the links attached to it).
 type PieceDocument struct {
 	SchemaVersion      int                `json:"schema_version"`
 	Title              string             `json:"title"`
 	Kind               PieceKind          `json:"kind"`
-	SecondaryKinds     []PieceKind        `json:"secondary_kinds"`
-	Conservation       DocConservation    `json:"conservation"`
+	ConservationStatus ConservationStatus `json:"conservation_status"`
 	IsStub             bool               `json:"is_stub"`
 	NotesMD            *string            `json:"notes_md"`
 	VersionNotesMD     *string            `json:"version_notes_md"`
 	LicensingStatus    LicensingStatus    `json:"licensing_status"`
 	LicensingNotesMD   *string            `json:"licensing_notes_md"`
-	Licence            *Licence           `json:"licence"`
-	LicenceVersion     *LicenceVersion    `json:"licence_version"`
-	HistoricalSourceMD *string            `json:"historical_source_md"`
-	PeriodStart        *int16             `json:"period_start"`
-	PeriodEnd          *int16             `json:"period_end"`
 	Aliases            []DocPieceAlias    `json:"aliases"`
-	Terms              []DocPieceTerm     `json:"terms"`
-	Relations          []DocPieceRelation `json:"relations"`
+	TermIDs            []int64            `json:"term_ids"`
 	Credits            []DocCredit        `json:"credits"`
 	Links              []DocPieceLink     `json:"links"`
-}
-
-// DocConservation is a piece's conservation status and the source supporting it. Approving a revision that
-// changes the status appends a conservation_history row with this source.
-type DocConservation struct {
-	Status    ConservationStatus `json:"status"`
-	SourceURL *string            `json:"source_url"`
 }
 
 // DocPieceAlias is another title of a piece.
@@ -211,27 +170,12 @@ type DocPieceAlias struct {
 	Kind PieceAliasKind `json:"kind"`
 }
 
-// DocPieceTerm tags a piece with a term. Part is the part of the piece the term applies to, if not all of it.
-type DocPieceTerm struct {
-	TermID    int64      `json:"term_id"`
-	IsPrimary bool       `json:"is_primary"`
-	Part      *PiecePart `json:"part"`
-}
-
-// DocPieceRelation relates the document's piece to another piece.
-type DocPieceRelation struct {
-	ToPieceID int64             `json:"to_piece_id"`
-	Type      PieceRelationType `json:"type"`
-}
-
-// DocCredit credits a piece, or part of it, to a person (attribution named) or to no one in particular.
+// DocCredit credits a piece to a person (attribution named) or to no one in particular.
 type DocCredit struct {
 	PersonID    *int64      `json:"person_id"`
 	Role        CreditRole  `json:"role"`
 	Attribution Attribution `json:"attribution"`
 	Certainty   Certainty   `json:"certainty"`
-	Part        *PiecePart  `json:"part"`
-	Note        *string     `json:"note"`
 }
 
 // DocLink is the editor-owned part of a link attached to a piece or person, with the roles it has there.
@@ -276,22 +220,18 @@ type DocPersonPerformance struct {
 // PersonDocument is the editable content of a person (persons and its child tables, plus the links attached to
 // them).
 type PersonDocument struct {
-	SchemaVersion    int                 `json:"schema_version"`
-	Name             string              `json:"name"`
-	Kind             PersonKind          `json:"kind"`
-	Status           PersonStatus        `json:"status"`
-	StatusDate       *Date               `json:"status_date"`
-	StatusSourceURL  *string             `json:"status_source_url"`
-	Pronouns         *string             `json:"pronouns"`
-	NotesMD          *string             `json:"notes_md"`
-	LicensingStatus  LicensingStatus     `json:"licensing_status"`
-	LicensingNotesMD *string             `json:"licensing_notes_md"`
-	IsStub           bool                `json:"is_stub"`
-	Aliases          []DocPersonAlias    `json:"aliases"`
-	Roles            []PersonRole        `json:"roles"`
-	AffiliationIDs   []int64             `json:"affiliation_ids"`
-	Relations        []DocPersonRelation `json:"relations"`
-	Links            []DocPersonLink     `json:"links"`
+	SchemaVersion    int              `json:"schema_version"`
+	Name             string           `json:"name"`
+	Kind             PersonKind       `json:"kind"`
+	Status           PersonStatus     `json:"status"`
+	NotesMD          *string          `json:"notes_md"`
+	LicensingStatus  LicensingStatus  `json:"licensing_status"`
+	LicensingNotesMD *string          `json:"licensing_notes_md"`
+	IsStub           bool             `json:"is_stub"`
+	Aliases          []DocPersonAlias `json:"aliases"`
+	Roles            []PersonRole     `json:"roles"`
+	AffiliationIDs   []int64          `json:"affiliation_ids"`
+	Links            []DocPersonLink  `json:"links"`
 }
 
 // DocPersonAlias is another name of a person.
@@ -300,42 +240,30 @@ type DocPersonAlias struct {
 	Kind PersonAliasKind `json:"kind"`
 }
 
-// DocPersonRelation relates the document's person to another person.
-type DocPersonRelation struct {
-	ToPersonID int64              `json:"to_person_id"`
-	Type       PersonRelationType `json:"type"`
-}
-
-// TermDocument is the editable content of a term (terms and term_aliases).
+// TermDocument is the editable content of a term.
 type TermDocument struct {
-	SchemaVersion        int      `json:"schema_version"`
-	Facet                Facet    `json:"facet"`
-	Name                 string   `json:"name"`
-	DisplayName          string   `json:"display_name"`
-	ParentID             *int64   `json:"parent_id"`
-	RelatedAffiliationID *int64   `json:"related_affiliation_id"`
-	DescriptionMD        *string  `json:"description_md"`
-	Position             int32    `json:"position"`
-	Aliases              []string `json:"aliases"`
+	SchemaVersion        int     `json:"schema_version"`
+	Facet                Facet   `json:"facet"`
+	Name                 string  `json:"name"`
+	DisplayName          string  `json:"display_name"`
+	ParentID             *int64  `json:"parent_id"`
+	RelatedAffiliationID *int64  `json:"related_affiliation_id"`
+	DescriptionMD        *string `json:"description_md"`
+	Position             int32   `json:"position"`
 }
 
 // CollectionDocument is the editable content of a collection.
 type CollectionDocument struct {
-	SchemaVersion    int                  `json:"schema_version"`
-	Name             string               `json:"name"`
-	URL              *string              `json:"url"`
-	Kind             CollectionKind       `json:"kind"`
-	DescriptionMD    *string              `json:"description_md"`
-	RegionTermID     *int64               `json:"region_term_id"`
-	ParentID         *int64               `json:"parent_id"`
-	IsBardicResource bool                 `json:"is_bardic_resource"`
-	Enumerable       CollectionEnumerable `json:"enumerable"`
+	SchemaVersion int            `json:"schema_version"`
+	Name          string         `json:"name"`
+	URL           *string        `json:"url"`
+	Kind          CollectionKind `json:"kind"`
+	DescriptionMD *string        `json:"description_md"`
+	RegionTermID  *int64         `json:"region_term_id"`
 }
 
-// EventDocument is the editable content of an event or venue.
+// EventDocument is the editable content of an event.
 type EventDocument struct {
-	SchemaVersion int       `json:"schema_version"`
-	Name          string    `json:"name"`
-	Kind          EventKind `json:"kind"`
-	DescriptionMD *string   `json:"description_md"`
+	SchemaVersion int    `json:"schema_version"`
+	Name          string `json:"name"`
 }

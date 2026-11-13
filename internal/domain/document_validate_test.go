@@ -16,7 +16,7 @@ func validationContext(id int64) domain.ValidationContext {
 		3:  {Facet: domain.FacetTopic, Name: "Drinking"},
 		4:  {Facet: domain.FacetMood, Name: "Merry"},
 		11: {Facet: domain.FacetAffiliation, Name: "SCA"},
-	}, CollectionParents: map[int64]*int64{1: nil, 2: ptr[int64](1)}}
+	}, Collections: map[int64]bool{1: true, 2: true}}
 }
 
 func TestValidate_FullDocumentsAreValid(t *testing.T) {
@@ -41,24 +41,18 @@ func TestPieceDocument_Validate(t *testing.T) {
 			problem("links[0].title", "control_character")},
 		"enum": {func(d *domain.PieceDocument) { d.Credits[0].Role = "singer" }, problem("credits[0].role", "invalid")},
 		"alias collation": {func(d *domain.PieceDocument) {
-			d.Aliases = append(d.Aliases, domain.DocPieceAlias{Text: "KETTLE SÖNG", Kind: domain.PieceAliasKindNickname})
+			d.Aliases = append(d.Aliases, domain.DocPieceAlias{Text: "KETTLE SÖNG", Kind: domain.PieceAliasKindAltTitle})
 		}, problem("aliases[1]", "duplicate")},
-		"period": {func(d *domain.PieceDocument) { d.PeriodEnd = ptr[int16](1400) }, problem("period_end", "out_of_range")},
-		"licence needs known": {func(d *domain.PieceDocument) { d.LicensingStatus = domain.LicensingStatusUnknown },
-			problem("licence", "invalid")},
 		"named credit needs person": {func(d *domain.PieceDocument) { d.Credits[0].PersonID = nil },
 			problem("credits[0].person_slug", "required")},
 		"person needs named": {func(d *domain.PieceDocument) { d.Credits[1].PersonID = ptr[int64](5) },
 			problem("credits[1].person_slug", "invalid")},
-		"unknown term": {func(d *domain.PieceDocument) { d.Terms[0].TermID = 99 },
-			problem("terms[0].term_slug", "unknown_reference")},
-		"affiliation term": {func(d *domain.PieceDocument) { d.Terms[1].TermID = 11 },
-			problem("terms[1].term_slug", "wrong_facet")},
-		"second primary": {func(d *domain.PieceDocument) {
-			d.Terms = append(d.Terms, domain.DocPieceTerm{TermID: 1, IsPrimary: true})
-		}, problem("terms[2].is_primary", "duplicate")},
-		"self relation": {func(d *domain.PieceDocument) { d.Relations[0].ToPieceID = 100 },
-			problem("relations[0].to_piece_slug", "invalid")},
+		"unknown term": {func(d *domain.PieceDocument) { d.TermIDs[0] = 99 },
+			problem("term_slugs[0]", "unknown_reference")},
+		"affiliation term": {func(d *domain.PieceDocument) { d.TermIDs[1] = 11 },
+			problem("term_slugs[1]", "wrong_facet")},
+		"term twice": {func(d *domain.PieceDocument) { d.TermIDs = append(d.TermIDs, 3) },
+			problem("term_slugs[2]", "duplicate")},
 		"link roles": {func(d *domain.PieceDocument) { d.Links[0].Roles = nil }, problem("links[0].roles", "required")},
 		"link URL": {func(d *domain.PieceDocument) { d.Links[0].URL = "mailto:wren@example.org" },
 			problem("links[0].url", "invalid")},
@@ -83,11 +77,9 @@ func TestPieceDocument_Validate(t *testing.T) {
 func TestPersonDocument_Validate(t *testing.T) {
 	doc := fullPersonDocument()
 	doc.AffiliationIDs = []int64{1, 11, 11}
-	doc.Relations[0].ToPersonID = 100
 
 	assert.ElementsMatch(t, []domain.Problem{problem("affiliation_slugs[0]", "wrong_facet"),
-		problem("affiliation_slugs[2]", "duplicate"), problem("relations[0].to_person_slug", "invalid")},
-		doc.Validate(validationContext(100)))
+		problem("affiliation_slugs[2]", "duplicate")}, doc.Validate(validationContext(100)))
 }
 
 func TestTermDocument_Validate(t *testing.T) {
@@ -123,10 +115,9 @@ func TestTermDocument_Validate(t *testing.T) {
 
 func TestCollectionDocument_Validate(t *testing.T) {
 	doc := fullCollectionDocument()
-	doc.ParentID = ptr[int64](2)
-	assert.Equal(t, []domain.Problem{problem("parent_id", "cycle")}, doc.Validate(validationContext(1)))
-	doc.ParentID = ptr[int64](99)
-	assert.Equal(t, []domain.Problem{problem("parent_id", "unknown_reference")}, doc.Validate(validationContext(1)))
+	doc.RegionTermID = ptr[int64](99)
+	assert.Equal(t, []domain.Problem{problem("region_term_slug", "unknown_reference")},
+		doc.Validate(validationContext(1)))
 }
 
 func TestValidatePieceSources(t *testing.T) {
@@ -135,8 +126,7 @@ func TestValidatePieceSources(t *testing.T) {
 	sourced := fullPieceDocument()
 	sourced.Links[0].Roles = []domain.LinkRole{domain.LinkRoleLicensingSource}
 
-	assert.ElementsMatch(t, []domain.Problem{problem("licence", "source_required"),
-		problem("licence_version", "source_required"), problem("licensing_notes_md", "source_required"),
+	assert.ElementsMatch(t, []domain.Problem{problem("licensing_notes_md", "source_required"),
 		problem("licensing_status", "source_required")},
 		domain.ValidatePieceSources(nil, unsourced))
 	assert.Empty(t, domain.ValidatePieceSources(nil, sourced))
@@ -144,9 +134,9 @@ func TestValidatePieceSources(t *testing.T) {
 
 	// Only licensing needs a source: a conservation change needs neither a source nor a summary.
 	changed := unsourced
-	changed.Licence = ptr(domain.LicencePD)
-	changed.Conservation = domain.DocConservation{Status: domain.ConservationStatusLowRisk}
-	assert.Equal(t, []domain.Problem{problem("licence", "source_required")},
+	changed.LicensingNotesMD = ptr("Public domain.")
+	changed.ConservationStatus = domain.ConservationStatusLowRisk
+	assert.Equal(t, []domain.Problem{problem("licensing_notes_md", "source_required")},
 		domain.ValidatePieceSources(&unsourced, changed))
 }
 

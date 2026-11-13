@@ -8,79 +8,39 @@
       "schema_version": 1,
       "title": "Greensleeves",
       "kind": "song",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
       "notes_md": "See also Greensleeves (SCA Version).",
       "version_notes_md": "There are many, many versions.",
       "licensing_status": "unknown",
       "licensing_notes_md": null,
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": 1501,
-      "period_end": 1600,
       "aliases": [],
-      "terms": [
-        {
-          "term_id": 123,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 27,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 50,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 96,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 115,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 119,
-          "is_primary": false,
-          "part": null
-        }
+      "term_ids": [
+        123,
+        27,
+        50,
+        96,
+        115,
+        119
       ],
-      "relations": [],
       "credits": [
         {
           "person_id": null,
           "role": "lyrics",
           "attribution": "traditional",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": 135,
           "role": "lyrics",
           "attribution": "named",
-          "certainty": "possible",
-          "part": null,
-          "note": null
+          "certainty": "possible"
         },
         {
           "person_id": null,
           "role": "tune",
           "attribution": "traditional",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         }
       ],
       "links": [

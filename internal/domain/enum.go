@@ -28,7 +28,7 @@ var (
 	}
 	problemCodeValues = []ProblemCode{
 		ProblemRequired, ProblemTooLong, ProblemNotNFC, ProblemControlCharacter, ProblemDuplicate, ProblemInvalid,
-		ProblemOutOfRange, ProblemCycle, ProblemTooDeep, ProblemWrongFacet, ProblemUnknownReference,
+		ProblemCycle, ProblemTooDeep, ProblemWrongFacet, ProblemUnknownReference,
 		ProblemSourceRequired, ProblemPrefersNoPage,
 	}
 	revisionSourceValues = []RevisionSource{
@@ -39,21 +39,14 @@ var (
 		RevisionStatusWithdrawn,
 	}
 	facetValues = []Facet{
-		FacetMood, FacetTopic, FacetCulture, FacetLanguage, FacetLegendaria, FacetForm, FacetOrigin, FacetOther,
+		FacetMood, FacetTopic, FacetCulture, FacetLanguage, FacetLegendaria, FacetOrigin, FacetOther,
 		FacetAffiliation,
 	}
 	collectionKindValues = []CollectionKind{
 		CollectionKindIndexOrLinkList, CollectionKindSongbookPDF, CollectionKindSongbookWebsite,
 		CollectionKindWebsite, CollectionKindWikiCategory, CollectionKindWiki, CollectionKindYouTubeChannel,
 		CollectionKindYouTubePlaylist, CollectionKindGoogleDocSongbook, CollectionKindBlog,
-		CollectionKindArchivedSongbook, CollectionKindHostedDocument, CollectionKindOther,
-	}
-	collectionEnumerableValues = []CollectionEnumerable{
-		CollectionEnumerableUnknown, CollectionEnumerableYes, CollectionEnumerablePDF, CollectionEnumerableBrowser,
-		CollectionEnumerableAPI, CollectionEnumerableNo,
-	}
-	eventKindValues = []EventKind{
-		EventKindVenue, EventKindEvent,
+		CollectionKindArchivedSongbook, CollectionKindHostedDocument,
 	}
 	personKindValues = []PersonKind{
 		PersonKindCommunityBard, PersonKindHistorical, PersonKindGroup,
@@ -65,43 +58,24 @@ var (
 		LicensingStatusKnown, LicensingStatusUnknown,
 	}
 	personAliasKindValues = []PersonAliasKind{
-		PersonAliasKindLegal, PersonAliasKindSCA, PersonAliasKindStage, PersonAliasKindNickname,
-		PersonAliasKindFormer, PersonAliasKindRedirect,
+		PersonAliasKindLegal, PersonAliasKindSCA,
 	}
 	personRoleValues = []PersonRole{
 		PersonRoleSinger, PersonRoleSongwriter, PersonRoleMusician, PersonRoleInstrumentalist,
 		PersonRoleStoryteller, PersonRolePoet, PersonRoleJester, PersonRoleDancer,
 	}
-	personRelationTypeValues = []PersonRelationType{
-		PersonRelationTypeHeirOf, PersonRelationTypeMemberOf, PersonRelationTypeSameAs,
-	}
 	pieceKindValues = []PieceKind{
-		PieceKindSong, PieceKindPoem, PieceKindStory, PieceKindDanceMusic, PieceKindInstrumental, PieceKindComedy,
+		PieceKindSong, PieceKindPoem, PieceKindStory, PieceKindDanceMusic, PieceKindInstrumental,
 	}
 	conservationStatusValues = []ConservationStatus{
 		ConservationStatusUnassessed, ConservationStatusLowRisk, ConservationStatusEndangered,
 		ConservationStatusCriticallyEndangered, ConservationStatusRestricted,
 	}
-	licenceValues = []Licence{
-		LicencePD, LicenceCCBY, LicenceCCBYSA, LicenceCCBYNC, LicenceCCBYNCSA, LicenceCCBYND, LicenceCCBYNCND,
-		LicenceARR, LicenceOther,
-	}
-	licenceVersionValues = []LicenceVersion{
-		LicenceVersion10, LicenceVersion20, LicenceVersion25, LicenceVersion30, LicenceVersion40,
-	}
 	pieceAliasKindValues = []PieceAliasKind{
-		PieceAliasKindAltTitle, PieceAliasKindNickname, PieceAliasKindSubtitle, PieceAliasKindRedirect,
-	}
-	piecePartValues = []PiecePart{
-		PiecePartWords, PiecePartTune, PiecePartVerses, PiecePartChorus,
-	}
-	pieceRelationTypeValues = []PieceRelationType{
-		PieceRelationTypeVariantOf, PieceRelationTypeContrafactumOf, PieceRelationTypeSettingOf,
-		PieceRelationTypeSameTextOtherForm,
+		PieceAliasKindAltTitle, PieceAliasKindSubtitle, PieceAliasKindRedirect,
 	}
 	creditRoleValues = []CreditRole{
-		CreditRoleLyrics, CreditRoleTune, CreditRoleAuthor, CreditRoleChoreography, CreditRoleMusic,
-		CreditRoleArrangement, CreditRoleTranslation,
+		CreditRoleLyrics, CreditRoleTune, CreditRoleAuthor,
 	}
 	attributionValues = []Attribution{
 		AttributionNamed, AttributionTraditional, AttributionUnknown, AttributionAnonymous, AttributionVarious,
@@ -111,8 +85,7 @@ var (
 	}
 	linkPlaceTypeValues = []LinkPlaceType{
 		LinkPlaceTypeRecordingPlatform, LinkPlaceTypeStreaming, LinkPlaceTypeAuthorSite,
-		LinkPlaceTypeCommunityArchive, LinkPlaceTypePhysicalArchive, LinkPlaceTypeBook, LinkPlaceTypeVendor,
-		LinkPlaceTypeAuthorContact, LinkPlaceTypeOralTradition, LinkPlaceTypeOther,
+		LinkPlaceTypeCommunityArchive, LinkPlaceTypeBook,
 	}
 	livenessValues = []Liveness{
 		LivenessUnknown, LivenessOK, LivenessDead, LivenessBlocked,
@@ -145,12 +118,6 @@ func (f Facet) Valid() bool { return slices.Contains(facetValues, f) }
 // Valid reports whether c is a known CollectionKind.
 func (c CollectionKind) Valid() bool { return slices.Contains(collectionKindValues, c) }
 
-// Valid reports whether c is a known CollectionEnumerable.
-func (c CollectionEnumerable) Valid() bool { return slices.Contains(collectionEnumerableValues, c) }
-
-// Valid reports whether e is a known EventKind.
-func (e EventKind) Valid() bool { return slices.Contains(eventKindValues, e) }
-
 // Valid reports whether p is a known PersonKind.
 func (p PersonKind) Valid() bool { return slices.Contains(personKindValues, p) }
 
@@ -166,29 +133,14 @@ func (p PersonAliasKind) Valid() bool { return slices.Contains(personAliasKindVa
 // Valid reports whether p is a known PersonRole.
 func (p PersonRole) Valid() bool { return slices.Contains(personRoleValues, p) }
 
-// Valid reports whether p is a known PersonRelationType.
-func (p PersonRelationType) Valid() bool { return slices.Contains(personRelationTypeValues, p) }
-
 // Valid reports whether p is a known PieceKind.
 func (p PieceKind) Valid() bool { return slices.Contains(pieceKindValues, p) }
 
 // Valid reports whether c is a known ConservationStatus.
 func (c ConservationStatus) Valid() bool { return slices.Contains(conservationStatusValues, c) }
 
-// Valid reports whether l is a known Licence.
-func (l Licence) Valid() bool { return slices.Contains(licenceValues, l) }
-
-// Valid reports whether v is a known LicenceVersion.
-func (v LicenceVersion) Valid() bool { return slices.Contains(licenceVersionValues, v) }
-
 // Valid reports whether p is a known PieceAliasKind.
 func (p PieceAliasKind) Valid() bool { return slices.Contains(pieceAliasKindValues, p) }
-
-// Valid reports whether p is a known PiecePart.
-func (p PiecePart) Valid() bool { return slices.Contains(piecePartValues, p) }
-
-// Valid reports whether p is a known PieceRelationType.
-func (p PieceRelationType) Valid() bool { return slices.Contains(pieceRelationTypeValues, p) }
 
 // Valid reports whether c is a known CreditRole.
 func (c CreditRole) Valid() bool { return slices.Contains(creditRoleValues, c) }

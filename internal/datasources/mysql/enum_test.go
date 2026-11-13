@@ -26,6 +26,6 @@ func TestEnumOf(t *testing.T) {
 	require.ErrorIs(t, c.err, domain.ErrUnknownEnumValue)
 
 	c = &catalogueReader{}
-	assert.Nil(t, nullEnumOf[domain.Licence](c, queries.PiecesLicence(""), false))
+	assert.Nil(t, nullEnumOf[domain.LinkPlaceType](c, queries.LinksPlaceType(""), false))
 	require.NoError(t, c.err)
 }

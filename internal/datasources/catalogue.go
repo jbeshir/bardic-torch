@@ -15,7 +15,7 @@ type PieceQuery struct {
 	// piece matches a term if it is tagged with it or any of its descendants. Terms of one facet match if any
 	// does; every facet with terms must match.
 	TermSlugs []string
-	// Kinds, if any, match a piece of one of them, as its primary or a secondary kind.
+	// Kinds, if any, match a piece of one of them.
 	Kinds []domain.PieceKind
 	// ConservationStatuses, if any, match a piece with one of them.
 	ConservationStatuses []domain.ConservationStatus
@@ -84,9 +84,9 @@ type Catalogue interface {
 	// GetPublicCollection retrieves a public collection by ID, returning ErrNotFound if no public collection has
 	// the ID.
 	GetPublicCollection(ctx context.Context, id int64) (domain.Collection, error)
-	// ListPublicEvents lists one page of the public events and venues, of one kind or (with a nil kind) both.
-	ListPublicEvents(ctx context.Context, kind *domain.EventKind, page domain.Page) (domain.EventList, error)
-	// GetPublicEvent retrieves a public event or venue by slug, returning ErrNotFound if no public event has the
+	// ListPublicEvents lists one page of the public events.
+	ListPublicEvents(ctx context.Context, page domain.Page) (domain.EventList, error)
+	// GetPublicEvent retrieves a public event by slug, returning ErrNotFound if no public event has the
 	// slug.
 	GetPublicEvent(ctx context.Context, slug string) (domain.Event, error)
 	// ListPublicHistory lists one page of the approved revisions of the public piece, person, term or event

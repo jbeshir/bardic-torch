@@ -21,7 +21,6 @@ const (
 	highlandSlug  = "highland"
 	oldTongueSlug = "old-tongue"
 	heroCycleSlug = "hero-cycle"
-	roundSlug     = "round"
 	seasonalSlug  = "seasonal"
 )
 
@@ -38,8 +37,8 @@ const (
 var facetPieces = map[string][]string{
 	alphaSlug:   {siegeSlug, rousingSlug, tudorSlug, highlandSlug},
 	betaSlug:    {siegeSlug, tudorSlug, oldTongueSlug, heroCycleSlug},
-	gammaSlug:   {rousingSlug, highlandSlug, roundSlug, seasonalSlug},
-	deltaSlug:   {tudorSlug, rousingSlug, roundSlug},
+	gammaSlug:   {rousingSlug, highlandSlug, seasonalSlug},
+	deltaSlug:   {tudorSlug, rousingSlug},
 	epsilonSlug: nil,
 }
 
@@ -49,11 +48,11 @@ var facetSearches = catalogtest.NewShared(func(c *catalogtest.Catalog) struct{} 
 	facets := map[string]domain.Facet{
 		siegeSlug: domain.FacetTopic, rousingSlug: domain.FacetMood, tudorSlug: domain.FacetOrigin,
 		highlandSlug: domain.FacetCulture, oldTongueSlug: domain.FacetLanguage,
-		heroCycleSlug: domain.FacetLegendaria, roundSlug: domain.FacetForm, seasonalSlug: domain.FacetOther,
+		heroCycleSlug: domain.FacetLegendaria, seasonalSlug: domain.FacetOther,
 	}
 	names := map[string]string{
 		siegeSlug: "Siege", rousingSlug: "Rousing", tudorSlug: "Tudor Era", highlandSlug: "Highland",
-		oldTongueSlug: "Old Tongue", heroCycleSlug: "Hero Cycle", roundSlug: "Round", seasonalSlug: "Seasonal",
+		oldTongueSlug: "Old Tongue", heroCycleSlug: "Hero Cycle", seasonalSlug: "Seasonal",
 	}
 	refs := map[string]catalogtest.Ref{}
 	for slug, facet := range facets {
@@ -62,7 +61,7 @@ var facetSearches = catalogtest.NewShared(func(c *catalogtest.Catalog) struct{} 
 	for slug, tagged := range facetPieces {
 		doc := domain.PieceDocument{Title: facetTitle(slug)}
 		for _, term := range tagged {
-			doc.Terms = append(doc.Terms, domain.DocPieceTerm{TermID: refs[term].ID})
+			doc.TermIDs = append(doc.TermIDs, refs[term].ID)
 		}
 		c.Piece(catalogtest.Piece{Doc: doc, Slug: slug})
 	}
@@ -104,7 +103,6 @@ func TestRepository_ListPublicPieces_EachTermFacet(t *testing.T) {
 		{highlandSlug, []string{alphaSlug, gammaSlug}},
 		{oldTongueSlug, []string{betaSlug}},
 		{heroCycleSlug, []string{betaSlug}},
-		{roundSlug, []string{deltaSlug, gammaSlug}},
 		{seasonalSlug, []string{gammaSlug}},
 	} {
 		t.Run(tc.term, func(t *testing.T) {
@@ -153,6 +151,6 @@ func TestRepository_ListPublicPieces_ThreeTermFacets(t *testing.T) {
 		TermSlugs: []string{tudorSlug, rousingSlug}, Page: domain.Page{Limit: domain.DefaultPageLimit}})
 	require.NoError(t, err)
 	assert.Equal(t, facetSummaries(alphaSlug, deltaSlug), list.Pieces)
-	assert.Equal(t, termCounts(highlandSlug, 1, roundSlug, 1, rousingSlug, 2, siegeSlug, 1, tudorSlug, 2),
+	assert.Equal(t, termCounts(highlandSlug, 1, rousingSlug, 2, siegeSlug, 1, tudorSlug, 2),
 		list.Facets.Terms)
 }

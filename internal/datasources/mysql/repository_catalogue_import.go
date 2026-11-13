@@ -19,11 +19,10 @@ var _ datasources.CatalogueImporter = (*Repository)(nil)
 // any table referring to it. An import needs every one of them empty.
 var CatalogueTables = []string{
 	"revisions", "revision_contributors",
-	"terms", "term_aliases", "term_ancestors",
+	"terms", "term_ancestors",
 	"collections", "events",
-	"persons", "person_aliases", "person_roles", "person_affiliations", "person_relations",
-	"pieces", "piece_secondary_kinds", "piece_aliases", "piece_terms", "piece_relations", "piece_credits",
-	"conservation_history",
+	"persons", "person_aliases", "person_roles", "person_affiliations",
+	"pieces", "piece_aliases", "piece_terms", "piece_credits",
 	"links", "link_attachments", "performances", "performance_performers",
 }
 
@@ -144,11 +143,6 @@ func (w *importWriter) write(imp domain.CatalogueImport) {
 	}
 	for _, p := range imp.Pieces {
 		w.pieceChildren(p.ID, p.Doc)
-		// A piece whose status is assessed gets a history row at its revision, with the document's source.
-		if p.Doc.Conservation.Status != domain.ConservationStatusUnassessed {
-			w.conservation(p.ID, p.Doc.Conservation, domain.ImportConservationReason, p.Revision.ID,
-				p.Revision.CreatedAt)
-		}
 	}
 	w.links(imp)
 }
@@ -200,9 +194,6 @@ func (w *importWriter) revisions(imp domain.CatalogueImport) {
 func (w *importWriter) terms(imp domain.CatalogueImport) {
 	for _, t := range imp.Terms {
 		w.insertTerm(entityRow{id: someID(t.ID), slug: t.Slug, revisionID: t.Revision.ID, legacy: t.Legacy}, t.Doc)
-	}
-	for _, t := range imp.Terms {
-		w.termAliases(t.ID, t.Doc.Aliases)
 	}
 	ancestors, err := imp.TermAncestors()
 	if err != nil {

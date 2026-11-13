@@ -19,11 +19,10 @@ import (
 var migratedTables = []string{
 	"users",
 	"revisions", "revision_contributors",
-	"terms", "term_aliases", "term_ancestors",
+	"terms", "term_ancestors",
 	"collections", "events",
-	"persons", "person_aliases", "person_roles", "person_affiliations", "person_relations",
-	"pieces", "piece_secondary_kinds", "piece_aliases", "piece_terms", "piece_relations", "piece_credits",
-	"conservation_history",
+	"persons", "person_aliases", "person_roles", "person_affiliations",
+	"pieces", "piece_aliases", "piece_terms", "piece_credits",
 	"links", "link_attachments", "performances", "performance_performers",
 	"contact_requests",
 }
@@ -216,7 +215,7 @@ func TestMigrations_DroppedViewColumnBreaksReads(t *testing.T) {
 	t.Parallel()
 
 	db := mysqltest.NewDatabase(t)
-	_, err := db.ExecContext(t.Context(), "ALTER TABLE persons DROP COLUMN pronouns")
+	_, err := db.ExecContext(t.Context(), "ALTER TABLE persons DROP COLUMN licensing_notes_md")
 	require.NoError(t, err, "MySQL does not refuse to drop a column a view selects")
 
 	_, err = db.ExecContext(t.Context(), viewReads["listed_persons"])

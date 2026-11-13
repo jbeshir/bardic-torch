@@ -9,9 +9,6 @@
       "name": "Samantha Moore",
       "kind": "community_bard",
       "status": "active",
-      "status_date": null,
-      "status_source_url": null,
-      "pronouns": null,
       "notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": null,
@@ -31,7 +28,6 @@
         1,
         15
       ],
-      "relations": [],
       "links": [
         {
           "url": "https://www.ravenboymusic.com/9-2/samantha-moore/",

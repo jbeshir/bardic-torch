@@ -32,20 +32,18 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 	page, _ := b.c.Site.Page(p.Title)
 	c := p.Content
 	title := plain(p.Title)
-	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion,
-		Title: title, Kind: p.Kind, SecondaryKinds: uniqueOf(p.SecondaryKinds),
-		Conservation:       domain.DocConservation{Status: p.Conservation()},
-		NotesMD:            free(c.NotesMD),
-		VersionNotesMD:     free(c.VersionNotesMD),
-		LicensingStatus:    c.LicensingStatus,
-		LicensingNotesMD:   free(c.LicensingNotesMD),
-		HistoricalSourceMD: free(c.HistoricalSourceMD),
-		PeriodStart:        c.PeriodStart, PeriodEnd: c.PeriodEnd,
-		Aliases: b.pieceAliases(p), Terms: b.pieceTerms(p), Relations: b.pieceRelations(p),
-		Credits: b.credits(b.c.People.Credits[p.PageID]), Links: b.pieceLinks(links)}
-	if doc.Conservation.Status != domain.ConservationStatusUnassessed {
-		doc.Conservation.SourceURL = optionalURL(p.URL)
+	alsoInstrumental := ""
+	if p.AlsoInstrumental {
+		alsoInstrumental = "Also played as an instrumental."
 	}
+	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion,
+		Title: title, Kind: p.Kind, ConservationStatus: p.Conservation(),
+		NotesMD:          notes(c.NotesMD, alsoInstrumental, b.otherPiece(p)),
+		VersionNotesMD:   free(c.VersionNotesMD),
+		LicensingStatus:  c.LicensingStatus,
+		LicensingNotesMD: free(c.LicensingNotesMD),
+		Aliases:          b.pieceAliases(p), TermIDs: b.pieceTerms(p),
+		Credits: b.credits(b.c.People.Credits[p.PageID]), Links: b.pieceLinks(links)}
 	sortTitle := domain.SortTitle(doc.Title)
 
 	return domain.ImportedPiece{ID: id, Slug: b.slugs.Allocate(doc.Title, domain.SlugEntityTypePiece, id),
@@ -69,51 +67,47 @@ func (b *builder) pieceAliases(p mediawiki.PieceRecord) []domain.DocPieceAlias {
 	return out
 }
 
-func (b *builder) pieceTerms(p mediawiki.PieceRecord) []domain.DocPieceTerm {
-	out := []domain.DocPieceTerm{}
-	for _, t := range p.Terms {
-		id, ok := b.termIDs[t.Category]
-		if !ok || slices.ContainsFunc(out, func(d domain.DocPieceTerm) bool { return d.TermID == id }) {
-			continue
+func (b *builder) pieceTerms(p mediawiki.PieceRecord) []int64 {
+	out := []int64{}
+	for _, category := range p.Terms {
+		if id, ok := b.termIDs[category]; ok && !slices.Contains(out, id) {
+			out = append(out, id)
 		}
-		out = append(out, domain.DocPieceTerm{TermID: id, IsPrimary: t.IsPrimary, Part: t.Part})
 	}
 
 	return out
 }
 
-// pieceRelations relate a piece whose title is another piece's with a parenthetical form to that piece, the two
-// titles compared as the collation does ("When A Knight …" is "When a Knight …"): an "(SCA Version)" is a
+// otherPiece is a sentence naming the piece whose title a piece's title is with a parenthetical form, the two
+// titles compared as the collation does ("When A Knight …" is "When a Knight …"), or empty: an "(SCA Version)" is a
 // contrafactum of it if the piece is a contrafactum, else a variant, and a "(Poem)" or "(Song)" is the same text in
 // another form. With no piece of the bare title, a "(Poem)" and a "(Song)" of the same title are the same text in
-// another form, related once, from the later page.
-func (b *builder) pieceRelations(p mediawiki.PieceRecord) []domain.DocPieceRelation {
-	out := []domain.DocPieceRelation{}
+// another form, said once, on the later page.
+func (b *builder) otherPiece(p mediawiki.PieceRecord) string {
 	m := formSuffix.FindStringSubmatch(p.Title)
 	if m == nil {
-		return out
+		return ""
 	}
 	id := b.pieceIDs[p.Title]
 	base, ok := b.pieceByKey(domain.CollationKey(m[1]))
 	if !ok && m[2] != "SCA Version" {
 		base, ok = b.otherForm(m[1], m[2])
 		if ok && b.pieceIDs[base.Title] > id {
-			return out
+			return ""
 		}
 	}
-	to := b.pieceIDs[base.Title]
-	if !ok || to == id {
-		return out
+	if !ok || b.pieceIDs[base.Title] == id {
+		return ""
 	}
-	t := domain.PieceRelationTypeSameTextOtherForm
-	if m[2] == "SCA Version" {
-		t = domain.PieceRelationTypeVariantOf
-		if slices.ContainsFunc(p.Terms, func(pt mediawiki.PieceTerm) bool { return pt.Category == contrafactaCategory }) {
-			t = domain.PieceRelationTypeContrafactumOf
-		}
+	other := plain(base.Title)
+	switch {
+	case m[2] != "SCA Version":
+		return "The same text as " + other + ", in another form."
+	case hasTerm(p, contrafactaCategory):
+		return "New words to the tune of " + other + "."
+	default:
+		return "A version of " + other + "."
 	}
-
-	return append(out, domain.DocPieceRelation{ToPieceID: to, Type: t})
 }
 
 // pieceByKey is the first piece page, in page order, whose title has a collation key.
@@ -142,8 +136,7 @@ func (b *builder) otherForm(base, form string) (mediawiki.PieceRecord, bool) {
 func (b *builder) credits(credits []mediawiki.PieceCredit) []domain.DocCredit {
 	out := []domain.DocCredit{}
 	for _, c := range credits {
-		d := domain.DocCredit{Role: c.Role, Attribution: c.Attribution, Certainty: c.Certainty, Part: c.Part,
-			Note: free(c.Note)}
+		d := domain.DocCredit{Role: c.Role, Attribution: c.Attribution, Certainty: c.Certainty}
 		if c.Attribution == domain.AttributionNamed {
 			if id, ok := b.personIDs[c.Person]; ok && c.Person != "" {
 				d.PersonID = &id
@@ -161,10 +154,9 @@ func (b *builder) stubPiece(sp mediawiki.StubPiece) domain.ImportedPiece {
 	id := b.pieceIDs[sp.Title]
 	title := plain(sp.Title)
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion, Title: title,
-		Kind: domain.PieceKindSong, SecondaryKinds: []domain.PieceKind{},
-		Conservation: domain.DocConservation{Status: domain.ConservationStatusUnassessed}, IsStub: true,
+		Kind: domain.PieceKindSong, ConservationStatus: domain.ConservationStatusUnassessed, IsStub: true,
 		LicensingStatus: domain.LicensingStatusUnknown, Aliases: []domain.DocPieceAlias{},
-		Terms: []domain.DocPieceTerm{}, Relations: []domain.DocPieceRelation{}, Credits: b.credits(sp.Credits),
+		TermIDs: []int64{}, Credits: b.credits(sp.Credits),
 		Links: []domain.DocPieceLink{}}
 	sortTitle := domain.SortTitle(title)
 

@@ -35,7 +35,7 @@ const (
 	ClassTemplatePlaceholder CategoryClass = "template_placeholder"
 	// ClassBardStatus is In Memoriam, a person status.
 	ClassBardStatus CategoryClass = "bard_status"
-	// ClassEntityType is Venue, an event kind.
+	// ClassEntityType is Venue, whose pages are events.
 	ClassEntityType CategoryClass = "entity_type"
 	// ClassRedirect is a category whose page redirects to another category.
 	ClassRedirect CategoryClass = "redirect"

@@ -22,18 +22,14 @@ func TestMain(m *testing.M) { catalogtest.Main(m) }
 // unapproved terms (and an approved term under an unapproved parent), persons, pieces, collections and events;
 // a prefers_no_page person referenced from everywhere a person can be; and a hidden link.
 type detailFixture struct {
-	kettle, pendingPiece           catalogtest.Ref
-	wren, ash, noPage, pendingWren catalogtest.Ref
-	prolific                       catalogtest.Ref
-	songbook                       catalogtest.Ref
+	kettle, pendingPiece      catalogtest.Ref
+	wren, noPage, pendingWren catalogtest.Ref
+	prolific                  catalogtest.Ref
+	songbook                  catalogtest.Ref
 }
 
-// Fixture times; DATETIME and DATE columns are read back in UTC.
-var (
-	kettleCheckedAt = time.Date(2026, 9, 1, 8, 30, 0, 0, time.UTC)
-	firstAssessment = time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)
-	reassessment    = time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
-)
+// kettleCheckedAt is a fixture time; DATETIME columns are read back in UTC.
+var kettleCheckedAt = time.Date(2026, 9, 1, 8, 30, 0, 0, time.UTC)
 
 // Fixture strings the tests compare more than once.
 const (
@@ -86,21 +82,16 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	wren := c.Person(catalogtest.Person{
 		Doc: domain.PersonDocument{
 			Name:             wrenName,
-			Pronouns:         new("she/her"),
 			NotesMD:          new("A bard of the marches."),
 			LicensingStatus:  domain.LicensingStatusKnown,
 			LicensingNotesMD: new("Sing freely."),
 			Aliases: []domain.DocPersonAlias{
-				{Name: "Wren", Kind: domain.PersonAliasKindStage},
+				{Name: "Wren", Kind: domain.PersonAliasKindSCA},
 				{Name: "Jo Legalname", Kind: domain.PersonAliasKindLegal},
-				{Name: "Little Wren", Kind: domain.PersonAliasKindNickname},
+				{Name: "Little Wren", Kind: domain.PersonAliasKindSCA},
 			},
 			Roles:          []domain.PersonRole{domain.PersonRoleSongwriter, domain.PersonRoleSinger},
 			AffiliationIDs: []int64{northmarch.ID, southmarch.ID, eastmarch.ID},
-			Relations: []domain.DocPersonRelation{
-				{ToPersonID: bards.ID, Type: domain.PersonRelationTypeMemberOf},
-				{ToPersonID: pendingWren.ID, Type: domain.PersonRelationTypeSameAs},
-			},
 			Links: []domain.DocPersonLink{
 				{DocLink: domain.DocLink{URL: "https://example.org/kettle/hidden",
 					Roles: []domain.LinkRole{domain.LinkRoleOther}}},
@@ -118,30 +109,19 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	})
 	noPage := c.Person(catalogtest.Person{
 		Doc: domain.PersonDocument{
-			Name: hollisName, Status: domain.PersonStatusPrefersNoPage, StatusDate: &domain.Date{Time: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
-			StatusSourceURL: new("https://example.org/requests/12"), NotesMD: new("Private notes."),
-			Aliases:        []domain.DocPersonAlias{{Name: "Holly", Kind: domain.PersonAliasKindNickname}},
+			Name: hollisName, Status: domain.PersonStatusPrefersNoPage, NotesMD: new("Private notes."),
+			Aliases:        []domain.DocPersonAlias{{Name: "Holly", Kind: domain.PersonAliasKindSCA}},
 			Roles:          []domain.PersonRole{domain.PersonRoleSinger},
 			AffiliationIDs: []int64{northmarch.ID},
-			Relations:      []domain.DocPersonRelation{{ToPersonID: wren.ID, Type: domain.PersonRelationTypeHeirOf}},
 			Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: hollisURL,
 				Roles: []domain.LinkRole{domain.LinkRoleWebsite}}}},
 		},
 	})
-	ash := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
-		Name: "Ash Tallow", Kind: domain.PersonKindHistorical,
-		Relations: []domain.DocPersonRelation{
-			{ToPersonID: wren.ID, Type: domain.PersonRelationTypeHeirOf},
-			{ToPersonID: noPage.ID, Type: domain.PersonRelationTypeSameAs},
-		},
-	}})
-
-	brass := c.Piece(catalogtest.Piece{
+	c.Piece(catalogtest.Piece{
 		Doc: domain.PieceDocument{
 			Title: "The Brass Kettle", Kind: domain.PieceKindPoem,
-			SecondaryKinds: []domain.PieceKind{domain.PieceKindStory},
-			Conservation:   domain.DocConservation{Status: domain.ConservationStatusLowRisk},
-			Credits:        []domain.DocCredit{{PersonID: &wren.ID, Role: domain.CreditRoleAuthor}},
+			ConservationStatus: domain.ConservationStatusLowRisk,
+			Credits:            []domain.DocCredit{{PersonID: &wren.ID, Role: domain.CreditRoleAuthor}},
 		},
 		SortTitle: "Brass Kettle",
 	})
@@ -153,39 +133,24 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	kettle := c.Piece(catalogtest.Piece{
 		Doc: domain.PieceDocument{
 			Title:              kettleTitle,
-			SecondaryKinds:     []domain.PieceKind{domain.PieceKindComedy, domain.PieceKindDanceMusic},
-			Conservation:       domain.DocConservation{Status: domain.ConservationStatusEndangered},
+			ConservationStatus: domain.ConservationStatusEndangered,
 			IsStub:             true,
 			NotesMD:            new("A drinking song."),
 			VersionNotesMD:     new("Two verses."),
 			LicensingStatus:    domain.LicensingStatusKnown,
 			LicensingNotesMD:   new("Free with credit."),
-			Licence:            new(domain.LicenceCCBYSA),
-			HistoricalSourceMD: new("A broadside."),
-			PeriodStart:        new(int16(1580)),
-			PeriodEnd:          new(int16(1600)),
 			Aliases: []domain.DocPieceAlias{
 				{Text: "Kettle Song", Kind: domain.PieceAliasKindAltTitle},
-				{Text: "Old Kettle", Kind: domain.PieceAliasKindNickname},
+				{Text: "Old Kettle", Kind: domain.PieceAliasKindRedirect},
 			},
-			Terms: []domain.DocPieceTerm{
-				{TermID: century.ID, Part: new(domain.PiecePartTune)},
-				{TermID: swords.ID},
-				{TermID: pendingTerm.ID},
-				{TermID: war.ID, IsPrimary: true},
-				{TermID: underPending.ID},
-			},
-			Relations: []domain.DocPieceRelation{
-				{ToPieceID: brass.ID, Type: domain.PieceRelationTypeVariantOf},
-				{ToPieceID: pendingPiece.ID, Type: domain.PieceRelationTypeSettingOf},
-			},
+			TermIDs: []int64{century.ID, swords.ID, pendingTerm.ID, war.ID, underPending.ID},
 			Credits: []domain.DocCredit{
 				{PersonID: &wren.ID, Role: domain.CreditRoleLyrics},
 				{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
-					Certainty: domain.CertaintyProbable, Part: new(domain.PiecePartTune), Note: new("An old reel.")},
-				{PersonID: &noPage.ID, Role: domain.CreditRoleMusic, Note: new("Hollis's tune")},
-				{PersonID: &pendingWren.ID, Role: domain.CreditRoleArrangement},
-				{Role: domain.CreditRoleTranslation, Attribution: domain.AttributionUnknown,
+					Certainty: domain.CertaintyProbable},
+				{PersonID: &noPage.ID, Role: domain.CreditRoleTune},
+				{PersonID: &pendingWren.ID, Role: domain.CreditRoleAuthor},
+				{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionUnknown,
 					Certainty: domain.CertaintyDisputed},
 			},
 			Links: []domain.DocPieceLink{
@@ -217,11 +182,6 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 			},
 		},
 		SortTitle: "Copper Kettle",
-		ConservationHistory: []catalogtest.ConservationEntry{
-			{Status: domain.ConservationStatusEndangered, Reason: "Fewer singers.", At: reassessment},
-			{Status: domain.ConservationStatusLowRisk, Reason: "First assessment.",
-				SourceURL: new("https://example.org/assessment"), At: firstAssessment},
-		},
 	})
 	c.SetLinkState("https://example.org/kettle/hidden", catalogtest.LinkState{IsHidden: true})
 	c.SetLinkState("https://example.org/kettle/archive", catalogtest.LinkState{Liveness: domain.LivenessDead,
@@ -234,12 +194,6 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	c.Exec("UPDATE link_attachments a JOIN links l ON l.id = a.link_id SET a.position = 5 WHERE l.url = ?",
 		kettleVideoURL)
 
-	// Incoming relations, from a public piece and from an unapproved one.
-	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Tin Kettle",
-		Relations: []domain.DocPieceRelation{{ToPieceID: kettle.ID, Type: domain.PieceRelationTypeContrafactumOf}}}})
-	c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: "The Iron Kettle",
-		Relations: []domain.DocPieceRelation{{ToPieceID: kettle.ID, Type: domain.PieceRelationTypeVariantOf}}},
-		Unapproved: true})
 	// A performance of an unapproved piece on Wren's own link: left out of her page, as it may name the piece.
 	c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Fair Recorder",
 		Links: []domain.DocPersonLink{{DocLink: domain.DocLink{URL: "https://example.org/pewter",
@@ -250,7 +204,7 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 
 	return detailFixture{
 		kettle: kettle, pendingPiece: pendingPiece,
-		wren: wren, ash: ash, noPage: noPage, pendingWren: pendingWren,
+		wren: wren, noPage: noPage, pendingWren: pendingWren,
 		prolific: seedProlific(c), songbook: songbook,
 	}
 })
@@ -262,7 +216,7 @@ func seedProlific(c *catalogtest.Catalog) catalogtest.Ref {
 	credits := make([]domain.DocCredit, manyItems)
 	performances := make([]domain.DocPerformance, manyItems)
 	for i := range manyItems {
-		credits[i] = domain.DocCredit{PersonID: &piper.ID, Role: domain.CreditRoleMusic}
+		credits[i] = domain.DocCredit{PersonID: &piper.ID, Role: domain.CreditRoleTune}
 		performances[i] = domain.DocPerformance{Year: new(int16(1800 + i)), DescriptionVerbatim: fmt.Sprint("Take ", i),
 			PerformerIDs: []int64{piper.ID}}
 	}
@@ -289,13 +243,11 @@ var (
 		IsStub: true, NoLink: true}
 	kettleSummary = domain.PieceSummary{
 		Slug: "the-copper-kettle", Title: kettleTitle, Kind: domain.PieceKindSong,
-		SecondaryKinds:     []domain.PieceKind{domain.PieceKindDanceMusic, domain.PieceKindComedy},
 		ConservationStatus: domain.ConservationStatusEndangered, IsStub: true, CreditNames: []string{hollisName, wrenName},
 	}
 	brassSummary = domain.PieceSummary{
 		Slug: "the-brass-kettle", Title: "The Brass Kettle", Kind: domain.PieceKindPoem,
-		SecondaryKinds: []domain.PieceKind{domain.PieceKindStory}, ConservationStatus: domain.ConservationStatusLowRisk,
-		CreditNames: []string{wrenName},
+		ConservationStatus: domain.ConservationStatusLowRisk, CreditNames: []string{wrenName},
 	}
 )
 
@@ -311,44 +263,32 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 	require.NoError(t, err)
 	clearUpdatedAt(t, &piece.UpdatedAt)
 
-	tune := domain.PiecePartTune
 	assert.Equal(t, domain.Piece{
-		PieceSummary:       kettleSummary,
-		NotesMD:            new("A drinking song."),
-		VersionNotesMD:     new("Two verses."),
-		LicensingStatus:    domain.LicensingStatusKnown,
-		LicensingNotesMD:   new("Free with credit."),
-		Licence:            new(domain.LicenceCCBYSA),
-		HistoricalSourceMD: new("A broadside."),
-		PeriodStart:        new(int16(1580)),
-		PeriodEnd:          new(int16(1600)),
+		PieceSummary:     kettleSummary,
+		NotesMD:          new("A drinking song."),
+		VersionNotesMD:   new("Two verses."),
+		LicensingStatus:  domain.LicensingStatusKnown,
+		LicensingNotesMD: new("Free with credit."),
 		Aliases: []domain.PieceAlias{
 			{Text: "Kettle Song", Kind: domain.PieceAliasKindAltTitle},
-			{Text: "Old Kettle", Kind: domain.PieceAliasKindNickname},
+			{Text: "Old Kettle", Kind: domain.PieceAliasKindRedirect},
 		},
 		// By facet (topic before origin), then position; neither the unapproved mood term nor its approved child.
-		Terms: []domain.PieceTerm{
-			{Term: domain.TermSummary{Slug: "swords", Facet: domain.FacetTopic, DisplayName: swordsName}},
-			{Term: domain.TermSummary{Slug: "war", Facet: domain.FacetTopic, DisplayName: warName}, IsPrimary: true},
-			{Term: domain.TermSummary{Slug: "16th-century", Facet: domain.FacetOrigin, DisplayName: "16th Century"},
-				Part: &tune},
+		Terms: []domain.TermSummary{
+			{Slug: "swords", Facet: domain.FacetTopic, DisplayName: swordsName},
+			{Slug: "war", Facet: domain.FacetTopic, DisplayName: warName},
+			{Slug: "16th-century", Facet: domain.FacetOrigin, DisplayName: "16th Century"},
 		},
 		// By position, which is not the order they were written in.
 		Credits: []domain.PieceCredit{
-			{Role: domain.CreditRoleTranslation, Attribution: domain.AttributionUnknown,
+			{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionUnknown,
 				Certainty: domain.CertaintyDisputed},
-			{Role: domain.CreditRoleMusic, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
-				Note: new("Hollis's tune"), Person: &hollisSummary},
+			{Role: domain.CreditRoleTune, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
+				Person: &hollisSummary},
 			{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional,
-				Certainty: domain.CertaintyProbable, Part: &tune, Note: new("An old reel.")},
+				Certainty: domain.CertaintyProbable},
 			{Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed, Certainty: domain.CertaintyCertain,
 				Person: &wrenSummary},
-		},
-		Relations: []domain.PieceRelation{
-			{Type: domain.PieceRelationTypeVariantOf, Direction: domain.RelationDirectionOutgoing, Piece: brassSummary},
-			{Type: domain.PieceRelationTypeContrafactumOf, Direction: domain.RelationDirectionIncoming,
-				Piece: domain.PieceSummary{Slug: "the-tin-kettle", Title: "The Tin Kettle", Kind: domain.PieceKindSong,
-					ConservationStatus: domain.ConservationStatusUnassessed}},
 		},
 		Links: []domain.PieceLink{
 			{Link: domain.Link{
@@ -369,18 +309,12 @@ func TestRepository_GetPublicPiece(t *testing.T) {
 					{
 						Year: new(int16(2025)), Uploader: new("Northmarch Bards"),
 						DescriptionVerbatim: revelPerformance,
-						Event: &domain.EventSummary{Slug: revelSlug, Name: revelName,
-							Kind: domain.EventKindEvent},
-						Performers: []domain.PersonSummary{wrenSummary, hollisSummary, bardsSummary},
+						Event:               &domain.EventSummary{Slug: revelSlug, Name: revelName},
+						Performers:          []domain.PersonSummary{wrenSummary, hollisSummary, bardsSummary},
 					},
 					{DescriptionVerbatim: "Sung at the moot"},
 				},
 			},
-		},
-		ConservationHistory: []domain.ConservationChange{
-			{Status: domain.ConservationStatusLowRisk, Reason: "First assessment.",
-				SourceURL: new("https://example.org/assessment"), At: firstAssessment},
-			{Status: domain.ConservationStatusEndangered, Reason: "Fewer singers.", At: reassessment},
 		},
 	}, piece)
 }
@@ -397,8 +331,7 @@ func TestRepository_GetPublicPiece_NotFound(t *testing.T) {
 }
 
 // TestRepository_GetPublicPerson reads a person with public aliases only, roles, affiliations without the
-// unapproved one, relations in both directions without unapproved persons, links without the hidden
-// one, works on public pieces and performances.
+// unapproved one, links without the hidden one, works on public pieces and performances.
 func TestRepository_GetPublicPerson(t *testing.T) {
 	t.Parallel()
 
@@ -411,26 +344,19 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 		PersonSummary: wrenSummary,
 		Status:        domain.PersonStatusActive,
 		Profile: &domain.PersonProfile{
-			Pronouns:         new("she/her"),
 			NotesMD:          new("A bard of the marches."),
 			LicensingStatus:  domain.LicensingStatusKnown,
 			LicensingNotesMD: new("Sing freely."),
 			Aliases: []domain.PersonAlias{
-				{Name: "Wren", Kind: domain.PersonAliasKindStage},
+				{Name: "Wren", Kind: domain.PersonAliasKindSCA},
 				{Name: "Jo Legalname", Kind: domain.PersonAliasKindLegal},
-				{Name: "Little Wren", Kind: domain.PersonAliasKindNickname},
+				{Name: "Little Wren", Kind: domain.PersonAliasKindSCA},
 			},
 			Roles: []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRoleSongwriter},
 			// By position.
 			Affiliations: []domain.TermSummary{
 				{Slug: "eastmarch", Facet: domain.FacetAffiliation, DisplayName: eastmarchName},
 				{Slug: "northmarch", Facet: domain.FacetAffiliation, DisplayName: northmarchName},
-			},
-			Relations: []domain.PersonRelation{
-				{Type: domain.PersonRelationTypeMemberOf, Direction: domain.RelationDirectionOutgoing, Person: bardsSummary},
-				{Type: domain.PersonRelationTypeHeirOf, Direction: domain.RelationDirectionIncoming,
-					Person: domain.PersonSummary{Slug: "ash-tallow", Name: "Ash Tallow", Kind: domain.PersonKindHistorical}},
-				{Type: domain.PersonRelationTypeHeirOf, Direction: domain.RelationDirectionIncoming, Person: hollisSummary},
 			},
 			Links: []domain.Link{{URL: wrenURL, Title: new("Wren's songs"),
 				Liveness: domain.LivenessUnknown, Roles: []domain.LinkRole{domain.LinkRoleWebsite}}},
@@ -444,9 +370,8 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 					Piece: &kettleSummary,
 					Link: domain.PerformanceLink{URL: kettleVideoURL, Title: new("At the revel"),
 						Platform: new("example.org")},
-					Year: new(int16(2025)),
-					Event: &domain.EventSummary{Slug: revelSlug, Name: revelName,
-						Kind: domain.EventKindEvent},
+					Year:                new(int16(2025)),
+					Event:               &domain.EventSummary{Slug: revelSlug, Name: revelName},
 					DescriptionVerbatim: revelPerformance,
 				},
 				{
@@ -471,10 +396,9 @@ func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
 	clearUpdatedAt(t, &person.UpdatedAt)
 
 	assert.Equal(t, domain.Person{
-		PersonSummary:   domain.PersonSummary{Slug: "hollis-fenn", Name: hollisName, Kind: domain.PersonKindCommunityBard, IsStub: true},
-		Status:          domain.PersonStatusPrefersNoPage,
-		StatusDate:      new(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)),
-		StatusSourceURL: new("https://example.org/requests/12"),
+		PersonSummary: domain.PersonSummary{Slug: "hollis-fenn", Name: hollisName, Kind: domain.PersonKindCommunityBard,
+			IsStub: true},
+		Status: domain.PersonStatusPrefersNoPage,
 	}, person)
 }
 
@@ -518,8 +442,8 @@ func TestRepository_CatalogueReads_UnknownEnumValue(t *testing.T) {
 	piece := c.Piece(catalogtest.Piece{Doc: domain.PieceDocument{Title: kettleTitle}})
 	person := c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: wrenName}})
 	for _, stmt := range []string{
-		"ALTER TABLE pieces MODIFY kind ENUM('song', 'poem', 'story', 'dance_music', 'instrumental', 'comedy', " +
-			"'ballad') NOT NULL",
+		"ALTER TABLE pieces MODIFY kind ENUM('song', 'poem', 'story', 'dance_music', 'instrumental', 'ballad') " +
+			"NOT NULL",
 		"UPDATE pieces SET kind = 'ballad'",
 		"ALTER TABLE person_roles MODIFY role ENUM('singer', 'songwriter', 'musician', 'instrumentalist', " +
 			"'storyteller', 'poet', 'jester', 'dancer', 'harper') NOT NULL",

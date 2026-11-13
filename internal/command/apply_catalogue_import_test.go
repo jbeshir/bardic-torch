@@ -16,7 +16,7 @@ func oneTermImport() domain.CatalogueImport {
 		Terms: []domain.ImportedTerm{{ID: 1, Slug: "sca", Revision: domain.ImportedRevision{ID: 1,
 			Summary: domain.ImportSummaryCategory, Contributors: []string{}, CreatedAt: fixedNow},
 			Doc: domain.TermDocument{SchemaVersion: domain.DocumentSchemaVersion, Facet: domain.FacetAffiliation,
-				Name: "SCA", DisplayName: "SCA", Aliases: []string{}}}},
+				Name: "SCA", DisplayName: "SCA"}}},
 	}
 }
 

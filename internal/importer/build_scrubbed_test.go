@@ -66,30 +66,6 @@ func TestBuild_SortKeys(t *testing.T) {
 	assert.Equal(t, domain.Letter("T"), threeWords.SortLetter)
 }
 
-func TestBuild_ConservationSourceIsThePiecesWikiPage(t *testing.T) {
-	imp := scrubbedImport(t)
-	pageURLs := map[string]string{}
-	for _, p := range scrubbedCorpus(t).Pieces {
-		pageURLs[p.Title] = p.URL
-	}
-
-	assessed := 0
-	for _, p := range imp.Pieces {
-		c := p.Doc.Conservation
-		if c.Status == domain.ConservationStatusUnassessed {
-			assert.Nil(t, c.SourceURL, p.Doc.Title)
-
-			continue
-		}
-		assessed++
-		require.NotNil(t, c.SourceURL, p.Doc.Title)
-		require.NotNil(t, p.Legacy, p.Doc.Title)
-		assert.Equal(t, pageURLs[p.Legacy.Title], *c.SourceURL, "%s: the source is the piece's own wiki page",
-			p.Doc.Title)
-	}
-	assert.Equal(t, 11, assessed)
-}
-
 // TestBuild_ContributorsAreCreditedPerPage: a piece page's revision credits its contributors, and a stub piece's
 // those of the bard pages listing it, from which it comes.
 // shareTracking is a query parameter that can tie a shared link to its sharer.

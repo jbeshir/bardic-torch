@@ -526,9 +526,9 @@ func (c *catalogueReader) pieceVisibility(ctx context.Context, ids []uint64, vis
 	for _, row := range rows {
 		slugs = append(slugs, row.Slug)
 	}
-	extras := c.summaryExtras(ctx, slugs)
+	creditNames := c.creditNames(ctx, slugs)
 	for _, row := range rows {
-		vis.Pieces[c.signedID(row.ID)] = c.pieceSummary(extras, row.Slug, row.Title, row.Kind, row.ConservationStatus,
+		vis.Pieces[c.signedID(row.ID)] = c.pieceSummary(creditNames, row.Slug, row.Title, row.Kind, row.ConservationStatus,
 			row.IsStub)
 	}
 }
@@ -544,14 +544,14 @@ func (c *catalogueReader) termVisibility(ctx context.Context, ids []uint64, vis 
 func (c *catalogueReader) collectionVisibility(ctx context.Context, ids []uint64, vis *domain.SnapshotVisibility) {
 	for _, row := range fetch(ctx, c, "referenced collections", c.q.ListPublicCollectionsByID, ids) {
 		id := c.signedID(row.ID)
-		vis.Collections[id] = c.collectionSummary(id, row.Name, row.Kind, row.Url, row.IsBardicResource)
+		vis.Collections[id] = c.collectionSummary(id, row.Name, row.Kind, row.Url)
 	}
 }
 
 // eventVisibility loads the referenced public events.
 func (c *catalogueReader) eventVisibility(ctx context.Context, ids []uint64, vis *domain.SnapshotVisibility) {
 	for _, row := range fetch(ctx, c, "referenced events", c.q.ListPublicEventsByID, ids) {
-		vis.Events[c.signedID(row.ID)] = c.eventSummary(row.Slug, row.Name, row.Kind)
+		vis.Events[c.signedID(row.ID)] = domain.EventSummary{Slug: row.Slug, Name: row.Name}
 	}
 }
 

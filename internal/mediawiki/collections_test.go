@@ -26,7 +26,7 @@ func collectionsPage(sections ...string) Page {
 	return Page{Title: CollectionsPage, Wikitext: text}
 }
 
-func TestParseCollections_EntriesAndNesting(t *testing.T) {
+func TestParseCollections_Entries(t *testing.T) {
 	c := ParseCollections(collectionsPage(
 		"A", "* [https://www.archive.example.org/songs/ Ash's Songbook - a big one] - kept since 1990\n"+
 			"** [https://archive.example.org/songs/list.html Directory of songbooks]\n"+
@@ -41,15 +41,11 @@ func TestParseCollections_EntriesAndNesting(t *testing.T) {
 	assert.Equal(t, CollectionRecord{
 		Letter: "A", Label: "Ash's Songbook - a big one", URL: "https://www.archive.example.org/songs/",
 		NormalizedURL: "https://archive.example.org/songs/", Note: "kept since 1990",
-		Depth: 1, Kind: domain.CollectionKindSongbookWebsite, Description: "a big one; kept since 1990",
-		IsBardicResource: true,
+		Kind: domain.CollectionKindSongbookWebsite, Description: "a big one; kept since 1990",
 	}, first)
 	assert.Equal(t, "Ash's Songbook", first.Name())
-	assert.Equal(t, 2, c.Records[1].Depth)
-	assert.Equal(t, first.NormalizedURL, c.Records[1].ParentURL)
 	assert.Equal(t, domain.CollectionKindIndexOrLinkList, c.Records[1].Kind)
 	assert.Equal(t, "C & D", c.Records[2].Label)
-	assert.Empty(t, c.Records[2].ParentURL)
 }
 
 func TestParseCollections_Kinds(t *testing.T) {
@@ -74,15 +70,6 @@ func TestParseCollections_Kinds(t *testing.T) {
 	for _, c := range cases {
 		assert.Equal(t, c.kind, classifyCollection(c.url, c.label), c.url+" "+c.label)
 	}
-}
-
-func TestParseCollections_NotBardicNote(t *testing.T) {
-	c := ParseCollections(collectionsPage("R", "* [https://example.org/ Rise] - note this is not a bardic "+
-		"community resource, but it has songs\n* [https://example.org/b Other]\n"), TermPlan{})
-
-	require.Len(t, c.Records, 2)
-	assert.False(t, c.Records[0].IsBardicResource)
-	assert.True(t, c.Records[1].IsBardicResource)
 }
 
 func TestParseCollections_DuplicateMerged(t *testing.T) {

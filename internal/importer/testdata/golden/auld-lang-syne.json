@@ -8,66 +8,32 @@
       "schema_version": 1,
       "title": "Auld Lang Syne",
       "kind": "song",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
       "notes_md": "### Key Links\n\n- Note: Auld Lang Syne is sung in Scots. This wiki uses \\[\\[:Category:Gaelic|Gaelic\\] as an overarching category for Scottish/Irish work.",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": "Auld Lang Syne is in the public domain.",
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": null,
-      "period_end": null,
       "aliases": [],
-      "terms": [
-        {
-          "term_id": 29,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 38,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 98,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 123,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 24,
-          "is_primary": false,
-          "part": null
-        }
+      "term_ids": [
+        29,
+        38,
+        98,
+        123,
+        24
       ],
-      "relations": [],
       "credits": [
         {
           "person_id": 137,
           "role": "lyrics",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": null,
           "role": "tune",
           "attribution": "traditional",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         }
       ],
       "links": [

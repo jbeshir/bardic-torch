@@ -59,10 +59,8 @@ func (d PersonDocument) DuplicateKeys() []string {
 	return duplicateKeys(names...)
 }
 
-// DuplicateKeys are the keys of the term's name, display name and aliases.
-func (d TermDocument) DuplicateKeys() []string {
-	return duplicateKeys(append([]string{d.Name, d.DisplayName}, d.Aliases...)...)
-}
+// DuplicateKeys are the keys of the term's name and display name.
+func (d TermDocument) DuplicateKeys() []string { return duplicateKeys(d.Name, d.DisplayName) }
 
 // DuplicateKeys are the key of the collection's name.
 func (d CollectionDocument) DuplicateKeys() []string { return duplicateKeys(d.Name) }

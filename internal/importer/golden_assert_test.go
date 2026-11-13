@@ -45,7 +45,7 @@ func TestGoldenAssert_BlackAlman(t *testing.T) {
 	p := goldenPiece(t, "Black Alman")
 
 	assert.Equal(t, domain.PieceKindDanceMusic, p.Doc.Kind)
-	assert.Empty(t, p.Doc.Credits, "the wiki leaves dance_by and music_by empty")
+	assert.Empty(t, p.Doc.Credits, "the page credits no one")
 	assert.Subset(t, rolesOf(p.Doc.Links), []domain.LinkRole{domain.LinkRoleSheetMusic,
 		domain.LinkRoleDanceInstructions, domain.LinkRolePerformance})
 	assert.Contains(t, p.Doc.Aliases, domain.DocPieceAlias{Text: "Black Allemande", Kind: domain.PieceAliasKindAltTitle})
@@ -54,25 +54,15 @@ func TestGoldenAssert_BlackAlman(t *testing.T) {
 func TestGoldenAssert_ThreeWords(t *testing.T) {
 	p := goldenPiece(t, "Three Words")
 
-	verses, chorus := domain.PiecePartVerses, domain.PiecePartChorus
-	var tune []domain.DocCredit
+	var tune []domain.Attribution
 	for _, c := range p.Doc.Credits {
 		if c.Role == domain.CreditRoleTune {
-			tune = append(tune, c)
+			tune = append(tune, c.Attribution)
 		}
 	}
-	require.Len(t, tune, 2)
-	assert.Equal(t, &verses, tune[0].Part, "the named tune credit is the verses'")
-	assert.Equal(t, domain.AttributionNamed, tune[0].Attribution)
-	assert.Equal(t, &chorus, tune[1].Part, "the anonymous one the chorus'")
-	assert.Equal(t, domain.AttributionAnonymous, tune[1].Attribution)
-	parts := map[domain.PiecePart]bool{}
-	for _, term := range p.Doc.Terms {
-		if term.Part != nil {
-			parts[*term.Part] = true
-		}
-	}
-	assert.True(t, parts[verses] && parts[chorus], "origins are scoped to the verses and chorus")
+	assert.Equal(t, []domain.Attribution{domain.AttributionNamed, domain.AttributionAnonymous}, tune)
+	require.NotNil(t, p.Doc.NotesMD)
+	assert.Contains(t, *p.Doc.NotesMD, "Chorus tune: Anon. Sephardic song", "the notes say whose the chorus is")
 }
 
 func TestGoldenAssert_AuldLangSyne(t *testing.T) {
@@ -127,11 +117,9 @@ func TestGoldenAssert_MalkinGrey(t *testing.T) {
 	person := goldenPerson(t, "Malkin Grey")
 
 	assert.Equal(t, domain.PersonStatusDeceased, person.Doc.Status)
-	require.NotNil(t, person.Doc.StatusDate)
-	assert.Equal(t, "2020-10-31", person.Doc.StatusDate.Format("2006-01-02"))
-	require.NotNil(t, person.Doc.StatusSourceURL)
-	assert.Equal(t, "http://falconbanner.gladiusinfractus.com/2021/01/22/in-memoriam-the-passing-of-mistress-malkin-grey/",
-		*person.Doc.StatusSourceURL, "the obituary the date is read from")
+	require.NotNil(t, person.Doc.NotesMD)
+	assert.Equal(t, "- [Deceased October 31, 2020](http://falconbanner.gladiusinfractus.com/2021/01/22/"+
+		"in-memoriam-the-passing-of-mistress-malkin-grey/)", *person.Doc.NotesMD, "the date and its obituary")
 }
 
 func TestGoldenAssert_FightForTheMidrealm(t *testing.T) {
@@ -151,11 +139,10 @@ func TestGoldenAssert_MyThingIsMyOwn(t *testing.T) {
 }
 
 func TestGoldenAssert_Greensleeves(t *testing.T) {
-	base := goldenPiece(t, "Greensleeves")
 	sca := goldenPiece(t, "Greensleeves (SCA Version)")
 
-	assert.Equal(t, []domain.DocPieceRelation{{ToPieceID: base.ID, Type: domain.PieceRelationTypeContrafactumOf}},
-		sca.Doc.Relations)
+	require.NotNil(t, sca.Doc.NotesMD)
+	assert.Equal(t, "New words to the tune of Greensleeves.", *sca.Doc.NotesMD)
 }
 
 func TestGoldenAssert_OtherPageTitleIsNoAlias(t *testing.T) {
@@ -168,21 +155,23 @@ func TestGoldenAssert_OtherPageTitleIsNoAlias(t *testing.T) {
 	}
 }
 
-// TestGoldenAssert_RelationsFromTitles: the report §8.1 pairs. "(SCA Version)" relates to its base whatever the
-// case of the base's title, and with no bare page the "(Poem)" and the "(Song)" relate to each other, once.
-func TestGoldenAssert_RelationsFromTitles(t *testing.T) {
+// TestGoldenAssert_OtherPieceFromTitles: the report §8.1 pairs. "(SCA Version)" names its base in its notes
+// whatever the case of the base's title, and with no bare page the later of the "(Poem)" and the "(Song)" names the
+// other, once.
+func TestGoldenAssert_OtherPieceFromTitles(t *testing.T) {
 	imp := scrubbedImport(t)
-	knight, base := pieceTitled(t, imp, "When A Knight Won His Spurs (SCA Version)"),
-		pieceTitled(t, imp, "When a Knight Won His Spurs")
+	knight := pieceTitled(t, imp, "When A Knight Won His Spurs (SCA Version)")
 	poem, song := pieceTitled(t, imp, "Ode to Commius (Poem)"), pieceTitled(t, imp, "Ode to Commius (Song)")
 
-	require.Len(t, knight.Doc.Relations, 1)
-	assert.Equal(t, base.ID, knight.Doc.Relations[0].ToPieceID)
+	require.NotNil(t, knight.Doc.NotesMD)
+	assert.True(t, strings.HasSuffix(*knight.Doc.NotesMD, "\n\nNew words to the tune of When a Knight Won His Spurs."),
+		"after the page's own notes")
 	later, earlier := poem, song
 	if song.ID > poem.ID {
 		later, earlier = song, poem
 	}
-	assert.Empty(t, earlier.Doc.Relations, "related once, from the later page")
-	assert.Equal(t, []domain.DocPieceRelation{{ToPieceID: earlier.ID, Type: domain.PieceRelationTypeSameTextOtherForm}},
-		later.Doc.Relations)
+	require.NotNil(t, earlier.Doc.NotesMD)
+	assert.NotContains(t, *earlier.Doc.NotesMD, "The same text as", "said once, on the later page")
+	require.NotNil(t, later.Doc.NotesMD)
+	assert.Equal(t, "The same text as "+earlier.Doc.Title+", in another form.", *later.Doc.NotesMD)
 }

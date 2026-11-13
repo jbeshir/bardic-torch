@@ -8,89 +8,41 @@
       "schema_version": 1,
       "title": "Band of Brothers",
       "kind": "song",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
       "notes_md": null,
       "version_notes_md": "The words of this song are adapted from Legal Name 022, a play about events in the 1400s (15th Century).",
       "licensing_status": "known",
       "licensing_notes_md": "- [Ken Theriot encourages performers to perform his work at Pennsic, without requiring permission](https://www.ravenboymusic.com/bards-or-budding-bards-get-rbm-sheet-music-before-pennsic/)",
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": null,
-      "period_start": null,
-      "period_end": null,
       "aliases": [],
-      "terms": [
-        {
-          "term_id": 33,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 88,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 40,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 96,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 121,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 43,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 115,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 120,
-          "is_primary": false,
-          "part": null
-        }
+      "term_ids": [
+        33,
+        88,
+        40,
+        96,
+        121,
+        43,
+        115,
+        120
       ],
-      "relations": [],
       "credits": [
         {
           "person_id": 160,
           "role": "lyrics",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": 24,
           "role": "tune",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         },
         {
           "person_id": 3,
           "role": "tune",
           "attribution": "named",
-          "certainty": "certain",
-          "part": null,
-          "note": null
+          "certainty": "certain"
         }
       ],
       "links": [

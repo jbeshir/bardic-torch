@@ -12,8 +12,8 @@ import (
 //   - each link shown as written in the document, unless its link (the row its normalized URL matches, as approval
 //     upserts it) is hidden now;
 //   - a person's name and aliases as the document has them;
-//   - credits, performers and relations of persons who are not public now left out, and of persons who prefer no
-//     page now named without a link;
+//   - credits and performers of persons who are not public now left out, and of persons who prefer no page now
+//     named without a link;
 //   - of a person who prefers no page, now or in the document, only the identity.
 //
 // Redaction follows the catalogue's current state, not the document's, so that hiding a link also hides it in
@@ -43,7 +43,7 @@ type SnapshotVisibility struct {
 	Terms map[int64]TermSummary
 	// Collections are the public collections.
 	Collections map[int64]CollectionSummary
-	// Events are the public events and venues.
+	// Events are the public events.
 	Events map[int64]EventSummary
 	// HiddenLinks holds the normalized URL of each hidden link; a view leaves out a link whose URL normalizes to one.
 	HiddenLinks map[string]bool
@@ -51,36 +51,21 @@ type SnapshotVisibility struct {
 
 // PieceSnapshot is the public view of a PieceDocument.
 type PieceSnapshot struct {
-	Title                 string
-	Kind                  PieceKind
-	SecondaryKinds        []PieceKind
-	ConservationStatus    ConservationStatus
-	ConservationSourceURL *string
-	IsStub                bool
-	NotesMD               *string
-	VersionNotesMD        *string
-	LicensingStatus       LicensingStatus
-	LicensingNotesMD      *string
-	Licence               *Licence
-	LicenceVersion        *LicenceVersion
-	HistoricalSourceMD    *string
-	PeriodStart           *int16
-	PeriodEnd             *int16
-	Aliases               []PieceAlias
+	Title              string
+	Kind               PieceKind
+	ConservationStatus ConservationStatus
+	IsStub             bool
+	NotesMD            *string
+	VersionNotesMD     *string
+	LicensingStatus    LicensingStatus
+	LicensingNotesMD   *string
+	Aliases            []PieceAlias
 	// Terms are the public terms, in the document's order.
-	Terms []PieceTerm
+	Terms []TermSummary
 	// Credits are in the document's order; a named credit to a person who is not public is left out.
 	Credits []PieceCredit
-	// Relations are the piece's relations to public pieces: a document holds its outgoing relations only.
-	Relations []SnapshotPieceRelation
 	// Links are the visible links, in the document's order.
 	Links []SnapshotPieceLink
-}
-
-// SnapshotPieceRelation is a relation of the snapshot's piece to another public piece.
-type SnapshotPieceRelation struct {
-	Type  PieceRelationType
-	Piece PieceSummary
 }
 
 // SnapshotLink is the editor-owned part of a visible link in a snapshot: no liveness or other system state.
@@ -118,18 +103,15 @@ type SnapshotPersonPerformance struct {
 // PersonSnapshot is the public view of a PersonDocument. Profile is nil, and IsStub true, for a person who prefers
 // no page now or in the document, of whom the view shows the identity only.
 type PersonSnapshot struct {
-	Name            string
-	Kind            PersonKind
-	Status          PersonStatus
-	StatusDate      *Date
-	StatusSourceURL *string
-	IsStub          bool
-	Profile         *PersonSnapshotProfile
+	Name    string
+	Kind    PersonKind
+	Status  PersonStatus
+	IsStub  bool
+	Profile *PersonSnapshotProfile
 }
 
 // PersonSnapshotProfile is everything a person snapshot shows beyond the identity.
 type PersonSnapshotProfile struct {
-	Pronouns         *string
 	NotesMD          *string
 	LicensingStatus  LicensingStatus
 	LicensingNotesMD *string
@@ -137,15 +119,7 @@ type PersonSnapshotProfile struct {
 	Aliases      []PersonAlias
 	Roles        []PersonRole
 	Affiliations []TermSummary
-	// Relations are the person's relations to public persons: a document holds its outgoing relations only.
-	Relations []SnapshotPersonRelation
-	Links     []SnapshotPersonLink
-}
-
-// SnapshotPersonRelation is a relation of the snapshot's person to another public person.
-type SnapshotPersonRelation struct {
-	Type   PersonRelationType
-	Person PersonSummary
+	Links        []SnapshotPersonLink
 }
 
 // TermSnapshot is the public view of a TermDocument.
@@ -159,7 +133,6 @@ type TermSnapshot struct {
 	RelatedAffiliation *TermSummary
 	DescriptionMD      *string
 	Position           int32
-	Aliases            []string
 }
 
 // CollectionSnapshot is the public view of a CollectionDocument.
@@ -170,27 +143,16 @@ type CollectionSnapshot struct {
 	DescriptionMD *string
 	// Region is the collection's region term, if it is public.
 	Region *TermSummary
-	// Parent is the collection's parent, if it is public.
-	Parent           *CollectionSummary
-	IsBardicResource bool
-	Enumerable       CollectionEnumerable
 }
 
 // EventSnapshot is the public view of an EventDocument.
 type EventSnapshot struct {
-	Name          string
-	Kind          EventKind
-	DescriptionMD *string
+	Name string
 }
 
 // AddReferences adds what the document references to refs.
 func (d PieceDocument) AddReferences(refs *SnapshotReferences) {
-	for _, term := range d.Terms {
-		refs.TermIDs = append(refs.TermIDs, term.TermID)
-	}
-	for _, relation := range d.Relations {
-		refs.PieceIDs = append(refs.PieceIDs, relation.ToPieceID)
-	}
+	refs.TermIDs = append(refs.TermIDs, d.TermIDs...)
 	for _, credit := range d.Credits {
 		if credit.PersonID != nil {
 			refs.PersonIDs = append(refs.PersonIDs, *credit.PersonID)
@@ -208,9 +170,6 @@ func (d PieceDocument) AddReferences(refs *SnapshotReferences) {
 func (d PersonDocument) AddReferences(personID int64, refs *SnapshotReferences) {
 	refs.PersonIDs = append(refs.PersonIDs, personID)
 	refs.TermIDs = append(refs.TermIDs, d.AffiliationIDs...)
-	for _, relation := range d.Relations {
-		refs.PersonIDs = append(refs.PersonIDs, relation.ToPersonID)
-	}
 	for _, link := range d.Links {
 		link.addReferences(refs)
 		for _, performance := range link.Performances {
@@ -231,7 +190,6 @@ func (d TermDocument) AddReferences(refs *SnapshotReferences) {
 // AddReferences adds what the document references to refs.
 func (d CollectionDocument) AddReferences(refs *SnapshotReferences) {
 	refs.TermIDs = appendID(refs.TermIDs, d.RegionTermID)
-	refs.CollectionIDs = appendID(refs.CollectionIDs, d.ParentID)
 }
 
 func (l DocLink) addReferences(refs *SnapshotReferences) {
@@ -256,38 +214,26 @@ func appendID(ids []int64, id *int64) []int64 {
 // NewPieceSnapshot returns the public view of a piece document.
 func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 	snapshot := PieceSnapshot{
-		Title:                 d.Title,
-		Kind:                  d.Kind,
-		SecondaryKinds:        d.SecondaryKinds,
-		ConservationStatus:    d.Conservation.Status,
-		ConservationSourceURL: d.Conservation.SourceURL,
-		IsStub:                d.IsStub,
-		NotesMD:               d.NotesMD,
-		VersionNotesMD:        d.VersionNotesMD,
-		LicensingStatus:       d.LicensingStatus,
-		LicensingNotesMD:      d.LicensingNotesMD,
-		Licence:               d.Licence,
-		LicenceVersion:        VisibleLicenceVersion(d.Licence, d.LicenceVersion),
-		HistoricalSourceMD:    d.HistoricalSourceMD,
-		PeriodStart:           d.PeriodStart,
-		PeriodEnd:             d.PeriodEnd,
+		Title:              d.Title,
+		Kind:               d.Kind,
+		ConservationStatus: d.ConservationStatus,
+		IsStub:             d.IsStub,
+		NotesMD:            d.NotesMD,
+		VersionNotesMD:     d.VersionNotesMD,
+		LicensingStatus:    d.LicensingStatus,
+		LicensingNotesMD:   d.LicensingNotesMD,
 	}
 	for _, alias := range d.Aliases {
 		snapshot.Aliases = append(snapshot.Aliases, PieceAlias(alias))
 	}
-	for _, term := range d.Terms {
-		if summary, ok := vis.Terms[term.TermID]; ok {
-			snapshot.Terms = append(snapshot.Terms, PieceTerm{Term: summary, IsPrimary: term.IsPrimary, Part: term.Part})
+	for _, id := range d.TermIDs {
+		if term, ok := vis.Terms[id]; ok {
+			snapshot.Terms = append(snapshot.Terms, term)
 		}
 	}
 	for _, credit := range d.Credits {
 		if c, ok := vis.credit(credit); ok {
 			snapshot.Credits = append(snapshot.Credits, c)
-		}
-	}
-	for _, relation := range d.Relations {
-		if piece, ok := vis.Pieces[relation.ToPieceID]; ok {
-			snapshot.Relations = append(snapshot.Relations, SnapshotPieceRelation{Type: relation.Type, Piece: piece})
 		}
 	}
 	for _, link := range d.Links {
@@ -307,9 +253,7 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 // credit returns the view of a credit, or false if it is a named credit to a person who is not public.
 // A credit that is not named never shows a person.
 func (v SnapshotVisibility) credit(c DocCredit) (PieceCredit, bool) {
-	credit := PieceCredit{
-		Role: c.Role, Attribution: c.Attribution, Certainty: c.Certainty, Part: c.Part, Note: c.Note,
-	}
+	credit := PieceCredit{Role: c.Role, Attribution: c.Attribution, Certainty: c.Certainty}
 	if c.Attribution != AttributionNamed {
 		return credit, true
 	}
@@ -373,12 +317,10 @@ func NewPersonSnapshot(personID int64, d PersonDocument, vis SnapshotVisibility)
 	}
 
 	snapshot := PersonSnapshot{
-		Name:            d.Name,
-		Kind:            d.Kind,
-		Status:          d.Status,
-		StatusDate:      d.StatusDate,
-		StatusSourceURL: d.StatusSourceURL,
-		IsStub:          d.IsStub,
+		Name:   d.Name,
+		Kind:   d.Kind,
+		Status: d.Status,
+		IsStub: d.IsStub,
 	}
 
 	if person.NoLink || d.Status == PersonStatusPrefersNoPage {
@@ -395,7 +337,6 @@ func NewPersonSnapshot(personID int64, d PersonDocument, vis SnapshotVisibility)
 // newPersonSnapshotProfile returns the profile of the view of the document of a person who has a page.
 func newPersonSnapshotProfile(d PersonDocument, vis SnapshotVisibility) PersonSnapshotProfile {
 	profile := PersonSnapshotProfile{
-		Pronouns:         d.Pronouns,
 		NotesMD:          d.NotesMD,
 		LicensingStatus:  d.LicensingStatus,
 		LicensingNotesMD: d.LicensingNotesMD,
@@ -407,11 +348,6 @@ func newPersonSnapshotProfile(d PersonDocument, vis SnapshotVisibility) PersonSn
 	for _, id := range d.AffiliationIDs {
 		if term, ok := vis.Terms[id]; ok {
 			profile.Affiliations = append(profile.Affiliations, term)
-		}
-	}
-	for _, relation := range d.Relations {
-		if person, ok := vis.Persons[relation.ToPersonID]; ok {
-			profile.Relations = append(profile.Relations, SnapshotPersonRelation{Type: relation.Type, Person: person})
 		}
 	}
 	for _, link := range d.Links {
@@ -455,27 +391,23 @@ func NewTermSnapshot(d TermDocument, vis SnapshotVisibility) TermSnapshot {
 		RelatedAffiliation: lookup(vis.Terms, d.RelatedAffiliationID),
 		DescriptionMD:      d.DescriptionMD,
 		Position:           d.Position,
-		Aliases:            d.Aliases,
 	}
 }
 
 // NewCollectionSnapshot returns the public view of a collection document.
 func NewCollectionSnapshot(d CollectionDocument, vis SnapshotVisibility) CollectionSnapshot {
 	return CollectionSnapshot{
-		Name:             d.Name,
-		URL:              d.URL,
-		Kind:             d.Kind,
-		DescriptionMD:    d.DescriptionMD,
-		Region:           lookup(vis.Terms, d.RegionTermID),
-		Parent:           lookup(vis.Collections, d.ParentID),
-		IsBardicResource: d.IsBardicResource,
-		Enumerable:       d.Enumerable,
+		Name:          d.Name,
+		URL:           d.URL,
+		Kind:          d.Kind,
+		DescriptionMD: d.DescriptionMD,
+		Region:        lookup(vis.Terms, d.RegionTermID),
 	}
 }
 
 // NewEventSnapshot returns the public view of an event document, which references nothing.
 func NewEventSnapshot(d EventDocument) EventSnapshot {
-	return EventSnapshot{Name: d.Name, Kind: d.Kind, DescriptionMD: d.DescriptionMD}
+	return EventSnapshot{Name: d.Name}
 }
 
 // lookup returns the entry of entities for *id, or nil if id is nil or has no entry.

@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -17,33 +16,20 @@ func ptr[T any](v T) *T { return &v }
 
 func fullPieceDocument() domain.PieceDocument {
 	return domain.PieceDocument{
-		SchemaVersion:  domain.DocumentSchemaVersion,
-		Title:          "The Copper Kettle",
-		Kind:           domain.PieceKindSong,
-		SecondaryKinds: []domain.PieceKind{domain.PieceKindComedy},
-		Conservation: domain.DocConservation{
-			Status:    domain.ConservationStatusEndangered,
-			SourceURL: ptr("https://example.org/kettle-survey"),
-		},
+		SchemaVersion:      domain.DocumentSchemaVersion,
+		Title:              "The Copper Kettle",
+		Kind:               domain.PieceKindSong,
+		ConservationStatus: domain.ConservationStatusEndangered,
 		IsStub:             true,
 		NotesMD:            ptr("Sung *loudly*."),
 		VersionNotesMD:     ptr("Two endings."),
 		LicensingStatus:    domain.LicensingStatusKnown,
 		LicensingNotesMD:   ptr("Free to sing."),
-		Licence:            ptr(domain.LicenceCCBY),
-		LicenceVersion:     ptr(domain.LicenceVersion40),
-		HistoricalSourceMD: ptr("A tavern book."),
-		PeriodStart:        ptr[int16](1500),
-		PeriodEnd:          ptr[int16](1550),
-		Aliases:            []domain.DocPieceAlias{{Text: "Kettle Song", Kind: domain.PieceAliasKindNickname}},
-		Terms: []domain.DocPieceTerm{
-			{TermID: 3, IsPrimary: true, Part: ptr(domain.PiecePartTune)},
-			{TermID: 4},
-		},
-		Relations: []domain.DocPieceRelation{{ToPieceID: 9, Type: domain.PieceRelationTypeVariantOf}},
+		Aliases:            []domain.DocPieceAlias{{Text: "Kettle Song", Kind: domain.PieceAliasKindAltTitle}},
+		TermIDs:            []int64{3, 4},
 		Credits: []domain.DocCredit{
 			{PersonID: ptr[int64](5), Role: domain.CreditRoleLyrics, Attribution: domain.AttributionNamed,
-				Certainty: domain.CertaintyProbable, Part: ptr(domain.PiecePartVerses), Note: ptr("Verse 3 only")},
+				Certainty: domain.CertaintyProbable},
 			{Role: domain.CreditRoleTune, Attribution: domain.AttributionTraditional, Certainty: domain.CertaintyCertain},
 		},
 		Links: []domain.DocPieceLink{{
@@ -67,20 +53,16 @@ func fullPersonDocument() domain.PersonDocument {
 		Name:             "Wren of the Vale",
 		Kind:             domain.PersonKindCommunityBard,
 		Status:           domain.PersonStatusDeceased,
-		StatusDate:       &domain.Date{Time: time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)},
-		StatusSourceURL:  ptr("https://example.org/wren"),
-		Pronouns:         ptr("they/them"),
 		NotesMD:          ptr("Sang at every revel."),
 		LicensingStatus:  domain.LicensingStatusKnown,
 		LicensingNotesMD: ptr("All works CC BY."),
 		IsStub:           true,
 		Aliases: []domain.DocPersonAlias{
-			{Name: "Wren", Kind: domain.PersonAliasKindNickname},
+			{Name: "Wren", Kind: domain.PersonAliasKindSCA},
 			{Name: "Jo Example", Kind: domain.PersonAliasKindLegal},
 		},
 		Roles:          []domain.PersonRole{domain.PersonRoleSinger, domain.PersonRolePoet},
 		AffiliationIDs: []int64{11},
-		Relations:      []domain.DocPersonRelation{{ToPersonID: 6, Type: domain.PersonRelationTypeMemberOf}},
 		Links: []domain.DocPersonLink{{
 			DocLink: domain.DocLink{URL: "https://example.org/wren-site", Roles: []domain.LinkRole{domain.LinkRoleWebsite}},
 			Performances: []domain.DocPersonPerformance{{
@@ -101,21 +83,17 @@ func fullTermDocument() domain.TermDocument {
 		RelatedAffiliationID: ptr[int64](2),
 		DescriptionMD:        ptr("Songs about swords."),
 		Position:             3,
-		Aliases:              []string{"Blades"},
 	}
 }
 
 func fullCollectionDocument() domain.CollectionDocument {
 	return domain.CollectionDocument{
-		SchemaVersion:    domain.DocumentSchemaVersion,
-		Name:             "Fireside Songbook",
-		URL:              ptr("https://example.org/fireside.pdf"),
-		Kind:             domain.CollectionKindSongbookPDF,
-		DescriptionMD:    ptr("A songbook."),
-		RegionTermID:     ptr[int64](11),
-		ParentID:         ptr[int64](1),
-		IsBardicResource: true,
-		Enumerable:       domain.CollectionEnumerablePDF,
+		SchemaVersion: domain.DocumentSchemaVersion,
+		Name:          "Fireside Songbook",
+		URL:           ptr("https://example.org/fireside.pdf"),
+		Kind:          domain.CollectionKindSongbookPDF,
+		DescriptionMD: ptr("A songbook."),
+		RegionTermID:  ptr[int64](11),
 	}
 }
 
@@ -123,8 +101,6 @@ func fullEventDocument() domain.EventDocument {
 	return domain.EventDocument{
 		SchemaVersion: domain.DocumentSchemaVersion,
 		Name:          "Harvest Revel",
-		Kind:          domain.EventKindEvent,
-		DescriptionMD: ptr("A yearly revel."),
 	}
 }
 
@@ -155,30 +131,28 @@ func TestDecodeDocument_RoundTrip(t *testing.T) {
 
 	t.Run("piece", func(t *testing.T) {
 		t.Parallel()
-		requireRoundTrip(t, fullPieceDocument(), "schema_version", "title", "kind", "secondary_kinds",
-			"conservation", "is_stub", "notes_md", "version_notes_md", "licensing_status", "licensing_notes_md",
-			"licence", "licence_version", "historical_source_md", "period_start", "period_end", "aliases", "terms", "relations",
+		requireRoundTrip(t, fullPieceDocument(), "schema_version", "title", "kind", "conservation_status",
+			"is_stub", "notes_md", "version_notes_md", "licensing_status", "licensing_notes_md", "aliases", "term_ids",
 			"credits", "links")
 	})
 	t.Run("person", func(t *testing.T) {
 		t.Parallel()
-		requireRoundTrip(t, fullPersonDocument(), "schema_version", "name", "kind", "status", "status_date",
-			"status_source_url", "pronouns", "notes_md", "licensing_status", "licensing_notes_md", "is_stub",
-			"aliases", "roles", "affiliation_ids", "relations", "links")
+		requireRoundTrip(t, fullPersonDocument(), "schema_version", "name", "kind", "status", "notes_md",
+			"licensing_status", "licensing_notes_md", "is_stub", "aliases", "roles", "affiliation_ids", "links")
 	})
 	t.Run("term", func(t *testing.T) {
 		t.Parallel()
 		requireRoundTrip(t, fullTermDocument(), "schema_version", "facet", "name", "display_name", "parent_id",
-			"related_affiliation_id", "description_md", "position", "aliases")
+			"related_affiliation_id", "description_md", "position")
 	})
 	t.Run("collection", func(t *testing.T) {
 		t.Parallel()
 		requireRoundTrip(t, fullCollectionDocument(), "schema_version", "name", "url", "kind", "description_md",
-			"region_term_id", "parent_id", "is_bardic_resource", "enumerable")
+			"region_term_id")
 	})
 	t.Run("event", func(t *testing.T) {
 		t.Parallel()
-		requireRoundTrip(t, fullEventDocument(), "schema_version", "name", "kind", "description_md")
+		requireRoundTrip(t, fullEventDocument(), "schema_version", "name")
 	})
 }
 
@@ -199,9 +173,9 @@ func TestDecodeDocument_UnsupportedSchemaVersion(t *testing.T) {
 	t.Parallel()
 
 	for name, data := range map[string]string{
-		"newer":   `{"schema_version": 2, "name": "Harvest Revel", "kind": "event", "description_md": null}`,
-		"zero":    `{"schema_version": 0, "name": "Harvest Revel", "kind": "event", "description_md": null}`,
-		"missing": `{"name": "Harvest Revel", "kind": "event", "description_md": null}`,
+		"newer":   `{"schema_version": 2, "name": "Harvest Revel"}`,
+		"zero":    `{"schema_version": 0, "name": "Harvest Revel"}`,
+		"missing": `{"name": "Harvest Revel"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -234,9 +208,9 @@ func TestDecodeDocument_TrailingWhitespace(t *testing.T) {
 	t.Parallel()
 
 	doc, err := domain.DecodeDocument[domain.EventDocument](
-		[]byte("{\"schema_version\": 1, \"name\": \"Harvest Revel\", \"kind\": \"venue\"}\n"))
+		[]byte("{\"schema_version\": 1, \"name\": \"Harvest Revel\"}\n"))
 	require.NoError(t, err)
-	assert.Equal(t, domain.EventDocument{SchemaVersion: 1, Name: "Harvest Revel", Kind: domain.EventKindVenue}, doc)
+	assert.Equal(t, domain.EventDocument{SchemaVersion: 1, Name: "Harvest Revel"}, doc)
 }
 
 // TestDecodeDocument_UnknownFields checks that fields the document type does not have, at any depth, are
@@ -249,7 +223,7 @@ func TestDecodeDocument_UnknownFields(t *testing.T) {
 		"aliases.0.added_field":         true,
 		"links.0.added_field":           7,
 		"links.0.performances.0.added":  []any{"x"},
-		"relations.0.added_field":       nil,
+		"aliases.1.added_field":         nil,
 		"links.0.performances.0.nested": map[string]any{"status": "not an enum here"},
 	})
 	got, err := domain.DecodeDocument[domain.PersonDocument](data)
@@ -269,10 +243,8 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 	t.Parallel()
 
 	pieceFields := []string{
-		kindField, "secondary_kinds.0", "conservation.status", "licensing_status", "licence", "licence_version",
-		"aliases.0.kind",
-		"terms.0.part", "relations.0.type", "credits.0.role", "credits.0.attribution", "credits.0.certainty",
-		"credits.0.part", "links.0.place_type", "links.0.roles.1",
+		kindField, "conservation_status", "licensing_status", "aliases.0.kind", "credits.0.role",
+		"credits.0.attribution", "credits.0.certainty", "links.0.place_type", "links.0.roles.1",
 	}
 	for _, field := range pieceFields {
 		t.Run("piece."+field, func(t *testing.T) {
@@ -284,7 +256,7 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 	}
 
 	personFields := []string{
-		kindField, "status", "licensing_status", "aliases.1.kind", "roles.0", "relations.0.type", "links.0.roles.0",
+		kindField, "status", "licensing_status", "aliases.1.kind", "roles.0", "links.0.roles.0",
 		"links.0.place_type",
 	}
 	for _, field := range personFields {
@@ -302,24 +274,16 @@ func TestDecodeDocument_UnknownEnumValue(t *testing.T) {
 			withValues(t, fullTermDocument(), map[string]any{"facet": unknownValue}))
 		require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
 	})
-	for _, field := range []string{kindField, "enumerable"} {
-		t.Run("collection."+field, func(t *testing.T) {
-			t.Parallel()
-			_, err := domain.DecodeDocument[domain.CollectionDocument](
-				withValues(t, fullCollectionDocument(), map[string]any{field: unknownValue}))
-			require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
-		})
-	}
-	t.Run("event.kind", func(t *testing.T) {
+	t.Run("collection.kind", func(t *testing.T) {
 		t.Parallel()
-		_, err := domain.DecodeDocument[domain.EventDocument](
-			withValues(t, fullEventDocument(), map[string]any{kindField: unknownValue}))
+		_, err := domain.DecodeDocument[domain.CollectionDocument](
+			withValues(t, fullCollectionDocument(), map[string]any{kindField: unknownValue}))
 		require.ErrorIs(t, err, domain.ErrUnknownEnumValue)
 	})
 	t.Run("missing_required", func(t *testing.T) {
 		t.Parallel()
-		_, err := domain.DecodeDocument[domain.EventDocument](
-			[]byte(`{"schema_version": 1, "name": "Harvest Revel", "description_md": null}`))
+		_, err := domain.DecodeDocument[domain.CollectionDocument](
+			[]byte(`{"schema_version": 1, "name": "Fireside Songbook"}`))
 		require.ErrorIs(t, err, domain.ErrUnknownEnumValue, "an empty kind is not a kind")
 	})
 }
@@ -345,7 +309,7 @@ func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
 		case typ.Kind() == reflect.String && typ.PkgPath() == domainPkg:
 			seen[typ] = true
 			assert.True(t, typ.Implements(validator), "%s: %s has no Valid method", path, typ)
-		case typ.Kind() == reflect.Struct && typ.PkgPath() == domainPkg && typ != reflect.TypeFor[domain.Date]():
+		case typ.Kind() == reflect.Struct && typ.PkgPath() == domainPkg:
 			for i := range typ.NumField() {
 				visit(typ.Field(i).Type, path+"."+typ.Field(i).Name)
 			}
@@ -355,22 +319,7 @@ func TestDocuments_EnumFieldsAreValidated(t *testing.T) {
 		domain.CollectionDocument{}, domain.EventDocument{}} {
 		visit(reflect.TypeOf(doc), reflect.TypeOf(doc).Name())
 	}
-	assert.Len(t, seen, 22, "the vocabularies documents use")
-}
-
-func TestDecodeDocument_StatusDate(t *testing.T) {
-	t.Parallel()
-
-	got, err := domain.DecodeDocument[domain.PersonDocument](
-		withValues(t, fullPersonDocument(), map[string]any{"status_date": nil}))
-	require.NoError(t, err)
-	assert.Nil(t, got.StatusDate)
-
-	for _, invalid := range []any{"March 2024", "2024-02-30", "2024-05-01T00:00:00Z", "", 20240501} {
-		_, err := domain.DecodeDocument[domain.PersonDocument](
-			withValues(t, fullPersonDocument(), map[string]any{"status_date": invalid}))
-		assert.Error(t, err, "%v", invalid)
-	}
+	assert.Len(t, seen, 15, "the vocabularies documents use")
 }
 
 // withValues returns the encoding of doc with the value at each dotted path (object keys and list indexes) set,

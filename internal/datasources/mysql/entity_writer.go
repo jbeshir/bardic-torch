@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources/mysql/queries"
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -152,13 +151,6 @@ func (w *entityWriter) insertTerm(row entityRow, d domain.TermDocument) int64 {
 	return w.insert("terms", func() (int64, error) { return w.q.InsertTerm(w.ctx, p) })
 }
 
-func (w *entityWriter) termAliases(termID int64, aliases []string) {
-	for _, alias := range aliases {
-		p := queries.InsertTermAliasParams{TermID: w.id(termID), Name: alias}
-		w.exec("term_aliases", func() error { return w.q.InsertTermAlias(w.ctx, p) })
-	}
-}
-
 func (w *entityWriter) termAncestors(ancestors []domain.TermAncestor) {
 	for _, a := range ancestors {
 		if a.Depth < 0 || a.Depth > math.MaxUint8 {
@@ -175,43 +167,30 @@ func (w *entityWriter) insertCollection(row entityRow, d domain.CollectionDocume
 	p := queries.InsertCollectionParams{ID: row.id, Name: d.Name, SortName: row.sortKey,
 		SortLetter: string(domain.SortLetter(row.sortKey)), Url: nullString(d.URL),
 		Kind: queries.CollectionsKind(d.Kind), DescriptionMd: nullString(d.DescriptionMD),
-		RegionTermID: nullableID(d.RegionTermID), ParentID: nullableID(d.ParentID),
-		IsBardicResource: d.IsBardicResource, Enumerable: queries.CollectionsEnumerable(d.Enumerable),
-		CurrentRevisionID: someID(row.revisionID)}
+		RegionTermID: nullableID(d.RegionTermID), CurrentRevisionID: someID(row.revisionID)}
 
 	return w.insert("collections", func() (int64, error) { return w.q.InsertCollection(w.ctx, p) })
 }
 
 func (w *entityWriter) insertEvent(row entityRow, d domain.EventDocument) int64 {
-	p := queries.InsertEventParams{ID: row.id, Slug: row.slug, Name: d.Name, Kind: queries.EventsKind(d.Kind),
-		DescriptionMd: nullString(d.DescriptionMD), CurrentRevisionID: someID(row.revisionID),
+	p := queries.InsertEventParams{ID: row.id, Slug: row.slug, Name: d.Name, CurrentRevisionID: someID(row.revisionID),
 		LegacyWikiPageid: w.legacyPageID(row.legacy), LegacyTitle: legacyTitle(row.legacy)}
 
 	return w.insert("events", func() (int64, error) { return w.q.InsertEvent(w.ctx, p) })
 }
 
-func nullDate(d *domain.Date) sql.NullTime {
-	if d == nil {
-		return sql.NullTime{}
-	}
-
-	return sql.NullTime{Time: d.Time, Valid: true}
-}
-
 func (w *entityWriter) insertPerson(row entityRow, d domain.PersonDocument) int64 {
 	p := queries.InsertPersonParams{ID: row.id, Slug: row.slug, Name: d.Name, SortName: row.sortKey,
 		SortLetter: string(domain.SortLetter(row.sortKey)), Kind: queries.PersonsKind(d.Kind),
-		Status: queries.PersonsStatus(d.Status), StatusDate: nullDate(d.StatusDate),
-		StatusSourceUrl: nullString(d.StatusSourceURL), Pronouns: nullString(d.Pronouns),
-		NotesMd: nullString(d.NotesMD), LicensingNotesMd: nullString(d.LicensingNotesMD),
-		LicensingStatus: queries.PersonsLicensingStatus(d.LicensingStatus), IsStub: d.IsStub,
-		CurrentRevisionID: someID(row.revisionID), LegacyWikiPageid: w.legacyPageID(row.legacy),
+		Status: queries.PersonsStatus(d.Status), NotesMd: nullString(d.NotesMD),
+		LicensingNotesMd: nullString(d.LicensingNotesMD), LicensingStatus: queries.PersonsLicensingStatus(d.LicensingStatus),
+		IsStub: d.IsStub, CurrentRevisionID: someID(row.revisionID), LegacyWikiPageid: w.legacyPageID(row.legacy),
 		LegacyTitle: legacyTitle(row.legacy)}
 
 	return w.insert("persons", func() (int64, error) { return w.q.InsertPerson(w.ctx, p) })
 }
 
-// personChildren inserts a person's aliases, roles, affiliations and relations.
+// personChildren inserts a person's aliases, roles and affiliations.
 func (w *entityWriter) personChildren(personID int64, d domain.PersonDocument) {
 	for _, a := range d.Aliases {
 		p := queries.InsertPersonAliasParams{PersonID: w.id(personID), Name: a.Name,
@@ -226,88 +205,37 @@ func (w *entityWriter) personChildren(personID int64, d domain.PersonDocument) {
 		p := queries.InsertPersonAffiliationParams{PersonID: w.id(personID), TermID: w.id(termID)}
 		w.exec("person_affiliations", func() error { return w.q.InsertPersonAffiliation(w.ctx, p) })
 	}
-	for _, rel := range d.Relations {
-		p := queries.InsertPersonRelationParams{FromPersonID: w.id(personID), ToPersonID: w.id(rel.ToPersonID),
-			Type: queries.PersonRelationsType(rel.Type)}
-		w.exec("person_relations", func() error { return w.q.InsertPersonRelation(w.ctx, p) })
-	}
-}
-
-func nullLicence(d domain.PieceDocument) (queries.NullPiecesLicence, queries.NullPiecesLicenceVersion) {
-	var licence queries.NullPiecesLicence
-	if d.Licence != nil {
-		licence = queries.NullPiecesLicence{PiecesLicence: queries.PiecesLicence(*d.Licence), Valid: true}
-	}
-	var version queries.NullPiecesLicenceVersion
-	if d.LicenceVersion != nil {
-		version = queries.NullPiecesLicenceVersion{PiecesLicenceVersion: queries.PiecesLicenceVersion(*d.LicenceVersion),
-			Valid: true}
-	}
-
-	return licence, version
 }
 
 func (w *entityWriter) insertPiece(row entityRow, d domain.PieceDocument) int64 {
-	licence, version := nullLicence(d)
 	p := queries.InsertPieceParams{ID: row.id, Slug: row.slug, Title: d.Title, SortTitle: row.sortKey,
 		SortLetter: string(domain.SortLetter(row.sortKey)), Kind: queries.PiecesKind(d.Kind),
-		ConservationStatus: queries.PiecesConservationStatus(d.Conservation.Status), IsStub: d.IsStub,
+		ConservationStatus: queries.PiecesConservationStatus(d.ConservationStatus), IsStub: d.IsStub,
 		NotesMd: nullString(d.NotesMD), VersionNotesMd: nullString(d.VersionNotesMD),
 		LicensingNotesMd: nullString(d.LicensingNotesMD),
-		LicensingStatus:  queries.PiecesLicensingStatus(d.LicensingStatus), Licence: licence, LicenceVersion: version,
-		HistoricalSourceMd: nullString(d.HistoricalSourceMD), PeriodStart: nullInt16(d.PeriodStart),
-		PeriodEnd: nullInt16(d.PeriodEnd), LegacyHadInlineLyrics: row.hadInlineLyrics,
+		LicensingStatus:  queries.PiecesLicensingStatus(d.LicensingStatus), LegacyHadInlineLyrics: row.hadInlineLyrics,
 		CurrentRevisionID: someID(row.revisionID), LegacyWikiPageid: w.legacyPageID(row.legacy),
 		LegacyTitle: legacyTitle(row.legacy)}
 
 	return w.insert("pieces", func() (int64, error) { return w.q.InsertPiece(w.ctx, p) })
 }
 
-// pieceChildren inserts a piece's secondary kinds, aliases, terms, relations and credits.
+// pieceChildren inserts a piece's aliases, terms and credits.
 func (w *entityWriter) pieceChildren(pieceID int64, d domain.PieceDocument) {
-	for _, kind := range d.SecondaryKinds {
-		p := queries.InsertPieceSecondaryKindParams{PieceID: w.id(pieceID), Kind: queries.PieceSecondaryKindsKind(kind)}
-		w.exec("piece_secondary_kinds", func() error { return w.q.InsertPieceSecondaryKind(w.ctx, p) })
-	}
 	for _, a := range d.Aliases {
 		p := queries.InsertPieceAliasParams{PieceID: w.id(pieceID), Text: a.Text, Kind: queries.PieceAliasesKind(a.Kind)}
 		w.exec("piece_aliases", func() error { return w.q.InsertPieceAlias(w.ctx, p) })
 	}
-	for k, term := range d.Terms {
-		var part queries.NullPieceTermsPart
-		if term.Part != nil {
-			part = queries.NullPieceTermsPart{PieceTermsPart: queries.PieceTermsPart(*term.Part), Valid: true}
-		}
-		p := queries.InsertPieceTermParams{PieceID: w.id(pieceID), TermID: w.id(term.TermID),
-			IsPrimary: term.IsPrimary, Part: part, Position: w.position(k)}
+	for k, termID := range d.TermIDs {
+		p := queries.InsertPieceTermParams{PieceID: w.id(pieceID), TermID: w.id(termID), Position: w.position(k)}
 		w.exec("piece_terms", func() error { return w.q.InsertPieceTerm(w.ctx, p) })
 	}
-	for _, rel := range d.Relations {
-		p := queries.InsertPieceRelationParams{FromPieceID: w.id(pieceID), ToPieceID: w.id(rel.ToPieceID),
-			Type: queries.PieceRelationsType(rel.Type)}
-		w.exec("piece_relations", func() error { return w.q.InsertPieceRelation(w.ctx, p) })
-	}
 	for k, credit := range d.Credits {
-		var part queries.NullPieceCreditsPart
-		if credit.Part != nil {
-			part = queries.NullPieceCreditsPart{PieceCreditsPart: queries.PieceCreditsPart(*credit.Part), Valid: true}
-		}
 		p := queries.InsertPieceCreditParams{PieceID: w.id(pieceID), PersonID: nullableID(credit.PersonID),
 			Role: queries.PieceCreditsRole(credit.Role), Attribution: queries.PieceCreditsAttribution(credit.Attribution),
-			Certainty: queries.PieceCreditsCertainty(credit.Certainty), Part: part, Note: nullString(credit.Note),
-			Position: w.position(k)}
+			Certainty: queries.PieceCreditsCertainty(credit.Certainty), Position: w.position(k)}
 		w.exec("piece_credits", func() error { return w.q.InsertPieceCredit(w.ctx, p) })
 	}
-}
-
-// conservation appends a conservation_history row of a piece, made by the revision revisionID at at.
-func (w *entityWriter) conservation(pieceID int64, c domain.DocConservation, reason string, revisionID int64,
-	at time.Time,
-) {
-	p := queries.InsertConservationHistoryParams{PieceID: w.id(pieceID),
-		Status: queries.ConservationHistoryStatus(c.Status), Reason: reason, SourceUrl: nullString(c.SourceURL),
-		RevisionID: someID(revisionID), At: at}
-	w.exec("conservation_history", func() error { return w.q.InsertConservationHistory(w.ctx, p) })
 }
 
 // linkID returns the ID, among linkIDs by normalized URL, of the links row of a document's link.
@@ -369,43 +297,34 @@ func (w *entityWriter) performance(
 	}
 }
 
-// approval is the revision an approval writes.
-type approval struct {
-	revisionID int64
-	summary    string
-	at         time.Time
-}
-
-// write writes an approved document into its entity, the entity entityID or, if it is 0, a new one, and returns
+// write writes the document the revision revisionID approves into its entity, the entity entityID or, if it is 0,
+// a new one, and returns
 // the entity's ID. An existing entity's slug is kept; its child rows, link attachments and owned performances are
 // replaced.
-func (w *entityWriter) write(entityID int64, doc document, a approval) int64 {
+func (w *entityWriter) write(entityID int64, doc document, revisionID int64) int64 {
 	switch d := doc.(type) {
 	case domain.PieceDocument:
-		return w.writePiece(entityID, d, a)
+		return w.writePiece(entityID, d, revisionID)
 	case domain.PersonDocument:
-		return w.writePerson(entityID, d, a)
+		return w.writePerson(entityID, d, revisionID)
 	case domain.TermDocument:
-		return w.writeTerm(entityID, d, a)
+		return w.writeTerm(entityID, d, revisionID)
 	case domain.CollectionDocument:
 		sortKey := domain.SortTitle(d.Name)
 		if entityID == 0 {
-			return w.insertCollection(entityRow{sortKey: sortKey, revisionID: a.revisionID}, d)
+			return w.insertCollection(entityRow{sortKey: sortKey, revisionID: revisionID}, d)
 		}
 		p := queries.UpdateCollectionParams{Name: d.Name, SortName: sortKey,
 			SortLetter: string(domain.SortLetter(sortKey)), Url: nullString(d.URL),
 			Kind: queries.CollectionsKind(d.Kind), DescriptionMd: nullString(d.DescriptionMD),
-			RegionTermID: nullableID(d.RegionTermID), ParentID: nullableID(d.ParentID),
-			IsBardicResource: d.IsBardicResource, Enumerable: queries.CollectionsEnumerable(d.Enumerable),
-			CurrentRevisionID: someID(a.revisionID), ID: w.id(entityID)}
+			RegionTermID: nullableID(d.RegionTermID), CurrentRevisionID: someID(revisionID), ID: w.id(entityID)}
 		w.exec("collections", func() error { return w.q.UpdateCollection(w.ctx, p) })
 	case domain.EventDocument:
 		if entityID == 0 {
 			slug := w.newSlug(d.Name, domain.SlugEntityTypeEvent, w.q.ListEventSlugs)
-			return w.insertEvent(entityRow{slug: slug, revisionID: a.revisionID}, d)
+			return w.insertEvent(entityRow{slug: slug, revisionID: revisionID}, d)
 		}
-		p := queries.UpdateEventParams{Name: d.Name, Kind: queries.EventsKind(d.Kind),
-			DescriptionMd: nullString(d.DescriptionMD), CurrentRevisionID: someID(a.revisionID), ID: w.id(entityID)}
+		p := queries.UpdateEventParams{Name: d.Name, CurrentRevisionID: someID(revisionID), ID: w.id(entityID)}
 		w.exec("events", func() error { return w.q.UpdateEvent(w.ctx, p) })
 	default:
 		w.fail(fmt.Errorf("%w: %T", errUnknownDocument, doc))
@@ -439,37 +358,24 @@ func (w *entityWriter) newSlug(
 	return domain.FreeSlug(base, set)
 }
 
-func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, a approval) int64 {
+func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, revisionID int64) int64 {
 	sortKey := domain.SortTitle(d.Title)
-	previous := domain.ConservationStatusUnassessed
 	if id == 0 {
 		slug := w.newSlug(d.Title, domain.SlugEntityTypePiece, w.q.ListPieceSlugs)
-		id = w.insertPiece(entityRow{slug: slug, sortKey: sortKey, revisionID: a.revisionID}, d)
+		id = w.insertPiece(entityRow{slug: slug, sortKey: sortKey, revisionID: revisionID}, d)
 	} else {
 		key := w.id(id)
-		w.exec("pieces", func() error {
-			status, err := w.q.GetPieceConservationStatus(w.ctx, key)
-			previous = domain.ConservationStatus(status)
-			return err
-		})
-		licence, version := nullLicence(d)
 		p := queries.UpdatePieceParams{Title: d.Title, SortTitle: sortKey,
 			SortLetter: string(domain.SortLetter(sortKey)), Kind: queries.PiecesKind(d.Kind),
-			ConservationStatus: queries.PiecesConservationStatus(d.Conservation.Status), IsStub: d.IsStub,
+			ConservationStatus: queries.PiecesConservationStatus(d.ConservationStatus), IsStub: d.IsStub,
 			NotesMd: nullString(d.NotesMD), VersionNotesMd: nullString(d.VersionNotesMD),
-			LicensingNotesMd: nullString(d.LicensingNotesMD),
-			LicensingStatus:  queries.PiecesLicensingStatus(d.LicensingStatus), Licence: licence,
-			LicenceVersion: version, HistoricalSourceMd: nullString(d.HistoricalSourceMD),
-			PeriodStart: nullInt16(d.PeriodStart), PeriodEnd: nullInt16(d.PeriodEnd),
-			CurrentRevisionID: someID(a.revisionID), ID: key}
+			LicensingNotesMd:  nullString(d.LicensingNotesMD),
+			LicensingStatus:   queries.PiecesLicensingStatus(d.LicensingStatus),
+			CurrentRevisionID: someID(revisionID), ID: key}
 		w.exec("pieces", func() error { return w.q.UpdatePiece(w.ctx, p) })
-		w.deleteChildren(key, w.q.DeletePieceSecondaryKinds, w.q.DeletePieceAliases, w.q.DeletePieceTerms,
-			w.q.DeletePieceRelations, w.q.DeletePieceCredits)
+		w.deleteChildren(key, w.q.DeletePieceAliases, w.q.DeletePieceTerms, w.q.DeletePieceCredits)
 	}
 	w.pieceChildren(id, d)
-	if d.Conservation.Status != previous {
-		w.conservation(id, d.Conservation, a.summary, a.revisionID, a.at)
-	}
 	links := make([]domain.DocLink, len(d.Links))
 	for k, l := range d.Links {
 		links[k] = l.DocLink
@@ -486,21 +392,19 @@ func (w *entityWriter) writePiece(id int64, d domain.PieceDocument, a approval) 
 	return id
 }
 
-func (w *entityWriter) writePerson(id int64, d domain.PersonDocument, a approval) int64 {
+func (w *entityWriter) writePerson(id int64, d domain.PersonDocument, revisionID int64) int64 {
 	if id == 0 {
 		slug := w.newSlug(d.Name, domain.SlugEntityTypePerson, w.q.ListPersonSlugs)
-		id = w.insertPerson(entityRow{slug: slug, sortKey: d.Name, revisionID: a.revisionID}, d)
+		id = w.insertPerson(entityRow{slug: slug, sortKey: d.Name, revisionID: revisionID}, d)
 	} else {
 		key := w.id(id)
 		p := queries.UpdatePersonParams{Name: d.Name, SortName: d.Name, SortLetter: string(domain.SortLetter(d.Name)),
-			Kind: queries.PersonsKind(d.Kind), Status: queries.PersonsStatus(d.Status), StatusDate: nullDate(d.StatusDate),
-			StatusSourceUrl: nullString(d.StatusSourceURL), Pronouns: nullString(d.Pronouns),
-			NotesMd: nullString(d.NotesMD), LicensingNotesMd: nullString(d.LicensingNotesMD),
-			LicensingStatus: queries.PersonsLicensingStatus(d.LicensingStatus), IsStub: d.IsStub,
-			CurrentRevisionID: someID(a.revisionID), ID: key}
+			Kind: queries.PersonsKind(d.Kind), Status: queries.PersonsStatus(d.Status), NotesMd: nullString(d.NotesMD),
+			LicensingNotesMd: nullString(d.LicensingNotesMD),
+			LicensingStatus:  queries.PersonsLicensingStatus(d.LicensingStatus), IsStub: d.IsStub,
+			CurrentRevisionID: someID(revisionID), ID: key}
 		w.exec("persons", func() error { return w.q.UpdatePerson(w.ctx, p) })
-		w.deleteChildren(key, w.q.DeletePersonAliases, w.q.DeletePersonRoles, w.q.DeletePersonAffiliations,
-			w.q.DeletePersonRelations)
+		w.deleteChildren(key, w.q.DeletePersonAliases, w.q.DeletePersonRoles, w.q.DeletePersonAffiliations)
 	}
 	w.personChildren(id, d)
 	links := make([]domain.DocLink, len(d.Links))
@@ -527,20 +431,18 @@ func (w *entityWriter) deleteChildren(id uint64, deletes ...func(context.Context
 }
 
 // writeTerm writes a term and rebuilds the whole term_ancestors closure.
-func (w *entityWriter) writeTerm(id int64, d domain.TermDocument, a approval) int64 {
+func (w *entityWriter) writeTerm(id int64, d domain.TermDocument, revisionID int64) int64 {
 	if id == 0 {
 		slug := w.newSlug(d.Name, domain.SlugEntityTypeTerm, w.q.ListTermSlugs)
-		id = w.insertTerm(entityRow{slug: slug, revisionID: a.revisionID}, d)
+		id = w.insertTerm(entityRow{slug: slug, revisionID: revisionID}, d)
 	} else {
 		key := w.id(id)
 		p := queries.UpdateTermParams{Facet: queries.TermsFacet(d.Facet), Name: d.Name, DisplayName: d.DisplayName,
 			ParentID: nullableID(d.ParentID), RelatedAffiliationID: nullableID(d.RelatedAffiliationID),
-			DescriptionMd: nullString(d.DescriptionMD), Position: d.Position, CurrentRevisionID: someID(a.revisionID),
+			DescriptionMd: nullString(d.DescriptionMD), Position: d.Position, CurrentRevisionID: someID(revisionID),
 			ID: key}
 		w.exec("terms", func() error { return w.q.UpdateTerm(w.ctx, p) })
-		w.exec("term_aliases", func() error { return w.q.DeleteTermAliases(w.ctx, key) })
 	}
-	w.termAliases(id, d.Aliases)
 
 	var terms []queries.ListTermsRow
 	w.exec("term_ancestors", func() error {

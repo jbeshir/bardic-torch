@@ -17,7 +17,7 @@ import (
 // newEventRevisionBody is a submission of a new event named name.
 func newEventRevisionBody(name string) string {
 	return `{"entity_type":"event","base_revision_id":null,"summary":"","document":{"schema_version":1,` +
-		`"name":"` + name + `","kind":"event","description_md":null},"acknowledge_duplicates":false,` +
+		`"name":"` + name + `"},"acknowledge_duplicates":false,` +
 		`"acknowledge_stale":false}`
 }
 

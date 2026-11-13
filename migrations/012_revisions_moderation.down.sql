@@ -7,8 +7,6 @@ WHERE p.`id` IS NOT NULL OR lp.`id` IS NOT NULL;
 
 DROP TABLE `contact_requests`;
 
-ALTER TABLE `pieces` DROP COLUMN `licence_version`;
-
 ALTER TABLE `links`
     DROP INDEX `idx_archive_due`,
     DROP INDEX `idx_check_due`,

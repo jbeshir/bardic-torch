@@ -10,12 +10,11 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/transport/web/httpjson"
 )
 
-// Event is the JSON representation of a public event's or venue's page.
+// Event is the JSON representation of a public event's page.
 type Event struct {
 	EventSummary
 
 	UpdatedAt         time.Time          `json:"updated_at"`
-	DescriptionMD     *string            `json:"description_md"`
 	Performances      []EventPerformance `json:"performances"`
 	PerformancesTotal int64              `json:"performances_total"`
 }
@@ -29,7 +28,7 @@ type EventPerformance struct {
 	DescriptionVerbatim string          `json:"description_verbatim"`
 }
 
-// EventGet handles GET /v1/events/{slug}, a public event's or venue's page. An unapproved event is not found,
+// EventGet handles GET /v1/events/{slug}, a public event's page. An unapproved event is not found,
 // exactly like an unknown one.
 type EventGet struct {
 	Catalogue datasources.Catalogue
@@ -56,9 +55,8 @@ func (c EventGet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func eventFromDomain(e domain.Event) Event {
 	return Event{
-		EventSummary:  eventSummaryFromDomain(e.EventSummary),
-		UpdatedAt:     e.UpdatedAt,
-		DescriptionMD: e.DescriptionMD,
+		EventSummary: eventSummaryFromDomain(e.EventSummary),
+		UpdatedAt:    e.UpdatedAt,
 		Performances: mapSlice(e.Performances, func(p domain.EventPerformance) EventPerformance {
 			return EventPerformance{
 				Piece:               optional(p.Piece, pieceSummaryFromDomain),

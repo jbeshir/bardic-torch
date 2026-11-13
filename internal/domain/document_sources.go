@@ -6,8 +6,8 @@ import (
 )
 
 // ValidatePieceSources returns the problems of a revision's licensing fields (R-12), compared with old, the
-// current document (nil for a new piece, compared with no licensing information): a changed licence, licence
-// version or licensing notes, or a licensing status changed to known, needs a link with role licensing_source.
+// current document (nil for a new piece, compared with no licensing information): changed licensing notes, or a
+// licensing status changed to known, needs a link with role licensing_source.
 // The importer does not run it.
 func ValidatePieceSources(old *PieceDocument, doc PieceDocument) []Problem {
 	prev := PieceDocument{LicensingStatus: LicensingStatusUnknown}
@@ -18,10 +18,6 @@ func ValidatePieceSources(old *PieceDocument, doc PieceDocument) []Problem {
 		return slices.Contains(l.Roles, LinkRoleLicensingSource)
 	})
 	var p problems
-	p.check(sourced || doc.Licence == nil || equalPointers(doc.Licence, prev.Licence), "licence",
-		ProblemSourceRequired)
-	p.check(sourced || doc.LicenceVersion == nil || equalPointers(doc.LicenceVersion, prev.LicenceVersion),
-		"licence_version", ProblemSourceRequired)
 	p.check(sourced || blank(doc.LicensingNotesMD) || equalPointers(doc.LicensingNotesMD, prev.LicensingNotesMD),
 		"licensing_notes_md", ProblemSourceRequired)
 	p.check(sourced || doc.LicensingStatus != LicensingStatusKnown || prev.LicensingStatus == LicensingStatusKnown,

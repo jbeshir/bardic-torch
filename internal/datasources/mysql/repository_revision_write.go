@@ -177,7 +177,7 @@ func approve(
 		return err
 	}
 	w := &entityWriter{ctx: ctx, q: q}
-	entityID := w.write(row.EntityID.Int64, doc, approval{revisionID: id, summary: row.Summary, at: at})
+	entityID := w.write(row.EntityID.Int64, doc, id)
 	if w.err != nil {
 		return w.err
 	}

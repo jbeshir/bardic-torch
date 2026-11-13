@@ -2,7 +2,6 @@ package domain
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,7 +35,7 @@ const (
 	revelName  = "Midwinter Revel"
 	wrenName   = "Wren of the Vale"
 	wrenSlug   = "wren-of-the-vale"
-	stageName  = "Wren"
+	scaName    = "Wren"
 )
 
 var (
@@ -48,7 +47,7 @@ var (
 	war      = TermSummary{Slug: "war", Facet: FacetTopic, DisplayName: "War"}
 	songbook = CollectionSummary{ID: publicCollectionID, Name: "The Northmarch Songbook",
 		Kind: CollectionKindSongbookPDF}
-	revel = EventSummary{Slug: "midwinter-revel", Name: revelName, Kind: EventKindEvent}
+	revel = EventSummary{Slug: "midwinter-revel", Name: revelName}
 )
 
 // testVisibility is the current state of the referenced entities: one public entity of each type, a person who
@@ -70,38 +69,26 @@ func TestNewPieceSnapshot(t *testing.T) {
 	t.Parallel()
 
 	doc := PieceDocument{
-		SchemaVersion:  DocumentSchemaVersion,
-		Title:          "The Copper Kettle",
-		Kind:           PieceKindSong,
-		SecondaryKinds: []PieceKind{PieceKindDanceMusic},
-		Conservation: DocConservation{Status: ConservationStatusEndangered,
-			SourceURL: new("https://example.org/assessment")},
-		IsStub:          true,
-		NotesMD:         new("Notes"),
-		LicensingStatus: LicensingStatusKnown,
-		Licence:         new(LicenceCCBY),
-		LicenceVersion:  new(LicenceVersion40),
-		PeriodStart:     new(int16(1580)),
-		Aliases:         []DocPieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindNickname}},
-		Terms: []DocPieceTerm{
-			{TermID: hiddenTermID, IsPrimary: true},
-			{TermID: publicTermID, Part: new(PiecePartWords)},
-		},
-		Relations: []DocPieceRelation{
-			{ToPieceID: hiddenPieceID, Type: PieceRelationTypeVariantOf},
-			{ToPieceID: publicPieceID, Type: PieceRelationTypeSettingOf},
-		},
+		SchemaVersion:      DocumentSchemaVersion,
+		Title:              "The Copper Kettle",
+		Kind:               PieceKindSong,
+		ConservationStatus: ConservationStatusEndangered,
+		IsStub:             true,
+		NotesMD:            new("Notes"),
+		LicensingStatus:    LicensingStatusKnown,
+		Aliases:            []DocPieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindAltTitle}},
+		TermIDs:            []int64{hiddenTermID, publicTermID},
 		Credits: []DocCredit{
 			{PersonID: id(publicPersonID), Role: CreditRoleLyrics, Attribution: AttributionNamed,
 				Certainty: CertaintyCertain},
 			{PersonID: id(noPagePersonID), Role: CreditRoleTune, Attribution: AttributionNamed,
-				Certainty: CertaintyCertain, Note: new("by the quiet one")},
-			{PersonID: id(hiddenPersonID), Role: CreditRoleMusic, Attribution: AttributionNamed,
+				Certainty: CertaintyCertain},
+			{PersonID: id(hiddenPersonID), Role: CreditRoleAuthor, Attribution: AttributionNamed,
 				Certainty: CertaintyProbable},
-			{Role: CreditRoleArrangement, Attribution: AttributionNamed, Certainty: CertaintyCertain},
+			{Role: CreditRoleLyrics, Attribution: AttributionNamed, Certainty: CertaintyCertain},
 			// A credit that is not named never shows a person, even one it names.
 			{PersonID: id(publicPersonID), Role: CreditRoleTune, Attribution: AttributionTraditional,
-				Certainty: CertaintyDisputed, Part: new(PiecePartChorus)},
+				Certainty: CertaintyDisputed},
 		},
 		Links: []DocPieceLink{
 			{DocLink: DocLink{URL: hiddenURL, Title: new("Hidden"), Roles: []LinkRole{LinkRoleLyrics}},
@@ -124,27 +111,19 @@ func TestNewPieceSnapshot(t *testing.T) {
 	}
 
 	assert.Equal(t, PieceSnapshot{
-		Title:                 "The Copper Kettle",
-		Kind:                  PieceKindSong,
-		SecondaryKinds:        []PieceKind{PieceKindDanceMusic},
-		ConservationStatus:    ConservationStatusEndangered,
-		ConservationSourceURL: new("https://example.org/assessment"),
-		IsStub:                true,
-		NotesMD:               new("Notes"),
-		LicensingStatus:       LicensingStatusKnown,
-		Licence:               new(LicenceCCBY),
-		LicenceVersion:        new(LicenceVersion40),
-		PeriodStart:           new(int16(1580)),
-		Aliases:               []PieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindNickname}},
-		Terms:                 []PieceTerm{{Term: war, Part: new(PiecePartWords)}},
+		Title:              "The Copper Kettle",
+		Kind:               PieceKindSong,
+		ConservationStatus: ConservationStatusEndangered,
+		IsStub:             true,
+		NotesMD:            new("Notes"),
+		LicensingStatus:    LicensingStatusKnown,
+		Aliases:            []PieceAlias{{Text: "Kettle Song", Kind: PieceAliasKindAltTitle}},
+		Terms:              []TermSummary{war},
 		Credits: []PieceCredit{
 			{Role: CreditRoleLyrics, Attribution: AttributionNamed, Certainty: CertaintyCertain, Person: &hollis},
-			{Role: CreditRoleTune, Attribution: AttributionNamed, Certainty: CertaintyCertain,
-				Note: new("by the quiet one"), Person: &quietPerson},
-			{Role: CreditRoleTune, Attribution: AttributionTraditional, Certainty: CertaintyDisputed,
-				Part: new(PiecePartChorus)},
+			{Role: CreditRoleTune, Attribution: AttributionNamed, Certainty: CertaintyCertain, Person: &quietPerson},
+			{Role: CreditRoleTune, Attribution: AttributionTraditional, Certainty: CertaintyDisputed},
 		},
-		Relations: []SnapshotPieceRelation{{Type: PieceRelationTypeSettingOf, Piece: brassKettle}},
 		Links: []SnapshotPieceLink{
 			{
 				SnapshotLink: SnapshotLink{URL: visibleURL, Title: new("Visible"), Platform: new("example.org"),
@@ -166,7 +145,6 @@ func TestNewPieceSnapshot(t *testing.T) {
 	var refs SnapshotReferences
 	doc.AddReferences(&refs)
 	assert.Equal(t, SnapshotReferences{
-		PieceIDs: []int64{hiddenPieceID, publicPieceID},
 		PersonIDs: []int64{publicPersonID, noPagePersonID, hiddenPersonID, publicPersonID, publicPersonID,
 			noPagePersonID, hiddenPersonID},
 		TermIDs:       []int64{hiddenTermID, publicTermID},
@@ -184,23 +162,15 @@ func personDocument() PersonDocument {
 		Name:             wrenName,
 		Kind:             PersonKindCommunityBard,
 		Status:           PersonStatusActive,
-		StatusDate:       &Date{time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
-		StatusSourceURL:  new("https://example.org/status"),
-		Pronouns:         new("she/her"),
 		NotesMD:          new("A bard."),
 		LicensingStatus:  LicensingStatusKnown,
 		LicensingNotesMD: new("Sing freely."),
 		Aliases: []DocPersonAlias{
-			{Name: stageName, Kind: PersonAliasKindStage},
-			{Name: "Wren the Elder", Kind: PersonAliasKindFormer},
+			{Name: scaName, Kind: PersonAliasKindSCA},
+			{Name: "Wren Hale", Kind: PersonAliasKindLegal},
 		},
 		Roles:          []PersonRole{PersonRoleSinger, PersonRolePoet},
 		AffiliationIDs: []int64{hiddenTermID, publicTermID},
-		Relations: []DocPersonRelation{
-			{ToPersonID: noPagePersonID, Type: PersonRelationTypeHeirOf},
-			{ToPersonID: hiddenPersonID, Type: PersonRelationTypeSameAs},
-			{ToPersonID: publicPersonID, Type: PersonRelationTypeMemberOf},
-		},
 		Links: []DocPersonLink{
 			{DocLink: DocLink{URL: hiddenURL, Roles: []LinkRole{LinkRoleWebsite}}},
 			{
@@ -223,27 +193,21 @@ func TestNewPersonSnapshot(t *testing.T) {
 	vis := testVisibility()
 	vis.Persons[subjectPersonID] = PersonSummary{Slug: wrenSlug, Name: wrenName,
 		Kind: PersonKindCommunityBard}
-	statusDate := Date{time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)}
 
 	snapshot, err := NewPersonSnapshot(subjectPersonID, personDocument(), vis)
 	require.NoError(t, err)
 	assert.Equal(t, PersonSnapshot{
-		Name:            wrenName,
-		Kind:            PersonKindCommunityBard,
-		Status:          PersonStatusActive,
-		StatusDate:      &statusDate,
-		StatusSourceURL: new("https://example.org/status"),
+		Name:   wrenName,
+		Kind:   PersonKindCommunityBard,
+		Status: PersonStatusActive,
 		Profile: &PersonSnapshotProfile{
-			Pronouns:         new("she/her"),
 			NotesMD:          new("A bard."),
 			LicensingStatus:  LicensingStatusKnown,
 			LicensingNotesMD: new("Sing freely."),
-			Aliases: []PersonAlias{{Name: stageName, Kind: PersonAliasKindStage},
-				{Name: "Wren the Elder", Kind: PersonAliasKindFormer}},
+			Aliases: []PersonAlias{{Name: scaName, Kind: PersonAliasKindSCA},
+				{Name: "Wren Hale", Kind: PersonAliasKindLegal}},
 			Roles:        []PersonRole{PersonRoleSinger, PersonRolePoet},
 			Affiliations: []TermSummary{war},
-			Relations: []SnapshotPersonRelation{{Type: PersonRelationTypeHeirOf, Person: quietPerson},
-				{Type: PersonRelationTypeMemberOf, Person: hollis}},
 			Links: []SnapshotPersonLink{{
 				SnapshotLink: SnapshotLink{URL: visibleURL, Roles: []LinkRole{LinkRoleWebsite}},
 				Performances: []SnapshotPersonPerformance{
@@ -258,9 +222,8 @@ func TestNewPersonSnapshot(t *testing.T) {
 	var refs SnapshotReferences
 	personDocument().AddReferences(subjectPersonID, &refs)
 	assert.Equal(t, SnapshotReferences{
-		PieceIDs: []int64{hiddenPieceID, publicPieceID},
-		PersonIDs: []int64{subjectPersonID, noPagePersonID, hiddenPersonID, publicPersonID, subjectPersonID,
-			publicPersonID},
+		PieceIDs:      []int64{hiddenPieceID, publicPieceID},
+		PersonIDs:     []int64{subjectPersonID, subjectPersonID, publicPersonID},
 		TermIDs:       []int64{hiddenTermID, publicTermID},
 		CollectionIDs: []int64{hiddenCollectionID},
 		EventIDs:      []int64{publicEventID, hiddenEventID},
@@ -274,12 +237,10 @@ func TestNewPersonSnapshot_NoPage(t *testing.T) {
 	t.Parallel()
 
 	identity := PersonSnapshot{
-		Name:            wrenName,
-		Kind:            PersonKindCommunityBard,
-		Status:          PersonStatusActive,
-		StatusDate:      &Date{time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
-		StatusSourceURL: new("https://example.org/status"),
-		IsStub:          true,
+		Name:   wrenName,
+		Kind:   PersonKindCommunityBard,
+		Status: PersonStatusActive,
+		IsStub: true,
 	}
 
 	t.Run("now", func(t *testing.T) {
@@ -324,11 +285,11 @@ func TestNewTermSnapshot(t *testing.T) {
 	doc := TermDocument{
 		SchemaVersion: DocumentSchemaVersion, Facet: FacetTopic, Name: "Swords (topic)", DisplayName: "Swords",
 		ParentID: id(publicTermID), RelatedAffiliationID: id(hiddenTermID), DescriptionMD: new("Blades."),
-		Position: 3, Aliases: []string{"Blades"},
+		Position: 3,
 	}
 	assert.Equal(t, TermSnapshot{
 		Facet: FacetTopic, Name: "Swords (topic)", DisplayName: "Swords", Parent: &war,
-		DescriptionMD: new("Blades."), Position: 3, Aliases: []string{"Blades"},
+		DescriptionMD: new("Blades."), Position: 3,
 	}, NewTermSnapshot(doc, testVisibility()))
 
 	var refs SnapshotReferences
@@ -341,35 +302,21 @@ func TestNewCollectionSnapshot(t *testing.T) {
 
 	doc := CollectionDocument{
 		SchemaVersion: DocumentSchemaVersion, Name: "Volume Two", URL: new("https://example.org/v2.pdf"),
-		Kind: CollectionKindSongbookPDF, DescriptionMD: new("The second volume."), RegionTermID: id(hiddenTermID),
-		ParentID: id(publicCollectionID), IsBardicResource: true, Enumerable: CollectionEnumerablePDF,
+		Kind: CollectionKindSongbookPDF, DescriptionMD: new("The second volume."), RegionTermID: id(publicTermID),
 	}
 	assert.Equal(t, CollectionSnapshot{
 		Name: "Volume Two", URL: new("https://example.org/v2.pdf"), Kind: CollectionKindSongbookPDF,
-		DescriptionMD: new("The second volume."), Parent: &songbook, IsBardicResource: true,
-		Enumerable: CollectionEnumerablePDF,
+		DescriptionMD: new("The second volume."), Region: &war,
 	}, NewCollectionSnapshot(doc, testVisibility()))
 
 	var refs SnapshotReferences
 	doc.AddReferences(&refs)
-	assert.Equal(t, SnapshotReferences{TermIDs: []int64{hiddenTermID}, CollectionIDs: []int64{publicCollectionID}},
-		refs)
+	assert.Equal(t, SnapshotReferences{TermIDs: []int64{publicTermID}}, refs)
 }
 
 func TestNewEventSnapshot(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, EventSnapshot{Name: revelName, Kind: EventKindVenue, DescriptionMD: new("A hall.")},
-		NewEventSnapshot(EventDocument{SchemaVersion: DocumentSchemaVersion, Name: revelName,
-			Kind: EventKindVenue, DescriptionMD: new("A hall.")}))
-}
-
-// TestVisibleLicenceVersion checks that a licence version is shown only beside a Creative Commons licence.
-func TestVisibleLicenceVersion(t *testing.T) {
-	t.Parallel()
-
-	version := new(LicenceVersion40)
-	assert.Equal(t, version, VisibleLicenceVersion(new(LicenceCCBYSA), version))
-	assert.Nil(t, VisibleLicenceVersion(new(LicenceARR), version))
-	assert.Nil(t, VisibleLicenceVersion(nil, version))
+	assert.Equal(t, EventSnapshot{Name: revelName},
+		NewEventSnapshot(EventDocument{SchemaVersion: DocumentSchemaVersion, Name: revelName}))
 }

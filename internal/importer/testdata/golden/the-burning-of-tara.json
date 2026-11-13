@@ -8,21 +8,12 @@
       "schema_version": 1,
       "title": "The Burning of Tara",
       "kind": "story",
-      "secondary_kinds": [],
-      "conservation": {
-        "status": "unassessed",
-        "source_url": null
-      },
+      "conservation_status": "unassessed",
       "is_stub": false,
-      "notes_md": null,
+      "notes_md": "### Timeline of Text Sources\n\n- [Version of Fionn's origin story in 'Gods and Fighting Men', 1905](https://www.gutenberg.org/files/14465/14465-h/14465-h.htm#L28)\n- ['Fionn and the Goblin' at Ireland's Myths \u0026 Legends](https://www.irelandsmythsandlegends.com/fionn-and-the-fianna)\n- [The Burning of Tara in Fionn Folklore, Harvard's collection of oral tradition recordings](https://fionnfolklore.org/en/lays/dta)",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": null,
-      "licence": null,
-      "licence_version": null,
-      "historical_source_md": "- [Version of Fionn's origin story in 'Gods and Fighting Men', 1905](https://www.gutenberg.org/files/14465/14465-h/14465-h.htm#L28)\n- ['Fionn and the Goblin' at Ireland's Myths \u0026 Legends](https://www.irelandsmythsandlegends.com/fionn-and-the-fianna)\n- [The Burning of Tara in Fionn Folklore, Harvard's collection of oral tradition recordings](https://fionnfolklore.org/en/lays/dta)",
-      "period_start": null,
-      "period_end": null,
       "aliases": [
         {
           "text": "Fionn and the Dragon",
@@ -33,44 +24,15 @@
           "kind": "alt_title"
         }
       ],
-      "terms": [
-        {
-          "term_id": 84,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 52,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 46,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 47,
-          "is_primary": false,
-          "part": null
-        },
-        {
-          "term_id": 98,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 115,
-          "is_primary": true,
-          "part": null
-        },
-        {
-          "term_id": 110,
-          "is_primary": true,
-          "part": null
-        }
+      "term_ids": [
+        84,
+        52,
+        46,
+        47,
+        98,
+        115,
+        110
       ],
-      "relations": [],
       "credits": [],
       "links": [
         {
