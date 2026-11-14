@@ -109,7 +109,7 @@ var details = catalogtest.NewShared(func(c *catalogtest.Catalog) detailFixture {
 	})
 	noPage := c.Person(catalogtest.Person{
 		Doc: domain.PersonDocument{
-			Name: hollisName, Status: domain.PersonStatusPrefersNoPage, NotesMD: new("Private notes."),
+			Name: hollisName, Status: domain.PersonStatusPrefersNoPage, NotesMD: new("Asked not to have a page."),
 			Aliases:        []domain.DocPersonAlias{{Name: "Holly", Kind: domain.PersonAliasKindSCA}},
 			Roles:          []domain.PersonRole{domain.PersonRoleSinger},
 			AffiliationIDs: []int64{northmarch.ID},
@@ -343,8 +343,8 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 	assert.Equal(t, domain.Person{
 		PersonSummary: wrenSummary,
 		Status:        domain.PersonStatusActive,
+		NotesMD:       new("A bard of the marches."),
 		Profile: &domain.PersonProfile{
-			NotesMD:          new("A bard of the marches."),
 			LicensingStatus:  domain.LicensingStatusKnown,
 			LicensingNotesMD: new("Sing freely."),
 			Aliases: []domain.PersonAlias{
@@ -385,8 +385,8 @@ func TestRepository_GetPublicPerson(t *testing.T) {
 	}, person)
 }
 
-// TestRepository_GetPublicPerson_NoPage checks that a person who prefers no page has only their identity, as a
-// stub.
+// TestRepository_GetPublicPerson_NoPage checks that a person who prefers no page has only their identity and
+// notes, as a stub.
 func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
 	t.Parallel()
 
@@ -398,7 +398,8 @@ func TestRepository_GetPublicPerson_NoPage(t *testing.T) {
 	assert.Equal(t, domain.Person{
 		PersonSummary: domain.PersonSummary{Slug: "hollis-fenn", Name: hollisName, Kind: domain.PersonKindCommunityBard,
 			IsStub: true},
-		Status: domain.PersonStatusPrefersNoPage,
+		Status:  domain.PersonStatusPrefersNoPage,
+		NotesMD: new("Asked not to have a page."),
 	}, person)
 }
 

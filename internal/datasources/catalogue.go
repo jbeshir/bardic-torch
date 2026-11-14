@@ -67,7 +67,8 @@ type Catalogue interface {
 	// term slug that is unknown, not public, or of the affiliation facet gives an UnknownTermError.
 	ListPublicPieces(ctx context.Context, query PieceQuery) (domain.PieceList, error)
 	// GetPublicPerson retrieves a public person by slug, returning ErrNotFound if no public person has the slug.
-	// A person who prefers not to have a page is returned with only their identity (a nil Profile).
+	// A person who prefers not to have a page is returned with only their identity and notes (a nil
+	// Profile).
 	GetPublicPerson(ctx context.Context, slug string) (domain.Person, error)
 	// ListPublicPersons searches the public persons, returning one page of them with the total and letter counts.
 	// An affiliation slug that is unknown, not public, or not of the affiliation facet gives an UnknownTermError.

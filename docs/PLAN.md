@@ -46,7 +46,8 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
 3. **Conservation status:** an enum (unassessed, low_risk, endangered, critically_endangered, restricted). Its
    history is the piece's revision history, with each revision's summary (which may be empty) as the reason for a
    change. A moderator sets it by the conservation guide, in which exactly three places counts as Endangered.
-   Restricted overrides everything and hides the "help preserve this" prompts.
+   Restricted overrides everything and hides the "help preserve this" prompts. The creator's statement, with a
+   link to where they made it, goes in the piece's notes, which a Restricted page shows like any other.
 4. **Pseudo-bards:** "Traditional & Folk", Unknown, Anonymous and Various become an `attribution` on the credit,
    with a separate `certainty` (Disputed is a certainty). Bands and historical figures are persons with
    `kind = group | historical`.
@@ -56,8 +57,9 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
 7. **Bard self-verification** is out of scope for v1. Every licensing claim needs a source URL, as on the wiki
    (R-12).
 8. **"Prefers no page"** is a person status, as on the old wiki: their page shows only their identity (name, kind
-   and status), and creating a person with a matching name or alias is blocked. Elsewhere they are named like
-   anyone else, as plain text without a link to their page (decided 2026-11-12; nothing else is hidden).
+   and status) and their notes, where their statement goes with a link to where they made it. Creating a person
+   with a matching name or alias is blocked. Elsewhere they are named like anyone else, as plain text without a
+   link to their page (decided 2026-11-12; nothing else is hidden).
 9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess.
 10. **Unparented categories:** Seasons, Fire, Hope → Topics; Archery → Topics › War; Short Pieces → Other;
     Jewish, Sephardic, Portuguese → Cultures, with Sephardic under Jewish.
@@ -123,10 +125,10 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 - **Visibility is approval.** An entity is public when it has an approved revision (a term also needs its
   ancestors approved), defined once in the views `public_terms`, `listed_persons` and `public_link_attachments`.
   References to non-public entities are left out of every read, and an unknown or non-public slug is one 404.
-- **"Prefers no page" persons** have a page of their identity only: name, kind and status. Credits, performers
-  and citations name them like anyone else, without a link (`slug` null). The lists of persons (`listed_persons`)
-  list them as stubs, find them by name only, and leave them out of role and affiliation filters, term member
-  lists and counts, and needs-work.
+- **"Prefers no page" persons** have a page of their identity and notes only: name, kind, status and notes.
+  Credits, performers and citations name them like anyone else, without a link (`slug` null). The lists of persons
+  (`listed_persons`) list them as stubs, find them by name only, and leave them out of role and affiliation
+  filters, term member lists and counts, and needs-work.
 - **Hidden links** are left out of every read by their link ID. Current pages join on the link's row. A revision
   view leaves out a snapshot URL whose row (matched by normalised URL, as approval upserts it) is hidden, and shows
   every other URL as the snapshot wrote it.

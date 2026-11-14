@@ -379,7 +379,8 @@ func (c *catalogueReader) person(ctx context.Context, slug string) domain.Person
 			Kind:   enumOf[domain.PersonKind](c, row.Kind),
 			IsStub: domain.PersonIsStub(row.IsStub, status),
 		},
-		Status: status,
+		Status:  status,
+		NotesMD: stringPtr(row.NotesMd),
 	}
 	if status != domain.PersonStatusPrefersNoPage {
 		person.Profile = c.personProfile(ctx, row)
@@ -411,7 +412,6 @@ func (c *catalogueReader) personProfile(ctx context.Context, row queries.GetPubl
 	links, _ := c.links(personLinkRows(fetch(ctx, c, "links", c.q.ListPublicPersonLinks, key)))
 
 	return &domain.PersonProfile{
-		NotesMD:          stringPtr(row.NotesMd),
 		LicensingStatus:  enumOf[domain.LicensingStatus](c, row.LicensingStatus),
 		LicensingNotesMD: stringPtr(row.LicensingNotesMd),
 		Aliases:          c.personAliases(fetch(ctx, c, "aliases", c.q.ListPersonAliases, row.ID)),

@@ -120,18 +120,18 @@ type PiecePerformance struct {
 }
 
 // Person is a public person. Profile is nil exactly for a person who prefers not to have a page, of whom only
-// the identity is shown.
+// the identity and the notes are shown.
 type Person struct {
 	PersonSummary
 	// UpdatedAt is when the current revision was approved.
 	UpdatedAt time.Time
 	Status    PersonStatus
+	NotesMD   *string
 	Profile   *PersonProfile
 }
 
-// PersonProfile is everything a person's page shows beyond their identity.
+// PersonProfile is everything a person's page shows beyond their identity and notes.
 type PersonProfile struct {
-	NotesMD          *string
 	LicensingStatus  LicensingStatus
 	LicensingNotesMD *string
 	// Aliases are the public aliases only.

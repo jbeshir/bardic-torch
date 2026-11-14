@@ -22,9 +22,9 @@ the product and implementation plan.
   A stub is a piece with little recorded yet.
 - **Person** -- A community bard, historical author or group, addressed by slug, with aliases, roles, affiliations,
   links, the works they are credited on and the performances they appear in. A person with status
-  `prefers_no_page` has a page showing only their identity (name, kind and status): they are listed as a stub,
-  found only by name, and left out of member lists, counts and needs-work; credits and performances name them
-  without a link.
+  `prefers_no_page` has a page showing only their identity (name, kind and status) and notes: they are listed as
+  a stub, found only by name, and left out of member lists, counts and needs-work; credits and performances name
+  them without a link.
 - **Term and facet** -- Terms classify pieces (and, for the `affiliation` facet, persons). Each belongs to one facet
   (mood, topic, culture, language, legendaria, origin, other, affiliation) and may have a parent, up to three
   levels deep. Filtering by a term matches pieces tagged with it or any descendant. Within a facet terms combine

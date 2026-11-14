@@ -16,12 +16,12 @@ type Person struct {
 
 	UpdatedAt time.Time           `json:"updated_at"`
 	Status    domain.PersonStatus `json:"status"`
+	NotesMD   *string             `json:"notes_md"`
 	Profile   *PersonProfile      `json:"profile"`
 }
 
-// PersonProfile is the JSON representation of everything a person's page shows beyond their identity.
+// PersonProfile is the JSON representation of everything a person's page shows beyond their identity and notes.
 type PersonProfile struct {
-	NotesMD           *string                `json:"notes_md"`
 	LicensingStatus   domain.LicensingStatus `json:"licensing_status"`
 	LicensingNotesMD  *string                `json:"licensing_notes_md"`
 	Aliases           []PersonAlias          `json:"aliases"`
@@ -64,7 +64,7 @@ type PerformanceLink struct {
 }
 
 // PersonGet handles GET /v1/persons/{slug}, a public person's page. An unapproved person is not found,
-// exactly like an unknown one; a person who prefers not to have a page has a null profile.
+// exactly like an unknown one; a person who prefers not to have a page has their notes and a null profile.
 type PersonGet struct {
 	Catalogue datasources.Catalogue
 }
@@ -93,13 +93,13 @@ func personFromDomain(p domain.Person) Person {
 		PersonSummary: personSummaryFromDomain(p.PersonSummary),
 		UpdatedAt:     p.UpdatedAt,
 		Status:        p.Status,
+		NotesMD:       p.NotesMD,
 		Profile:       optional(p.Profile, personProfileFromDomain),
 	}
 }
 
 func personProfileFromDomain(p domain.PersonProfile) PersonProfile {
 	return PersonProfile{
-		NotesMD:          p.NotesMD,
 		LicensingStatus:  p.LicensingStatus,
 		LicensingNotesMD: p.LicensingNotesMD,
 		Aliases:          mapSlice(p.Aliases, personAliasFromDomain),

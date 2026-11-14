@@ -487,8 +487,8 @@ paths:
         - Catalogue
       summary: Get a person
       description: |
-        Returns a public person. A person who prefers not to have a page is shown by identity only: name, kind
-        and status, with `is_stub` true and `profile` null. Otherwise the profile has their aliases, roles,
+        Returns a public person. A person who prefers not to have a page is shown by name, kind, status and
+        notes only, with `is_stub` true and `profile` null. Otherwise the profile has their aliases, roles,
         affiliations, links, works and performances. Works and performances are capped at 200 each, with totals. An unapproved person
         is not found, exactly like an unknown one. Credentials are ignored.
       operationId: getPerson
@@ -512,8 +512,8 @@ paths:
                     kind: community_bard
                     is_stub: false
                     status: active
+                    notes_md: A bard of the northern marches.
                     profile:
-                      notes_md: A bard of the northern marches.
                       licensing_status: known
                       licensing_notes_md: Happy for her songs to be sung anywhere.
                       aliases:
@@ -549,6 +549,7 @@ paths:
                     kind: community_bard
                     is_stub: true
                     status: prefers_no_page
+                    notes_md: Asked not to have a page, [in this post](https://example.org/hollis).
                     profile: null
         "400":
           $ref: "#/components/responses/InvalidSlug"
@@ -3013,7 +3014,7 @@ components:
         A public person. `profile` is null exactly when the person prefers not to have a page; `is_stub` is then
         true.
       additionalProperties: false
-      required: [slug, name, kind, is_stub, status, profile, updated_at]
+      required: [slug, name, kind, is_stub, status, notes_md, profile, updated_at]
       properties:
         slug:
           type: string
@@ -3028,8 +3029,13 @@ components:
           $ref: "#/components/schemas/PersonSummary/properties/is_stub"
         status:
           $ref: "#/components/schemas/PersonStatus"
+        notes_md:
+          type: [string, "null"]
+          description: Notes about the person, in Markdown.
+          examples:
+            - A bard of the northern marches.
         profile:
-          description: Everything the person's page shows beyond their identity.
+          description: Everything the person's page shows beyond their identity and notes.
           oneOf:
             - $ref: "#/components/schemas/PersonProfile"
             - type: "null"
@@ -3042,14 +3048,14 @@ components:
           kind: community_bard
           is_stub: true
           status: prefers_no_page
+          notes_md: Asked not to have a page, [in this post](https://example.org/hollis).
           profile: null
 
     PersonProfile:
       type: object
-      description: Everything a person's page shows beyond their identity.
+      description: Everything a person's page shows beyond their identity and notes.
       additionalProperties: false
       required:
-        - notes_md
         - licensing_status
         - licensing_notes_md
         - aliases
@@ -3061,11 +3067,6 @@ components:
         - performances
         - performances_total
       properties:
-        notes_md:
-          type: [string, "null"]
-          description: Notes about the person, in Markdown.
-          examples:
-            - A bard of the northern marches.
         licensing_status:
           $ref: "#/components/schemas/LicensingStatus"
         licensing_notes_md:
@@ -3122,8 +3123,7 @@ components:
           examples:
             - 0
       examples:
-        - notes_md: null
-          licensing_status: unknown
+        - licensing_status: unknown
           licensing_notes_md: null
           aliases: []
           roles: [singer]
@@ -3663,8 +3663,8 @@ components:
     PersonStatus:
       type: string
       description: |
-        A person's status. A person who `prefers_no_page` has a page showing their identity only, and is
-        named without a link elsewhere.
+        A person's status. A person who `prefers_no_page` has a page showing their identity and notes
+        only, and is named without a link elsewhere.
       enum: [active, deceased, prefers_no_page]
       examples:
         - active
@@ -4550,7 +4550,7 @@ components:
         - links
       properties:
         notes_md:
-          $ref: "#/components/schemas/PersonProfile/properties/notes_md"
+          $ref: "#/components/schemas/Person/properties/notes_md"
         licensing_status:
           $ref: "#/components/schemas/LicensingStatus"
         licensing_notes_md:

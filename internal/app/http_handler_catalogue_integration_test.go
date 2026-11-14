@@ -62,7 +62,7 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 		Aliases:         []domain.DocPersonAlias{{Name: "Jo Marker", Kind: domain.PersonAliasKindLegal}},
 	}})
 	quiet := c.Person(catalogtest.Person{Doc: domain.PersonDocument{
-		Name: "Quiet Harper", Status: domain.PersonStatusPrefersNoPage, NotesMD: new("Not shown"),
+		Name: "Quiet Harper", Status: domain.PersonStatusPrefersNoPage, NotesMD: new("Asked not to have a page."),
 	}})
 
 	known := func(doc domain.PieceDocument) domain.PieceDocument {
@@ -173,7 +173,7 @@ func TestHTTP_CatalogueEndToEnd(t *testing.T) {
 	require.Len(t, person.Profile.Aliases, 1)
 	assert.Equal(t, "Jo Marker", person.Profile.Aliases[0].Name)
 
-	// A person who prefers no page: only their identity.
+	// A person who prefers no page: only their identity and notes.
 	noPage := sendOK[controller.Person](t, e, http.MethodGet, "/v1/persons/"+quiet.Slug, "", "", http.StatusOK)
 	assert.Nil(t, noPage.Profile)
 	assert.Equal(t, domain.PersonStatusPrefersNoPage, noPage.Status)
