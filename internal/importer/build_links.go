@@ -79,12 +79,12 @@ func (b *builder) personLinks(links []mediawiki.LinkRecord) []domain.DocPersonLi
 	return out
 }
 
-// performance is a performance's document form. Its description is kept as written, but for its URLs' tracking
-// parameters.
+// performance is a performance's document form. Its description keeps the item's words as written, as plain text: the
+// wikitext's link brackets, URLs inside them and quote markup go (mediawiki.Plain), since readers see it as text.
 func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 	out := domain.DocPerformance{
 		Uploader:            free(p.Uploader),
-		DescriptionVerbatim: plain(withoutTracking(p.DescriptionVerbatim)),
+		DescriptionVerbatim: plain(mediawiki.Plain(withoutTracking(p.DescriptionVerbatim))),
 		PerformerIDs:        []int64{},
 	}
 	if id, ok := b.eventIDs[p.Event]; ok && p.Event != "" {

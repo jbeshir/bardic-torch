@@ -257,16 +257,16 @@ Bodies are limited to 1 MiB for documents, 64 KiB for `/v1/contact` and 16 KiB o
 under `testdata/wiki-dump/`, so tests need no network; it is frozen and never regenerated.
 
 **Steps:** type the pages (pieces, bards) and parse their sections; take facets from the categories
-(`taxonomy.json`); parse credits with attribution and certainty, uniting the bard
-signals (infobox, bard category, works list) and matching plain-text names by folded name, then fuzzily; extract
-links with role, platform, collection and locator, deduplicated by normalised URL; parse performances, keeping
-the text verbatim, with venue pages and the names performances give after "at" as events; turn redirects to
-piece pages into aliases and red links into stubs; put into a piece's notes its Timeline of Text Sources section
-(under its heading), a sentence naming the other piece when its title is another piece's with "(Poem)", "(Song)"
-or "(SCA Version)", and "Also played as an instrumental." when it is in Instrumental but its kind is neither
-instrumental nor dance_music; **drop inline lyrics** (every `<poem>` block, and the lines without a link of a
-Lyrics or Text section when there are four or more; fewer are version notes), setting `legacy_had_inline_lyrics`;
-and write everything as approved `import` revisions crediting wiki contributors.
+(`taxonomy.json`); parse credits with attribution and certainty, uniting the bard signals (infobox, bard category,
+works list) and matching plain-text names by folded name, then fuzzily; extract links with role, platform,
+collection and locator, deduplicated by normalised URL; parse performances, keeping their words verbatim as plain
+text (without the wikitext link markup), with venue pages and the names performances give after "at" as events; turn
+redirects to piece pages into aliases and red links into stubs; put into a piece's notes its Timeline of Text
+Sources section (under its heading), a sentence naming the other piece when its title is another piece's with
+"(Poem)", "(Song)" or "(SCA Version)", and "Also played as an instrumental." when it is in Instrumental but its kind
+is neither instrumental nor dance_music; **drop inline lyrics** (every `<poem>` block, and the lines without a link
+of a Lyrics or Text section when there are four or more; fewer are version notes), setting
+`legacy_had_inline_lyrics`; and write everything as approved `import` revisions crediting wiki contributors.
 
 **Writing:** strings are NFC without control characters; wikitext becomes escaped Markdown with absolute http(s)
 links free of tracking parameters; summaries come from fixed templates. `CatalogueImport.Validate` checks the
