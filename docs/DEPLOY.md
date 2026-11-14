@@ -2,7 +2,8 @@
 
 The API runs on dokku as the app `bardic-torch-api` at https://api.bardictorch.org. It uses a dokku-managed
 MySQL 8.4 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
-moderators, migrations, rollback and the one-off import of the legacy wiki.
+moderators, migrations, rollback and the one-off import of the legacy wiki. [LAUNCH.md](LAUNCH.md) puts these
+steps and the FE's in launch order.
 
 ## Placeholders
 
@@ -15,6 +16,8 @@ Replace these in the commands below:
 | `<AUTH0_DOMAIN>` | Auth0 tenant domain, as a bare host name with no `https://` or trailing slash. Use the custom domain if the tenant has one (see [Custom domain](#custom-domain)). | `bardic-torch.eu.auth0.com` |
 | `<MODERATOR_USER_IDS>` | Comma-separated Auth0 user IDs of the moderators | `google-oauth2\|1234,facebook\|5678` |
 | `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
+| `<TURNSTILE_SECRET_KEY>` | The Turnstile widget's secret key (FE DEPLOY.md §5) | `0x4AAAAAAA…` |
+| `<SITE_HOSTNAME>` | Hostname the contact form's Turnstile tokens are minted on: `preview.bardictorch.org` while staging, `bardictorch.org` from the production switch (docs/LAUNCH.md) | `bardictorch.org` |
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
 | `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
@@ -95,32 +98,20 @@ Optional. Decide **before** setting up the social connections, because their red
 ### Application for the FE
 
 1. **Applications → Applications → Create Application**: name `Bardic Torch`, type **Regular Web Applications**.
-2. In **Settings**:
-   - **Allowed Callback URLs**:
-     ```
-     https://bardictorch.org/auth/auth0/callback, https://www.bardictorch.org/auth/auth0/callback
-     ```
-   - **Allowed Logout URLs**:
-     ```
-     https://bardictorch.org, https://www.bardictorch.org
-     ```
-   - Leave Allowed Web Origins and Allowed Origins (CORS) empty: the FE talks to Auth0 from its server.
-
-   The exact paths **must match the FE repository's routes**. The values above are the alignment-feed FE's
-   pattern (the remix-auth Auth0 strategy's callback route `/auth/auth0/callback`, and the site root after
-   logout). Check them against the bardic-torch-fe auth routes and change both lists if the FE differs.
-   Only `https://` production URLs belong in this application.
-3. In **Settings → Advanced Settings → Grant Types**, keep **Authorization Code** and **Refresh Token** on.
-4. In **Settings → Refresh Token Rotation**, turn **Allow Refresh Token Rotation** on and keep the default
-   reuse interval. In **Refresh Token Expiration**, set an absolute lifetime and an inactivity lifetime, for
-   example 30 days and 15 days. With rotation, a refresh token is replaced on every use, and a reused one revokes
-   the whole family.
-5. Give the FE its **Domain** (`<AUTH0_DOMAIN>`), **Client ID** and **Client Secret** through its own
-   configuration. They are not API settings.
+2. Fill in its settings **exactly as the FE repository's docs/DEPLOY.md §4 lists them**; that table is the one
+   source, because the paths are the FE's routes. In short: Allowed Callback URLs
+   `https://bardictorch.org/auth/callback, https://preview.bardictorch.org/auth/callback`; Allowed Logout URLs
+   `https://bardictorch.org, https://preview.bardictorch.org`; Authentication Method **Client Secret (Basic)**;
+   grant types Authorization Code and Refresh Token. `www.bardictorch.org` is never listed: it only redirects to
+   the apex (FE DEPLOY.md §3). Only `https://` URLs belong in this application.
+3. **Refresh tokens**: rotation on, with a reuse interval (for example 60 seconds) and an absolute lifetime of at
+   least 7 days (the FE's session), as FE DEPLOY.md §4 explains.
+4. Give the FE its **Domain** (`<AUTH0_DOMAIN>`) and **Client ID** in its `wrangler.jsonc`, and its **Client
+   Secret** as a Worker secret (FE DEPLOY.md §1 and §2). They are not API settings.
 
 ### Development application
 
-Development callback URLs (e.g. `http://localhost:5173/auth/auth0/callback`) never go in the production
+Development callback URLs (e.g. `http://localhost:5173/auth/callback`) never go in the production
 application. Create a separate application with those URLs, preferably in a separate development tenant with
 its own API using the same identifier, so development logins never create production Auth0 users. A local API
 runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally, set `AUTH_DRIVERS=auth0`,
@@ -131,8 +122,8 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
 1. In the Google Cloud console (https://console.cloud.google.com), create a project, e.g. `Bardic Torch`.
 2. **Google Auth Platform → Branding** (the OAuth consent screen):
    - App name `Bardic Torch`, a support email, and the app logo if wanted.
-   - App domain: home page `https://bardictorch.org`, privacy policy `https://bardictorch.org/privacy` (an FE
-     page; see the note under Facebook).
+   - App domain: home page `https://bardictorch.org`, privacy policy
+     `https://bardictorch.org/help/faq-for-bards` (see the note under Facebook).
    - Authorized domains: `bardictorch.org`, and `auth0.com` if `<AUTH0_DOMAIN>` is an `auth0.com` domain.
 3. **Audience**: user type **External**.
 4. **Data Access**: add only the scopes `openid`, `.../auth/userinfo.email` and `.../auth/userinfo.profile`.
@@ -163,13 +154,13 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
    so they need no app review.
 4. **App settings → Basic**:
    - App domains: `bardictorch.org`
-   - Privacy Policy URL: `https://bardictorch.org/privacy`
-   - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/data-deletion`
+   - Privacy Policy URL: `https://bardictorch.org/help/faq-for-bards`
+   - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/contact?kind=opt_out`
    - Category and app icon.
 
-   **Flag for the FE:** the privacy policy and data-deletion pages are FE pages. They must exist at these URLs (or
-   these settings must change to match) before the app can go Live. Google's consent screen links the same
-   privacy policy.
+   The site has no privacy page yet, so both point at existing FE pages (the FAQ for bards covers opting out;
+   the contact form's opt-out kind is how to ask). Change both here and on Google's consent screen if the owners
+   add a privacy page. Meta and Google need the URLs to load before the app can go Live.
 5. Switch **App Mode** from Development to **Live**. In Development mode only the app's own roles can log in.
 6. In Auth0, **Authentication → Social → facebook**: paste the **App ID** and **App Secret**, and tick the
    **email** and **public_profile** permissions.
@@ -183,7 +174,7 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
 ### How the FE calls the API
 
 - The FE's authorization request must include `audience=https://api.bardictorch.org` and the scope
-  `openid profile email offline_access`. Without the audience, Auth0 issues an access token the API cannot verify,
+  `openid offline_access`. Without the audience, Auth0 issues an access token the API cannot verify,
   and every request gets 401.
 - The FE's server sends the **access token** (not the ID token):
   ```
@@ -283,7 +274,9 @@ dokku config:set --no-restart bardic-torch-api \
 - `BOOTSTRAP_MODERATOR_USER_IDS` must be set, but may be empty if the moderator IDs are not known yet. Set it
   later as in [Moderators](#moderators).
 - `TURNSTILE_SECRET_KEY` and `TURNSTILE_HOSTNAME` are the contact form's Cloudflare Turnstile secret key and the
-  hostname its widget runs on.
+  hostname its widget runs on. The API accepts a token only if siteverify says it was minted on exactly that
+  hostname with the action `contact`. Cloudflare's test secret never passes: siteverify answers it with the
+  hostname `example.com` and no action.
 - `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
   if `AUTH_DRIVERS` names an unknown driver, if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
   enabled, or if `TURNSTILE_SECRET_KEY` or `TURNSTILE_HOSTNAME` is empty.
