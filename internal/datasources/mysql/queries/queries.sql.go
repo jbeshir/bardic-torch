@@ -3194,7 +3194,7 @@ FROM term_ancestors ta
 JOIN public_terms d ON d.id = ta.descendant_id
 JOIN piece_terms pt ON pt.term_id = ta.descendant_id
 JOIN pieces p ON p.id = pt.piece_id
-WHERE ta.ancestor_id IN (/*SLICE:piece_term_ids*/?) AND p.current_revision_id IS NOT NULL
+WHERE ta.ancestor_id IN (/*SLICE:piece_term_ids*/?) AND p.current_revision_id IS NOT NULL AND NOT p.is_stub
 GROUP BY ta.ancestor_id
 UNION ALL
 SELECT ta.ancestor_id, 'person', COUNT(DISTINCT pa.person_id)
@@ -3202,7 +3202,7 @@ FROM term_ancestors ta
 JOIN public_terms d ON d.id = ta.descendant_id
 JOIN person_affiliations pa ON pa.term_id = ta.descendant_id
 JOIN listed_persons p ON p.id = pa.person_id
-WHERE ta.ancestor_id IN (/*SLICE:person_term_ids*/?)
+WHERE ta.ancestor_id IN (/*SLICE:person_term_ids*/?) AND NOT p.is_stub
 GROUP BY ta.ancestor_id
 `
 
@@ -3217,9 +3217,10 @@ type ListPublicTermCountsRow struct {
 	N      int64
 }
 
-// A term's counts are of the distinct public pieces tagged with, and public persons who do not prefer no page
-// affiliated with, the term or any public descendant: both ends of the closure are checked, so a pending term
-// hides its subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it.
+// A term's counts are of the distinct public pieces that are not stubs tagged with, and public persons who are not
+// stubs affiliated with, the term or any public descendant: both ends of the closure are checked, so a pending term
+// hides its subtree from its ancestors' counts too. A term with no row of a kind has a count of 0 of it. Its member
+// lists below leave out the same stubs, so the counts are their totals.
 func (q *Queries) ListPublicTermCounts(ctx context.Context, arg ListPublicTermCountsParams) ([]ListPublicTermCountsRow, error) {
 	query := listPublicTermCounts
 	var queryParams []interface{}
@@ -3306,7 +3307,8 @@ func (q *Queries) ListPublicTermIDsBySlug(ctx context.Context, slugs []string) (
 const listPublicTermPersons = `-- name: ListPublicTermPersons :many
 SELECT p.slug, p.name, p.kind, p.is_stub
 FROM listed_persons p
-WHERE EXISTS (
+WHERE NOT p.is_stub
+    AND EXISTS (
         SELECT 1
         FROM person_affiliations pa
         JOIN term_ancestors ta ON ta.descendant_id = pa.term_id
@@ -3361,7 +3363,7 @@ func (q *Queries) ListPublicTermPersons(ctx context.Context, arg ListPublicTermP
 const listPublicTermPieces = `-- name: ListPublicTermPieces :many
 SELECT p.slug, p.title, p.kind, p.conservation_status, p.is_stub
 FROM pieces p
-WHERE p.current_revision_id IS NOT NULL
+WHERE p.current_revision_id IS NOT NULL AND NOT p.is_stub
     AND EXISTS (
         SELECT 1
         FROM piece_terms pt

@@ -35,12 +35,12 @@ func TestParsePiece_Kind(t *testing.T) {
 	}
 }
 
-func TestParsePiece_AlsoInstrumental(t *testing.T) {
+func TestParsePiece_SongAlsoInstrumental(t *testing.T) {
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil),
 		Categories: pieceCategories(CategoryInstrumental)})
 
 	assert.Equal(t, domain.PieceKindSong, p.Kind)
-	assert.True(t, p.AlsoInstrumental)
+	assert.Contains(t, p.Terms, CategoryInstrumental)
 }
 
 func TestParsePiece_TermsFromCategories(t *testing.T) {
@@ -135,9 +135,11 @@ func TestScrubbedPieces_Examples(t *testing.T) {
 	}
 	black := pieces["Black Alman"]
 	assert.Equal(t, domain.PieceKindDanceMusic, black.Kind)
-	assert.False(t, black.AlsoInstrumental, "dance music implies its instrumental category")
+	assert.Contains(t, black.Terms, CategoryInstrumental)
 
-	assert.True(t, pieces["Burden of the Crown"].AlsoInstrumental)
+	burden := pieces["Burden of the Crown"]
+	assert.Equal(t, domain.PieceKindSong, burden.Kind)
+	assert.Contains(t, burden.Terms, CategoryInstrumental)
 	assert.Equal(t, domain.ConservationStatusCriticallyEndangered, pieces["Oathkeeping"].Conservation())
 	assert.True(t, pieces["Band of Brothers"].HadInlineLyrics)
 }

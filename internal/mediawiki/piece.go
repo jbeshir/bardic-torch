@@ -45,17 +45,15 @@ var conservationStatuses = []conservationCategory{
 
 // PieceRecord is a piece page parsed for import. Wikitext is the page's wikitext without its inline lyrics and
 // with its markup repaired, and Parsed is that text parsed; every later step reads these, never the original.
-// Terms are the categories of the piece's terms, in order. AlsoInstrumental is a page in Instrumental whose kind
-// is neither instrumental nor dance_music. NotConfusedWith are the pages the page says it is not to be confused with
-// (notConfusedWith).
+// Terms are the categories of the piece's terms, in order. NotConfusedWith are the pages the page says it is not to
+// be confused with (notConfusedWith).
 type PieceRecord struct {
-	PageID           int64
-	Title            string
-	Wikitext         string
-	Parsed           ParsedPage
-	Kind             domain.PieceKind
-	AlsoInstrumental bool
-	Terms            []string
+	PageID   int64
+	Title    string
+	Wikitext string
+	Parsed   ParsedPage
+	Kind     domain.PieceKind
+	Terms    []string
 	// ConservationStatuses are the statuses of the page's conservation categories, least severe first.
 	ConservationStatuses []domain.ConservationStatus
 	// BardNameCategories are the page's categories named after a credited person: credit signals.
@@ -84,12 +82,10 @@ func ParsePiece(p Page, s Site) PieceRecord {
 	dropped, hadLyrics := DropInlineLyrics(p.Wikitext)
 	repaired := RepairMarkup(dropped)
 	parsed := ParsePage(repaired)
-	kind := primaryKind(p, parsed.Infoboxes)
 	sorted := sortCategories(p, parsed.Infoboxes, s)
 	r := PieceRecord{
 		PageID: p.PageID, Title: p.Title, Wikitext: repaired, Parsed: parsed,
-		Kind: kind, AlsoInstrumental: p.HasCategory(CategoryInstrumental) && kind != domain.PieceKindInstrumental &&
-			kind != domain.PieceKindDanceMusic,
+		Kind:  primaryKind(p, parsed.Infoboxes),
 		Terms: sorted.terms, ConservationStatuses: sorted.statuses, BardNameCategories: sorted.bardNames,
 		Titles:          pieceTitles(p, parsed, s),
 		Credits:         pieceCredits(parsed.Infoboxes, s),

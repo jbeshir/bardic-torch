@@ -32,13 +32,9 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 	page, _ := b.c.Site.Page(p.Title)
 	c := p.Content
 	title := plain(p.Title)
-	alsoInstrumental := ""
-	if p.AlsoInstrumental {
-		alsoInstrumental = "Also played as an instrumental."
-	}
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion,
 		Title: title, Kind: p.Kind, ConservationStatus: p.Conservation(),
-		NotesMD:          notes(c.NotesMD, alsoInstrumental, b.otherPiece(p)),
+		NotesMD:          notes(c.NotesMD, b.otherPiece(p)),
 		VersionNotesMD:   free(c.VersionNotesMD),
 		LicensingStatus:  c.LicensingStatus,
 		LicensingNotesMD: free(c.LicensingNotesMD),

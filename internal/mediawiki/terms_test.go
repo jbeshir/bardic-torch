@@ -89,6 +89,7 @@ func TestTermPlan_FacetsAndParents(t *testing.T) {
 		cat13thCentury:         {domain.FacetOrigin, "Pre-1600 Sources"},
 		"10th Century (Topic)": {domain.FacetTopic, ""},
 		catTrueEvents:          {domain.FacetOther, ""},
+		CategoryInstrumental:   {domain.FacetOther, ""},
 		catWelsh:               {domain.FacetCulture, ""},
 		CategorySCABards:       {domain.FacetAffiliation, ""},
 		kingdom:                {domain.FacetAffiliation, CategorySCABards},
@@ -252,8 +253,8 @@ func TestTermPlan_ScrubbedCopy(t *testing.T) {
 		counts[term.Facet]++
 	}
 
-	// 103 facet terms and 8 unparented ones; SCA, 14 kingdoms and 3 local groups.
-	assert.Equal(t, 111, len(plan.Terms)-counts[domain.FacetAffiliation])
+	// 103 facet terms, 8 unparented ones and Instrumental; SCA, 14 kingdoms and 3 local groups.
+	assert.Equal(t, 112, len(plan.Terms)-counts[domain.FacetAffiliation])
 	assert.Equal(t, 18, counts[domain.FacetAffiliation])
 	assert.Equal(t, catJewish, terms[catSephardic].Parent)
 	assert.Equal(t, catWar, terms["Archery"].Parent)

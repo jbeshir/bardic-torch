@@ -17,7 +17,8 @@ const (
 	// ClassFacetRoot is a structural category: a facet (Moods, Topics…), Pieces, Bards, Genres, Conservation
 	// Status or SCA Kingdom.
 	ClassFacetRoot CategoryClass = "facet_root"
-	// ClassKind is a genre (Songs, Poems…), which is a piece kind, not a term.
+	// ClassKind is a genre (Songs, Poems…), which is a piece kind, not a term; Instrumental is also a term
+	// (PlanTerms).
 	ClassKind CategoryClass = "kind"
 	// ClassConservationStatus is a conservation status category (Endangered…).
 	ClassConservationStatus CategoryClass = "conservation_status"

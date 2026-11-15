@@ -212,8 +212,8 @@ type TermListItem struct {
 	TermCounts
 }
 
-// TermCounts are how many distinct public pieces, and public persons who do not prefer no page, a term or any
-// of its public descendants classifies.
+// TermCounts are how many distinct public pieces, and public persons, that are not stubs a term or any of its
+// public descendants classifies (a person who prefers no page is a stub).
 type TermCounts struct {
 	PieceCount  int64
 	PersonCount int64
@@ -233,11 +233,11 @@ type Term struct {
 	// RelatedAffiliation is the public affiliation term this term implies, if any.
 	RelatedAffiliation *TermSummary
 	TermCounts
-	// Pieces are one page of the public pieces the term or a descendant classifies, by sort title, for a term
-	// that classifies pieces; otherwise empty. Their total is PieceCount.
+	// Pieces are one page of the public pieces, other than stubs, the term or a descendant classifies, by sort
+	// title, for a term that classifies pieces; otherwise empty. Their total is PieceCount.
 	Pieces []PieceSummary
-	// Persons are one page of the public persons, other than those who prefer no page, affiliated with the term
-	// or a descendant, by sort name, for an affiliation term; otherwise empty. Their total is PersonCount.
+	// Persons are one page of the public persons, other than stubs, affiliated with the term or a descendant, by
+	// sort name, for an affiliation term; otherwise empty. Their total is PersonCount.
 	Persons []PersonSummary
 }
 

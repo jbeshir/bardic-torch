@@ -4,7 +4,8 @@
 changed); revised 2026-11-12 (monthly link check, link reports as contact requests, takedowns by link ID, sources
 for licensing only, no email withholding in the importer); revised 2026-11-13 (trimmed the data model to what the
 wiki fills); revised 2026-11-15 (content fidelity: §2 and the help pages follow the original wiki's policy and
-wording, except for the three decisions in §2.0; four importer guesses removed, §7).
+wording, except for the three decisions in §2.0; four importer guesses removed, §7); revised 2026-11-15 (the
+owners' decisions on the last open questions: §2.1, §2.3, §4.1).
 This plan is the input every build pipeline reads.
 
 **Proportion is the main quality bar.** The site holds about 142 pieces and 48 bards, with two moderators (John
@@ -39,7 +40,7 @@ profiles are on the backlog.
 ## 2. Decisions on the research's open questions
 
 Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10; 2.1–2.3, 2.6, 2.8 and 2.14 amended
-on 2026-11-15 to follow the wiki.
+on 2026-11-15 to follow the wiki; 2.1 and 2.3 settled by the owners on 2026-11-15.
 
 0. **The original wiki's policy and wording win.** Where this section and the wiki disagree, the wiki is right
    and this section is corrected; a rule here stands only where it fills a gap the wiki left. Only three decisions
@@ -49,9 +50,11 @@ on 2026-11-15 to follow the wiki.
    formatting, the new site's editing mechanics and these three decisions.
 
 1. **Kind** (the wiki's Genre): one `kind` per piece (song, poem, story, dance_music, instrumental; extensible). A
-   song also played as an instrumental says so in its notes. The wiki let a piece be in both Songs and
-   Instrumental, and had a Comedy genre (fooling, jesting) with no kind here; both are open questions for the
-   owners.
+   musical piece can be "tagged as both 'Songs' and 'Instrumental' if it can be performed by both singers and
+   instrumentalists", as the wiki says, through the **Instrumental** term (facet Other): the piece keeps one kind,
+   the importer gives the term to every piece in the wiki's Instrumental category, and editors pick it like any
+   other term. The wiki's Comedy genre (fooling, jesting) has no kind: comedic pieces take the Comedic mood. The
+   wiki's poem Form category has no facet. (The owners decided all three on 2026-11-15.)
 2. **Origin** (the wiki's "Source Category"): generally one, as the wiki says; a contrafactum or setting piece may
    also carry the pre-1600, traditional, SCA, SF&F or Borrowings categories the wiki allows, after the main one.
    Stored multi-valued and ordered, like every facet; century categories become child terms of Origin; topic
@@ -65,8 +68,9 @@ on 2026-11-15 to follow the wiki.
      Restricted.
    - **Restricted:** the creator does not allow the work to be recorded, archived or shared. It is never marked
      Endangered or Critically Endangered, because those exist to help works be preserved or found, and these
-     should not be. A piece has one status, so a Restricted piece shows no other. Its page has no prompts to find,
-     add or archive copies, and offers no archived copies of its links.
+     should not be. A piece has one status, so a Restricted piece shows no other. Its page shows none of its links
+     or recordings, only its licensing sources (where the creator says so), and has no prompts to find, add or
+     archive copies (decided 2026-11-15). Pages that list its performances or citations name it without a link.
    - **unassessed** is a piece in none of the wiki's conservation categories (a gap the wiki left).
 
    Anyone may change a status in an edit, by the conservation guide, and a moderator reviews it like any edit. Its
@@ -159,7 +163,9 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 - **"Prefers no page" persons** have a page of their identity and notes only: name, kind, status and notes.
   Credits, performers and citations name them like anyone else, without a link (`slug` null). The lists of persons
   (`listed_persons`) list them as stubs, find them by name only, and leave them out of role and affiliation
-  filters, term member lists and counts, and needs-work.
+  filters and needs-work.
+- **Term counts and member lists leave out stubs** (no-page persons among them), as the piece and bard lists do
+  unless asked, so every count on the site (home, categories, lists) counts the same pages.
 - **Hidden links** are left out of every read by their link ID. Current pages join on the link's row. A revision
   view leaves out a snapshot URL whose row (matched by normalised URL, as approval upserts it) is hidden, and shows
   every other URL as the snapshot wrote it.
@@ -304,9 +310,8 @@ link markup), with venue pages and the names performances give after "at" as eve
 to piece pages into aliases and red links into stubs (a works-list red link that is a piece page's title but for
 letter case is that piece, not a stub); put into a piece's notes its Timeline of Text Sources section (under its
 heading), a sentence naming the other piece when its title is another piece's with "(Poem)", "(Song)" or "(SCA
-Version)" (for "(Poem)" and "(Song)", not when either page says it is "not to be confused with" the other), and "Also
-played as an instrumental." when it is in Instrumental but its kind is neither instrumental nor dance_music; **drop
-inline lyrics** (every `<poem>` block, and the lines without a link of a Lyrics or Text section when there are four
+Version)" (for "(Poem)" and "(Song)", not when either page says it is "not to be confused with" the other); give
+the Instrumental term (§2.1) to every page in the Instrumental category; **drop inline lyrics** (every `<poem>` block, and the lines without a link of a Lyrics or Text section when there are four
 or more; fewer are version notes), setting `legacy_had_inline_lyrics`; and write everything as approved `import`
 revisions crediting wiki contributors.
 
@@ -325,8 +330,8 @@ back on failure and refuses a non-empty catalogue; the imported catalogue reads 
 
 **Read pages (FE2, built):** home (mission, non-affiliation disclaimer R-1); A–Z; faceted browse with a desktop
 sidebar and mobile drawer (R-2, R-3), the piece and bard lists leaving out stubs unless one link asks for
-them, so that their totals match the home page's (search still finds stubs); search; piece page (infobox, links by
-role, performances, licensing card, notes); person, term, collection and event pages; history and diffs; help pages
+them, so that their totals match the home page's and the categories' (search still finds stubs); search; piece
+page (infobox, links by role, performances, licensing card, notes); person, term, collection and event pages; history and diffs; help pages
 (contributing, FAQ for bards, the Bard Preference Checklist, the conservation guide, the licence),
 carrying the wiki's own text (§2.0).
 

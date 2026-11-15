@@ -86,14 +86,16 @@ func (p TermPlan) Term(category string) (TermSpec, bool) {
 // PlanTerms plans the terms of the taxonomy (PLAN §2.2, §2.10, §2.12, §4.1):
 //   - every facet term, under its wiki parent, its facet taken from its top-level ancestor;
 //   - the unparented categories PLAN §2.10 places;
+//   - Instrumental, also a genre, as a term of the other facet, so that a song also played as an instrumental can
+//     carry it (PLAN §2.1);
 //   - the affiliation tree: each organisation (SCA Bards as SCA, Amtgard), its kingdoms and the local groups,
 //     each under the one kingdom its bards share;
 //   - a "Patriotic (Kingdom)" topic is related to that kingdom's affiliation term;
 //   - redirect categories become aliases of the term they lead to.
 //
-// Genres (piece kinds), conservation statuses, bard-name categories (credits), performer types, In Memoriam and
-// Venue are not terms; placeholders and unclassified categories are dropped. A term's display name is its name
-// without a "(Topic)", "(Language)" or "(Mood)" suffix.
+// The other genres (piece kinds), conservation statuses, bard-name categories (credits), performer types, In
+// Memoriam and Venue are not terms; placeholders and unclassified categories are dropped. A term's display name is
+// its name without a "(Topic)", "(Language)" or "(Mood)" suffix.
 func PlanTerms(t Taxonomy) TermPlan {
 	p := termPlanner{taxonomy: t, children: map[string][]string{}, specs: map[string]*TermSpec{}}
 	p.planFacetTerms()
@@ -140,6 +142,9 @@ func (p *termPlanner) planFacetTerms() {
 	}
 	p.planUnreached()
 	p.planUnparented()
+	if p.taxonomy.Class(CategoryInstrumental) == ClassKind {
+		p.add(CategoryInstrumental, domain.FacetOther, CategoryInstrumental, "")
+	}
 }
 
 // planUnreached adds the facet terms the walk from the top level did not reach, because their parent is no term,

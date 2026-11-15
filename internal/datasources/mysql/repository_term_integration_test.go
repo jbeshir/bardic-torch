@@ -15,7 +15,8 @@ import (
 
 // termFixture is a term tree where every count and member rule has something to leave out: an unapproved term
 // with an approved child (both tagging pieces), an unapproved root, an unapproved affiliation, an unapproved
-// piece, an unapproved person, a no-page person, and a piece tagged with both a term and its child.
+// piece, an unapproved person, a no-page person, a stub piece, a stub person, and a piece tagged with both a term
+// and its child.
 type termFixture struct {
 	spears, pikes, gloomy, southmarch catalogtest.Ref
 }
@@ -72,6 +73,9 @@ var terms = catalogtest.NewShared(func(c *catalogtest.Catalog) termFixture {
 	pending := tagged("War Draft", war.ID)
 	pending.Unapproved = true
 	c.Piece(pending)
+	stub := tagged("War Stub", war.ID)
+	stub.Doc.IsStub = true
+	c.Piece(stub)
 
 	affiliated := func(name string, termIDs ...int64) catalogtest.Person {
 		return catalogtest.Person{Doc: domain.PersonDocument{Name: name, AffiliationIDs: termIDs}}
@@ -86,6 +90,9 @@ var terms = catalogtest.NewShared(func(c *catalogtest.Catalog) termFixture {
 	pendingPerson := affiliated("Pending Rook", northmarch.ID)
 	pendingPerson.Unapproved = true
 	c.Person(pendingPerson)
+	stubPerson := affiliated("Stub Fenn", northmarch.ID)
+	stubPerson.Doc.IsStub = true
+	c.Person(stubPerson)
 
 	return termFixture{spears: spears, pikes: pikes, gloomy: gloomy, southmarch: southmarch}
 })
@@ -122,8 +129,8 @@ func listItem(summary domain.TermSummary, name string, parent *string, pieces, p
 
 // TestRepository_ListPublicTerms checks the tree order (facets in enum order, then each term before its children and
 // before its next sibling, siblings by position then display name) and the counts: with descendants, distinct,
-// without unapproved pieces, no-page or unapproved persons, or anything tagged with a pending term or a term under
-// one, which are not listed.
+// without unapproved or stub pieces, no-page, unapproved or stub persons, or anything tagged with a pending term or
+// a term under one, which are not listed.
 func TestRepository_ListPublicTerms(t *testing.T) {
 	t.Parallel()
 
@@ -220,8 +227,8 @@ func TestRepository_GetPublicTerm_RelatedAffiliation(t *testing.T) {
 	assert.Nil(t, loyal.RelatedAffiliation)
 }
 
-// TestRepository_GetPublicTerm_Affiliation checks that an affiliation term lists the public persons with a page
-// affiliated with it or a descendant, each once, and no pieces.
+// TestRepository_GetPublicTerm_Affiliation checks that an affiliation term lists the public persons who are not
+// stubs affiliated with it or a descendant, each once, and no pieces.
 func TestRepository_GetPublicTerm_Affiliation(t *testing.T) {
 	t.Parallel()
 
