@@ -82,7 +82,8 @@ func (b *builder) pieceTerms(p mediawiki.PieceRecord) []int64 {
 // titles compared as the collation does ("When A Knight …" is "When a Knight …"), or empty: an "(SCA Version)" is a
 // contrafactum of it if the piece is a contrafactum, else a variant, and a "(Poem)" or "(Song)" is the same text in
 // another form. With no piece of the bare title, a "(Poem)" and a "(Song)" of the same title are the same text in
-// another form, said once, on the later page.
+// another form, said once, on the later page. Neither is said to be the same text as the other when either page
+// says it is not to be confused with the other ("Not to be confused with [[Ode to Commius (Poem)]]").
 func (b *builder) otherPiece(p mediawiki.PieceRecord) string {
 	m := formSuffix.FindStringSubmatch(p.Title)
 	if m == nil {
@@ -102,12 +103,28 @@ func (b *builder) otherPiece(p mediawiki.PieceRecord) string {
 	other := plain(base.Title)
 	switch {
 	case m[2] != "SCA Version":
+		if notConfused(p, base) {
+			return ""
+		}
+
 		return "The same text as " + other + ", in another form."
 	case hasTerm(p, contrafactaCategory):
 		return "New words to the tune of " + other + "."
 	default:
 		return "A version of " + other + "."
 	}
+}
+
+// notConfused reports whether either piece says it is not to be confused with the other, the titles compared as the
+// collation does.
+func notConfused(a, b mediawiki.PieceRecord) bool {
+	says := func(p, other mediawiki.PieceRecord) bool {
+		return slices.ContainsFunc(p.NotConfusedWith, func(t string) bool {
+			return domain.CollationKey(t) == domain.CollationKey(other.Title)
+		})
+	}
+
+	return says(a, b) || says(b, a)
 }
 
 // pieceByKey is the first piece page, in page order, whose title has a collation key.

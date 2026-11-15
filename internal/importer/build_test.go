@@ -248,3 +248,30 @@ func TestBuild_ControlCharactersRemovedFromNamesAndContributors(t *testing.T) {
 	assert.Equal(t, collidingSong, piece.Legacy.Title)
 	assert.Equal(t, []string{"Wiki User 04"}, piece.Revision.Contributors)
 }
+
+// TestBuild_PoemAndSongSameText: with no bare page, the later of a "(Poem)" and a "(Song)" says once that it is the
+// same text as the other, unless either page says it is not to be confused with the other.
+func TestBuild_PoemAndSongSameText(t *testing.T) {
+	const poem, song = "Ode to Testing (Poem)", "Ode to Testing (Song)"
+	piece := []string{mediawiki.CategoryPieces}
+	for songLead, sameText := range map[string]bool{
+		"An ode.": true,
+		"Not to be confused with [[" + poem + "]].": false,
+	} {
+		d := mediawiki.Dump{Pages: []mediawiki.Page{
+			page(20, poem, piece, "{{Infobox poem\n}}\nA poem.\n"),
+			page(21, song, piece, songLead+"\n{{Infobox song\n}}\n"),
+		}, Categories: map[string]mediawiki.Category{}}
+		imp, _ := Build(mediawiki.ParseCorpus(d), buildTime)
+
+		notes := func(title string) string {
+			if n := pieceTitled(t, imp, title).Doc.NotesMD; n != nil {
+				return *n
+			}
+
+			return ""
+		}
+		assert.NotContains(t, notes(poem), "The same text as", songLead)
+		assert.Equal(t, sameText, strings.Contains(notes(song), "The same text as "+poem+", in another form."), songLead)
+	}
+}

@@ -147,22 +147,12 @@ func TestGoldenAssert_OtherPageTitleIsNoAlias(t *testing.T) {
 }
 
 // TestGoldenAssert_OtherPieceFromTitles: the report §8.1 pairs. "(SCA Version)" names its base in its notes
-// whatever the case of the base's title, and with no bare page the later of the "(Poem)" and the "(Song)" names the
-// other, once.
+// whatever the case of the base's title (the "(Poem)" and "(Song)" rules: TestBuild_PoemAndSongSameText).
 func TestGoldenAssert_OtherPieceFromTitles(t *testing.T) {
 	imp := scrubbedImport(t)
 	knight := pieceTitled(t, imp, "When A Knight Won His Spurs (SCA Version)")
-	poem, song := pieceTitled(t, imp, "Ode to Commius (Poem)"), pieceTitled(t, imp, "Ode to Commius (Song)")
 
 	require.NotNil(t, knight.Doc.NotesMD)
 	assert.True(t, strings.HasSuffix(*knight.Doc.NotesMD, "\n\nNew words to the tune of When a Knight Won His Spurs."),
 		"after the page's own notes")
-	later, earlier := poem, song
-	if song.ID > poem.ID {
-		later, earlier = song, poem
-	}
-	require.NotNil(t, earlier.Doc.NotesMD)
-	assert.NotContains(t, *earlier.Doc.NotesMD, "The same text as", "said once, on the later page")
-	require.NotNil(t, later.Doc.NotesMD)
-	assert.Equal(t, "The same text as "+earlier.Doc.Title+", in another form.", *later.Doc.NotesMD)
 }
