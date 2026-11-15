@@ -170,12 +170,15 @@ type DocPieceAlias struct {
 	Kind PieceAliasKind `json:"kind"`
 }
 
-// DocCredit credits a piece to a person (attribution named) or to no one in particular.
+// DocCredit credits a piece to a person (attribution named) or to no one in particular. A named credit of a
+// revision not yet approved may name a person not yet on the site by NewPersonName instead of PersonID; approval
+// links it to a person, so the catalogue's documents never have one.
 type DocCredit struct {
-	PersonID    *int64      `json:"person_id"`
-	Role        CreditRole  `json:"role"`
-	Attribution Attribution `json:"attribution"`
-	Certainty   Certainty   `json:"certainty"`
+	PersonID      *int64      `json:"person_id"`
+	NewPersonName *string     `json:"new_person_name,omitempty"`
+	Role          CreditRole  `json:"role"`
+	Attribution   Attribution `json:"attribution"`
+	Certainty     Certainty   `json:"certainty"`
 }
 
 // DocLink is the editor-owned part of a link attached to a piece or person, with the roles it has there.
@@ -266,4 +269,12 @@ type CollectionDocument struct {
 type EventDocument struct {
 	SchemaVersion int    `json:"schema_version"`
 	Name          string `json:"name"`
+}
+
+// StubPersonDocument is the document of a stub person known only by name (plan §2.5): the importer's for a
+// red-link name, and approval's for a credit to a person not yet on the site.
+func StubPersonDocument(name string, kind PersonKind) PersonDocument {
+	return PersonDocument{SchemaVersion: DocumentSchemaVersion, Name: name, Kind: kind, Status: PersonStatusActive,
+		LicensingStatus: LicensingStatusUnknown, IsStub: true, Aliases: []DocPersonAlias{}, Roles: []PersonRole{},
+		AffiliationIDs: []int64{}, Links: []DocPersonLink{}}
 }

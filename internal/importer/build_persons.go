@@ -111,10 +111,8 @@ func (b *builder) stubPerson(s mediawiki.StubPerson, links []mediawiki.LinkRecor
 		kind = domain.PersonKindHistorical
 	}
 	name := plain(s.Name)
-	doc := domain.PersonDocument{SchemaVersion: domain.DocumentSchemaVersion, Name: name, Kind: kind,
-		Status: domain.PersonStatusActive, LicensingStatus: domain.LicensingStatusUnknown, IsStub: true,
-		Aliases: []domain.DocPersonAlias{}, Roles: []domain.PersonRole{}, AffiliationIDs: []int64{},
-		Links: b.personLinks(links)}
+	doc := domain.StubPersonDocument(name, kind)
+	doc.Links = b.personLinks(links)
 	person := domain.ImportedPerson{ID: id, Slug: b.slugs.Allocate(name, domain.SlugEntityTypePerson, id),
 		SortName: name, SortLetter: domain.SortLetter(name), Doc: doc, Revision: b.revision(nil,
 			domain.ImportSummaryStub)}

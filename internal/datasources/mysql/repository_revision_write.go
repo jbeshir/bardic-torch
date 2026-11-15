@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -167,14 +168,20 @@ func (r *Repository) ApproveRevision(
 	return nil
 }
 
-// approve approves the pending revision id: it writes the document into its entity, creating a new entity's row,
-// and marks the revision approved.
+// approve approves the pending revision id: it links a piece's credits to persons not yet on the site
+// (linkNewPersons), writes the document into its entity, creating a new entity's row, and marks the revision
+// approved.
 func approve(
 	ctx context.Context, q *queries.Queries, id int64, reviewerUserID string, acknowledgeStale bool, at time.Time,
 ) error {
 	row, doc, err := approvable(ctx, q, id, acknowledgeStale)
 	if err != nil {
 		return err
+	}
+	if piece, ok := doc.(domain.PieceDocument); ok && slices.ContainsFunc(piece.Credits, isNewPersonCredit) {
+		if doc, err = linkNewPersons(ctx, q, row, piece, reviewerUserID, at); err != nil {
+			return err
+		}
 	}
 	w := &entityWriter{ctx: ctx, q: q}
 	entityID := w.write(row.EntityID.Int64, doc, id)
@@ -189,6 +196,101 @@ func approve(
 	}
 
 	return setStatus(ctx, q, row.ID, queries.UpdateRevisionStatusParams{Status: queries.RevisionsStatusApproved,
+		ReviewerUserID: sql.NullString{String: reviewerUserID, Valid: true}, ReviewedAt: nullTime(at)})
+}
+
+// isNewPersonCredit reports whether c names a person not yet on the site.
+func isNewPersonCredit(c domain.DocCredit) bool { return c.NewPersonName != nil }
+
+// linkNewPersons links each credit of the piece revision row that names a person not yet on the site to the public
+// person whose name or alias has the same domain.DuplicateKey (the lowest ID, if several do), or else to a new stub
+// person of that name (domain.StubPersonDocument) with its own approved revision by the revision's author. A
+// person who prefers no page is linked like any other: reads name them without a link. It stores the linked
+// document as the revision's snapshot, and returns it.
+func linkNewPersons(
+	ctx context.Context, q *queries.Queries, row queries.GetRevisionRow, doc domain.PieceDocument,
+	reviewerUserID string, at time.Time,
+) (domain.PieceDocument, error) {
+	persons, err := personsByDuplicateKey(ctx, q)
+	if err != nil {
+		return domain.PieceDocument{}, err
+	}
+	doc.Credits = slices.Clone(doc.Credits)
+	for k, c := range doc.Credits {
+		if c.NewPersonName == nil {
+			continue
+		}
+		key := domain.DuplicateKey(*c.NewPersonName)
+		id, ok := persons[key]
+		if !ok {
+			if id, err = insertStubPerson(ctx, q, *c.NewPersonName, row.AuthorUserID, reviewerUserID, at); err != nil {
+				return domain.PieceDocument{}, err
+			}
+			persons[key] = id
+		}
+		doc.Credits[k].PersonID, doc.Credits[k].NewPersonName = &id, nil
+	}
+	snapshot, err := json.Marshal(doc)
+	if err != nil {
+		return domain.PieceDocument{}, fmt.Errorf("encoding the document: %w", err)
+	}
+	err = q.SetRevisionSnapshot(ctx, queries.SetRevisionSnapshotParams{SnapshotJson: snapshot, ID: row.ID})
+	if err != nil {
+		return domain.PieceDocument{}, fmt.Errorf("setting the revision's snapshot: %w", err)
+	}
+
+	return doc, nil
+}
+
+// personsByDuplicateKey maps the domain.DuplicateKeys of every public person's current document to the person,
+// the lowest ID where persons share a key.
+func personsByDuplicateKey(ctx context.Context, q *queries.Queries) (map[string]int64, error) {
+	rows, err := q.ListCurrentDocuments(ctx, queries.RevisionsEntityTypePerson)
+	if err != nil {
+		return nil, fmt.Errorf("listing current person documents: %w", err)
+	}
+	persons := make(map[string]int64)
+	for _, row := range rows {
+		doc, err := domain.DecodeDocument[domain.PersonDocument](row.SnapshotJson)
+		if err != nil {
+			return nil, fmt.Errorf("snapshot: %w", err)
+		}
+		for _, key := range doc.DuplicateKeys() {
+			if id, ok := persons[key]; !ok || row.EntityID.Int64 < id {
+				persons[key] = row.EntityID.Int64
+			}
+		}
+	}
+
+	return persons, nil
+}
+
+// insertStubPerson creates a public stub person of name, with an approved revision by author, and returns its ID.
+func insertStubPerson(
+	ctx context.Context, q *queries.Queries, name string, author sql.NullString, reviewerUserID string, at time.Time,
+) (int64, error) {
+	doc := domain.StubPersonDocument(name, domain.PersonKindCommunityBard)
+	snapshot, err := json.Marshal(doc)
+	if err != nil {
+		return 0, fmt.Errorf("encoding the stub person: %w", err)
+	}
+	revisionID, err := q.InsertRevision(ctx, queries.InsertRevisionParams{EntityType: queries.RevisionsEntityTypePerson,
+		AuthorUserID: author, SnapshotJson: snapshot, Summary: domain.NewPersonSummary, CreatedAt: at})
+	if err != nil {
+		return 0, fmt.Errorf("inserting the stub person's revision: %w", err)
+	}
+	w := &entityWriter{ctx: ctx, q: q}
+	id, unsignedRevisionID := w.write(0, doc, revisionID), w.id(revisionID)
+	if w.err != nil {
+		return 0, w.err
+	}
+	err = q.SetRevisionEntity(ctx, queries.SetRevisionEntityParams{EntityID: someID(id), ID: unsignedRevisionID})
+	if err != nil {
+		return 0, fmt.Errorf("setting the stub person's revision entity: %w", err)
+	}
+
+	return id, setStatus(ctx, q, unsignedRevisionID, queries.UpdateRevisionStatusParams{
+		Status:         queries.RevisionsStatusApproved,
 		ReviewerUserID: sql.NullString{String: reviewerUserID, Valid: true}, ReviewedAt: nullTime(at)})
 }
 

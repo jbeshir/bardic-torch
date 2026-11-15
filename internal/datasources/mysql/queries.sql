@@ -674,6 +674,9 @@ WHERE id = ?;
 -- name: SetRevisionEntity :exec
 UPDATE revisions SET entity_id = ? WHERE id = ?;
 
+-- name: SetRevisionSnapshot :exec
+UPDATE revisions SET snapshot_json = ? WHERE id = ?;
+
 -- name: GetOwnPendingRevision :one
 SELECT id, base_revision_id, snapshot_json
 FROM revisions

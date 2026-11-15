@@ -86,6 +86,8 @@ func TestNewPieceSnapshot(t *testing.T) {
 			{PersonID: id(hiddenPersonID), Role: CreditRoleAuthor, Attribution: AttributionNamed,
 				Certainty: CertaintyProbable},
 			{Role: CreditRoleLyrics, Attribution: AttributionNamed, Certainty: CertaintyCertain},
+			{NewPersonName: new("Rook of the Fens"), Role: CreditRoleLyricsAndTune, Attribution: AttributionNamed,
+				Certainty: CertaintyCertain},
 			// A credit that is not named never shows a person, even one it names.
 			{PersonID: id(publicPersonID), Role: CreditRoleTune, Attribution: AttributionTraditional,
 				Certainty: CertaintyDisputed},
@@ -122,6 +124,8 @@ func TestNewPieceSnapshot(t *testing.T) {
 		Credits: []PieceCredit{
 			{Role: CreditRoleLyrics, Attribution: AttributionNamed, Certainty: CertaintyCertain, Person: &hollis},
 			{Role: CreditRoleTune, Attribution: AttributionNamed, Certainty: CertaintyCertain, Person: &quietPerson},
+			{Role: CreditRoleLyricsAndTune, Attribution: AttributionNamed, Certainty: CertaintyCertain,
+				NewPersonName: new("Rook of the Fens")},
 			{Role: CreditRoleTune, Attribution: AttributionTraditional, Certainty: CertaintyDisputed},
 		},
 		Links: []SnapshotPieceLink{

@@ -126,8 +126,10 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 
 - **`pieces`**: title, slug and sort keys; `kind`; `conservation_status`; `is_stub`; notes and version notes
   (Markdown); licensing (`licensing_status`, `licensing_notes_md`); `legacy_had_inline_lyrics`. Children: aliases
-  (`alt_title`, `subtitle`, `redirect`), terms (ordered by `position`) and credits (person, role: lyrics, tune
-  or author, attribution, certainty; a person exactly when `named`).
+  (`alt_title`, `subtitle`, `redirect`), terms (ordered by `position`) and credits (person, role: lyrics, tune,
+  lyrics_and_tune ("Words and tune": one person's words and tune together, counting as both) or author,
+  attribution, certainty; a person exactly when `named`). In a revision not yet approved, a named credit may give
+  `new_person_name` (someone not yet on the site) instead of a person; approval turns it into a person (§5.3).
 - **`persons`**: name, slug and sort keys; `kind` (community_bard / historical / group); `status` (active /
   deceased / prefers_no_page); notes, licensing; `is_stub`. Children: aliases (`legal`, `sca`, all public), roles
   and affiliations.
@@ -229,6 +231,11 @@ carries a note for the author.
   keys are created at approval. There are no placeholder rows.
 - **References are to public entities only.** A revision may reference only entities that are already public. A
   new term is suggested as its own term revision and approved on its own; the piece uses it once it is public.
+- **A credit to someone not yet on the site** names them by `new_person_name`, shown as plain text marked as a new
+  person until approval. The approval transaction links it to the public person whose name or alias has the same
+  `domain.DuplicateKey` (a "prefers no page" person among them, credited without a link), or else creates a stub
+  person of that name, as the importer does for a red link (§2.5), with its own approved revision, and stores the
+  linked document as the revision's snapshot.
 
 ### 5.4 Moderation and contact
 
@@ -286,10 +293,12 @@ Bodies are limited to 1 MiB for documents, 64 KiB for `/v1/contact` and 16 KiB o
 under `testdata/wiki-dump/`, so tests need no network; it is frozen and never regenerated.
 
 **Steps:** type the pages (pieces, bards) and parse their sections; take facets from the categories
-(`taxonomy.json`); parse credits with attribution and certainty, uniting the bard signals (infobox, bard category,
-works list, whose links match a piece page or its redirects whatever their letter case) and matching plain-text names
-by folded name, then fuzzily (within one edit, for names of eight letters or more); a given name alone ("Dunstan")
-never matches a fuller name and becomes a stub; extract links with role, platform, collection and locator,
+(`taxonomy.json`); parse credits with attribution and certainty (a person's lyrics and tune credits of one
+attribution and certainty become one `lyrics_and_tune` credit, and the summary counts them), uniting the bard
+signals (infobox, bard category, works list, whose links match a piece page or its redirects whatever their letter
+case) and matching plain-text names by folded name, then fuzzily (within one edit, for names of eight letters or
+more); a given name alone ("Dunstan") never matches a fuller name and becomes a stub;
+extract links with role, platform, collection and locator,
 deduplicated by normalised URL; parse performances, keeping their words verbatim as plain text (without the wikitext
 link markup), with venue pages and the names performances give after "at" as events, and no uploader; turn redirects
 to piece pages into aliases and red links into stubs (a works-list red link that is a piece page's title but for
@@ -315,9 +324,11 @@ back on failure and refuses a non-empty catalogue; the imported catalogue reads 
 ## 8. Frontend
 
 **Read pages (FE2, built):** home (mission, non-affiliation disclaimer R-1); A–Z; faceted browse with a desktop
-sidebar and mobile drawer (R-2, R-3); search; piece page (infobox, links by role, performances, licensing card,
-notes); person, term, collection and event pages; history and diffs; help pages (contributing, FAQ for bards,
-the Bard Preference Checklist, the conservation guide, the licence), carrying the wiki's own text (§2.0).
+sidebar and mobile drawer (R-2, R-3), the piece and bard lists leaving out stubs unless one link asks for
+them, so that their totals match the home page's (search still finds stubs); search; piece page (infobox, links by
+role, performances, licensing card, notes); person, term, collection and event pages; history and diffs; help pages
+(contributing, FAQ for bards, the Bard Preference Checklist, the conservation guide, the licence),
+carrying the wiki's own text (§2.0).
 
 **Editing (FE3):** an edit form per entity type with structured pickers; a credit editor (attribution,
 certainty); a link editor (role, place type, collection, locator, performances); a term picker with "suggest a

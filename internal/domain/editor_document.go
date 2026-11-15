@@ -44,10 +44,11 @@ type EditorPieceDocument struct {
 
 // EditorCredit is a DocCredit in the editor format.
 type EditorCredit struct {
-	PersonSlug  *string     `json:"person_slug"`
-	Role        CreditRole  `json:"role"`
-	Attribution Attribution `json:"attribution"`
-	Certainty   Certainty   `json:"certainty"`
+	PersonSlug    *string     `json:"person_slug"`
+	NewPersonName *string     `json:"new_person_name"`
+	Role          CreditRole  `json:"role"`
+	Attribution   Attribution `json:"attribution"`
+	Certainty     Certainty   `json:"certainty"`
 }
 
 // EditorPieceLink is a DocPieceLink in the editor format.

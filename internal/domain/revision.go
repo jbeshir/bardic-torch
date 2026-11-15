@@ -192,3 +192,7 @@ type RevisionList struct {
 	Revisions []RevisionListItem
 	Total     int64
 }
+
+// NewPersonSummary is the summary of the revision of a stub person that approval creates for a credit naming a
+// person not yet on the site. Like the import summaries, it names no one.
+const NewPersonSummary = "Added as a stub for a credit on a piece."

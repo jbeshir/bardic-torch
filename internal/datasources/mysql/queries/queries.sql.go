@@ -3755,6 +3755,20 @@ func (q *Queries) SetRevisionEntity(ctx context.Context, arg SetRevisionEntityPa
 	return err
 }
 
+const setRevisionSnapshot = `-- name: SetRevisionSnapshot :exec
+UPDATE revisions SET snapshot_json = ? WHERE id = ?
+`
+
+type SetRevisionSnapshotParams struct {
+	SnapshotJson json.RawMessage
+	ID           uint64
+}
+
+func (q *Queries) SetRevisionSnapshot(ctx context.Context, arg SetRevisionSnapshotParams) error {
+	_, err := q.db.ExecContext(ctx, setRevisionSnapshot, arg.SnapshotJson, arg.ID)
+	return err
+}
+
 const unblockUser = `-- name: UnblockUser :execrows
 UPDATE users
 SET blocked_at = NULL

@@ -56,7 +56,7 @@ func TestGoldenAssert_ThreeWords(t *testing.T) {
 
 	var tune []domain.Attribution
 	for _, c := range p.Doc.Credits {
-		if c.Role == domain.CreditRoleTune {
+		if c.Role == domain.CreditRoleTune || c.Role == domain.CreditRoleLyricsAndTune {
 			tune = append(tune, c.Attribution)
 		}
 	}

@@ -33,10 +33,11 @@ type PieceAlias struct {
 
 // PieceCredit is the JSON representation of a credit of a piece.
 type PieceCredit struct {
-	Role        domain.CreditRole  `json:"role"`
-	Attribution domain.Attribution `json:"attribution"`
-	Certainty   domain.Certainty   `json:"certainty"`
-	Person      *PersonSummary     `json:"person"`
+	Role          domain.CreditRole  `json:"role"`
+	Attribution   domain.Attribution `json:"attribution"`
+	Certainty     domain.Certainty   `json:"certainty"`
+	Person        *PersonSummary     `json:"person"`
+	NewPersonName *string            `json:"new_person_name"`
 }
 
 // PieceLink is the JSON representation of a link attached to a piece.
@@ -103,10 +104,11 @@ func pieceAliasFromDomain(a domain.PieceAlias) PieceAlias {
 
 func pieceCreditFromDomain(c domain.PieceCredit) PieceCredit {
 	return PieceCredit{
-		Role:        c.Role,
-		Attribution: c.Attribution,
-		Certainty:   c.Certainty,
-		Person:      optional(c.Person, personSummaryFromDomain),
+		Role:          c.Role,
+		Attribution:   c.Attribution,
+		Certainty:     c.Certainty,
+		Person:        optional(c.Person, personSummaryFromDomain),
+		NewPersonName: c.NewPersonName,
 	}
 }
 

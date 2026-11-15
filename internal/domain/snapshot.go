@@ -251,10 +251,14 @@ func NewPieceSnapshot(d PieceDocument, vis SnapshotVisibility) PieceSnapshot {
 }
 
 // credit returns the view of a credit, or false if it is a named credit to a person who is not public.
-// A credit that is not named never shows a person.
+// A credit that is not named never shows a person, and one to a person not yet on the site shows their name.
 func (v SnapshotVisibility) credit(c DocCredit) (PieceCredit, bool) {
 	credit := PieceCredit{Role: c.Role, Attribution: c.Attribution, Certainty: c.Certainty}
 	if c.Attribution != AttributionNamed {
+		return credit, true
+	}
+	if c.NewPersonName != nil {
+		credit.NewPersonName = c.NewPersonName
 		return credit, true
 	}
 	if c.PersonID == nil {

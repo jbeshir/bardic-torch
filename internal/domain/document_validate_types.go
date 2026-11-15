@@ -47,13 +47,17 @@ func (p *problems) pieceTerms(terms map[int64]TermInfo, termIDs []int64) {
 }
 
 // credits checks a piece's credits: a person exactly when the attribution is named
-// (chk_piece_credits_named_person).
+// (chk_piece_credits_named_person), given by person_slug or, for one not yet on the site, new_person_name, not both.
 func (p *problems) credits(credits []DocCredit) {
 	for k, c := range credits {
 		path := fmt.Sprintf("credits[%d]", k)
 		named := c.Attribution == AttributionNamed
-		p.check(!named || c.PersonID != nil, path+".person_slug", ProblemRequired)
+		p.check(!named || c.PersonID != nil || c.NewPersonName != nil, path+".person_slug", ProblemRequired)
 		p.check(named || c.PersonID == nil, path+".person_slug", ProblemInvalid)
+		if c.NewPersonName != nil {
+			p.check(named && c.PersonID == nil, path+".new_person_name", ProblemInvalid)
+			p.name(*c.NewPersonName, path+".new_person_name")
+		}
 	}
 }
 

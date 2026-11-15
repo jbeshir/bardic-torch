@@ -16,8 +16,8 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
 
-// Counts are what the import holds, with two counts of what it was read from: the entries of the Collections page
-// and the pieces that had inline lyrics.
+// Counts are what the import holds, with three counts of what it was read from: the entries of the Collections page,
+// the pieces that had inline lyrics and the credits merged into lyrics and tune credits.
 type Counts struct {
 	PiecesByKind       map[string]int
 	StubPieces         int
@@ -30,6 +30,8 @@ type Counts struct {
 	Events             int
 	Links              int
 	Revisions          int
+	// MergedCredits is how many pairs of a person's lyrics and tune credits became one lyrics and tune credit.
+	MergedCredits int
 }
 
 // Build maps a parsed wiki onto the catalogue: every term, collection, event, person and piece with its document,
@@ -72,6 +74,8 @@ type builder struct {
 	pieceIDs      map[string]int64
 	links         map[string]domain.DocLink
 	stubs         []mediawiki.StubPerson
+	// mergedCredits counts the pairs of credits mergeLyricsAndTune merged.
+	mergedCredits int
 }
 
 type pageKey struct {
@@ -361,6 +365,7 @@ func (b *builder) counts() Counts {
 		}
 	}
 	c.Revisions = int(b.rev)
+	c.MergedCredits = b.mergedCredits
 
 	return c
 }

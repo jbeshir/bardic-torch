@@ -61,7 +61,7 @@ func TestEditorPieceDocument_JSONAndReferences(t *testing.T) {
 	e := fullPieceDocument().ToEditor(editorSlugs())
 	data, err := json.Marshal(e.Credits[0])
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"person_slug":"wren","role":"lyrics","attribution":"named","certainty":"probable"}`,
+	assert.JSONEq(t, `{"person_slug":"wren","new_person_name":null,"role":"lyrics","attribution":"named","certainty":"probable"}`,
 		string(data))
 	assert.Equal(t, domain.SlugReferences{Persons: []string{wrenSlug, wrenSlug, ashSlug},
 		Terms: []string{"drinking-songs", "merry"}, Events: []string{"revel"}}, e.References())

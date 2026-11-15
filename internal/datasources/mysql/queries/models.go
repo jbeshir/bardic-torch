@@ -815,9 +815,10 @@ func (e PieceCreditsCertainty) Valid() bool {
 type PieceCreditsRole string
 
 const (
-	PieceCreditsRoleLyrics PieceCreditsRole = "lyrics"
-	PieceCreditsRoleTune   PieceCreditsRole = "tune"
-	PieceCreditsRoleAuthor PieceCreditsRole = "author"
+	PieceCreditsRoleLyrics        PieceCreditsRole = "lyrics"
+	PieceCreditsRoleTune          PieceCreditsRole = "tune"
+	PieceCreditsRoleLyricsAndTune PieceCreditsRole = "lyrics_and_tune"
+	PieceCreditsRoleAuthor        PieceCreditsRole = "author"
 )
 
 func (e *PieceCreditsRole) Scan(src interface{}) error {
@@ -859,6 +860,7 @@ func (e PieceCreditsRole) Valid() bool {
 	switch e {
 	case PieceCreditsRoleLyrics,
 		PieceCreditsRoleTune,
+		PieceCreditsRoleLyricsAndTune,
 		PieceCreditsRoleAuthor:
 		return true
 	}

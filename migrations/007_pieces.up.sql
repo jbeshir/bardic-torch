@@ -52,7 +52,7 @@ CREATE TABLE `piece_credits` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `piece_id` BIGINT UNSIGNED NOT NULL,
     `person_id` BIGINT UNSIGNED NULL,
-    `role` ENUM('lyrics', 'tune', 'author') NOT NULL,
+    `role` ENUM('lyrics', 'tune', 'lyrics_and_tune', 'author') NOT NULL,
     `attribution` ENUM('named', 'traditional', 'unknown', 'anonymous', 'various') NOT NULL DEFAULT 'named',
     `certainty` ENUM('certain', 'probable', 'possible', 'disputed') NOT NULL DEFAULT 'certain',
     `position` SMALLINT UNSIGNED NOT NULL,

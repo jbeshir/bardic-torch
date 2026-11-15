@@ -23,13 +23,7 @@
       "credits": [
         {
           "person_id": 1,
-          "role": "lyrics",
-          "attribution": "named",
-          "certainty": "certain"
-        },
-        {
-          "person_id": 1,
-          "role": "tune",
+          "role": "lyrics_and_tune",
           "attribution": "named",
           "certainty": "certain"
         }

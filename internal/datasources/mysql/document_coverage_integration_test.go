@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -173,8 +174,9 @@ term_ancestors         ! derived from terms.parent_id by the importer and when a
 contact_requests       ! moderation workflow: takedown, correction and link-report requests
 `
 
-// schemaVersionField is the field every document has and no column stores: it describes the stored snapshot.
-const schemaVersionField = "schema_version"
+// unstoredFields are the document fields no column stores: schema_version, which every document has, describes the
+// stored snapshot, and approval links a credit's new_person_name to a person, stored as its person_id.
+var unstoredFields = []string{"schema_version", "credits.new_person_name"}
 
 type documentCoverage struct {
 	doc     any
@@ -321,13 +323,12 @@ func checkColumns(t *testing.T, coverage documentCoverage, paths []string,
 	return stored, owned
 }
 
-// checkFieldsStored checks that every document field other than schema_version is stored by exactly one column,
-// and schema_version by none.
+// checkFieldsStored checks that every document field is stored by exactly one column, but unstoredFields by none.
 func checkFieldsStored(t *testing.T, paths []string, stored map[string]int) {
 	t.Helper()
 
 	for _, path := range paths {
-		if path == schemaVersionField {
+		if slices.Contains(unstoredFields, path) {
 			assert.Zero(t, stored[path], "document field %s is stored by a column", path)
 		} else {
 			assert.Equal(t, 1, stored[path], "document field %s must be stored by exactly one column", path)

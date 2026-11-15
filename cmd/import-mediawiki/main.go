@@ -129,6 +129,7 @@ func printCounts(w io.Writer, c importer.Counts) error {
 		fmt.Sprintf("terms %d; collections %d (of %d entries); events %d", c.Terms, c.Collections,
 			c.CollectionEntries, c.Events),
 		fmt.Sprintf("links %d; revisions %d", c.Links, c.Revisions),
+		fmt.Sprintf("lyrics and tune credits merged %d into %d", 2*c.MergedCredits, c.MergedCredits),
 	}
 	_, err := fmt.Fprintln(w, strings.Join(lines, "\n"))
 

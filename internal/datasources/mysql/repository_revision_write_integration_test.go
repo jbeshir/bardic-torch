@@ -296,3 +296,48 @@ func TestDuplicateCandidates_PrefersNoPage(t *testing.T) {
 	require.GreaterOrEqual(t, i, 0)
 	assert.True(t, candidates[i].PrefersNoPage)
 }
+
+// Approving a piece whose credits name persons not yet on the site links each, in the approval, to the public
+// person with the same duplicate key (here by an alias, and a person who prefers no page, who is named without a
+// link), or else to a new stub person, made once however many credits name them and never a person who is not
+// public. The revision's snapshot then holds the linked credits.
+func TestApprove_NewPersonCreditsMatchOrCreateStubs(t *testing.T) {
+	fx := newWriteFixture(t)
+	wren := fx.c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Wren of the Vale",
+		Aliases: []domain.DocPersonAlias{{Name: "Wren Songsmith", Kind: domain.PersonAliasKindSCA}}}})
+	quiet := fx.c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: quietName,
+		Status: domain.PersonStatusPrefersNoPage}})
+	pending := fx.c.Person(catalogtest.Person{Doc: domain.PersonDocument{Name: "Hollis of the Fens"}, Unapproved: true})
+	named := func(name string, role domain.CreditRole) domain.DocCredit {
+		return domain.DocCredit{NewPersonName: &name, Role: role, Attribution: domain.AttributionNamed,
+			Certainty: domain.CertaintyCertain}
+	}
+	doc := pieceDoc(lanternTitle)
+	doc.Credits = []domain.DocCredit{named("wren  songsmith!", domain.CreditRoleLyrics),
+		named(quietName, domain.CreditRoleTune), named("Hollis of the Fens", domain.CreditRoleAuthor),
+		named("Hollis of the fens", domain.CreditRoleLyricsAndTune)}
+	persons := fx.count(t, "SELECT COUNT(*) FROM persons")
+
+	id := fx.submit(t, 0, doc, false)
+	require.NoError(t, fx.repo.ApproveRevision(t.Context(), id, heronID, false, submittedAt))
+
+	piece, err := fx.repo.GetPublicPiece(t.Context(), "the-brass-lantern")
+	require.NoError(t, err)
+	require.Len(t, piece.Credits, 4)
+	assert.Equal(t, wren.Slug, piece.Credits[0].Person.Slug)
+	assert.Equal(t, quiet.Slug, piece.Credits[1].Person.Slug)
+	assert.True(t, piece.Credits[1].Person.NoLink, "a person who prefers no page is named without a link")
+	stub := piece.Credits[2].Person
+	assert.NotEqual(t, pending.Slug, stub.Slug, "a person who is not public is never matched")
+	assert.Equal(t, *stub, *piece.Credits[3].Person, "one stub for both credits")
+	assert.Equal(t, persons+1, fx.count(t, "SELECT COUNT(*) FROM persons"))
+	person, err := fx.repo.GetPublicPerson(t.Context(), stub.Slug)
+	require.NoError(t, err)
+	assert.Equal(t, []any{"Hollis of the Fens", domain.PersonKindCommunityBard, true},
+		[]any{person.Name, person.Kind, person.IsStub})
+	assert.Equal(t, 1, fx.count(t, "SELECT COUNT(*) FROM revisions r JOIN persons p ON p.current_revision_id = r.id "+
+		"WHERE p.slug = ? AND r.status = 'approved' AND r.author_user_id = ? AND r.reviewer_user_id = ? "+
+		"AND r.summary = ?", stub.Slug, wrenID, heronID, domain.NewPersonSummary))
+	assert.Equal(t, 0, fx.count(t, "SELECT COUNT(*) FROM revisions WHERE id = ? AND "+
+		"JSON_CONTAINS_PATH(snapshot_json, 'one', '$.credits[*].new_person_name')", id))
+}

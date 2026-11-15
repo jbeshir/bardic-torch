@@ -276,6 +276,8 @@ const (
 	CreditRoleLyrics CreditRole = "lyrics"
 	// CreditRoleTune is the tune.
 	CreditRoleTune CreditRole = "tune"
+	// CreditRoleLyricsAndTune is the lyrics and the tune together, by one person. It counts as both.
+	CreditRoleLyricsAndTune CreditRole = "lyrics_and_tune"
 	// CreditRoleAuthor is the whole of a text, such as a poem or story.
 	CreditRoleAuthor CreditRole = "author"
 )

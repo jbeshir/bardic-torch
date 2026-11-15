@@ -80,12 +80,15 @@ type PieceAlias struct {
 	Kind PieceAliasKind
 }
 
-// PieceCredit is a credit of a piece. Person is set exactly for a named credit.
+// PieceCredit is a credit of a piece. Person is set exactly for a named credit, but for one with NewPersonName.
 type PieceCredit struct {
 	Role        CreditRole
 	Attribution Attribution
 	Certainty   Certainty
 	Person      *PersonSummary
+	// NewPersonName is the name of a person not yet on the site, of a named credit in a view of a revision not yet
+	// approved, which has no Person.
+	NewPersonName *string
 }
 
 // Link is a visible link attached to a piece or person, once however many roles it is attached with.

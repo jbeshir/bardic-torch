@@ -47,6 +47,8 @@ func TestPieceDocument_Validate(t *testing.T) {
 			problem("credits[0].person_slug", "required")},
 		"person needs named": {func(d *domain.PieceDocument) { d.Credits[1].PersonID = ptr[int64](5) },
 			problem("credits[1].person_slug", "invalid")},
+		"person and new person": {func(d *domain.PieceDocument) { d.Credits[0].NewPersonName = ptr("Hollis") },
+			problem("credits[0].new_person_name", "invalid")},
 		"unknown term": {func(d *domain.PieceDocument) { d.TermIDs[0] = 99 },
 			problem("term_slugs[0]", "unknown_reference")},
 		"affiliation term": {func(d *domain.PieceDocument) { d.TermIDs[1] = 11 },

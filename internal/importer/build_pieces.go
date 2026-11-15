@@ -149,7 +149,8 @@ func (b *builder) otherForm(base, form string) (mediawiki.PieceRecord, bool) {
 }
 
 // credits are a piece's credits. A named credit whose person was not resolved, which the schema cannot hold, is
-// imported as unknown.
+// imported as unknown. A person's lyrics and tune credits of one certainty become one lyrics and tune credit, in the
+// place of the first (mergeLyricsAndTune).
 func (b *builder) credits(credits []mediawiki.PieceCredit) []domain.DocCredit {
 	out := []domain.DocCredit{}
 	for _, c := range credits {
@@ -164,7 +165,48 @@ func (b *builder) credits(credits []mediawiki.PieceCredit) []domain.DocCredit {
 		out = append(out, d)
 	}
 
+	return b.mergeLyricsAndTune(out)
+}
+
+// mergeLyricsAndTune replaces each pair of a person's lyrics and tune credits with the same attribution and certainty
+// by one lyrics and tune credit, where the first of the pair was, and counts the pairs in b.mergedCredits.
+func (b *builder) mergeLyricsAndTune(credits []domain.DocCredit) []domain.DocCredit {
+	out := make([]domain.DocCredit, 0, len(credits))
+	merged := make([]bool, len(credits))
+	for k, c := range credits {
+		if merged[k] {
+			continue
+		}
+		if j := lyricsAndTunePair(credits, merged, k); j >= 0 {
+			merged[j] = true
+			c.Role = domain.CreditRoleLyricsAndTune
+			b.mergedCredits++
+		}
+		out = append(out, c)
+	}
+
 	return out
+}
+
+// lyricsAndTunePair is the index of the first credit after credits[k], not yet merged, that pairs with it: if
+// credits[k] is a person's lyrics credit, their tune credit of the same attribution and certainty, and the other way
+// round. It is -1 if there is none.
+func lyricsAndTunePair(credits []domain.DocCredit, merged []bool, k int) int {
+	c := credits[k]
+	other := map[domain.CreditRole]domain.CreditRole{
+		domain.CreditRoleLyrics: domain.CreditRoleTune, domain.CreditRoleTune: domain.CreditRoleLyrics}[c.Role]
+	if c.PersonID == nil || other == "" {
+		return -1
+	}
+	for j := k + 1; j < len(credits); j++ {
+		o := credits[j]
+		if !merged[j] && o.Role == other && o.PersonID != nil && *o.PersonID == *c.PersonID &&
+			o.Attribution == c.Attribution && o.Certainty == c.Certainty {
+			return j
+		}
+	}
+
+	return -1
 }
 
 func (b *builder) stubPiece(sp mediawiki.StubPiece) domain.ImportedPiece {

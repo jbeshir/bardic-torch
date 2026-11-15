@@ -75,7 +75,7 @@ var (
 		PieceAliasKindAltTitle, PieceAliasKindSubtitle, PieceAliasKindRedirect,
 	}
 	creditRoleValues = []CreditRole{
-		CreditRoleLyrics, CreditRoleTune, CreditRoleAuthor,
+		CreditRoleLyrics, CreditRoleTune, CreditRoleLyricsAndTune, CreditRoleAuthor,
 	}
 	attributionValues = []Attribution{
 		AttributionNamed, AttributionTraditional, AttributionUnknown, AttributionAnonymous, AttributionVarious,

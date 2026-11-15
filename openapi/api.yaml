@@ -2765,10 +2765,12 @@ components:
                 name: Wren of the Vale
                 kind: community_bard
                 is_stub: false
+              new_person_name: null
             - role: tune
               attribution: traditional
               certainty: probable
               person: null
+              new_person_name: null
           links:
             - url: https://video.example.org/watch/kettle
               title: The Copper Kettle at Midwinter Revel
@@ -2812,9 +2814,11 @@ components:
 
     PieceCredit:
       type: object
-      description: A credit of a piece. `person` is set exactly when `attribution` is `named`.
+      description: |
+        A credit of a piece. A named credit has `person`, except in a revision view of a pending or rejected
+        revision whose credit names a person not yet on the site, which has `new_person_name` instead.
       additionalProperties: false
-      required: [role, attribution, certainty, person]
+      required: [role, attribution, certainty, person, new_person_name]
       properties:
         role:
           $ref: "#/components/schemas/CreditRole"
@@ -2827,6 +2831,13 @@ components:
           oneOf:
             - $ref: "#/components/schemas/PersonSummary"
             - type: "null"
+        new_person_name:
+          description: |
+            The name of a person not yet on the site, as the revision gives it, until the revision is approved.
+            Always null outside revision views.
+          oneOf:
+            - type: string
+            - type: "null"
       examples:
         - role: lyrics
           attribution: named
@@ -2836,6 +2847,7 @@ components:
             name: Wren of the Vale
             kind: community_bard
             is_stub: false
+          new_person_name: null
 
     PersonLink:
       type: object
@@ -3711,8 +3723,8 @@ components:
 
     CreditRole:
       type: string
-      description: What a credit credits.
-      enum: [lyrics, tune, author]
+      description: What a credit credits. `lyrics_and_tune` is one person's words and tune together, and counts as both.
+      enum: [lyrics, tune, lyrics_and_tune, author]
       examples:
         - lyrics
 
@@ -4027,6 +4039,7 @@ components:
                 attribution: traditional
                 certainty: probable
                 person: null
+                new_person_name: null
             links: []
           base_snapshot:
             title: The Copper Kettle
@@ -5342,13 +5355,24 @@ components:
           type: array
           items:
             type: object
-            description: A credit of the piece to a person or to no one in particular.
+            description: |
+              A credit of the piece to a person or to no one in particular. A named credit has either `person_slug`
+              or `new_person_name`, not both. When the revision is approved, a new person's name is linked to the
+              public person it matches (as the duplicate check folds names), or else to a new stub person of that
+              name.
             additionalProperties: false
-            required: [person_slug, role, attribution, certainty]
+            required: [person_slug, new_person_name, role, attribution, certainty]
             properties:
               person_slug:
                 oneOf:
                   - $ref: "#/components/schemas/EditorSlug"
+                  - type: "null"
+              new_person_name:
+                description: The name of a person not yet on the site, for a named credit without `person_slug`.
+                oneOf:
+                  - type: string
+                    examples:
+                      - Hollis of the Fens
                   - type: "null"
               role:
                 $ref: "#/components/schemas/CreditRole"

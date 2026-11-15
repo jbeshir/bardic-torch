@@ -74,7 +74,8 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		domain.ConservationStatusRestricted)
 	pieceAliasKinds := enumColumnType(domain.PieceAliasKindAltTitle, domain.PieceAliasKindSubtitle,
 		domain.PieceAliasKindRedirect)
-	creditRoles := enumColumnType(domain.CreditRoleLyrics, domain.CreditRoleTune, domain.CreditRoleAuthor)
+	creditRoles := enumColumnType(domain.CreditRoleLyrics, domain.CreditRoleTune, domain.CreditRoleLyricsAndTune,
+		domain.CreditRoleAuthor)
 	attributions := enumColumnType(domain.AttributionNamed, domain.AttributionTraditional,
 		domain.AttributionUnknown, domain.AttributionAnonymous, domain.AttributionVarious)
 	certainties := enumColumnType(domain.CertaintyCertain, domain.CertaintyProbable, domain.CertaintyPossible,

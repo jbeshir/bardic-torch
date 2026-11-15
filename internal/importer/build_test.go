@@ -275,3 +275,31 @@ func TestBuild_PoemAndSongSameText(t *testing.T) {
 		assert.Equal(t, sameText, strings.Contains(notes(song), "The same text as "+poem+", in another form."), songLead)
 	}
 }
+
+func TestMergeLyricsAndTune_OnlyOnePersonsMatchingPair(t *testing.T) {
+	wrenID, rowanID := int64(1), int64(2)
+	credit := func(id *int64, role domain.CreditRole, certainty domain.Certainty) domain.DocCredit {
+		attribution := domain.AttributionNamed
+		if id == nil {
+			attribution = domain.AttributionTraditional
+		}
+		return domain.DocCredit{PersonID: id, Role: role, Attribution: attribution, Certainty: certainty}
+	}
+	b := &builder{}
+
+	got := b.mergeLyricsAndTune([]domain.DocCredit{
+		credit(&wrenID, domain.CreditRoleTune, domain.CertaintyCertain),
+		credit(&rowanID, domain.CreditRoleLyrics, domain.CertaintyCertain),
+		credit(nil, domain.CreditRoleTune, domain.CertaintyCertain),
+		credit(&wrenID, domain.CreditRoleLyrics, domain.CertaintyCertain),
+		credit(&rowanID, domain.CreditRoleTune, domain.CertaintyProbable),
+	})
+
+	assert.Equal(t, []domain.DocCredit{
+		credit(&wrenID, domain.CreditRoleLyricsAndTune, domain.CertaintyCertain),
+		credit(&rowanID, domain.CreditRoleLyrics, domain.CertaintyCertain),
+		credit(nil, domain.CreditRoleTune, domain.CertaintyCertain),
+		credit(&rowanID, domain.CreditRoleTune, domain.CertaintyProbable),
+	}, got, "Wren's pair merges in the first one's place; Rowan's certainties differ")
+	assert.Equal(t, 1, b.mergedCredits)
+}

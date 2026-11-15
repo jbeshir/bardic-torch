@@ -84,5 +84,6 @@ func TestRun_DryRunScrubbedCounts(t *testing.T) {
 	assert.Contains(t, stdout.String(), "with inline lyrics 11")
 	assert.Contains(t, stdout.String(), "bards 48")
 	assert.Contains(t, stdout.String(), "collections 61 (of 62 entries)")
+	assert.Contains(t, stdout.String(), "lyrics and tune credits merged 212 into 106")
 	assert.NotContains(t, stdout.String(), "applied")
 }
