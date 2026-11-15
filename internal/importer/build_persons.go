@@ -18,6 +18,9 @@ const traditionalCategory = "Traditional & Folk"
 // scaPiecesCategory is the origin category of pieces written in the SCA.
 const scaPiecesCategory = "SCA Pieces"
 
+// contrafactaCategory is the origin category of pieces written to an existing tune.
+const contrafactaCategory = "Contrafacta"
+
 func (b *builder) buildPersons() {
 	links := map[mediawiki.PersonRef][]mediawiki.LinkRecord{}
 	for _, pl := range b.c.Links.Persons {

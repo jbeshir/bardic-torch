@@ -132,8 +132,7 @@ func TestGoldenAssert_FightForTheMidrealm(t *testing.T) {
 func TestGoldenAssert_Greensleeves(t *testing.T) {
 	sca := goldenPiece(t, "Greensleeves (SCA Version)")
 
-	require.NotNil(t, sca.Doc.NotesMD)
-	assert.Equal(t, "New words to the tune of Greensleeves.", *sca.Doc.NotesMD)
+	assert.Nil(t, sca.Doc.NotesMD, "the page says nothing of the tune, so neither do its notes")
 }
 
 func TestGoldenAssert_OtherPageTitleIsNoAlias(t *testing.T) {
@@ -146,13 +145,12 @@ func TestGoldenAssert_OtherPageTitleIsNoAlias(t *testing.T) {
 	}
 }
 
-// TestGoldenAssert_OtherPieceFromTitles: the report §8.1 pairs. "(SCA Version)" names its base in its notes
-// whatever the case of the base's title (the "(Poem)" and "(Song)" rules: TestBuild_PoemAndSongSameText).
-func TestGoldenAssert_OtherPieceFromTitles(t *testing.T) {
+// TestGoldenAssert_SCAVersionInPageWords: an "(SCA Version)" names its tune in the page's own words only.
+func TestGoldenAssert_SCAVersionInPageWords(t *testing.T) {
 	imp := scrubbedImport(t)
 	knight := pieceTitled(t, imp, "When A Knight Won His Spurs (SCA Version)")
 
 	require.NotNil(t, knight.Doc.NotesMD)
-	assert.True(t, strings.HasSuffix(*knight.Doc.NotesMD, "\n\nNew words to the tune of When a Knight Won His Spurs."),
-		"after the page's own notes")
+	assert.True(t, strings.HasSuffix(*knight.Doc.NotesMD,
+		"\n\n- The SCA version is a filk by Forannán Glórach of When a Knight Won His Spurs."), "the page's own line, last")
 }

@@ -1,7 +1,6 @@
 package mediawiki
 
 import (
-	"regexp"
 	"slices"
 	"strings"
 
@@ -45,8 +44,7 @@ var conservationStatuses = []conservationCategory{
 
 // PieceRecord is a piece page parsed for import. Wikitext is the page's wikitext without its inline lyrics and
 // with its markup repaired, and Parsed is that text parsed; every later step reads these, never the original.
-// Terms are the categories of the piece's terms, in order. NotConfusedWith are the pages the page says it is not to
-// be confused with (notConfusedWith).
+// Terms are the categories of the piece's terms, in order.
 type PieceRecord struct {
 	PageID   int64
 	Title    string
@@ -64,7 +62,6 @@ type PieceRecord struct {
 	Content PieceContent
 	// HadInlineLyrics is legacy_had_inline_lyrics: DropInlineLyrics dropped some of the page.
 	HadInlineLyrics bool
-	NotConfusedWith []string
 }
 
 // Conservation is the piece's conservation status: the most severe of its categories', or unassessed.
@@ -90,29 +87,10 @@ func ParsePiece(p Page, s Site) PieceRecord {
 		Titles:          pieceTitles(p, parsed, s),
 		Credits:         pieceCredits(parsed.Infoboxes, s),
 		HadInlineLyrics: hadLyrics,
-		NotConfusedWith: notConfusedWith(repaired, s),
 	}
 	r.Content = pieceContent(r, s, versionNotes(dropped))
 
 	return r
-}
-
-// confusedWith is the wording that says a page is not another, to the end of its line: "Not to be confused with
-// [[X]].".
-var confusedWith = regexp.MustCompile(`(?i)\bnot[ \t]+to[ \t]+be[ \t]+confused[ \t]+with\b[^\n]*`)
-
-// notConfusedWith are the targets, read through redirects, of the page links after confusedWith's wording.
-func notConfusedWith(wikitext string, s Site) []string {
-	var out []string
-	for _, m := range confusedWith.FindAllString(wikitext, -1) {
-		for _, l := range FindWikilinks(m) {
-			if l.Kind == WikilinkPage {
-				out = append(out, s.ResolveRedirect(l.Target))
-			}
-		}
-	}
-
-	return out
 }
 
 // primaryKind is dance_music for a dance and music infobox or a page in both Dances and Instrumental, otherwise

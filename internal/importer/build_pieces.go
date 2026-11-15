@@ -1,18 +1,11 @@
 package importer
 
 import (
-	"regexp"
 	"slices"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/mediawiki"
 )
-
-// contrafactaCategory is the origin category of pieces written to an existing tune.
-const contrafactaCategory = "Contrafacta"
-
-// formSuffix is a title that is another piece's title with a parenthetical naming its form or version.
-var formSuffix = regexp.MustCompile(`^(.+) \((SCA Version|Poem|Song)\)$`)
 
 func (b *builder) buildPieces() {
 	links := map[int64][]mediawiki.LinkRecord{}
@@ -34,7 +27,7 @@ func (b *builder) piece(p mediawiki.PieceRecord, links []mediawiki.LinkRecord) d
 	title := plain(p.Title)
 	doc := domain.PieceDocument{SchemaVersion: domain.DocumentSchemaVersion,
 		Title: title, Kind: p.Kind, ConservationStatus: p.Conservation(),
-		NotesMD:          notes(c.NotesMD, b.otherPiece(p)),
+		NotesMD:          free(c.NotesMD),
 		VersionNotesMD:   free(c.VersionNotesMD),
 		LicensingStatus:  c.LicensingStatus,
 		LicensingNotesMD: free(c.LicensingNotesMD),
@@ -72,76 +65,6 @@ func (b *builder) pieceTerms(p mediawiki.PieceRecord) []int64 {
 	}
 
 	return out
-}
-
-// otherPiece is a sentence naming the piece whose title a piece's title is with a parenthetical form, the two
-// titles compared as the collation does ("When A Knight …" is "When a Knight …"), or empty: an "(SCA Version)" is a
-// contrafactum of it if the piece is a contrafactum, else a variant, and a "(Poem)" or "(Song)" is the same text in
-// another form. With no piece of the bare title, a "(Poem)" and a "(Song)" of the same title are the same text in
-// another form, said once, on the later page. Neither is said to be the same text as the other when either page
-// says it is not to be confused with the other ("Not to be confused with [[Ode to Commius (Poem)]]").
-func (b *builder) otherPiece(p mediawiki.PieceRecord) string {
-	m := formSuffix.FindStringSubmatch(p.Title)
-	if m == nil {
-		return ""
-	}
-	id := b.pieceIDs[p.Title]
-	base, ok := b.pieceByKey(domain.CollationKey(m[1]))
-	if !ok && m[2] != "SCA Version" {
-		base, ok = b.otherForm(m[1], m[2])
-		if ok && b.pieceIDs[base.Title] > id {
-			return ""
-		}
-	}
-	if !ok || b.pieceIDs[base.Title] == id {
-		return ""
-	}
-	other := plain(base.Title)
-	switch {
-	case m[2] != "SCA Version":
-		if notConfused(p, base) {
-			return ""
-		}
-
-		return "The same text as " + other + ", in another form."
-	case hasTerm(p, contrafactaCategory):
-		return "New words to the tune of " + other + "."
-	default:
-		return "A version of " + other + "."
-	}
-}
-
-// notConfused reports whether either piece says it is not to be confused with the other, the titles compared as the
-// collation does.
-func notConfused(a, b mediawiki.PieceRecord) bool {
-	says := func(p, other mediawiki.PieceRecord) bool {
-		return slices.ContainsFunc(p.NotConfusedWith, func(t string) bool {
-			return domain.CollationKey(t) == domain.CollationKey(other.Title)
-		})
-	}
-
-	return says(a, b) || says(b, a)
-}
-
-// pieceByKey is the first piece page, in page order, whose title has a collation key.
-func (b *builder) pieceByKey(key string) (mediawiki.PieceRecord, bool) {
-	for _, p := range b.c.Pieces {
-		if domain.CollationKey(p.Title) == key {
-			return p, true
-		}
-	}
-
-	return mediawiki.PieceRecord{}, false
-}
-
-// otherForm is the piece page of a "(Poem)" or "(Song)" title's other form: "X (Song)" for "X (Poem)".
-func (b *builder) otherForm(base, form string) (mediawiki.PieceRecord, bool) {
-	other := "Song"
-	if form == other {
-		other = "Poem"
-	}
-
-	return b.pieceByKey(domain.CollationKey(base + " (" + other + ")"))
 }
 
 // credits are a piece's credits. A named credit whose person was not resolved, which the schema cannot hold, is

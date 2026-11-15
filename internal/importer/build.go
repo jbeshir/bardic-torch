@@ -209,19 +209,6 @@ func free(s string) *string {
 	return &out
 }
 
-// notes is free of the non-empty paragraphs joined as Markdown paragraphs: a page's notes, then the sentences that
-// say what the catalogue has no field for.
-func notes(paragraphs ...string) *string {
-	var kept []string
-	for _, p := range paragraphs {
-		if p != "" {
-			kept = append(kept, p)
-		}
-	}
-
-	return free(strings.Join(kept, "\n\n"))
-}
-
 // plain is a public name, title or text, trimmed, in NFC and without control characters.
 func plain(s string) string {
 	return norm.NFC.String(strings.TrimSpace(domain.WithoutControlCharacters(s)))

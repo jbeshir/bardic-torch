@@ -5,7 +5,8 @@ changed); revised 2026-11-12 (monthly link check, link reports as contact reques
 for licensing only, no email withholding in the importer); revised 2026-11-13 (trimmed the data model to what the
 wiki fills); revised 2026-11-15 (content fidelity: §2 and the help pages follow the original wiki's policy and
 wording, except for the three decisions in §2.0; four importer guesses removed, §7); revised 2026-11-15 (the
-owners' decisions on the last open questions: §2.1, §2.3, §4.1).
+owners' decisions on the last open questions: §2.1, §2.3, §4.1); revised 2026-11-15 (text provenance: the
+importer writes no sentence of its own into notes, §7).
 This plan is the input every build pipeline reads.
 
 **Proportion is the main quality bar.** The site holds about 142 pieces and 48 bards, with two moderators (John
@@ -309,8 +310,7 @@ deduplicated by normalised URL; parse performances, keeping their words verbatim
 link markup), with venue pages and the names performances give after "at" as events, and no uploader; turn redirects
 to piece pages into aliases and red links into stubs (a works-list red link that is a piece page's title but for
 letter case is that piece, not a stub); put into a piece's notes its Timeline of Text Sources section (under its
-heading), a sentence naming the other piece when its title is another piece's with "(Poem)", "(Song)" or "(SCA
-Version)" (for "(Poem)" and "(Song)", not when either page says it is "not to be confused with" the other); give
+heading), and no sentence of the importer's own (a page relates two pieces only in its own words); give
 the Instrumental term (§2.1) to every page in the Instrumental category; **drop inline lyrics** (every `<poem>` block, and the lines without a link of a Lyrics or Text section when there are four
 or more; fewer are version notes), setting `legacy_had_inline_lyrics`; and write everything as approved `import`
 revisions crediting wiki contributors.
