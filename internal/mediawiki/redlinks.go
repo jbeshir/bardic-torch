@@ -59,7 +59,8 @@ type RedLinkClass string
 
 // The red link classes, in the order a red link with several uses is classified by.
 const (
-	// RedLinkWork is a work a bard page lists: a stub piece credited to the bard (StubPiece).
+	// RedLinkWork is a work a bard page lists: a stub piece credited to the bard (StubPiece), or the piece page its
+	// title is but for letter case.
 	RedLinkWork RedLinkClass = "work"
 	// RedLinkCredit is a name an infobox credits: a stub person, the person the name matches, or a pseudo-bard
 	// (Traditional & Folk) that is an attribution.
@@ -134,7 +135,8 @@ func ClassifyRedLinks(s Site, pieces []PieceRecord, bards []BardRecord) []RedLin
 	return out
 }
 
-// redLinkUses are the page link targets of the imported pages by how they use them: works listed with no page,
+// redLinkUses are the page link targets of the imported pages by how they use them: works listed (a red one is a
+// stub piece, or the piece its title is but for letter case),
 // credited names, persons named in prose and performers.
 func redLinkUses(pieces []PieceRecord, bards []BardRecord) map[RedLinkClass]map[string]bool {
 	uses := map[RedLinkClass]map[string]bool{}
@@ -156,9 +158,7 @@ func redLinkUses(pieces []PieceRecord, bards []BardRecord) map[RedLinkClass]map[
 	}
 	for _, b := range bards {
 		for _, w := range b.Works {
-			if !w.Exists {
-				uses[RedLinkWork][w.Title] = true
-			}
+			uses[RedLinkWork][w.Title] = true
 		}
 		pageLinkUses(uses, b.Parsed, b.Wikitext)
 	}

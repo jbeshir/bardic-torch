@@ -29,8 +29,8 @@ type PieceCredit struct {
 }
 
 // StubPiece is a work a bard page lists that has no page: imported as a stub song credited to each bard listing it
-// (role lyrics, certainty possible). A work whose title differs from a page only by letter case is a different page
-// for MediaWiki, so a separate stub.
+// (role lyrics, certainty probable). A work whose title is a piece page's but for letter case is that piece, not a
+// stub (works).
 type StubPiece struct {
 	Title   string
 	Credits []PieceCredit

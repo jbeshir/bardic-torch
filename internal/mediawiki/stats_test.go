@@ -46,7 +46,7 @@ func Stats(c Corpus) CorpusStats {
 	}
 	for _, b := range c.People.Bards {
 		for _, w := range b.Works {
-			if !w.Exists {
+			if !c.Site.HasPage(w.Title) {
 				st.WorksWithoutPage++
 			}
 		}

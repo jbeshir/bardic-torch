@@ -120,15 +120,17 @@ func TestUnion_WorksListMissingPageBecomesStub(t *testing.T) {
 	}
 }
 
-func TestUnion_CaseVariantIsSeparateStub(t *testing.T) {
+func TestUnion_WorksListCaseVariantIsThePiece(t *testing.T) {
 	w := standardWiki()
 	addPiece(w, "My Song is My Own", nil)
 	addBard(w, ash, songsSection, "* [[My Song Is My Own]]")
 
-	people, _ := peopleOf(w)
+	people, pieces := peopleOf(w)
 
-	require.Len(t, people.StubPieces, 1)
-	assert.Equal(t, "My Song Is My Own", people.StubPieces[0].Title)
+	assert.Empty(t, people.StubPieces)
+	credits := people.Credits[pieces["My Song is My Own"].PageID]
+	require.Len(t, credits, 1)
+	assert.Equal(t, PersonRef(ash), credits[0].Person)
 }
 
 func TestRedLinks_Keys(t *testing.T) {

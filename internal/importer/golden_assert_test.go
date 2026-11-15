@@ -129,15 +129,6 @@ func TestGoldenAssert_FightForTheMidrealm(t *testing.T) {
 	assert.Empty(t, p.Doc.Aliases, "the infobox's other page title is not an alias")
 }
 
-func TestGoldenAssert_MyThingIsMyOwn(t *testing.T) {
-	p := goldenPiece(t, "My Thing is My Own")
-
-	imp := scrubbedImport(t)
-	stub := pieceTitled(t, imp, "My Thing Is My Own")
-	assert.True(t, stub.Doc.IsStub, "the case variant is a separate stub")
-	assert.NotEqual(t, p.ID, stub.ID)
-}
-
 func TestGoldenAssert_Greensleeves(t *testing.T) {
 	sca := goldenPiece(t, "Greensleeves (SCA Version)")
 

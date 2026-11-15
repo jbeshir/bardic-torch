@@ -1,6 +1,7 @@
 package mediawiki
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,8 +45,9 @@ func TestScrubbedPeople_ResearchCounts(t *testing.T) {
 			}
 		}
 	}
-	assert.Equal(t, 78, missingWorks)
-	assert.Len(t, people.StubPieces, 78)
+	// The wiki's 78 works without a page but "My Thing Is My Own", the piece "My Thing is My Own" but for case.
+	assert.Equal(t, 77, missingWorks)
+	assert.Len(t, people.StubPieces, 77)
 }
 
 func TestScrubbedPeople_Credits(t *testing.T) {
@@ -76,8 +78,9 @@ func TestScrubbedPeople_Credits(t *testing.T) {
 	assert.Equal(t, domain.AttributionTraditional, greensleeves[0].Attribution)
 	assert.Equal(t, domain.CertaintyPossible, greensleeves[1].Certainty)
 	for _, title := range []string{"My Thing is My Own", "Auld Lang Syne"} {
-		tune := credits(title)[len(credits(title))-1]
-		assert.Equal(t, domain.AttributionTraditional, tune.Attribution, title)
+		k := slices.IndexFunc(credits(title), func(c PieceCredit) bool { return c.Role == domain.CreditRoleTune })
+		require.GreaterOrEqual(t, k, 0, title)
+		assert.Equal(t, domain.AttributionTraditional, credits(title)[k].Attribution, title)
 	}
 	assert.Empty(t, credits("Black Alman"))
 

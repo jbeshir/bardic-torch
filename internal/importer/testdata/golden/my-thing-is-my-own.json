@@ -33,6 +33,12 @@
           "role": "tune",
           "attribution": "traditional",
           "certainty": "certain"
+        },
+        {
+          "person_id": 45,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "possible"
         }
       ],
       "links": [

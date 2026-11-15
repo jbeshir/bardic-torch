@@ -1,8 +1,11 @@
 package mediawiki
 
 import (
+	"slices"
 	"sort"
 	"strings"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 // Site is what parsing one page needs to know about the rest of the wiki: the classified categories, the terms
@@ -126,4 +129,30 @@ func (s Site) Venues() []Page {
 	}
 
 	return out
+}
+
+// pieceTitleFolded returns the title of the piece page whose title, or the title of one of whose redirects, is
+// title as the collation compares them (domain.CollationKey: letter case and accents aside), if exactly one piece
+// page has one: "My Thing Is My Own" finds "My Thing is My Own".
+func (s Site) pieceTitleFolded(title string) (string, bool) {
+	key := domain.CollationKey(title)
+	var found []string
+	add := func(from, piece string) {
+		if domain.CollationKey(from) == key && !slices.Contains(found, piece) {
+			if p, ok := s.pages[piece]; ok && TypePage(p) == PageTypePiece {
+				found = append(found, piece)
+			}
+		}
+	}
+	for _, p := range s.ordered {
+		add(p.Title, p.Title)
+	}
+	for from := range s.redirects {
+		add(from, s.ResolveRedirect(from))
+	}
+	if len(found) != 1 {
+		return "", false
+	}
+
+	return found[0], true
 }

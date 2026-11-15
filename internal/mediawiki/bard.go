@@ -14,8 +14,9 @@ type PersonAlias struct {
 	Kind domain.PersonAliasKind
 }
 
-// WorkEntry is a work a bard page lists: the link target as written, the page it leads to through redirects and
-// whether that page exists.
+// WorkEntry is a work a bard page lists: the link target as written, the page it leads to through redirects (or,
+// for a target with no page, the piece page its title is but for letter case: Site.pieceTitleFolded) and whether
+// that page exists.
 type WorkEntry struct {
 	Title  string
 	Target string
@@ -144,13 +145,21 @@ func affiliationProse(body string) string {
 	return strings.Join(kept, "\n")
 }
 
-// works are the page links a works section lists.
+// works are the page links a works section lists. A link to no page whose title is a piece page's but for letter
+// case ("[[My Thing Is My Own]]" for "My Thing is My Own") is to that piece, not a missing work.
 func works(sec PageSection, s Site) []WorkEntry {
 	var out []WorkEntry
 	for _, l := range sec.Content.Wikilinks {
-		if l.Kind == WikilinkPage {
-			out = append(out, WorkEntry{Title: l.Target, Target: s.ResolveRedirect(l.Target), Exists: s.HasPage(l.Target)})
+		if l.Kind != WikilinkPage {
+			continue
 		}
+		w := WorkEntry{Title: l.Target, Target: s.ResolveRedirect(l.Target), Exists: s.HasPage(l.Target)}
+		if !w.Exists {
+			if piece, ok := s.pieceTitleFolded(l.Target); ok {
+				w.Target, w.Exists = piece, true
+			}
+		}
+		out = append(out, w)
 	}
 
 	return out
