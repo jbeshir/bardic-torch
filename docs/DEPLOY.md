@@ -123,7 +123,7 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
 2. **Google Auth Platform → Branding** (the OAuth consent screen):
    - App name `Bardic Torch`, a support email, and the app logo if wanted.
    - App domain: home page `https://bardictorch.org`, privacy policy
-     `https://bardictorch.org/help/faq-for-bards` (see the note under Facebook).
+     `https://bardictorch.org/help/privacy`.
    - Authorized domains: `bardictorch.org`, and `auth0.com` if `<AUTH0_DOMAIN>` is an `auth0.com` domain.
 3. **Audience**: user type **External**.
 4. **Data Access**: add only the scopes `openid`, `.../auth/userinfo.email` and `.../auth/userinfo.profile`.
@@ -154,13 +154,12 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
    so they need no app review.
 4. **App settings → Basic**:
    - App domains: `bardictorch.org`
-   - Privacy Policy URL: `https://bardictorch.org/help/faq-for-bards`
+   - Privacy Policy URL: `https://bardictorch.org/help/privacy`
    - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/contact?kind=opt_out`
    - Category and app icon.
 
-   The site has no privacy page yet, so both point at existing FE pages (the FAQ for bards covers opting out;
-   the contact form's opt-out kind is how to ask). Change both here and on Google's consent screen if the owners
-   add a privacy page. Meta and Google need the URLs to load before the app can go Live.
+   The privacy page says how to ask for removal: through the contact form's opt-out kind, which the
+   data-deletion URL opens. Meta and Google need the URLs to load before the app can go Live.
 5. Switch **App Mode** from Development to **Live**. In Development mode only the app's own roles can log in.
 6. In Auth0, **Authentication → Social → facebook**: paste the **App ID** and **App Secret**, and tick the
    **email** and **public_profile** permissions.
