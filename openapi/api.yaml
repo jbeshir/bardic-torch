@@ -429,6 +429,14 @@ paths:
             uniqueItems: true
             items:
               $ref: "#/components/schemas/PersonRole"
+        - name: stub
+          in: query
+          required: false
+          description: |
+            Only list persons who are (`true`) or are not (`false`) stubs. Persons who prefer not to have a page
+            are stubs.
+          schema:
+            type: boolean
         - name: affiliation
           in: query
           required: false
@@ -465,10 +473,11 @@ paths:
           description: |
             A parameter is invalid: a `kind` or `role` that is not one of its values or is repeated; an
             `affiliation` that is not a slug, or that no public affiliation term has (the same `unknown
-            affiliation` error whether the term does not exist, is not approved, or is not an affiliation); a `q`
-            that is blank, longer than 200 characters or not valid UTF-8; a `letter` that is not A to Z or 0;
-            `sort=relevance` without `q`; `limit` or `offset` out of range; a scalar parameter given more than
-            once; or a query string that is not validly percent-encoded. The error code is `invalid_request`.
+            affiliation` error whether the term does not exist, is not approved, or is not an affiliation); a
+            `stub` that is not `true` or `false`; a `q` that is blank, longer than 200 characters or not valid
+            UTF-8; a `letter` that is not A to Z or 0; `sort=relevance` without `q`; `limit` or `offset` out of
+            range; a scalar parameter given more than once; or a query string that is not validly
+            percent-encoded. The error code is `invalid_request`.
           content:
             application/json:
               schema:

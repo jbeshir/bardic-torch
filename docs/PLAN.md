@@ -235,9 +235,9 @@ Monthly, from dokku cron:
 The OpenAPI spec is the exact contract.
 
 - **Public reads** (BE2): `GET /v1/pieces` (filters `term`, `kind`, `conservation_status`, `stub`, `q`, `letter`,
-  `sort`, paging; facet and letter counts), `/v1/pieces/{slug}`, `/v1/persons` (`kind`, `role`, `affiliation`,
-  `q`, `letter`, `sort`), `/v1/persons/{slug}`, `/v1/terms?facet=…`, `/v1/terms/{slug}`, `/v1/collections`,
-  `/v1/collections/{collection_id}`, `/v1/events`, `/v1/events/{slug}`, each entity's `…/history`,
+  `sort`, paging; facet and letter counts), `/v1/pieces/{slug}`, `/v1/persons` (`kind`, `role`, `stub`,
+  `affiliation`, `q`, `letter`, `sort`), `/v1/persons/{slug}`, `/v1/terms?facet=…`, `/v1/terms/{slug}`,
+  `/v1/collections`, `/v1/collections/{collection_id}`, `/v1/events`, `/v1/events/{slug}`, each entity's `…/history`,
   `/v1/revisions/{revision_id}` and `/v1/needs-work`.
 - **Signed in:** `GET|PATCH /v1/me`; `GET /v1/me/revisions[/{revision_id}]`; `GET /v1/{type}/{key}/editable`;
   `POST /v1/revisions`; `POST /v1/revisions/{id}/withdraw`.

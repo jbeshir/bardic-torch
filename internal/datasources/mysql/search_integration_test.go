@@ -140,7 +140,7 @@ var searches = catalogtest.NewShared(func(c *catalogtest.Catalog) searchFixture 
 
 // The search fixture's person slugs and names. Its persons:
 //
-//	nine-ravens  9 Ravens          0  group                                   no roles
+//	nine-ravens  9 Ravens          0  group                                   no roles; a stub
 //	ashlin-tallow Ashlin Tallow   A  historical       songwriter             northmarch
 //	hollis-fenn  Hollis Fenn       H  community_bard   singer, no page        northmarch; public alias Owl of the Moor
 //	lantern-band The Lantern Band  L  group            musician
@@ -185,7 +185,8 @@ func seedSearchPersons(c *catalogtest.Catalog, northmarch, ravenmoor catalogtest
 		AffiliationIDs: []int64{northmarch.ID},
 		Aliases:        []domain.DocPersonAlias{{Name: "Owl of the Moor", Kind: domain.PersonAliasKindSCA}},
 	}, false)
-	person(nineRavensSlug, "", "0", domain.PersonDocument{Name: "9 Ravens", Kind: domain.PersonKindGroup}, false)
+	person(nineRavensSlug, "", "0", domain.PersonDocument{Name: "9 Ravens", Kind: domain.PersonKindGroup,
+		IsStub: true}, false)
 	person("pending-rook", "", "P", domain.PersonDocument{Name: "Pending Rook", Kind: domain.PersonKindCommunityBard,
 		Roles: []domain.PersonRole{domain.PersonRoleSinger}, AffiliationIDs: []int64{northmarch.ID}}, true)
 }
@@ -525,6 +526,7 @@ func TestRepository_ListPublicPersons(t *testing.T) {
 	repo := mysql.New(db)
 	page := domain.Page{Limit: domain.DefaultPageLimit}
 	northmarch, ravenmoor := northmarchSlug, ravenmoorSlug
+	notStub := false
 	letterW := domain.Letter("W")
 	everyLetter := letters("0", 1, "A", 1, "H", 1, "L", 1, "W", 1)
 	none := domain.PersonList{Persons: []domain.PersonSummary{}, Letters: letters()}
@@ -548,6 +550,13 @@ func TestRepository_ListPublicPersons(t *testing.T) {
 			query: datasources.PersonQuery{Kinds: []domain.PersonKind{domain.PersonKindGroup, domain.PersonKindHistorical}},
 			want: domain.PersonList{Persons: personSummaries(nineRavensSlug, ashTallowSlug, lanternBandSlug), Total: 3,
 				Letters: letters("0", 1, "A", 1, "L", 1)},
+		},
+		{
+			// Not the stub or the no-page person, who is shown as one.
+			name:  "not_stub",
+			query: datasources.PersonQuery{Stub: &notStub},
+			want: domain.PersonList{Persons: personSummaries(ashTallowSlug, lanternBandSlug, wrenSlug), Total: 3,
+				Letters: letters("A", 1, "L", 1, "W", 1)},
 		},
 		{
 			// Not the no-page or the unapproved singer.

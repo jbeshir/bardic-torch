@@ -65,6 +65,9 @@ func (PersonListGet) personQuery(w http.ResponseWriter, r *http.Request) (dataso
 	if q.Roles, ok = enumListOrBadRequest(w, r, query, "role", domain.ParsePersonRole); !ok {
 		return datasources.PersonQuery{}, false
 	}
+	if q.Stub, ok = boolOrBadRequest(w, r, query, "stub"); !ok {
+		return datasources.PersonQuery{}, false
+	}
 	if q.AffiliationSlug, ok = slugParamOrBadRequest(w, r, query, "affiliation"); !ok {
 		return datasources.PersonQuery{}, false
 	}

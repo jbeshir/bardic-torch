@@ -36,6 +36,8 @@ type PersonQuery struct {
 	Kinds []domain.PersonKind
 	// Roles, if any, match a person with one of them. Persons who prefer no page match no role.
 	Roles []domain.PersonRole
+	// Stub, if set, matches persons that are, or are not, shown as stubs: marked as one, or preferring no page.
+	Stub *bool
 	// AffiliationSlug, if set, is the slug of a public affiliation term matching persons affiliated with it or
 	// any of its descendants. Persons who prefer no page match no affiliation.
 	AffiliationSlug *string

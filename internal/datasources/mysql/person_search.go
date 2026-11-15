@@ -114,6 +114,12 @@ func (ps personSearch) writeWith(s *statement) {
 		list(s, q.Kinds)
 		s.write(")")
 	}
+	if q.Stub != nil {
+		s.write(" AND (p.is_stub OR p.status = ")
+		s.arg(domain.PersonStatusPrefersNoPage)
+		s.write(") = ")
+		s.arg(*q.Stub)
+	}
 	if len(q.Roles) > 0 {
 		s.write(personListed, personHasRole)
 		list(s, q.Roles)
