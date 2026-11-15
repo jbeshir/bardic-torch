@@ -3656,8 +3656,10 @@ components:
     ConservationStatus:
       type: string
       description: |
-        How at risk a piece is of being lost. `restricted` overrides every other status and means the piece
-        should not be spread further.
+        How at risk a piece is of being lost, as the original wiki defines it: `low_risk`, in at least three places;
+        `endangered`, in less than three known places; `critically_endangered`, unable to be found, or only in part;
+        `restricted`, the creator does not allow the work to be recorded, archived or shared (never endangered or
+        critically endangered); `unassessed`, in none of these yet.
       enum: [unassessed, low_risk, endangered, critically_endangered, restricted]
       examples:
         - endangered

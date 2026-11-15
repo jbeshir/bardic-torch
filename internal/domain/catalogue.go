@@ -237,15 +237,16 @@ func ParsePieceKind(s string) (PieceKind, error) {
 type ConservationStatus string
 
 const (
-	// ConservationStatusUnassessed is not yet assessed, the default.
+	// ConservationStatusUnassessed is in none of the wiki's conservation categories yet, the default.
 	ConservationStatusUnassessed ConservationStatus = "unassessed"
-	// ConservationStatusLowRisk is widely known and recorded.
+	// ConservationStatusLowRisk exists in at least three places.
 	ConservationStatusLowRisk ConservationStatus = "low_risk"
-	// ConservationStatusEndangered is known to few people or poorly recorded.
+	// ConservationStatusEndangered exists in less than three known places, and is not restricted.
 	ConservationStatusEndangered ConservationStatus = "endangered"
-	// ConservationStatusCriticallyEndangered is close to being lost.
+	// ConservationStatusCriticallyEndangered cannot be found, or only in part, and is not restricted.
 	ConservationStatusCriticallyEndangered ConservationStatus = "critically_endangered"
-	// ConservationStatusRestricted overrides every other status and hides the prompts to help preserve the piece.
+	// ConservationStatusRestricted is a work the creator does not allow to be recorded, archived or shared; its
+	// page hides the prompts to help preserve the piece.
 	ConservationStatusRestricted ConservationStatus = "restricted"
 )
 

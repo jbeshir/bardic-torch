@@ -3,7 +3,8 @@
 **Status:** approved 2026-10-31; rewritten 2026-11-10 to a simpler scope (the commit that rewrote it lists what
 changed); revised 2026-11-12 (monthly link check, link reports as contact requests, takedowns by link ID, sources
 for licensing only, no email withholding in the importer); revised 2026-11-13 (trimmed the data model to what the
-wiki fills).
+wiki fills); revised 2026-11-15 (content fidelity: §2 and the help pages follow the original wiki's policy and
+wording, except for the three decisions in §2.0; four importer guesses removed, §7).
 This plan is the input every build pipeline reads.
 
 **Proportion is the main quality bar.** The site holds about 142 pieces and 48 bards, with two moderators (John
@@ -37,27 +38,53 @@ profiles are on the backlog.
 
 ## 2. Decisions on the research's open questions
 
-Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
+Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10; 2.1–2.3, 2.6, 2.8 and 2.14 amended
+on 2026-11-15 to follow the wiki.
 
-1. **Kind:** one `kind` per piece (song, poem, story, dance_music, instrumental; extensible). A song also played
-   as an instrumental says so in its notes.
-2. **Origin** (the wiki's "Source Category"): multi-valued and ordered, like every facet; century categories
-   become child terms of Origin; topic centuries stay under Topic.
-3. **Conservation status:** an enum (unassessed, low_risk, endangered, critically_endangered, restricted). Its
+0. **The original wiki's policy and wording win.** Where this section and the wiki disagree, the wiki is right
+   and this section is corrected; a rule here stands only where it fills a gap the wiki left. Only three decisions
+   override the wiki, because the owners made them explicitly: **links only, never lyrics** (the wiki allowed public
+   domain, Creative Commons and permitted lyrics); **edits go live after moderator review** (the wiki was open);
+   and **"prefers no page"** works as 2.8 says. The help pages carry the wiki's own text, changed only for
+   formatting, the new site's editing mechanics and these three decisions.
+
+1. **Kind** (the wiki's Genre): one `kind` per piece (song, poem, story, dance_music, instrumental; extensible). A
+   song also played as an instrumental says so in its notes. The wiki let a piece be in both Songs and
+   Instrumental, and had a Comedy genre (fooling, jesting) with no kind here; both are open questions for the
+   owners.
+2. **Origin** (the wiki's "Source Category"): generally one, as the wiki says; a contrafactum or setting piece may
+   also carry the pre-1600, traditional, SCA, SF&F or Borrowings categories the wiki allows, after the main one.
+   Stored multi-valued and ordered, like every facet; century categories become child terms of Origin; topic
+   centuries stay under Topic.
+3. **Conservation status:** an enum (unassessed, low_risk, endangered, critically_endangered, restricted) with the
+   wiki's definitions, from its Conservation Status page and status categories:
+   - **Low Risk:** the work exists in at least three places (Category:Low Risk; the Conservation Status page's
+     "at least four" is superseded, so exactly three places is Low Risk).
+   - **Endangered:** it exists in less than three known places, and is not Restricted.
+   - **Critically Endangered:** contributors are unable to find the work, or only part of it, and it is not
+     Restricted.
+   - **Restricted:** the creator does not allow the work to be recorded, archived or shared. It is never marked
+     Endangered or Critically Endangered, because those exist to help works be preserved or found, and these
+     should not be. A piece has one status, so a Restricted piece shows no other. Its page has no prompts to find,
+     add or archive copies, and offers no archived copies of its links.
+   - **unassessed** is a piece in none of the wiki's conservation categories (a gap the wiki left).
+
+   Anyone may change a status in an edit, by the conservation guide, and a moderator reviews it like any edit. Its
    history is the piece's revision history, with each revision's summary (which may be empty) as the reason for a
-   change. A moderator sets it by the conservation guide, in which exactly three places counts as Endangered.
-   Restricted overrides everything and hides the "help preserve this" prompts. The creator's statement, with a
-   link to where they made it, goes in the piece's notes, which a Restricted page shows like any other.
+   change. The creator's statement, with a link to where they made it, goes in the piece's notes, which a
+   Restricted page shows like any other.
 4. **Pseudo-bards:** "Traditional & Folk", Unknown, Anonymous and Various become an `attribution` on the credit,
    with a separate `certainty` (Disputed is a certainty). Bands and historical figures are persons with
    `kind = group | historical`.
 5. **Red-link people and missing works** are imported as public stub pages, marked "stub — help complete this".
 6. **Legal and mundane names** in bard aliases are imported as **ordinary public aliases**, as the wiki shows
-   them. There is no hidden-alias concept. Someone who wants a name removed asks, and a moderator deletes it.
+   them; as on the wiki, only what bards publish on their public-facing pages is added. There is no hidden-alias concept. Someone who wants a name removed asks, and a moderator deletes it.
 7. **Bard self-verification** is out of scope for v1. Every licensing claim needs a source URL, as on the wiki
    (R-12).
 8. **"Prefers no page"** is a person status, as on the old wiki: their page shows only their identity (name, kind
-   and status) and their notes, where their statement goes with a link to where they made it. Creating a person
+   and status) and their notes, where their statement goes with a link to where they made it. As the wiki says,
+   that statement must be public, permanent and on a page where the person is identifiable, and a request to take
+   a page down is met as best we can. Creating a person
    with a matching name or alias is blocked. Elsewhere they are named like anyone else, as plain text without a
    link to their page (decided 2026-11-12; nothing else is hidden).
 9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess.
@@ -69,7 +96,9 @@ Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10.
 13. **Licence:** imported prose stays CC BY-SA 4.0, with wiki contributors credited in each page's history and
     footer. New contributions are CC BY-SA 4.0, and the edit form says so.
 14. **Performances** are records attached to a link: performers, event, year and uploader. The original
-    description text is kept as written.
+    description text is kept as written. The importer leaves the uploader empty: the wiki's wording ("X on YouTube
+    by Y") does not tell the uploader from the artist or singer, and the description already says it. Contributors
+    can set it.
 15. **Collections** are a directory entity. Links can point at a collection with a locator ("p. 63"). Contents
     enumeration is post-v1.
 
@@ -258,15 +287,19 @@ under `testdata/wiki-dump/`, so tests need no network; it is frozen and never re
 
 **Steps:** type the pages (pieces, bards) and parse their sections; take facets from the categories
 (`taxonomy.json`); parse credits with attribution and certainty, uniting the bard signals (infobox, bard category,
-works list) and matching plain-text names by folded name, then fuzzily; extract links with role, platform,
-collection and locator, deduplicated by normalised URL; parse performances, keeping their words verbatim as plain
-text (without the wikitext link markup), with venue pages and the names performances give after "at" as events; turn
-redirects to piece pages into aliases and red links into stubs; put into a piece's notes its Timeline of Text
-Sources section (under its heading), a sentence naming the other piece when its title is another piece's with
-"(Poem)", "(Song)" or "(SCA Version)", and "Also played as an instrumental." when it is in Instrumental but its kind
-is neither instrumental nor dance_music; **drop inline lyrics** (every `<poem>` block, and the lines without a link
-of a Lyrics or Text section when there are four or more; fewer are version notes), setting
-`legacy_had_inline_lyrics`; and write everything as approved `import` revisions crediting wiki contributors.
+works list, whose links match a piece page or its redirects whatever their letter case) and matching plain-text names
+by folded name, then fuzzily (within one edit, for names of eight letters or more); a given name alone ("Dunstan")
+never matches a fuller name and becomes a stub; extract links with role, platform, collection and locator,
+deduplicated by normalised URL; parse performances, keeping their words verbatim as plain text (without the wikitext
+link markup), with venue pages and the names performances give after "at" as events, and no uploader; turn redirects
+to piece pages into aliases and red links into stubs (a works-list red link that is a piece page's title but for
+letter case is that piece, not a stub); put into a piece's notes its Timeline of Text Sources section (under its
+heading), a sentence naming the other piece when its title is another piece's with "(Poem)", "(Song)" or "(SCA
+Version)" (for "(Poem)" and "(Song)", not when either page says it is "not to be confused with" the other), and "Also
+played as an instrumental." when it is in Instrumental but its kind is neither instrumental nor dance_music; **drop
+inline lyrics** (every `<poem>` block, and the lines without a link of a Lyrics or Text section when there are four
+or more; fewer are version notes), setting `legacy_had_inline_lyrics`; and write everything as approved `import`
+revisions crediting wiki contributors.
 
 **Writing:** strings are NFC without control characters; wikitext becomes escaped Markdown with absolute http(s)
 links free of tracking parameters; summaries come from fixed templates. `CatalogueImport.Validate` checks the
@@ -284,7 +317,7 @@ back on failure and refuses a non-empty catalogue; the imported catalogue reads 
 **Read pages (FE2, built):** home (mission, non-affiliation disclaimer R-1); A–Z; faceted browse with a desktop
 sidebar and mobile drawer (R-2, R-3); search; piece page (infobox, links by role, performances, licensing card,
 notes); person, term, collection and event pages; history and diffs; help pages (contributing, FAQ for bards,
-the Bard Preference Checklist as guidance, the conservation guide, the licence).
+the Bard Preference Checklist, the conservation guide, the licence), carrying the wiki's own text (§2.0).
 
 **Editing (FE3):** an edit form per entity type with structured pickers; a credit editor (attribution,
 certainty); a link editor (role, place type, collection, locator, performances); a term picker with "suggest a
