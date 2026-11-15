@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	curlyBard        = "Wren inghen ui h’Placeholder"
-	heatherBard      = "Heather Placeholder"
-	marionAlias      = "Marion of Placeholderdale"
-	dunstanStub      = "Dunstan le Placeholder"
-	dunstanFirstWord = "Dunstan"
+	curlyBard       = "Wren inghen ui h’Placeholder"
+	heatherBard     = "Heather Placeholder"
+	marionAlias     = "Marion of Placeholderdale"
+	dunstanStub     = "Dunstan le Placeholder"
+	dunstanMisspelt = "Dunstan la Placeholder"
 )
 
 func indexOf(t *testing.T, w *wikiFixture, pages ...Page) PersonIndex {
@@ -63,30 +63,15 @@ func TestPersonIndex_DigitsAreNeverFuzzy(t *testing.T) {
 	assert.Equal(t, MatchExact, x.Match("legal name 001").Kind)
 }
 
-func TestPersonIndex_FirstTokenUnique(t *testing.T) {
+func TestPersonIndex_GivenNameAloneIsNoMatch(t *testing.T) {
 	x := indexOf(t, newWikiFixture(), indexedBard(wren, wren), indexedBard(ash, ash))
 
-	assert.Equal(t, PersonMatch{Kind: MatchFuzzy, Person: wren}, x.Match(wrenFirst))
-}
-
-func TestPersonIndex_FirstTokenAmbiguousIsStub(t *testing.T) {
-	w := newWikiFixture()
-	x := indexOf(t, w, indexedBard(wren, wren), indexedBard(wrenOfTheVale, wrenOfTheVale))
-
-	m := x.Match(wrenFirst)
-	assert.Equal(t, PersonMatch{Kind: MatchNone}, m)
-
-	mention := PersonMention{Name: PersonName{Name: wrenFirst, Form: NameText}}
-	persons := ResolvePersons(x, []PersonMention{mention}, w.site())
-	ref, ok := persons.Resolve(mention.Name)
-	require.True(t, ok)
-	assert.Equal(t, PersonRef(wrenFirst), ref)
-	require.Len(t, persons.Stubs, 1)
+	assert.Equal(t, PersonMatch{Kind: MatchNone}, x.Match(wrenFirst), "the only bard named Wren is no match")
 }
 
 func TestResolvePersons_TextMatchesStubsOfLinkedNames(t *testing.T) {
 	w := newWikiFixture()
-	text := PersonMention{Name: PersonName{Name: dunstanFirstWord, Form: NameText}}
+	text := PersonMention{Name: PersonName{Name: dunstanMisspelt, Form: NameText}}
 	linked := PersonMention{Name: PersonName{Name: dunstanStub, Form: NamePageLink}}
 
 	persons := ResolvePersons(NewPersonIndex(nil), []PersonMention{text, linked}, w.site())

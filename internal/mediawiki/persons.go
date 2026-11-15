@@ -37,7 +37,8 @@ const (
 	// MatchFuzzy: the name is near exactly one person's key: its folded name is at least MinFuzzyNameLength runes
 	// long and one edit (an insertion, a deletion, a substitution or a swap of neighbours) from a key ("Marian of
 	// Heatherdale", "Marion …"; names with digits, "Legal Name 001", are never matched so: their digits tell them
-	// apart), or it is one word, the first word of a person's name ("Dunstan").
+	// apart). A given name alone ("Dunstan") never matches a fuller name ("Dunstan le …"): many people share a
+	// given name, so it becomes a stub person like any other unmatched name.
 	MatchFuzzy MatchKind = "fuzzy"
 	// MatchNone: no person, or more than one, matches; the name becomes a stub person.
 	MatchNone MatchKind = "none"
@@ -90,8 +91,8 @@ func (x PersonIndex) withStubs(stubs []StubPerson) PersonIndex {
 }
 
 // Match matches a name to a person: exactly, by FoldName, to a key; otherwise fuzzily, by one edit to a key (for
-// a folded name of at least MinFuzzyNameLength runes) or, for a one-word name, as the first word of a person's
-// name. A name that exactly or fuzzily matches more than one person matches none.
+// a folded name of at least MinFuzzyNameLength runes). A name that exactly or fuzzily matches more than one person
+// matches none.
 func (x PersonIndex) Match(name string) PersonMatch {
 	fold := FoldName(name)
 	if fold == "" {
@@ -109,15 +110,6 @@ func (x PersonIndex) Match(name string) PersonMatch {
 			return x.result(MatchFuzzy, near)
 		}
 	}
-	if !strings.Contains(fold, " ") {
-		first := x.matching(func(k indexKey) bool {
-			return (k.kind == KeyTitle || k.kind == KeyStub) && strings.HasPrefix(k.fold, fold+" ")
-		})
-		if len(first) > 0 {
-			return x.result(MatchFuzzy, first)
-		}
-	}
-
 	return PersonMatch{Kind: MatchNone}
 }
 
@@ -207,8 +199,8 @@ var groupName = regexp.MustCompile(`(?i)\b(?:band|ensemble|consort|choir|chorus|
 
 // ResolvePersons matches every mention to a person (PersonIndex.Match), creating a stub person for each name that
 // matches none, one per folded name. Linked names (links and categories) are matched first, to the bards, and
-// text names then, to the bards and the stubs the linked names created, so that "Dunstan" finds the stub of a
-// linked "Dunstan le Placeholder".
+// text names then, to the bards and the stubs the linked names created, so that a misspelt "Dunstan la Placeholder"
+// finds the stub of a linked "Dunstan le Placeholder".
 func ResolvePersons(index PersonIndex, mentions []PersonMention, s Site) Persons {
 	p := Persons{Index: index, resolved: map[PersonName]PersonRef{}}
 	var names []string
