@@ -86,7 +86,6 @@ func TestPlacePerformance_PiecePage(t *testing.T) {
 	perf := link.Performances[0]
 	assert.Equal(t, "[https://youtu.be/video000001 Recording by Rowan Placeholder on YouTube] of [["+wren+
 		"]] at the [["+greenDragon+"]], 2010", perf.DescriptionVerbatim)
-	assert.Equal(t, rowan, perf.Uploader)
 	assert.Equal(t, aSong, perf.Page)
 	assert.Equal(t, []PersonRef{wren}, perf.PerformerRefs)
 	assert.Equal(t, greenDragon, perf.Event)

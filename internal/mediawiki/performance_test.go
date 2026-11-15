@@ -10,8 +10,6 @@ import (
 const testMaxYear = 2026
 
 type performanceSummary struct {
-	Uploader   string
-	Platform   string
 	Performers []string
 	Event      string
 	Year       int
@@ -20,13 +18,9 @@ type performanceSummary struct {
 
 func summarise(item string) performanceSummary {
 	p := ParsePerformanceText(item, testMaxYear)
-	s := performanceSummary{Uploader: p.Uploader.Text, Platform: p.Platform, Event: p.Event.Text, Year: p.Year,
-		Piece: p.Piece}
+	s := performanceSummary{Event: p.Event.Text, Year: p.Year, Piece: p.Piece}
 	for _, l := range p.Performers {
 		s.Performers = append(s.Performers, l.Target)
-	}
-	if p.Uploader.Text != "" && item[p.Uploader.Start:p.Uploader.End] != p.Uploader.Text {
-		s.Uploader = "span mismatch"
 	}
 
 	return s
@@ -36,28 +30,20 @@ func TestParsePerformanceText_FullGrammar(t *testing.T) {
 	tests := map[string]performanceSummary{
 		"[https://example.org/v/2014/1 Recording by Wren Placeholder on YouTube] of [[Ash Placeholder]] singing " +
 			"[[A Song]] at Pennsic War, 2019": {
-			Uploader: wren, Platform: youTube, Performers: []string{ash},
-			Event: pennsicWar, Year: 2019, Piece: aSong,
+			Performers: []string{ash}, Event: pennsicWar, Year: 2019, Piece: aSong,
 		},
 		"[https://example.org/v A Song, recorded by WrenSings on YouTube] performed by [[Ash Placeholder]] and " +
 			"[[Rowan Placeholder]] at the [[" + greenDragon + "]], 2010": {
-			Uploader: "WrenSings", Platform: youTube, Performers: []string{ash, rowan},
-			Event: greenDragon, Year: 2010,
-		},
-		"[https://example.org/v A Song, uploaded to YouTube by Wren Placeholder, sung in choir in 2010]": {
-			Uploader: wren, Platform: youTube, Year: 2010,
+			Performers: []string{ash, rowan}, Event: greenDragon, Year: 2010,
 		},
 		"[https://example.org/v A Song, recorded for YouTube by Wren Placeholder] sung by [[Ash Placeholder]]": {
-			Uploader: wren, Platform: youTube, Performers: []string{ash},
+			Performers: []string{ash},
 		},
 		"[https://example.org/v A Song on YouTube by 'Wren Placeholder'] at Twelfth Night 2012": {
-			Uploader: wren, Platform: youTube, Event: "Twelfth Night", Year: 2012,
-		},
-		"[https://example.org/v A Song by Wren Placeholder on BandCamp]": {
-			Uploader: wren, Platform: "BandCamp",
+			Event: "Twelfth Night", Year: 2012,
 		},
 		"[https://example.org/v A Song] recorded by Wren Placeholder, at Crown Tourney 1999": {
-			Uploader: wren, Event: "Crown Tourney", Year: 1999,
+			Event: "Crown Tourney", Year: 1999,
 		},
 		"[https://example.org/v A Song] performed by [[Ash Placeholder]] to a tune by [[Rowan Placeholder]]": {
 			Performers: []string{ash},
@@ -88,8 +74,6 @@ func TestParsePerformanceText_NoEvent(t *testing.T) {
 	p := ParsePerformanceText("[https://example.org/at/v A Song] of [[Ash Placeholder]], 2020", testMaxYear)
 	assert.Equal(t, TextSpan{}, p.Event)
 	assert.Equal(t, TextSpan{}, ParsePerformanceText("at 2020", testMaxYear).Event)
-	assert.Equal(t, TextSpan{}, p.Uploader)
-	assert.Empty(t, p.Platform)
 }
 
 func TestParsePerformanceText_EventSpan(t *testing.T) {
@@ -121,7 +105,7 @@ func TestParsePerformance_FullGrammar(t *testing.T) {
 	assert.Equal(t, PerformanceRecord{
 		DescriptionVerbatim: "[https://example.org/v Recording by Wren Placeholder on YouTube] of [[Ash Placeholder]] " +
 			"and [[Rowan Placeholder]] singing [[A Song]] at Pennsic War, 2019",
-		Uploader: wren, EventText: pennsicWar, Year: 2019, Performers: []string{ash, rowan}, Piece: aSong,
+		EventText: pennsicWar, Year: 2019, Performers: []string{ash, rowan}, Piece: aSong,
 	}, rec)
 }
 
@@ -148,7 +132,6 @@ func TestParsePerformance_NoEvent(t *testing.T) {
 		noWorks)
 
 	assert.Empty(t, rec.EventText)
-	assert.Empty(t, rec.Uploader)
 	assert.Equal(t, []string{ash}, rec.Performers)
 }
 

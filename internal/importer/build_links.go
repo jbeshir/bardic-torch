@@ -81,9 +81,9 @@ func (b *builder) personLinks(links []mediawiki.LinkRecord) []domain.DocPersonLi
 
 // performance is a performance's document form. Its description keeps the item's words as written, as plain text: the
 // wikitext's link brackets, URLs inside them and quote markup go (mediawiki.Plain), since readers see it as text.
+// It has no uploader: the wiki's wording does not tell the uploader from the artist, and contributors can set one.
 func (b *builder) performance(p mediawiki.Performance) domain.DocPerformance {
 	out := domain.DocPerformance{
-		Uploader:            free(p.Uploader),
 		DescriptionVerbatim: plain(mediawiki.Plain(withoutTracking(p.DescriptionVerbatim))),
 		PerformerIDs:        []int64{},
 	}

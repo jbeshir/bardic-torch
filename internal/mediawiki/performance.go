@@ -19,38 +19,17 @@ type TextSpan struct {
 	End   int
 }
 
-// PerformanceText is what the wording of one performance item says, as written: who uploaded the recording and
-// where, the linked performers, the event, the year, the piece sung and every page link, in order. Offsets are
-// offsets into the item.
+// PerformanceText is what the wording of one performance item says, as written: the linked performers, the event,
+// the year, the piece sung and every page link, in order. Offsets are offsets into the item. Who uploaded a
+// recording is not read: the wording names the uploader, the artist and the singer alike ("by X on YouTube"), and
+// the description keeps it as written.
 type PerformanceText struct {
-	Uploader   TextSpan
-	Platform   string
 	Performers []Wikilink
 	Event      TextSpan
 	Year       int
 	Piece      string
 	PageLinks  []Wikilink
 }
-
-// platformName is a platform's name, which is capitalised: "YouTube", "BandCamp".
-const platformName = `(?P<platform>\p{Lu}[\p{L}\p{N}.]*)`
-
-// uploaderPatterns are the ways items name an uploader, in order of preference. Each has the groups uploader and
-// (but for "recorded by U") platform.
-var uploaderPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`\b(?i:recording[ \t]+by)[ \t]+(?P<uploader>[^,\[\]\n]+?)[ \t]+(?i:on)[ \t]+` + platformName),
-	regexp.MustCompile(`\b(?i:uploaded[ \t]+to)[ \t]+` + platformName + `[ \t]+(?i:by)[ \t]+(?P<uploader>[^,\[\]\n]+)`),
-	regexp.MustCompile(`\b(?i:recorded[ \t]+(?:for|on|to))[ \t]+` + platformName + `[ \t]+(?i:by)[ \t]+` +
-		`(?P<uploader>[^,\[\]\n]+)`),
-	regexp.MustCompile(`\b(?i:recorded[ \t]+by)[ \t]+(?P<uploader>[^,\[\]\n]+?)(?:[ \t]+(?i:on)[ \t]+` + platformName +
-		`|[,\[\]\n]|$)`),
-	regexp.MustCompile(`\b(?i:on)[ \t]+` + platformName + `[ \t]+(?i:by)[ \t]+(?P<uploader>[^,\[\]\n]+)`),
-	regexp.MustCompile(`\b(?i:by)[ \t]+(?P<uploader>[^,\[\]\n]+?)[ \t]+(?i:on)[ \t]+` + platformName),
-}
-
-// uploaderEnd is where the name of an uploader ends: before the first of these words.
-var uploaderEnd = regexp.MustCompile(`(?i)[ \t]+(?:on|for|of|at|from|in|sung|singing|performing|performed|` +
-	`recorded|during|with)\b|[.;:)(]`)
 
 var (
 	performerBefore = regexp.MustCompile(`(?i)(?:\bof|\bby|,|&|\band)[ \t]*$`)
@@ -66,8 +45,6 @@ var (
 )
 
 // ParsePerformanceText reads a performance item's wikitext (without its bullet):
-//   - the uploader and platform from "Recording by U on P", "uploaded to P by U", "recorded for P by U",
-//     "recorded by U (on P)", "on P by U" and "by U on P", where P is capitalised;
 //   - the performers: the page links after "of", "by", or a list separator, but not after "tune by";
 //   - the event after "at": a linked page, or text up to a comma, full stop, "singing" or a further "at", "for"
 //     or "on", without a year, and only if it is capitalised ("at around the 10:52 mark" is no event);
@@ -76,7 +53,6 @@ var (
 func ParsePerformanceText(item string, maxYear int) PerformanceText {
 	masked := maskURLs(item)
 	var res PerformanceText
-	res.Uploader, res.Platform = uploader(masked)
 	links := FindWikilinks(masked)
 	last := 0
 	for _, l := range links {
@@ -117,46 +93,6 @@ func maskURLs(item string) string {
 
 	return string(masked)
 }
-
-// uploader returns the uploader the first matching pattern names, and the platform: the pattern's, or else the
-// word after the first "on".
-func uploader(masked string) (TextSpan, string) {
-	for _, re := range uploaderPatterns {
-		m := re.FindStringSubmatchIndex(masked)
-		if m == nil {
-			continue
-		}
-		g := 2 * re.SubexpIndex("uploader")
-		start, end := m[g], m[g+1]
-		if cut := uploaderEnd.FindStringIndex(masked[start:end]); cut != nil {
-			end = start + cut[0]
-		}
-		for start < end && strings.ContainsRune(nameQuotes, rune(masked[start])) {
-			start++
-		}
-		for end > start && strings.ContainsRune(nameQuotes, rune(masked[end-1])) {
-			end--
-		}
-		if start == end {
-			continue
-		}
-		platform := ""
-		if p := 2 * re.SubexpIndex("platform"); m[p] >= 0 {
-			platform = masked[m[p]:m[p+1]]
-		} else if on := onPlatform.FindStringSubmatchIndex(masked); on != nil {
-			platform = masked[on[2]:on[3]]
-		}
-
-		return TextSpan{Text: masked[start:end], Start: start, End: end}, platform
-	}
-
-	return TextSpan{}, ""
-}
-
-// nameQuotes are the spaces and ASCII quotes trimmed from an uploader's name.
-const nameQuotes = " \t'\""
-
-var onPlatform = regexp.MustCompile(`\b(?i:on)[ \t]+(\p{Lu}[\p{L}\p{N}.]*)`)
 
 func event(masked string, links []Wikilink) TextSpan {
 	loc := eventStart.FindStringIndex(masked)
@@ -203,11 +139,10 @@ func LatestYear(pages []Page) int {
 }
 
 // PerformanceRecord is what one performance item says: the item as written without its list markers
-// (DescriptionVerbatim, kept as the performance's description), and as ParsePerformanceText reads it its
-// uploader, event, year, the targets of its performer links and the piece it says is sung.
+// (DescriptionVerbatim, kept as the performance's description), and as ParsePerformanceText reads it its event,
+// year, the targets of its performer links and the piece it says is sung.
 type PerformanceRecord struct {
 	DescriptionVerbatim string
-	Uploader            string
 	EventText           string
 	Year                int
 	Performers          []string
@@ -220,8 +155,8 @@ type PerformanceRecord struct {
 func ParsePerformance(item ListItem, maxYear int, isWork func(target string) bool) PerformanceRecord {
 	verbatim := strings.TrimRightFunc(item.Raw, isSpace)
 	text := ParsePerformanceText(verbatim, maxYear)
-	rec := PerformanceRecord{DescriptionVerbatim: verbatim, Uploader: text.Uploader.Text, EventText: text.Event.Text,
-		Year: text.Year, Piece: text.Piece}
+	rec := PerformanceRecord{DescriptionVerbatim: verbatim, EventText: text.Event.Text, Year: text.Year,
+		Piece: text.Piece}
 	for _, l := range text.Performers {
 		if !isWork(l.Target) {
 			rec.Performers = append(rec.Performers, l.Target)
