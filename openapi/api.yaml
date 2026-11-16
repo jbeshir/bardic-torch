@@ -1,0 +1,391 @@
+openapi: 3.1.0
+info:
+  title: Bardic Torch API
+  description: |
+    API behind bardictorch.org.
+
+    Conventions:
+    - Request and response bodies are JSON (`application/json`); property names are snake_case.
+    - Response objects are closed (`additionalProperties: false`): clients can rely on receiving exactly the
+      documented properties.
+    - Errors use the `Error` body, whose `code` is stable and machine-readable; `message` is for humans.
+    - A path no operation matches gets 404 `not_found`; a known path with an unsupported method gets 405
+      `method_not_allowed` with an `Allow` header listing the supported methods. Neither authenticates the
+      request.
+    - Request headers over 16 KiB get a plain-text 431 from the server, before any operation runs.
+    - A request whose path is not validly percent-encoded gets a plain-text 400 from the server, before any
+      operation runs.
+    - operationIds are camelCase.
+  version: 1.0.0
+  contact:
+    name: Bardic Torch
+    url: https://bardictorch.org
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: https://api.bardictorch.org
+    description: Production server
+
+security:
+  - auth0Bearer: []
+
+tags:
+  - name: Health
+    description: Liveness and readiness checks for the deployment platform
+  - name: Users
+    description: The caller's account
+  - name: Moderation
+    description: Actions reserved for moderators
+
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Liveness check
+      description: |
+        Reports that the process is serving requests. Always 200 while the server runs; it does not check
+        dependencies. Credentials are ignored.
+      operationId: getHealthz
+      security: []
+      responses:
+        "200":
+          description: The server is running.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /readyz:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: |
+        Reports whether the server can handle requests, by checking that the database answers within two
+        seconds. The deployment platform uses it as the startup health check. Credentials are ignored.
+      operationId: getReadyz
+      security: []
+      responses:
+        "200":
+          description: The server and its database are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: The database is unreachable; the error code is `unavailable`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+
+  /v1/me:
+    get:
+      tags:
+        - Users
+      summary: Get the caller
+      description: |
+        Returns the caller's user. A user is created as a contributor on their first authenticated request, so
+        this succeeds for any valid credential that is not blocked. Their display name is the name in the access
+        token's `https://bardictorch.org/name` claim with disallowed characters such as zero-width
+        joiners and direction marks dropped, normalised to Unicode NFC, trimmed and cut to 64 characters;
+        a stored name that differs is replaced. A token without a valid name gets 401.
+      operationId: getMe
+      responses:
+        "200":
+          description: The caller's user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/users/{user_id}/blocked:
+    put:
+      tags:
+        - Moderation
+      summary: Block or unblock a user
+      description: |
+        Blocks or unblocks a contributor and returns them. A blocked user gets 403 `user_blocked` from every
+        authenticated endpoint. Blocking a blocked user, or unblocking one who is not blocked, succeeds again;
+        a re-block keeps the time the user was first blocked. Moderators cannot be blocked or unblocked,
+        including by themselves. Requires the moderator role.
+
+        Until users can be found through the API, moderators take user IDs from Auth0 or the database.
+      operationId: setUserBlocked
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: |
+            The user's `id`, percent-encoded: its `|` is sent as `%7C`, as in `google-oauth2%7C123`.
+          schema:
+            type: string
+            examples:
+              - google-oauth2|123
+      requestBody:
+        description: Whether the user should be blocked.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetUserBlockedRequest"
+            examples:
+              block:
+                summary: Block the user
+                value:
+                  blocked: true
+              unblock:
+                summary: Unblock the user
+                value:
+                  blocked: false
+      responses:
+        "200":
+          description: The user is now blocked or unblocked, as requested.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          description: There is no user with this ID; the error code is `not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: not_found
+                message: user not found
+        "409":
+          description: The user is a moderator, possibly the caller; the error code is `conflict`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: conflict
+                message: moderators cannot be blocked or unblocked
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+components:
+  securitySchemes:
+    auth0Bearer:
+      type: http
+      scheme: bearer
+      description: |
+        An Auth0 access token for this API: `Authorization: Bearer <jwt>`. It must carry the user's name in the
+        `https://bardictorch.org/name` claim, which the Auth0 tenant's post-login Action adds.
+
+  responses:
+    InvalidRequest:
+      description: |
+        The request body is malformed or invalid; the error code is `invalid_request`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: request body has an unknown field
+    Unauthenticated:
+      description: |
+        The request has no recognised credentials, or its credentials are invalid, expired or revoked; the error
+        code is `unauthenticated`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unauthenticated
+            message: invalid credentials
+    Forbidden:
+      description: The caller is blocked; the error code is `user_blocked`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: user_blocked
+            message: user is blocked
+    ModeratorForbidden:
+      description: |
+        The caller is blocked (`user_blocked`), or is not a moderator (`moderator_required`). Blocking takes
+        precedence.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            userBlocked:
+              summary: The caller is blocked
+              value:
+                code: user_blocked
+                message: user is blocked
+            moderatorRequired:
+              summary: The caller is not a moderator
+              value:
+                code: moderator_required
+                message: this endpoint requires the moderator role
+    RequestTooLarge:
+      description: The request body is larger than 16 KiB; the error code is `request_too_large`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: request_too_large
+            message: request body is too large
+    UnsupportedMediaType:
+      description: The request body is not sent as `application/json`; the error code is `unsupported_media_type`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unsupported_media_type
+            message: request body must be sent as application/json
+    Internal:
+      description: The server failed to handle the request; the error code is `internal`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: internal
+            message: internal error
+    Unavailable:
+      description: The database cannot be reached or is out of connections; try again. The error code is `unavailable`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unavailable
+            message: the database is busy or cannot be reached; try again
+  schemas:
+    Error:
+      type: object
+      description: The body of every error response.
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Stable, machine-readable error code.
+          enum:
+            - invalid_request
+            - unsupported_media_type
+            - request_too_large
+            - unauthenticated
+            - user_blocked
+            - moderator_required
+            - not_found
+            - method_not_allowed
+            - conflict
+            - internal
+            - unavailable
+          examples:
+            - unavailable
+        message:
+          type: string
+          description: Human-readable description of the error. Not intended for display to end users.
+          examples:
+            - database unavailable
+      examples:
+        - code: unavailable
+          message: database unavailable
+
+    HealthStatus:
+      type: object
+      description: The body of a successful health check.
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+          examples:
+            - ok
+      examples:
+        - status: ok
+
+    User:
+      type: object
+      description: A user.
+      additionalProperties: false
+      required:
+        - id
+        - display_name
+        - role
+      properties:
+        id:
+          type: string
+          description: |
+            The user's ID: the subject Auth0 authenticated them as, such as `google-oauth2|<id>`. It contains `|`,
+            which must be percent-encoded as `%7C` in a path.
+          examples:
+            - google-oauth2|123
+        display_name:
+          type: string
+          description: The name shown for the user.
+          minLength: 1
+          maxLength: 64
+          examples:
+            - Morwen
+        role:
+          type: string
+          description: |
+            What the user may do. Every user starts as a `contributor`; `moderator`s may also block and unblock
+            contributors.
+          enum:
+            - contributor
+            - moderator
+          examples:
+            - contributor
+      examples:
+        - id: google-oauth2|123
+          display_name: Morwen
+          role: contributor
+
+    SetUserBlockedRequest:
+      type: object
+      description: The body of a request to block or unblock a user.
+      additionalProperties: false
+      required:
+        - blocked
+      properties:
+        blocked:
+          type: boolean
+          description: True to block the user, false to unblock them.
+          examples:
+            - true
+      examples:
+        - blocked: true
+

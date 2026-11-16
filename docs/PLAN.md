@@ -1,310 +1,272 @@
 # Bardic Torch: implementation plan
 
-**Status:** approved (2026-10-31). Every default in §2 is confirmed, and both repos are public. This plan is the input every build pipeline reads.
+**Status:** approved 2026-10-31; rewritten 2026-11-10 to a simpler scope (the commit that rewrote it lists what
+changed); revised 2026-11-12 (monthly link check, link reports as contact requests, takedowns by link ID, sources
+for licensing only, no email withholding in the importer); revised 2026-11-13 (trimmed the data model to what the
+wiki fills); revised 2026-11-15 (content fidelity: §2 and the help pages follow the original wiki's policy and
+wording, except for the three decisions in §2.0; four importer guesses removed, §7); revised 2026-11-15 (the
+owners' decisions on the last open questions: §2.1, §2.3, §4.1); revised 2026-11-15 (text provenance: the
+importer writes no sentence of its own into notes, §7).
+This plan is the input every build pipeline reads.
 
-**Research basis:** a full read-only crawl of https://bardictorch.miraheze.org (381 pages, as of 2026-10-30), held in the demesne job output `fe3d5dd2-f6f6-4a8c-b355-9dc525e718b1`.
-- Report: `report.md`
-- Raw dump: `dump/`
-- Parsed entities: `analysis/`
-- Crawl and parse scripts: `scripts/`
+**Proportion is the main quality bar.** The site holds about 142 pieces and 48 bards, with two moderators (John
+and Fabian) and a handful of contributors who are not technical. Build each feature in the plainest way that does
+the job, and test what matters at the cheapest level that proves it. If a rule needs a page of edge cases to be
+safe, question the rule before writing the page.
 
-`R-n` references point at that report's requirements list (§7). `§n` references point at report sections.
+**Research basis:** a crawl of https://bardictorch.miraheze.org (381 pages, 2026-10-30), demesne job
+`fe3d5dd2-f6f6-4a8c-b355-9dc525e718b1`. `R-n` refers to its requirements list.
 
 ## 1. Product summary
 
-Bardic Torch is a public, community-edited **index** of SCA bardic pieces (songs, poems, stories, dance & music) and the bards who wrote or perform them. It helps people *find* pieces and *preserve* them. It replaces the MediaWiki site, which stays where it is on Miraheze.
+Bardic Torch is a public, community-edited **index** of SCA bardic pieces (songs, poems, stories, dance and music)
+and the bards who wrote or perform them. It helps people *find* pieces and *preserve* them. It replaces the
+MediaWiki site, which stays where it is on Miraheze.
 
 Fixed decisions:
-- **No lyrics or text are hosted**, ever. Pieces carry only links, metadata and sourced notes.
-- **Moderators are John and Fabian.** Everyone else's edits wait for moderator approval: the last approved revision is the live one.
+- **No lyrics are stored or shown; moderators remove any that are submitted.** Pieces carry only links, metadata
+  and sourced notes.
+- **Moderators are John and Fabian.** Everyone else's edits wait for approval; the last approved revision is live.
 - **Login:** Auth0 social login (Google, Facebook).
-- **Hosting:** the Go API runs on John's dokku instance (MySQL through the dokku mysql plugin). The Remix FE runs on Cloudflare Pages, following the alignment-feed pattern.
-- **Domain:** the site is bardictorch.org, with the API at api.bardictorch.org.
-- **No redirects** from old wiki URLs. The old wiki is imported once, at launch.
-- **Look:** the site should feel like a wiki (so editing feels allowed), with full dark mode support and a mobile-first faceted browse (R-3).
+- **Hosting:** the Go API on John's dokku instance (dokku MySQL plugin); the React Router 8 FE on Cloudflare
+  Workers, deployed by Workers Builds.
+- **Domain:** bardictorch.org, with the API at api.bardictorch.org.
+- **No redirects** from old wiki URLs. The wiki is imported once, at launch.
+- **Look:** like a wiki (so editing feels allowed), with full dark mode and a mobile-first faceted browse (R-3).
 
-Non-goals for v1:
-- lyrics or text display
-- file, audio or video uploads
-- verified-bard accounts whose word counts as a source
-- automatic enumeration of collection tables of contents
-- old-URL redirects
-- recommendations, RSS, chat
+Non-goals for v1: lyrics or text display; uploads; verified-bard accounts; automatic enumeration of collection
+contents; old-URL redirects; recommendations, RSS, chat; MCP. Repertoire lists and structured bard preference
+profiles are on the backlog.
 
-## 2. Decisions taken on the research's open questions (§10)
+## 2. Decisions on the research's open questions
 
-Every decision below was confirmed by John on 2026-10-31.
+Confirmed by John on 2026-10-31; 2.3, 2.6, 2.7 and 2.15 amended on 2026-11-10; 2.1–2.3, 2.6, 2.8 and 2.14 amended
+on 2026-11-15 to follow the wiki; 2.1 and 2.3 settled by the owners on 2026-11-15.
 
-1. **Kind:** a primary `kind` (song, poem, story, dance_music, instrumental, comedy, extensible) plus `secondary_kinds[]`. Song + Instrumental and Story + Poem are both valid.
-2. **Origin** (the wiki's "Source Category"):
-   - multi-valued, with one value marked primary
-   - an optional `part` scope (words, tune, verses, chorus)
-   - century categories become child terms of Origin
-   - topic centuries stay under Topic
-3. **Conservation status:**
-   - Stored as an enum: unassessed, low_risk, endangered, critically_endangered, restricted.
-   - Every change is recorded with a reason.
-   - The app *suggests* a status from a count of distinct live "places" among the links (each link carries a place type); a moderator confirms it.
-   - **Exactly three places counts as Endangered** (the wiki leaves this case undefined).
-   - Restricted overrides everything and hides the "help preserve this" prompts.
-4. **Pseudo-bards:** "Traditional & Folk", Unknown, Anonymous, Various and Disputed become an `attribution` enum on the credit, plus a `certainty` field. Bands and historical figures become person records with `kind = group | historical`.
-5. **Red-link people and missing works** are imported as **public stub pages**, marked "stub — help complete this", in line with the wiki's "any contribution counts".
-6. **Legal and mundane names** in bard aliases are imported **hidden** (`is_public = false`) until a moderator reviews each one. Other aliases (SCA names, stage names, nicknames) stay public.
-7. **Bard self-verification** is out of scope for v1. Every licensing and etiquette claim needs a source URL, as on the wiki (R-12, R-15).
-8. **"Prefers no page"** is a person status:
-   - The page becomes a stub that shows the cited statement.
-   - The person's links and credits are hidden from public view.
-   - Creating a duplicate person with a matching name or alias is blocked.
-9. **Ambiguous records** are imported as the importer's best guess and listed in its review report for a human decision (Fight for the Midrealm's title, "My Thing Is My Own", Dunstan, Marian/Marion of Heatherdale, Samantha Moore / Ambra Michelli).
-10. **Unparented categories** get these parents:
-    - Seasons, Fire, Hope → Topics
-    - Archery → Topics › War
-    - Short Pieces → Other
-    - Jewish, Sephardic, Portuguese → Cultures, with Sephardic under Jewish
-11. **Rude** stays a mood. A separate content-advisory flag can come later.
-12. **Kingdoms:** one shared `affiliation` term tree (SCA › Kingdom › group). Bards are linked to it as affiliations. Patriotic songs keep their `Patriotic (Kingdom)` topic terms, and each of those terms links to its kingdom term.
-13. **Licence:** imported prose stays CC BY-SA 4.0, with wiki contributors credited in each page's history and footer. New contributions are also CC BY-SA 4.0, and the edit form says so.
-14. **Performances** are first-class records attached to a link: performers, event, year and uploader. The original description text is always kept as written.
-15. **Collections:** a directory entity. Links can point at a collection with a locator ("p. 63"). Table-of-contents enumeration is post-v1 (for MCP-assisted seeding).
+0. **The original wiki's policy and wording win.** Where this section and the wiki disagree, the wiki is right
+   and this section is corrected; a rule here stands only where it fills a gap the wiki left. Only three decisions
+   override the wiki, because the owners made them explicitly: **links only, never lyrics** (the wiki allowed public
+   domain, Creative Commons and permitted lyrics); **edits go live after moderator review** (the wiki was open);
+   and **"prefers no page"** works as 2.8 says. The help pages carry the wiki's own text, changed only for
+   formatting, the new site's editing mechanics and these three decisions.
+
+1. **Kind** (the wiki's Genre): one `kind` per piece (song, poem, story, dance_music, instrumental; extensible). A
+   musical piece can be "tagged as both 'Songs' and 'Instrumental' if it can be performed by both singers and
+   instrumentalists", as the wiki says, through the **Instrumental** term (facet Other): the piece keeps one kind,
+   the importer gives the term to every piece in the wiki's Instrumental category, and editors pick it like any
+   other term. The wiki's Comedy genre (fooling, jesting) has no kind: comedic pieces take the Comedic mood. The
+   wiki's poem Form category has no facet. (The owners decided all three on 2026-11-15.)
+2. **Origin** (the wiki's "Source Category"): generally one, as the wiki says; a contrafactum or setting piece may
+   also carry the pre-1600, traditional, SCA, SF&F or Borrowings categories the wiki allows, after the main one.
+   Stored multi-valued and ordered, like every facet; century categories become child terms of Origin; topic
+   centuries stay under Topic.
+3. **Conservation status:** an enum (unassessed, low_risk, endangered, critically_endangered, restricted) with the
+   wiki's definitions, from its Conservation Status page and status categories:
+   - **Low Risk:** the work exists in at least three places (Category:Low Risk; the Conservation Status page's
+     "at least four" is superseded, so exactly three places is Low Risk).
+   - **Endangered:** it exists in less than three known places, and is not Restricted.
+   - **Critically Endangered:** contributors are unable to find the work, or only part of it, and it is not
+     Restricted.
+   - **Restricted:** the creator does not allow the work to be recorded, archived or shared. It is never marked
+     Endangered or Critically Endangered, because those exist to help works be preserved or found, and these
+     should not be. A piece has one status, so a Restricted piece shows no other. Its page shows none of its links
+     or recordings, only its licensing sources (where the creator says so), and has no prompts to find, add or
+     archive copies (decided 2026-11-15). Pages that list its performances or citations name it without a link.
+   - **unassessed** is a piece in none of the wiki's conservation categories (a gap the wiki left).
+
+   Anyone may change a status in an edit, by the conservation guide, and a moderator reviews it like any edit. Its
+   history is the piece's revision history, with each revision's summary (which may be empty) as the reason for a
+   change. The creator's statement, with a link to where they made it, goes in the piece's notes, which a
+   Restricted page shows like any other.
+4. **Pseudo-bards:** "Traditional & Folk", Unknown, Anonymous and Various become an `attribution` on the credit,
+   with a separate `certainty` (Disputed is a certainty). Bands and historical figures are persons with
+   `kind = group | historical`.
+5. **Red-link people and missing works** are imported as public stub pages, marked "stub — help complete this".
+6. **Legal and mundane names** in bard aliases are imported as **ordinary public aliases**, as the wiki shows
+   them; as on the wiki, only what bards publish on their public-facing pages is added. There is no hidden-alias concept. Someone who wants a name removed asks, and a moderator deletes it.
+7. **Bard self-verification** is out of scope for v1. Every licensing claim needs a source URL, as on the wiki
+   (R-12).
+8. **"Prefers no page"** is a person status, as on the old wiki: their page shows only their identity (name, kind
+   and status) and their notes, where their statement goes with a link to where they made it. As the wiki says,
+   that statement must be public, permanent and on a page where the person is identifiable, and a request to take
+   a page down is met as best we can. Creating a person
+   with a matching name or alias is blocked. Elsewhere they are named like anyone else, as plain text without a
+   link to their page (decided 2026-11-12; nothing else is hidden).
+9. **Ambiguous records** (the five cases the research report names) are imported as the importer's best guess.
+10. **Unparented categories:** Seasons, Fire, Hope → Topics; Archery → Topics › War; Short Pieces → Other;
+    Jewish, Sephardic, Portuguese → Cultures, with Sephardic under Jewish.
+11. **Rude** stays a mood. A content-advisory flag can come later.
+12. **Kingdoms:** one `affiliation` term tree (SCA › Kingdom › group); bards link to it as affiliations, and each
+    `Patriotic (Kingdom)` topic term links to its kingdom.
+13. **Licence:** imported prose stays CC BY-SA 4.0, with wiki contributors credited in each page's history and
+    footer. New contributions are CC BY-SA 4.0, and the edit form says so.
+14. **Performances** are records attached to a link: performers, event, year and uploader. The original
+    description text is kept as written. The importer leaves the uploader empty: the wiki's wording ("X on YouTube
+    by Y") does not tell the uploader from the artist or singer, and the description already says it. Contributors
+    can set it.
+15. **Collections** are a directory entity. Links can point at a collection with a locator ("p. 63"). Contents
+    enumeration is post-v1.
 
 ## 3. Architecture
 
-Two new repos, both copied from the alignment-feed skeletons (layering, idioms, CLAUDE.md quality checks, CI):
+Two repos, both from the alignment-feed skeletons (layering, idioms, CLAUDE.md quality checks, CI).
 
-- **`bardic-torch`** (Go API)
-  - Packages: transport/web (gorilla/mux) → command → domain → datasources/mysql (sqlc), plus migrations (golang-migrate).
-  - Three entrypoints:
-    - `cmd/app`: the API server
-    - `cmd/import-mediawiki`: the one-shot importer
-    - `cmd/check-links`: link liveness checks, run by dokku cron
-  - `cmd/mcp` (an MCP server) comes later.
-  - The OpenAPI spec (`openapi/api.yaml`) is **the contract** with the FE.
-- **`bardic-torch-fe`** (Remix on Cloudflare Pages)
-  - Reuses the feed's auth (remix-auth cookie session with refresh) and its server-side proxy routes (`/api/*`).
-  - Types are generated from the BE's OpenAPI spec (openapi-typescript) and validated at runtime with zod.
-  - Tailwind design tokens support light and dark themes.
-
-**Removed from the feed skeleton:** Pinecone, VoyageAI, recommendations and clustering, RSS, chat, D1 and MiniMax.
-
-**Kept and reused:**
-- the multi-validator auth middleware (Auth0 JWT plus `user_api|` tokens), for future MCP and bulk entry
-- the null-driver pattern
-- the API token endpoints
+- **`bardic-torch`** (Go API): transport/web (net/http `ServeMux`) → command → domain → datasources/mysql
+  (sqlc), with golang-migrate.
+  The OpenAPI spec (`openapi/api.yaml`)
+  is the contract with the FE.
+- **`bardic-torch-fe`** (React Router 8 on Cloudflare Workers): openid-client against Auth0 with a cookie session;
+  server-side proxy routes, so the browser never calls the API; response types generated from the spec (zod only
+  for form input and configuration, so a new API field never breaks the FE); Tailwind 4 tokens for light and dark
+  themes.
+- **Abuse control** is Cloudflare's: a rate-limiting rule on the zone, and Turnstile on the contact form. The API
+  has no rate limiter of its own beyond the cap on pending revisions.
+- Kept from the feed: the Auth0 JWT middleware and the null-driver pattern. There are no API tokens; every
+  signed-in caller is an Auth0 session.
 
 ## 4. Data model (MySQL 8)
 
-**Editable entities** (each has a `current_revision_id`, plus `legacy_wiki_pageid` and `legacy_title` columns used for import):
-- **`pieces`**:
-  - identity: `slug`, `title`, `sort_title` (articles ignored)
-  - type and status: `kind`, `conservation_status`, `is_stub`
-  - Markdown fields: `notes_md`, `version_notes_md`, `licensing_notes_md`
-  - licensing: `licensing_status` (known / unknown), `licence` (pd, cc-by…, arr, other, null)
-  - history: `historical_source_md` and `period_start`/`period_end`, for documentable works (R-23)
-  - import audit: `legacy_had_inline_lyrics`
-  - Child tables: `piece_secondary_kinds`, `piece_aliases(text, kind)`, `piece_terms(term_id, is_primary, part, position)`, `piece_relations(to_piece, type: variant_of | contrafactum_of | setting_of | same_text_other_form)`, `conservation_history(status, reason, revision_id, at)`.
-  - `piece_credits(person_id NULL, role: lyrics | tune | author | choreography | music | arrangement | translation, attribution: named | traditional | unknown | anonymous | various, certainty: certain | probable | possible | disputed, part, note, position)`
-- **`persons`**:
-  - identity: `slug`, `name`, `sort_name`, `kind` (community_bard / historical / group)
-  - status: `status` (active / deceased / prefers_no_page), `status_date`, `status_source_url`
-  - details: `pronouns`, `notes_md`
-  - licensing: `licensing_notes_md`, `licensing_status`
-  - flags: `is_stub`, `claimed_by_user_id` (unused in v1)
-  - Child tables: `person_aliases(name, kind: legal | sca | stage | nickname | former | redirect, is_public)`, `person_roles`, `person_affiliations(term_id)`, `person_relations(to_person, type: heir_of | member_of | same_as)`.
-  - `person_preferences(dimension, value_json, source_url)`, one row per Bard Preference Checklist dimension (R-8). Piece-level overrides go in `piece_preferences` in the same shape.
-- **`terms`**: `facet` (kind, mood, topic, culture, language, legendaria, form, origin, other, affiliation), `name`, `display_name` (without the "(Topic)"/"(Language)" disambiguation suffix), `slug`, `parent_id` (depth ≤ 3), `description_md`, `status` (active / pending_suggestion).
-  - Child tables: `term_aliases`, and a `term_ancestors` closure table rebuilt transactionally when a term revision is approved.
-- **`collections`**: `name`, `sort_name`, `url`, `kind`, `description_md`, `region_term_id`, `parent_id`, `is_bardic_resource`, `enumerable`.
-- **`links`**: `url`, `normalized_url` (unique; tracking parameters stripped), `title`, `description`, `platform`, `place_type`, `collection_id`, `locator`, `liveness` (unknown / ok / dead / blocked), `last_checked_at`, `archived_url`, `is_hidden` (moderator takedown, R-11).
-  - `link_attachments(link_id, piece_id | person_id, role, position)`. The roles are official, lyrics, text, sheet_music, dance_instructions, text_source, translation, performance, licensing_source, website, external_profile, other. One link can carry several roles (R-21, R-14).
-  - `performances(link_id, piece_id, event_id, year, uploader, description_verbatim)`, plus `performance_performers(person_id)`.
-- **`events`**: name, kind (venue / event), description. Seeded with Green Dragon and with events parsed from performance descriptions.
+The migrations hold the exact DDL.
 
-**Workflow tables:**
-- **`revisions`**: `id`, `entity_type`, `entity_id`, `base_revision_id`, `author_user_id`, `source` (user / import / mcp), `status` (draft / pending / approved / rejected / withdrawn), `snapshot_json`, `summary`, `reviewer_user_id`, `reviewed_at`, `review_note`, `created_at`.
-  - The snapshot is the full document, including owned child rows. Links appear inline by normalized URL.
-- **`users`**: Auth0 user ID, `display_name`, `role` (contributor / moderator), `created_at`, `blocked_at`. Moderators are seeded by migration.
-- **`repertoire`**: user_id, piece_id, notes, visibility (private / public), added_at.
-- **`link_reports`**: for removal requests (R-11).
-- **`contact_requests`**: kind (takedown / opt_out / correction / general), name, email, message, url, status. These need no account and are protected by Cloudflare Turnstile (R-13).
-- **`api_tokens`**: kept from the feed.
+- **`users`**: Auth0 ID, `display_name`, `role` (contributor / moderator), `blocked_at`. At startup the API
+  promotes (and unblocks) the IDs in `BOOTSTRAP_MODERATOR_USER_IDS`; it never demotes (that is done in SQL). A
+  moderator bootstrapped before signing in has an empty `display_name` until their first request.
 
-## 5. Revision engine and moderation rules (the core)
+## 5. Revisions and moderation
 
-**Commands:** `SaveDraft`, `SubmitRevision`, `ApproveRevision`, `RejectRevision`, `WithdrawRevision`, `RevertTo`.
+- **Blocking:** moderators block and unblock contributors; moderators cannot be blocked. A blocked user gets 403 on
+  every authenticated endpoint; their pending revisions stay for a moderator to reject.
+- **Display names** come from Auth0: a post-login Action puts the user's name from Google or Facebook in the
+  access token's `https://bardictorch.org/name` claim (DEPLOY.md), unless the name is empty or is the user's
+  email address. The API cleans it (characters names may not hold, such as zero-width joiners and direction
+  marks, dropped; NFC, trimmed, cut to 64 characters), rejects a token without one that is still valid with 401, creates users with it, and replaces a stored name
+  that differs, so a name changed at the provider shows from the next sign-in or token refresh, on past edits
+  too. Users cannot set their own. Moderators are badged.
 
-**Approval** is one transaction:
-1. Check that `base_revision_id == current_revision_id`. If not, the revision is **stale**.
-2. Validate the snapshot against the domain rules.
-3. Write the snapshot into the entity and its child tables: upsert links by `normalized_url`, rebuild `term_ancestors` if a term changed, append to `conservation_history` if the status changed.
-4. Point `current_revision_id` at the approved revision.
+## 6. API surface
 
-**Stale revisions** are rebased automatically onto the current version when the two edits touched different fields. Otherwise the moderator sees a three-way view and resolves it.
+The OpenAPI spec is the exact contract.
 
-**Edit rules:**
-- **Contributors:** edits go to `pending`. Contributors see their own pending version across the site, with a banner. They may have at most 30 open pending revisions.
-- **Moderators:** edits are approved as they are saved, but still recorded as revisions.
-- **Sourced fields** (licensing notes, licence, preferences, person status, conservation status) are rejected at validation without a source URL. The rule applies to moderators too (R-12).
-- **New entities**, whether created by hand or as term suggestions, exist with `current_revision_id = NULL` and are invisible to the public until approved. When a moderator reviews a piece, any pending terms it references are shown and approved alongside it.
-- **Duplicate check on create:** normalised titles, names and aliases are compared, with apostrophes and case folded, Unicode NFC applied and accents stripped for matching only (R-17).
-
-**Revert** creates a new revision copying an older snapshot.
-
-**History:** every entity has a public history list, and each revision a diff view. Wiki contributors are credited on imported revisions.
-
-## 6. API surface (all specified in OpenAPI; the FE never calls the API directly from the browser)
-
-- **Public reads:**
-  - `GET /v1/pieces`: faceted search. Facet terms are combined with AND across facets and OR within one; descendants count via the closure table. Also takes `q` (FULLTEXT over title, aliases and notes), `letter`, `sort`, and `status`/`kind` filters, and returns counts for each facet value.
-  - `GET /v1/pieces/{slug}`, `GET /v1/persons`, `GET /v1/persons/{slug}`
-  - `GET /v1/terms?facet=…`: the term tree with counts
-  - `GET /v1/terms/{slug}`, with its pieces and persons
-  - `GET /v1/collections`, `GET /v1/collections/{id}`, `GET /v1/events/{slug}`
-  - `GET /v1/{entity}/{id}/history`, `GET /v1/revisions/{id}`: the snapshot plus a structured diff against its base
-  - `GET /v1/needs-work`: stubs, unassessed conservation status, missing licensing information, dead links (R-18)
-- **Authenticated:**
-  - `GET /v1/me`
-  - drafts: `PUT /v1/drafts/{entity}/{id|new}`, and `POST /v1/revisions` to submit
-  - `POST /v1/revisions/{id}/withdraw`
-  - `GET /v1/me/revisions`
-  - `GET|PUT|DELETE /v1/me/repertoire/{piece}`
-  - `GET /v1/users/{id}/repertoire`: public lists
-  - `POST /v1/links/{id}/report`
-  - suggestions for new terms are submitted as term revisions
+- **Signed in:** `GET /v1/me`;
 - **Moderator:**
-  - `GET /v1/moderation/queue` (filters by type, author and age)
-  - `POST /v1/revisions/{id}/approve`, `…/reject`, `…/rebase`
-  - `GET|POST /v1/moderation/link-reports`, `GET|POST /v1/moderation/contact-requests`
-  - `PUT /v1/links/{id}/hidden`
-- **No account needed:** `POST /v1/contact`, verified with Turnstile.
-- **Kept from the feed:** `/v1/tokens`.
-
-## 7. Importer (`cmd/import-mediawiki`)
-
-**Input:** the research dump format (`pages.jsonl` and `categories.json`), or a live crawl. The research `scripts/` define the expected behaviour and are ported to Go. A frozen copy of the dump is committed under `testdata/`, so tests are deterministic and need no network.
-
-**Steps** (report §8):
-1. Type the pages: Pieces / Bards, skipping meta pages, redirects and the test page.
-2. Parse sections with a heading normaliser, and drop boilerplate hints.
-3. Take facets from the real categories, classified by `taxonomy.json` rules, and report infobox drift in both directions.
-4. Parse credits, including attribution and certainty, and split on `&`, `,`, `;`, `/` and "and", but not inside links.
-5. Union the three bard signals: infobox credit, bard-name category, works list.
-6. Extract links, with role taken from the section, platform from the host, collection match by host plus path prefix, and the locator. Deduplicate by normalised URL, keeping multiple roles.
-7. Parse performance descriptions; the verbatim text is always kept.
-8. Turn redirects into aliases and red links into stubs.
-9. **Drop inline lyrics** but set `legacy_had_inline_lyrics`; keep version commentary as `version_notes`.
-10. Write all imported data as approved revisions with `source = import`, crediting wiki contributors.
-11. Write `import-review.md` for the moderators, listing every flagged ambiguity, drift item and fuzzy-matched person.
-
-**Modes:** `--dry-run` (report only), and `--apply`, which only runs against an empty catalogue.
-
-**Tests assert:**
-- the research counts: 142 pieces (135/4/2/1 by kind), 48 bards, 62 collection entries, 11 inline-lyrics pages flagged
-- the dropped inline lyrics are absent from every public field
-- golden snapshots for a hand-picked set of 15 or more tricky pages (Three Words, My Thing is My Own, Fight for the Midrealm, Band of Brothers, Black Alman, The Burning of Tara, Samantha Moore, Lasair inghen ui h’Airt, Auld Lang Syne…)
+  `PUT /v1/users/{id}/blocked`.
+- **Health:** `/healthz`, `/readyz`.
 
 ## 8. Frontend
 
-**Pages:**
-- home (mission, non-affiliation disclaimer R-1, entry points)
-- A–Z index
-- faceted browse: a sidebar on desktop and a drawer on mobile (R-2, R-3)
-- search results
-- piece page:
-  - an infobox with kind, credits, facets, origin and conservation badge
-  - links grouped by role
-  - performances, with performer, event and year
-  - an etiquette card that combines the bard's profile with piece-level overrides (R-9)
-  - notes and related pieces
-- person page: aliases, affiliations, roles, etiquette card, works, performances, external profiles
-- term pages, showing the tree, subcategories and members
-- collections directory, sorted ignoring articles (R-24)
-- event and venue pages
-- history and diff pages
-- edit forms for each entity type:
-  - structured pickers
-  - a credit editor with attribution and certainty
-  - a link editor with role, place type, collection and locator, plus performance fields
-  - a term picker with a "suggest new term" option that requires a parent and validates the name (R-20)
-  - a sourced-field widget that requires a URL
-  - live preview using the same components as the read view
-  - autosave of drafts
-  - a duplicate warning
-- "my contributions" and the pending-version banner
-- moderation queue, diff and three-way review, approve/reject with a note
-- link-report and contact-request inboxes
-- repertoire: add/remove on piece pages, and my and public lists
-- needs-work dashboard
-- contact / takedown / opt-out form, with Turnstile and no account needed
-- static help pages adapted from the wiki's meta pages: contributing guide, FAQ for Bards, the Bard Preference Checklist explainer, the conservation guide, and a licence page
+**Read pages (FE2, built):** home (mission, non-affiliation disclaimer R-1); A–Z; faceted browse with a desktop
+sidebar and mobile drawer (R-2, R-3), the piece and bard lists leaving out stubs unless one link asks for
+them, so that their totals match the home page's and the categories' (search still finds stubs); search; piece
+page (infobox, links by role, performances, licensing card, notes); person, term, collection and event pages; history and diffs; help pages
+(contributing, FAQ for bards, the Bard Preference Checklist, the conservation guide, the licence),
+carrying the wiki's own text (§2.0).
 
-**Standards:**
-- WCAG 2.2 AA, fully keyboard operable
-- every style works in light and dark themes
-- works at 360px width
-- no layout shift on load
-- server-rendered read pages for SEO, with page metadata
+**Editing (FE3):** an edit form per entity type with structured pickers; a credit editor (attribution,
+certainty); a link editor (role, place type, collection, locator, performances); a term picker with "suggest a
+new term" (needs a parent, R-20); a licensing-source prompt (R-12); preview with the read components; the
+duplicate warning; the pending banner; "my contributions"; withdraw; revert (an old version loaded into the
+editor and submitted); the CC BY-SA notice. "Suggest a new term" submits a term revision; the piece can use the
+term once it is approved.
 
-## 9. Testing strategy (heavy, at both layers)
+**Moderation and contact (FE4):** the queue; the review page (diffs, the stale warning, approve or reject with a
+note); the contact inbox (link reports included); takedown and blocking; the needs-work page; the
+contact / takedown / opt-out form with Turnstile.
+
+**Standards:** server-rendered with page metadata; the browser never calls the API; WCAG 2.2 AA and keyboard
+operable; light and dark themes; works at 360px; no layout shift; plain, friendly copy.
+
+## 9. Testing
+
+Test the behaviour that matters at the cheapest level that proves it: one test per rule, not one per status code
+or combination. A test earns its place by catching a bug someone could plausibly write.
 
 **BE:**
-- Unit tests for domain and commands, using mockery mocks. The revision engine gets table-driven tests for every state transition, stale/rebase case and sourced-field rule.
-- Repository tests against **real MySQL 8**, run in the sandbox if pipeline BE1's spike succeeds (§10). The host always runs them with `make test-integration` (podman).
-- HTTP tests for every route, checking authentication, authorisation by role (anonymous, contributor, moderator, API token) and status codes, against the OpenAPI spec using kin-openapi response validation.
-- Importer golden tests (§7).
-- `make validate` covers lint (golangci pinned via `go tool`), vacuum OpenAPI lint, unit tests and build.
+- Repository tests on real MySQL 8.4 (sandbox, host and CI) for the queries
+  and the cases that matter.
+- HTTP tests: one table of who may call each write route (anonymous, contributor, moderator, blocked) and a happy
+  path per route, checked against the spec. Controllers are tested through the HTTP tests or one hand-written fake
+  repository, not generated mocks.
+- No tests of test helpers, of generated SQL strings, or of config files beyond "every env var is in `.env.dist`".
+- `make validate` and `make vulncheck` in CI.
 
 **FE:**
-- vitest and testing-library component tests for every component, including both theme classes.
-- Route loader and action tests against an **API mock server** driven by OpenAPI-validated fixtures (msw for unit tests; a small fixture server for e2e).
-- **Playwright e2e** in demesne's `browser` image (offline) against the built app and the fixture server. It covers every user journey: browse by facets on desktop and mobile, search, read a piece and a bard, log in (stubbed), edit and preview, the duplicate warning, submit, the pending banner, moderator approve, reject and three-way rebase, term suggestion, repertoire, report a link, the contact form, history and revert.
-- Each journey is checked with **axe-core** in both light and dark themes, and takes screenshots at 360, 768 and 1280px in both themes. Those screenshots feed the UX review step.
-- A contract test generates FE types from the BE's `openapi/api.yaml` and fails if the fixtures don't match the spec.
-- `npm run validate` covers format, lint, typecheck, vitest and the Playwright suite.
+- Component tests for components with logic (forms, editors, pickers, the facet drawer); loader and action tests
+  against msw with spec-checked fixtures.
+- A short Playwright suite, one journey per main flow: browse and search, read a piece and a bard, sign in
+  (stubbed), edit and submit with the duplicate warning, approve and reject (one stale), contact (including
+  reporting a link). axe on each page type in the default theme (the token contrast check covers dark mode);
+  screenshots at 360 and 1280px for the UX review.
+- `npm run validate`, the `e2e` job and `npm run audit` in CI.
 
-**Full stack (host, at the end):**
-- podman MySQL, BE, FE dev server and Playwright run against the **real imported data**, followed by John and Fabian clicking through it themselves.
+**Full stack (H1):** BE, FE and Playwright on the real import, then John and Fabian click through it.
 
 ## 10. Build sequence
 
-The work runs as **separate pipelines coordinated by the host**, one milestone and one repo each, not as one giant pipeline:
-- The two repos only share the OpenAPI contract, so their pipelines can run side by side.
-- Landing each milestone on the host gives a checkpoint where integration tests, screenshots and a human look happen before the next layer builds on it.
-- A failure stays contained to one milestone.
+Each milestone is one pipeline in one repo, coordinated by the host. A pipeline plans (chunks with acceptance
+tests), implements (Opus for the revision engine and moderation UI, Sonnet for the mechanical parts), gates each
+chunk on `make validate` / `npm run validate`, reviews (correctness, security, tests against the acceptance
+list, UX and accessibility from screenshots, and **proportion**: code or tests out of scale with this plan are a
+finding), fixes, and commits on a milestone branch with `CHANGES.md`. The host merges, re-checks, and reports to
+John and Fabian.
 
-Each pipeline has the same internal shape:
-1. **Explore and plan:** the orchestrator writes the milestone plan. It breaks the work into numbered **chunks**, and each chunk into **sub-chunks**, with a list of acceptance tests per requirement.
-2. **Implement:** for each chunk, an implementer child builds each sub-chunk in order, with its tests. Opus handles the core logic: revision engine, importer, faceted query, moderation UI. Sonnet handles the mechanical parts.
-3. **Chunk gate:** `make validate` / `npm run validate` must pass before the next chunk starts.
-4. **Review:** parallel reviewers each check one aspect:
-   - correctness
-   - the CLAUDE.md manual quality checks
-   - test coverage against the acceptance list
-   - security (authentication, authorisation, input handling)
-   - for FE milestones, a UX and accessibility review that reads the screenshots
-5. **Fix, then a final validate.**
-6. **Commit** on a milestone branch, and copy the repo into `/out/repo`, along with `CHANGES.md` and the review results.
+Reviewers judge against this plan, not every conceivable edge case; a finding that would add a rule or mechanism
+goes to the owners as a question.
 
-**The host then:**
-- fetches the branch and fast-forward merges it
-- runs `make validate` once more on the host
-- runs `make test-integration` for BE milestones
-- looks at the screenshots for FE milestones
-- reports to John and Fabian before starting the next pipeline
-
-| # | Pipeline | Repo | Depends on | Contents |
+| # | Pipeline | Repo | After | Contents |
 |---|---|---|---|---|
-| H0 | host setup | — | decisions in §2 | Create both GitHub repos and copy this plan into `bardic-torch/docs/`. Set up the dokku app, MySQL, letsencrypt and the api.bardictorch.org domain. Create the Cloudflare Pages project with bardictorch.org and www. Create the Auth0 application with Google and Facebook connections, plus a Turnstile site key. *The Auth0, Cloudflare and DNS dashboard steps are John's.* |
-| BE1 | foundation | BE | H0 | Copy and strip the feed skeleton. Add the users table, roles and moderator seeding, the auth carried over from the feed, the test harness (with the **in-sandbox MySQL spike**), the OpenAPI skeleton, CI, and the dokku files (Dockerfile, `app.json` predeploy migrate step, cron entry). |
-| FE1 | foundation | FE | H0 (runs alongside BE1) | Copy and strip the feed FE. Add the wiki-style design system and layout, dark mode, auth, the type-generation pipeline, the fixture server, and the Playwright, axe and screenshot harness. Add the static help pages. |
-| BE2 | catalogue and read API | BE | BE1 | Every §4 catalogue table and migration, and every public read endpoint in §6, including facet counts, FULLTEXT search and A–Z. The revisions table exists but only stores import data. |
-| BE3 | importer | BE | BE2 | Everything in §7. A dry-run report is produced for John and Fabian to read. |
-| FE2 | read UI | FE | BE2 spec (runs alongside BE3) | Every read page in §8, the etiquette card and conservation badge, the mobile facet drawer, and SEO. |
-| BE4 | revisions and moderation | BE | BE3 | Everything in §5, plus the moderation, link-report, contact (Turnstile) and needs-work endpoints. |
-| FE3 | editing | FE | BE4 spec | Edit forms for every entity type, the credit, link, term and sourced-field editors, preview, drafts, the duplicate warning, the pending banner, and history, diff and revert. |
-| BE5 | contributor extras | BE | BE4 | Repertoire, preference profiles and their validation, conservation suggestions, the `check-links` cron with Wayback lookup, API-token MCP tools, and rate limits. |
-| FE4 | moderation and extras UI | FE | BE5 spec, FE3 | The moderation queue, diff and three-way review, the inboxes, repertoire, the preference-profile editor, the needs-work dashboard, and the contact form. |
-| H1 | launch | host | all | Full-stack e2e against the real import, a staging deploy, the real import run with its review report worked through, the click-through by John and Fabian, then production. |
+| H0–BE3, FE1–FE2 | | | | *Done:* host setup, foundations, catalogue and read API, importer, read UI. |
+| BE-S | simplify | BE | BE3 | *Done:* removed what this plan no longer needs (below). |
+| FE-S | simplify | FE | FE2 | Remove what this plan no longer needs (below). |
+| BE4 | revisions and moderation | BE | BE-S | §5 and the §6 write routes; migrations for the revision columns, `contact_requests`, performance owners and the link-check columns; `updated_at` and `credit_names`; the monthly `check-links` cron. |
+| FE3 | editing | FE | FE-S, BE4 spec | §8 "Editing". |
+| FE4 | moderation and contact | FE | FE3 | §8 "Moderation and contact". |
+| H1 | launch | host | all | The Cloudflare rate-limiting rule; full-stack e2e on the real import; staging; the real import; the click-through; production. |
 
-**Concurrency:** at most two pipelines run at once, one per repo.
+**BE-S removed** hidden aliases (`person_aliases.is_public` by migration, the score-0 alias search, the snapshot
+name rules and their tests); the `draft` status and `mcp` source values; the importer's name withholding and every
+other rule that treated names as private; the import review file (`import-review.md`, `--review`); the hostile-input
+CPU-time tests; the unused `claimed_by_user_id` column and preference tables; API tokens (`api_tokens` by
+migration, `/v1/tokens*`, the token validator in the auth middleware) and the `auth0|` credential prefix (the API
+takes `Authorization: Bearer <jwt>`); `cmd/scrub-dump` and the scrubber; the importer's lyric heuristics beyond
+the rule in §7; and the docs about them. It also brought the tests to §9:
+- deleted the research-oracle tests, the tests of test helpers, and the generated-SQL string tests (keeping the
+  search integration tests and a few builder unit tests);
+- replaced the mockery mocks and one-method interfaces with the HTTP tests or one hand-written fake;
+- merged the auth-matrix and routing tests into one table that also checks route parity with the spec;
+- cut the leak matrix to the one small leak test and the Auth0 validator tests to one per rule;
+- dropped the schema-mirroring import validator test, and trimmed `deploy_files_test.go` to the `.env.dist` check;
+- replaced hidden-link snapshot redaction with a deny-set of hidden normalised URLs (since reduced to the §4.1
+  rule by link ID).
 
-**Order:** H0 → (BE1 ∥ FE1) → BE2 → (BE3 ∥ FE2) → BE4 → (BE5 ∥ FE3) → FE4 → H1.
+TESTING.md, DEPLOY.md and CLAUDE.md were rewritten to this plan, short. Public responses kept their shape, apart
+from what went with tokens.
+
+**FE-S removes** API tokens (settings UI, proxy routes, tests), the styleguide route and the `auth0|` credential
+prefix (the proxy sends `Authorization: Bearer <access_token>`), and brings the FE to §9 and §3:
+- one table-driven server-render smoke test in place of the per-route SSR files;
+- component tests only for components with behaviour;
+- a short e2e suite (about eight read journeys; axe once per page template; screenshots on demand, not a gate;
+  one 360px reflow sweep);
+- repo-scan meta-tests cut to the raw-colour, worker-entry, exact-pin and no-secret checks;
+- response types from the generated spec types instead of strict zod schemas;
+- a fixture API serving canned responses instead of re-implementing BE rules;
+- table-driven server, catalogue-helper and theme tests;
+- one `sitemap.xml` and no JSON-LD; query-state without the offset caps and most redirect variants;
+- a hand-written Tailwind `@theme` block in place of the theme generator (keeping `tokens.ts` and the contrast
+  check);
+- the audit workflow weekly and on pull requests to main; one knip pass.
+
+DESIGN.md, TESTING.md and CLAUDE.md are rewritten to this plan, short (DESIGN about 300 lines: principles, tokens,
+breakpoints, voice, accessibility). Event pages stay.
+
+**BE4 reuses** from the closed `milestone/be4-moderation` and `milestone/be5-extras` branches where they fit: the
+`contact_requests` DDL and code, the Turnstile and Wayback clients, the link-check guard and
+prober, the entity writer shared with the importer, the document `Validate` functions and `DuplicateKey` (without
+hidden-data handling), the bounded connection pools and the 503 for a refused connection (BE4's connection
+fix), and the `updated_at` and `credit_names` read changes. It reuses none of the merge,
+withhold/restore, drafts, placeholder rows, pending-reference approval, flags, revert endpoint, rate limiting,
+display-name controls, repertoire, preferences or MCP code; the revision write path is rewritten smaller, using
+the old tests as a source of cases worth keeping, not as a list to reproduce.
+
+**Order:** BE-S ∥ FE-S → BE4 → FE3 → FE4 → H1. FE3 may start on BE4's spec while BE4 is built; at most two
+pipelines run at once, one per repo.

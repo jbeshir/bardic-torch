@@ -1,0 +1,21 @@
+{
+  "name": "bardic-torch-api",
+  "scripts": {
+    "dokku": {
+      "predeploy": "/app/migrate up"
+    }
+  },
+  "healthchecks": {
+    "web": [
+      {
+        "type": "startup",
+        "name": "readyz",
+        "description": "The API is serving and can reach MySQL",
+        "path": "/readyz",
+        "attempts": 5,
+        "wait": 2,
+        "timeout": 5
+      }
+    ]
+  }
+}
