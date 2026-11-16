@@ -1091,6 +1091,210 @@ paths:
           $ref: "#/components/responses/Unavailable"
 
 
+  /v1/moderation/links:
+    get:
+      tags:
+        - Moderation
+      summary: Find a link by URL
+      description: |
+        Returns the link whose normalized URL is the given URL's, hidden or not, with where it is attached, so that
+        a moderator can take it down with `PUT /v1/links/{link_id}/hidden`. Requires the moderator role.
+      operationId: getModerationLink
+      parameters:
+        - name: url
+          in: query
+          required: true
+          description: The link's URL, in any spelling that normalizes to it.
+          schema:
+            type: string
+            minLength: 1
+            examples:
+              - https://example.org/kettle
+      responses:
+        "200":
+          description: The link.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationLink"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/links/{link_id}/hidden:
+    put:
+      tags:
+        - Moderation
+      summary: Hide or restore a link
+      description: |
+        Hides a link everywhere, or restores it. A hidden link is left out of every public read, and so is any link
+        with the same normalized URL. Setting the state a link is already in succeeds. Requires the moderator role.
+      operationId: setLinkHidden
+      parameters:
+        - $ref: "#/components/parameters/LinkID"
+      requestBody:
+        description: Whether the link should be hidden.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetLinkHiddenRequest"
+      responses:
+        "204":
+          description: The link is hidden or restored, as requested.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/contact:
+    post:
+      tags:
+        - Moderation
+      summary: Send a contact request
+      description: |
+        Sends a message to the moderators, from anyone, with no account. The Cloudflare Turnstile token is checked
+        with Cloudflare: it must pass, have been minted on the site's hostname and for the action `contact`;
+        otherwise the answer is 400 `turnstile_failed`. The name, email, message and URL are personal data: the
+        server never logs them. Credentials are
+        ignored. The body is at most 64 KiB.
+      operationId: createContactRequest
+      security: []
+      requestBody:
+        description: The message and its Turnstile token.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactRequest"
+      responses:
+        "202":
+          description: The request was stored.
+        "400":
+          description: |
+            The body is invalid (`invalid_request`), or the Turnstile check failed (`turnstile_failed`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid:
+                  summary: A field is missing or out of range
+                  value:
+                    code: invalid_request
+                    message: kind, email, message and turnstile_token are required and within their limits
+                turnstile:
+                  summary: The Turnstile check failed
+                  value:
+                    code: turnstile_failed
+                    message: the Turnstile check failed; reload the form and try again
+        "413":
+          description: The request body is larger than 64 KiB; the error code is `request_too_large`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: request_too_large
+                message: request body is too large
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/moderation/contact-requests:
+    get:
+      tags:
+        - Moderation
+      summary: List contact requests
+      description: |
+        Lists one page of contact requests with a status (`open` unless `status` says otherwise), oldest first, with
+        how many there are in all. Requires the moderator role.
+      operationId: listContactRequests
+      parameters:
+        - $ref: "#/components/parameters/ReportStatusFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: The page of requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRequestList"
+        "400":
+          $ref: "#/components/responses/InvalidListRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/moderation/contact-requests/{request_id}:
+    post:
+      tags:
+        - Moderation
+      summary: Resolve or dismiss a contact request
+      description: |
+        Closes an open contact request as resolved or dismissed, with an optional note. Requires the moderator role.
+      operationId: closeContactRequest
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      requestBody:
+        description: How the request is closed.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseContactRequestRequest"
+      responses:
+        "204":
+          description: The request is closed.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ModeratorForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/NotOpen"
+        "413":
+          $ref: "#/components/responses/RequestTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
   /v1/me/revisions:
     get:
       tags:
@@ -1559,6 +1763,7 @@ paths:
         "503":
           $ref: "#/components/responses/Unavailable"
 
+
 components:
   securitySchemes:
     auth0Bearer:
@@ -1656,6 +1861,37 @@ components:
       schema:
         $ref: "#/components/schemas/Letter"
 
+    RequestID:
+      name: request_id
+      in: path
+      required: true
+      description: The contact request's `id`.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        examples:
+          - 3
+    LinkID:
+      name: link_id
+      in: path
+      required: true
+      description: The link's `id`, as `GET /v1/moderation/links` gives it.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        examples:
+          - 9
+    ReportStatusFilter:
+      name: status
+      in: query
+      required: false
+      description: Only list items with this status. Omitted, `open`.
+      schema:
+        type: string
+        enum: [open, resolved, dismissed]
+        default: open
   responses:
     InvalidHistoryRequest:
       description: |
@@ -1798,6 +2034,25 @@ components:
           example:
             code: invalid_request
             message: "invalid status: not one of its allowed values"
+    NotFound:
+      description: |
+        The request or link does not exist; the error code is `not_found`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: link not found
+    NotOpen:
+      description: The request is already resolved or dismissed; the error code is `conflict`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: conflict
+            message: the contact request is not open
     InvalidCollectionID:
       description: The `collection_id` is not a positive integer in decimal digits; the error code is `invalid_request`.
       content:
@@ -1879,6 +2134,7 @@ components:
             - conflict
             - internal
             - unavailable
+            - turnstile_failed
             - validation_failed
             - possible_duplicate
             - pending_limit_reached
@@ -4469,6 +4725,282 @@ components:
       examples:
         - reason: stub
           count: 3
+
+    Resolution:
+      type: object
+      description: How a moderator closed a contact request.
+      additionalProperties: false
+      required: [resolved_by, resolved_at, note]
+      properties:
+        resolved_by:
+          type: string
+          description: The moderator's user `id`.
+          examples:
+            - google-oauth2|123
+        resolved_at:
+          type: string
+          format: date-time
+        note:
+          type:
+            - string
+            - "null"
+          examples:
+            - Link hidden.
+      examples:
+        - resolved_by: google-oauth2|123
+          resolved_at: "2026-11-11T12:00:00Z"
+          note: Link hidden.
+
+    CloseContactRequestRequest:
+      type: object
+      description: The body of a moderator's closing of a contact request.
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [resolved, dismissed]
+          examples:
+            - dismissed
+        note:
+          type:
+            - string
+            - "null"
+          maxLength: 2000
+          examples:
+            - Not for us.
+      examples:
+        - status: dismissed
+          note: Not for us.
+
+    ModerationLink:
+      type: object
+      description: A link as a moderator takes it down, hidden or not.
+      additionalProperties: false
+      required: [id, url, title, is_hidden, liveness, attachments]
+      properties:
+        id:
+          type: integer
+          format: int64
+          examples:
+            - 9
+        url:
+          type: string
+          examples:
+            - https://example.org/kettle
+        title:
+          type:
+            - string
+            - "null"
+          examples:
+            - The Copper Kettle, sung
+        is_hidden:
+          type: boolean
+          examples:
+            - false
+        liveness:
+          $ref: "#/components/schemas/Liveness"
+        attachments:
+          type: array
+          description: The pieces, then persons, the link is attached to, with its roles on each.
+          items:
+            type: object
+            additionalProperties: false
+            required: [entity_type, slug, title, roles]
+            properties:
+              entity_type:
+                type: string
+                enum: [piece, person]
+                examples:
+                  - piece
+              slug:
+                type: string
+                examples:
+                  - the-copper-kettle
+              title:
+                type: string
+                description: The attached piece's title or person's name.
+                examples:
+                  - The Copper Kettle
+              roles:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkRole"
+      examples:
+        - id: 9
+          url: https://example.org/kettle
+          title: The Copper Kettle, sung
+          is_hidden: false
+          liveness: ok
+          attachments:
+            - entity_type: piece
+              slug: the-copper-kettle
+              title: The Copper Kettle
+              roles: [lyrics]
+
+    SetLinkHiddenRequest:
+      type: object
+      description: The body of a request to hide or restore a link.
+      additionalProperties: false
+      required: [hidden]
+      properties:
+        hidden:
+          type: boolean
+          description: True to hide the link, false to restore it.
+          examples:
+            - true
+      examples:
+        - hidden: true
+
+    CreateContactRequest:
+      type: object
+      description: The body of a contact request. Every text field is trimmed.
+      additionalProperties: false
+      required: [kind, email, message, turnstile_token]
+      properties:
+        kind:
+          type: string
+          description: |
+            What the request is about. `link_report` reports a link on the site, and `url` is then the link's URL.
+            Moderators take a link down by finding it with `GET /v1/moderation/links`.
+          enum: [takedown, opt_out, correction, link_report, general]
+          examples:
+            - takedown
+        name:
+          type:
+            - string
+            - "null"
+          maxLength: 255
+          examples:
+            - Wren
+        email:
+          type: string
+          maxLength: 254
+          examples:
+            - wren@example.org
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+            - Please remove this recording.
+        url:
+          type:
+            - string
+            - "null"
+          maxLength: 2048
+          description: The page the request is about, if any, or for a `link_report` the link's URL. Stored as sent.
+          examples:
+            - https://example.org/kettle
+        turnstile_token:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: The token Cloudflare Turnstile's widget (action `contact`) gave the browser.
+          examples:
+            - 0.abc123
+      examples:
+        - kind: takedown
+          name: Wren
+          email: wren@example.org
+          message: Please remove this recording.
+          url: https://example.org/kettle
+          turnstile_token: 0.abc123
+
+    ContactRequest:
+      type: object
+      description: |
+        A message sent through the contact form. The name and URL are null when the sender gave
+        none.
+      additionalProperties: false
+      required: [id, kind, name, email, message, url, status, created_at, resolution]
+      properties:
+        id:
+          type: integer
+          format: int64
+          examples:
+            - 3
+        kind:
+          type: string
+          enum: [takedown, opt_out, correction, link_report, general]
+          examples:
+            - takedown
+        name:
+          type:
+            - string
+            - "null"
+          examples:
+            - Wren
+        email:
+          type:
+            - string
+            - "null"
+          examples:
+            - wren@example.org
+        message:
+          type:
+            - string
+            - "null"
+          examples:
+            - Please remove this recording.
+        url:
+          type:
+            - string
+            - "null"
+          examples:
+            - https://example.org/kettle
+        status:
+          type: string
+          enum: [open, resolved, dismissed]
+          examples:
+            - open
+        created_at:
+          type: string
+          format: date-time
+        resolution:
+          oneOf:
+            - $ref: "#/components/schemas/Resolution"
+            - type: "null"
+      examples:
+        - id: 3
+          kind: takedown
+          name: Wren
+          email: wren@example.org
+          message: Please remove this recording.
+          url: https://example.org/kettle
+          status: open
+          created_at: "2026-11-10T09:30:00Z"
+          resolution: null
+
+    ContactRequestList:
+      type: object
+      description: One page of contact requests, oldest first.
+      additionalProperties: false
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactRequest"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many requests have the status, over every page.
+          examples:
+            - 1
+      examples:
+        - data:
+            - id: 3
+              kind: takedown
+              name: Wren
+              email: wren@example.org
+              message: Please remove this recording.
+              url: https://example.org/kettle
+              status: open
+              created_at: "2026-11-10T09:30:00Z"
+              resolution: null
+          total: 1
 
     EntityType:
       type: string

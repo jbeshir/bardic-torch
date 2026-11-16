@@ -36,7 +36,7 @@ the product and implementation plan.
   from it.
 - **Event** -- An event where pieces were performed, addressed by slug.
 - **Link** -- An external URL attached to pieces or persons with one or more roles (lyrics, sheet music,
-  performance...).
+  performance...). Moderators can hide a link, and hidden links appear in no public read.
 - **Revision and visibility** -- Every change to a catalogue entity is a revision. An entity is public only once it
   has an approved current revision (a term also needs every ancestor approved); anything else, and anything unknown,
   gets the same 404. Only approved revisions appear in the public history, as redacted views using current

@@ -767,3 +767,77 @@ WHERE r.entity_type = ? AND r.id IN (
     UNION ALL SELECT current_revision_id FROM collections
     UNION ALL SELECT current_revision_id FROM events
 );
+
+
+-- Links never checked come first, then the longest unchecked.
+
+-- name: ListLinksDueForCheck :many
+SELECT id, url, liveness, liveness_failures
+FROM links
+WHERE is_hidden = FALSE AND (last_checked_at IS NULL OR last_checked_at < sqlc.arg(checked_before))
+ORDER BY last_checked_at IS NOT NULL, last_checked_at, id;
+
+
+-- name: UpdateLinkCheck :exec
+UPDATE links
+SET liveness = sqlc.arg(liveness), liveness_failures = sqlc.arg(liveness_failures),
+    last_checked_at = sqlc.arg(checked_at)
+WHERE id = sqlc.arg(id);
+
+
+-- Links with no archived copy whose archive was never looked up, or not since the cutoff: dead links first.
+
+-- name: ListLinksDueForArchive :many
+SELECT id, url
+FROM links
+WHERE is_hidden = FALSE AND archived_url IS NULL
+    AND (archive_checked_at IS NULL OR archive_checked_at < sqlc.arg(checked_before))
+ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id;
+
+
+-- A NULL archived_url records a lookup that found nothing.
+
+-- name: UpdateLinkArchive :exec
+UPDATE links
+SET archived_url = COALESCE(sqlc.narg(archived_url), archived_url), archive_checked_at = sqlc.arg(checked_at)
+WHERE id = sqlc.arg(id);
+
+-- ============================================
+-- Link takedown and contact requests
+-- ============================================
+
+-- name: SetLinkHidden :execrows
+UPDATE links SET is_hidden = ? WHERE id = ?;
+
+-- name: GetModerationLink :one
+SELECT id, url, title, liveness, is_hidden FROM links WHERE normalized_url = ?;
+
+-- name: ListModerationLinkAttachments :many
+SELECT a.role, pc.slug AS piece_slug, pc.title AS piece_title, ps.slug AS person_slug, ps.name AS person_name
+FROM link_attachments a
+LEFT JOIN pieces pc ON pc.id = a.piece_id
+LEFT JOIN persons ps ON ps.id = a.person_id
+WHERE a.link_id = ?
+ORDER BY a.piece_id IS NULL, a.piece_id, a.person_id, a.position, a.id;
+
+-- name: InsertContactRequest :execresult
+INSERT INTO contact_requests (kind, name, email, message, url, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: ListContactRequests :many
+SELECT id, kind, name, email, message, url, status, created_at, resolved_by_user_id, resolved_at, resolution_note
+FROM contact_requests
+WHERE status = ?
+ORDER BY created_at, id
+LIMIT ? OFFSET ?;
+
+-- name: CountContactRequests :one
+SELECT COUNT(*) FROM contact_requests WHERE status = ?;
+
+-- name: GetContactRequestStatus :one
+SELECT status FROM contact_requests WHERE id = ?;
+
+-- name: CloseContactRequest :exec
+UPDATE contact_requests
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ?;

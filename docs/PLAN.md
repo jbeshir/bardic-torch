@@ -112,8 +112,8 @@ on 2026-11-15 to follow the wiki; 2.1 and 2.3 settled by the owners on 2026-11-1
 Two repos, both from the alignment-feed skeletons (layering, idioms, CLAUDE.md quality checks, CI).
 
 - **`bardic-torch`** (Go API): transport/web (net/http `ServeMux`) → command → domain → datasources/mysql
-  (sqlc), with golang-migrate.
-  The OpenAPI spec (`openapi/api.yaml`)
+  (sqlc), with golang-migrate. Entrypoints: `cmd/app` (the API), `cmd/migrate` (dokku's predeploy step),
+  `cmd/import-mediawiki` (§7) and `cmd/check-links` (§5.5, dokku cron). The OpenAPI spec (`openapi/api.yaml`)
   is the contract with the FE.
 - **`bardic-torch-fe`** (React Router 8 on Cloudflare Workers): openid-client against Auth0 with a cookie session;
   server-side proxy routes, so the browser never calls the API; response types generated from the spec (zod only
@@ -209,7 +209,8 @@ show. Authors appear by display name; imports list the wiki contributors.
 - **Pending banner:** an author sees, on the entity's page, a banner linking to their pending revision (the FE
   finds it in `/v1/me/revisions`, at most 30).
 - **Hidden links** are left out of editable documents, so an approved edit drops their attachment
-  (restoring the link later does not bring it back).
+  (restoring the link later does not bring it back). Re-adding a taken-down URL is an ordinary edit for a
+  moderator to reject; there is no rule for it.
 
 ### 5.2 Validation
 
@@ -244,7 +245,7 @@ carries a note for the author.
   person of that name, as the importer does for a red link (§2.5), with its own approved revision, and stores the
   linked document as the revision's snapshot.
 
-### 5.4 Moderation
+### 5.4 Moderation and contact
 
 - **Queue:** pending revisions, oldest first. The moderator's revision view shows the full document and its diff
   against its base and, when stale, against current.
@@ -256,6 +257,27 @@ carries a note for the author.
   marks, dropped; NFC, trimmed, cut to 64 characters), rejects a token without one that is still valid with 401, creates users with it, and replaces a stored name
   that differs, so a name changed at the provider shows from the next sign-in or token refresh, on past edits
   too. Users cannot set their own. Moderators are badged.
+- **Contact form** (R-13, no account): kind, name, email, message, URL and a Turnstile token checked server-side
+  (success, hostname, action `contact`). Moderators resolve or dismiss requests in one inbox. The personal fields
+  are never logged.
+- **Reporting a link** (R-11) is a contact request of kind `link_report`, its URL the link's, sent through the
+  same form with no account.
+- **Takedown:** moderators find a link by URL (`GET /v1/moderation/links`) and hide or restore it everywhere
+  (`PUT /v1/links/{id}/hidden`).
+
+### 5.5 Link check (`cmd/check-links`)
+
+Monthly, from dokku cron:
+- Checks every visible link not checked in the last 25 days, politely (one request per host per second, 15 s and 5
+  redirects per link); HEAD, then GET.
+- 2xx is `ok`; the third 404, 410 or NXDOMAIN in a row makes a link `dead`; 401, 403, 429 and other refusals are
+  `blocked`; timeouts, 5xx and connection errors change only `last_checked_at`.
+- Asks the Wayback Machine's availability API for a copy of links without one (dead first), at most once a link
+  per 25 days, and stores what it finds.
+- **Internal-address guard:** http(s) on ports 80 and 443 only, no credentials, and only global unicast addresses
+  outside the special-purpose ranges, checked on every redirect and on the address dialled. A refused link is
+  `blocked`.
+- Stops after 60 minutes, as a safety net, and logs links by ID, never by URL.
 
 ## 6. API surface
 
@@ -270,11 +292,12 @@ The OpenAPI spec is the exact contract.
   `POST /v1/revisions`; `POST /v1/revisions/{id}/withdraw`.
 - **Moderator:** `GET /v1/moderation/queue`,
   `GET /v1/moderation/revisions/{id}`, `POST /v1/revisions/{id}/approve|reject`,
-  `PUT /v1/users/{id}/blocked`. Moderation
-  responses carry the author's user ID that public reads never expose.
-- **Health:** `/healthz`, `/readyz`.
+  `GET /v1/moderation/contact-requests`, `POST /v1/moderation/contact-requests/{id}`,
+  `GET /v1/moderation/links?url=`, `PUT /v1/links/{id}/hidden`, `PUT /v1/users/{id}/blocked`. Moderation
+  responses carry the author's user ID and link IDs that public reads never expose.
+- **No account:** `POST /v1/contact` (contact requests, link reports among them). **Health:** `/healthz`, `/readyz`.
 
-Bodies are limited to 1 MiB for documents, and 16 KiB otherwise.
+Bodies are limited to 1 MiB for documents, 64 KiB for `/v1/contact` and 16 KiB otherwise.
 
 ## 7. Importer (`cmd/import-mediawiki`)
 
@@ -338,6 +361,8 @@ Test the behaviour that matters at the cheapest level that proves it: one test p
 or combination. A test earns its place by catching a bug someone could plausibly write.
 
 **BE:**
+- Unit tests for domain rules: revision states, validation, licensing sources, the duplicate key, the stale check,
+  URL normalisation, and the link-check guard and classification.
 - Repository tests on real MySQL 8.4 (sandbox, host and CI) for the queries and the approval write: the main
   path and the cases that matter.
 - HTTP tests: one table of who may call each write route (anonymous, contributor, moderator, blocked) and a happy

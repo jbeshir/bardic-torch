@@ -48,6 +48,12 @@ func Setup(ctx context.Context) ([]Component, error) {
 		return nil, fmt.Errorf("setting up authentication: %w", err)
 	}
 
+	turnstileVerifier, err := turnstileFromEnv(ctx)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("setting up the contact form: %w", err)
+	}
+
 	addr := ":" + strconv.Itoa(MustGetEnvAsInt(ctx, "PORT"))
 	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {
@@ -56,6 +62,7 @@ func Setup(ctx context.Context) ([]Component, error) {
 	}
 
 	deps := repositoryHTTPDependencies(repository, authValidators)
+	deps.Turnstile = turnstileVerifier
 
 	return []Component{
 		&server.Server{
