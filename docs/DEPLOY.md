@@ -1,7 +1,8 @@
 # Deploying the API
 
 The API runs on dokku as the app `bardic-torch-api` at https://api.bardictorch.org. It uses a dokku-managed
-MySQL 8.4 service, and Auth0 for login with Google and Facebook.
+MySQL 8.4 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
+moderators, migrations, rollback and the one-off import of the legacy wiki.
 
 ## Placeholders
 
@@ -16,6 +17,7 @@ Replace these in the commands below:
 | `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
+| `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
 
 ## Requirements
 
@@ -253,8 +255,8 @@ Every connection the API opens sets the session variable `max_execution_time` to
 that `/readyz` and authentication need. The limit applies to every `SELECT`, including locking reads
 (`FOR UPDATE`) and `GET_LOCK` waits, but not to `INSERT`, `UPDATE`, `DELETE` or DDL statements, nor to a `SELECT`
 inside them. `migrate` clears it on its own connections, as golang-migrate waits up to 10 seconds for its lock with
-`GET_LOCK`.
-Nothing needs configuring on the server.
+`GET_LOCK`. `import-mediawiki --apply` raises it to 60 seconds for its locking reads of the empty tables, which may
+wait for a running write. Nothing needs configuring on the server.
 
 Make the database default `utf8mb4` / `utf8mb4_0900_ai_ci`, as in development, the integration tests and CI.
 dokku-mysql configures its server with `utf8mb4_unicode_ci`, so without this a table or column whose migration
@@ -356,6 +358,41 @@ With the FE live, log in as a moderator: the FE's `GET /v1/me` returns `"role":"
 shows the name on the moderator's Google or Facebook account. If every sign-in fails, with the API logging
 `authentication failed` for a token with no `https://bardictorch.org/name` claim, the [name claim](#name-claim)
 Action is not deployed or not in the Login flow.
+
+### Importing the legacy wiki
+
+The catalogue starts as an import of the legacy MediaWiki site (PLAN §7), run **once**, at launch, against the
+empty production database: `import-mediawiki --apply` refuses a catalogue that holds any row, including a
+revision. Its input is the research crawl's dump directory (`pages.jsonl`, `categories.json`, `redirects.json`,
+`activity.json`); producing the crawl is not part of this repository.
+
+1. **Dry run.** On a workstation, from a clone of this repository, with the crawl outside it:
+   ```
+   go run ./cmd/import-mediawiki --dry-run --dump <CRAWL_DIR>
+   ```
+   It needs no database and never reads `DATABASE_URL`. It builds and validates the whole import and prints the
+   counts (pieces by kind and with inline lyrics, persons, terms, collections of the Collections page's entries,
+   events, links, revisions). Run it again whenever the crawl changes.
+2. **Apply**, once, on the server, before the FE is launched. The image holds `/app/import-mediawiki`; give the
+   one-off container a private directory holding the crawl, readable by the image's user (10001):
+   ```
+   sudo mkdir -p /var/lib/bardic-torch-import
+   sudo cp -r <CRAWL_DIR> /var/lib/bardic-torch-import/dump
+   sudo chown -R 10001:10001 /var/lib/bardic-torch-import
+   sudo chmod -R go= /var/lib/bardic-torch-import
+   dokku docker-options:add bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
+   dokku run bardic-torch-api /app/import-mediawiki --apply --dump /import/dump
+   dokku docker-options:remove bardic-torch-api run "-v /var/lib/bardic-torch-import:/import"
+   ```
+   It builds the same import and writes every row in one transaction: on any error nothing is written. It prints
+   the counts and `applied: the catalogue holds the import`. If another import is running it fails with `another
+   catalogue import is in progress`, and on a catalogue that is not empty with `catalogue is not empty`; neither
+   writes anything.
+3. **Delete the copy** once the import is applied: `sudo rm -r /var/lib/bardic-torch-import`. The crawl is never
+   committed: it holds the wiki's lyrics, which are not ours to publish, and email addresses.
+
+After the import, every imported entity has one approved revision of source `import`, crediting the wiki users who
+wrote its page; liveness of every link is `unknown`
 
 ## Deploys
 

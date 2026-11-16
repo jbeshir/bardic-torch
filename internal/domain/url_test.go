@@ -1,12 +1,16 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
+	"github.com/jbeshir/bardic-torch/internal/testutil/wikidumptest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -157,6 +161,52 @@ func TestNormalizeURL_StripsTrackingParameters(t *testing.T) {
 	runURLCases(t, trackingParameterCases)
 }
 
+// TestWithoutTrackingParameters: what NormalizeURL drops as tracking is dropped, the rest keeps its spelling, and
+// the result normalizes as the URL does.
+func TestWithoutTrackingParameters(t *testing.T) {
+	t.Parallel()
+	for raw, want := range map[string]string{
+		"https://Example.org/a?utm_source=x&b=1&fbclid=y#Top":         "https://Example.org/a?b=1#Top",
+		"https://example.org/a?utm_source=x":                          exampleA,
+		"https://example.org/a?si=keep":                               "https://example.org/a?si=keep",
+		"https://open.spotify.com/track/1?si=share1":                  "https://open.spotify.com/track/1",
+		"https://youtu.be/abcdefghijk?si=share1&t=10":                 "https://youtube.com/watch?t=10&v=abcdefghijk",
+		"https://www.youtube.com/watch?v=abcdefghijk&ab_channel=Name": "https://youtube.com/watch?v=abcdefghijk",
+		"https://www.youtube.com/@channel?si=share1":                  "https://www.youtube.com/@channel",
+		"www.example.org/a?b=1&&pp=x":                                 "www.example.org/a?b=1",
+		exampleA:                                                      exampleA,
+		"mailto:a@example.invalid":                                    "mailto:a@example.invalid",
+	} {
+		got := WithoutTrackingParameters(raw)
+		assert.Equal(t, want, got, raw)
+		if n, err := NormalizeURL(raw); err == nil {
+			assert.Equal(t, n, mustNormalize(t, got), raw)
+		}
+	}
+}
+
+func mustNormalize(t *testing.T, raw string) string {
+	t.Helper()
+	n, err := NormalizeURL(raw)
+	require.NoError(t, err)
+
+	return n
+}
+
+func TestWithControlCharactersEscaped(t *testing.T) {
+	raw := "https://en.wikipedia.org/wiki\x00\x1b[31m/Joan_\u202eof_Arc"
+	escaped := WithControlCharactersEscaped(raw)
+
+	assert.Equal(t, "https://en.wikipedia.org/wiki%00%1B[31m/Joan_%E2%80%AEof_Arc", escaped)
+	assert.False(t, strings.ContainsFunc(escaped, IsControlCharacter))
+	want, err := NormalizeURL(raw)
+	require.NoError(t, err)
+	got, err := NormalizeURL(escaped)
+	require.NoError(t, err)
+	assert.Equal(t, want, got, "both normalize the same")
+	assert.Equal(t, "https://example.org/a", WithControlCharactersEscaped("https://example.org/a"))
+}
+
 func TestNormalizeURL_KeepsMeaningfulParameters(t *testing.T) {
 	t.Parallel()
 	runURLCases(t, meaningfulParameterCases)
@@ -243,6 +293,9 @@ func FuzzNormalizeURL(f *testing.F) {
 	for _, raw := range rejectedURLs {
 		f.Add(raw)
 	}
+	for _, raw := range scrubbedDumpURLs(f) {
+		f.Add(raw)
+	}
 
 	f.Fuzz(func(t *testing.T, raw string) {
 		got, err := NormalizeURL(raw)
@@ -278,4 +331,42 @@ func requireNormalizedForm(t *testing.T, got string) {
 	if _, err := url.Parse(got); err != nil {
 		t.Fatalf("url.Parse(%q): %v", got, err)
 	}
+}
+
+// dumpURL is anything that looks like a URL in wikitext.
+var dumpURL = regexp.MustCompile(`(?i)(?:https?:)?//[^\s\[\]<>|{}"]+|\bwww\.[^\s\[\]<>|{}"]+`)
+
+// scrubbedDumpURLs returns every distinct URL of the pages of the committed scrubbed wiki dump, as written: the
+// URLs the importer normalises.
+func scrubbedDumpURLs(f *testing.F) []string {
+	f.Helper()
+	pages, err := fs.ReadFile(wikidumptest.Scrubbed(f), "pages.jsonl")
+	if err != nil {
+		f.Fatal(err)
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, line := range strings.Split(string(pages), "\n") {
+		if line == "" {
+			continue
+		}
+		var page struct {
+			URL      string `json:"url"`
+			Wikitext string `json:"wikitext"`
+		}
+		if err := json.Unmarshal([]byte(line), &page); err != nil {
+			f.Fatal(err)
+		}
+		for _, raw := range append(dumpURL.FindAllString(page.Wikitext, -1), page.URL) {
+			if !seen[raw] {
+				seen[raw] = true
+				out = append(out, raw)
+			}
+		}
+	}
+	if len(out) == 0 {
+		f.Fatal("no URLs in the scrubbed dump")
+	}
+
+	return out
 }

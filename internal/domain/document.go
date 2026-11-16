@@ -271,8 +271,8 @@ type EventDocument struct {
 	Name          string `json:"name"`
 }
 
-// StubPersonDocument is the document of a stub person known only by name (plan §2.5):
-// approval's for a credit to a person not yet on the site.
+// StubPersonDocument is the document of a stub person known only by name (plan §2.5): the importer's for a
+// red-link name, and approval's for a credit to a person not yet on the site.
 func StubPersonDocument(name string, kind PersonKind) PersonDocument {
 	return PersonDocument{SchemaVersion: DocumentSchemaVersion, Name: name, Kind: kind, Status: PersonStatusActive,
 		LicensingStatus: LicensingStatusUnknown, IsStub: true, Aliases: []DocPersonAlias{}, Roles: []PersonRole{},

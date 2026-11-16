@@ -56,6 +56,35 @@ func truncateSlug(s string, n int) string {
 	return cut
 }
 
+// SlugAllocator gives entities unique slugs, per entity type, in the order it is asked. The zero value is ready to
+// use.
+type SlugAllocator struct {
+	taken map[SlugEntityType]map[string]bool
+}
+
+// Allocate returns a slug for the entity id of type t named name that no earlier Allocate gave an entity of type
+// t: Slugify(name), or "<entity type>-<id>" if that is empty, with the first free suffix "-2", "-3"… if it is
+// taken, the base cut (at a hyphen where it can) so that the slug stays within MaxSlugLength.
+func (a *SlugAllocator) Allocate(name string, t SlugEntityType, id int64) string {
+	base := Slugify(name)
+	if base == "" {
+		base = t.String() + "-" + strconv.FormatInt(id, 10)
+	}
+	if a.taken == nil {
+		a.taken = make(map[SlugEntityType]map[string]bool)
+	}
+	taken := a.taken[t]
+	if taken == nil {
+		taken = make(map[string]bool)
+		a.taken[t] = taken
+	}
+
+	slug := FreeSlug(base, taken)
+	taken[slug] = true
+
+	return slug
+}
+
 // FreeSlug returns base, or if taken holds it, base with the first suffix "-2", "-3"… that taken does not hold,
 // the base cut (at a hyphen where it can) so that the slug stays within MaxSlugLength.
 func FreeSlug(base string, taken map[string]bool) string {

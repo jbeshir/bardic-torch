@@ -470,18 +470,27 @@ FROM links
 WHERE is_hidden AND normalized_url IN (sqlc.slice('normalized_urls'));
 
 -- ============================================
--- Catalogue writes: approval
+-- Catalogue writes: the import and approval
 --
--- Approval writes one document.
--- Each entity
+-- The importer writes a whole catalogue into an empty database in one transaction, with the IDs the import
+-- assigned, every row of a table before the rows of tables referring to it. Approval writes one document. Both
+-- use the entity inserts (an approval's id is NULL, for a new auto-increment ID) and the child inserts. Each entity
 -- row carries its approved revision as its current revision directly. A links row's normalized_url is
 -- domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
 -- ============================================
 
+-- name: InsertImportedRevision :exec
+INSERT INTO revisions (id, entity_type, entity_id, source, status, snapshot_json, summary, created_at)
+VALUES (?, ?, ?, 'import', 'approved', ?, ?, ?);
+
+-- name: InsertRevisionContributor :exec
+INSERT INTO revision_contributors (revision_id, position, name)
+VALUES (?, ?, ?);
+
 -- name: InsertTerm :execlastid
 INSERT INTO terms (id, facet, name, display_name, slug, parent_id, related_affiliation_id, description_md, position,
-    current_revision_id, legacy_title)
-VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertTermAncestor :exec
 INSERT INTO term_ancestors (ancestor_id, descendant_id, depth)
@@ -493,13 +502,13 @@ INSERT INTO collections (id, name, sort_name, sort_letter, url, kind, descriptio
 VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertEvent :execlastid
-INSERT INTO events (id, slug, name, current_revision_id, legacy_title)
-VALUES (sqlc.narg(id), ?, ?, ?, ?);
+INSERT INTO events (id, slug, name, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?);
 
 -- name: InsertPerson :execlastid
 INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, notes_md, licensing_notes_md,
-    licensing_status, is_stub, current_revision_id, legacy_title)
-VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    licensing_status, is_stub, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPersonAlias :exec
 INSERT INTO person_aliases (person_id, name, kind)
@@ -515,9 +524,9 @@ VALUES (?, ?);
 
 -- name: InsertPiece :execlastid
 INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
-    version_notes_md, licensing_notes_md, licensing_status, current_revision_id,
-    legacy_title)
-VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    version_notes_md, licensing_notes_md, licensing_status, legacy_had_inline_lyrics, current_revision_id,
+    legacy_wiki_pageid, legacy_title)
+VALUES (sqlc.narg(id), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPieceAlias :exec
 INSERT INTO piece_aliases (piece_id, text, kind)
@@ -530,6 +539,11 @@ VALUES (?, ?, ?);
 -- name: InsertPieceCredit :exec
 INSERT INTO piece_credits (piece_id, person_id, role, attribution, certainty, position)
 VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: InsertImportedLink :exec
+INSERT INTO links (id, url, normalized_url, title, description, platform, place_type, collection_id, locator,
+    is_hidden)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertLinkAttachment :exec
 INSERT INTO link_attachments (link_id, piece_id, person_id, role, position)

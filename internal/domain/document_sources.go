@@ -8,6 +8,7 @@ import (
 // ValidatePieceSources returns the problems of a revision's licensing fields (R-12), compared with old, the
 // current document (nil for a new piece, compared with no licensing information): changed licensing notes, or a
 // licensing status changed to known, needs a link with role licensing_source.
+// The importer does not run it.
 func ValidatePieceSources(old *PieceDocument, doc PieceDocument) []Problem {
 	prev := PieceDocument{LicensingStatus: LicensingStatusUnknown}
 	if old != nil {

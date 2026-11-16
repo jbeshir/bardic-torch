@@ -20,7 +20,7 @@ var errUnknownLink = errors.New("link has no links row")
 // errUnknownDocument is returned for a document that is not one of the domain document types.
 var errUnknownDocument = errors.New("not a catalogue document")
 
-// entityWriter writes documents into their entity rows and child rows, for approval. The first
+// entityWriter writes documents into their entity rows and child rows, for the import and for approval. The first
 // error stops it: every later write is skipped, and err holds the error.
 type entityWriter struct {
 	ctx context.Context
@@ -77,6 +77,19 @@ func (w *entityWriter) position(k int) uint16 {
 	return uint16(k)
 }
 
+// legacyPageID returns a legacy page's ID as the type of the legacy_wiki_pageid columns, NULL for none.
+func (w *entityWriter) legacyPageID(p *domain.LegacyPage) sql.NullInt32 {
+	if p == nil || p.PageID == nil {
+		return sql.NullInt32{}
+	}
+	if *p.PageID > math.MaxInt32 {
+		w.fail(fmt.Errorf("legacy page ID [%d]: %w", *p.PageID, errOutOfRange))
+		return sql.NullInt32{}
+	}
+
+	return sql.NullInt32{Int32: int32(*p.PageID), Valid: true}
+}
+
 // legacyTitle returns a legacy page's title, NULL for none.
 func legacyTitle(p *domain.LegacyPage) sql.NullString {
 	if p == nil {
@@ -118,12 +131,14 @@ func nullInt16(n *int16) sql.NullInt16 {
 
 // entityRow is what an entity row holds besides its document.
 type entityRow struct {
-	// id is NULL for a new auto-increment one.
+	// id is the imported ID, or NULL for a new auto-increment one.
 	id         sql.NullInt64
 	slug       string
 	sortKey    string
 	revisionID int64
 	legacy     *domain.LegacyPage
+	// hadInlineLyrics is the piece's legacy_had_inline_lyrics.
+	hadInlineLyrics bool
 }
 
 func (w *entityWriter) insertTerm(row entityRow, d domain.TermDocument) int64 {
@@ -131,7 +146,7 @@ func (w *entityWriter) insertTerm(row entityRow, d domain.TermDocument) int64 {
 		DisplayName: d.DisplayName, Slug: row.slug, ParentID: nullableID(d.ParentID),
 		RelatedAffiliationID: nullableID(d.RelatedAffiliationID), DescriptionMd: nullString(d.DescriptionMD),
 		Position: d.Position, CurrentRevisionID: someID(row.revisionID),
-		LegacyTitle: legacyTitle(row.legacy)}
+		LegacyWikiPageid: w.legacyPageID(row.legacy), LegacyTitle: legacyTitle(row.legacy)}
 
 	return w.insert("terms", func() (int64, error) { return w.q.InsertTerm(w.ctx, p) })
 }
@@ -159,7 +174,7 @@ func (w *entityWriter) insertCollection(row entityRow, d domain.CollectionDocume
 
 func (w *entityWriter) insertEvent(row entityRow, d domain.EventDocument) int64 {
 	p := queries.InsertEventParams{ID: row.id, Slug: row.slug, Name: d.Name, CurrentRevisionID: someID(row.revisionID),
-		LegacyTitle: legacyTitle(row.legacy)}
+		LegacyWikiPageid: w.legacyPageID(row.legacy), LegacyTitle: legacyTitle(row.legacy)}
 
 	return w.insert("events", func() (int64, error) { return w.q.InsertEvent(w.ctx, p) })
 }
@@ -169,7 +184,7 @@ func (w *entityWriter) insertPerson(row entityRow, d domain.PersonDocument) int6
 		SortLetter: string(domain.SortLetter(row.sortKey)), Kind: queries.PersonsKind(d.Kind),
 		Status: queries.PersonsStatus(d.Status), NotesMd: nullString(d.NotesMD),
 		LicensingNotesMd: nullString(d.LicensingNotesMD), LicensingStatus: queries.PersonsLicensingStatus(d.LicensingStatus),
-		IsStub: d.IsStub, CurrentRevisionID: someID(row.revisionID),
+		IsStub: d.IsStub, CurrentRevisionID: someID(row.revisionID), LegacyWikiPageid: w.legacyPageID(row.legacy),
 		LegacyTitle: legacyTitle(row.legacy)}
 
 	return w.insert("persons", func() (int64, error) { return w.q.InsertPerson(w.ctx, p) })
@@ -197,10 +212,10 @@ func (w *entityWriter) insertPiece(row entityRow, d domain.PieceDocument) int64 
 		SortLetter: string(domain.SortLetter(row.sortKey)), Kind: queries.PiecesKind(d.Kind),
 		ConservationStatus: queries.PiecesConservationStatus(d.ConservationStatus), IsStub: d.IsStub,
 		NotesMd: nullString(d.NotesMD), VersionNotesMd: nullString(d.VersionNotesMD),
-		LicensingNotesMd:  nullString(d.LicensingNotesMD),
-		LicensingStatus:   queries.PiecesLicensingStatus(d.LicensingStatus),
-		CurrentRevisionID: someID(row.revisionID),
-		LegacyTitle:       legacyTitle(row.legacy)}
+		LicensingNotesMd: nullString(d.LicensingNotesMD),
+		LicensingStatus:  queries.PiecesLicensingStatus(d.LicensingStatus), LegacyHadInlineLyrics: row.hadInlineLyrics,
+		CurrentRevisionID: someID(row.revisionID), LegacyWikiPageid: w.legacyPageID(row.legacy),
+		LegacyTitle: legacyTitle(row.legacy)}
 
 	return w.insert("pieces", func() (int64, error) { return w.q.InsertPiece(w.ctx, p) })
 }

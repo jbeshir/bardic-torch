@@ -1,0 +1,114 @@
+{
+  "piece": {
+    "id": 137,
+    "slug": "three-words",
+    "sort_title": "Three Words",
+    "sort_letter": "T",
+    "doc": {
+      "schema_version": 1,
+      "title": "Three Words",
+      "kind": "song",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": "### Key Links\n\n- According to Eliane's Bardic Book: \"Written for Her Stellar Highness Elashava's Bardic Challenge, on the occasion of Northshield Coronet Tourney and Investiture in Korsvag, May 4, AS XXXVII. Chorus tune: Anon. Sephardic song, 'Porque Llorax'. Remainder of tune and lyrics Š4/7/02 Eliane Halevy (Legal Name 021)\"",
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": "According to Eliane's Bardic Book: Use of her work \"is limited to non-profit, non-recorded performances by individuals. All lyrics and tunes written by me, or translations of existing lyrics, are copyright Legal Name 021 and may not be reproduced in print or in electronic format without my express (written) permission.\"\n\nThe tune for the chorus is in the public domain.",
+      "aliases": [],
+      "term_ids": [
+        55,
+        66,
+        103,
+        102,
+        100,
+        120,
+        112
+      ],
+      "credits": [
+        {
+          "person_id": 45,
+          "role": "lyrics_and_tune",
+          "attribution": "named",
+          "certainty": "certain"
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "anonymous",
+          "certainty": "certain"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://www.gflower.org/threewords.htm",
+          "title": "Three Words on Eliane Halevy's page",
+          "description": null,
+          "platform": "gflower.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other",
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=dhqH0Sra8aU",
+          "title": null,
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": 22,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "Recording by Legal Name 024: Eliane Halevy performing her original piece with Legal Name 029 on the drum in the Tavern at Middle Kingdom 50 Year Anniversary",
+              "performer_ids": []
+            }
+          ]
+        },
+        {
+          "url": "https://youtube.com/watch?v=WdPLbQkX2ig",
+          "title": null,
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": 2009,
+              "uploader": null,
+              "description_verbatim": "Recording by Legal Name 024: Eliane Halevy singing Three Words, accompanied by Heather Dale on the bohdrun, in 2009",
+              "performer_ids": []
+            }
+          ]
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 360,
+      "title": "Three Words"
+    },
+    "revision": {
+      "id": 527,
+      "summary": "Imported from the wiki (page revision 934).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

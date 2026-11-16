@@ -719,8 +719,8 @@ func (q *Queries) InsertCollection(ctx context.Context, arg InsertCollectionPara
 }
 
 const insertEvent = `-- name: InsertEvent :execlastid
-INSERT INTO events (id, slug, name, current_revision_id, legacy_title)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO events (id, slug, name, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?)
 `
 
 type InsertEventParams struct {
@@ -728,6 +728,7 @@ type InsertEventParams struct {
 	Slug              string
 	Name              string
 	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
 	LegacyTitle       sql.NullString
 }
 
@@ -737,12 +738,84 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (int64
 		arg.Slug,
 		arg.Name,
 		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
 		arg.LegacyTitle,
 	)
 	if err != nil {
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+const insertImportedLink = `-- name: InsertImportedLink :exec
+INSERT INTO links (id, url, normalized_url, title, description, platform, place_type, collection_id, locator,
+    is_hidden)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertImportedLinkParams struct {
+	ID            uint64
+	Url           string
+	NormalizedUrl string
+	Title         sql.NullString
+	Description   sql.NullString
+	Platform      sql.NullString
+	PlaceType     NullLinksPlaceType
+	CollectionID  sql.NullInt64
+	Locator       sql.NullString
+	IsHidden      bool
+}
+
+func (q *Queries) InsertImportedLink(ctx context.Context, arg InsertImportedLinkParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedLink,
+		arg.ID,
+		arg.Url,
+		arg.NormalizedUrl,
+		arg.Title,
+		arg.Description,
+		arg.Platform,
+		arg.PlaceType,
+		arg.CollectionID,
+		arg.Locator,
+		arg.IsHidden,
+	)
+	return err
+}
+
+const insertImportedRevision = `-- name: InsertImportedRevision :exec
+
+INSERT INTO revisions (id, entity_type, entity_id, source, status, snapshot_json, summary, created_at)
+VALUES (?, ?, ?, 'import', 'approved', ?, ?, ?)
+`
+
+type InsertImportedRevisionParams struct {
+	ID           uint64
+	EntityType   RevisionsEntityType
+	EntityID     sql.NullInt64
+	SnapshotJson json.RawMessage
+	Summary      string
+	CreatedAt    time.Time
+}
+
+// ============================================
+// Catalogue writes: the import and approval
+//
+// The importer writes a whole catalogue into an empty database in one transaction, with the IDs the import
+// assigned, every row of a table before the rows of tables referring to it. Approval writes one document. Both
+// use the entity inserts (an approval's id is NULL, for a new auto-increment ID) and the child inserts. Each entity
+// row carries its approved revision as its current revision directly. A links row's normalized_url is
+// domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
+// ============================================
+func (q *Queries) InsertImportedRevision(ctx context.Context, arg InsertImportedRevisionParams) error {
+	_, err := q.db.ExecContext(ctx, insertImportedRevision,
+		arg.ID,
+		arg.EntityType,
+		arg.EntityID,
+		arg.SnapshotJson,
+		arg.Summary,
+		arg.CreatedAt,
+	)
+	return err
 }
 
 const insertLinkAttachment = `-- name: InsertLinkAttachment :exec
@@ -821,8 +894,8 @@ func (q *Queries) InsertPerformancePerformer(ctx context.Context, arg InsertPerf
 
 const insertPerson = `-- name: InsertPerson :execlastid
 INSERT INTO persons (id, slug, name, sort_name, sort_letter, kind, status, notes_md, licensing_notes_md,
-    licensing_status, is_stub, current_revision_id, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    licensing_status, is_stub, current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertPersonParams struct {
@@ -838,6 +911,7 @@ type InsertPersonParams struct {
 	LicensingStatus   PersonsLicensingStatus
 	IsStub            bool
 	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
 	LegacyTitle       sql.NullString
 }
 
@@ -855,6 +929,7 @@ func (q *Queries) InsertPerson(ctx context.Context, arg InsertPersonParams) (int
 		arg.LicensingStatus,
 		arg.IsStub,
 		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
 		arg.LegacyTitle,
 	)
 	if err != nil {
@@ -911,26 +986,28 @@ func (q *Queries) InsertPersonRole(ctx context.Context, arg InsertPersonRolePara
 
 const insertPiece = `-- name: InsertPiece :execlastid
 INSERT INTO pieces (id, slug, title, sort_title, sort_letter, kind, conservation_status, is_stub, notes_md,
-    version_notes_md, licensing_notes_md, licensing_status, current_revision_id,
-    legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    version_notes_md, licensing_notes_md, licensing_status, legacy_had_inline_lyrics, current_revision_id,
+    legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertPieceParams struct {
-	ID                 sql.NullInt64
-	Slug               string
-	Title              string
-	SortTitle          string
-	SortLetter         string
-	Kind               PiecesKind
-	ConservationStatus PiecesConservationStatus
-	IsStub             bool
-	NotesMd            sql.NullString
-	VersionNotesMd     sql.NullString
-	LicensingNotesMd   sql.NullString
-	LicensingStatus    PiecesLicensingStatus
-	CurrentRevisionID  sql.NullInt64
-	LegacyTitle        sql.NullString
+	ID                    sql.NullInt64
+	Slug                  string
+	Title                 string
+	SortTitle             string
+	SortLetter            string
+	Kind                  PiecesKind
+	ConservationStatus    PiecesConservationStatus
+	IsStub                bool
+	NotesMd               sql.NullString
+	VersionNotesMd        sql.NullString
+	LicensingNotesMd      sql.NullString
+	LicensingStatus       PiecesLicensingStatus
+	LegacyHadInlineLyrics bool
+	CurrentRevisionID     sql.NullInt64
+	LegacyWikiPageid      sql.NullInt32
+	LegacyTitle           sql.NullString
 }
 
 func (q *Queries) InsertPiece(ctx context.Context, arg InsertPieceParams) (int64, error) {
@@ -947,7 +1024,9 @@ func (q *Queries) InsertPiece(ctx context.Context, arg InsertPieceParams) (int64
 		arg.VersionNotesMd,
 		arg.LicensingNotesMd,
 		arg.LicensingStatus,
+		arg.LegacyHadInlineLyrics,
 		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
 		arg.LegacyTitle,
 	)
 	if err != nil {
@@ -1046,11 +1125,26 @@ func (q *Queries) InsertRevision(ctx context.Context, arg InsertRevisionParams) 
 	return result.LastInsertId()
 }
 
-const insertTerm = `-- name: InsertTerm :execlastid
+const insertRevisionContributor = `-- name: InsertRevisionContributor :exec
+INSERT INTO revision_contributors (revision_id, position, name)
+VALUES (?, ?, ?)
+`
 
+type InsertRevisionContributorParams struct {
+	RevisionID uint64
+	Position   uint16
+	Name       string
+}
+
+func (q *Queries) InsertRevisionContributor(ctx context.Context, arg InsertRevisionContributorParams) error {
+	_, err := q.db.ExecContext(ctx, insertRevisionContributor, arg.RevisionID, arg.Position, arg.Name)
+	return err
+}
+
+const insertTerm = `-- name: InsertTerm :execlastid
 INSERT INTO terms (id, facet, name, display_name, slug, parent_id, related_affiliation_id, description_md, position,
-    current_revision_id, legacy_title)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    current_revision_id, legacy_wiki_pageid, legacy_title)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertTermParams struct {
@@ -1064,17 +1158,10 @@ type InsertTermParams struct {
 	DescriptionMd        sql.NullString
 	Position             int32
 	CurrentRevisionID    sql.NullInt64
+	LegacyWikiPageid     sql.NullInt32
 	LegacyTitle          sql.NullString
 }
 
-// ============================================
-// Catalogue writes: approval
-//
-// Approval writes one document.
-// Each entity
-// row carries its approved revision as its current revision directly. A links row's normalized_url is
-// domain.NormalizeURL(url) (DEPLOY.md, "The normalized URL invariant"), and its liveness is the column default.
-// ============================================
 func (q *Queries) InsertTerm(ctx context.Context, arg InsertTermParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, insertTerm,
 		arg.ID,
@@ -1087,6 +1174,7 @@ func (q *Queries) InsertTerm(ctx context.Context, arg InsertTermParams) (int64, 
 		arg.DescriptionMd,
 		arg.Position,
 		arg.CurrentRevisionID,
+		arg.LegacyWikiPageid,
 		arg.LegacyTitle,
 	)
 	if err != nil {

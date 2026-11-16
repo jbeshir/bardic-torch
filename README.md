@@ -47,7 +47,10 @@ the product and implementation plan.
 
 The codebase follows a layered architecture: the transport layer handles HTTP, the command layer implements
 business rules over small datasource interfaces, the domain layer defines core types, and the MySQL datasource
-implements those interfaces with sqlc.
+implements those interfaces with sqlc. The legacy wiki importer adds two layers below the command layer:
+`internal/mediawiki` reads and parses the crawl, and `internal/importer` maps it onto a domain `CatalogueImport`.
+`cmd/import-mediawiki` validates the import and applies it through the `ApplyCatalogueImport` command, which
+writes it with the `CatalogueImporter` datasource in one transaction.
 
 ```mermaid
 graph TD
@@ -59,6 +62,9 @@ graph TD
     REPO[MySQL repository<br/>sqlc]
     DB[(MySQL 8.4)]
     AUTH0[Auth0 JWKS]
+    IMPCMD[cmd/import-mediawiki]
+    MWIKI[mediawiki<br/>crawl parser]
+    IMPORTER[importer<br/>CatalogueImport]
 
     FE --> MW
     MW --> AUTH0
@@ -69,6 +75,12 @@ graph TD
     CMD --> DOM
     CMD --> REPO
     REPO --> DB
+    IMPCMD --> IMPORTER
+    IMPORTER --> MWIKI
+    IMPORTER --> DOM
+    MWIKI --> DOM
+    IMPCMD -->|ApplyCatalogueImport| CMD
+    CMD -->|CatalogueImporter| REPO
 ```
 
 The public catalogue reads are registered outside the authentication middleware, so they answer every request as
@@ -77,10 +89,13 @@ express optional filters) and use InnoDB FULLTEXT for `q`. Every `SELECT` the AP
 is capped by a session `max_execution_time` of 2 s (see [docs/DEPLOY.md](docs/DEPLOY.md)); a list the server
 stops for that answers 500 `internal`.
 
+Three entrypoints share the internal packages:
+
 | Entrypoint | Purpose |
 |---|---|
 | `cmd/app/` | HTTP API server. At startup it promotes the bootstrap moderators. |
 | `cmd/migrate/` | Applies (`up`), rolls back (`down N`) or reports (`version`) the embedded schema migrations; dokku runs `migrate up` before every deploy, which applies nothing on a clean schema newer than its migrations (a rollback) |
+| `cmd/import-mediawiki/` | Imports the crawl of the legacy wiki (PLAN §7): `--dry-run` builds and validates the import without a database; `--apply` writes it, once, into the empty catalogue at `DATABASE_URL` in one transaction ([docs/DEPLOY.md](docs/DEPLOY.md), "Importing the legacy wiki") |
 
 ## Getting Started
 
