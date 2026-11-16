@@ -2,6 +2,7 @@ package domain
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -53,4 +54,16 @@ func truncateSlug(s string, n int) string {
 	}
 
 	return cut
+}
+
+// FreeSlug returns base, or if taken holds it, base with the first suffix "-2", "-3"… that taken does not hold,
+// the base cut (at a hyphen where it can) so that the slug stays within MaxSlugLength.
+func FreeSlug(base string, taken map[string]bool) string {
+	slug := base
+	for n := 2; taken[slug]; n++ {
+		suffix := "-" + strconv.Itoa(n)
+		slug = truncateSlug(base, MaxSlugLength-len(suffix)) + suffix
+	}
+
+	return slug
 }

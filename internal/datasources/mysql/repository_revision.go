@@ -356,6 +356,9 @@ func entityView[D domain.Document, E, S any](
 
 	view.RevisionSummary = c.revisionSummary(c.contributors(ctx, []uint64{row.ID}), row.ID, row.Source,
 		row.Summary, row.CreatedAt, row.AuthorDisplayName)
+	view.Status = enumOf[domain.RevisionStatus](c, row.Status)
+	view.ReviewNote = stringPtr(row.ReviewNote)
+	view.ReviewedAt = timePtr(row.ReviewedAt)
 	if view.Snapshot, err = kind.view(docs[0].doc, vis); err != nil {
 		return view, fmt.Errorf("snapshot: %w", err)
 	}
@@ -365,8 +368,24 @@ func entityView[D domain.Document, E, S any](
 	if view.Current, err = documentView(docs[2], kind, vis); err != nil {
 		return view, err
 	}
+	if moderator {
+		view.AuthorUserID = stringPtr(row.AuthorUserID)
+		view.PossibleDuplicates, err = newEntityDuplicates(ctx, c, row, docs[0].doc)
+	}
 
 	return view, errors.Join(err, c.err)
+}
+
+// newEntityDuplicates returns the public entities a pending revision of a new entity may duplicate, and nil for any
+// other revision.
+func newEntityDuplicates[D domain.Document](
+	ctx context.Context, c *catalogueReader, row queries.GetRevisionRow, doc D,
+) ([]domain.DuplicateCandidate, error) {
+	if row.EntityID.Valid || row.Status != queries.RevisionsStatusPending {
+		return nil, nil
+	}
+
+	return c.possibleDuplicates(ctx, row.EntityType, document(doc))
 }
 
 // revisionDocuments returns a revision's document, its base's (nil for none) and, for a moderator when the

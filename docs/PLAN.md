@@ -133,7 +133,8 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
   (Markdown); licensing (`licensing_status`, `licensing_notes_md`); `legacy_had_inline_lyrics`. Children: aliases
   (`alt_title`, `subtitle`, `redirect`), terms (ordered by `position`) and credits (person, role: lyrics, tune,
   lyrics_and_tune ("Words and tune": one person's words and tune together, counting as both) or author,
-  attribution, certainty; a person exactly when `named`).
+  attribution, certainty; a person exactly when `named`). In a revision not yet approved, a named credit may give
+  `new_person_name` (someone not yet on the site) instead of a person; approval turns it into a person (§5.3).
 - **`persons`**: name, slug and sort keys; `kind` (community_bard / historical / group); `status` (active /
   deceased / prefers_no_page); notes, licensing; `is_stub`. Children: aliases (`legal`, `sca`, all public), roles
   and affiliations.
@@ -184,7 +185,7 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 ### 4.2 Documents and snapshots
 
 A revision is public only if it is approved and its entity is public; pending and rejected revisions are seen only
-by their author and moderators. A snapshot holds only editor-owned fields, never IDs, sort
+by their author (`/v1/me/revisions`) and moderators. A snapshot holds only editor-owned fields, never IDs, sort
 keys, `legacy_*` or link system state, so approving an old snapshot never un-hides a link or undoes a link check.
 Links are inline by URL; other entities are referenced by ID in storage and by slug in the editor format: a
 piece's terms are one ordered list, `term_ids` (`term_slugs` in the editor format), beside its flat
@@ -194,6 +195,59 @@ show. Authors appear by display name; imports list the wiki contributors.
 
 ## 5. Revisions and moderation
 
+### 5.1 Contributor edits
+
+- **Edit:** `GET /v1/{type}/{key}/editable` returns the document in editor format with its base revision, or the
+  caller's own pending revision of the entity if they have one. Any signed-in user who is not blocked may edit any
+  public entity.
+- **Submit** creates a `pending` revision; a contributor's next submit for the same entity withdraws their earlier
+  one. At most 30 pending revisions per contributor. The author may **withdraw** a pending revision.
+- **Revert** has no endpoint of its own: the FE loads an older approved snapshot into the editor and submits it
+  through `POST /v1/revisions` on the current base, with a "Revert to revision N" summary.
+- **Moderators' own edits** are approved as they are saved, and still recorded; on a stale base they
+  get the same warning as in §5.3.
+- **Pending banner:** an author sees, on the entity's page, a banner linking to their pending revision (the FE
+  finds it in `/v1/me/revisions`, at most 30).
+- **Hidden links** are left out of editable documents, so an approved edit drops their attachment
+  (restoring the link later does not bring it back).
+
+### 5.2 Validation
+
+One `Validate` per document type, (widths, NFC, control characters, caps, the credit
+and facet rules, trees without cycles, unique term names in a facet), answering 422 with a path and code per
+problem.
+
+- **Licensing sources** (R-12), for moderators too: changing the licensing notes or setting a known licensing
+  status needs a `licensing_source` link. Nothing else needs a source or a summary: a conservation change is
+  recorded in the revision history with the revision's summary as the reason, even if it is empty.
+- **Duplicate warning on create** (R-17): titles, names and aliases folded by `domain.DuplicateKey` (case,
+  apostrophes, accents) are compared with public entities. A match needs `acknowledge_duplicates` (409
+  `possible_duplicate` otherwise) and is shown to the moderator. A match on a "prefers no page" person blocks a
+  new person.
+
+### 5.3 Approval
+
+One transaction validates the snapshot, writes it into the entity and its children (links upserted by
+`normalized_url`, the closure rebuilt if a term changed), and points `current_revision_id` at it. A rejection
+carries a note for the author.
+
+- **Stale revisions:** if the base is no longer current, the moderator sees the diff against current and either
+  approves anyway (`acknowledge_stale`), warned that changes since will be overwritten, or rejects asking the
+  author to redo the edit on the current version. There is no merge or rebase.
+- **New entities:** a new entity's revision has no entity row (`entity_id` NULL); the row, its slug and its sort
+  keys are created at approval. There are no placeholder rows.
+- **References are to public entities only.** A revision may reference only entities that are already public. A
+  new term is suggested as its own term revision and approved on its own; the piece uses it once it is public.
+- **A credit to someone not yet on the site** names them by `new_person_name`, shown as plain text marked as a new
+  person until approval. The approval transaction links it to the public person whose name or alias has the same
+  `domain.DuplicateKey` (a "prefers no page" person among them, credited without a link), or else creates a stub
+  person of that name, with its own approved revision, and stores the
+  linked document as the revision's snapshot.
+
+### 5.4 Moderation
+
+- **Queue:** pending revisions, oldest first. The moderator's revision view shows the full document and its diff
+  against its base and, when stale, against current.
 - **Blocking:** moderators block and unblock contributors; moderators cannot be blocked. A blocked user gets 403 on
   every authenticated endpoint; their pending revisions stay for a moderator to reject.
 - **Display names** come from Auth0: a post-login Action puts the user's name from Google or Facebook in the
@@ -212,10 +266,15 @@ The OpenAPI spec is the exact contract.
   `affiliation`, `q`, `letter`, `sort`), `/v1/persons/{slug}`, `/v1/terms?facet=…`, `/v1/terms/{slug}`,
   `/v1/collections`, `/v1/collections/{collection_id}`, `/v1/events`, `/v1/events/{slug}`, each entity's `…/history`,
   `/v1/revisions/{revision_id}` and `/v1/needs-work`.
-- **Signed in:** `GET /v1/me`;
-- **Moderator:**
-  `PUT /v1/users/{id}/blocked`.
+- **Signed in:** `GET /v1/me`; `GET /v1/me/revisions[/{revision_id}]`; `GET /v1/{type}/{key}/editable`;
+  `POST /v1/revisions`; `POST /v1/revisions/{id}/withdraw`.
+- **Moderator:** `GET /v1/moderation/queue`,
+  `GET /v1/moderation/revisions/{id}`, `POST /v1/revisions/{id}/approve|reject`,
+  `PUT /v1/users/{id}/blocked`. Moderation
+  responses carry the author's user ID that public reads never expose.
 - **Health:** `/healthz`, `/readyz`.
+
+Bodies are limited to 1 MiB for documents, and 16 KiB otherwise.
 
 ## 8. Frontend
 
@@ -246,8 +305,8 @@ Test the behaviour that matters at the cheapest level that proves it: one test p
 or combination. A test earns its place by catching a bug someone could plausibly write.
 
 **BE:**
-- Repository tests on real MySQL 8.4 (sandbox, host and CI) for the queries
-  and the cases that matter.
+- Repository tests on real MySQL 8.4 (sandbox, host and CI) for the queries and the approval write: the main
+  path and the cases that matter.
 - HTTP tests: one table of who may call each write route (anonymous, contributor, moderator, blocked) and a happy
   path per route, checked against the spec. Controllers are tested through the HTTP tests or one hand-written fake
   repository, not generated mocks.

@@ -26,6 +26,11 @@ var (
 	entityTypeValues = []EntityType{
 		EntityTypePiece, EntityTypePerson, EntityTypeTerm, EntityTypeCollection, EntityTypeEvent,
 	}
+	problemCodeValues = []ProblemCode{
+		ProblemRequired, ProblemTooLong, ProblemNotNFC, ProblemControlCharacter, ProblemDuplicate, ProblemInvalid,
+		ProblemCycle, ProblemTooDeep, ProblemWrongFacet, ProblemUnknownReference,
+		ProblemSourceRequired, ProblemPrefersNoPage,
+	}
 	revisionSourceValues = []RevisionSource{
 		RevisionSourceUser, RevisionSourceImport,
 	}
