@@ -1,5 +1,5 @@
 // Package fakerepo is the one hand-written fake of the datasources for tests above the database: it holds users
-// in a map and returns canned values. Tests of the real queries use MySQL instead.
+// in a map and returns canned catalogue values. Tests of the real queries use MySQL instead.
 package fakerepo
 
 import (
@@ -14,11 +14,26 @@ var (
 	_ datasources.Repository = (*Repo)(nil)
 )
 
-// When Err is set every method returns it
+// A catalogue read returns its canned
+// value, or datasources.ErrNotFound for a get whose value is nil. When Err is set every method returns it
 // instead. A Repo is not safe for concurrent use: tests make one each.
 type Repo struct {
 	// Users are the stored users by ID.
 	Users map[string]domain.User
+
+	Piece       *domain.Piece
+	Pieces      domain.PieceList
+	Person      *domain.Person
+	Persons     domain.PersonList
+	Terms       []domain.TermListItem
+	Term        *domain.Term
+	Collection  *domain.Collection
+	Collections domain.CollectionList
+	Event       *domain.Event
+	Events      domain.EventList
+	History     domain.RevisionHistory
+	Revision    domain.Revision
+	NeedsWork   domain.NeedsWorkList
 
 	// Err, if set, is returned by every method, and PingErr by Ping only.
 	Err     error
@@ -102,6 +117,84 @@ func (r *Repo) put(user domain.User) {
 		r.Users = map[string]domain.User{}
 	}
 	r.Users[user.ID] = user
+}
+
+func (r *Repo) GetPublicPiece(context.Context, string) (domain.Piece, error) {
+	if r.Err != nil || r.Piece == nil {
+		return domain.Piece{}, notFoundOr(r.Err)
+	}
+	return *r.Piece, nil
+}
+
+func (r *Repo) ListPublicPieces(context.Context, datasources.PieceQuery) (domain.PieceList, error) {
+	return r.Pieces, r.Err
+}
+
+func (r *Repo) GetPublicPerson(context.Context, string) (domain.Person, error) {
+	if r.Err != nil || r.Person == nil {
+		return domain.Person{}, notFoundOr(r.Err)
+	}
+	return *r.Person, nil
+}
+
+func (r *Repo) ListPublicPersons(context.Context, datasources.PersonQuery) (domain.PersonList, error) {
+	return r.Persons, r.Err
+}
+
+func (r *Repo) ListPublicTerms(context.Context, *domain.Facet) ([]domain.TermListItem, error) {
+	return r.Terms, r.Err
+}
+
+func (r *Repo) GetPublicTerm(context.Context, string, domain.Page) (domain.Term, error) {
+	if r.Err != nil || r.Term == nil {
+		return domain.Term{}, notFoundOr(r.Err)
+	}
+	return *r.Term, nil
+}
+
+func (r *Repo) ListPublicCollections(context.Context, datasources.CollectionQuery) (domain.CollectionList, error) {
+	return r.Collections, r.Err
+}
+
+func (r *Repo) GetPublicCollection(context.Context, int64) (domain.Collection, error) {
+	if r.Err != nil || r.Collection == nil {
+		return domain.Collection{}, notFoundOr(r.Err)
+	}
+	return *r.Collection, nil
+}
+
+func (r *Repo) ListPublicEvents(context.Context, domain.Page) (domain.EventList, error) {
+	return r.Events, r.Err
+}
+
+func (r *Repo) GetPublicEvent(context.Context, string) (domain.Event, error) {
+	if r.Err != nil || r.Event == nil {
+		return domain.Event{}, notFoundOr(r.Err)
+	}
+	return *r.Event, nil
+}
+
+func (r *Repo) ListPublicHistory(
+	context.Context, domain.SlugEntityType, string, domain.Page,
+) (domain.RevisionHistory, error) {
+	return r.History, r.Err
+}
+
+func (r *Repo) ListPublicCollectionHistory(context.Context, int64, domain.Page) (domain.RevisionHistory, error) {
+	return r.History, r.Err
+}
+
+func (r *Repo) GetPublicRevision(context.Context, int64) (domain.Revision, error) {
+	if r.Err != nil || r.Revision == nil {
+		return nil, notFoundOr(r.Err)
+	}
+	return r.Revision, nil
+}
+
+func (r *Repo) ListPublicNeedsWork(
+	context.Context, *domain.NeedsWorkReason, domain.Page,
+) (domain.NeedsWorkList, error) {
+	return r.NeedsWork, r.Err
 }
 
 // notFoundOr is err, or datasources.ErrNotFound if err is nil.

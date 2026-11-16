@@ -378,8 +378,19 @@ before it:
   column without a default, or narrowing a column. Do these in two releases: first a release that stops using the
   old shape (and writes both, if needed), then a release whose migration removes it.
 - Never edit a migration that has been deployed; add a new one.
+- This is the rule from now on. Migrations 010 and 011 dropped tables, columns and enum values in the same release
+  as the code that stopped using them, because no release had been deployed yet, so there was no serving release
+  to protect and no earlier one to roll back to.
 - **Enum growth and snapshots**: add a new `ENUM` value in a release before any release uses it, and remove values
-  over two releases.
+  over two releases. Snapshot document fields follow PLAN §4.2.
+- **Views** (`public_terms`, `listed_persons`, `public_link_attachments`) fix their columns when created, so a
+  migration that adds a needed column, or drops or renames a column a view selects, recreates the views in the
+  same migration (a stale view makes every read using it fail with error 1356). `TestMigrations_UpDownUp` reads
+  every view after migrating up.
+
+### The normalized URL invariant
+
+Every `links.normalized_url = NormalizeURL(url)`. A `NormalizeURL` change needs every row re-normalised first.
 
 ### Failed migrations (dirty state)
 

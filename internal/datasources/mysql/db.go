@@ -19,7 +19,9 @@ const defaultPort = "3306"
 var ErrMalformedDatabaseURL = errors.New("database URL is malformed (the URL is not shown, as it holds the password)")
 
 // maxExecutionTimeParam is the session variable limiting how long a SELECT may run, in milliseconds, and
-// maxExecutionTimeMillis the limit every connection ConfigFromURL describes sets.
+// maxExecutionTimeMillis the limit every connection ConfigFromURL describes sets. Anonymous catalogue reads are
+// the server's costliest statements, and a slow one holds a pooled connection that /readyz and authentication
+// also need, so none may run long.
 const (
 	maxExecutionTimeParam  = "max_execution_time"
 	maxExecutionTimeMillis = "2000"
@@ -31,7 +33,7 @@ const (
 //
 // Connections made with the returned config parse DATETIME columns into time.Time in UTC, use a UTC session
 // time zone, use the utf8mb4 character set, report matched rather than changed rows as rows affected, and have
-// the server stop any SELECT that runs longer than maxExecutionTimeMillis
+// the server stop any SELECT that runs longer than maxExecutionTimeMillis (error 3024, datasources.ErrQueryTimeout).
 // The limit applies to every SELECT, locking reads and GET_LOCK waits included, but not to INSERT, UPDATE, DELETE
 // or DDL statements, nor to a SELECT within them: a connection that must wait longer sets max_execution_time
 // itself, as the migrator does.

@@ -18,7 +18,7 @@ set -euo pipefail
 readonly database=bardic_torch
 readonly mysql_image=docker.io/library/mysql:8.4
 # Both throwaway servers trade crash safety for speed: their data is discarded on exit, and creating the
-# schema for each test database spends most of its time waiting for disk syncs.
+# catalogue schema for each test database spends most of its time waiting for disk syncs.
 readonly throwaway_server_flags=(
   --skip-log-bin --innodb-flush-log-at-trx-commit=0 --innodb-doublewrite=OFF --innodb-flush-method=nosync
 )

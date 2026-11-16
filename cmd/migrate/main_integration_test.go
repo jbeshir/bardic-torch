@@ -23,6 +23,7 @@ func TestMigrateRun_UpVersionDown(t *testing.T) {
 	databaseURL := mysqltest.NewDatabaseURL(t)
 	newest, err := mysql.NewestMigrationVersion()
 	require.NoError(t, err)
+	require.Greater(t, newest, uint(1), "the steps below need at least two migrations")
 	versionNewest := fmt.Sprintf("version: %d\n", newest)
 	allSteps := strconv.FormatUint(uint64(newest), 10)
 
@@ -33,6 +34,9 @@ func TestMigrateRun_UpVersionDown(t *testing.T) {
 		// The database starts fully migrated, so up has nothing to apply and still succeeds.
 		{args: []string{string(actionUp)}, want: versionNewest},
 		{args: []string{string(actionVersion)}, want: versionNewest},
+		{args: []string{string(actionDown), "1"}, want: fmt.Sprintf("version: %d\n", newest-1)},
+		{args: []string{string(actionDown), strconv.FormatUint(uint64(newest-1), 10)}, want: versionNone},
+		{args: []string{string(actionVersion)}, want: versionNone},
 		{args: []string{string(actionUp)}, want: versionNewest},
 		{args: []string{string(actionDown), allSteps}, want: versionNone},
 		{args: []string{string(actionUp)}, want: versionNewest},

@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+	"math"
 	"net/http"
 
 	"github.com/jbeshir/bardic-torch/internal/domain"
@@ -23,4 +25,18 @@ func principalOrUnauthenticated(w http.ResponseWriter, r *http.Request) (domain.
 // writeInternalError logs err with msg and writes 500 internal, or 503 unavailable if the database was unreachable.
 func writeInternalError(w http.ResponseWriter, r *http.Request, msg string, err error) {
 	httpjson.WriteInternalError(r.Context(), w, msg, err)
+}
+
+// idOrBadRequest returns the request's path value name as an ID: an integer from 1 to math.MaxInt64 in
+// decimal digits. If it is not one it writes 400 invalid_request and returns false; the caller should then return
+// without writing.
+func idOrBadRequest(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
+	id, ok := parseDecimal(r.PathValue(name), 1, math.MaxInt64)
+	if !ok {
+		httpjson.WriteError(r.Context(), w, http.StatusBadRequest, httpjson.CodeInvalidRequest,
+			fmt.Sprintf("invalid %s: must be an integer from 1 to %d", name, int64(math.MaxInt64)))
+		return 0, false
+	}
+
+	return id, true
 }

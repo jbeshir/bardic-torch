@@ -20,6 +20,27 @@ the product and implementation plan.
   authenticated endpoint. Moderators cannot be blocked.
 - **Principal** -- The authenticated user, resolved once per request by the auth middleware before any
   authorisation check.
+- **Piece** -- A bardic song, poem, story, dance tune or instrumental piece, addressed by slug. It has a kind, a
+  conservation status, licensing information, aliases (other titles), credits, links and an ordered list of terms.
+  A stub is a piece with little recorded yet.
+- **Person** -- A community bard, historical author or group, addressed by slug, with aliases, roles, affiliations,
+  links, the works they are credited on and the performances they appear in. A person with status
+  `prefers_no_page` has a page showing only their identity (name, kind and status) and notes: they are listed as
+  a stub, found only by name, and left out of member lists, counts and needs-work; credits and performances name
+  them without a link.
+- **Term and facet** -- Terms classify pieces (and, for the `affiliation` facet, persons). Each belongs to one facet
+  (mood, topic, culture, language, legendaria, origin, other, affiliation) and may have a parent, up to three
+  levels deep. Filtering by a term matches pieces tagged with it or any descendant. Within a facet terms combine
+  with OR, across facets with AND. Piece kind and conservation status act as two more facets.
+- **Collection** -- A website or archive that hosts bardic material, addressed by numeric ID, with the links cited
+  from it.
+- **Event** -- An event where pieces were performed, addressed by slug.
+- **Link** -- An external URL attached to pieces or persons with one or more roles (lyrics, sheet music,
+  performance...).
+- **Revision and visibility** -- Every change to a catalogue entity is a revision. An entity is public only once it
+  has an approved current revision (a term also needs every ancestor approved); anything else, and anything unknown,
+  gets the same 404. Only approved revisions appear in the public history, as redacted views using current
+  visibility, with the fields that changed.
 - **Null Auth** -- With `AUTH_DRIVERS` empty, every request is anonymous, so the API runs locally without Auth0.
 
 ## Architecture Overview
@@ -50,6 +71,12 @@ graph TD
     REPO --> DB
 ```
 
+The public catalogue reads are registered outside the authentication middleware, so they answer every request as
+an anonymous one. Faceted piece, person and collection lists are built in Go from fixed SQL fragments (sqlc cannot
+express optional filters) and use InnoDB FULLTEXT for `q`. Every `SELECT` the API runs
+is capped by a session `max_execution_time` of 2 s (see [docs/DEPLOY.md](docs/DEPLOY.md)); a list the server
+stops for that answers 500 `internal`.
+
 | Entrypoint | Purpose |
 |---|---|
 | `cmd/app/` | HTTP API server. At startup it promotes the bootstrap moderators. |
@@ -76,7 +103,7 @@ make run
 
 `make db-up` starts MySQL 8.4 on `127.0.0.1:3306` with the credentials in `.env.dist`'s `DATABASE_URL`. `make
 run` applies the migrations and starts the API on port 5000 with null auth, so `curl localhost:5000/readyz` returns
-200 and the authenticated `/v1` endpoints return 401 `make db-down` removes the database. `make help` lists every target.
+200 and the authenticated `/v1` endpoints return 401 (the public catalogue reads work, and are empty until data is imported). `make db-down` removes the database. `make help` lists every target.
 
 ### Common Commands
 
@@ -93,7 +120,7 @@ run` applies the migrations and starts the API on port 5000 with null auth, so `
 
 | Service | Purpose | Required |
 |---|---|---|
-| MySQL 8.4 | Users, roles | Yes |
+| MySQL 8.4 | Users, roles and the catalogue (pieces, persons, terms, collections, events, links, revisions) | Yes |
 | Auth0 | Verifies the FE's access tokens (Google and Facebook login) | No (`AUTH_DRIVERS=` for null auth) |
 
 Production runs on dokku with the dokku mysql plugin; [docs/DEPLOY.md](docs/DEPLOY.md) covers setup, Auth0,
@@ -107,8 +134,31 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 |---|---|---|---|
 | `GET` | `/healthz` | No | Liveness |
 | `GET` | `/readyz` | No | Readiness: the database answers |
+| `GET` | `/v1/pieces` | No | Faceted piece search: `term`, `kind`, `conservation_status`, `stub`, `q`, `letter`, `sort`, with facet and A-Z counts |
+| `GET` | `/v1/pieces/{slug}` | No | A piece |
+| `GET` | `/v1/pieces/{slug}/history` | No | A piece's approved revisions, newest first |
+| `GET` | `/v1/persons` | No | Persons: `kind`, `role`, `affiliation`, `q`, `letter`, `sort` |
+| `GET` | `/v1/persons/{slug}` | No | A person |
+| `GET` | `/v1/persons/{slug}/history` | No | A person's approved revisions |
+| `GET` | `/v1/terms` | No | The term tree with piece and person counts (`facet` filter) |
+| `GET` | `/v1/terms/{slug}` | No | A term with its ancestors, children and a page of its pieces or persons |
+| `GET` | `/v1/terms/{slug}/history` | No | A term's approved revisions |
+| `GET` | `/v1/collections` | No | Collections: `kind`, `letter` |
+| `GET` | `/v1/collections/{collection_id}` | No | A collection with its citations |
+| `GET` | `/v1/collections/{collection_id}/history` | No | A collection's approved revisions |
+| `GET` | `/v1/events` | No | Events |
+| `GET` | `/v1/events/{slug}` | No | An event with its performances |
+| `GET` | `/v1/events/{slug}/history` | No | An event's approved revisions |
+| `GET` | `/v1/revisions/{revision_id}` | No | An approved revision: redacted snapshot, base snapshot and changed fields |
+| `GET` | `/v1/needs-work` | No | Stub, unassessed, unknown-licensing and dead-link pieces and persons, with a count per reason |
 | `GET` | `/v1/me` | Required | The caller's user |
 | `PUT` | `/v1/users/{user_id}/blocked` | Moderator | Block or unblock a contributor |
+
+Catalogue reads ignore credentials: an invalid or expired token gets the same answer as no token. Paged lists (all but `/v1/terms`, which returns the whole tree) take
+`limit` (1-100, default 50) and `offset` (0-10000) and return `total`; every list order ends with an internal ID, so pages
+of an unchanged catalogue concatenate; nested lists that grow with data are capped at 200
+with a `*_total`. Query parameters are single-valued unless documented as repeatable, and a repeated or badly
+encoded one is a 400.
 
 Any other path gets a JSON 404 (`not_found`), and a listed path with another method a JSON 405
 (`method_not_allowed`) with an `Allow` header; neither authenticates. Request headers over 16 KiB get a plain-text

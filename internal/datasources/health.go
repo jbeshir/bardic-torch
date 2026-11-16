@@ -8,8 +8,9 @@ type Pinger interface {
 }
 
 // Repository is everything the HTTP API reads and writes. It exists for wiring only; each consumer takes the
-// narrowest it needs.
+// narrowest of Pinger, Users and Catalogue it needs.
 type Repository interface {
 	Pinger
 	Users
+	Catalogue
 }

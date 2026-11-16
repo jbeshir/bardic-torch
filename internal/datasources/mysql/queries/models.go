@@ -7,9 +7,1256 @@ package queries
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 )
+
+type CollectionsKind string
+
+const (
+	CollectionsKindIndexOrLinkList   CollectionsKind = "index_or_link_list"
+	CollectionsKindSongbookPdf       CollectionsKind = "songbook_pdf"
+	CollectionsKindSongbookWebsite   CollectionsKind = "songbook_website"
+	CollectionsKindWebsite           CollectionsKind = "website"
+	CollectionsKindWikiCategory      CollectionsKind = "wiki_category"
+	CollectionsKindWiki              CollectionsKind = "wiki"
+	CollectionsKindYoutubeChannel    CollectionsKind = "youtube_channel"
+	CollectionsKindYoutubePlaylist   CollectionsKind = "youtube_playlist"
+	CollectionsKindGoogleDocSongbook CollectionsKind = "google_doc_songbook"
+	CollectionsKindBlog              CollectionsKind = "blog"
+	CollectionsKindArchivedSongbook  CollectionsKind = "archived_songbook"
+	CollectionsKindHostedDocument    CollectionsKind = "hosted_document"
+)
+
+func (e *CollectionsKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CollectionsKind(s)
+	case string:
+		*e = CollectionsKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CollectionsKind: %T", src)
+	}
+	return nil
+}
+
+type NullCollectionsKind struct {
+	CollectionsKind CollectionsKind
+	Valid           bool // Valid is true if CollectionsKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCollectionsKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.CollectionsKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CollectionsKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCollectionsKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CollectionsKind), nil
+}
+
+func (e CollectionsKind) Valid() bool {
+	switch e {
+	case CollectionsKindIndexOrLinkList,
+		CollectionsKindSongbookPdf,
+		CollectionsKindSongbookWebsite,
+		CollectionsKindWebsite,
+		CollectionsKindWikiCategory,
+		CollectionsKindWiki,
+		CollectionsKindYoutubeChannel,
+		CollectionsKindYoutubePlaylist,
+		CollectionsKindGoogleDocSongbook,
+		CollectionsKindBlog,
+		CollectionsKindArchivedSongbook,
+		CollectionsKindHostedDocument:
+		return true
+	}
+	return false
+}
+
+type ContactRequestsKind string
+
+const (
+	ContactRequestsKindTakedown   ContactRequestsKind = "takedown"
+	ContactRequestsKindOptOut     ContactRequestsKind = "opt_out"
+	ContactRequestsKindCorrection ContactRequestsKind = "correction"
+	ContactRequestsKindLinkReport ContactRequestsKind = "link_report"
+	ContactRequestsKindGeneral    ContactRequestsKind = "general"
+)
+
+func (e *ContactRequestsKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContactRequestsKind(s)
+	case string:
+		*e = ContactRequestsKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContactRequestsKind: %T", src)
+	}
+	return nil
+}
+
+type NullContactRequestsKind struct {
+	ContactRequestsKind ContactRequestsKind
+	Valid               bool // Valid is true if ContactRequestsKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContactRequestsKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContactRequestsKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContactRequestsKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContactRequestsKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContactRequestsKind), nil
+}
+
+func (e ContactRequestsKind) Valid() bool {
+	switch e {
+	case ContactRequestsKindTakedown,
+		ContactRequestsKindOptOut,
+		ContactRequestsKindCorrection,
+		ContactRequestsKindLinkReport,
+		ContactRequestsKindGeneral:
+		return true
+	}
+	return false
+}
+
+type ContactRequestsStatus string
+
+const (
+	ContactRequestsStatusOpen      ContactRequestsStatus = "open"
+	ContactRequestsStatusResolved  ContactRequestsStatus = "resolved"
+	ContactRequestsStatusDismissed ContactRequestsStatus = "dismissed"
+)
+
+func (e *ContactRequestsStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContactRequestsStatus(s)
+	case string:
+		*e = ContactRequestsStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContactRequestsStatus: %T", src)
+	}
+	return nil
+}
+
+type NullContactRequestsStatus struct {
+	ContactRequestsStatus ContactRequestsStatus
+	Valid                 bool // Valid is true if ContactRequestsStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContactRequestsStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContactRequestsStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContactRequestsStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContactRequestsStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContactRequestsStatus), nil
+}
+
+func (e ContactRequestsStatus) Valid() bool {
+	switch e {
+	case ContactRequestsStatusOpen,
+		ContactRequestsStatusResolved,
+		ContactRequestsStatusDismissed:
+		return true
+	}
+	return false
+}
+
+type LinkAttachmentsRole string
+
+const (
+	LinkAttachmentsRoleOfficial          LinkAttachmentsRole = "official"
+	LinkAttachmentsRoleLyrics            LinkAttachmentsRole = "lyrics"
+	LinkAttachmentsRoleText              LinkAttachmentsRole = "text"
+	LinkAttachmentsRoleSheetMusic        LinkAttachmentsRole = "sheet_music"
+	LinkAttachmentsRoleDanceInstructions LinkAttachmentsRole = "dance_instructions"
+	LinkAttachmentsRoleTextSource        LinkAttachmentsRole = "text_source"
+	LinkAttachmentsRoleTranslation       LinkAttachmentsRole = "translation"
+	LinkAttachmentsRolePerformance       LinkAttachmentsRole = "performance"
+	LinkAttachmentsRoleLicensingSource   LinkAttachmentsRole = "licensing_source"
+	LinkAttachmentsRoleWebsite           LinkAttachmentsRole = "website"
+	LinkAttachmentsRoleExternalProfile   LinkAttachmentsRole = "external_profile"
+	LinkAttachmentsRoleOther             LinkAttachmentsRole = "other"
+)
+
+func (e *LinkAttachmentsRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = LinkAttachmentsRole(s)
+	case string:
+		*e = LinkAttachmentsRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for LinkAttachmentsRole: %T", src)
+	}
+	return nil
+}
+
+type NullLinkAttachmentsRole struct {
+	LinkAttachmentsRole LinkAttachmentsRole
+	Valid               bool // Valid is true if LinkAttachmentsRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullLinkAttachmentsRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.LinkAttachmentsRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.LinkAttachmentsRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullLinkAttachmentsRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.LinkAttachmentsRole), nil
+}
+
+func (e LinkAttachmentsRole) Valid() bool {
+	switch e {
+	case LinkAttachmentsRoleOfficial,
+		LinkAttachmentsRoleLyrics,
+		LinkAttachmentsRoleText,
+		LinkAttachmentsRoleSheetMusic,
+		LinkAttachmentsRoleDanceInstructions,
+		LinkAttachmentsRoleTextSource,
+		LinkAttachmentsRoleTranslation,
+		LinkAttachmentsRolePerformance,
+		LinkAttachmentsRoleLicensingSource,
+		LinkAttachmentsRoleWebsite,
+		LinkAttachmentsRoleExternalProfile,
+		LinkAttachmentsRoleOther:
+		return true
+	}
+	return false
+}
+
+type LinksLiveness string
+
+const (
+	LinksLivenessUnknown LinksLiveness = "unknown"
+	LinksLivenessOk      LinksLiveness = "ok"
+	LinksLivenessDead    LinksLiveness = "dead"
+	LinksLivenessBlocked LinksLiveness = "blocked"
+)
+
+func (e *LinksLiveness) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = LinksLiveness(s)
+	case string:
+		*e = LinksLiveness(s)
+	default:
+		return fmt.Errorf("unsupported scan type for LinksLiveness: %T", src)
+	}
+	return nil
+}
+
+type NullLinksLiveness struct {
+	LinksLiveness LinksLiveness
+	Valid         bool // Valid is true if LinksLiveness is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullLinksLiveness) Scan(value interface{}) error {
+	if value == nil {
+		ns.LinksLiveness, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.LinksLiveness.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullLinksLiveness) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.LinksLiveness), nil
+}
+
+func (e LinksLiveness) Valid() bool {
+	switch e {
+	case LinksLivenessUnknown,
+		LinksLivenessOk,
+		LinksLivenessDead,
+		LinksLivenessBlocked:
+		return true
+	}
+	return false
+}
+
+type LinksPlaceType string
+
+const (
+	LinksPlaceTypeRecordingPlatform LinksPlaceType = "recording_platform"
+	LinksPlaceTypeStreaming         LinksPlaceType = "streaming"
+	LinksPlaceTypeAuthorSite        LinksPlaceType = "author_site"
+	LinksPlaceTypeCommunityArchive  LinksPlaceType = "community_archive"
+	LinksPlaceTypeBook              LinksPlaceType = "book"
+)
+
+func (e *LinksPlaceType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = LinksPlaceType(s)
+	case string:
+		*e = LinksPlaceType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for LinksPlaceType: %T", src)
+	}
+	return nil
+}
+
+type NullLinksPlaceType struct {
+	LinksPlaceType LinksPlaceType
+	Valid          bool // Valid is true if LinksPlaceType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullLinksPlaceType) Scan(value interface{}) error {
+	if value == nil {
+		ns.LinksPlaceType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.LinksPlaceType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullLinksPlaceType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.LinksPlaceType), nil
+}
+
+func (e LinksPlaceType) Valid() bool {
+	switch e {
+	case LinksPlaceTypeRecordingPlatform,
+		LinksPlaceTypeStreaming,
+		LinksPlaceTypeAuthorSite,
+		LinksPlaceTypeCommunityArchive,
+		LinksPlaceTypeBook:
+		return true
+	}
+	return false
+}
+
+type PersonAliasesKind string
+
+const (
+	PersonAliasesKindLegal PersonAliasesKind = "legal"
+	PersonAliasesKindSca   PersonAliasesKind = "sca"
+)
+
+func (e *PersonAliasesKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PersonAliasesKind(s)
+	case string:
+		*e = PersonAliasesKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PersonAliasesKind: %T", src)
+	}
+	return nil
+}
+
+type NullPersonAliasesKind struct {
+	PersonAliasesKind PersonAliasesKind
+	Valid             bool // Valid is true if PersonAliasesKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPersonAliasesKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.PersonAliasesKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PersonAliasesKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPersonAliasesKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PersonAliasesKind), nil
+}
+
+func (e PersonAliasesKind) Valid() bool {
+	switch e {
+	case PersonAliasesKindLegal,
+		PersonAliasesKindSca:
+		return true
+	}
+	return false
+}
+
+type PersonRolesRole string
+
+const (
+	PersonRolesRoleSinger          PersonRolesRole = "singer"
+	PersonRolesRoleSongwriter      PersonRolesRole = "songwriter"
+	PersonRolesRoleMusician        PersonRolesRole = "musician"
+	PersonRolesRoleInstrumentalist PersonRolesRole = "instrumentalist"
+	PersonRolesRoleStoryteller     PersonRolesRole = "storyteller"
+	PersonRolesRolePoet            PersonRolesRole = "poet"
+	PersonRolesRoleJester          PersonRolesRole = "jester"
+	PersonRolesRoleDancer          PersonRolesRole = "dancer"
+)
+
+func (e *PersonRolesRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PersonRolesRole(s)
+	case string:
+		*e = PersonRolesRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PersonRolesRole: %T", src)
+	}
+	return nil
+}
+
+type NullPersonRolesRole struct {
+	PersonRolesRole PersonRolesRole
+	Valid           bool // Valid is true if PersonRolesRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPersonRolesRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.PersonRolesRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PersonRolesRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPersonRolesRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PersonRolesRole), nil
+}
+
+func (e PersonRolesRole) Valid() bool {
+	switch e {
+	case PersonRolesRoleSinger,
+		PersonRolesRoleSongwriter,
+		PersonRolesRoleMusician,
+		PersonRolesRoleInstrumentalist,
+		PersonRolesRoleStoryteller,
+		PersonRolesRolePoet,
+		PersonRolesRoleJester,
+		PersonRolesRoleDancer:
+		return true
+	}
+	return false
+}
+
+type PersonsKind string
+
+const (
+	PersonsKindCommunityBard PersonsKind = "community_bard"
+	PersonsKindHistorical    PersonsKind = "historical"
+	PersonsKindGroup         PersonsKind = "group"
+)
+
+func (e *PersonsKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PersonsKind(s)
+	case string:
+		*e = PersonsKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PersonsKind: %T", src)
+	}
+	return nil
+}
+
+type NullPersonsKind struct {
+	PersonsKind PersonsKind
+	Valid       bool // Valid is true if PersonsKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPersonsKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.PersonsKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PersonsKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPersonsKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PersonsKind), nil
+}
+
+func (e PersonsKind) Valid() bool {
+	switch e {
+	case PersonsKindCommunityBard,
+		PersonsKindHistorical,
+		PersonsKindGroup:
+		return true
+	}
+	return false
+}
+
+type PersonsLicensingStatus string
+
+const (
+	PersonsLicensingStatusKnown   PersonsLicensingStatus = "known"
+	PersonsLicensingStatusUnknown PersonsLicensingStatus = "unknown"
+)
+
+func (e *PersonsLicensingStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PersonsLicensingStatus(s)
+	case string:
+		*e = PersonsLicensingStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PersonsLicensingStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPersonsLicensingStatus struct {
+	PersonsLicensingStatus PersonsLicensingStatus
+	Valid                  bool // Valid is true if PersonsLicensingStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPersonsLicensingStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PersonsLicensingStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PersonsLicensingStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPersonsLicensingStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PersonsLicensingStatus), nil
+}
+
+func (e PersonsLicensingStatus) Valid() bool {
+	switch e {
+	case PersonsLicensingStatusKnown,
+		PersonsLicensingStatusUnknown:
+		return true
+	}
+	return false
+}
+
+type PersonsStatus string
+
+const (
+	PersonsStatusActive        PersonsStatus = "active"
+	PersonsStatusDeceased      PersonsStatus = "deceased"
+	PersonsStatusPrefersNoPage PersonsStatus = "prefers_no_page"
+)
+
+func (e *PersonsStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PersonsStatus(s)
+	case string:
+		*e = PersonsStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PersonsStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPersonsStatus struct {
+	PersonsStatus PersonsStatus
+	Valid         bool // Valid is true if PersonsStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPersonsStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PersonsStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PersonsStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPersonsStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PersonsStatus), nil
+}
+
+func (e PersonsStatus) Valid() bool {
+	switch e {
+	case PersonsStatusActive,
+		PersonsStatusDeceased,
+		PersonsStatusPrefersNoPage:
+		return true
+	}
+	return false
+}
+
+type PieceAliasesKind string
+
+const (
+	PieceAliasesKindAltTitle PieceAliasesKind = "alt_title"
+	PieceAliasesKindSubtitle PieceAliasesKind = "subtitle"
+	PieceAliasesKindRedirect PieceAliasesKind = "redirect"
+)
+
+func (e *PieceAliasesKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PieceAliasesKind(s)
+	case string:
+		*e = PieceAliasesKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PieceAliasesKind: %T", src)
+	}
+	return nil
+}
+
+type NullPieceAliasesKind struct {
+	PieceAliasesKind PieceAliasesKind
+	Valid            bool // Valid is true if PieceAliasesKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPieceAliasesKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.PieceAliasesKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PieceAliasesKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPieceAliasesKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PieceAliasesKind), nil
+}
+
+func (e PieceAliasesKind) Valid() bool {
+	switch e {
+	case PieceAliasesKindAltTitle,
+		PieceAliasesKindSubtitle,
+		PieceAliasesKindRedirect:
+		return true
+	}
+	return false
+}
+
+type PieceCreditsAttribution string
+
+const (
+	PieceCreditsAttributionNamed       PieceCreditsAttribution = "named"
+	PieceCreditsAttributionTraditional PieceCreditsAttribution = "traditional"
+	PieceCreditsAttributionUnknown     PieceCreditsAttribution = "unknown"
+	PieceCreditsAttributionAnonymous   PieceCreditsAttribution = "anonymous"
+	PieceCreditsAttributionVarious     PieceCreditsAttribution = "various"
+)
+
+func (e *PieceCreditsAttribution) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PieceCreditsAttribution(s)
+	case string:
+		*e = PieceCreditsAttribution(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PieceCreditsAttribution: %T", src)
+	}
+	return nil
+}
+
+type NullPieceCreditsAttribution struct {
+	PieceCreditsAttribution PieceCreditsAttribution
+	Valid                   bool // Valid is true if PieceCreditsAttribution is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPieceCreditsAttribution) Scan(value interface{}) error {
+	if value == nil {
+		ns.PieceCreditsAttribution, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PieceCreditsAttribution.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPieceCreditsAttribution) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PieceCreditsAttribution), nil
+}
+
+func (e PieceCreditsAttribution) Valid() bool {
+	switch e {
+	case PieceCreditsAttributionNamed,
+		PieceCreditsAttributionTraditional,
+		PieceCreditsAttributionUnknown,
+		PieceCreditsAttributionAnonymous,
+		PieceCreditsAttributionVarious:
+		return true
+	}
+	return false
+}
+
+type PieceCreditsCertainty string
+
+const (
+	PieceCreditsCertaintyCertain  PieceCreditsCertainty = "certain"
+	PieceCreditsCertaintyProbable PieceCreditsCertainty = "probable"
+	PieceCreditsCertaintyPossible PieceCreditsCertainty = "possible"
+	PieceCreditsCertaintyDisputed PieceCreditsCertainty = "disputed"
+)
+
+func (e *PieceCreditsCertainty) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PieceCreditsCertainty(s)
+	case string:
+		*e = PieceCreditsCertainty(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PieceCreditsCertainty: %T", src)
+	}
+	return nil
+}
+
+type NullPieceCreditsCertainty struct {
+	PieceCreditsCertainty PieceCreditsCertainty
+	Valid                 bool // Valid is true if PieceCreditsCertainty is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPieceCreditsCertainty) Scan(value interface{}) error {
+	if value == nil {
+		ns.PieceCreditsCertainty, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PieceCreditsCertainty.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPieceCreditsCertainty) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PieceCreditsCertainty), nil
+}
+
+func (e PieceCreditsCertainty) Valid() bool {
+	switch e {
+	case PieceCreditsCertaintyCertain,
+		PieceCreditsCertaintyProbable,
+		PieceCreditsCertaintyPossible,
+		PieceCreditsCertaintyDisputed:
+		return true
+	}
+	return false
+}
+
+type PieceCreditsRole string
+
+const (
+	PieceCreditsRoleLyrics        PieceCreditsRole = "lyrics"
+	PieceCreditsRoleTune          PieceCreditsRole = "tune"
+	PieceCreditsRoleLyricsAndTune PieceCreditsRole = "lyrics_and_tune"
+	PieceCreditsRoleAuthor        PieceCreditsRole = "author"
+)
+
+func (e *PieceCreditsRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PieceCreditsRole(s)
+	case string:
+		*e = PieceCreditsRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PieceCreditsRole: %T", src)
+	}
+	return nil
+}
+
+type NullPieceCreditsRole struct {
+	PieceCreditsRole PieceCreditsRole
+	Valid            bool // Valid is true if PieceCreditsRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPieceCreditsRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.PieceCreditsRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PieceCreditsRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPieceCreditsRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PieceCreditsRole), nil
+}
+
+func (e PieceCreditsRole) Valid() bool {
+	switch e {
+	case PieceCreditsRoleLyrics,
+		PieceCreditsRoleTune,
+		PieceCreditsRoleLyricsAndTune,
+		PieceCreditsRoleAuthor:
+		return true
+	}
+	return false
+}
+
+type PiecesConservationStatus string
+
+const (
+	PiecesConservationStatusUnassessed           PiecesConservationStatus = "unassessed"
+	PiecesConservationStatusLowRisk              PiecesConservationStatus = "low_risk"
+	PiecesConservationStatusEndangered           PiecesConservationStatus = "endangered"
+	PiecesConservationStatusCriticallyEndangered PiecesConservationStatus = "critically_endangered"
+	PiecesConservationStatusRestricted           PiecesConservationStatus = "restricted"
+)
+
+func (e *PiecesConservationStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PiecesConservationStatus(s)
+	case string:
+		*e = PiecesConservationStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PiecesConservationStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPiecesConservationStatus struct {
+	PiecesConservationStatus PiecesConservationStatus
+	Valid                    bool // Valid is true if PiecesConservationStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPiecesConservationStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PiecesConservationStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PiecesConservationStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPiecesConservationStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PiecesConservationStatus), nil
+}
+
+func (e PiecesConservationStatus) Valid() bool {
+	switch e {
+	case PiecesConservationStatusUnassessed,
+		PiecesConservationStatusLowRisk,
+		PiecesConservationStatusEndangered,
+		PiecesConservationStatusCriticallyEndangered,
+		PiecesConservationStatusRestricted:
+		return true
+	}
+	return false
+}
+
+type PiecesKind string
+
+const (
+	PiecesKindSong         PiecesKind = "song"
+	PiecesKindPoem         PiecesKind = "poem"
+	PiecesKindStory        PiecesKind = "story"
+	PiecesKindDanceMusic   PiecesKind = "dance_music"
+	PiecesKindInstrumental PiecesKind = "instrumental"
+)
+
+func (e *PiecesKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PiecesKind(s)
+	case string:
+		*e = PiecesKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PiecesKind: %T", src)
+	}
+	return nil
+}
+
+type NullPiecesKind struct {
+	PiecesKind PiecesKind
+	Valid      bool // Valid is true if PiecesKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPiecesKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.PiecesKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PiecesKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPiecesKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PiecesKind), nil
+}
+
+func (e PiecesKind) Valid() bool {
+	switch e {
+	case PiecesKindSong,
+		PiecesKindPoem,
+		PiecesKindStory,
+		PiecesKindDanceMusic,
+		PiecesKindInstrumental:
+		return true
+	}
+	return false
+}
+
+type PiecesLicensingStatus string
+
+const (
+	PiecesLicensingStatusKnown   PiecesLicensingStatus = "known"
+	PiecesLicensingStatusUnknown PiecesLicensingStatus = "unknown"
+)
+
+func (e *PiecesLicensingStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PiecesLicensingStatus(s)
+	case string:
+		*e = PiecesLicensingStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PiecesLicensingStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPiecesLicensingStatus struct {
+	PiecesLicensingStatus PiecesLicensingStatus
+	Valid                 bool // Valid is true if PiecesLicensingStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPiecesLicensingStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PiecesLicensingStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PiecesLicensingStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPiecesLicensingStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PiecesLicensingStatus), nil
+}
+
+func (e PiecesLicensingStatus) Valid() bool {
+	switch e {
+	case PiecesLicensingStatusKnown,
+		PiecesLicensingStatusUnknown:
+		return true
+	}
+	return false
+}
+
+type RevisionsEntityType string
+
+const (
+	RevisionsEntityTypePiece      RevisionsEntityType = "piece"
+	RevisionsEntityTypePerson     RevisionsEntityType = "person"
+	RevisionsEntityTypeTerm       RevisionsEntityType = "term"
+	RevisionsEntityTypeCollection RevisionsEntityType = "collection"
+	RevisionsEntityTypeEvent      RevisionsEntityType = "event"
+)
+
+func (e *RevisionsEntityType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RevisionsEntityType(s)
+	case string:
+		*e = RevisionsEntityType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RevisionsEntityType: %T", src)
+	}
+	return nil
+}
+
+type NullRevisionsEntityType struct {
+	RevisionsEntityType RevisionsEntityType
+	Valid               bool // Valid is true if RevisionsEntityType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRevisionsEntityType) Scan(value interface{}) error {
+	if value == nil {
+		ns.RevisionsEntityType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RevisionsEntityType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRevisionsEntityType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RevisionsEntityType), nil
+}
+
+func (e RevisionsEntityType) Valid() bool {
+	switch e {
+	case RevisionsEntityTypePiece,
+		RevisionsEntityTypePerson,
+		RevisionsEntityTypeTerm,
+		RevisionsEntityTypeCollection,
+		RevisionsEntityTypeEvent:
+		return true
+	}
+	return false
+}
+
+type RevisionsSource string
+
+const (
+	RevisionsSourceUser   RevisionsSource = "user"
+	RevisionsSourceImport RevisionsSource = "import"
+)
+
+func (e *RevisionsSource) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RevisionsSource(s)
+	case string:
+		*e = RevisionsSource(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RevisionsSource: %T", src)
+	}
+	return nil
+}
+
+type NullRevisionsSource struct {
+	RevisionsSource RevisionsSource
+	Valid           bool // Valid is true if RevisionsSource is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRevisionsSource) Scan(value interface{}) error {
+	if value == nil {
+		ns.RevisionsSource, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RevisionsSource.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRevisionsSource) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RevisionsSource), nil
+}
+
+func (e RevisionsSource) Valid() bool {
+	switch e {
+	case RevisionsSourceUser,
+		RevisionsSourceImport:
+		return true
+	}
+	return false
+}
+
+type RevisionsStatus string
+
+const (
+	RevisionsStatusPending   RevisionsStatus = "pending"
+	RevisionsStatusApproved  RevisionsStatus = "approved"
+	RevisionsStatusRejected  RevisionsStatus = "rejected"
+	RevisionsStatusWithdrawn RevisionsStatus = "withdrawn"
+)
+
+func (e *RevisionsStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RevisionsStatus(s)
+	case string:
+		*e = RevisionsStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RevisionsStatus: %T", src)
+	}
+	return nil
+}
+
+type NullRevisionsStatus struct {
+	RevisionsStatus RevisionsStatus
+	Valid           bool // Valid is true if RevisionsStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRevisionsStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.RevisionsStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RevisionsStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRevisionsStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RevisionsStatus), nil
+}
+
+func (e RevisionsStatus) Valid() bool {
+	switch e {
+	case RevisionsStatusPending,
+		RevisionsStatusApproved,
+		RevisionsStatusRejected,
+		RevisionsStatusWithdrawn:
+		return true
+	}
+	return false
+}
+
+type TermsFacet string
+
+const (
+	TermsFacetMood        TermsFacet = "mood"
+	TermsFacetTopic       TermsFacet = "topic"
+	TermsFacetCulture     TermsFacet = "culture"
+	TermsFacetLanguage    TermsFacet = "language"
+	TermsFacetLegendaria  TermsFacet = "legendaria"
+	TermsFacetOrigin      TermsFacet = "origin"
+	TermsFacetOther       TermsFacet = "other"
+	TermsFacetAffiliation TermsFacet = "affiliation"
+)
+
+func (e *TermsFacet) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TermsFacet(s)
+	case string:
+		*e = TermsFacet(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TermsFacet: %T", src)
+	}
+	return nil
+}
+
+type NullTermsFacet struct {
+	TermsFacet TermsFacet
+	Valid      bool // Valid is true if TermsFacet is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTermsFacet) Scan(value interface{}) error {
+	if value == nil {
+		ns.TermsFacet, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TermsFacet.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTermsFacet) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TermsFacet), nil
+}
+
+func (e TermsFacet) Valid() bool {
+	switch e {
+	case TermsFacetMood,
+		TermsFacetTopic,
+		TermsFacetCulture,
+		TermsFacetLanguage,
+		TermsFacetLegendaria,
+		TermsFacetOrigin,
+		TermsFacetOther,
+		TermsFacetAffiliation:
+		return true
+	}
+	return false
+}
 
 type UsersRole string
 
@@ -51,6 +1298,255 @@ func (ns NullUsersRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.UsersRole), nil
+}
+
+func (e UsersRole) Valid() bool {
+	switch e {
+	case UsersRoleContributor,
+		UsersRoleModerator:
+		return true
+	}
+	return false
+}
+
+type Collection struct {
+	ID                uint64
+	Name              string
+	SortName          string
+	SortLetter        string
+	Url               sql.NullString
+	Kind              CollectionsKind
+	DescriptionMd     sql.NullString
+	RegionTermID      sql.NullInt64
+	CurrentRevisionID sql.NullInt64
+}
+
+type ContactRequest struct {
+	ID               uint64
+	Kind             ContactRequestsKind
+	Name             sql.NullString
+	Email            sql.NullString
+	Message          sql.NullString
+	Url              sql.NullString
+	Status           ContactRequestsStatus
+	CreatedAt        time.Time
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+}
+
+type Event struct {
+	ID                uint64
+	Slug              string
+	Name              string
+	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
+	LegacyTitle       sql.NullString
+}
+
+type Link struct {
+	ID               uint64
+	Url              string
+	NormalizedUrl    string
+	Title            sql.NullString
+	Description      sql.NullString
+	Platform         sql.NullString
+	PlaceType        NullLinksPlaceType
+	CollectionID     sql.NullInt64
+	Locator          sql.NullString
+	Liveness         LinksLiveness
+	LastCheckedAt    sql.NullTime
+	ArchivedUrl      sql.NullString
+	IsHidden         bool
+	LivenessFailures uint8
+	ArchiveCheckedAt sql.NullTime
+}
+
+type LinkAttachment struct {
+	ID       uint64
+	LinkID   uint64
+	PieceID  sql.NullInt64
+	PersonID sql.NullInt64
+	Role     LinkAttachmentsRole
+	Position uint16
+}
+
+type ListedPerson struct {
+	ID                uint64
+	Slug              string
+	Name              string
+	SortName          string
+	SortLetter        string
+	Kind              PersonsKind
+	Status            PersonsStatus
+	NotesMd           sql.NullString
+	LicensingNotesMd  sql.NullString
+	LicensingStatus   PersonsLicensingStatus
+	IsStub            bool
+	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
+	LegacyTitle       sql.NullString
+}
+
+type Performance struct {
+	ID                  uint64
+	LinkID              uint64
+	PieceID             sql.NullInt64
+	EventID             sql.NullInt64
+	Year                sql.NullInt16
+	Uploader            sql.NullString
+	DescriptionVerbatim string
+	OwnerPieceID        sql.NullInt64
+	OwnerPersonID       sql.NullInt64
+}
+
+type PerformancePerformer struct {
+	PerformanceID uint64
+	PersonID      uint64
+	Position      uint16
+}
+
+type Person struct {
+	ID                uint64
+	Slug              string
+	Name              string
+	SortName          string
+	SortLetter        string
+	Kind              PersonsKind
+	Status            PersonsStatus
+	NotesMd           sql.NullString
+	LicensingNotesMd  sql.NullString
+	LicensingStatus   PersonsLicensingStatus
+	IsStub            bool
+	CurrentRevisionID sql.NullInt64
+	LegacyWikiPageid  sql.NullInt32
+	LegacyTitle       sql.NullString
+}
+
+type PersonAffiliation struct {
+	PersonID uint64
+	TermID   uint64
+}
+
+type PersonAlias struct {
+	ID       uint64
+	PersonID uint64
+	Name     string
+	Kind     PersonAliasesKind
+}
+
+type PersonRole struct {
+	PersonID uint64
+	Role     PersonRolesRole
+}
+
+type Piece struct {
+	ID                    uint64
+	Slug                  string
+	Title                 string
+	SortTitle             string
+	SortLetter            string
+	Kind                  PiecesKind
+	ConservationStatus    PiecesConservationStatus
+	IsStub                bool
+	NotesMd               sql.NullString
+	VersionNotesMd        sql.NullString
+	LicensingNotesMd      sql.NullString
+	LicensingStatus       PiecesLicensingStatus
+	LegacyHadInlineLyrics bool
+	CurrentRevisionID     sql.NullInt64
+	LegacyWikiPageid      sql.NullInt32
+	LegacyTitle           sql.NullString
+}
+
+type PieceAlias struct {
+	ID      uint64
+	PieceID uint64
+	Text    string
+	Kind    PieceAliasesKind
+}
+
+type PieceCredit struct {
+	ID          uint64
+	PieceID     uint64
+	PersonID    sql.NullInt64
+	Role        PieceCreditsRole
+	Attribution PieceCreditsAttribution
+	Certainty   PieceCreditsCertainty
+	Position    uint16
+}
+
+type PieceTerm struct {
+	PieceID  uint64
+	TermID   uint64
+	Position uint16
+}
+
+type PublicLinkAttachment struct {
+	ID       uint64
+	LinkID   uint64
+	PieceID  sql.NullInt64
+	PersonID sql.NullInt64
+	Role     LinkAttachmentsRole
+	Position uint16
+}
+
+type PublicTerm struct {
+	ID                   uint64
+	Facet                TermsFacet
+	Name                 string
+	DisplayName          string
+	Slug                 string
+	ParentID             sql.NullInt64
+	RelatedAffiliationID sql.NullInt64
+	DescriptionMd        sql.NullString
+	Position             int32
+	CurrentRevisionID    sql.NullInt64
+	LegacyWikiPageid     sql.NullInt32
+	LegacyTitle          sql.NullString
+}
+
+type Revision struct {
+	ID             uint64
+	EntityType     RevisionsEntityType
+	BaseRevisionID sql.NullInt64
+	AuthorUserID   sql.NullString
+	SnapshotJson   json.RawMessage
+	Summary        string
+	ReviewerUserID sql.NullString
+	ReviewedAt     sql.NullTime
+	ReviewNote     sql.NullString
+	CreatedAt      time.Time
+	Source         RevisionsSource
+	Status         RevisionsStatus
+	EntityID       sql.NullInt64
+}
+
+type RevisionContributor struct {
+	RevisionID uint64
+	Position   uint16
+	Name       string
+}
+
+type Term struct {
+	ID                   uint64
+	Facet                TermsFacet
+	Name                 string
+	DisplayName          string
+	Slug                 string
+	ParentID             sql.NullInt64
+	RelatedAffiliationID sql.NullInt64
+	DescriptionMd        sql.NullString
+	Position             int32
+	CurrentRevisionID    sql.NullInt64
+	LegacyWikiPageid     sql.NullInt32
+	LegacyTitle          sql.NullString
+}
+
+type TermAncestor struct {
+	AncestorID   uint64
+	DescendantID uint64
+	Depth        uint8
 }
 
 type User struct {

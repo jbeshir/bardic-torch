@@ -91,6 +91,15 @@ func (v *Validator) Serve(t testing.TB, handler http.Handler, req *http.Request)
 	return v.serve(t, handler, req, true)
 }
 
+// ServeResponseOnly is Serve without request validation, for tests that deliberately send requests the spec
+// does not allow, such as malformed bodies or unsupported content types. The response is still checked.
+func (v *Validator) ServeResponseOnly(
+	t testing.TB, handler http.Handler, req *http.Request,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	return v.serve(t, handler, req, false)
+}
+
 // Public reports whether op is in the spec and documented as needing no authentication: its security is
 // explicitly empty (security: []).
 func (v *Validator) Public(op Operation) bool {
