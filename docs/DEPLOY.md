@@ -111,9 +111,15 @@ without the claim.
 
    ```js
    exports.onExecutePostLogin = async (event, api) => {
-     api.accessToken.setCustomClaim("https://bardictorch.org/name", event.user.name);
+     const name = event.user.name;
+     if (name && name !== event.user.email) {
+       api.accessToken.setCustomClaim("https://bardictorch.org/name", name);
+     }
    };
    ```
+
+   Auth0 can fill `name` with the email address when it has no other name, and display names are public, so
+   the Action leaves the claim out rather than publish an address; the API then answers 401.
 
 3. **Deploy**.
 4. Add it to the Login flow: **Actions → Flows → Login** (**Actions → Triggers → post-login** in newer

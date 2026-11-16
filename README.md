@@ -11,8 +11,9 @@ the product and implementation plan.
   `google-oauth2|1234`; case and trailing spaces are significant), with the display name
   their access token carries (the `https://bardictorch.org/name` claim, which an Auth0 post-login Action sets
   from Google or Facebook). A stored name that differs is replaced on the next request; users cannot set their
-  own. Display names are NFC-normalised, trimmed and cut to 64 characters, and may contain only letters, marks,
-  numbers, punctuation, symbols and spaces; a token without a valid name gets 401.
+  own. Display names keep only letters, marks, numbers, punctuation, symbols and spaces (others, such as zero-width
+  joiners and direction marks, are dropped), are NFC-normalised, trimmed and cut to 64 characters; a token without
+  a valid name left gets 401.
 - **Role** -- Every user is a contributor or a moderator. Moderators are named in `BOOTSTRAP_MODERATOR_USER_IDS`
   and promoted at startup; removing an ID never demotes (see PLAN §4 and §5).
 - **Blocking** -- Moderators can block contributors. A blocked user gets 403 `user_blocked` on every

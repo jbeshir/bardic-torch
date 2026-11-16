@@ -252,8 +252,9 @@ carries a note for the author.
 - **Blocking:** moderators block and unblock contributors; moderators cannot be blocked. A blocked user gets 403 on
   every authenticated endpoint; their pending revisions stay for a moderator to reject.
 - **Display names** come from Auth0: a post-login Action puts the user's name from Google or Facebook in the
-  access token's `https://bardictorch.org/name` claim (DEPLOY.md). The API normalises it (NFC, trimmed, cut to 64
-  characters), rejects a token without a valid one with 401, creates users with it, and replaces a stored name
+  access token's `https://bardictorch.org/name` claim (DEPLOY.md), unless the name is empty or is the user's
+  email address. The API cleans it (characters names may not hold, such as zero-width joiners and direction
+  marks, dropped; NFC, trimmed, cut to 64 characters), rejects a token without one that is still valid with 401, creates users with it, and replaces a stored name
   that differs, so a name changed at the provider shows from the next sign-in or token refresh, on past edits
   too. Users cannot set their own. Moderators are badged.
 - **Contact form** (R-13, no account): kind, name, email, message, URL and a Turnstile token checked server-side

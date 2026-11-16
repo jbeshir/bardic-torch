@@ -37,3 +37,16 @@ func NormalizeDisplayName(raw string) (string, error) {
 
 	return name, nil
 }
+
+// CleanDisplayName is NormalizeDisplayName for a name from the identity provider, which the user cannot change
+// here. It first drops every character CheckTextCharacters disallows by its category, such as the zero-width
+// joiner in an emoji sequence, the zero-width non-joiner in a Persian name or a left-to-right mark, rather than
+// rejecting the name. A name left empty, or with too many combining marks, is still rejected.
+func CleanDisplayName(raw string) (string, error) {
+	return NormalizeDisplayName(strings.Map(func(r rune) rune {
+		if !isAllowedTextCharacter(r) {
+			return -1
+		}
+		return r
+	}, raw))
+}

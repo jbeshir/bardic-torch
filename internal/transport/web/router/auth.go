@@ -16,8 +16,8 @@ var ErrInvalidCredentials = errors.New("invalid credentials")
 // Identity is who a validator authenticated a request as.
 type Identity struct {
 	UserID string
-	// DisplayName is the name the identity provider gave for the user, normalised with
-	// domain.NormalizeDisplayName.
+	// DisplayName is the name the identity provider gave for the user, cleaned with
+	// domain.CleanDisplayName.
 	DisplayName string
 }
 

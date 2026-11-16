@@ -28,7 +28,7 @@ var (
 func CheckTextCharacters(s string) error {
 	marks := 0
 	for _, r := range s {
-		if !unicode.In(r, unicode.L, unicode.M, unicode.N, unicode.P, unicode.S, unicode.Zs) {
+		if !isAllowedTextCharacter(r) {
 			return fmt.Errorf("%w, not %U", errDisallowedCharacter, r)
 		}
 
@@ -43,6 +43,12 @@ func CheckTextCharacters(s string) error {
 	}
 
 	return nil
+}
+
+// isAllowedTextCharacter reports whether CheckTextCharacters allows r by its category: a letter, mark, number,
+// punctuation, symbol or space separator.
+func isAllowedTextCharacter(r rune) bool {
+	return unicode.In(r, unicode.L, unicode.M, unicode.N, unicode.P, unicode.S, unicode.Zs)
 }
 
 // IsControlCharacter reports whether r is a character imported text must not hold, as it can rewrite how a

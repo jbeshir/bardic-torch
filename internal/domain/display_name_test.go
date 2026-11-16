@@ -17,11 +17,14 @@ func TestNormalizeDisplayName(t *testing.T) {
 		composedE   = "\u00e9"
 		decomposedE = "e\u0301"
 		plainName   = "Morwen"
+		emptyError  = "must not be empty"
 	)
 
+	// Rows with clean set run through CleanDisplayName instead of NormalizeDisplayName.
 	cases := []struct {
 		name    string
 		raw     string
+		clean   bool
 		want    string
 		wantErr string
 	}{
@@ -57,8 +60,8 @@ func TestNormalizeDisplayName(t *testing.T) {
 			raw:  strings.Repeat("a", 63) + " Morwen",
 			want: strings.Repeat("a", 63),
 		},
-		{name: "empty", raw: "", wantErr: "must not be empty"},
-		{name: "whitespace_only", raw: " \t\u3000 ", wantErr: "must not be empty"},
+		{name: "empty", raw: "", wantErr: emptyError},
+		{name: "whitespace_only", raw: " \t\u3000 ", wantErr: emptyError},
 		{name: "nul", raw: "Mor\x00wen", wantErr: disallowedCharacterError(0)},
 		{name: "inner_newline", raw: "Mor\nwen", wantErr: disallowedCharacterError('\n')},
 		{name: "right_to_left_override", raw: "Mor\u202ewen", wantErr: disallowedCharacterError(0x202e)},
@@ -68,13 +71,44 @@ func TestNormalizeDisplayName(t *testing.T) {
 		{name: "unassigned", raw: "Mor\u0378wen", wantErr: disallowedCharacterError(0x378)},
 		{name: "too_many_combining_marks", raw: "Zalgo" + strings.Repeat("\u0336", 5), wantErr: tooManyMarksError},
 		{name: "invalid_utf8", raw: "Mor\xffwen", wantErr: "must be valid UTF-8"},
+		{name: "clean_plain", raw: plainName, clean: true, want: plainName},
+		{
+			// A zero-width joiner makes a family emoji one glyph; without it the emoji are shown side by side.
+			name:  "clean_zero_width_joiner",
+			raw:   "Bard \U0001f468\u200d\U0001f469\u200d\U0001f467",
+			clean: true,
+			want:  "Bard \U0001f468\U0001f469\U0001f467",
+		},
+		{name: "clean_zero_width_non_joiner", raw: "می\u200cخواهم", clean: true,
+			want: "میخواهم"},
+		{name: "clean_right_to_left_mark", raw: "\u200fמרים", clean: true,
+			want: "מרים"},
+		{
+			// Dropping characters frees room, and the cut still applies afterwards.
+			name:  "clean_then_truncated",
+			raw:   strings.Repeat("a\u200e", 65),
+			clean: true,
+			want:  strings.Repeat("a", 64),
+		},
+		{name: "clean_format_only", raw: "\u200d\u200c\u200e\u200f", clean: true, wantErr: emptyError},
+		{name: "clean_format_and_spaces_only", raw: " \u200f ", clean: true, wantErr: emptyError},
+		{
+			name:    "clean_too_many_combining_marks",
+			raw:     "Zalgo" + strings.Repeat("\u0336", 5),
+			clean:   true,
+			wantErr: tooManyMarksError,
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := NormalizeDisplayName(tc.raw)
+			normalize := NormalizeDisplayName
+			if tc.clean {
+				normalize = CleanDisplayName
+			}
+			got, err := normalize(tc.raw)
 			if tc.wantErr != "" {
 				require.ErrorIs(t, err, ErrInvalidDisplayName)
 				require.EqualError(t, err, "invalid display name: "+tc.wantErr)

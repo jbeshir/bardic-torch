@@ -193,8 +193,15 @@ func TestAuth0Validator_InvalidTokens(t *testing.T) {
 			wantErr: "https://bardictorch.org/name claim: invalid display name: must not be empty",
 		},
 		{
-			name:    "invalid_name",
-			token:   auth0test.Sign(t, issuer.Key, claims(auth0test.NameClaim, "Mor\u202ewen")),
+			// Format characters are dropped, leaving nothing.
+			name:    "format_characters_only_name",
+			token:   auth0test.Sign(t, issuer.Key, claims(auth0test.NameClaim, "\u200d\u200e\u202e")),
+			wantErr: "https://bardictorch.org/name claim: invalid display name: must not be empty",
+		},
+		{
+			name: "invalid_name",
+			token: auth0test.Sign(t, issuer.Key,
+				claims(auth0test.NameClaim, "Zalgo"+strings.Repeat("\u0336", domain.MaxCombiningMarksPerBase+1))),
 			wantErr: domain.ErrInvalidDisplayName.Error(),
 		},
 		{name: "malformed", token: "not-a-jwt", wantErr: "decoding token header"},

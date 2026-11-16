@@ -97,7 +97,8 @@ paths:
       description: |
         Returns the caller's user. A user is created as a contributor on their first authenticated request, so
         this succeeds for any valid credential that is not blocked. Their display name is the name in the access
-        token's `https://bardictorch.org/name` claim, normalised to Unicode NFC, trimmed and cut to 64 characters;
+        token's `https://bardictorch.org/name` claim with disallowed characters such as zero-width
+        joiners and direction marks dropped, normalised to Unicode NFC, trimmed and cut to 64 characters;
         a stored name that differs is replaced. A token without a valid name gets 401.
       operationId: getMe
       responses:

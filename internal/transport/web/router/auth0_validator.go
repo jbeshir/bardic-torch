@@ -66,7 +66,7 @@ func (c *auth0Claims) Validate(context.Context) error {
 // NewAuth0Validator returns a validator for "Bearer <jwt>" credentials: RS256 access tokens issued by
 // issuerURL for audience to a user, with an expiry. The signing keys are discovered from issuerURL's OpenID
 // configuration on first use and cached. The authenticated user ID is the token's subject, and the display name
-// is its auth0NameClaim, normalised with domain.NormalizeDisplayName; a token without a name that normalises is
+// is its auth0NameClaim, cleaned with domain.CleanDisplayName; a token without a name that survives cleaning is
 // rejected.
 //
 // Tokens Auth0 issues to applications through the client credentials grant are rejected, so that an
@@ -124,7 +124,7 @@ func NewAuth0Validator(issuerURL *url.URL, audience string) (AuthValidator, erro
 			return nil, fmt.Errorf("%w: Auth0 token custom claims have unexpected type %T", ErrInvalidCredentials,
 				claims.CustomClaims)
 		}
-		name, err := domain.NormalizeDisplayName(custom.Name)
+		name, err := domain.CleanDisplayName(custom.Name)
 		if err != nil {
 			return nil, fmt.Errorf("%w: Auth0 token %s claim: %w", ErrInvalidCredentials, auth0NameClaim, err)
 		}
