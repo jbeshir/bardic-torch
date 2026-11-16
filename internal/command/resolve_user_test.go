@@ -34,15 +34,27 @@ func (r storedBy) EnsureUser(ctx context.Context, user datasources.NewUser) (dom
 	return r.Repo.EnsureUser(ctx, user)
 }
 
-func TestResolveUser_CreatesMissingUser(t *testing.T) {
+// noNameWrites is a repository that fails the test if a display name is written.
+type noNameWrites struct {
+	datasources.Users
+	t *testing.T
+}
+
+func (r noNameWrites) UpdateDisplayName(context.Context, string, string) error {
+	r.t.Error("display name written unexpectedly")
+	return nil
+}
+
+func TestResolveUser_CreatesMissingUserWithTheirName(t *testing.T) {
 	t.Parallel()
 
 	repo := &fakerepo.Repo{}
-	user, err := (&ResolveUser{Users: repo, Now: fixedClock}).Execute(t.Context(), resolvedUserID)
+	user, err := (&ResolveUser{Users: repo, Now: fixedClock}).Execute(t.Context(),
+		ResolveUserRequest{UserID: resolvedUserID, DisplayName: testDisplayName})
 
 	require.NoError(t, err)
-	want := domain.User{ID: resolvedUserID, DisplayName: domain.DefaultDisplayName(resolvedUserID),
-		Role: domain.RoleContributor, CreatedAt: fixedNow}
+	want := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleContributor,
+		CreatedAt: fixedNow}
 	assert.Equal(t, want, user)
 	assert.Equal(t, want, repo.Users[resolvedUserID])
 }
@@ -51,12 +63,44 @@ func TestResolveUser_ReturnsUserStoredByConcurrentRequest(t *testing.T) {
 	t.Parallel()
 
 	// Another request created the user between the read and the insert: EnsureUser returns the stored user,
-	// whatever it was created with.
+	// whatever role it was created with.
 	stored := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleModerator, CreatedAt: fixedNow}
 	repo := storedBy{Repo: &fakerepo.Repo{Users: map[string]domain.User{}}, stored: stored}
 
-	user, err := (&ResolveUser{Users: repo, Now: fixedClock}).Execute(t.Context(), resolvedUserID)
+	user, err := (&ResolveUser{Users: noNameWrites{Users: repo, t: t}, Now: fixedClock}).Execute(t.Context(),
+		ResolveUserRequest{UserID: resolvedUserID, DisplayName: testDisplayName})
+	require.NoError(t, err)
+	assert.Equal(t, stored, user)
+}
+
+func TestResolveUser_ReturnsUnchangedUserWithoutWriting(t *testing.T) {
+	t.Parallel()
+
+	stored := domain.User{ID: resolvedUserID, DisplayName: testDisplayName, Role: domain.RoleContributor,
+		CreatedAt: fixedNow}
+	repo := noNameWrites{Users: &fakerepo.Repo{Users: map[string]domain.User{resolvedUserID: stored}}, t: t}
+
+	user, err := (&ResolveUser{Users: repo, Now: fixedClock}).Execute(t.Context(),
+		ResolveUserRequest{UserID: resolvedUserID, DisplayName: testDisplayName})
 
 	require.NoError(t, err)
 	assert.Equal(t, stored, user)
+}
+
+func TestResolveUser_UpdatesChangedNameOnly(t *testing.T) {
+	t.Parallel()
+
+	blockedAt := fixedNow.Add(-time.Hour)
+	stored := domain.User{ID: resolvedUserID, DisplayName: "Old name", Role: domain.RoleContributor,
+		CreatedAt: fixedNow.Add(-24 * time.Hour), BlockedAt: &blockedAt}
+	repo := &fakerepo.Repo{Users: map[string]domain.User{resolvedUserID: stored}}
+
+	user, err := (&ResolveUser{Users: repo, Now: fixedClock}).Execute(t.Context(),
+		ResolveUserRequest{UserID: resolvedUserID, DisplayName: testDisplayName})
+
+	require.NoError(t, err)
+	want := stored
+	want.DisplayName = testDisplayName
+	assert.Equal(t, want, user)
+	assert.Equal(t, want, repo.Users[resolvedUserID])
 }

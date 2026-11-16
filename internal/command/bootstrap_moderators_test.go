@@ -28,11 +28,11 @@ func TestBootstrapModerators_PromotesEachUserOnce(t *testing.T) {
 		[]string{bootstrapUserID, otherBootstrapUserID, bootstrapUserID})
 
 	require.NoError(t, err)
-	// An existing user keeps their display name and is unblocked; a missing one is created with the default.
+	// An existing user keeps their display name and is unblocked; a missing one is created with no name.
 	assert.Equal(t, domain.User{ID: bootstrapUserID, DisplayName: testDisplayName, Role: domain.RoleModerator},
 		repo.Users[bootstrapUserID])
-	assert.Equal(t, domain.User{ID: otherBootstrapUserID, DisplayName: domain.DefaultDisplayName(otherBootstrapUserID),
-		Role: domain.RoleModerator, CreatedAt: fixedNow}, repo.Users[otherBootstrapUserID])
+	assert.Equal(t, domain.User{ID: otherBootstrapUserID, Role: domain.RoleModerator,
+		CreatedAt: fixedNow}, repo.Users[otherBootstrapUserID])
 }
 
 func TestBootstrapModerators_IDsAreCaseSensitive(t *testing.T) {

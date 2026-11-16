@@ -16,6 +16,9 @@ var ErrInvalidCredentials = errors.New("invalid credentials")
 // Identity is who a validator authenticated a request as.
 type Identity struct {
 	UserID string
+	// DisplayName is the name the identity provider gave for the user, normalised with
+	// domain.NormalizeDisplayName.
+	DisplayName string
 }
 
 // AuthValidator authenticates a request from its credentials.
@@ -33,7 +36,7 @@ type AuthValidator func(r *http.Request) (*Identity, error)
 // details logged rather than returned.
 func authMiddleware(
 	validators []AuthValidator,
-	resolveUser command.Command[string, domain.User],
+	resolveUser command.Command[command.ResolveUserRequest, domain.User],
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +59,10 @@ func authMiddleware(
 				return
 			}
 
-			user, err := resolveUser.Execute(ctx, identity.UserID)
+			user, err := resolveUser.Execute(ctx, command.ResolveUserRequest{
+				UserID:      identity.UserID,
+				DisplayName: identity.DisplayName,
+			})
 			if err != nil {
 				httpjson.WriteInternalError(ctx, w, "unable to resolve user", err)
 				return

@@ -141,8 +141,6 @@ var routeTable = map[openapitest.Operation]routeRow{
 	{Method: http.MethodGet, Path: "/readyz"}:   getting("/readyz", nothingSeeded),
 	{Method: http.MethodGet, Path: mePath}: {access: signedIn, path: mePath, success: http.StatusOK,
 		seed: nothingSeeded},
-	{Method: http.MethodPatch, Path: mePath}: {access: signedIn, path: mePath, body: `{"display_name":"  Morwen "}`,
-		success: http.StatusOK, seed: nothingSeeded},
 	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: {access: moderator,
 		path: "/v1/users/google-oauth2%7C123/blocked", body: `{"blocked":true}`, success: http.StatusOK,
 		seed: nothingSeeded},
@@ -286,7 +284,7 @@ func newHandler(t *testing.T, seed func(*fakerepo.Repo)) http.Handler {
 	t.Helper()
 
 	user := func(id string, role domain.Role) domain.User {
-		return domain.User{ID: id, DisplayName: "Morwen", Role: role, CreatedAt: testNow}
+		return domain.User{ID: id, DisplayName: testDisplayName, Role: role, CreatedAt: testNow}
 	}
 	blocked := user(blockedID, domain.RoleContributor)
 	blocked.BlockedAt = new(testNow.Add(-time.Hour))
@@ -308,19 +306,18 @@ func newHandler(t *testing.T, seed func(*fakerepo.Repo)) http.Handler {
 		case userID == invalidSecret:
 			return nil, fmt.Errorf("%w: test credential", ErrInvalidCredentials)
 		default:
-			return &Identity{UserID: userID}, nil
+			return &Identity{UserID: userID, DisplayName: testDisplayName}, nil
 		}
 	}
 	users := lookupFails{repo}
 	now := func() time.Time { return testNow }
 	return New(Dependencies{
-		Repository:        users,
-		AuthValidators:    []AuthValidator{validate},
-		ResolveUser:       &command.ResolveUser{Users: users, Now: now},
-		UpdateDisplayName: &command.UpdateDisplayName{Users: users},
-		SetUserBlocked:    &command.SetUserBlocked{Users: users, Now: now},
-		Now:               now,
-		SubmitRevision:    &command.SubmitRevision{Revisions: users, Now: now},
+		Repository:     users,
+		AuthValidators: []AuthValidator{validate},
+		ResolveUser:    &command.ResolveUser{Users: users, Now: now},
+		SetUserBlocked: &command.SetUserBlocked{Users: users, Now: now},
+		Now:            now,
+		SubmitRevision: &command.SubmitRevision{Revisions: users, Now: now},
 		CreateContactRequest: &command.CreateContactRequest{
 			Verifier: turnstilePasses{}, Contacts: users, Now: now,
 		},
@@ -433,7 +430,7 @@ var unrouted = []struct {
 	{name: "unknown_path", method: http.MethodGet, target: "/v1/missing", authorization: "Bearer " + invalidSecret,
 		status: http.StatusNotFound, bodyContains: `"code":"not_found"`},
 	{name: "wrong_method", method: http.MethodDelete, target: mePath, authorization: "Bearer " + invalidSecret,
-		status: http.StatusMethodNotAllowed, allow: "GET, PATCH", bodyContains: `"code":"method_not_allowed"`},
+		status: http.StatusMethodNotAllowed, allow: http.MethodGet, bodyContains: `"code":"method_not_allowed"`},
 	{name: "wrong_method_on_public_path", method: http.MethodPost, target: "/v1/pieces/" + routeSlug,
 		authorization: "Bearer " + invalidSecret, status: http.StatusMethodNotAllowed, allow: http.MethodGet,
 		bodyContains: `"code":"method_not_allowed"`},

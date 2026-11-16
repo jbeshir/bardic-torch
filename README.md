@@ -8,9 +8,11 @@ the product and implementation plan.
 ## Key Concepts
 
 - **User** -- Created on a user's first authenticated request, keyed by their Auth0 user ID (e.g.
-  `google-oauth2|1234`; case and trailing spaces are significant), with a display name they can change
-  (`Bard <hash>` until they do). Display names are NFC-normalised and trimmed, and may contain only letters,
-  marks, numbers, punctuation, symbols and spaces.
+  `google-oauth2|1234`; case and trailing spaces are significant), with the display name
+  their access token carries (the `https://bardictorch.org/name` claim, which an Auth0 post-login Action sets
+  from Google or Facebook). A stored name that differs is replaced on the next request; users cannot set their
+  own. Display names are NFC-normalised, trimmed and cut to 64 characters, and may contain only letters, marks,
+  numbers, punctuation, symbols and spaces; a token without a valid name gets 401.
 - **Role** -- Every user is a contributor or a moderator. Moderators are named in `BOOTSTRAP_MODERATOR_USER_IDS`
   and promoted at startup; removing an ID never demotes (see PLAN §4 and §5).
 - **Blocking** -- Moderators can block contributors. A blocked user gets 403 `user_blocked` on every
@@ -164,7 +166,6 @@ The full API is documented in the [OpenAPI spec](openapi/api.yaml).
 | `GET` | `/v1/revisions/{revision_id}` | No | An approved revision: redacted snapshot, base snapshot and changed fields |
 | `GET` | `/v1/needs-work` | No | Stub, unassessed, unknown-licensing and dead-link pieces and persons, with a count per reason |
 | `GET` | `/v1/me` | Required | The caller's user |
-| `PATCH` | `/v1/me` | Required | Change the caller's display name |
 | `PUT` | `/v1/users/{user_id}/blocked` | Moderator | Block or unblock a contributor |
 
 Catalogue reads ignore credentials: an invalid or expired token gets the same answer as no token. Paged lists (all but `/v1/terms`, which returns the whole tree) take
@@ -180,4 +181,5 @@ Any other path gets a JSON 404 (`not_found`), and a listed path with another met
 ### Authentication
 
 Auth0 is the only method: `Authorization: Bearer <access_token>`, an Auth0 access token for the audience
-`https://api.bardictorch.org`. With `AUTH_DRIVERS` empty the API runs with null auth and every request is anonymous.
+`https://api.bardictorch.org` that carries the user's name in the `https://bardictorch.org/name` claim
+([docs/DEPLOY.md](docs/DEPLOY.md), "Name claim"). With `AUTH_DRIVERS` empty the API runs with null auth and every request is anonymous.

@@ -95,9 +95,12 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	authValidators := []router.AuthValidator{auth0Validator}
 	e := endToEnd{handler: NewHTTPHandler(repositoryHTTPDependencies(repository, authValidators)), contract: openapitest.New(t)}
 
-	auth0 := func(userID string) string {
-		return "Bearer " + auth0test.Sign(t, issuer.Key, issuer.Claims(userID, endToEndAudience))
+	auth0Named := func(userID, name string) string {
+		claims := issuer.Claims(userID, endToEndAudience)
+		claims[auth0test.NameClaim] = name
+		return "Bearer " + auth0test.Sign(t, issuer.Key, claims)
 	}
+	auth0 := func(userID string) string { return auth0Named(userID, auth0test.Name) }
 	contributor, moderator := auth0(endToEndContributorID), auth0(endToEndModeratorID)
 
 	sendOK[controller.HealthStatus](t, e, http.MethodGet, "/readyz", "", "", http.StatusOK)
@@ -105,10 +108,14 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	// Invalid Auth0 tokens for the contributor get the spec's 401, and do not create them.
 	expiredClaims := issuer.Claims(endToEndContributorID, endToEndAudience)
 	expiredClaims["exp"] = time.Now().Add(-time.Hour).Unix()
+	namelessClaims := issuer.Claims(endToEndContributorID, endToEndAudience)
+	delete(namelessClaims, auth0test.NameClaim)
 	otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	for name, authorization := range map[string]string{
 		"expired": "Bearer " + auth0test.Sign(t, issuer.Key, expiredClaims),
+		// The tenant's post-login Action is missing.
+		"no_name": "Bearer " + auth0test.Sign(t, issuer.Key, namelessClaims),
 		"wrong_audience": "Bearer " +
 			auth0test.Sign(t, issuer.Key, issuer.Claims(endToEndContributorID, "https://other.example")),
 		"bad_signature": "Bearer " +
@@ -125,18 +132,21 @@ func TestHTTP_EndToEnd(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code, name)
 	}
 
-	// The first authenticated request creates the user.
+	// The first authenticated request creates the user with the token's name.
 	assert.Equal(t, controller.User{
 		ID:          endToEndContributorID,
-		DisplayName: domain.DefaultDisplayName(endToEndContributorID),
+		DisplayName: auth0test.Name,
 		Role:        domain.RoleContributor,
 	}, sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK))
 
-	// Renaming persists.
-	renamed := sendOK[controller.User](t, e, http.MethodPatch, "/v1/me", contributor, `{"display_name":" Morwen "}`,
-		http.StatusOK)
-	assert.Equal(t, "Morwen", renamed.DisplayName)
-	assert.Equal(t, renamed, sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK))
+	// A token with another name, normalised, renames them.
+	contributor = auth0Named(endToEndContributorID, " Ren\u0065\u0301e ")
+	renamed := sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK)
+	assert.Equal(t, "Ren\u00e9e", renamed.DisplayName)
+
+	// The moderator, bootstrapped with no name, gets theirs on their first request.
+	assert.Equal(t, auth0test.Name,
+		sendOK[controller.User](t, e, http.MethodGet, "/v1/me", moderator, "", http.StatusOK).DisplayName)
 
 	// The bootstrapped moderator blocks the contributor.
 	sendRejected(t, e, http.MethodPut, endToEndContributorPath, contributor, `{"blocked":true}`,
@@ -145,8 +155,6 @@ func TestHTTP_EndToEnd(t *testing.T) {
 		http.StatusOK)
 	assert.Equal(t, renamed, blocked)
 	sendRejected(t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusForbidden, httpjson.CodeUserBlocked)
-	sendRejected(t, e, http.MethodPatch, "/v1/me", contributor, `{"display_name":"Blocked"}`,
-		http.StatusForbidden, httpjson.CodeUserBlocked)
 
 	// Unblocking restores them.
 	sendOK[controller.User](t, e, http.MethodPut, endToEndContributorPath, moderator, `{"blocked":false}`,

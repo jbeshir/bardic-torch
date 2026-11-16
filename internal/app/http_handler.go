@@ -26,9 +26,6 @@ func NewHTTPHandler(deps HTTPDependencies) http.Handler {
 		Repository:     deps.Repository,
 		AuthValidators: deps.AuthValidators,
 		ResolveUser:    &command.ResolveUser{Users: deps.Repository, Now: deps.Now},
-		UpdateDisplayName: &command.UpdateDisplayName{
-			Users: deps.Repository,
-		},
 		SetUserBlocked: &command.SetUserBlocked{Users: deps.Repository, Now: deps.Now},
 		Now:            deps.Now,
 		SubmitRevision: &command.SubmitRevision{Revisions: deps.Repository, Now: deps.Now},

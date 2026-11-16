@@ -32,6 +32,13 @@ const rs256 = "RS256"
 // keyID is the key ID of the issuer's signing key, which Header puts in every token's header.
 const keyID = "test-key"
 
+// NameClaim is the custom claim the tenant's post-login Action sets to the user's name, and Name is the name
+// Claims gives it.
+const (
+	NameClaim = "https://bardictorch.org/name"
+	Name      = "Morwen"
+)
+
 // Issuer serves the OpenID discovery document and a JWKS holding the public half of Key, from a local HTTP
 // server that is closed when the test finishes.
 type Issuer struct {
@@ -83,15 +90,16 @@ func writeJSON(t testing.TB, w http.ResponseWriter, body any) {
 }
 
 // Claims returns the claims of a token for subject that a validator for the issuer and audience accepts: it
-// was issued now and expires in an hour.
+// was issued now, expires in an hour and has Name as its NameClaim.
 func (i Issuer) Claims(subject, audience string) map[string]any {
 	now := time.Now()
 	return map[string]any{
-		"iss": i.URL.String(),
-		"sub": subject,
-		"aud": []string{audience},
-		"iat": now.Unix(),
-		"exp": now.Add(time.Hour).Unix(),
+		"iss":     i.URL.String(),
+		"sub":     subject,
+		"aud":     []string{audience},
+		"iat":     now.Unix(),
+		"exp":     now.Add(time.Hour).Unix(),
+		NameClaim: Name,
 	}
 }
 

@@ -60,7 +60,8 @@ same commands without the `dokku` prefix.
 
 The FE logs users in with Auth0 (Google or Facebook) and calls the API server-side with the user's Auth0 access
 token. The API verifies that token against `https://<AUTH0_DOMAIN>/` and the audience
-`https://api.bardictorch.org`, and uses its `sub` claim (for example `google-oauth2|1234`) as the user ID.
+`https://api.bardictorch.org`, and uses its `sub` claim (for example `google-oauth2|1234`) as the user ID and its
+`https://bardictorch.org/name` claim, which a post-login Action adds, as the user's display name.
 
 ### Tenant
 
@@ -94,6 +95,31 @@ Optional. Decide **before** setting up the social connections, because their red
    - Turn **Allow Offline Access** on, so the FE can get refresh tokens.
    - Leave RBAC off. Roles live in the API's database, not in Auth0.
    - The default token expiration is fine; the FE refreshes tokens before they expire.
+
+### Name claim
+
+Access tokens carry no name by default. A post-login Action adds the user's name, which Auth0 updates from Google
+or Facebook at each login, as a custom claim. Post-login Actions also run when the FE refreshes a token, so a name
+changed at Google or Facebook reaches the API at the next sign-in or refresh, and the API replaces the stored one.
+
+**Until this Action is deployed and in the Login flow, every sign-in fails:** the API answers 401 to any token
+without the claim.
+
+1. **Actions → Library → Build Custom**: name `Add name to access token`, trigger **Login / Post Login**, and the
+   default runtime.
+2. Replace the code with:
+
+   ```js
+   exports.onExecutePostLogin = async (event, api) => {
+     api.accessToken.setCustomClaim("https://bardictorch.org/name", event.user.name);
+   };
+   ```
+
+3. **Deploy**.
+4. Add it to the Login flow: **Actions → Flows → Login** (**Actions → Triggers → post-login** in newer
+   dashboards), drag the Action from **Custom** between **Start** and **Complete**, then **Apply**.
+
+A development tenant needs the same Action.
 
 ### Application for the FE
 
@@ -333,7 +359,10 @@ dokku logs bardic-torch-api --num 100
 - The logs show one `bootstrapped moderator` line per configured moderator at startup, then a `request completed`
   line per request.
 
-With the FE live, log in as a moderator: the FE's `GET /v1/me` returns `"role":"moderator"`.
+With the FE live, log in as a moderator: the FE's `GET /v1/me` returns `"role":"moderator"`, and the account menu
+shows the name on the moderator's Google or Facebook account. If every sign-in fails, with the API logging
+`authentication failed` for a token with no `https://bardictorch.org/name` claim, the [name claim](#name-claim)
+Action is not deployed or not in the Login flow.
 
 ### Importing the legacy wiki
 

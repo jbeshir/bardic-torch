@@ -14,6 +14,8 @@ import (
 
 	"github.com/auth0/go-jwt-middleware/v3/jwks"
 	"github.com/auth0/go-jwt-middleware/v3/validator"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
 const (
@@ -32,6 +34,8 @@ const (
 	auth0ClientCredentialsGrant = "client-credentials"
 	// auth0ClientSubjectSuffix ends the subject of tokens Auth0 issues to applications: "<client_id>@clients".
 	auth0ClientSubjectSuffix = "@clients"
+	// auth0NameClaim is the custom claim the tenant's post-login Action sets to the user's name (docs/DEPLOY.md).
+	auth0NameClaim = "https://bardictorch.org/name"
 )
 
 var (
@@ -42,10 +46,13 @@ var (
 	errApplicationToken = errors.New("token was issued to an application, not a user")
 )
 
-// auth0Claims are the claims Auth0 adds to access tokens that the validator checks.
+// auth0Claims are the claims Auth0 adds to access tokens that the validator reads.
 type auth0Claims struct {
 	// GrantType is how the token was obtained; Auth0 sets it to "client-credentials" for application tokens.
 	GrantType string `json:"gty"`
+	// Name is the user's name from the identity provider, which the post-login Action adds; the tag is
+	// auth0NameClaim. It is empty if the claim is missing.
+	Name string `json:"https://bardictorch.org/name"`
 }
 
 // Validate rejects tokens issued through the client credentials grant, which identify an application.
@@ -58,7 +65,9 @@ func (c *auth0Claims) Validate(context.Context) error {
 
 // NewAuth0Validator returns a validator for "Bearer <jwt>" credentials: RS256 access tokens issued by
 // issuerURL for audience to a user, with an expiry. The signing keys are discovered from issuerURL's OpenID
-// configuration on first use and cached. The authenticated user ID is the token's subject.
+// configuration on first use and cached. The authenticated user ID is the token's subject, and the display name
+// is its auth0NameClaim, normalised with domain.NormalizeDisplayName; a token without a name that normalises is
+// rejected.
 //
 // Tokens Auth0 issues to applications through the client credentials grant are rejected, so that an
 // application authorised for audience is never treated as a user.
@@ -110,7 +119,17 @@ func NewAuth0Validator(issuerURL *url.URL, audience string) (AuthValidator, erro
 			return nil, fmt.Errorf("%w: Auth0 token claims have unexpected type %T", ErrInvalidCredentials, validated)
 		}
 
-		return &Identity{UserID: claims.RegisteredClaims.Subject}, nil
+		custom, ok := claims.CustomClaims.(*auth0Claims)
+		if !ok {
+			return nil, fmt.Errorf("%w: Auth0 token custom claims have unexpected type %T", ErrInvalidCredentials,
+				claims.CustomClaims)
+		}
+		name, err := domain.NormalizeDisplayName(custom.Name)
+		if err != nil {
+			return nil, fmt.Errorf("%w: Auth0 token %s claim: %w", ErrInvalidCredentials, auth0NameClaim, err)
+		}
+
+		return &Identity{UserID: claims.RegisteredClaims.Subject, DisplayName: name}, nil
 	}, nil
 }
 

@@ -192,14 +192,14 @@ func TestRepository_PromoteToModerator_CreatesMissingUser(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepository(t)
+	// A moderator bootstrapped before signing in has no name until their first request.
 	require.NoError(t, repo.PromoteToModerator(t.Context(), datasources.NewUser{
-		ID:          "auth0|new-moderator",
-		DisplayName: "Bard 0badf00d",
-		CreatedAt:   baseTime,
+		ID:        "auth0|new-moderator",
+		CreatedAt: baseTime,
 	}))
 
-	assert.Equal(t, domain.User{ID: "auth0|new-moderator", DisplayName: "Bard 0badf00d", Role: domain.RoleModerator,
-		CreatedAt: baseTime}, getUser(t, repo, "auth0|new-moderator"))
+	assert.Equal(t, domain.User{ID: "auth0|new-moderator", Role: domain.RoleModerator, CreatedAt: baseTime},
+		getUser(t, repo, "auth0|new-moderator"))
 }
 
 func TestRepository_PromoteToModerator_KeepsExistingUserAndIsIdempotent(t *testing.T) {
@@ -212,9 +212,8 @@ func TestRepository_PromoteToModerator_KeepsExistingUserAndIsIdempotent(t *testi
 
 	for range 2 {
 		require.NoError(t, repo.PromoteToModerator(ctx, datasources.NewUser{
-			ID:          "auth0|promoted",
-			DisplayName: "Default name",
-			CreatedAt:   baseTime.Add(24 * time.Hour),
+			ID:        "auth0|promoted",
+			CreatedAt: baseTime.Add(24 * time.Hour),
 		}))
 	}
 
@@ -234,9 +233,8 @@ func TestRepository_PromoteToModerator_UnblocksBlockedContributor(t *testing.T) 
 	require.NoError(t, repo.BlockUser(ctx, bootstrappedID, baseTime.Add(time.Hour)))
 
 	require.NoError(t, repo.PromoteToModerator(ctx, datasources.NewUser{
-		ID:          bootstrappedID,
-		DisplayName: "Default name",
-		CreatedAt:   baseTime.Add(24 * time.Hour),
+		ID:        bootstrappedID,
+		CreatedAt: baseTime.Add(24 * time.Hour),
 	}))
 
 	assert.Equal(t, domain.User{ID: bootstrappedID, DisplayName: "Chosen name", Role: domain.RoleModerator,

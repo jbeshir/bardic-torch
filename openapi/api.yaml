@@ -95,8 +95,10 @@ paths:
         - Users
       summary: Get the caller
       description: |
-        Returns the caller's user. A user is created as a contributor with a default display name on their first
-        authenticated request, so this succeeds for any valid credential that is not blocked.
+        Returns the caller's user. A user is created as a contributor on their first authenticated request, so
+        this succeeds for any valid credential that is not blocked. Their display name is the name in the access
+        token's `https://bardictorch.org/name` claim, normalised to Unicode NFC, trimmed and cut to 64 characters;
+        a stored name that differs is replaced. A token without a valid name gets 401.
       operationId: getMe
       responses:
         "200":
@@ -109,49 +111,6 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/Internal"
-        "503":
-          $ref: "#/components/responses/Unavailable"
-    patch:
-      tags:
-        - Users
-      summary: Update the caller
-      description: Sets the caller's display name and returns the updated user.
-      operationId: updateMe
-      requestBody:
-        description: The fields to update.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateMeRequest"
-      responses:
-        "200":
-          description: The caller's updated user.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "400":
-          description: |
-            The request body is malformed, or the display name is invalid after normalisation; the error code is
-            `invalid_request`.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                code: invalid_request
-                message: "invalid display name: must be at most 64 characters"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "413":
-          $ref: "#/components/responses/RequestTooLarge"
-        "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/Internal"
         "503":
@@ -1810,7 +1769,8 @@ components:
       type: http
       scheme: bearer
       description: |
-        An Auth0 access token for this API: `Authorization: Bearer <jwt>`.
+        An Auth0 access token for this API: `Authorization: Bearer <jwt>`. It must carry the user's name in the
+        `https://bardictorch.org/name` claim, which the Auth0 tenant's post-login Action adds.
 
   parameters:
     CollectionID:
@@ -2243,27 +2203,6 @@ components:
         - id: google-oauth2|123
           display_name: Morwen
           role: contributor
-
-    UpdateMeRequest:
-      type: object
-      description: The body of a request to update the caller.
-      additionalProperties: false
-      required:
-        - display_name
-      properties:
-        display_name:
-          type: string
-          description: |
-            The new display name, at most 256 characters as sent. It is normalised to Unicode NFC and surrounding
-            whitespace is trimmed; the result must have 1 to 64 characters, each a letter, mark, number,
-            punctuation, symbol or space separator. So control and format characters (such as U+202E), line and
-            paragraph separators, and private-use and unassigned code points are rejected, as are more than 4
-            combining marks in a row.
-          maxLength: 256
-          examples:
-            - Morwen
-      examples:
-        - display_name: Morwen
 
     SetUserBlockedRequest:
       type: object

@@ -10,11 +10,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/jbeshir/bardic-torch/internal/testutil/auth0test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,7 +62,7 @@ func withoutHeader(name string) map[string]any {
 	return header
 }
 
-func TestAuth0Validator_ValidTokenGivesItsSubject(t *testing.T) {
+func TestAuth0Validator_ValidTokenGivesItsSubjectAndName(t *testing.T) {
 	t.Parallel()
 
 	issuer := auth0test.NewIssuer(t)
@@ -71,7 +73,33 @@ func TestAuth0Validator_ValidTokenGivesItsSubject(t *testing.T) {
 		"Bearer "+auth0test.Sign(t, issuer.Key, issuer.Claims(testSubject, testAudience)))
 
 	require.NoError(t, err)
-	assert.Equal(t, &Identity{UserID: testSubject}, identity)
+	assert.Equal(t, &Identity{UserID: testSubject, DisplayName: auth0test.Name}, identity)
+}
+
+// TestAuth0NameClaim_MatchesTestIssuer keeps the claim the validator reads, its struct tag and the one auth0test
+// signs the same.
+func TestAuth0NameClaim_MatchesTestIssuer(t *testing.T) {
+	t.Parallel()
+
+	field, ok := reflect.TypeFor[auth0Claims]().FieldByName("Name")
+	require.True(t, ok)
+	assert.Equal(t, auth0NameClaim, field.Tag.Get("json"))
+	assert.Equal(t, auth0NameClaim, auth0test.NameClaim)
+}
+
+func TestAuth0Validator_NameIsNormalizedAndTruncated(t *testing.T) {
+	t.Parallel()
+
+	issuer := auth0test.NewIssuer(t)
+	validate, err := NewAuth0Validator(issuer.URL, testAudience)
+	require.NoError(t, err)
+
+	long := " " + strings.Repeat("a", domain.MaxDisplayNameLength) + "b "
+	claims := withClaim(issuer.Claims(testSubject, testAudience), auth0test.NameClaim, long)
+	identity, err := validateAuthorization(t, validate, "Bearer "+auth0test.Sign(t, issuer.Key, claims))
+
+	require.NoError(t, err)
+	assert.Equal(t, strings.Repeat("a", domain.MaxDisplayNameLength), identity.DisplayName)
 }
 
 // TestAuth0Validator_InvalidTokens has one case per rule the validator enforces on a token.
@@ -157,6 +185,17 @@ func TestAuth0Validator_InvalidTokens(t *testing.T) {
 			name:    "critical_header",
 			token:   auth0test.SignWithHeader(t, issuer.Key, withHeader("crit", []string{"exp"}), valid),
 			wantErr: "critical extensions",
+		},
+		{
+			// The tenant's post-login Action is missing.
+			name:    "no_name",
+			token:   auth0test.Sign(t, issuer.Key, claims(auth0test.NameClaim, nil)),
+			wantErr: "https://bardictorch.org/name claim: invalid display name: must not be empty",
+		},
+		{
+			name:    "invalid_name",
+			token:   auth0test.Sign(t, issuer.Key, claims(auth0test.NameClaim, "Mor\u202ewen")),
+			wantErr: domain.ErrInvalidDisplayName.Error(),
 		},
 		{name: "malformed", token: "not-a-jwt", wantErr: "decoding token header"},
 	}

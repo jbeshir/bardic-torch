@@ -152,7 +152,8 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
   rejected / withdrawn), `snapshot_json`, summary, reviewer, review time and note, `created_at`;
   `revision_contributors` credits wiki contributors on imports.
 - **`users`**: Auth0 ID, `display_name`, `role` (contributor / moderator), `blocked_at`. At startup the API
-  promotes (and unblocks) the IDs in `BOOTSTRAP_MODERATOR_USER_IDS`; it never demotes (that is done in SQL).
+  promotes (and unblocks) the IDs in `BOOTSTRAP_MODERATOR_USER_IDS`; it never demotes (that is done in SQL). A
+  moderator bootstrapped before signing in has an empty `display_name` until their first request.
 - **`contact_requests`**: `kind` (takedown / opt_out / correction / link_report / general), name, email, message,
   URL (for a `link_report`, the link's), status, resolver, note.
 
@@ -250,7 +251,11 @@ carries a note for the author.
   against its base and, when stale, against current.
 - **Blocking:** moderators block and unblock contributors; moderators cannot be blocked. A blocked user gets 403 on
   every authenticated endpoint; their pending revisions stay for a moderator to reject.
-- **Display names** are set with `PATCH /v1/me` (non-blank, NFC, ≤ 255 characters). Moderators are badged.
+- **Display names** come from Auth0: a post-login Action puts the user's name from Google or Facebook in the
+  access token's `https://bardictorch.org/name` claim (DEPLOY.md). The API normalises it (NFC, trimmed, cut to 64
+  characters), rejects a token without a valid one with 401, creates users with it, and replaces a stored name
+  that differs, so a name changed at the provider shows from the next sign-in or token refresh, on past edits
+  too. Users cannot set their own. Moderators are badged.
 - **Contact form** (R-13, no account): kind, name, email, message, URL and a Turnstile token checked server-side
   (success, hostname, action `contact`). Moderators resolve or dismiss requests in one inbox. The personal fields
   are never logged.
@@ -282,7 +287,7 @@ The OpenAPI spec is the exact contract.
   `affiliation`, `q`, `letter`, `sort`), `/v1/persons/{slug}`, `/v1/terms?facet=…`, `/v1/terms/{slug}`,
   `/v1/collections`, `/v1/collections/{collection_id}`, `/v1/events`, `/v1/events/{slug}`, each entity's `…/history`,
   `/v1/revisions/{revision_id}` and `/v1/needs-work`.
-- **Signed in:** `GET|PATCH /v1/me`; `GET /v1/me/revisions[/{revision_id}]`; `GET /v1/{type}/{key}/editable`;
+- **Signed in:** `GET /v1/me`; `GET /v1/me/revisions[/{revision_id}]`; `GET /v1/{type}/{key}/editable`;
   `POST /v1/revisions`; `POST /v1/revisions/{id}/withdraw`.
 - **Moderator:** `GET /v1/moderation/queue`,
   `GET /v1/moderation/revisions/{id}`, `POST /v1/revisions/{id}/approve|reject`,

@@ -15,10 +15,9 @@ import (
 type Dependencies struct {
 	Repository datasources.Repository
 	// AuthValidators authenticate requests to authenticated routes; with none, every request is anonymous.
-	AuthValidators    []AuthValidator
-	ResolveUser       command.Command[string, domain.User]
-	UpdateDisplayName command.Command[command.UpdateDisplayNameRequest, domain.User]
-	SetUserBlocked    command.Command[command.SetUserBlockedRequest, domain.User]
+	AuthValidators []AuthValidator
+	ResolveUser    command.Command[command.ResolveUserRequest, domain.User]
+	SetUserBlocked command.Command[command.SetUserBlockedRequest, domain.User]
 
 	// Now is the clock the moderation routes stamp their writes with.
 	Now                  func() time.Time
@@ -86,9 +85,6 @@ func routes(deps Dependencies) []route {
 			handler: controller.NeedsWorkListGet{Catalogue: deps.Repository}},
 
 		{method: http.MethodGet, path: "/v1/me", handler: requireAuth(controller.MeGet{}), authenticated: true},
-		{method: http.MethodPatch, path: "/v1/me", authenticated: true, handler: requireAuth(controller.MePatch{
-			Command: deps.UpdateDisplayName,
-		})},
 
 		// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
 		{method: http.MethodPut, path: "/v1/users/{user_id}/blocked", authenticated: true,

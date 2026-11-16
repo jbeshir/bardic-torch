@@ -19,9 +19,9 @@ type BootstrapModerators struct {
 
 // Execute promotes each user in userIDs, skipping repeats. The IDs must already be normalised: trimmed, with no
 // empty IDs, as MustGetEnvAsStrings in package app returns them. Users who have not signed in yet are created
-// with the default display name, so their first request finds them as moderators, and blocked users are
-// unblocked, because a blocked moderator could never be unblocked through the API. Running it again with the
-// same IDs changes nothing. It stops at the first user it cannot promote.
+// with an empty display name, which their first request replaces, so that request finds them as moderators.
+// Blocked users are unblocked, because a blocked moderator could never be unblocked through the API. Running it
+// again with the same IDs changes nothing. It stops at the first user it cannot promote.
 func (c *BootstrapModerators) Execute(ctx context.Context, userIDs []string) (Empty, error) {
 	logger := domain.LoggerFromContext(ctx)
 
@@ -33,8 +33,9 @@ func (c *BootstrapModerators) Execute(ctx context.Context, userIDs []string) (Em
 		seen[userID] = true
 
 		if err := c.Users.PromoteToModerator(ctx, datasources.NewUser{
-			ID:          userID,
-			DisplayName: domain.DefaultDisplayName(userID),
+			ID: userID,
+			// The name is not known until the user signs in.
+			DisplayName: "",
 			CreatedAt:   c.Now(),
 		}); err != nil {
 			return Empty{}, err

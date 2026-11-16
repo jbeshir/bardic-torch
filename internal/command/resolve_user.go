@@ -10,34 +10,46 @@ import (
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
-var _ Command[string, domain.User] = (*ResolveUser)(nil)
+var _ Command[ResolveUserRequest, domain.User] = (*ResolveUser)(nil)
 
-// ResolveUser returns the user with an authenticated ID, creating them as a contributor with the default display
-// name on their first request. Existing users are returned as stored, so their role, display name and blocked
-// state are never changed.
+// ResolveUserRequest is who a request authenticated as.
+type ResolveUserRequest struct {
+	UserID string
+	// DisplayName is the name the identity provider gave for the user, already normalised.
+	DisplayName string
+}
+
+// ResolveUser returns the user with an authenticated ID, creating them as a contributor on their first request.
+// The user's display name is the identity provider's: a new user is created with it, and an existing user whose
+// stored name differs has it replaced. Their role and blocked state are never changed.
 type ResolveUser struct {
 	Users datasources.Users
 	Now   func() time.Time
 }
 
-// Execute resolves the user with ID userID. In the steady state this is a single read; the user is only
-// created when the read finds none.
-func (c *ResolveUser) Execute(ctx context.Context, userID string) (domain.User, error) {
-	user, err := c.Users.GetUser(ctx, userID)
-	if err == nil {
-		return user, nil
-	}
-	if !errors.Is(err, datasources.ErrNotFound) {
+// Execute resolves the user req names. In the steady state this is a single read; the user is only created when
+// the read finds none, and only written when their name has changed.
+func (c *ResolveUser) Execute(ctx context.Context, req ResolveUserRequest) (domain.User, error) {
+	user, err := c.Users.GetUser(ctx, req.UserID)
+	switch {
+	case errors.Is(err, datasources.ErrNotFound):
+		user, err = c.Users.EnsureUser(ctx, datasources.NewUser{
+			ID:          req.UserID,
+			DisplayName: req.DisplayName,
+			CreatedAt:   c.Now(),
+		})
+		if err != nil {
+			return domain.User{}, fmt.Errorf("creating user: %w", err)
+		}
+	case err != nil:
 		return domain.User{}, fmt.Errorf("getting user: %w", err)
 	}
 
-	user, err = c.Users.EnsureUser(ctx, datasources.NewUser{
-		ID:          userID,
-		DisplayName: domain.DefaultDisplayName(userID),
-		CreatedAt:   c.Now(),
-	})
-	if err != nil {
-		return domain.User{}, fmt.Errorf("creating user: %w", err)
+	if user.DisplayName != req.DisplayName {
+		if err := c.Users.UpdateDisplayName(ctx, user.ID, req.DisplayName); err != nil {
+			return domain.User{}, fmt.Errorf("updating display name: %w", err)
+		}
+		user.DisplayName = req.DisplayName
 	}
 
 	return user, nil

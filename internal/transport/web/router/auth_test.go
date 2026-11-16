@@ -9,29 +9,30 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // resolveUserFunc adapts a function to the user-resolving command the auth middleware takes.
-type resolveUserFunc func(ctx context.Context, userID string) (domain.User, error)
+type resolveUserFunc func(ctx context.Context, req command.ResolveUserRequest) (domain.User, error)
 
-func (f resolveUserFunc) Execute(ctx context.Context, userID string) (domain.User, error) {
-	return f(ctx, userID)
+func (f resolveUserFunc) Execute(ctx context.Context, req command.ResolveUserRequest) (domain.User, error) {
+	return f(ctx, req)
 }
 
 func resolveTo(user domain.User) resolveUserFunc {
-	return func(_ context.Context, userID string) (domain.User, error) {
-		if userID != user.ID {
-			return domain.User{}, fmt.Errorf("unexpected user ID [%s]", userID)
+	return func(_ context.Context, req command.ResolveUserRequest) (domain.User, error) {
+		if req != (command.ResolveUserRequest{UserID: user.ID, DisplayName: user.DisplayName}) {
+			return domain.User{}, fmt.Errorf("unexpected request %+v", req)
 		}
 		return user, nil
 	}
 }
 
 func failIfResolved(t *testing.T) resolveUserFunc {
-	return func(context.Context, string) (domain.User, error) {
+	return func(context.Context, command.ResolveUserRequest) (domain.User, error) {
 		t.Error("user resolved unexpectedly")
 		return domain.User{}, errors.New("unexpected")
 	}
@@ -59,18 +60,21 @@ func failIfCalled(t *testing.T) http.Handler {
 	})
 }
 
-const testUserID = "google-oauth2|123"
+const (
+	testUserID      = "google-oauth2|123"
+	testDisplayName = "Morwen"
+)
 
 var testNow = time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
 
-var testUser = domain.User{ID: testUserID, DisplayName: "Morwen", Role: domain.RoleContributor, CreatedAt: testNow}
+var testUser = domain.User{ID: testUserID, DisplayName: testDisplayName, Role: domain.RoleContributor, CreatedAt: testNow}
 
 func TestAuthMiddleware_StoresPrincipal(t *testing.T) {
 	t.Parallel()
 
 	validators := []AuthValidator{
 		notApplicable,
-		authenticatesAs(Identity{UserID: testUserID}),
+		authenticatesAs(Identity{UserID: testUserID, DisplayName: testUser.DisplayName}),
 		failsWith(errors.New("validators after the first applicable one must not run")),
 	}
 
@@ -119,7 +123,7 @@ func TestAuthMiddleware_NoApplicableValidatorIsAnonymous(t *testing.T) {
 func TestAuthMiddleware_Rejections(t *testing.T) {
 	t.Parallel()
 
-	contributor := Identity{UserID: testUserID}
+	contributor := Identity{UserID: testUserID, DisplayName: testUser.DisplayName}
 	cases := []struct {
 		name       string
 		validator  AuthValidator
@@ -145,7 +149,7 @@ func TestAuthMiddleware_Rejections(t *testing.T) {
 			name:      "resolver_failure",
 			validator: authenticatesAs(contributor),
 			resolve: func(*testing.T) resolveUserFunc {
-				return func(context.Context, string) (domain.User, error) {
+				return func(context.Context, command.ResolveUserRequest) (domain.User, error) {
 					return domain.User{}, errors.New("connection refused")
 				}
 			},
@@ -173,7 +177,7 @@ func TestAuthMiddleware_LogsUserID(t *testing.T) {
 	t.Parallel()
 
 	authenticated := authMiddleware(
-		[]AuthValidator{authenticatesAs(Identity{UserID: testUserID})},
+		[]AuthValidator{authenticatesAs(Identity{UserID: testUserID, DisplayName: testUser.DisplayName})},
 		resolveTo(testUser),
 	)
 	anonymous := authMiddleware([]AuthValidator{notApplicable}, failIfResolved(t))

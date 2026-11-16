@@ -47,7 +47,8 @@ catalogue: undo test changes as the click-through says.
 ## 4. Auth0, Google, Facebook and Turnstile
 
 1. **[Owner]** Auth0 API with identifier `https://api.bardictorch.org`, RS256, offline access on
-   ([API](DEPLOY.md#api)).
+   ([API](DEPLOY.md#api)), and the post-login Action that adds the name claim, deployed and in the Login flow
+   ([Name claim](DEPLOY.md#name-claim)); without it every sign-in gets 401.
 2. **[Owner]** The Regular Web Application with the settings in **FE §4** (callbacks `/auth/callback` on both
    origins, logout URLs, Client Secret (Basic), refresh-token rotation with a reuse interval) ([Application for the
    FE](DEPLOY.md#application-for-the-fe)).
@@ -119,7 +120,7 @@ and `.env.dist`.
 ## 8. Staging: smoke checks and the click-through
 
 1. **[Owner]** The smoke checks against `https://preview.bardictorch.org` (FE §8), including the browser checks:
-   both sign-ins, rename, log out, theme, no CSP errors, no URLs with `code=` in Workers Logs.
+   both sign-ins, the name in Settings, log out, theme, no CSP errors, no URLs with `code=` in Workers Logs.
 2. **[Owner]** The [click-through](#click-through) below, both of you. Note anything wrong; fix data by editing on
    the site (as moderators your edits go live at once), and report code problems as issues.
 
@@ -200,8 +201,8 @@ catalogue: undo what the line says.
 
 **Signed in (undo afterwards)**
 
-24. Each of you signs in with Google, the other with Facebook too; the account menu shows "Bard xxxxxxxx" until you
-    rename yourself in Settings.
+24. Each of you signs in with Google, the other with Facebook too; the account menu shows the name on that Google
+    or Facebook account.
 25. One of you, signed in with a second, non-moderator account, edits a piece (add a link) and submits; the pending
     banner shows; a moderator approves it from the queue; then revert it from History.
 26. Make a stale edit on purpose (the non-moderator edits, a moderator edits the same piece, then reviews the first)
