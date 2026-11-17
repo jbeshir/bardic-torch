@@ -1,0 +1,4 @@
+extends: [[vacuum:oas, recommended]]
+rules:
+  # API uses snake_case properties (display_name, created_at, etc.) by design
+  camel-case-properties: false
