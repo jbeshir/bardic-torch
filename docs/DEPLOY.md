@@ -2,7 +2,8 @@
 
 The API runs on dokku as the app `bardic-torch-api` at https://api.bardictorch.org. It uses a dokku-managed
 MySQL 8.4 service, and Auth0 for login with Google and Facebook. This document covers first-time setup, deploys,
-moderators, migrations, rollback and the one-off import of the legacy wiki.
+moderators, migrations, rollback and the one-off import of the legacy wiki. [LAUNCH.md](LAUNCH.md) puts these
+steps and the FE's in launch order.
 
 ## Placeholders
 
@@ -15,6 +16,8 @@ Replace these in the commands below:
 | `<AUTH0_DOMAIN>` | Auth0 tenant domain, as a bare host name with no `https://` or trailing slash. Use the custom domain if the tenant has one (see [Custom domain](#custom-domain)). | `bardic-torch.eu.auth0.com` |
 | `<MODERATOR_USER_IDS>` | Comma-separated Auth0 user IDs of the moderators | `google-oauth2\|1234,facebook\|5678` |
 | `<USER_ID>` | One Auth0 user ID | `google-oauth2\|1234` |
+| `<TURNSTILE_SECRET_KEY>` | The Turnstile widget's secret key (FE DEPLOY.md §5) | `0x4AAAAAAA…` |
+| `<SITE_HOSTNAME>` | Hostname the contact form's Turnstile tokens are minted on: `preview.bardictorch.org` while staging, `bardictorch.org` from the production switch (docs/LAUNCH.md) | `bardictorch.org` |
 | `<GOOD_COMMIT>` | Commit of the last release that worked | `3f2c1ab` |
 | `<VERSION>` | A schema migration version number | `2` |
 | `<CRAWL_DIR>` | The research crawl's dump directory, outside this repository | `~/private/wiki-crawl/dump` |
@@ -184,9 +187,11 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
 4. **App settings → Basic**:
    - App domains: `bardictorch.org`
    - Privacy Policy URL: `https://bardictorch.org/help/privacy`
+   - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/contact?kind=opt_out`
    - Category and app icon.
 
-   Meta and Google need the URLs to load before the app can go Live.
+   The privacy page says how to ask for removal: through the contact form's opt-out kind, which the
+   data-deletion URL opens. Meta and Google need the URLs to load before the app can go Live.
 5. Switch **App Mode** from Development to **Live**. In Development mode only the app's own roles can log in.
 6. In Auth0, **Authentication → Social → facebook**: paste the **App ID** and **App Secret**, and tick the
    **email** and **public_profile** permissions.
@@ -291,15 +296,21 @@ dokku config:set --no-restart bardic-torch-api \
   AUTH_DRIVERS=auth0 \
   AUTH0_DOMAIN=<AUTH0_DOMAIN> \
   AUTH0_AUDIENCE=https://api.bardictorch.org \
-  BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>'
+  BOOTSTRAP_MODERATOR_USER_IDS='<MODERATOR_USER_IDS>' \
+  TURNSTILE_SECRET_KEY=<TURNSTILE_SECRET_KEY> \
+  TURNSTILE_HOSTNAME=<SITE_HOSTNAME>
 ```
 
 - Keep the single quotes around the user IDs: they contain `|`, which the shell would otherwise treat as a pipe.
 - `BOOTSTRAP_MODERATOR_USER_IDS` must be set, but may be empty if the moderator IDs are not known yet. Set it
   later as in [Moderators](#moderators).
+- `TURNSTILE_SECRET_KEY` and `TURNSTILE_HOSTNAME` are the contact form's Cloudflare Turnstile secret key and the
+  hostname its widget runs on. The API accepts a token only if siteverify says it was minted on exactly that
+  hostname with the action `contact`. Cloudflare's test secret never passes: siteverify answers it with the
+  hostname `example.com` and no action.
 - `dokku config:show bardic-torch-api` lists the result. The API refuses to start if any variable is missing,
   if `AUTH_DRIVERS` names an unknown driver, if `AUTH0_DOMAIN` or `AUTH0_AUDIENCE` is empty with `auth0`
-  enabled,
+  enabled, or if `TURNSTILE_SECRET_KEY` or `TURNSTILE_HOSTNAME` is empty.
 
 ### First deploy
 
@@ -392,7 +403,7 @@ revision. Its input is the research crawl's dump directory (`pages.jsonl`, `cate
    committed: it holds the wiki's lyrics, which are not ours to publish, and email addresses.
 
 After the import, every imported entity has one approved revision of source `import`, crediting the wiki users who
-wrote its page; liveness of every link is `unknown`
+wrote its page; liveness of every link is `unknown` until a link checker runs.
 
 ## Deploys
 
@@ -518,3 +529,11 @@ Promotion also unblocks: if a blocked contributor is listed in `BOOTSTRAP_MODERA
 makes them an unblocked moderator. Listing an ID means trusting that person, and a blocked moderator could not be
 unblocked through the API, because moderators cannot be blocked or unblocked. To block someone who is a
 moderator, demote them first as above, then block them through `PUT /v1/users/{user_id}/blocked`.
+
+## Link checker
+
+`app.json` has a dokku `cron` entry that runs `/app/check-links` monthly, at 03:17 on the 1st
+(`dokku cron:list bardic-torch-api` shows it; dokku reads it on each deploy). A run checks every visible link not
+checked in the last 25 days, one request per host per second, and asks the Wayback Machine for a copy of those
+without one that it has not asked about in the last 25 days. It stops after 60 minutes, as a safety net, and logs
+links by ID, never by URL. To run it by hand: `dokku run bardic-torch-api /app/check-links`.

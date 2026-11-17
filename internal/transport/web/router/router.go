@@ -20,8 +20,9 @@ type Dependencies struct {
 	SetUserBlocked command.Command[command.SetUserBlockedRequest, domain.User]
 
 	// Now is the clock the moderation routes stamp their writes with.
-	Now            func() time.Time
-	SubmitRevision command.Command[command.SubmitRevisionRequest, domain.RevisionView]
+	Now                  func() time.Time
+	CreateContactRequest command.Command[command.CreateContactRequestRequest, int64]
+	SubmitRevision       command.Command[command.SubmitRevisionRequest, domain.RevisionView]
 }
 
 // route is one operation the router serves.
@@ -88,6 +89,18 @@ func routes(deps Dependencies) []route {
 		// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
 		{method: http.MethodPut, path: "/v1/users/{user_id}/blocked", authenticated: true,
 			handler: requireModerator(controller.UserBlockedSet{Command: deps.SetUserBlocked})},
+
+		// Link takedown and the contact form.
+		{method: http.MethodGet, path: "/v1/moderation/links", authenticated: true,
+			handler: requireModerator(controller.ModerationLinkGet{Moderation: deps.Repository})},
+		{method: http.MethodPut, path: "/v1/links/{link_id}/hidden", authenticated: true,
+			handler: requireModerator(controller.LinkHiddenSet{Moderation: deps.Repository})},
+		{method: http.MethodPost, path: "/v1/contact",
+			handler: controller.ContactCreate{Command: deps.CreateContactRequest}},
+		{method: http.MethodGet, path: "/v1/moderation/contact-requests", authenticated: true,
+			handler: requireModerator(controller.ContactRequestListGet{Moderation: deps.Repository})},
+		{method: http.MethodPost, path: "/v1/moderation/contact-requests/{request_id}", authenticated: true,
+			handler: requireModerator(controller.ContactRequestClose{Moderation: deps.Repository, Now: deps.Now})},
 
 		// Revisions: the caller's own, editing and submitting, and moderating them.
 		{method: http.MethodGet, path: "/v1/me/revisions", authenticated: true,

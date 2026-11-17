@@ -32,6 +32,31 @@ func (q *Queries) BlockUser(ctx context.Context, arg BlockUserParams) (int64, er
 	return result.RowsAffected()
 }
 
+const closeContactRequest = `-- name: CloseContactRequest :exec
+UPDATE contact_requests
+SET status = ?, resolved_by_user_id = ?, resolved_at = ?, resolution_note = ?
+WHERE id = ?
+`
+
+type CloseContactRequestParams struct {
+	Status           ContactRequestsStatus
+	ResolvedByUserID sql.NullString
+	ResolvedAt       sql.NullTime
+	ResolutionNote   sql.NullString
+	ID               uint64
+}
+
+func (q *Queries) CloseContactRequest(ctx context.Context, arg CloseContactRequestParams) error {
+	_, err := q.db.ExecContext(ctx, closeContactRequest,
+		arg.Status,
+		arg.ResolvedByUserID,
+		arg.ResolvedAt,
+		arg.ResolutionNote,
+		arg.ID,
+	)
+	return err
+}
+
 const countApprovedRevisions = `-- name: CountApprovedRevisions :one
 SELECT COUNT(*)
 FROM revisions
@@ -63,6 +88,17 @@ type CountAuthorRevisionsParams struct {
 
 func (q *Queries) CountAuthorRevisions(ctx context.Context, arg CountAuthorRevisionsParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countAuthorRevisions, arg.AuthorUserID, arg.Status, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countContactRequests = `-- name: CountContactRequests :one
+SELECT COUNT(*) FROM contact_requests WHERE status = ?
+`
+
+func (q *Queries) CountContactRequests(ctx context.Context, status ContactRequestsStatus) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countContactRequests, status)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -297,6 +333,17 @@ func (q *Queries) GetApprovedRevisionEntity(ctx context.Context, arg GetApproved
 	return entity_id, err
 }
 
+const getContactRequestStatus = `-- name: GetContactRequestStatus :one
+SELECT status FROM contact_requests WHERE id = ?
+`
+
+func (q *Queries) GetContactRequestStatus(ctx context.Context, id uint64) (ContactRequestsStatus, error) {
+	row := q.db.QueryRowContext(ctx, getContactRequestStatus, id)
+	var status ContactRequestsStatus
+	err := row.Scan(&status)
+	return status, err
+}
+
 const getCurrentRevisionID = `-- name: GetCurrentRevisionID :one
 SELECT x.current_revision_id FROM pieces x WHERE ? = 'piece' AND x.id = ?
 UNION ALL SELECT x.current_revision_id FROM persons x WHERE ? = 'person' AND x.id = ?
@@ -326,6 +373,31 @@ func (q *Queries) GetCurrentRevisionID(ctx context.Context, arg GetCurrentRevisi
 	var current_revision_id sql.NullInt64
 	err := row.Scan(&current_revision_id)
 	return current_revision_id, err
+}
+
+const getModerationLink = `-- name: GetModerationLink :one
+SELECT id, url, title, liveness, is_hidden FROM links WHERE normalized_url = ?
+`
+
+type GetModerationLinkRow struct {
+	ID       uint64
+	Url      string
+	Title    sql.NullString
+	Liveness LinksLiveness
+	IsHidden bool
+}
+
+func (q *Queries) GetModerationLink(ctx context.Context, normalizedUrl string) (GetModerationLinkRow, error) {
+	row := q.db.QueryRowContext(ctx, getModerationLink, normalizedUrl)
+	var i GetModerationLinkRow
+	err := row.Scan(
+		&i.ID,
+		&i.Url,
+		&i.Title,
+		&i.Liveness,
+		&i.IsHidden,
+	)
+	return i, err
 }
 
 const getOwnPendingRevision = `-- name: GetOwnPendingRevision :one
@@ -716,6 +788,31 @@ func (q *Queries) InsertCollection(ctx context.Context, arg InsertCollectionPara
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+const insertContactRequest = `-- name: InsertContactRequest :execresult
+INSERT INTO contact_requests (kind, name, email, message, url, created_at)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type InsertContactRequestParams struct {
+	Kind      ContactRequestsKind
+	Name      sql.NullString
+	Email     sql.NullString
+	Message   sql.NullString
+	Url       sql.NullString
+	CreatedAt time.Time
+}
+
+func (q *Queries) InsertContactRequest(ctx context.Context, arg InsertContactRequestParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, insertContactRequest,
+		arg.Kind,
+		arg.Name,
+		arg.Email,
+		arg.Message,
+		arg.Url,
+		arg.CreatedAt,
+	)
 }
 
 const insertEvent = `-- name: InsertEvent :execlastid
@@ -1387,6 +1484,55 @@ func (q *Queries) ListCollectionIDs(ctx context.Context) ([]int64, error) {
 	return items, nil
 }
 
+const listContactRequests = `-- name: ListContactRequests :many
+SELECT id, kind, name, email, message, url, status, created_at, resolved_by_user_id, resolved_at, resolution_note
+FROM contact_requests
+WHERE status = ?
+ORDER BY created_at, id
+LIMIT ? OFFSET ?
+`
+
+type ListContactRequestsParams struct {
+	Status ContactRequestsStatus
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListContactRequests(ctx context.Context, arg ListContactRequestsParams) ([]ContactRequest, error) {
+	rows, err := q.db.QueryContext(ctx, listContactRequests, arg.Status, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ContactRequest
+	for rows.Next() {
+		var i ContactRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Name,
+			&i.Email,
+			&i.Message,
+			&i.Url,
+			&i.Status,
+			&i.CreatedAt,
+			&i.ResolvedByUserID,
+			&i.ResolvedAt,
+			&i.ResolutionNote,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCurrentDocuments = `-- name: ListCurrentDocuments :many
 
 SELECT r.entity_id, r.snapshot_json
@@ -1537,6 +1683,134 @@ func (q *Queries) ListLinkAttachmentRoles(ctx context.Context, linkIds []uint64)
 			&i.PieceID,
 			&i.PersonID,
 			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinksDueForArchive = `-- name: ListLinksDueForArchive :many
+
+SELECT id, url
+FROM links
+WHERE is_hidden = FALSE AND archived_url IS NULL
+    AND (archive_checked_at IS NULL OR archive_checked_at < ?)
+ORDER BY liveness <> 'dead', archive_checked_at IS NOT NULL, archive_checked_at, id
+`
+
+type ListLinksDueForArchiveRow struct {
+	ID  uint64
+	Url string
+}
+
+// Links with no archived copy whose archive was never looked up, or not since the cutoff: dead links first.
+func (q *Queries) ListLinksDueForArchive(ctx context.Context, checkedBefore sql.NullTime) ([]ListLinksDueForArchiveRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLinksDueForArchive, checkedBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinksDueForArchiveRow
+	for rows.Next() {
+		var i ListLinksDueForArchiveRow
+		if err := rows.Scan(&i.ID, &i.Url); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinksDueForCheck = `-- name: ListLinksDueForCheck :many
+
+SELECT id, url, liveness, liveness_failures
+FROM links
+WHERE is_hidden = FALSE AND (last_checked_at IS NULL OR last_checked_at < ?)
+ORDER BY last_checked_at IS NOT NULL, last_checked_at, id
+`
+
+type ListLinksDueForCheckRow struct {
+	ID               uint64
+	Url              string
+	Liveness         LinksLiveness
+	LivenessFailures uint8
+}
+
+// Links never checked come first, then the longest unchecked.
+func (q *Queries) ListLinksDueForCheck(ctx context.Context, checkedBefore sql.NullTime) ([]ListLinksDueForCheckRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLinksDueForCheck, checkedBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinksDueForCheckRow
+	for rows.Next() {
+		var i ListLinksDueForCheckRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Liveness,
+			&i.LivenessFailures,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listModerationLinkAttachments = `-- name: ListModerationLinkAttachments :many
+SELECT a.role, pc.slug AS piece_slug, pc.title AS piece_title, ps.slug AS person_slug, ps.name AS person_name
+FROM link_attachments a
+LEFT JOIN pieces pc ON pc.id = a.piece_id
+LEFT JOIN persons ps ON ps.id = a.person_id
+WHERE a.link_id = ?
+ORDER BY a.piece_id IS NULL, a.piece_id, a.person_id, a.position, a.id
+`
+
+type ListModerationLinkAttachmentsRow struct {
+	Role       LinkAttachmentsRole
+	PieceSlug  sql.NullString
+	PieceTitle sql.NullString
+	PersonSlug sql.NullString
+	PersonName sql.NullString
+}
+
+func (q *Queries) ListModerationLinkAttachments(ctx context.Context, linkID uint64) ([]ListModerationLinkAttachmentsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listModerationLinkAttachments, linkID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListModerationLinkAttachmentsRow
+	for rows.Next() {
+		var i ListModerationLinkAttachmentsRow
+		if err := rows.Scan(
+			&i.Role,
+			&i.PieceSlug,
+			&i.PieceTitle,
+			&i.PersonSlug,
+			&i.PersonName,
 		); err != nil {
 			return nil, err
 		}
@@ -3448,6 +3722,27 @@ func (q *Queries) PromoteToModerator(ctx context.Context, arg PromoteToModerator
 	return err
 }
 
+const setLinkHidden = `-- name: SetLinkHidden :execrows
+
+UPDATE links SET is_hidden = ? WHERE id = ?
+`
+
+type SetLinkHiddenParams struct {
+	IsHidden bool
+	ID       uint64
+}
+
+// ============================================
+// Link takedown and contact requests
+// ============================================
+func (q *Queries) SetLinkHidden(ctx context.Context, arg SetLinkHiddenParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setLinkHidden, arg.IsHidden, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const setRevisionEntity = `-- name: SetRevisionEntity :exec
 UPDATE revisions SET entity_id = ? WHERE id = ?
 `
@@ -3557,6 +3852,49 @@ type UpdateEventParams struct {
 
 func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) error {
 	_, err := q.db.ExecContext(ctx, updateEvent, arg.Name, arg.CurrentRevisionID, arg.ID)
+	return err
+}
+
+const updateLinkArchive = `-- name: UpdateLinkArchive :exec
+
+UPDATE links
+SET archived_url = COALESCE(?, archived_url), archive_checked_at = ?
+WHERE id = ?
+`
+
+type UpdateLinkArchiveParams struct {
+	ArchivedUrl sql.NullString
+	CheckedAt   sql.NullTime
+	ID          uint64
+}
+
+// A NULL archived_url records a lookup that found nothing.
+func (q *Queries) UpdateLinkArchive(ctx context.Context, arg UpdateLinkArchiveParams) error {
+	_, err := q.db.ExecContext(ctx, updateLinkArchive, arg.ArchivedUrl, arg.CheckedAt, arg.ID)
+	return err
+}
+
+const updateLinkCheck = `-- name: UpdateLinkCheck :exec
+UPDATE links
+SET liveness = ?, liveness_failures = ?,
+    last_checked_at = ?
+WHERE id = ?
+`
+
+type UpdateLinkCheckParams struct {
+	Liveness         LinksLiveness
+	LivenessFailures uint8
+	CheckedAt        sql.NullTime
+	ID               uint64
+}
+
+func (q *Queries) UpdateLinkCheck(ctx context.Context, arg UpdateLinkCheckParams) error {
+	_, err := q.db.ExecContext(ctx, updateLinkCheck,
+		arg.Liveness,
+		arg.LivenessFailures,
+		arg.CheckedAt,
+		arg.ID,
+	)
 	return err
 }
 

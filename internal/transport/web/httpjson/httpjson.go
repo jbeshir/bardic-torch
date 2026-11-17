@@ -36,6 +36,7 @@ const (
 	CodeConflict             ErrorCode = "conflict"
 	CodeInternal             ErrorCode = "internal"
 	CodeUnavailable          ErrorCode = "unavailable"
+	CodeTurnstileFailed      ErrorCode = "turnstile_failed"
 	CodeValidationFailed     ErrorCode = "validation_failed"
 	CodePossibleDuplicate    ErrorCode = "possible_duplicate"
 	CodePendingLimitReached  ErrorCode = "pending_limit_reached"

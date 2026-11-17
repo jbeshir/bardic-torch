@@ -36,6 +36,11 @@ type Repo struct {
 	Revision    domain.Revision
 	NeedsWork   domain.NeedsWorkList
 
+	ModerationLink  *domain.ModerationLink
+	ContactRequests domain.ContactRequestList
+	// ContactRequest is the last contact request stored.
+	ContactRequest *datasources.NewContactRequest
+
 	// The revision reads: RevisionView answers both revision gets, RevisionList both lists, and IDs every
 	// reference resolution.
 	Editable     *datasources.Editable
@@ -227,6 +232,28 @@ func notFoundOr(err error) error {
 	}
 	return datasources.ErrNotFound
 }
+
+func (r *Repo) GetModerationLink(context.Context, string) (domain.ModerationLink, error) {
+	if r.Err != nil || r.ModerationLink == nil {
+		return domain.ModerationLink{}, notFoundOr(r.Err)
+	}
+	return *r.ModerationLink, nil
+}
+
+func (r *Repo) SetLinkHidden(context.Context, int64, bool) error { return r.Err }
+
+func (r *Repo) InsertContactRequest(_ context.Context, request datasources.NewContactRequest) (int64, error) {
+	r.ContactRequest = &request
+	return 1, r.Err
+}
+
+func (r *Repo) ListContactRequests(
+	context.Context, domain.ReportStatus, domain.Page,
+) (domain.ContactRequestList, error) {
+	return r.ContactRequests, r.Err
+}
+
+func (r *Repo) CloseContactRequest(context.Context, datasources.Closing) error { return r.Err }
 
 func (r *Repo) SubmitRevision(_ context.Context, rev datasources.NewRevision) (int64, error) {
 	r.Submitted = &rev
