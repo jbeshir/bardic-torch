@@ -123,6 +123,10 @@ func TestHTTP_EndToEnd(t *testing.T) {
 		rec := e.send(t, http.MethodGet, "/v1/me", authorization, "")
 		assert.Equal(t, http.StatusUnauthorized, rec.Code, name)
 		assert.JSONEq(t, `{"code":"unauthenticated","message":"invalid credentials"}`, rec.Body.String(), name)
+
+		// Public catalogue reads skip authentication, so the real validator never sees these tokens there.
+		rec = e.send(t, http.MethodGet, "/v1/pieces", authorization, "")
+		assert.Equal(t, http.StatusOK, rec.Code, name)
 	}
 
 	// The first authenticated request creates the user with the token's name.
@@ -173,6 +177,18 @@ func TestHTTP_EndToEnd(t *testing.T) {
 	assert.Equal(t, domain.RoleModerator,
 		sendOK[controller.User](t, e, http.MethodGet, "/v1/me", contributor, "", http.StatusOK).Role)
 }
+
+const (
+	healthzPath     = "/healthz"
+	readyzPath      = "/readyz"
+	mePath          = "/v1/me"
+	piecesPath      = "/v1/pieces"
+	personsPath     = "/v1/persons"
+	termsPath       = "/v1/terms"
+	collectionsPath = "/v1/collections"
+	eventsPath      = "/v1/events"
+	needsWorkPath   = "/v1/needs-work"
+)
 
 // errorResponse is the JSON body of an error response.
 type errorResponse struct {

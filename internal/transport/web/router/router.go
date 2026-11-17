@@ -37,6 +37,47 @@ func routes(deps Dependencies) []route {
 		{method: http.MethodGet, path: "/healthz", handler: controller.Healthz{}},
 		{method: http.MethodGet, path: "/readyz", handler: controller.Readyz{Pinger: deps.Repository}},
 
+		// Public catalogue reads. The ServeMux routes a request to the most specific matching pattern, whatever the
+		// order of this table, so a later authenticated route with a literal segment where these have a wildcard,
+		// such as GET /v1/pieces/mine or /v1/revisions/pending, is routed to its own handler and not answered by the
+		// public {slug} or {revision_id} route. Two patterns that overlap with neither more specific than the other,
+		// such as /v1/pieces/{slug} and /v1/{collection}/mine, make newRouter panic. The literal segment must be
+		// sent as is: one sent with an encoded letter, such as /v1/pieces/min%65, would match no route.
+		// TestRoutes fails for an authenticated operation a public route answers.
+		{method: http.MethodGet, path: "/v1/pieces", handler: controller.PieceListGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/pieces/{slug}", handler: controller.PieceGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/persons",
+			handler: controller.PersonListGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/persons/{slug}",
+			handler: controller.PersonGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/terms", handler: controller.TermListGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/terms/{slug}", handler: controller.TermGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/collections",
+			handler: controller.CollectionListGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/collections/{collection_id}",
+			handler: controller.CollectionGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/events", handler: controller.EventListGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/events/{slug}", handler: controller.EventGet{Catalogue: deps.Repository}},
+		// History, of the entities addressed by slug and of collections.
+		{method: http.MethodGet, path: "/v1/pieces/{slug}/history", handler: controller.HistoryGet{
+			Catalogue: deps.Repository, EntityType: domain.SlugEntityTypePiece,
+		}},
+		{method: http.MethodGet, path: "/v1/persons/{slug}/history", handler: controller.HistoryGet{
+			Catalogue: deps.Repository, EntityType: domain.SlugEntityTypePerson,
+		}},
+		{method: http.MethodGet, path: "/v1/terms/{slug}/history", handler: controller.HistoryGet{
+			Catalogue: deps.Repository, EntityType: domain.SlugEntityTypeTerm,
+		}},
+		{method: http.MethodGet, path: "/v1/events/{slug}/history", handler: controller.HistoryGet{
+			Catalogue: deps.Repository, EntityType: domain.SlugEntityTypeEvent,
+		}},
+		{method: http.MethodGet, path: "/v1/collections/{collection_id}/history",
+			handler: controller.CollectionHistoryGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/revisions/{revision_id}",
+			handler: controller.RevisionGet{Catalogue: deps.Repository}},
+		{method: http.MethodGet, path: "/v1/needs-work",
+			handler: controller.NeedsWorkListGet{Catalogue: deps.Repository}},
+
 		{method: http.MethodGet, path: "/v1/me", handler: requireAuth(controller.MeGet{}), authenticated: true},
 
 		// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
@@ -48,8 +89,10 @@ func routes(deps Dependencies) []route {
 // New returns the handler for every route. Each request passes through the request logger, then the security
 // headers, then CORS, which answers preflight requests itself, before any authentication.
 //
-// Authenticated routes pass through the auth middleware and then the require* middleware for their route.
-// Requests no route matches get a JSON 404, or 405 if a route matches the path but not the
+// Authenticated routes pass through the auth middleware and then the require* middleware for their route. The
+// health checks and the public catalogue reads are not authenticated: they answer whatever credentials a request
+// carries, as they would an anonymous request, so a client with an expired token, or a blocked user, can still
+// read the catalogue. Requests no route matches get a JSON 404, or 405 if a route matches the path but not the
 // method, without authenticating.
 func New(deps Dependencies) http.Handler {
 	r := newRouter(routes(deps), authMiddleware(deps.AuthValidators, deps.ResolveUser))

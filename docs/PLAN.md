@@ -126,11 +126,71 @@ Two repos, both from the alignment-feed skeletons (layering, idioms, CLAUDE.md q
 
 ## 4. Data model (MySQL 8)
 
-The migrations hold the exact DDL.
+The migrations hold the exact DDL. Each **editable entity** has `current_revision_id` (NULL until first approval)
+and the import columns `legacy_wiki_pageid` and `legacy_title`.
 
+- **`pieces`**: title, slug and sort keys; `kind`; `conservation_status`; `is_stub`; notes and version notes
+  (Markdown); licensing (`licensing_status`, `licensing_notes_md`); `legacy_had_inline_lyrics`. Children: aliases
+  (`alt_title`, `subtitle`, `redirect`), terms (ordered by `position`) and credits (person, role: lyrics, tune,
+  lyrics_and_tune ("Words and tune": one person's words and tune together, counting as both) or author,
+  attribution, certainty; a person exactly when `named`).
+- **`persons`**: name, slug and sort keys; `kind` (community_bard / historical / group); `status` (active /
+  deceased / prefers_no_page); notes, licensing; `is_stub`. Children: aliases (`legal`, `sca`, all public), roles
+  and affiliations.
+- **`terms`**: facet, name, `display_name` (without the wiki's "(Topic)" suffix), slug, parent (depth ≤ 3),
+  `related_affiliation_id` (§2.12), description, position, and the `term_ancestors` closure.
+- **`collections`** (addressed by ID: name, URL, kind, description, region) and **`events`** (a name).
+- **`links`**: `url`, unique `normalized_url`, title, description, platform, `place_type`, collection, locator,
+  and system state: `liveness` (unknown / ok / dead / blocked), failure count, check and archive times,
+  `archived_url`, and `is_hidden` (a moderator takedown, R-11). `link_attachments` give a link one or more roles
+  on a piece or person. `performances` (piece, event, year, uploader, verbatim description, performers) hang off
+  a link and belong to the document that records them.
+
+**Workflow tables:**
+- **`revisions`**: entity, base revision, author, `source` (user / import), `status` (pending / approved /
+  rejected / withdrawn), `snapshot_json`, summary, reviewer, review time and note, `created_at`;
+  `revision_contributors` credits wiki contributors on imports.
 - **`users`**: Auth0 ID, `display_name`, `role` (contributor / moderator), `blocked_at`. At startup the API
   promotes (and unblocks) the IDs in `BOOTSTRAP_MODERATOR_USER_IDS`; it never demotes (that is done in SQL). A
   moderator bootstrapped before signing in has an empty `display_name` until their first request.
+- **`contact_requests`**: `kind` (takedown / opt_out / correction / link_report / general), name, email, message,
+  URL (for a `link_report`, the link's), status, resolver, note.
+
+### 4.1 Catalogue rules (built in BE2)
+
+- **Visibility is approval.** An entity is public when it has an approved revision (a term also needs its
+  ancestors approved), defined once in the views `public_terms`, `listed_persons` and `public_link_attachments`.
+  References to non-public entities are left out of every read, and an unknown or non-public slug is one 404.
+- **"Prefers no page" persons** have a page of their identity and notes only: name, kind, status and notes.
+  Credits, performers and citations name them like anyone else, without a link (`slug` null). The lists of persons
+  (`listed_persons`) list them as stubs, find them by name only, and leave them out of role and affiliation
+  filters and needs-work.
+- **Term counts and member lists leave out stubs** (no-page persons among them), as the piece and bard lists do
+  unless asked, so every count on the site (home, categories, lists) counts the same pages.
+- **Hidden links** are left out of every read by their link ID. Current pages join on the link's row. A revision
+  view leaves out a snapshot URL whose row (matched by normalised URL, as approval upserts it) is hidden, and shows
+  every other URL as the snapshot wrote it.
+- **Kinds are an enum**, not terms. **Slugs and sort keys** are set by the writer (sort keys ignore a leading
+  article).
+- **Search** is InnoDB FULLTEXT on tokens the API makes itself, with a prefix fallback; reads are capped at 2 s.
+  **Facets** OR within a facet and AND across facets, matching descendants, with disjunctive counts.
+- **Lists** page with `limit` (≤ 100) and `offset`; nested lists show at most 200 entries and a total.
+- **Public reads ignore credentials**, and **needs-work** (R-18) lists public stubs, unassessed pieces, unknown
+  licensing and visible dead links (restricted pieces only as stubs).
+- **Responses:** fields always present, objects closed; `legacy_*`, `normalized_url`, internal IDs and user
+  IDs never exposed. Pages carry `updated_at` (when the current revision was approved), and piece summaries
+  `credit_names` (up to five credited persons that a public read would show).
+
+### 4.2 Documents and snapshots
+
+A revision is public only if it is approved and its entity is public; pending and rejected revisions are seen only
+by their author and moderators. A snapshot holds only editor-owned fields, never IDs, sort
+keys, `legacy_*` or link system state, so approving an old snapshot never un-hides a link or undoes a link check.
+Links are inline by URL; other entities are referenced by ID in storage and by slug in the editor format: a
+piece's terms are one ordered list, `term_ids` (`term_slugs` in the editor format), beside its flat
+`conservation_status`. An added field needs no `schema_version` bump; any other change of shape does. **Revision
+views** apply the §4.1 rules to the stored document, and compute `changed_fields` on what they
+show. Authors appear by display name; imports list the wiki contributors.
 
 ## 5. Revisions and moderation
 
@@ -147,6 +207,11 @@ The migrations hold the exact DDL.
 
 The OpenAPI spec is the exact contract.
 
+- **Public reads** (BE2): `GET /v1/pieces` (filters `term`, `kind`, `conservation_status`, `stub`, `q`, `letter`,
+  `sort`, paging; facet and letter counts), `/v1/pieces/{slug}`, `/v1/persons` (`kind`, `role`, `stub`,
+  `affiliation`, `q`, `letter`, `sort`), `/v1/persons/{slug}`, `/v1/terms?facet=…`, `/v1/terms/{slug}`,
+  `/v1/collections`, `/v1/collections/{collection_id}`, `/v1/events`, `/v1/events/{slug}`, each entity's `…/history`,
+  `/v1/revisions/{revision_id}` and `/v1/needs-work`.
 - **Signed in:** `GET /v1/me`;
 - **Moderator:**
   `PUT /v1/users/{id}/blocked`.
@@ -187,6 +252,7 @@ or combination. A test earns its place by catching a bug someone could plausibly
   path per route, checked against the spec. Controllers are tested through the HTTP tests or one hand-written fake
   repository, not generated mocks.
 - No tests of test helpers, of generated SQL strings, or of config files beyond "every env var is in `.env.dist`".
+- One small leak test: a hidden link, seeded with credits, performances and citations, appears in no public read.
 - `make validate` and `make vulncheck` in CI.
 
 **FE:**

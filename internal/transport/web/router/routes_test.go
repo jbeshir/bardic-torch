@@ -38,6 +38,7 @@ const (
 	unresolvableID = "google-oauth2|unresolvable"
 	invalidSecret  = "invalid"
 	blockTargetID  = "google-oauth2|123"
+	routeSlug      = "the-copper-kettle"
 )
 
 type access int
@@ -62,6 +63,35 @@ func getting(path string, seed func(*fakerepo.Repo)) routeRow {
 	return routeRow{access: public, path: path, success: http.StatusOK, seed: seed}
 }
 
+var (
+	piece = domain.Piece{
+		PieceSummary: domain.PieceSummary{Slug: routeSlug, Title: "The Copper Kettle", Kind: domain.PieceKindSong,
+			ConservationStatus: domain.ConservationStatusUnassessed},
+		LicensingStatus: domain.LicensingStatusUnknown,
+	}
+	person = domain.Person{
+		PersonSummary: domain.PersonSummary{Slug: routeSlug, Name: "Wren of the Vale", Kind: domain.PersonKindCommunityBard,
+			IsStub: true},
+		Status: domain.PersonStatusPrefersNoPage,
+	}
+	term = domain.Term{
+		TermSummary: domain.TermSummary{Slug: routeSlug, Facet: domain.FacetTopic, DisplayName: "Kettles"},
+		Name:        "Kettles",
+	}
+	collection = domain.Collection{
+		CollectionSummary: domain.CollectionSummary{ID: 12, Name: "The Northmarch Songbook",
+			Kind: domain.CollectionKindSongbookPDF},
+	}
+	event = domain.Event{
+		EventSummary: domain.EventSummary{Slug: routeSlug, Name: "Midwinter Revel"},
+	}
+	revision = domain.EventRevision{
+		RevisionSummary: domain.RevisionSummary{ID: 42, Source: domain.RevisionSourceImport},
+		Entity:          event.EventSummary,
+		Snapshot:        domain.EventSnapshot{Name: event.Name},
+	}
+)
+
 func nothingSeeded(*fakerepo.Repo) {}
 
 var routeTable = map[openapitest.Operation]routeRow{
@@ -72,6 +102,34 @@ var routeTable = map[openapitest.Operation]routeRow{
 	{Method: http.MethodPut, Path: "/v1/users/{user_id}/blocked"}: {access: moderator,
 		path: "/v1/users/google-oauth2%7C123/blocked", body: `{"blocked":true}`, success: http.StatusOK,
 		seed: nothingSeeded},
+	{Method: http.MethodGet, Path: "/v1/pieces"}: getting("/v1/pieces", nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}"}: getting("/v1/pieces/"+routeSlug,
+		func(r *fakerepo.Repo) { r.Piece = &piece }),
+	{Method: http.MethodGet, Path: "/v1/pieces/{slug}/history"}: getting("/v1/pieces/"+routeSlug+"/history",
+		nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/persons"}: getting("/v1/persons", nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}"}: getting("/v1/persons/"+routeSlug,
+		func(r *fakerepo.Repo) { r.Person = &person }),
+	{Method: http.MethodGet, Path: "/v1/persons/{slug}/history"}: getting("/v1/persons/"+routeSlug+"/history",
+		nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/terms"}: getting("/v1/terms", nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}"}: getting("/v1/terms/"+routeSlug,
+		func(r *fakerepo.Repo) { r.Term = &term }),
+	{Method: http.MethodGet, Path: "/v1/terms/{slug}/history"}: getting("/v1/terms/"+routeSlug+"/history",
+		nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/collections"}: getting("/v1/collections", nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}"}: getting("/v1/collections/12",
+		func(r *fakerepo.Repo) { r.Collection = &collection }),
+	{Method: http.MethodGet, Path: "/v1/collections/{collection_id}/history"}: getting("/v1/collections/12/history",
+		nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/events"}: getting("/v1/events", nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/events/{slug}"}: getting("/v1/events/"+routeSlug,
+		func(r *fakerepo.Repo) { r.Event = &event }),
+	{Method: http.MethodGet, Path: "/v1/events/{slug}/history"}: getting("/v1/events/"+routeSlug+"/history",
+		nothingSeeded),
+	{Method: http.MethodGet, Path: "/v1/revisions/{revision_id}"}: getting("/v1/revisions/42",
+		func(r *fakerepo.Repo) { r.Revision = revision }),
+	{Method: http.MethodGet, Path: "/v1/needs-work"}: getting("/v1/needs-work", nothingSeeded),
 }
 
 // caller is who a request is from, and what the middleware does with them.
@@ -273,8 +331,13 @@ var unrouted = []struct {
 		status: http.StatusNotFound, bodyContains: `"code":"not_found"`},
 	{name: "wrong_method", method: http.MethodDelete, target: mePath, authorization: "Bearer " + invalidSecret,
 		status: http.StatusMethodNotAllowed, allow: http.MethodGet, bodyContains: `"code":"method_not_allowed"`},
+	{name: "wrong_method_on_public_path", method: http.MethodPost, target: "/v1/pieces/" + routeSlug,
+		authorization: "Bearer " + invalidSecret, status: http.StatusMethodNotAllowed, allow: http.MethodGet,
+		bodyContains: `"code":"method_not_allowed"`},
 	{name: "path_cleaning_redirect", method: http.MethodGet, target: "/v1//me", status: http.StatusMovedPermanently,
 		location: mePath},
+	{name: "encoded_slash_slug", method: http.MethodGet, target: "/v1/pieces/%2F", status: http.StatusNotFound,
+		bodyContains: `"code":"not_found"`},
 	{name: "encoded_bar_user_id", method: http.MethodPut, target: "/v1/users/auth0%7Cuser/blocked",
 		authorization: "Bearer " + moderatorID, body: `{"blocked":true}`, status: http.StatusOK,
 		bodyContains: `"id":"auth0|user"`},

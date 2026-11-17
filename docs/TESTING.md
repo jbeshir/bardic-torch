@@ -20,8 +20,10 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
 
 ## Tiers
 
-- **Unit tests (no build tag; `go test -short ./...`).**
-  Commands (`internal/command`) and controllers run over the one fake below.
+- **Unit tests (no build tag; `go test -short ./...`).** Domain rules in `internal/domain`:
+  URL normalisation, the snapshot views (pure
+  functions over a hand-built `SnapshotVisibility`), the search tokeniser, and `TestSpec_EnumSchemasMatchDomain`
+  (every enum schema in `openapi/api.yaml` lists the domain's values). Commands (`internal/command`) and controllers run over the one fake below.
 - **Route table (`internal/transport/web/router/routes_test.go`).** One row per spec operation: who may call it
   (public, signed in, moderator) and a happy-path request. `TestRoutes` checks that the routes, the spec and the
   table agree, then sends each row as anonymous, contributor, moderator, blocked, invalid-credentials and
@@ -32,12 +34,18 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
   There are no generated mocks.
 - **Contract helper (`internal/testutil/openapitest`).** `openapitest.New(t).Serve(t, handler, req)` validates
   request and response against the embedded spec (including closed objects, enforced by
-  `TestSpec_ResponseObjectsAreClosed`). Use it for any test of a spec operation.
+  `TestSpec_ResponseObjectsAreClosed`). Use it for any test of a spec operation. Controller tests of list queries
+  assert one case per rule (`list_query_test.go`), not per status.
 - **Integration tests (`//go:build integration`, `go test -tags integration`).** Real MySQL 8.4 through
-  `internal/testutil/mysqltest`, which gives each test its own migrated database
-  They cover the queries,
-  `TestMigrations_UpDownUp` and the other schema checks, and
-  `TestHTTP_EndToEnd` for the flows.
+  `internal/testutil/mysqltest`, which gives each test its own migrated database (25 tables, four with FULLTEXT
+  indexes), and `internal/testutil/catalogtest`, which seeds catalogue rows. They cover the queries,
+  the search, the redaction of revision views, `TestMigrations_UpDownUp` and the other schema checks, and
+  `TestHTTP_EndToEnd` for the flows. `document_coverage_integration_test.go` requires every document field to map
+  to a column or be listed as excluded.
+- **Leak test (`internal/app/leak_matrix_integration_test.go`).** One test seeds a hidden link with credits,
+  performances and citations, requests the public reads that could show it (piece, person, event and collection
+  pages, lists and search, history, revisions, needs-work) and checks no response holds it. A new public read that
+  could show it is added to its request list.
 
 ## Adding an endpoint
 

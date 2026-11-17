@@ -2,11 +2,14 @@ package openapitest
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestSpec_ResponseObjectsAreClosed requires every object schema reachable from a response to set
@@ -80,4 +83,71 @@ func subSchemas(location string, schema *openapi3.Schema) map[string]*openapi3.S
 	}
 
 	return subs
+}
+
+// revisionBody is a piece revision as GET /v1/revisions/{revision_id} returns it, with entity_type set to
+// entityType.
+func revisionBody(entityType string) string {
+	return `{"entity_type": "` + entityType + `", "id": 42,
+		"entity": {"slug": "the-copper-kettle", "title": "The Copper Kettle", "kind": "song",
+			"conservation_status": "endangered", "is_stub": false, "credit_names": []},
+		"base_revision_id": null, "source": "import", "summary": "", "author": null, "contributors": ["Archivist"],
+		"created_at": "2026-01-01T00:00:00Z",
+		"snapshot": {"title": "The Copper Kettle", "kind": "song", "conservation_status": "endangered",
+			"is_stub": false, "notes_md": null, "version_notes_md": null, "licensing_status": "unknown",
+			"licensing_notes_md": null, "aliases": [], "terms": [], "credits": [], "links": []},
+		"base_snapshot": null, "changed_fields": ["conservation_status", "kind", "title"]}`
+}
+
+// TestSpec_RevisionShapeFollowsEntityType checks that the spec's Revision is a closed union chosen by
+// entity_type: a piece revision conforms as a piece's, and the same body labelled as a person's does not.
+func TestSpec_RevisionShapeFollowsEntityType(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		entityType  string
+		wantFailure bool
+	}{
+		{entityType: "piece"},
+		{entityType: "person", wantFailure: true},
+		{entityType: "event", wantFailure: true},
+		{entityType: "recording", wantFailure: true},
+	} {
+		t.Run(tc.entityType, func(t *testing.T) {
+			t.Parallel()
+
+			recorder := &recordingTB{TB: t}
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/revisions/42", nil)
+			New(t).Serve(recorder, jsonResponse(http.StatusOK, revisionBody(tc.entityType)), req)
+
+			if !tc.wantFailure {
+				assert.Empty(t, recorder.failures)
+				return
+			}
+			require.Len(t, recorder.failures, 1)
+			assert.Contains(t, recorder.failures[0], "does not conform to the OpenAPI spec")
+		})
+	}
+}
+
+// recordingTB records failures reported through Errorf instead of failing the test, so that tests can assert
+// the Validator reports them. Every other method goes to the wrapped real test.
+type recordingTB struct {
+	testing.TB
+	failures []string
+}
+
+func (r *recordingTB) Helper() {}
+
+func (r *recordingTB) Errorf(format string, args ...any) {
+	r.failures = append(r.failures, fmt.Sprintf(format, args...))
+}
+
+// jsonResponse is a handler that answers every request with status and the JSON body.
+func jsonResponse(status int, body string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	})
 }
