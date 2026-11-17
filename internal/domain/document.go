@@ -270,3 +270,11 @@ type EventDocument struct {
 	SchemaVersion int    `json:"schema_version"`
 	Name          string `json:"name"`
 }
+
+// StubPersonDocument is the document of a stub person known only by name (plan §2.5):
+// approval's for a credit to a person not yet on the site.
+func StubPersonDocument(name string, kind PersonKind) PersonDocument {
+	return PersonDocument{SchemaVersion: DocumentSchemaVersion, Name: name, Kind: kind, Status: PersonStatusActive,
+		LicensingStatus: LicensingStatusUnknown, IsStub: true, Aliases: []DocPersonAlias{}, Roles: []PersonRole{},
+		AffiliationIDs: []int64{}, Links: []DocPersonLink{}}
+}

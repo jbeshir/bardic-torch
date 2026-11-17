@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jbeshir/bardic-torch/internal/command"
 	"github.com/jbeshir/bardic-torch/internal/datasources"
@@ -17,6 +18,10 @@ type Dependencies struct {
 	AuthValidators []AuthValidator
 	ResolveUser    command.Command[command.ResolveUserRequest, domain.User]
 	SetUserBlocked command.Command[command.SetUserBlockedRequest, domain.User]
+
+	// Now is the clock the moderation routes stamp their writes with.
+	Now            func() time.Time
+	SubmitRevision command.Command[command.SubmitRevisionRequest, domain.RevisionView]
 }
 
 // route is one operation the router serves.
@@ -83,6 +88,35 @@ func routes(deps Dependencies) []route {
 		// Moderation. User IDs contain "|", which clients send percent-encoded as %7C.
 		{method: http.MethodPut, path: "/v1/users/{user_id}/blocked", authenticated: true,
 			handler: requireModerator(controller.UserBlockedSet{Command: deps.SetUserBlocked})},
+
+		// Revisions: the caller's own, editing and submitting, and moderating them.
+		{method: http.MethodGet, path: "/v1/me/revisions", authenticated: true,
+			handler: requireAuth(controller.MyRevisionListGet{Revisions: deps.Repository})},
+		{method: http.MethodGet, path: "/v1/me/revisions/{revision_id}", authenticated: true,
+			handler: requireAuth(controller.MyRevisionGet{Revisions: deps.Repository})},
+		{method: http.MethodGet, path: "/v1/pieces/{slug}/editable", authenticated: true, handler: requireAuth(
+			controller.EditableGet{Revisions: deps.Repository, EntityType: domain.EntityTypePiece})},
+		{method: http.MethodGet, path: "/v1/persons/{slug}/editable", authenticated: true, handler: requireAuth(
+			controller.EditableGet{Revisions: deps.Repository, EntityType: domain.EntityTypePerson})},
+		{method: http.MethodGet, path: "/v1/terms/{slug}/editable", authenticated: true, handler: requireAuth(
+			controller.EditableGet{Revisions: deps.Repository, EntityType: domain.EntityTypeTerm})},
+		{method: http.MethodGet, path: "/v1/events/{slug}/editable", authenticated: true, handler: requireAuth(
+			controller.EditableGet{Revisions: deps.Repository, EntityType: domain.EntityTypeEvent})},
+		{method: http.MethodGet, path: "/v1/collections/{collection_id}/editable", authenticated: true,
+			handler: requireAuth(controller.EditableGet{Revisions: deps.Repository,
+				EntityType: domain.EntityTypeCollection})},
+		{method: http.MethodPost, path: "/v1/revisions", authenticated: true,
+			handler: requireAuth(controller.RevisionCreate{Command: deps.SubmitRevision})},
+		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/withdraw", authenticated: true,
+			handler: requireAuth(controller.RevisionWithdraw{Revisions: deps.Repository})},
+		{method: http.MethodGet, path: "/v1/moderation/queue", authenticated: true,
+			handler: requireModerator(controller.ModerationQueueGet{Revisions: deps.Repository})},
+		{method: http.MethodGet, path: "/v1/moderation/revisions/{revision_id}", authenticated: true,
+			handler: requireModerator(controller.ModerationRevisionGet{Revisions: deps.Repository})},
+		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/approve", authenticated: true,
+			handler: requireModerator(controller.RevisionApprove{Revisions: deps.Repository, Now: deps.Now})},
+		{method: http.MethodPost, path: "/v1/revisions/{revision_id}/reject", authenticated: true,
+			handler: requireModerator(controller.RevisionReject{Revisions: deps.Repository, Now: deps.Now})},
 	}
 }
 
