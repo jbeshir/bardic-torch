@@ -1,0 +1,106 @@
+package mediawiki
+
+import (
+	"slices"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/jbeshir/bardic-torch/internal/domain"
+)
+
+// scrubbedPeople parses the people of the committed scrubbed dump.
+func scrubbedPeople(t *testing.T) (People, map[string]PieceRecord) {
+	t.Helper()
+	s := scrubbedSite(t)
+	pieces := s.Pieces()
+	byTitle := map[string]PieceRecord{}
+	for _, p := range pieces {
+		byTitle[p.Title] = p
+	}
+
+	return ParsePeople(s, pieces), byTitle
+}
+
+func TestScrubbedPeople_ResearchCounts(t *testing.T) {
+	people, _ := scrubbedPeople(t)
+	s := scrubbedSite(t)
+
+	assert.Len(t, people.Bards, 48)
+	namespaces := map[int]int{}
+	classes := map[RedLinkClass]int{}
+	for _, r := range ClassifyRedLinks(s, s.Pieces(), people.Bards) {
+		namespaces[r.NS]++
+		classes[r.Class]++
+	}
+	assert.Equal(t, map[int]int{NSMain: 180, NSCategory: 22, NSSpecial: 1}, namespaces)
+	assert.Equal(t, map[RedLinkClass]int{RedLinkWork: 78, RedLinkCredit: 40, RedLinkPerson: 2, RedLinkPerformer: 58,
+		RedLinkMalformedURL: 1, RedLinkNotImported: 2, RedLinkCategory: 22}, classes)
+	missingWorks := 0
+	for _, b := range people.Bards {
+		for _, w := range b.Works {
+			if !w.Exists {
+				missingWorks++
+			}
+		}
+	}
+	// The wiki's 78 works without a page but "My Thing Is My Own", the piece "My Thing is My Own" but for case.
+	assert.Equal(t, 77, missingWorks)
+	assert.Len(t, people.StubPieces, 77)
+}
+
+func TestScrubbedPeople_Credits(t *testing.T) {
+	people, pieces := scrubbedPeople(t)
+	credits := func(title string) []PieceCredit { return people.Credits[pieces[title].PageID] }
+
+	// Both spellings of the apostrophe name one bard, with no stub.
+	for _, title := range []string{"Fight for the Midrealm", "Valkyrie's Lullaby"} {
+		require.NotEmpty(t, credits(title), title)
+		assert.Equal(t, PersonRef("Lasair inghen ui h’Airt"), credits(title)[0].Person, title)
+	}
+	_, ok := people.Persons.Stub("Lasair inghen ui h'Airt")
+	assert.False(t, ok)
+
+	band := credits("Band of Brothers")
+	require.Len(t, band, 3)
+	assert.Equal(t, PersonRef("Ken Theriot"), band[1].Person)
+	assert.Equal(t, PersonRef("Lisa Theriot"), band[2].Person)
+
+	three := credits("Three Words")
+	require.Len(t, three, 3)
+	assert.Equal(t, domain.AttributionAnonymous, three[2].Attribution)
+
+	assert.Equal(t, domain.CertaintyProbable, credits("Moose")[0].Certainty)
+	assert.Equal(t, domain.CertaintyDisputed, credits("Wild Mountain Thyme")[0].Certainty)
+	greensleeves := credits("Greensleeves")
+	require.Len(t, greensleeves, 3)
+	assert.Equal(t, domain.AttributionTraditional, greensleeves[0].Attribution)
+	assert.Equal(t, domain.CertaintyPossible, greensleeves[1].Certainty)
+	for _, title := range []string{"My Thing is My Own", "Auld Lang Syne"} {
+		k := slices.IndexFunc(credits(title), func(c PieceCredit) bool { return c.Role == domain.CreditRoleTune })
+		require.GreaterOrEqual(t, k, 0, title)
+		assert.Equal(t, domain.AttributionTraditional, credits(title)[k].Attribution, title)
+	}
+	assert.Empty(t, credits("Black Alman"))
+
+	// March of Cambreadth's category for the heir adds no credit.
+	for _, c := range credits("March of Cambreadth") {
+		assert.Equal(t, PersonRef("Heather Alexander"), c.Person)
+	}
+}
+
+func TestScrubbedPeople_Bards(t *testing.T) {
+	people, _ := scrubbedPeople(t)
+	bards := map[string]BardRecord{}
+	for _, b := range people.Bards {
+		bards[b.Title] = b
+	}
+
+	malkin := bards["Malkin Grey"]
+	assert.Equal(t, domain.PersonStatusDeceased, malkin.Status)
+	assert.Contains(t, malkin.NotesMD, "Deceased October 31, 2020", "the date stays in the notes")
+	assert.Equal(t, []string{"Heather Alexander"}, bards["Alexander James Adams"].HeirOf)
+	assert.Equal(t, domain.LicensingStatusUnknown, bards["Efenwealt Wystle"].LicensingStatus)
+	assert.Equal(t, domain.LicensingStatusKnown, bards["Heather Dale"].LicensingStatus)
+}

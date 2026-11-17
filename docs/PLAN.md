@@ -213,7 +213,7 @@ show. Authors appear by display name; imports list the wiki contributors.
 
 ### 5.2 Validation
 
-One `Validate` per document type, (widths, NFC, control characters, caps, the credit
+One `Validate` per document type, shared with the importer (widths, NFC, control characters, caps, the credit
 and facet rules, trees without cycles, unique term names in a facet), answering 422 with a path and code per
 problem.
 
@@ -241,7 +241,7 @@ carries a note for the author.
 - **A credit to someone not yet on the site** names them by `new_person_name`, shown as plain text marked as a new
   person until approval. The approval transaction links it to the public person whose name or alias has the same
   `domain.DuplicateKey` (a "prefers no page" person among them, credited without a link), or else creates a stub
-  person of that name, with its own approved revision, and stores the
+  person of that name, as the importer does for a red link (§2.5), with its own approved revision, and stores the
   linked document as the revision's snapshot.
 
 ### 5.4 Moderation
@@ -275,6 +275,39 @@ The OpenAPI spec is the exact contract.
 - **Health:** `/healthz`, `/readyz`.
 
 Bodies are limited to 1 MiB for documents, and 16 KiB otherwise.
+
+## 7. Importer (`cmd/import-mediawiki`)
+
+**Input:** the research dump (`pages.jsonl`, `categories.json`, `redirects.json`, `activity.json`); the research
+`scripts/` define the expected behaviour. A copy with inline lyrics replaced by placeholder lines is committed
+under `testdata/wiki-dump/`, so tests need no network; it is frozen and never regenerated.
+
+**Steps:** type the pages (pieces, bards) and parse their sections; take facets from the categories
+(`taxonomy.json`); parse credits with attribution and certainty (a person's lyrics and tune credits of one
+attribution and certainty become one `lyrics_and_tune` credit, and the summary counts them), uniting the bard
+signals (infobox, bard category, works list, whose links match a piece page or its redirects whatever their letter
+case) and matching plain-text names by folded name, then fuzzily (within one edit, for names of eight letters or
+more); a given name alone ("Dunstan") never matches a fuller name and becomes a stub;
+extract links with role, platform, collection and locator,
+deduplicated by normalised URL; parse performances, keeping their words verbatim as plain text (without the wikitext
+link markup), with venue pages and the names performances give after "at" as events, and no uploader; turn redirects
+to piece pages into aliases and red links into stubs (a works-list red link that is a piece page's title but for
+letter case is that piece, not a stub); put into a piece's notes its Timeline of Text Sources section (under its
+heading), and no sentence of the importer's own (a page relates two pieces only in its own words); give
+the Instrumental term (§2.1) to every page in the Instrumental category; **drop inline lyrics** (every `<poem>` block, and the lines without a link of a Lyrics or Text section when there are four
+or more; fewer are version notes), setting `legacy_had_inline_lyrics`; and write everything as approved `import`
+revisions crediting wiki contributors.
+
+**Writing:** strings are NFC without control characters; wikitext becomes escaped Markdown with absolute http(s)
+links free of tracking parameters; summaries come from fixed templates. `CatalogueImport.Validate` checks the
+import against the schema's constraints first, and it is written in one transaction into an empty catalogue.
+
+**Modes:** `--dump DIR (--dry-run | --apply)`; both print a short count summary, and `--dry-run` never opens a
+database. The launch run (a dry run, then `--apply` once) is in DEPLOY.md.
+
+**Tests:** the research counts (142 pieces, 135/4/2/1 by kind; 48 bards; 61 collections; 11 inline-lyrics pages);
+goldens of the tricky pages; the writer writes every row, rolls
+back on failure and refuses a non-empty catalogue; the imported catalogue reads back valid by the spec.
 
 ## 8. Frontend
 
@@ -312,7 +345,7 @@ or combination. A test earns its place by catching a bug someone could plausibly
   repository, not generated mocks.
 - No tests of test helpers, of generated SQL strings, or of config files beyond "every env var is in `.env.dist`".
 - One small leak test: a hidden link, seeded with credits, performances and citations, appears in no public read.
-- `make validate` and `make vulncheck` in CI.
+- The importer tests (§7); `make validate` and `make vulncheck` in CI.
 
 **FE:**
 - Component tests for components with logic (forms, editors, pickers, the facet drawer); loader and action tests

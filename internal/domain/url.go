@@ -99,6 +99,73 @@ func WithScheme(raw string) string {
 	return s
 }
 
+// WithControlCharactersEscaped is a URL with its control characters (IsControlCharacter) percent-encoded, as
+// NormalizeURL encodes them, so that both normalize the same and the URL as stored holds none.
+func WithControlCharactersEscaped(raw string) string {
+	if !strings.ContainsFunc(raw, IsControlCharacter) {
+		return raw
+	}
+	var b strings.Builder
+	for _, r := range raw {
+		if !IsControlCharacter(r) {
+			b.WriteRune(r)
+
+			continue
+		}
+		for _, c := range []byte(string(r)) {
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+
+	return b.String()
+}
+
+// WithoutTrackingParameters is an http or https URL as entered without what NormalizeURL drops as tracking: its
+// tracking parameters (isTrackingParameter), or, for a YouTube video, every parameter but the video's (the URL is
+// then the video's normalized form). The rest keeps its spelling, so NormalizeURL gives the same for both. A URL
+// that does not normalize is returned as it is.
+func WithoutTrackingParameters(raw string) string {
+	normalized, err := NormalizeURL(raw)
+	if err != nil {
+		return raw
+	}
+	parts, err := splitURL(WithScheme(raw))
+	if err != nil {
+		return raw
+	}
+	host, err := normalizeHost(parts.host)
+	if err != nil {
+		return raw
+	}
+	if slices.Contains(youTubeVideoHosts, host) && strings.HasPrefix(normalized, "https://"+youTubeHost+"/watch?") {
+		return normalized
+	}
+	body, fragment, hasFragment := strings.Cut(raw, "#")
+	base, query, hasQuery := strings.Cut(body, "?")
+	if !hasQuery {
+		return raw
+	}
+	var kept []string
+	for field := range strings.SplitSeq(query, "&") {
+		key, _, _ := strings.Cut(field, "=")
+		if field != "" && !isTrackingParameter(host, percentNormalize(key, queryKeyAllowed)) {
+			kept = append(kept, field)
+		}
+	}
+	out := base
+	if len(kept) > 0 {
+		out += "?" + strings.Join(kept, "&")
+	}
+	if hasFragment {
+		out += "#" + fragment
+	}
+
+	return out
+}
+
+// youTubeVideoHosts are the hosts whose video URLs NormalizeURL writes as https://youtube.com/watch?v=ID.
+var youTubeVideoHosts = []string{youTubeHost, mobileYouTubeHost, shortYouTubeHost}
+
 // urlParts are the raw components of a URL, split but not yet normalized.
 type urlParts struct {
 	scheme, host, port, path, query, fragment string

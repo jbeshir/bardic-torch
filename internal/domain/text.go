@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"unicode"
 )
 
@@ -50,7 +51,7 @@ func isAllowedTextCharacter(r rune) bool {
 	return unicode.In(r, unicode.L, unicode.M, unicode.N, unicode.P, unicode.S, unicode.Zs)
 }
 
-// IsControlCharacter reports whether r is a character text must not hold, as it can rewrite how a
+// IsControlCharacter reports whether r is a character imported text must not hold, as it can rewrite how a
 // terminal or a page shows the text after it: a C0 or C1 control other than tab and line feed (NUL, ESC), or a
 // bidirectional embedding, override or isolate (U+202A–U+202E, U+2066–U+2069).
 func IsControlCharacter(r rune) bool {
@@ -62,4 +63,15 @@ func IsControlCharacter(r rune) bool {
 	}
 
 	return r >= 0x202a && r <= 0x202e || r >= 0x2066 && r <= 0x2069
+}
+
+// WithoutControlCharacters is s without its control characters (IsControlCharacter).
+func WithoutControlCharacters(s string) string {
+	return strings.Map(func(r rune) rune {
+		if IsControlCharacter(r) {
+			return -1
+		}
+
+		return r
+	}, s)
 }

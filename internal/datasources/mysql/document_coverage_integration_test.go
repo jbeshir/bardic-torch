@@ -170,7 +170,7 @@ const nonDocumentTables = `
 users                  ! accounts
 revisions              ! the revision workflow that stores the documents
 revision_contributors  ! the revision workflow that stores the documents
-term_ancestors         ! derived from terms.parent_id when a term revision is approved
+term_ancestors         ! derived from terms.parent_id by the importer and when a term revision is approved
 contact_requests       ! moderation workflow: takedown, correction and link-report requests
 `
 

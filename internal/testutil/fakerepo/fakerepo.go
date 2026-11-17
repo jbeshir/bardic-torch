@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	_ datasources.Repository = (*Repo)(nil)
+	_ datasources.Repository        = (*Repo)(nil)
+	_ datasources.CatalogueImporter = (*Repo)(nil)
 )
 
-// A catalogue read returns its canned
+// Repo implements datasources.Repository and datasources.CatalogueImporter. A catalogue read returns its canned
 // value, or datasources.ErrNotFound for a get whose value is nil. When Err is set every method returns it
 // instead. A Repo is not safe for concurrent use: tests make one each.
 type Repo struct {
@@ -49,6 +50,9 @@ type Repo struct {
 	// Err, if set, is returned by every method, and PingErr by Ping only.
 	Err     error
 	PingErr error
+
+	// Imported is the last import written.
+	Imported *domain.CatalogueImport
 }
 
 func (r *Repo) Ping(context.Context) error {
@@ -128,6 +132,14 @@ func (r *Repo) put(user domain.User) {
 		r.Users = map[string]domain.User{}
 	}
 	r.Users[user.ID] = user
+}
+
+func (r *Repo) ImportCatalogue(_ context.Context, imp domain.CatalogueImport) error {
+	if r.Err != nil {
+		return r.Err
+	}
+	r.Imported = &imp
+	return nil
 }
 
 func (r *Repo) GetPublicPiece(context.Context, string) (domain.Piece, error) {

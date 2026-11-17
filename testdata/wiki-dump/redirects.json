@@ -1,0 +1,64 @@
+{
+  "redirect_pages": [
+    {
+      "from": "Come and be Welcome",
+      "ns": 0,
+      "to": "Come and Be Welcome"
+    },
+    {
+      "from": "James Treebull the Stubborn",
+      "ns": 0,
+      "to": "Jim Pipkin"
+    },
+    {
+      "from": "Life of a Bard",
+      "ns": 0,
+      "to": "Life of the Bard"
+    },
+    {
+      "from": "Queen of All Argyle",
+      "ns": 0,
+      "to": "Queen of Argyll"
+    },
+    {
+      "from": "Valkyries Lullaby",
+      "ns": 0,
+      "to": "Valkyrie's Lullaby"
+    },
+    {
+      "from": "What Price Honour",
+      "ns": 0,
+      "to": "What Price Honor"
+    },
+    {
+      "from": "Category:Dance",
+      "ns": 14,
+      "to": "Category:Dances"
+    },
+    {
+      "from": "Category:SettingPieces",
+      "ns": 14,
+      "to": ":Category:Setting Pieces"
+    },
+    {
+      "from": "Category:SF and F Pieces",
+      "ns": 14,
+      "to": ":Category:SF&F Pieces"
+    },
+    {
+      "from": "Category:Story Mood",
+      "ns": 14,
+      "to": ":Category:Story (Mood)"
+    },
+    {
+      "from": "Category:Traditional/Folk",
+      "ns": 14,
+      "to": ":Category:Traditional & Folk"
+    },
+    {
+      "from": "Category:Traditional&Folk",
+      "ns": 14,
+      "to": ":Category:Traditional & Folk"
+    }
+  ]
+}

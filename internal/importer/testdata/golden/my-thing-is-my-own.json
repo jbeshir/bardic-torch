@@ -1,0 +1,113 @@
+{
+  "piece": {
+    "id": 112,
+    "slug": "my-thing-is-my-own",
+    "sort_title": "My Thing is My Own",
+    "sort_letter": "M",
+    "doc": {
+      "schema_version": 1,
+      "title": "My Thing is My Own",
+      "kind": "song",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": "The song is in the public domain. Note that individual performances may still be copyrighted by the performers.",
+      "aliases": [],
+      "term_ids": [
+        123,
+        28,
+        50,
+        125
+      ],
+      "credits": [
+        {
+          "person_id": 155,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "certain"
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "traditional",
+          "certainty": "certain"
+        },
+        {
+          "person_id": 45,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "possible"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Wit_and_Mirth,_or_Pills_to_Purge_Melancholy",
+          "title": "Wit and Mirth: Or Pills to Purge Melancholy",
+          "description": "The song is from Wit and Mirth: Or Pills to Purge Melancholy, a collection of songs by Thomas d'Urfey published between 1698 and 1720",
+          "platform": "wikipedia",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://cunnan.lochac.sca.org/index.php/My_Thing_is_my_Own",
+          "title": "Lyrics on Cunnan, a Lochac wiki, taken from the Legal Name 073 Songbook",
+          "description": null,
+          "platform": "cunnan.lochac.sca.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://www.calonsong.org/CalontirSongs/mythingismyown.htm",
+          "title": "Lyrics on CalonSong",
+          "description": null,
+          "platform": "calonsong.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.yumpu.com/en/document/read/36398267/kates-song-book/9",
+          "title": "Parody/Filk version by the same name, in the College of Sainte Katherine Song Book",
+          "description": null,
+          "platform": "yumpu.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 311,
+      "title": "My Thing is My Own"
+    },
+    "revision": {
+      "id": 502,
+      "summary": "Imported from the wiki (page revision 814).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

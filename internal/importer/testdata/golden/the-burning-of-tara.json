@@ -1,0 +1,135 @@
+{
+  "piece": {
+    "id": 136,
+    "slug": "the-burning-of-tara",
+    "sort_title": "Burning of Tara",
+    "sort_letter": "B",
+    "doc": {
+      "schema_version": 1,
+      "title": "The Burning of Tara",
+      "kind": "story",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": "### Timeline of Text Sources\n\n- [Version of Fionn's origin story in 'Gods and Fighting Men', 1905](https://www.gutenberg.org/files/14465/14465-h/14465-h.htm#L28)\n- ['Fionn and the Goblin' at Ireland's Myths \u0026 Legends](https://www.irelandsmythsandlegends.com/fionn-and-the-fianna)\n- [The Burning of Tara in Fionn Folklore, Harvard's collection of oral tradition recordings](https://fionnfolklore.org/en/lays/dta)",
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "aliases": [
+        {
+          "text": "Fionn and the Dragon",
+          "kind": "alt_title"
+        },
+        {
+          "text": "How Finn became leader of the Fianna",
+          "kind": "alt_title"
+        }
+      ],
+      "term_ids": [
+        84,
+        52,
+        46,
+        47,
+        98,
+        115,
+        110
+      ],
+      "credits": [],
+      "links": [
+        {
+          "url": "https://www.gutenberg.org/files/14465/14465-h/14465-h.htm#L28",
+          "title": "Version of Fionn's origin story in 'Gods and Fighting Men', 1905",
+          "description": null,
+          "platform": "gutenberg",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "text_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.irelandsmythsandlegends.com/fionn-and-the-fianna",
+          "title": "'Fionn and the Goblin' at Ireland's Myths \u0026 Legends",
+          "description": null,
+          "platform": "irelandsmythsandlegends.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "text_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://fionnfolklore.org/en/lays/dta",
+          "title": "The Burning of Tara in Fionn Folklore, Harvard's collection of oral tradition recordings",
+          "description": null,
+          "platform": "fionnfolklore.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "text_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=N1OwCGeOHlU",
+          "title": "Fionn and the Dragon on Legal Name 118 podcast",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "Fionn and the Dragon on Legal Name 118 podcast",
+              "performer_ids": []
+            }
+          ]
+        },
+        {
+          "url": "https://youtube.com/watch?v=fbeGpyCuqAo",
+          "title": "Retelling from Deardubh's perspective from Legal Name 118",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "Retelling from Deardubh's perspective from Legal Name 118",
+              "performer_ids": []
+            }
+          ]
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 356,
+      "title": "The Burning of Tara"
+    },
+    "revision": {
+      "id": 526,
+      "summary": "Imported from the wiki (page revision 929).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

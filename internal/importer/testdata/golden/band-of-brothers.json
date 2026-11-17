@@ -1,0 +1,138 @@
+{
+  "piece": {
+    "id": 2,
+    "slug": "band-of-brothers",
+    "sort_title": "Band of Brothers",
+    "sort_letter": "B",
+    "doc": {
+      "schema_version": 1,
+      "title": "Band of Brothers",
+      "kind": "song",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": "The words of this song are adapted from Legal Name 022, a play about events in the 1400s (15th Century).",
+      "licensing_status": "known",
+      "licensing_notes_md": "- [Ken Theriot encourages performers to perform his work at Pennsic, without requiring permission](https://www.ravenboymusic.com/bards-or-budding-bards-get-rbm-sheet-music-before-pennsic/)",
+      "aliases": [],
+      "term_ids": [
+        33,
+        88,
+        40,
+        96,
+        121,
+        43,
+        115,
+        120
+      ],
+      "credits": [
+        {
+          "person_id": 160,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "certain"
+        },
+        {
+          "person_id": 24,
+          "role": "tune",
+          "attribution": "named",
+          "certainty": "certain"
+        },
+        {
+          "person_id": 3,
+          "role": "tune",
+          "attribution": "named",
+          "certainty": "certain"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://www.ravenboymusic.com/band-of-brothers-song/",
+          "title": "Song page at Legal Name 053",
+          "description": null,
+          "platform": "ravenboymusic.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.ravenboymusic.com/sheet-music/",
+          "title": "Download sheet music or song sheets at Legal Name 053",
+          "description": null,
+          "platform": "ravenboymusic.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://www.calonsong.org/CalontirSongs/bandofbrothers.htm",
+          "title": "Lyrics at Calonsong",
+          "description": null,
+          "platform": "calonsong.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.ravenboymusic.com/bards-or-budding-bards-get-rbm-sheet-music-before-pennsic/",
+          "title": "Ken Theriot encourages performers to perform his work at Pennsic, without requiring permission",
+          "description": null,
+          "platform": "ravenboymusic.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "licensing_source"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=1Ct5749N4RM",
+          "title": "Official Recording by Ken Theriot on YouTube",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "Official Recording by Ken Theriot on YouTube",
+              "performer_ids": []
+            }
+          ]
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": true,
+    "legacy": {
+      "page_id": 12,
+      "title": "Band of Brothers"
+    },
+    "revision": {
+      "id": 392,
+      "summary": "Imported from the wiki (page revision 458).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

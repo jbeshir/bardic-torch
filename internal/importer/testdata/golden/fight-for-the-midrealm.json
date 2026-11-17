@@ -1,0 +1,82 @@
+{
+  "piece": {
+    "id": 127,
+    "slug": "fight-for-the-midrealm",
+    "sort_title": "Fight for the Midrealm",
+    "sort_letter": "F",
+    "doc": {
+      "schema_version": 1,
+      "title": "Fight for the Midrealm",
+      "kind": "song",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "aliases": [],
+      "term_ids": [
+        55,
+        65,
+        120
+      ],
+      "credits": [
+        {
+          "person_id": 1,
+          "role": "lyrics_and_tune",
+          "attribution": "named",
+          "certainty": "certain"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://sites.google.com/site/bardicmadnessmid/midrealm-song-sheet-project/Lyrics-Online#h.6yxeyh6ax9ze",
+          "title": "Lyrics in Midrealm Bardic Madness Song Sheets",
+          "description": null,
+          "platform": "sites.google.com",
+          "place_type": "community_archive",
+          "collection_id": 40,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=XmgUpSreHi4",
+          "title": "Recording by Legal Name 024 on YouTube of Lasair inghen ui h'Airt singing her song at Midrealm Bardic Madness in 2012",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": 30,
+              "year": 2012,
+              "uploader": null,
+              "description_verbatim": "Recording by Legal Name 024 on YouTube of Lasair inghen ui h'Airt singing her song at Midrealm Bardic Madness in 2012",
+              "performer_ids": []
+            }
+          ]
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 342,
+      "title": "Fight for the Midrealm"
+    },
+    "revision": {
+      "id": 517,
+      "summary": "Imported from the wiki (page revision 881).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

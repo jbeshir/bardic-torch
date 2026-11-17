@@ -1,0 +1,167 @@
+{
+  "piece": {
+    "id": 99,
+    "slug": "greensleeves",
+    "sort_title": "Greensleeves",
+    "sort_letter": "G",
+    "doc": {
+      "schema_version": 1,
+      "title": "Greensleeves",
+      "kind": "song",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": "See also Greensleeves (SCA Version).",
+      "version_notes_md": "There are many, many versions.",
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "aliases": [],
+      "term_ids": [
+        123,
+        27,
+        50,
+        96,
+        115,
+        119
+      ],
+      "credits": [
+        {
+          "person_id": null,
+          "role": "lyrics",
+          "attribution": "traditional",
+          "certainty": "certain"
+        },
+        {
+          "person_id": 135,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "possible"
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "traditional",
+          "certainty": "certain"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Greensleeves",
+          "title": "Greensleeves on Wikipedia",
+          "description": null,
+          "platform": "wikipedia",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf",
+          "title": "Beadmaker's Songbook",
+          "description": null,
+          "platform": "pdf",
+          "place_type": "book",
+          "collection_id": 10,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://sca.claypool.me/songs.html",
+          "title": "Claypool's SCA Songs",
+          "description": null,
+          "platform": "sca.claypool.me",
+          "place_type": "community_archive",
+          "collection_id": 18,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.thebards.net/music/lyrics/Greensleeves_Medley.shtml",
+          "title": "Lyrics and chords at The Bard's Celtic Lyrics Directory",
+          "description": null,
+          "platform": "thebards.net",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=19X5WNh4y9w",
+          "title": "Recording by Cerian Cantwr on YouTube",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "Recording by Cerian Cantwr on YouTube of Greensleeves sung by Heregyth Ketilsdottir, Heinrich von Stuttgart, and Jonathan Ospry",
+              "performer_ids": [
+                93,
+                91,
+                102
+              ]
+            }
+          ]
+        },
+        {
+          "url": "https://youtube.com/watch?v=IAHnmqSQdDw",
+          "title": null,
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "https://youtube.com/watch?v=IAHnmqSQdDw Music video on YouTube demonstrating all the clothing articles mentioned in the song. Musical performance by Richard de Winter, Robin Jeffre, Sam Brown, and Allison Kinder.",
+              "performer_ids": [
+                136,
+                138,
+                140,
+                51
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 275,
+      "title": "Greensleeves"
+    },
+    "revision": {
+      "id": 489,
+      "summary": "Imported from the wiki (page revision 946).",
+      "contributors": [
+        "Wiki User 01",
+        "Wiki User 11"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

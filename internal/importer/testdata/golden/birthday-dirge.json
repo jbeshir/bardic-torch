@@ -1,0 +1,202 @@
+{
+  "piece": {
+    "id": 57,
+    "slug": "birthday-dirge",
+    "sort_title": "Birthday Dirge",
+    "sort_letter": "B",
+    "doc": {
+      "schema_version": 1,
+      "title": "Birthday Dirge",
+      "kind": "song",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": "This song is known by any number of alternative names, including:\n- The Barbarian Birthday Dirge / The Barbarian Birthday Song\n- The Viking Birthday Dirge / The Viking Birthday Song\n- The Vulgar Birthday Song\n- The Mongolian Birthday Song\n- The SCA Birthday Song / The SCA Happy Birthday\n- HAPPY BIRTHDAY (THUD)",
+      "version_notes_md": "There are numerous verses and numerous versions of the verses; the number of verses sung will depend on the occasion and on the tolerance of the birthday celebrant.\nAfter each 'happy birthday', it is traditional to either make a loud thud by dropping something heavy, stomp your feet, or literally say the word 'thud'.",
+      "licensing_status": "unknown",
+      "licensing_notes_md": "There is no known author for most of the SCA verses and they are presumed to belong to the public domain.",
+      "aliases": [
+        {
+          "text": "The Birthday Dirge",
+          "kind": "alt_title"
+        }
+      ],
+      "term_ids": [
+        19,
+        46,
+        112
+      ],
+      "credits": [
+        {
+          "person_id": null,
+          "role": "lyrics",
+          "attribution": "unknown",
+          "certainty": "certain"
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "traditional",
+          "certainty": "certain"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://en.wikipedia.org/wiki/The_Song_of_the_Volga_Boatmen",
+          "title": "Song of the Volga Boatmen / Эй, ухнем!",
+          "description": null,
+          "platform": "wikipedia",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=xNVPw5ReQHE",
+          "title": "a recording of this Russian song on YouTube",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://cunnan.lochac.sca.org/index.php/The_SCA_birthday_song",
+          "title": "Lyrics on Cunnan (an SCA wiki hosted in Lochac)",
+          "description": null,
+          "platform": "cunnan.lochac.sca.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://cunnan.lochac.sca.org/index.php/The_SCA_Happy_Birthday_Song",
+          "title": "Lyrics on Cunnan (an SCA wiki hosted in Lochac) - version sourced from the 'Legal Name 073' songbook",
+          "description": null,
+          "platform": "cunnan.lochac.sca.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.eg.bucknell.edu/~lwittie/sca/song/filk/barbarian_birthday_dirge.html",
+          "title": "Lyrics on Bucknell.edu",
+          "description": null,
+          "platform": "eg.bucknell.edu",
+          "place_type": "community_archive",
+          "collection_id": 3,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://thereitis.org/the-birthday-dirge/",
+          "title": "Lyrics on Legal Name 074's blog",
+          "description": null,
+          "platform": "thereitis.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://punkwalrus.net/cybertusk/viking_birthday_dirge.html",
+          "title": "Lyrics on PunkWalrus",
+          "description": null,
+          "platform": "punkwalrus.net",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://caidwiki.org/index.php/Mongolian_Birthday_Song",
+          "title": "Lyrics on Caid's Wiki",
+          "description": null,
+          "platform": "caidwiki.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://redwulf.info/book.pdf",
+          "title": "Redwulf Songbook (Mooneschadowe, Ansteorra",
+          "description": null,
+          "platform": "pdf",
+          "place_type": "book",
+          "collection_id": 47,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://www.yumpu.com/en/document/read/36398267/kates-song-book/13",
+          "title": "Lyrics in the College of Sainte Katherine songbook",
+          "description": null,
+          "platform": "yumpu.com",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://flurf.net/wp-content/uploads/sites/28/2009/04/TKW2015.pdf#page=21",
+          "title": "The 'Vulgar Birthday Song' on page 21 of The Known Words (2015 edition)",
+          "description": null,
+          "platform": "pdf",
+          "place_type": null,
+          "collection_id": null,
+          "locator": "p. 21",
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 170,
+      "title": "Birthday Dirge"
+    },
+    "revision": {
+      "id": 447,
+      "summary": "Imported from the wiki (page revision 889).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

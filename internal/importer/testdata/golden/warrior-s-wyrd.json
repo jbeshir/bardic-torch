@@ -1,0 +1,144 @@
+{
+  "piece": {
+    "id": 44,
+    "slug": "warrior-s-wyrd",
+    "sort_title": "Warrior's Wyrd",
+    "sort_letter": "W",
+    "doc": {
+      "schema_version": 1,
+      "title": "Warrior's Wyrd",
+      "kind": "song",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": "This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.",
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": "It is likely that Legal Name 064 still holds the copyright to the tune; please add to the wiki if you have more information.",
+      "aliases": [],
+      "term_ids": [
+        33,
+        88,
+        99,
+        113
+      ],
+      "credits": [
+        {
+          "person_id": 28,
+          "role": "lyrics",
+          "attribution": "named",
+          "certainty": "certain"
+        },
+        {
+          "person_id": 111,
+          "role": "tune",
+          "attribution": "named",
+          "certainty": "certain"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Sing_Hallelujah_to_the_Lord",
+          "title": "Sing Hallelujah to the Lord",
+          "description": "Warrior's Wyrd is a contrafactum of Sing Hallelujah to the Lord by Legal Name 064, written in 1974",
+          "platform": "wikipedia",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "other"
+          ],
+          "performances": []
+        },
+        {
+          "url": "http://www.calonsong.org/CalontirSongs/warriorswyrd.htm",
+          "title": "Warrior's Wyrd on CalonSong",
+          "description": null,
+          "platform": "calonsong.org",
+          "place_type": null,
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        },
+        {
+          "url": "https://youtube.com/watch?v=Y-DSvojaL3g",
+          "title": "Warrior's Wyrd on YouTube by 'Legal Name 061'",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "Warrior's Wyrd on YouTube by 'Legal Name 061'",
+              "performer_ids": []
+            }
+          ]
+        },
+        {
+          "url": "https://youtube.com/watch?v=GkFyoVrTEok",
+          "title": "Warrior's Wyrd on YouTube by Legal Name 065",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": null,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "Warrior's Wyrd on YouTube by Legal Name 065",
+              "performer_ids": []
+            }
+          ]
+        },
+        {
+          "url": "https://youtube.com/watch?v=Dj9TsprIgOk",
+          "title": "Warrior's Wyrd on YouTube, recorded by Legal Name 024, sung by Calontir at the SCA 50 Year Celebration",
+          "description": null,
+          "platform": "youtube",
+          "place_type": "recording_platform",
+          "collection_id": null,
+          "locator": null,
+          "roles": [
+            "performance"
+          ],
+          "performances": [
+            {
+              "event_id": 11,
+              "year": null,
+              "uploader": null,
+              "description_verbatim": "Warrior's Wyrd on YouTube, recorded by Legal Name 024, sung by Calontir at the SCA 50 Year Celebration",
+              "performer_ids": []
+            }
+          ]
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 151,
+      "title": "Warrior's Wyrd"
+    },
+    "revision": {
+      "id": 434,
+      "summary": "Imported from the wiki (page revision 371).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

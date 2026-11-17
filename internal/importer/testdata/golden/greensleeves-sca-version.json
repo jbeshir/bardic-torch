@@ -1,0 +1,69 @@
+{
+  "piece": {
+    "id": 100,
+    "slug": "greensleeves-sca-version",
+    "sort_title": "Greensleeves (SCA Version)",
+    "sort_letter": "G",
+    "doc": {
+      "schema_version": 1,
+      "title": "Greensleeves (SCA Version)",
+      "kind": "song",
+      "conservation_status": "unassessed",
+      "is_stub": false,
+      "notes_md": null,
+      "version_notes_md": null,
+      "licensing_status": "unknown",
+      "licensing_notes_md": null,
+      "aliases": [],
+      "term_ids": [
+        19,
+        75,
+        76,
+        77,
+        112
+      ],
+      "credits": [
+        {
+          "person_id": null,
+          "role": "lyrics",
+          "attribution": "unknown",
+          "certainty": "certain"
+        },
+        {
+          "person_id": null,
+          "role": "tune",
+          "attribution": "traditional",
+          "certainty": "certain"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://www.beadmaker.se/wp-content/uploads/2018/09/p%C3%A4rlmakerskans-engelska-version-3.0.pdf",
+          "title": "Beadmaker's Songbook",
+          "description": null,
+          "platform": "pdf",
+          "place_type": "book",
+          "collection_id": 10,
+          "locator": null,
+          "roles": [
+            "lyrics"
+          ],
+          "performances": []
+        }
+      ]
+    },
+    "legacy_had_inline_lyrics": false,
+    "legacy": {
+      "page_id": 276,
+      "title": "Greensleeves (SCA Version)"
+    },
+    "revision": {
+      "id": 490,
+      "summary": "Imported from the wiki (page revision 699).",
+      "contributors": [
+        "Wiki User 01"
+      ],
+      "created_at": "2026-11-01T12:00:00Z"
+    }
+  }
+}

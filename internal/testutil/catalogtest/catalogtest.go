@@ -1,7 +1,7 @@
 //go:build integration
 
-// Package catalogtest seeds catalogue fixtures for integration tests with plain SQL,
-// an entity's editable content is its snapshot document (internal/domain), and an
+// Package catalogtest seeds catalogue fixtures for integration tests with plain SQL, in the shape the importer
+// (internal/importer) writes: an entity's editable content is its snapshot document (internal/domain), and an
 // approved entity has an approved revision holding that document as its current revision.
 //
 // A test with its own data seeds a fresh database:
@@ -36,6 +36,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jbeshir/bardic-torch/internal/datasources/mysql"
 	"github.com/jbeshir/bardic-torch/internal/domain"
 )
 
@@ -447,6 +448,15 @@ func orDefault[T comparable](v, def T) T {
 	}
 
 	return v
+}
+
+// Import writes a whole catalogue import, as the importer's --apply does (mysql.Repository.ImportCatalogue), into
+// the database, which must be empty.
+func (c *Catalog) Import(imp domain.CatalogueImport) {
+	c.t.Helper()
+	if err := mysql.New(c.db).ImportCatalogue(c.t.Context(), imp); err != nil {
+		c.t.Fatalf("catalogtest: importing: %v", err)
+	}
 }
 
 // T returns the test the Catalog fails, for a Shared seed that needs it.

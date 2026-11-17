@@ -30,8 +30,8 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
   unresolvable-user callers through `openapitest`'s `Serve`, which fails unless the request and response conform
   to the spec. `TestRoutes_Unrouted` covers requests that match no operation. Other tests beside it cover the
   Auth0 validator, CORS, security headers and request logging.
-- **The fake (`internal/testutil/fakerepo`).**
-  There are no generated mocks.
+- **The fake (`internal/testutil/fakerepo`).** The one hand-written fake of `datasources.Repository` and
+  `CatalogueImporter`: users in a map, canned catalogue values, an `Err` to inject. There are no generated mocks.
 - **Contract helper (`internal/testutil/openapitest`).** `openapitest.New(t).Serve(t, handler, req)` validates
   request and response against the embedded spec (including closed objects, enforced by
   `TestSpec_ResponseObjectsAreClosed`). Use it for any test of a spec operation. Controller tests of list queries
@@ -46,6 +46,13 @@ govulncheck) are pinned with `tool` directives in `go.mod` and run with `go tool
   performances and citations, requests the public reads that could show it (piece, person, event and collection
   pages, lists and search, history, revisions, needs-work) and checks no response holds it. A new public read that
   could show it is added to its request list.
+- **Importer tests (`internal/mediawiki`, `internal/importer`).** They run on synthetic wikis and on the committed
+  scrubbed dump in `testdata/wiki-dump`, which is frozen: it is never regenerated, and the real crawl, which holds
+  the wiki's lyrics, is never committed. Counts (`TestBuild_ResearchCounts` and the per-parser count tests) pin what
+  the import produces; the 16 page goldens (`TestGoldenPages`) are regenerated with
+  `go test ./internal/importer -run Golden -update` and the diff read before committing;
+  `Fuzz*` targets check the parsers do not panic
+  (`go test -fuzz FuzzFindTemplates ./internal/mediawiki/` explores further).
 
 ## Adding an endpoint
 

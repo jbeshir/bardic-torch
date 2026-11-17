@@ -93,8 +93,8 @@ type PoolLimits struct {
 	ConnMaxIdleTime time.Duration
 }
 
-// ProductionPool returns the limits of the API's pools. At most two API processes overlap during
-// a deploy, beside the migrate, and an operator's session, so ten each stays far under 151. Idle
+// ProductionPool returns the limits of the API's and the importer's pools. At most two API processes overlap during
+// a deploy, beside the migrate, an import and an operator's session, so ten each stays far under 151. Idle
 // connections close after five minutes, well under the server's wait_timeout, and every connection is replaced
 // after 30 minutes so that a restarted service container is reached.
 func ProductionPool() PoolLimits {

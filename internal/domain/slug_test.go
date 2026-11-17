@@ -75,3 +75,46 @@ func TestSlugify_AlwaysIsSlugOrEmpty(t *testing.T) {
 		}
 	}
 }
+
+func TestSlugAllocator_Collisions(t *testing.T) {
+	t.Parallel()
+
+	var a SlugAllocator
+	assert.Equal(t, "kettle", a.Allocate("Kettle", SlugEntityTypePiece, 1))
+	assert.Equal(t, "kettle-2", a.Allocate("Kettle!", SlugEntityTypePiece, 2))
+	assert.Equal(t, "kettle-3", a.Allocate("kettle", SlugEntityTypePiece, 3))
+	assert.Equal(t, "kettle-2-2", a.Allocate("Kettle 2", SlugEntityTypePiece, 4))
+	// Slugs are unique per entity type only.
+	assert.Equal(t, "kettle", a.Allocate("Kettle", SlugEntityTypePerson, 1))
+}
+
+func TestSlugAllocator_EmptyFallsBackToEntityID(t *testing.T) {
+	t.Parallel()
+
+	var a SlugAllocator
+	assert.Equal(t, "piece-7", a.Allocate("日本", SlugEntityTypePiece, 7))
+	assert.Equal(t, "person-7", a.Allocate("", SlugEntityTypePerson, 7))
+	assert.Equal(t, "event-12", a.Allocate("!!!", SlugEntityTypeEvent, 12))
+	assert.Equal(t, "term-3", a.Allocate("", SlugEntityTypeTerm, 3))
+	// A name whose slug is a fallback slug taken before gets a suffix.
+	assert.Equal(t, "piece-7-2", a.Allocate("Piece 7", SlugEntityTypePiece, 8))
+}
+
+func TestSlugAllocator_SuffixFitsMaxLength(t *testing.T) {
+	t.Parallel()
+
+	var a SlugAllocator
+	unbroken := strings.Repeat("a", MaxSlugLength)
+	assert.Equal(t, unbroken, a.Allocate(unbroken, SlugEntityTypePiece, 1))
+	second := a.Allocate(unbroken, SlugEntityTypePiece, 2)
+	assert.Equal(t, strings.Repeat("a", MaxSlugLength-2)+"-2", second)
+
+	words := strings.Repeat("abcd-", 38) + "x" // 191 characters
+	assert.Equal(t, words, a.Allocate(words, SlugEntityTypePiece, 3))
+	third := a.Allocate(words, SlugEntityTypePiece, 4)
+	assert.Equal(t, strings.TrimSuffix(strings.Repeat("abcd-", 37), "-")+"-abcd-2", third)
+	for n := 5; n < 15; n++ {
+		slug := a.Allocate(words, SlugEntityTypePiece, int64(n))
+		assert.True(t, IsSlug(slug), slug)
+	}
+}
