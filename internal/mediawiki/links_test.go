@@ -57,6 +57,20 @@ func TestExtractLinks_RoleBySection(t *testing.T) {
 	}
 }
 
+// TestExtractLinks_DescriptionBrackets: a description keeps the closing bracket of a bracket it keeps, and has no
+// space inside a bracket around a link it reads as text.
+func TestExtractLinks_DescriptionBrackets(t *testing.T) {
+	for line, want := range map[string]string{
+		"* [" + exampleA + " A recording], in [[:Category:Welsh (Language)|Welsh (Language)]]": "in Welsh (Language)",
+		"* " + wren + " ([" + exampleA + " per her page])":                                     wren + " (per her page)",
+		"* [" + exampleA + " A recording] (from 2020)":                                         "from 2020",
+	} {
+		links := linksOf("== " + keyLinksHeading + " ==\n" + line + "\n").Links
+		require.Len(t, links, 1, line)
+		assert.Equal(t, want, links[0].Description, line)
+	}
+}
+
 func TestExtractLinks_KeyLinkOnCreditedWebsiteIsOfficial(t *testing.T) {
 	ctx := linkContext{creditedSites: []string{"https://wren.example.org/"}}
 	links := extractLinks(ParsePage("== Key Links ==\n* [http://www.wren.example.org/songs/a Lyrics]\n"+

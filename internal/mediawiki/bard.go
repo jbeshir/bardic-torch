@@ -30,7 +30,8 @@ type WorkEntry struct {
 //   - Affiliations: the categories that are affiliation terms (TermPlan);
 //   - Status: deceased for In Memoriam;
 //   - LicensingStatus and LicensingNotesMD: as for pieces; the "cannot find" sentence means unknown;
-//   - NotesMD: the lead, Notes, unrecognised sections and the Affiliations section's prose, as Markdown;
+//   - NotesMD: the lead, Notes, unrecognised sections, the Affiliations section's prose and the prose of the
+//     Website and Other Pages & External Resources sections (their lines without a link), as Markdown;
 //   - Works: the page links of the Songs & Works and Music sections;
 //   - HeirOf: the persons the page makes the bard heir of ("The chosen heir of [[X]]"), by the title the page links
 //     to (read through redirects), so that their works are not credited to the bard too.
@@ -71,16 +72,11 @@ func ParseBard(p Page, s Site) BardRecord {
 	var notes []string
 	for _, sec := range parsed.Sections {
 		body := proseOf(sec, repaired)
-		switch {
-		case sec.Key == SectionLead || sec.Key == SectionTitle || sec.Key == SectionNotes:
-			notes = appendNonEmpty(notes, WikitextToMarkdown(body))
-		case sec.Key == SectionAffiliations:
-			notes = appendSection(notes, sec, affiliationProse(body))
-		case sec.Key.IsOther():
-			notes = appendSection(notes, sec, body)
-		case sec.Key == SectionLicensingEtiquette:
+		notes = appendBardNotes(notes, sec, body)
+		if sec.Key == SectionLicensingEtiquette {
 			b.LicensingNotesMD, b.LicensingStatus = licensingSection(sec, body)
-		case sec.Key == SectionWorks || sec.Key == SectionWorksMusic:
+		}
+		if sec.Key == SectionWorks || sec.Key == SectionWorksMusic {
 			b.Works = append(b.Works, works(sec, s)...)
 		}
 		b.HeirOf = append(b.HeirOf, heirsOf(sec, repaired, s)...)
@@ -88,6 +84,22 @@ func ParseBard(p Page, s Site) BardRecord {
 	b.NotesMD = strings.Join(notes, "\n\n")
 
 	return b
+}
+
+// appendBardNotes appends what a bard page's section gives the notes (BardRecord.NotesMD), from its prose (proseOf).
+func appendBardNotes(notes []string, sec PageSection, body string) []string {
+	switch {
+	case sec.Key == SectionLead || sec.Key == SectionTitle || sec.Key == SectionNotes:
+		return appendNonEmpty(notes, WikitextToMarkdown(body))
+	case sec.Key == SectionAffiliations:
+		return appendSection(notes, sec, affiliationProse(body))
+	case sec.Key == SectionWebsite || sec.Key == SectionOtherResources:
+		return appendSection(notes, sec, linkSection(body))
+	case sec.Key.IsOther():
+		return appendSection(notes, sec, body)
+	}
+
+	return notes
 }
 
 // bardAliases are the page's aliases (BardAliases), classified.

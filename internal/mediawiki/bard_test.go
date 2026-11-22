@@ -123,6 +123,17 @@ func TestParseBard_HeadingNamedAfterTheBardIsNotes(t *testing.T) {
 	assert.Equal(t, "### "+wren+"\n\n- [Placeholder Band](https://example.org/band)\n\nSings at every revel.", b.NotesMD)
 }
 
+// TestParseBard_LinkSectionProseInNotes: the prose of the Website and Other Pages sections, but their links, is
+// in the notes under the section's heading.
+func TestParseBard_LinkSectionProseInNotes(t *testing.T) {
+	b := parseFixtureBard(standardWiki(), wren, bardWikitext(wren,
+		"Bard's Website", "See [["+ash+"]].\n* [https://example.org/wren Wren's site]",
+		"Other Pages & External Resources", "Featured in collections including:\n* [https://example.org/book A songbook]"))
+
+	assert.Equal(t, "### Bard's Website\n\nSee "+ash+".\n\n### Other Pages & External Resources\n\n"+
+		"Featured in collections including:", b.NotesMD)
+}
+
 func TestParseBard_Works(t *testing.T) {
 	w := standardWiki()
 	w.page(Page{Title: aSong, Wikitext: pieceWikitext(aSong, nil), Categories: pieceCategories()})

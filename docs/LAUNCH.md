@@ -184,6 +184,12 @@ catalogue: undo what the line says.
 12. Vivat the Dream: the licensing notes start with a stray bracket from the wiki. Tidy by editing.
 13. Auld Lang Syne: its notes show `[[:Category:Gaelic|Gaelic]` (unbalanced on the wiki). Tidy by editing.
 14. The Burning of Tara and The Salmon of Wisdom: the "Timeline of Text Sources" section moved into the notes.
+    The prose of "Performances & Recordings" sections did too, under that heading (Song of the Shieldwall, One of
+    Us, Warrior's Wyrd), and of a bard's Website and Other Pages & External Resources sections (five bard pages).
+    One of Us keeps two lead-ins to its faster and slower recordings, which show run together with the sentence
+    before them, and two bards a lead-in to a list of collections, whose links are now in the links list; of the
+    other two bards, one keeps the page template's request for a website and one a website name with no address.
+    Delete or tidy those lines if you agree.
 15. A piece with performances (Savage Daughter): the performance descriptions read as plain sentences, with no
     `[https://…]` or `[[…]]` left; the licensing quote appears three times on the page (link, card, sources): too
     much?

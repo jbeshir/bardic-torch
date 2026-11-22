@@ -91,11 +91,12 @@ func TestPieceFields_LinkSectionProseInNotes(t *testing.T) {
 	text := pieceWikitext(aSong, nil,
 		"Key Links", "* [https://example.invalid/a A link] adapted by [[Ash Placeholder]]\n"+
 			"The tune was published in 1588.\n----\n*",
-		sheetMusicHeading, "One.\nTwo.\nThree.\nFour.\n* [https://example.invalid/s Score]")
+		sheetMusicHeading, "One.\nTwo.\nThree.\nFour.\n* [https://example.invalid/s Score]",
+		"Performances & Recordings", "It is often sung in harmony.\n* [https://example.invalid/v A recording] from 2020")
 	p := parseFixturePiece(standardWiki(), Page{Title: aSong, Wikitext: text, Categories: pieceCategories()})
 
-	assert.Equal(t, "### Key Links\n\nThe tune was published in 1588.\n\n### Sheet Music\n\nOne.\nTwo.\nThree.\nFour.",
-		p.Content.NotesMD)
+	assert.Equal(t, "### Key Links\n\nThe tune was published in 1588.\n\n### Sheet Music\n\nOne.\nTwo.\nThree.\nFour."+
+		"\n\n### Performances & Recordings\n\nIt is often sung in harmony.", p.Content.NotesMD)
 }
 
 func TestPieceFields_LicensingHintsStripped(t *testing.T) {
