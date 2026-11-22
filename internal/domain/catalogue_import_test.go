@@ -204,7 +204,7 @@ func TestIsImportSummary(t *testing.T) {
 		ImportSummaryCategory, ImportSummaryPerformances} {
 		assert.True(t, IsImportSummary(s), s)
 	}
-	for _, s := range []string{"", "Imported from the wiki (page revision 0).", "Imported by " + secretValue} {
+	for _, s := range []string{"", "Imported from the original wiki (page revision 0).", "Imported by " + secretValue} {
 		assert.False(t, IsImportSummary(s), s)
 	}
 }
