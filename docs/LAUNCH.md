@@ -102,20 +102,23 @@ and `.env.dist`.
 ## 7. The real import
 
 1. **[Owner]** **Dry run** on a workstation with the crawl ([Importing the legacy
-   wiki](DEPLOY.md#importing-the-legacy-wiki), step 1). The H1 run of the current crawl printed:
+   wiki](DEPLOY.md#importing-the-legacy-wiki), step 1). The current importer on the current crawl prints:
    ```
-   pieces 142 (dance_music 1, poem 4, song 135, story 2); stub pieces 78; with inline lyrics 11
-   persons 160 (bards 48, stubs 112)
-   terms 129; collections 61 (of 62 entries); events 38
-   links 563; revisions 608
+   pieces 142 (dance_music 1, poem 4, song 135, story 2); stub pieces 77; with inline lyrics 11
+   persons 161 (bards 48, stubs 113)
+   terms 130; collections 61 (of 62 entries); events 38
+   links 563; revisions 609
+   lyrics and tune credits merged 212 into 106
    ```
-   Any other numbers mean the crawl or the importer changed: stop and find out why. The site then shows **220
-   pieces** (142 plus 78 stubs from red links) and **160 people**.
+   Any other numbers mean the crawl or the importer changed: stop and find out why. The site then shows **142
+   pieces** and **48 people and groups**: its counts and lists leave out the stubs (77 pieces from red links, 113
+   people) until the reader asks for "Show all, including stubs" (219 pieces, 161 people).
 2. **[Owner]** **Apply, once**, on the server (same section, step 2), then delete the copy (step 3).
 3. **[Owner]** Take a backup straight away: `dokku mysql:export bardic-torch-db > bardic-torch-after-import.sql`,
    kept somewhere private (it holds the import, not the crawl, but it is the only way back to "just imported").
-4. **[Owner]** Check: `curl -s https://api.bardictorch.org/v1/pieces?limit=1` shows `"total":220`, and
-   `…/v1/persons?limit=1` shows `"total":160`.
+4. **[Owner]** Check: `curl -s https://api.bardictorch.org/v1/pieces?limit=1` shows `"total":219` (stubs
+   included), and `…/v1/persons?limit=1` shows `"total":161`; with `stub=false` added to the query (quote the
+   URL for the `&`) they show 142 and 48.
 
 ## 8. Staging: smoke checks and the click-through
 
@@ -157,9 +160,12 @@ catalogue: undo what the line says.
 
 **Lists and counts**
 
-1. Home: "220 pieces and 160 people and groups so far". Decide if stubs (78 pieces, 112 people) should count.
-2. Pieces: five pages of 50; stubs are labelled "Stub"; the letter bar and the Kind filter (Poem shows 4).
-3. Bards: 160 entries, historical figures and the one group among them; the lists call them all "bards".
+1. Home: "142 pieces and 48 people and groups so far" (real pages only, not the 77 stub pieces and 113 stub
+   people).
+2. Pieces: 142 in three pages of 50; "Show all, including stubs" gives 219, the stubs labelled "Stub"; the letter
+   bar and the Kind filter (Poem shows 4).
+3. Bards: 48 entries, all community bards; "Show all, including stubs" gives 161, with the 13 historical figures
+   and the one group among them; the lists call them all "bards".
 4. Categories: every facet (Mood, Topic, Culture, Language, Legendaria, Origin, Affiliation) lists terms with
    counts; a kingdom with "0 bards" is expected where only pieces name it.
 5. Needs work: about 369 pages, most for unknown licensing; is that the to-do list you want to show?
@@ -170,8 +176,8 @@ catalogue: undo what the line says.
    Greensleeves (SCA Version)." as plain text, not a link: add the link if you want one.
 7. Birthday Dirge: Words "Unknown", Tune "Traditional", the long alternative-names note and nine lyrics links.
 8. Wild Mountain Thyme: a disputed credit beside "Traditional"; does it read right?
-9. A stub piece (any "Stub" in the list): credits only, often "(probably)", from the bard's works list; spot-check
-   three of the 79 "probably" credits against the old wiki.
+9. A stub piece (any "Stub" in the list with "Show all, including stubs"): credits only, often "(probably)", from
+   the bard's works list; spot-check three of their 77 "probably" credits against the old wiki.
 10. Oathkeeping: its lyrics link was malformed on the wiki (no closing bracket), so it shows as raw text in the
     version notes and the piece has no links. Fix by editing.
 11. Song of the Waves: the same malformed lyrics link in its version notes. Fix by editing.
