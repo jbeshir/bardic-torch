@@ -16,7 +16,12 @@ catalogue: undo test changes as the click-through says.
 
 ## 1. Accounts
 
-1. **[Owner]** A Cloudflare account on the **Workers Paid** plan; the zone can stay Free (FE §2 "Plan").
+1. **[Owner]** A Cloudflare account on the **Workers Free** plan; the zone can stay Free too (FE §2 "Plan"). CPU time
+   counts only while the Worker's code runs (waiting on the API, Auth0 or Turnstile doesn't), and the heavy work is
+   in the API; the limit to watch is 10 ms of CPU time per request. During the click-through on preview, check the
+   Worker's CPU time in its metrics (a busy piece page, a bard page, `/search`), and move to Workers Paid only if
+   it nears 10 ms or requests fail with exceeded-CPU errors. The Free plan also caps the account at 100,000
+   requests a day, both Workers together; watch the daily count there too.
 2. **[Owner]** Access to the registrar for `bardictorch.org`, so its nameservers can move to Cloudflare.
 3. **[Owner]** Admin on both GitHub repositories (branch protection, Workers Builds' GitHub app).
 4. **[Owner]** The dokku host: dokku 0.35.0 or newer, BuildKit, the mysql and letsencrypt plugins
@@ -124,8 +129,9 @@ and `.env.dist`.
 
 1. **[Owner]** The smoke checks against `https://preview.bardictorch.org` (FE §8), including the browser checks:
    both sign-ins, the name in Settings, log out, theme, no CSP errors, no URLs with `code=` in Workers Logs.
-2. **[Owner]** The [click-through](#click-through) below, both of you. Note anything wrong; fix data by editing on
-   the site (as moderators your edits go live at once), and report code problems as issues.
+2. **[Owner]** The [click-through](#click-through) below, both of you, watching the preview Worker's CPU time (step
+   1.1). Note anything wrong; fix data by editing on the site (as moderators your edits go live at once), and report
+   code problems as issues.
 
 ## 9. The production switch
 
