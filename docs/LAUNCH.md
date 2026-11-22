@@ -16,7 +16,12 @@ catalogue: undo test changes as the click-through says.
 
 ## 1. Accounts
 
-1. **[Owner]** A Cloudflare account on the **Workers Paid** plan; the zone can stay Free (FE §2 "Plan").
+1. **[Owner]** A Cloudflare account on the **Workers Free** plan; the zone can stay Free too (FE §2 "Plan"). CPU time
+   counts only while the Worker's code runs (waiting on the API, Auth0 or Turnstile doesn't), and the heavy work is
+   in the API; the limit to watch is 10 ms of CPU time per request. During the click-through on preview, check the
+   Worker's CPU time in its metrics (a busy piece page, a bard page, `/search`), and move to Workers Paid only if
+   it nears 10 ms or requests fail with exceeded-CPU errors. The Free plan also caps the account at 100,000
+   requests a day, both Workers together; watch the daily count there too.
 2. **[Owner]** Access to the registrar for `bardictorch.org`, so its nameservers can move to Cloudflare.
 3. **[Owner]** Admin on both GitHub repositories (branch protection, Workers Builds' GitHub app).
 4. **[Owner]** The dokku host: dokku 0.35.0 or newer, BuildKit, the mysql and letsencrypt plugins
@@ -124,8 +129,9 @@ and `.env.dist`.
 
 1. **[Owner]** The smoke checks against `https://preview.bardictorch.org` (FE §8), including the browser checks:
    both sign-ins, the name in Settings, log out, theme, no CSP errors, no URLs with `code=` in Workers Logs.
-2. **[Owner]** The [click-through](#click-through) below, both of you. Note anything wrong; fix data by editing on
-   the site (as moderators your edits go live at once), and report code problems as issues.
+2. **[Owner]** The [click-through](#click-through) below, both of you, watching the preview Worker's CPU time (step
+   1.1). Note anything wrong; fix data by editing on the site (as moderators your edits go live at once), and report
+   code problems as issues.
 
 ## 9. The production switch
 
@@ -184,6 +190,12 @@ catalogue: undo what the line says.
 12. Vivat the Dream: the licensing notes start with a stray bracket from the wiki. Tidy by editing.
 13. Auld Lang Syne: its notes show `[[:Category:Gaelic|Gaelic]` (unbalanced on the wiki). Tidy by editing.
 14. The Burning of Tara and The Salmon of Wisdom: the "Timeline of Text Sources" section moved into the notes.
+    The prose of "Performances & Recordings" sections did too, under that heading (Song of the Shieldwall, One of
+    Us, Warrior's Wyrd), and of a bard's Website and Other Pages & External Resources sections (five bard pages).
+    One of Us keeps two lead-ins to its faster and slower recordings, which show run together with the sentence
+    before them, and two bards a lead-in to a list of collections, whose links are now in the links list; of the
+    other two bards, one keeps the page template's request for a website and one a website name with no address.
+    Delete or tidy those lines if you agree.
 15. A piece with performances (Savage Daughter): the performance descriptions read as plain sentences, with no
     `[https://…]` or `[[…]]` left; the licensing quote appears three times on the page (link, card, sources): too
     much?

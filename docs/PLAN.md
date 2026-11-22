@@ -315,8 +315,9 @@ extract links with role, platform, collection and locator,
 deduplicated by normalised URL; parse performances, keeping their words verbatim as plain text (without the wikitext
 link markup), with venue pages and the names performances give after "at" as events, and no uploader; turn redirects
 to piece pages into aliases and red links into stubs (a works-list red link that is a piece page's title but for
-letter case is that piece, not a stub); put into a piece's notes its Timeline of Text Sources section (under its
-heading), and no sentence of the importer's own (a page relates two pieces only in its own words); give
+letter case is that piece, not a stub); put into a piece's notes its Timeline of Text Sources section and the prose
+of its link and performance sections, and into a bard's the prose of its Website and Other Pages sections (each
+under its heading), and no sentence of the importer's own (a page relates two pieces only in its own words); give
 the Instrumental term (§2.1) to every page in the Instrumental category; **drop inline lyrics** (every `<poem>` block, and the lines without a link of a Lyrics or Text section when there are four
 or more; fewer are version notes), setting `legacy_had_inline_lyrics`; and write everything as approved `import`
 revisions crediting wiki contributors.

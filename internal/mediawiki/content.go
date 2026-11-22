@@ -10,8 +10,8 @@ import (
 
 // PieceContent is a piece's prose, as Markdown, taken from its wikitext after the inline lyrics are dropped:
 //   - NotesMD: the lead (without the H1, infobox and "Also known as" lines), Notes, and Timeline of Text Sources
-//     and unrecognised sections, each of the latter under its heading, and the prose of the link sections under
-//     theirs;
+//     and unrecognised sections, each of the latter under its heading, and the prose of the link sections
+//     (linkSections) under theirs;
 //   - VersionNotesMD: the version commentary of the Lyrics and Text sections (versionNotes);
 //   - LicensingNotesMD: Licensing & Etiquette without its hints and the "cannot find" sentence.
 //
@@ -29,6 +29,7 @@ type PieceContent struct {
 // is a link, and its text the link's description; performance items are performances.
 var linkSections = map[SectionKey]bool{
 	SectionKeyLinks: true, SectionSheetMusic: true, SectionDancingInstructions: true, SectionTranslations: true,
+	SectionPerformancesRecordings: true, SectionKnownPerformances: true,
 }
 
 var centuryOrigin = regexp.MustCompile(`^(\d{1,2})(?:st|nd|rd|th) Century$`)

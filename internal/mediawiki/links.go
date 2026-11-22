@@ -285,8 +285,12 @@ func linkDescription(o LinkOccurrence, line string) string {
 	}
 	rest.WriteString(line[last:])
 
-	return trimDescription(collapseSpaces(Plain(rest.String())))
+	return trimDescription(bracketSpaces.Replace(collapseSpaces(Plain(rest.String()))))
 }
+
+// bracketSpaces drops a space just inside a bracket, such as the one linkDescription leaves before a link it reads
+// as text ("(per his page", not "( per his page").
+var bracketSpaces = strings.NewReplacer("( ", "(", " )", ")")
 
 // linkText is what a link reads as in a description: its text, or else its host without "www.", which carries
 // no path or tracking parameter; empty if its URL does not parse.
@@ -302,11 +306,20 @@ func linkText(e ExternalLink) string {
 	return strings.TrimPrefix(u.Hostname(), "www.")
 }
 
-// trimDescription is s without leading and trailing white space and descriptionSeparators.
+// trimDescription is s without leading and trailing white space and descriptionSeparators, but for a closing
+// bracket that closes one the description keeps ("in ASL (Language)", not "in ASL (Language").
 func trimDescription(s string) string {
-	return strings.TrimFunc(s, func(r rune) bool {
+	isSeparator := func(r rune) bool {
 		return isSpace(r) || strings.ContainsRune(descriptionSeparators, r)
-	})
+	}
+	left := strings.TrimLeftFunc(s, isSeparator)
+	t := strings.TrimRightFunc(left, isSeparator)
+	closing := strings.Count(left[len(t):], ")")
+	for open := strings.Count(t, "(") - strings.Count(t, ")"); open > 0 && closing > 0; open, closing = open-1, closing-1 {
+		t += ")"
+	}
+
+	return t
 }
 
 // sectionRole is the role of a link in a section. A key link is official when it is on the website of a person

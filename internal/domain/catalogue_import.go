@@ -116,21 +116,21 @@ type ImportedLink struct {
 // including those of persons without a page, and nothing checks it against aliases.
 const (
 	// ImportSummaryStub is the summary of a stub piece or person, which the wiki only names.
-	ImportSummaryStub = "Imported from the wiki as a stub."
+	ImportSummaryStub = "Imported from the original wiki as a stub."
 	// ImportSummaryCollections is the summary of a collection of the wiki's Collections page.
-	ImportSummaryCollections = "Imported from the wiki's Collections page."
+	ImportSummaryCollections = "Imported from the original wiki's Collections page."
 	// ImportSummaryCategory is the summary of a term whose category has no page.
-	ImportSummaryCategory = "Imported from the wiki's categories."
+	ImportSummaryCategory = "Imported from the original wiki's categories."
 	// ImportSummaryPerformances is the summary of an event the wiki's performance listings name.
-	ImportSummaryPerformances = "Imported from the wiki's performance listings."
+	ImportSummaryPerformances = "Imported from the original wiki's performance listings."
 )
 
 // ImportSummaryPage is the summary of an entity imported from a wiki page at its revision revID.
 func ImportSummaryPage(revID int64) string {
-	return fmt.Sprintf("Imported from the wiki (page revision %d).", revID)
+	return fmt.Sprintf("Imported from the original wiki (page revision %d).", revID)
 }
 
-var pageSummary = regexp.MustCompile(`^Imported from the wiki \(page revision [1-9][0-9]*\)\.$`)
+var pageSummary = regexp.MustCompile(`^Imported from the original wiki \(page revision [1-9][0-9]*\)\.$`)
 
 // IsImportSummary reports whether s is one of the neutral import summaries.
 func IsImportSummary(s string) bool {

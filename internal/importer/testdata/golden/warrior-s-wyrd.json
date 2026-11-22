@@ -10,7 +10,7 @@
       "kind": "song",
       "conservation_status": "unassessed",
       "is_stub": false,
-      "notes_md": "This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.",
+      "notes_md": "This song is also known as 'Picked Up A Sword When I Was Young' and 'A Warrior Never Dies'.\n\n### Performances \u0026 Recordings\n\nThe song is most commonly sung in two-part harmony. In some versions, every line has an echo; in others, only the first and last line of each part.",
       "version_notes_md": null,
       "licensing_status": "unknown",
       "licensing_notes_md": "It is likely that Legal Name 064 still holds the copyright to the tune; please add to the wiki if you have more information.",
@@ -134,7 +134,7 @@
     },
     "revision": {
       "id": 434,
-      "summary": "Imported from the wiki (page revision 371).",
+      "summary": "Imported from the original wiki (page revision 371).",
       "contributors": [
         "Wiki User 01"
       ],
