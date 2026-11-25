@@ -154,8 +154,8 @@ and the import columns `legacy_wiki_pageid` and `legacy_title`.
 - **`users`**: Auth0 ID, `display_name`, `role` (contributor / moderator), `blocked_at`. At startup the API
   promotes (and unblocks) the IDs in `BOOTSTRAP_MODERATOR_USER_IDS`; it never demotes (that is done in SQL). A
   moderator bootstrapped before signing in has an empty `display_name` until their first request.
-- **`contact_requests`**: `kind` (takedown / opt_out / correction / link_report / general), name, email, message,
-  URL (for a `link_report`, the link's), status, resolver, note.
+- **`contact_requests`**: `kind` (takedown / opt_out / correction / link_report / general / data_removal),
+  name, email, message, URL (for a `link_report`, the link's), status, resolver, note.
 
 ### 4.1 Catalogue rules (built in BE2)
 

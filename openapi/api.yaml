@@ -4863,7 +4863,7 @@ components:
           description: |
             What the request is about. `link_report` reports a link on the site, and `url` is then the link's URL.
             Moderators take a link down by finding it with `GET /v1/moderation/links`.
-          enum: [takedown, opt_out, correction, link_report, general]
+          enum: [takedown, opt_out, correction, link_report, general, data_removal]
           examples:
             - takedown
         name:
@@ -4922,7 +4922,7 @@ components:
             - 3
         kind:
           type: string
-          enum: [takedown, opt_out, correction, link_report, general]
+          enum: [takedown, opt_out, correction, link_report, general, data_removal]
           examples:
             - takedown
         name:

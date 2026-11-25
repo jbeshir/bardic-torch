@@ -187,10 +187,10 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
 4. **App settings → Basic**:
    - App domains: `bardictorch.org`
    - Privacy Policy URL: `https://bardictorch.org/help/privacy`
-   - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/contact?kind=opt_out`
+   - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/contact?kind=data_removal`
    - Category and app icon.
 
-   The privacy page says how to ask for removal: through the contact form's opt-out kind, which the
+   The privacy page says how to ask for removal: through the contact form's data-removal kind, which the
    data-deletion URL opens. Meta and Google need the URLs to load before the app can go Live.
 5. Switch **App Mode** from Development to **Live**. In Development mode only the app's own roles can log in.
 6. In Auth0, **Authentication → Social → facebook**: paste the **App ID** and **App Secret**, and tick the

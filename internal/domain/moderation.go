@@ -38,11 +38,12 @@ type ContactKind string
 
 // The kinds of contact request.
 const (
-	ContactKindTakedown   ContactKind = "takedown"
-	ContactKindOptOut     ContactKind = "opt_out"
-	ContactKindCorrection ContactKind = "correction"
-	ContactKindLinkReport ContactKind = "link_report"
-	ContactKindGeneral    ContactKind = "general"
+	ContactKindTakedown    ContactKind = "takedown"
+	ContactKindOptOut      ContactKind = "opt_out"
+	ContactKindCorrection  ContactKind = "correction"
+	ContactKindLinkReport  ContactKind = "link_report"
+	ContactKindGeneral     ContactKind = "general"
+	ContactKindDataRemoval ContactKind = "data_removal"
 )
 
 // Valid reports whether s is a known ReportStatus.
@@ -56,7 +57,7 @@ func (s ReportStatus) Closes() bool { return s == ReportStatusResolved || s == R
 // Valid reports whether k is a known ContactKind.
 func (k ContactKind) Valid() bool {
 	return slices.Contains([]ContactKind{ContactKindTakedown, ContactKindOptOut, ContactKindCorrection,
-		ContactKindLinkReport, ContactKindGeneral}, k)
+		ContactKindLinkReport, ContactKindGeneral, ContactKindDataRemoval}, k)
 }
 
 // ValidContactEmail reports whether s is a bare email address, such as name@example.org.

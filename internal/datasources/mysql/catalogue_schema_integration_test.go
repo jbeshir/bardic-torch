@@ -104,7 +104,7 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		"pieces.kind":                pieceKinds,
 		"pieces.conservation_status": conservationStatuses,
 		"pieces.licensing_status":    licensingStatuses,
-		"contact_requests.kind":      enumColumnType("takedown", "opt_out", "correction", "link_report", "general"),
+		"contact_requests.kind":      enumColumnType("takedown", "opt_out", "correction", "link_report", "general", "data_removal"),
 		"contact_requests.status":    enumColumnType("open", "resolved", "dismissed"),
 		"piece_aliases.kind":         pieceAliasKinds,
 		"piece_credits.role":         creditRoles,
