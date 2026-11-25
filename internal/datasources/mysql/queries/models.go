@@ -86,11 +86,12 @@ func (e CollectionsKind) Valid() bool {
 type ContactRequestsKind string
 
 const (
-	ContactRequestsKindTakedown   ContactRequestsKind = "takedown"
-	ContactRequestsKindOptOut     ContactRequestsKind = "opt_out"
-	ContactRequestsKindCorrection ContactRequestsKind = "correction"
-	ContactRequestsKindLinkReport ContactRequestsKind = "link_report"
-	ContactRequestsKindGeneral    ContactRequestsKind = "general"
+	ContactRequestsKindTakedown    ContactRequestsKind = "takedown"
+	ContactRequestsKindOptOut      ContactRequestsKind = "opt_out"
+	ContactRequestsKindCorrection  ContactRequestsKind = "correction"
+	ContactRequestsKindLinkReport  ContactRequestsKind = "link_report"
+	ContactRequestsKindGeneral     ContactRequestsKind = "general"
+	ContactRequestsKindDataRemoval ContactRequestsKind = "data_removal"
 )
 
 func (e *ContactRequestsKind) Scan(src interface{}) error {
@@ -134,7 +135,8 @@ func (e ContactRequestsKind) Valid() bool {
 		ContactRequestsKindOptOut,
 		ContactRequestsKindCorrection,
 		ContactRequestsKindLinkReport,
-		ContactRequestsKindGeneral:
+		ContactRequestsKindGeneral,
+		ContactRequestsKindDataRemoval:
 		return true
 	}
 	return false
@@ -1323,7 +1325,6 @@ type Collection struct {
 
 type ContactRequest struct {
 	ID               uint64
-	Kind             ContactRequestsKind
 	Name             sql.NullString
 	Email            sql.NullString
 	Message          sql.NullString
@@ -1333,6 +1334,7 @@ type ContactRequest struct {
 	ResolvedByUserID sql.NullString
 	ResolvedAt       sql.NullTime
 	ResolutionNote   sql.NullString
+	Kind             ContactRequestsKind
 }
 
 type Event struct {

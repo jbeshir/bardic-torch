@@ -25,6 +25,8 @@ func TestEnums_ValidAndParse(t *testing.T) {
 	assert.False(t, PieceKind("ballad").Valid())
 	assert.False(t, PieceKind("").Valid())
 	assert.False(t, Facet("Mood").Valid(), "values are case-sensitive")
+	assert.True(t, ContactKindDataRemoval.Valid())
+	assert.False(t, ContactKind("removal").Valid())
 	_, err = ParseFacet("kind")
 	require.EqualError(t, err, "unknown facet [kind]")
 }

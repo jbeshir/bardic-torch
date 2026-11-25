@@ -187,10 +187,10 @@ runs with `AUTH_DRIVERS=` (no authentication) by default; to test logins locally
 4. **App settings → Basic**:
    - App domains: `bardictorch.org`
    - Privacy Policy URL: `https://bardictorch.org/help/privacy`
-   - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/contact?kind=opt_out`
+   - User data deletion: **Data deletion instructions URL**, `https://bardictorch.org/contact?kind=data_removal`
    - Category and app icon.
 
-   The privacy page says how to ask for removal: through the contact form's opt-out kind, which the
+   The privacy page says how to ask for removal: through the contact form's data-removal kind, which the
    data-deletion URL opens. Meta and Google need the URLs to load before the app can go Live.
 5. Switch **App Mode** from Development to **Live**. In Development mode only the app's own roles can log in.
 6. In Auth0, **Authentication → Social → facebook**: paste the **App ID** and **App Secret**, and tick the
@@ -428,7 +428,8 @@ before it:
 - Never edit a migration that has been deployed; add a new one.
 - This is the rule from now on. Migrations 010 and 011 dropped tables, columns and enum values in the same release
   as the code that stopped using them, because no release had been deployed yet, so there was no serving release
-  to protect and no earlier one to roll back to.
+  to protect and no earlier one to roll back to. For the same reason, migration 013 adds the `data_removal`
+  contact kind in the release that uses it.
 - **Enum growth and snapshots**: add a new `ENUM` value in a release before any release uses it, and remove values
   over two releases. Snapshot document fields follow PLAN §4.2.
 - **Views** (`public_terms`, `listed_persons`, `public_link_attachments`) fix their columns when created, so a

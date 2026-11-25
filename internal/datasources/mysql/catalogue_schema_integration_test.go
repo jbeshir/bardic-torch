@@ -63,6 +63,8 @@ func TestMigrations_EnumColumns(t *testing.T) {
 	personStatuses := enumColumnType(domain.PersonStatusActive, domain.PersonStatusDeceased,
 		domain.PersonStatusPrefersNoPage)
 	licensingStatuses := enumColumnType(domain.LicensingStatusKnown, domain.LicensingStatusUnknown)
+	contactKinds := enumColumnType(domain.ContactKindTakedown, domain.ContactKindOptOut, domain.ContactKindCorrection,
+		domain.ContactKindLinkReport, domain.ContactKindGeneral, domain.ContactKindDataRemoval)
 	personAliasKinds := enumColumnType(domain.PersonAliasKindLegal, domain.PersonAliasKindSCA)
 	personRoles := enumColumnType(domain.PersonRoleSinger, domain.PersonRoleSongwriter, domain.PersonRoleMusician,
 		domain.PersonRoleInstrumentalist, domain.PersonRoleStoryteller, domain.PersonRolePoet,
@@ -104,7 +106,7 @@ func TestMigrations_EnumColumns(t *testing.T) {
 		"pieces.kind":                pieceKinds,
 		"pieces.conservation_status": conservationStatuses,
 		"pieces.licensing_status":    licensingStatuses,
-		"contact_requests.kind":      enumColumnType("takedown", "opt_out", "correction", "link_report", "general"),
+		"contact_requests.kind":      contactKinds,
 		"contact_requests.status":    enumColumnType("open", "resolved", "dismissed"),
 		"piece_aliases.kind":         pieceAliasKinds,
 		"piece_credits.role":         creditRoles,
