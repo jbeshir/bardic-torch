@@ -428,7 +428,8 @@ before it:
 - Never edit a migration that has been deployed; add a new one.
 - This is the rule from now on. Migrations 010 and 011 dropped tables, columns and enum values in the same release
   as the code that stopped using them, because no release had been deployed yet, so there was no serving release
-  to protect and no earlier one to roll back to.
+  to protect and no earlier one to roll back to. For the same reason, migration 013 adds the `data_removal`
+  contact kind in the release that uses it.
 - **Enum growth and snapshots**: add a new `ENUM` value in a release before any release uses it, and remove values
   over two releases. Snapshot document fields follow PLAN §4.2.
 - **Views** (`public_terms`, `listed_persons`, `public_link_attachments`) fix their columns when created, so a

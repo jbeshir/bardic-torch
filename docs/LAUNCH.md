@@ -60,7 +60,7 @@ catalogue: undo test changes as the click-through says.
 3. **[Owner]** Google and Facebook connections, published / Live ([Google connection](DEPLOY.md#google-connection),
    [Facebook connection](DEPLOY.md#facebook-connection)), enabled on the application, database connection off
    ([Connections on the application](DEPLOY.md#connections-on-the-application)). The privacy URL is the FE's
-   `/help/privacy`, and the data-deletion URL the contact form's data removal.
+   `/help/privacy`, and the data-deletion URL the contact form's data-removal kind.
 4. **[Owner]** Both moderators log in once with **Try Connection** and copy their `user_id`s ([Moderator user
    IDs](DEPLOY.md#moderator-user-ids)); set `BOOTSTRAP_MODERATOR_USER_IDS` with them ([Add a
    moderator](DEPLOY.md#add-a-moderator)) and check the `bootstrapped moderator` log lines.
